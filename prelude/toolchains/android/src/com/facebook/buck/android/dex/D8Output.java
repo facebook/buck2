@@ -11,7 +11,10 @@
 package com.facebook.buck.android.dex;
 
 import com.facebook.infer.annotation.Nullsafe;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
+import java.util.Map;
 
 /** Info exposed from {@code d8}. */
 @Nullsafe(Nullsafe.Mode.LOCAL)
@@ -25,10 +28,16 @@ public class D8Output {
    */
   private Collection<String> writtenClassDescriptors;
 
+  /** Class descriptors emitted in each indexed dex output. */
+  private final ImmutableMap<Integer, ImmutableSet<String>> outputClassDescriptors;
+
   public D8Output(
-      Collection<String> referencedResources, Collection<String> writtenClassDescriptors) {
+      Collection<String> referencedResources,
+      Collection<String> writtenClassDescriptors,
+      Map<Integer, ImmutableSet<String>> outputClassDescriptors) {
     this.referencedResources = referencedResources;
     this.writtenClassDescriptors = writtenClassDescriptors;
+    this.outputClassDescriptors = ImmutableMap.copyOf(outputClassDescriptors);
   }
 
   public Collection<String> getResources() {
@@ -37,5 +46,9 @@ public class D8Output {
 
   public Collection<String> getWrittenClassDescriptors() {
     return writtenClassDescriptors;
+  }
+
+  public ImmutableSet<String> getClassDescriptors(int outputIndex) {
+    return outputClassDescriptors.getOrDefault(outputIndex, ImmutableSet.of());
   }
 }

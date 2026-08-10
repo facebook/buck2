@@ -133,7 +133,7 @@ def get_single_primary_dex(
 def get_multi_dex(
     ctx: AnalysisContext,
     android_toolchain: AndroidToolchainInfo,
-    java_library_jars_to_owners: dict[Artifact, TargetLabel],
+    input_artifacts_to_owners: dict[Artifact, TargetLabel],
     primary_dex_patterns: list[str],
     proguard_configuration_output_file: Artifact | None = None,
     proguard_mapping_output_file: Artifact | None = None,
@@ -141,10 +141,15 @@ def get_multi_dex(
     apk_module_graph_file: Artifact | None = None,
     enable_bootstrap_dexes = False,
     multidex_min_api: str | None = None,
+    pre_dexed_inputs: bool = False,
 ) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
+    )
+    expect(
+        not pre_dexed_inputs or (multidex_min_api and int(multidex_min_api) > 21),
+        "Pre-dexed native multidex inputs require multidex_min_api > 21",
     )
     primary_dex_file = ctx.actions.declare_output("classes.dex", has_content_based_path = False)
     primary_dex_class_names = ctx.actions.declare_output("primary_dex_class_names.txt", has_content_based_path = False)
@@ -169,15 +174,15 @@ def get_multi_dex(
             get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
         )
         target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
-        module_to_jars = {}
-        for java_library_jar, owner in java_library_jars_to_owners.items():
+        module_to_inputs = {}
+        for input_artifact, owner in input_artifacts_to_owners.items():
             module = target_to_module_mapping_function(str(owner))
-            module_to_jars.setdefault(module, []).append(java_library_jar)
+            module_to_inputs.setdefault(module, []).append(input_artifact)
 
         secondary_dex_dir_srcs = {}
-        all_jars = flatten(module_to_jars.values())
-        all_jars_list = argfile(actions = ctx.actions, name = "all_jars_classpath.txt", args = all_jars)
-        for module, jars in module_to_jars.items():
+        all_inputs = flatten(module_to_inputs.values())
+        all_inputs_list = argfile(actions = ctx.actions, name = "all_inputs_classpath.txt", args = all_inputs)
+        for module, module_inputs in module_to_inputs.items():
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
             secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
 
@@ -189,19 +194,25 @@ def get_multi_dex(
             if is_root_module(module):
                 primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns, has_content_based_path = True)
 
-                if getattr(ctx.attrs, "minimize_primary_dex_size", False) or enable_bootstrap_dexes:
-                    primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
+                if pre_dexed_inputs:
+                    expect(
+                        not getattr(ctx.attrs, "minimize_primary_dex_size", False) and not enable_bootstrap_dexes,
+                        "Pre-dexed native multidex inputs do not support primary dex sculpting",
+                    )
+                    inputs_to_dex = module_inputs
+                elif getattr(ctx.attrs, "minimize_primary_dex_size", False) or enable_bootstrap_dexes:
+                    primary_dex_inputs, inputs_to_dex = _get_primary_dex_and_secondary_dex_jars(
                         ctx,
-                        jars,
-                        java_library_jars_to_owners,
+                        module_inputs,
+                        input_artifacts_to_owners,
                         primary_dex_patterns_file,
                         proguard_configuration_output_file,
                         proguard_mapping_output_file,
                         android_toolchain,
                     )
 
-                    primary_dex_jar_to_dex_file = argfile(actions = ctx.actions, name = "primary_dex_jars_to_dex_file_for_root_module.txt", args = primary_dex_jars)
-                    multi_dex_cmd.add("--primary-dex-files-to-dex-list", primary_dex_jar_to_dex_file)
+                    primary_dex_input_file = argfile(actions = ctx.actions, name = "primary_dex_inputs_for_root_module.txt", args = primary_dex_inputs)
+                    multi_dex_cmd.add("--primary-dex-files-to-dex-list", primary_dex_input_file)
                     multi_dex_cmd.add("--minimize-primary-dex")
 
                     # Tells the multidex command to allow primary dex pattern matches to be spread across several dex files if needed
@@ -210,7 +221,7 @@ def get_multi_dex(
                         multi_dex_cmd.add("--bootstrap-dex-output-dir", outputs[root_module_bootstrap_dex_output_dir].as_output())
                         secondary_dex_compression_cmd.add("--bootstrap-dexes-dir", outputs[root_module_bootstrap_dex_output_dir])
                 else:
-                    jars_to_dex = jars
+                    inputs_to_dex = module_inputs
                     multi_dex_cmd.add("--primary-dex-patterns-path", primary_dex_patterns_file)
 
                 multi_dex_cmd.add("--primary-dex", outputs[primary_dex_file].as_output())
@@ -229,16 +240,19 @@ def get_multi_dex(
                     ),
                 )
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
-                jars_to_dex = jars
-                multi_dex_cmd.add("--classpath-files", all_jars_list)
+                inputs_to_dex = module_inputs
+                if not pre_dexed_inputs:
+                    multi_dex_cmd.add("--classpath-files", all_inputs_list)
 
             multi_dex_cmd.add("--module", module)
             multi_dex_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
             secondary_dex_compression_cmd.add("--module", module)
             secondary_dex_compression_cmd.add("--canary-class-name", apk_module_graph_info.module_to_canary_class_name_function(module))
 
-            jar_to_dex_file = argfile(actions = ctx.actions, name = "jars_to_dex_file_for_module_{}.txt".format(module), args = jars_to_dex)
-            multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
+            inputs_to_dex_file = argfile(actions = ctx.actions, name = "inputs_to_dex_file_for_module_{}.txt".format(module), args = inputs_to_dex)
+            multi_dex_cmd.add("--files-to-dex-list", inputs_to_dex_file)
+            if pre_dexed_inputs:
+                multi_dex_cmd.add("--pre-dexed-inputs")
 
             multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
             if multidex_min_api:

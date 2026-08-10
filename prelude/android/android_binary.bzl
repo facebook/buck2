@@ -256,32 +256,51 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 has_content_based_path = True,
             )
             pre_dexed_libs = []
+            pre_dexed_artifacts_to_owners = {}
             for jar in preprocessed_jars:
                 weight_factor = 1
                 for r_dot_java_jar_basename in r_dot_java_jar_basenames:
                     if jar.basename.endswith(r_dot_java_jar_basename):
                         weight_factor = android_toolchain.r_dot_java_weight_factor * 2
                         break
-                pre_dexed_libs.append(
-                    get_dex_produced_from_java_library(
-                        ctx,
-                        dex_toolchain = dex_toolchain,
-                        jar_to_dex = jar,
-                        needs_desugar = True,
-                        desugar_deps = desugar_deps,
-                        weight_factor = weight_factor,
-                        desugar_deps_file = desugar_deps_file,
-                    ),
-                )
-            if ctx.attrs.use_split_dex:
-                dex_files_info = merge_to_split_dex(
+                pre_dexed_lib = get_dex_produced_from_java_library(
                     ctx,
-                    android_toolchain,
-                    pre_dexed_libs,
-                    get_split_dex_merge_config(ctx, android_toolchain),
-                    target_to_module_mapping_file,
-                    enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
+                    dex_toolchain = dex_toolchain,
+                    jar_to_dex = jar,
+                    needs_desugar = True,
+                    desugar_deps = desugar_deps,
+                    weight_factor = weight_factor,
+                    desugar_deps_file = desugar_deps_file,
                 )
+                pre_dexed_libs.append(pre_dexed_lib)
+                if pre_dexed_lib.dex:
+                    pre_dexed_artifacts_to_owners[pre_dexed_lib.dex] = jars_to_owners[jar]
+            if ctx.attrs.use_split_dex:
+                multidex_min_api = ctx.attrs.multidex_min_api
+                if multidex_min_api == None:
+                    multidex_min_api = getattr(ctx.attrs, "_dex_min_sdk_version", None)
+                if multidex_min_api == None:
+                    multidex_min_api = ctx.attrs.min_sdk_version
+                if multidex_min_api != None and int(multidex_min_api) > 21:
+                    dex_files_info = get_multi_dex(
+                        ctx,
+                        android_toolchain,
+                        pre_dexed_artifacts_to_owners,
+                        ctx.attrs.primary_dex_patterns,
+                        apk_module_graph_file = target_to_module_mapping_file,
+                        enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
+                        multidex_min_api = str(multidex_min_api),
+                        pre_dexed_inputs = True,
+                    )
+                else:
+                    dex_files_info = merge_to_split_dex(
+                        ctx,
+                        android_toolchain,
+                        pre_dexed_libs,
+                        get_split_dex_merge_config(ctx, android_toolchain),
+                        target_to_module_mapping_file,
+                        enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
+                    )
             else:
                 dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
         elif ctx.attrs.use_split_dex:

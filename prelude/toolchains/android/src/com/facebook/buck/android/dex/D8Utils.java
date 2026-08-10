@@ -26,6 +26,8 @@ import com.facebook.buck.util.zip.ZipOutputStreams;
 import com.facebook.buck.util.zip.ZipScrubber;
 import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import java.io.BufferedInputStream;
@@ -44,10 +46,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -88,6 +92,55 @@ public class D8Utils {
       Collection<Path> classpathFiles,
       Optional<Integer> minSdkVersion,
       OptionalInt threadCount)
+      throws CompilationFailedException, IOException {
+    return runD8Command(
+        diagnosticsHandler,
+        outputDexFile,
+        filesToDex,
+        options,
+        primaryDexClassNamesPath,
+        androidJarPath,
+        classpathFiles,
+        minSdkVersion,
+        threadCount,
+        false);
+  }
+
+  public static D8Output runD8CommandWithOutputClassDescriptors(
+      D8DiagnosticsHandler diagnosticsHandler,
+      Path outputDexFile,
+      Iterable<Path> filesToDex,
+      Set<D8Options> options,
+      Optional<Path> primaryDexClassNamesPath,
+      Path androidJarPath,
+      Collection<Path> classpathFiles,
+      Optional<Integer> minSdkVersion,
+      OptionalInt threadCount)
+      throws CompilationFailedException, IOException {
+    return runD8Command(
+        diagnosticsHandler,
+        outputDexFile,
+        filesToDex,
+        options,
+        primaryDexClassNamesPath,
+        androidJarPath,
+        classpathFiles,
+        minSdkVersion,
+        threadCount,
+        true);
+  }
+
+  private static D8Output runD8Command(
+      D8DiagnosticsHandler diagnosticsHandler,
+      Path outputDexFile,
+      Iterable<Path> filesToDex,
+      Set<D8Options> options,
+      Optional<Path> primaryDexClassNamesPath,
+      Path androidJarPath,
+      Collection<Path> classpathFiles,
+      Optional<Integer> minSdkVersion,
+      OptionalInt threadCount,
+      boolean captureOutputClassDescriptors)
       throws CompilationFailedException, IOException {
     Set<Path> inputs = new HashSet<>();
     for (Path toDex : filesToDex) {
@@ -137,7 +190,6 @@ public class D8Utils {
                 options.contains(D8Options.NO_OPTIMIZE)
                     ? CompilationMode.DEBUG
                     : CompilationMode.RELEASE)
-            .setProgramConsumer(recordingConsumer)
             .setDisableDesugaring(options.contains(D8Options.NO_DESUGAR))
             .setInternalOptionsModifier(
                 (InternalOptions opt) -> {
@@ -151,6 +203,14 @@ public class D8Utils {
                     opt.threadCount = threadCount.getAsInt();
                   }
                 });
+
+    OutputClassDescriptorConsumer outputClassDescriptorConsumer = null;
+    if (captureOutputClassDescriptors) {
+      outputClassDescriptorConsumer = new OutputClassDescriptorConsumer(recordingConsumer);
+      builder.setProgramConsumer(outputClassDescriptorConsumer);
+    } else {
+      builder.setProgramConsumer(recordingConsumer);
+    }
 
     minSdkVersion.ifPresent(builder::setMinApiLevel);
     if (minSdkVersion.orElse(0) <= 21) {
@@ -172,7 +232,35 @@ public class D8Utils {
 
     // Only null for the help/version commands produced by D8Command.parse, never for a built one.
     DexItemFactory dexItemFactory = Objects.requireNonNull(d8Command.getDexItemFactory());
-    return new D8Output(dexItemFactory.computeReferencedResources(), writtenDescriptors);
+    return new D8Output(
+        dexItemFactory.computeReferencedResources(),
+        writtenDescriptors,
+        outputClassDescriptorConsumer == null
+            ? ImmutableMap.of()
+            : outputClassDescriptorConsumer.getOutputClassDescriptors());
+  }
+
+  private static class OutputClassDescriptorConsumer extends DexIndexedConsumer.ForwardingConsumer {
+    private final Map<Integer, ImmutableSet<String>> outputClassDescriptors =
+        new ConcurrentHashMap<>();
+
+    private OutputClassDescriptorConsumer(DexIndexedConsumer consumer) {
+      super(consumer);
+    }
+
+    @Override
+    public void accept(
+        int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
+      Preconditions.checkState(
+          outputClassDescriptors.putIfAbsent(fileIndex, ImmutableSet.copyOf(descriptors)) == null,
+          "D8 reported output index %s more than once",
+          fileIndex);
+      super.accept(fileIndex, data, descriptors, handler);
+    }
+
+    private ImmutableMap<Integer, ImmutableSet<String>> getOutputClassDescriptors() {
+      return ImmutableMap.copyOf(outputClassDescriptors);
+    }
   }
 
   static void writeSecondaryDexJarAndMetadataFile(
