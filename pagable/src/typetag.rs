@@ -184,7 +184,7 @@ impl<T: ?Sized + 'static> TypetagRegistry<T> {
         TypetagRegistry { map }
     }
 
-    /// Deserialize `tag + inline concrete body` into a boxed trait value. e.g. Box<dyn Trait>
+    /// Deserialize `tag + inline concrete body` into a boxed trait value. e.g. `Box<dyn Trait>`
     pub fn deserialize_tagged(
         &self,
         deserializer: &mut dyn PagableDeserializer<'_>,
