@@ -12,8 +12,6 @@ constraint_with_aliases(
     aliases = {
         "arm32": "arm32",
         "arm64": "arm64",
-        "riscv64": "riscv64",
-        "wasm32": "wasm32",
         "x86_32": "x86_32",
         "x86_64": "x86_64",
     },
