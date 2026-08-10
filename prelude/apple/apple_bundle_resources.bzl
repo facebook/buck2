@@ -500,7 +500,7 @@ def _run_ibtool(
         # As a workaround create a directory in tmp, use it for Xcode tools, then
         # copy the result to buck-out.
         script_lines.extend([
-            cmd_args('export TMPDIR="$(mktemp -d)"'),
+            cmd_args('TMPDIR="$(mktemp -d)"'),
             cmd_args(cmd_args(ibtool_command), delimiter = " "),
             cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
         ])
