@@ -466,6 +466,7 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
                 min_access_time: Timestamp::now()
                     .checked_sub(min_ttl)
                     .unwrap_or(Timestamp::MIN),
+                delete_intermediate_within_min_ttl: true,
             }
         });
         let (sender, recv) = oneshot::channel();

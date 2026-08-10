@@ -482,7 +482,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
         match cfg.mode {
             LowDiskCleanMode::Fixed(d) => (d, None),
-            LowDiskCleanMode::Adaptive { min_ttl } => (
+            LowDiskCleanMode::Adaptive {
+                min_ttl,
+                delete_intermediate_within_min_ttl,
+            } => (
                 default_ttl,
                 Some(AdaptiveLowDiskParams {
                     threshold_percent: cfg.threshold_percent,
@@ -491,6 +494,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     min_access_time: Timestamp::now()
                         .checked_sub(min_ttl)
                         .unwrap_or(Timestamp::MIN),
+                    delete_intermediate_within_min_ttl,
                 }),
             ),
         }

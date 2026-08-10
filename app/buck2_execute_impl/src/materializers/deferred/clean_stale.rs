@@ -51,6 +51,7 @@ use tokio::sync::oneshot::Sender;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::DeferredMaterializerStats;
+use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
@@ -82,6 +83,9 @@ pub struct AdaptiveLowDiskParams {
     /// Retained artifacts last accessed at or after this instant are protected
     /// from adaptive promotion, regardless of free disk pressure.
     pub min_access_time: Timestamp,
+    /// Whether non-active intermediate-only artifacts may be promoted even
+    /// when they are within the adaptive minimum TTL.
+    pub delete_intermediate_within_min_ttl: bool,
 }
 
 #[derive(Derivative)]
@@ -299,6 +303,7 @@ impl CleanStaleArtifactsCommand {
                     disk_stats.total_space,
                     params.threshold_percent,
                     params.min_access_time,
+                    params.delete_intermediate_within_min_ttl,
                 ),
                 Err(e) => {
                     let _unused = soft_error!("disk_space_stats", e);
@@ -573,7 +578,10 @@ enum TrackedState {
     Stale,
     /// Materialized, not-stale, and not active. Eligible to be promoted
     /// to `Stale` by `apply_adaptive_low_disk`.
-    Retained { last_access_time: Timestamp },
+    Retained {
+        last_access_time: Timestamp,
+        classification: ArtifactClassification,
+    },
     /// Materialized and is active. Must never be promoted/deleted.
     ActiveRetained,
 }
@@ -664,6 +672,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     });
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
+                    classification,
                     stage:
                         ArtifactMaterializationStage::Materialized {
                             active: false,
@@ -678,6 +687,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                         size: artifact_metadata_size(metadata),
                         state: TrackedState::Retained {
                             last_access_time: *last_access_time,
+                            classification: *classification,
                         },
                     });
                 }
@@ -738,6 +748,7 @@ fn find_stale_tracked_only(
                     size: 0,
                     state: TrackedState::Retained {
                         last_access_time: *last_access_time,
+                        classification: v.classification,
                     },
                 });
             }
@@ -749,14 +760,15 @@ fn find_stale_tracked_only(
 /// Promote retained, non-active artifacts to stale, oldest-access-first, until
 /// projected free disk space rises above `threshold_percent` of `total_space`,
 /// or every promotable artifact has been promoted. Artifacts last accessed at
-/// or after `min_access_time` are excluded — i.e. they are protected by the
-/// adaptive minimum TTL even when disk pressure remains.
+/// or after `min_access_time` are excluded unless they are intermediate-only
+/// and `delete_intermediate_within_min_ttl` is enabled.
 fn apply_adaptive_low_disk(
     found_paths: &mut [FoundPath],
     free_space: u64,
     total_space: u64,
     threshold_percent: f64,
     min_access_time: Timestamp,
+    delete_intermediate_within_min_ttl: bool,
 ) {
     if total_space == 0 {
         return;
@@ -777,10 +789,19 @@ fn apply_adaptive_low_disk(
         .enumerate()
         .filter_map(|(i, p)| match p {
             FoundPath::Tracked {
-                state: TrackedState::Retained { last_access_time },
+                state:
+                    TrackedState::Retained {
+                        last_access_time,
+                        classification,
+                    },
                 size,
                 ..
-            } if *last_access_time < min_access_time => Some((i, *last_access_time, *size)),
+            } if *last_access_time < min_access_time
+                || (delete_intermediate_within_min_ttl
+                    && *classification == ArtifactClassification::IntermediateOnly) =>
+            {
+                Some((i, *last_access_time, *size))
+            }
             _ => None,
         })
         .collect();
@@ -823,9 +844,12 @@ pub enum LowDiskCleanMode {
     /// Run the normal-TTL clean, then keep marking retained, non-active
     /// artifacts (oldest access first) as stale until projected free disk %
     /// rises back above the threshold or every eligible artifact has been
-    /// marked. Retained artifacts younger than `min_ttl` are protected — they
-    /// are never promoted, even when disk pressure persists.
-    Adaptive { min_ttl: Duration },
+    /// marked. Retained artifacts below `min_ttl` are protected unless
+    /// deletion within the minimum TTL is enabled for intermediate artifacts.
+    Adaptive {
+        min_ttl: Duration,
+        delete_intermediate_within_min_ttl: bool,
+    },
 }
 
 /// Rejects values (negative, NaN, out of range) that the datetime arithmetic these durations
@@ -886,6 +910,12 @@ impl CleanStaleConfig {
                 property: "clean_stale_low_disk_adaptive_min_ttl_hours",
             })?
             .unwrap_or(12.0);
+        let delete_intermediate_within_min_ttl = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_low_disk_adaptive_delete_intermediate_within_min_ttl",
+            })?
+            .unwrap_or(false);
         let low_disk_artifact_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_artifact_ttl_hours",
@@ -896,6 +926,7 @@ impl CleanStaleConfig {
                     adaptive_min_ttl_hours,
                     "clean_stale_low_disk_adaptive_min_ttl_hours",
                 )?,
+                delete_intermediate_within_min_ttl,
             }
         } else {
             let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
@@ -941,7 +972,11 @@ impl CleanStaleConfig {
         match config.and_then(|c| c.low_disk.as_ref()) {
             Some(LowDiskCleanConfig {
                 threshold_percent,
-                mode: LowDiskCleanMode::Adaptive { min_ttl },
+                mode:
+                    LowDiskCleanMode::Adaptive {
+                        min_ttl,
+                        delete_intermediate_within_min_ttl,
+                    },
             }) => vec![
                 "adaptive-clean-stale:true".to_owned(),
                 format!(
@@ -951,6 +986,10 @@ impl CleanStaleConfig {
                 format!(
                     "adaptive-clean-stale-min-ttl-hours:{}",
                     min_ttl.as_secs_f64() / 3600.0
+                ),
+                format!(
+                    "adaptive-clean-stale-delete-intermediate-within-min-ttl:{}",
+                    delete_intermediate_within_min_ttl
                 ),
             ],
             _ => vec!["adaptive-clean-stale:false".to_owned()],
@@ -963,6 +1002,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use jiff::Timestamp;
 
+    use crate::materializers::deferred::artifact_tree::ArtifactClassification;
     use crate::materializers::deferred::clean_stale::FoundPath;
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
@@ -984,11 +1024,26 @@ mod tests {
     }
 
     fn retained(name: &str, last_access_secs: i64, size: u64) -> FoundPath {
+        retained_with_classification(
+            name,
+            last_access_secs,
+            size,
+            ArtifactClassification::FinalOutput,
+        )
+    }
+
+    fn retained_with_classification(
+        name: &str,
+        last_access_secs: i64,
+        size: u64,
+        classification: ArtifactClassification,
+    ) -> FoundPath {
         FoundPath::Tracked {
             path: ProjectRelativePathBuf::unchecked_new(name.to_owned()),
             size,
             state: TrackedState::Retained {
                 last_access_time: t(last_access_secs),
+                classification,
             },
         }
     }
@@ -1043,7 +1098,7 @@ mod tests {
     fn threshold_already_met_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
         // 60% free, threshold 50% -> already above, do nothing.
-        apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl());
+        apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false);
         assert!(
             is_retained(&paths[0]),
             "free disk (60%) already exceeds threshold (50%); nothing should be promoted",
@@ -1058,7 +1113,7 @@ mod tests {
             retained("oldest", 100, 100),
             retained("old", 200, 350),
         ];
-        apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl());
+        apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false);
         // Oldest (t=100, size=100) + next (t=200, size=350) = 450 >= 400 bytes_needed.
         // Newest (t=300) is left alone — promotion stops as soon as the running total crosses bytes_needed.
         assert!(
@@ -1083,7 +1138,7 @@ mod tests {
             retained("b", 200, 20),
             active_retained(9999),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl());
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false);
         assert!(
             is_stale(&paths[0], 10),
             "non-active retained `a` should be promoted"
@@ -1116,7 +1171,7 @@ mod tests {
             retained("r", 100, 100),
             active_retained(50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl());
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false);
         assert!(
             matches!(&paths[0], FoundPath::Untracked(_, _, 42)),
             "untracked entries should never be touched",
@@ -1138,7 +1193,7 @@ mod tests {
     #[test]
     fn zero_total_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
-        apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl());
+        apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false);
         assert!(
             is_retained(&paths[0]),
             "total_space=0 must short-circuit to a no-op (avoids divide-by-zero)",
@@ -1155,7 +1210,7 @@ mod tests {
             retained("on_boundary", 150, 50),
             retained("recent", 200, 50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150));
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false);
         assert!(
             is_stale(&paths[0], 50),
             "retained accessed before min_access_time is eligible for promotion",
@@ -1176,10 +1231,51 @@ mod tests {
         // retained access time means every artifact is within the min-TTL
         // window — adaptive cleaning never violates the minimum TTL floor.
         let mut paths = vec![retained("a", 100, 100), retained("b", 200, 100)];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(50));
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(50), false);
         assert!(
             is_retained(&paths[0]) && is_retained(&paths[1]),
             "no retained artifact may be promoted when all are within the adaptive min-TTL window",
+        );
+    }
+
+    #[test]
+    fn enabled_gate_promotes_recent_intermediate_only() {
+        let mut paths = vec![
+            retained_with_classification(
+                "intermediate",
+                200,
+                50,
+                ArtifactClassification::IntermediateOnly,
+            ),
+            retained("final", 200, 50),
+        ];
+
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), true);
+
+        assert!(
+            is_stale(&paths[0], 50),
+            "an intermediate-only artifact within the minimum TTL should be promoted when enabled",
+        );
+        assert!(
+            is_retained(&paths[1]),
+            "a final output within the minimum TTL must remain protected",
+        );
+    }
+
+    #[test]
+    fn disabled_gate_protects_recent_intermediate_only() {
+        let mut paths = vec![retained_with_classification(
+            "intermediate",
+            200,
+            50,
+            ArtifactClassification::IntermediateOnly,
+        )];
+
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false);
+
+        assert!(
+            is_retained(&paths[0]),
+            "the default-disabled gate must preserve minimum-TTL protection",
         );
     }
 }

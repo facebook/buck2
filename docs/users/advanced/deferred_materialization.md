@@ -109,6 +109,9 @@ clean_stale_start_offset_hours = 12
   artifacts to stale until projected free disk rises back above the threshold,
   while protecting any artifact younger than
   `clean_stale_low_disk_adaptive_min_ttl_hours` (default 12).
+- `clean_stale_low_disk_adaptive_delete_intermediate_within_min_ttl` (default
+  false) allows adaptive cleaning to delete non-active artifacts marked as
+  intermediate-only even when they are below the adaptive minimum TTL.
 
 If clean stale is running in the background at the same time that a build begins
 to materialize artifacts, the clean will be interrupted and not run again until
