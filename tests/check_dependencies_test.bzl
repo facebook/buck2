@@ -15,6 +15,9 @@ load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
 def _check_dependencies_test(name, target, contacts, env, labels: list[str], deps, compatible_with = None, **kwargs):
+    # pytest derives the test module name from `base_module`; leaving it to the calling
+    # package lets it collide with a stdlib module (e.g. a package named `cmd`).
+    kwargs.setdefault("base_module", "buck2.tests.e2e_util")
     buck2_e2e_test(
         contacts = contacts,
         name = name,
