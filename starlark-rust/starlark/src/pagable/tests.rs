@@ -24,6 +24,7 @@ use derive_more::Display;
 use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use pagable::storage::traits::ArcSerCache;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagable;
@@ -228,7 +229,7 @@ a.append(a)
     let (data, arcs) = ser.finish();
 
     let top_key = {
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(|e| match e {
@@ -2510,7 +2511,7 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
     let (data, arcs) = ser.finish();
 
     let top_key = {
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?
@@ -2818,7 +2819,7 @@ fn ser_owned_frozen_value_into_storage(
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
     let (data, arcs) = ser.finish();
-    let finished = dashmap::DashMap::new();
+    let finished = ArcSerCache::new();
     let key = storage
         .page_out_item(data, arcs, &finished, storage_ctx)
         .map_err(crate::Error::new_other)?;
@@ -3570,7 +3571,7 @@ b.append(a)
         ofv.pagable_serialize(&mut ser)
             .map_err(crate::Error::new_other)?;
         let (data, arcs) = ser.finish();
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)
@@ -3678,7 +3679,7 @@ fn bench_owned_frozen_value_round_trip(
     let bytes = data.len();
 
     let top_key = {
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?
@@ -3811,7 +3812,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let bytes = data.len();
 
         let top_key = {
-            let finished = dashmap::DashMap::new();
+            let finished = ArcSerCache::new();
             storage
                 .page_out_item(data, arcs, &finished, storage_ctx)
                 .map_err(crate::Error::new_other)?
@@ -3985,7 +3986,7 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
         let mut ser = SerializerForPaging::new(storage_ctx);
         ofv.pagable_serialize(&mut ser).unwrap();
         let (data, arcs) = ser.finish();
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .unwrap()
@@ -4078,7 +4079,7 @@ fn page_out_in_module(
     let (data, arcs) = ser.finish();
 
     let top_key = {
-        let finished = dashmap::DashMap::new();
+        let finished = ArcSerCache::new();
         storage
             .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?

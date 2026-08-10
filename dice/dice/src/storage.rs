@@ -33,7 +33,7 @@ use pagable::DataKey;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::noop::NoopPagableStorage;
 use pagable::storage::support::SerializerForPaging;
-use pagable::storage::traits::ArcSerSlot;
+use pagable::storage::traits::ArcSerCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::storage::traits::PageOutError;
 use pagable_storage::storage::sled::SledBackedPagableStorage;
@@ -217,7 +217,7 @@ impl DiceStorage {
         }
         // Process this many keys in parallel at a time, limit peak RSS
         const CHUNK_SIZE: usize = 32768;
-        let finished: Arc<DashMap<usize, Arc<ArcSerSlot>>> = Arc::new(DashMap::new());
+        let finished = Arc::new(ArcSerCache::new());
         let num_workers = env_concurrency("BUCK2_DICE_PAGE_OUT_WORKERS");
 
         let mut remaining = keys;
@@ -270,7 +270,7 @@ impl DiceStorage {
     fn page_out_chunk(
         &self,
         items: Vec<(DiceKey, DiceKeyErased, DiceValidValue)>,
-        finished: &DashMap<usize, Arc<ArcSerSlot>>,
+        finished: &ArcSerCache,
         state_handle: &CoreStateHandle,
         cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
@@ -311,7 +311,7 @@ impl DiceStorage {
         &self,
         key_dyn: &DiceKeyErased,
         value: DiceValidValue,
-        finished: &DashMap<usize, Arc<ArcSerSlot>>,
+        finished: &ArcSerCache,
     ) -> anyhow::Result<Option<DataKey>> {
         let storage_context = self.storage.storage_context();
         let mut serializer = SerializerForPaging::new(storage_context);

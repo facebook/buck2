@@ -33,6 +33,7 @@
 //! let restored = MyType::pagable_deserialize(&mut de)?;
 //! ```
 
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -67,7 +68,7 @@ use crate::traits::StorageContext;
 /// call [`finish`](Self::finish) to retrieve the serialized bytes and pointers.
 pub struct TestingSerializer {
     serde: postcard::Serializer<PagableVecFlavor>,
-    seen_arcs: HashSet<usize>,
+    seen_arcs: HashSet<(TypeId, usize)>,
     /// Only used to populate `PagableCursor::arc_index`. Not meaningful for
     /// testing because arcs are serialized inline in the byte stream.
     arc_count: usize,
@@ -109,7 +110,10 @@ impl PagableSerializer for TestingSerializer {
         // Always write identity first
         identity.serialize(self.serde())?;
 
-        if self.seen_arcs.insert(identity) {
+        if self
+            .seen_arcs
+            .insert((arc.as_arc_any().type_id(), identity))
+        {
             // First time seeing this arc, serialize its contents
             arc.serialize(self)?;
         }
@@ -141,7 +145,7 @@ pub struct TestingDeserializer<'de> {
     bytes_arc: Arc<[u8]>,
     pos: SharedPosition,
     serde: postcard::Deserializer<'de, PagableSlice<'de>>,
-    seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
+    seen_arcs: HashMap<(TypeId, usize), Box<dyn ArcEraseDyn>>,
     /// Only used to populate `PagableCursor::arc_index`. Not meaningful for
     /// testing because arcs are deserialized inline from the byte stream.
     arc_index: usize,
@@ -206,7 +210,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
 
     fn deserialize_arc(
         &mut self,
-        _type_id: std::any::TypeId,
+        type_id: TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
             Arc<dyn PagableDeserializerRecipe>,
@@ -216,7 +220,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         let identity: usize = Deserialize::deserialize(&mut self.serde)?;
 
         self.arc_index += 1;
-        if let Some(arc_dyn) = self.seen_arcs.get(&identity) {
+        if let Some(arc_dyn) = self.seen_arcs.get(&(type_id, identity)) {
             // Already seen - return a clone
             Ok(arc_dyn.clone_dyn())
         } else {
@@ -226,7 +230,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
                 page_in_scope: self.page_in_scope.dupe(),
             });
             let arc = deserialize_fn(self, recipe)?;
-            self.seen_arcs.insert(identity, arc.clone_dyn());
+            self.seen_arcs.insert((type_id, identity), arc.clone_dyn());
             Ok(arc)
         }
     }

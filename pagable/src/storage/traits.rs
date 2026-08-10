@@ -34,6 +34,51 @@ pub struct DeserializedArcCache {
     resident: DashMap<(TypeId, DataKey), Box<dyn WeakEraseDyn>>,
 }
 
+/// Completed and in-progress Arc serializations shared across page-out workers.
+pub struct ArcSerCache {
+    /// One allocation can be serialized through multiple type views, such as
+    /// `Arc<T>` and `Arc<dyn Trait>`. They share a pointer identity but have
+    /// different wire formats, so each view needs a distinct slot. Partitioning
+    /// by type also avoids storing a `TypeId` in every per-allocation key.
+    by_type: DashMap<TypeId, Arc<DashMap<usize, Arc<ArcSerSlot>>>>,
+}
+
+impl ArcSerCache {
+    pub fn new() -> Self {
+        Self {
+            by_type: DashMap::new(),
+        }
+    }
+
+    fn get_or_insert(&self, arc: &dyn ArcEraseDyn) -> Arc<ArcSerSlot> {
+        let type_id = arc.as_arc_any().type_id();
+        let by_identity = match self.by_type.get(&type_id) {
+            Some(entry) => entry.dupe(),
+            None => self
+                .by_type
+                .entry(type_id)
+                .or_insert_with(|| Arc::new(DashMap::new()))
+                .dupe(),
+        };
+        by_identity
+            .entry(arc.identity())
+            .or_insert_with(|| Arc::new(ArcSerSlot::new()))
+            .dupe()
+    }
+
+    fn get(&self, arc: &dyn ArcEraseDyn) -> Option<Arc<ArcSerSlot>> {
+        let by_identity = self
+            .by_type
+            .get(&arc.as_arc_any().type_id())
+            .map(|entry| entry.dupe())?;
+        by_identity.get(&arc.identity()).map(|entry| entry.dupe())
+    }
+
+    pub fn len(&self) -> usize {
+        self.by_type.iter().map(|entry| entry.value().len()).sum()
+    }
+}
+
 impl DeserializedArcCache {
     pub fn new() -> Self {
         Self {
@@ -196,8 +241,8 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// along with the same `&StorageContext` (this method uses it to
     /// recursively serialize nested arcs).
     ///
-    /// `finished` is a cache of arc identity → `ArcSerSlot` shared across workers
-    /// to prevent duplicate serialization.
+    /// `finished` is a cache of arc serialization identity → `ArcSerSlot` shared
+    /// across workers to prevent duplicate serialization.
     ///
     /// Returns `Err(PageOutError::Failed(e))` when this worker
     /// hit the original error, or `Err(PageOutError::AlreadyFailed)`
@@ -206,7 +251,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         &self,
         item_data: Vec<u8>,
         item_arcs: Vec<Box<dyn ArcEraseDyn>>,
-        finished: &DashMap<usize, Arc<ArcSerSlot>>,
+        finished: &ArcSerCache,
         storage_context: &StorageContext,
     ) -> Result<DataKey, PageOutError> {
         enum Task {
@@ -222,10 +267,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         while let Some(task) = tasks.pop() {
             match task {
                 Task::Start(v) => {
-                    let slot = finished
-                        .entry(v.identity())
-                        .or_insert_with(|| Arc::new(ArcSerSlot::new()))
-                        .dupe();
+                    let slot = finished.get_or_insert(&*v);
                     if !slot.try_claim() {
                         if slot.wait().is_none() {
                             return Err(PageOutError::AlreadyFailed);
@@ -252,7 +294,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                         .iter()
                         .filter(|arc| {
                             finished
-                                .get(&arc.identity())
+                                .get((*arc).as_ref())
                                 .is_none_or(|s| s.result.get().copied().flatten().is_none())
                         })
                         .map(|arc| Task::Start(arc.clone_dyn()))
@@ -262,7 +304,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                     tasks.extend(subtasks);
                 }
                 Task::Finish((arc, data, child_arcs)) => {
-                    let slot = finished.get(&arc.identity()).expect("slot should exist");
+                    let slot = finished.get(&*arc).expect("slot should exist");
                     match resolve_and_store(self, data, &child_arcs, finished) {
                         Ok(key) => {
                             self.associate_arc_with_data_key(&*arc, key);
@@ -285,13 +327,13 @@ fn resolve_and_store(
     storage: &(impl PagableStorage + ?Sized),
     data: Vec<u8>,
     child_arcs: &[Box<dyn ArcEraseDyn>],
-    finished: &DashMap<usize, Arc<ArcSerSlot>>,
+    finished: &ArcSerCache,
 ) -> Result<DataKey, PageOutError> {
     let keys: Option<Vec<DataKey>> = child_arcs
         .iter()
         .map(|a| {
             finished
-                .get(&a.identity())
+                .get(&**a)
                 .expect("arc should have been serialized")
                 .wait()
         })
@@ -359,10 +401,12 @@ mod tests {
     use dupe::Dupe;
 
     use super::*;
+    use crate as pagable;
     use crate::PagableArc;
     use crate::PagableDeserialize;
     use crate::PagableDeserializerRecipe;
     use crate::PagableSerialize;
+    use crate::PagableTagged;
     use crate::PartialPagableArc;
     use crate::storage::handle::PagableStorageHandle;
     use crate::storage::in_memory::InMemoryPagableStorage;
@@ -371,6 +415,21 @@ mod tests {
     use crate::traits::PagableSerializer;
 
     static RESIDENT_ARC_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+
+    #[crate::pagable_typetag]
+    trait SerializationView: PagableTagged + Send + Sync + std::fmt::Debug {
+        fn value(&self) -> u8;
+    }
+
+    #[derive(crate::Pagable, Debug)]
+    struct SerializationViewValue(u8);
+
+    #[crate::pagable_typetag]
+    impl SerializationView for SerializationViewValue {
+        fn value(&self) -> u8 {
+            self.0
+        }
+    }
 
     struct ResidentArcValue(u8);
 
@@ -466,7 +525,7 @@ mod tests {
         num_items: usize,
     ) -> anyhow::Result<Vec<DataKey>> {
         let shared_arc: Arc<Vec<u8>> = Arc::new(vec![0xAB; 1000]);
-        let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let finished = ArcSerCache::new();
         let mut keys = Vec::with_capacity(num_items);
         for i in 0..num_items {
             let storage_context = storage.storage_context();
@@ -487,6 +546,50 @@ mod tests {
         }
         storage.flush()?;
         Ok(keys)
+    }
+
+    #[test]
+    fn page_out_distinguishes_concrete_and_dyn_arc_views() -> anyhow::Result<()> {
+        let mem = InMemoryPagableStorage::new();
+        let storage = Arc::new(CountingStorage::new(mem.handle()));
+        let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+
+        let concrete = Arc::new(SerializationViewValue(42));
+        let dyn_view: Arc<dyn SerializationView> = concrete.dupe();
+        assert_eq!(
+            Arc::as_ptr(&concrete) as *const (),
+            Arc::as_ptr(&dyn_view) as *const (),
+            "the concrete and dyn views should share one allocation",
+        );
+
+        let finished = ArcSerCache::new();
+        let storage_context = storage.storage_context();
+        let mut ser = SerializerForPaging::new(storage_context);
+        // These views share a data pointer but have different wire formats:
+        // the dyn view starts with a type tag, while the concrete view does not.
+        dyn_view.pagable_serialize(&mut ser)?;
+        concrete.pagable_serialize(&mut ser)?;
+        let (data, arcs) = ser.finish();
+        let root_key = storage
+            .page_out_item(data, arcs, &finished, storage_context)
+            .map_err(|e| match e {
+                PageOutError::Failed(e) => e,
+                PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
+            })?;
+        assert_eq!(finished.len(), 2);
+        storage.flush()?;
+
+        let root = storage.fetch_data_blocking(&root_key)?;
+        assert_ne!(
+            root.arcs[0], root.arcs[1],
+            "different serialization views must have distinct stored values",
+        );
+        let mut deser = handle.root_deserializer(root_key, &root);
+        let restored_dyn = Arc::<dyn SerializationView>::pagable_deserialize(&mut deser)?;
+        let restored_concrete = Arc::<SerializationViewValue>::pagable_deserialize(&mut deser)?;
+        assert_eq!(restored_dyn.value(), 42);
+        assert_eq!(restored_concrete.0, 42);
+        Ok(())
     }
 
     /// Parallel deserialization of values sharing the same `Arc` must not
@@ -545,7 +648,7 @@ mod tests {
         let storage = Arc::new(CountingStorage::new(mem.handle()));
 
         let shared_arc: Arc<Vec<u8>> = Arc::new(vec![0xAB; 1000]);
-        let finished: Arc<DashMap<usize, Arc<ArcSerSlot>>> = Arc::new(DashMap::new());
+        let finished = Arc::new(ArcSerCache::new());
 
         let num_items = 100usize;
         let handles: Vec<_> = (0..num_items)
@@ -594,7 +697,7 @@ mod tests {
         let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
 
         let original = PagableArc::new(42u8, handle.dupe());
-        let first_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let first_finished = ArcSerCache::new();
         let storage_context = storage.storage_context();
         let mut ser = SerializerForPaging::new(storage_context);
         1u8.pagable_serialize(&mut ser)?;
@@ -617,7 +720,7 @@ mod tests {
         assert_eq!(restored.get_data_key(), Some(child_key));
 
         let stores_before = storage.store_count.load(Ordering::SeqCst);
-        let second_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let second_finished = ArcSerCache::new();
         let storage_context = storage.storage_context();
         let mut ser = SerializerForPaging::new(storage_context);
         2u8.pagable_serialize(&mut ser)?;
@@ -648,7 +751,7 @@ mod tests {
         let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
         let original = PartialPagableArc::new(ResidentArcValue(42));
 
-        let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let finished = ArcSerCache::new();
         let storage_context = storage.storage_context();
         let mut ser = SerializerForPaging::new(storage_context);
         original.pagable_serialize(&mut ser)?;
@@ -717,7 +820,7 @@ mod tests {
         let storage = Arc::new(CountingStorage::new(mem.handle()));
 
         let failing_arc: Arc<FailingSer> = Arc::new(FailingSer);
-        let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let finished = ArcSerCache::new();
 
         let storage_context = storage.storage_context();
         let mut ser = SerializerForPaging::new(storage_context);
