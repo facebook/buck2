@@ -4,9 +4,7 @@ oncall("build_infra")
 
 constraint_with_aliases(
     name = "bootstrap",
-    aliases = {
-        "use_bootstrap": "use",
-    },
+    aliases = {},
     default = "unspecified",
     values = [
         "use",
