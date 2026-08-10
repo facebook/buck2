@@ -9,7 +9,7 @@ config_setting(
     name = "linux-fedora",
     constraint_values = [
         "prelude//os/constraints:os[linux]",
-        "//os/linux/distro/constraints:fedora",
+        "//os/linux/distro/constraints:distro[fedora]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -18,7 +18,7 @@ config_setting(
     name = "linux-ubuntu",
     constraint_values = [
         "prelude//os/constraints:os[linux]",
-        "//os/linux/distro/constraints:ubuntu",
+        "//os/linux/distro/constraints:distro[ubuntu]",
     ],
     visibility = ["PUBLIC"],
 )
