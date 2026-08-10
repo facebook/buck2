@@ -50,9 +50,10 @@
 //! - `inventory::submit!` to register the type with its tag
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use crate::Pagable;
 use crate::PagableDeserializer;
-use crate::PagableSerialize;
 use crate::PagableSerializer;
 
 /// Static type tag used to register a concrete type for trait-object deserialization.
@@ -98,11 +99,18 @@ pub trait PagableTagged: Send + Sync {
         serde::Serialize::serialize(&tag, serializer.serde())?;
         self.pagable_serialize_body(serializer)
     }
+
+    /// Write a tagged Arc view that refers to its canonical concrete Arc.
+    #[doc(hidden)]
+    fn serialize_tagged_arc_payload(
+        self: Arc<Self>,
+        serializer: &mut dyn PagableSerializer,
+    ) -> crate::Result<()>;
 }
 
 impl<T> PagableTagged for T
 where
-    T: PagableTypeTag + PagableSerialize + Send + Sync,
+    T: PagableTypeTag + Pagable,
 {
     fn pagable_type_tag(&self) -> &'static str {
         T::pagable_type_tag_static()
@@ -110,6 +118,15 @@ where
 
     fn pagable_serialize_body(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         self.pagable_serialize(serializer)
+    }
+
+    fn serialize_tagged_arc_payload(
+        self: Arc<Self>,
+        serializer: &mut dyn PagableSerializer,
+    ) -> crate::Result<()> {
+        let tag = self.pagable_type_tag();
+        serde::Serialize::serialize(&tag, serializer.serde())?;
+        serializer.serialize_arc(&self)
     }
 }
 
@@ -145,6 +162,7 @@ pub trait PagableRegisteredFor<T: ?Sized> {}
 pub struct TypetagRegistration<T: ?Sized + 'static> {
     pub tag: fn() -> &'static str,
     pub deserialize: fn(&mut dyn PagableDeserializer<'_>) -> crate::Result<Box<T>>,
+    pub deserialize_arc_payload: fn(&mut dyn PagableDeserializer<'_>) -> crate::Result<Arc<T>>,
 }
 
 // SAFETY: TypetagRegistration only contains function pointers (fn types),
@@ -154,28 +172,44 @@ unsafe impl<T: ?Sized> Sync for TypetagRegistration<T> {}
 
 /// A registry built from `TypetagRegistration` entries collected via `inventory`.
 pub struct TypetagRegistry<T: ?Sized + 'static> {
-    map: HashMap<&'static str, fn(&mut dyn PagableDeserializer<'_>) -> crate::Result<Box<T>>>,
+    map: HashMap<&'static str, &'static TypetagRegistration<T>>,
 }
 
 impl<T: ?Sized + 'static> TypetagRegistry<T> {
     pub fn from_inventory(iter: impl Iterator<Item = &'static TypetagRegistration<T>>) -> Self {
         let mut map = HashMap::new();
         for reg in iter {
-            map.insert((reg.tag)(), reg.deserialize);
+            map.insert((reg.tag)(), reg);
         }
         TypetagRegistry { map }
     }
 
+    /// Deserialize `tag + inline concrete body` into a boxed trait value. e.g. Box<dyn Trait>
     pub fn deserialize_tagged(
         &self,
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> crate::Result<Box<T>> {
         let tag: String = serde::Deserialize::deserialize(deserializer.serde())?;
-        let deserialize_fn = self
+        let registration = self
             .map
             .get(tag.as_str())
             .ok_or_else(|| crate::__internal::anyhow::anyhow!("Unknown type tag: {}", tag))?;
-        (deserialize_fn)(deserializer)
+        (registration.deserialize)(deserializer)
+    }
+
+    /// Deserialize `tag + canonical concrete Arc reference` into an Arc trait view.
+    /// The registration coerces the referenced `Arc<Concrete>` without allocating
+    /// another copy, preserving identity with other views of that concrete Arc.
+    pub fn deserialize_tagged_arc_payload(
+        &self,
+        deserializer: &mut dyn PagableDeserializer<'_>,
+    ) -> crate::Result<Arc<T>> {
+        let tag: String = serde::Deserialize::deserialize(deserializer.serde())?;
+        let registration = self
+            .map
+            .get(tag.as_str())
+            .ok_or_else(|| crate::__internal::anyhow::anyhow!("Unknown type tag: {}", tag))?;
+        (registration.deserialize_arc_payload)(deserializer)
     }
 }
 
@@ -205,6 +239,12 @@ macro_rules! register_typetag {
                         let value: $concrete =
                             $crate::PagableDeserialize::pagable_deserialize(deserializer)?;
                         Ok(Box::new(value) as Box<dyn $trait>)
+                    },
+                    deserialize_arc_payload: |deserializer| {
+                        let value: std::sync::Arc<$concrete> =
+                            $crate::PagableDeserialize::pagable_deserialize(deserializer)?;
+                        let value: std::sync::Arc<dyn $trait> = value;
+                        Ok(value)
                     },
                 }
             )
@@ -318,6 +358,33 @@ mod tests {
             <dyn SecondaryNamed>::deserialize_box(&mut deserializer)?;
 
         assert_eq!(restored.name(), "test");
+        Ok(())
+    }
+
+    #[test]
+    fn test_typetag_arc_roundtrip_preserves_concrete_identity() -> crate::Result<()> {
+        use crate::PagableDeserialize;
+        use crate::PagableSerialize;
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+
+        let concrete = Arc::new(Key {
+            name: Arc::new("test".to_owned()),
+        });
+        let dyn_view: Arc<dyn Named> = concrete.clone();
+
+        let mut serializer = TestingSerializer::new();
+        dyn_view.pagable_serialize(&mut serializer)?;
+        concrete.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored_dyn = Arc::<dyn Named>::pagable_deserialize(&mut deserializer)?;
+        let restored_concrete = Arc::<Key>::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(
+            Arc::as_ptr(&restored_dyn) as *const (),
+            Arc::as_ptr(&restored_concrete) as *const (),
+        );
         Ok(())
     }
 

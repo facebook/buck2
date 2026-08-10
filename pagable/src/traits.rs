@@ -124,6 +124,22 @@ impl<T: Send + Sync + PagableSerialize + for<'a> PagableDeserialize<'a> + 'stati
 pub trait PagableSerialize {
     /// Serialize this value using the provided serializer.
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()>;
+
+    /// Serialize this value as the payload of an Arc node.
+    ///
+    /// Page-out calls this hook after [`PagableSerializer::serialize_arc`] records
+    /// an Arc edge. The default uses the same representation as the value itself.
+    /// For example, when one allocation is held as both `Arc<Concrete>` and
+    /// `Arc<dyn Trait>`, the generated typetag override stores the dyn view as a
+    /// type tag plus a reference to the canonical `Arc<Concrete>`. This stores the
+    /// concrete body once and records the relationship needed for page-in to
+    /// reconstruct both views using the same Arc allocation.
+    fn pagable_serialize_arc_payload(
+        self: Arc<Self>,
+        serializer: &mut dyn PagableSerializer,
+    ) -> crate::Result<()> {
+        self.pagable_serialize(serializer)
+    }
 }
 
 /// Trait for types that should be serialized eagerly.
@@ -172,6 +188,19 @@ pub trait PagableBoxDeserialize<'de> {
     fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Box<Self>>;
+
+    /// Deserialize an Arc from its stored payload.
+    ///
+    /// The default deserializes the value into a box and moves it into a new Arc.
+    /// Implementations can override this when an Arc view has a different payload.
+    /// For example, the generated `Arc<dyn Trait>` typetag override reads the type
+    /// tag, deserializes the referenced canonical `Arc<Concrete>`, and coerces that
+    /// Arc into the dyn view. This lets both views use the same page-in allocation.
+    fn deserialize_arc_payload<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Arc<Self>> {
+        Ok(Arc::from(Self::deserialize_box(deserializer)?))
+    }
 }
 
 /// Trait for types that should be deserialized eagerly.

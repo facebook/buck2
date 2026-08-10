@@ -279,13 +279,13 @@ impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send +
     }
 
     fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        T::pagable_serialize(self, ser)
+        T::pagable_serialize_arc_payload(self.dupe(), ser)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
         deser: &mut D,
     ) -> crate::Result<Self> {
-        Ok(Arc::from(T::deserialize_box(deser)?))
+        T::deserialize_arc_payload(deser)
     }
 }
 

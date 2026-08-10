@@ -58,6 +58,19 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
             ) -> #registration_struct_name {
                 #registration_struct_name(reg)
             }
+
+            fn __pagable_registry() -> &'static pagable::typetag::TypetagRegistry<dyn #trait_name> {
+                static REGISTRY: std::sync::OnceLock<
+                    pagable::typetag::TypetagRegistry<dyn #trait_name>
+                > = std::sync::OnceLock::new();
+                REGISTRY.get_or_init(|| {
+                    pagable::typetag::TypetagRegistry::from_inventory(
+                        pagable::__internal::inventory::iter::<#registration_struct_name>
+                            .into_iter()
+                            .map(|r| &r.0)
+                    )
+                })
+            }
         }
 
         pagable::__internal::inventory::collect!(#registration_struct_name);
@@ -66,23 +79,20 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
             fn deserialize_box<D: pagable::PagableDeserializer<'de> + ?Sized>(
                 deserializer: &mut D,
             ) -> pagable::Result<Box<Self>> {
-                static REGISTRY: std::sync::OnceLock<
-                    pagable::typetag::TypetagRegistry<dyn #trait_name>
-                > = std::sync::OnceLock::new();
-                REGISTRY
-                    .get_or_init(|| {
-                        pagable::typetag::TypetagRegistry::from_inventory(
-                            pagable::__internal::inventory::iter::<#registration_struct_name>
-                                .into_iter()
-                                .map(|r| &r.0)
-                        )
-                    })
+                <dyn #trait_name>::__pagable_registry()
                     .deserialize_tagged(deserializer.as_dyn())
+            }
+
+            fn deserialize_arc_payload<D: pagable::PagableDeserializer<'de> + ?Sized>(
+                deserializer: &mut D,
+            ) -> pagable::Result<std::sync::Arc<Self>> {
+                <dyn #trait_name>::__pagable_registry()
+                    .deserialize_tagged_arc_payload(deserializer.as_dyn())
             }
         }
 
-        // Write `tag + body` for `dyn Trait`.
-        // So the blanket impl `Box<dyn Trait>` / `Arc<dyn Trait>` go through this.
+        // Write `tag + body` for a borrowed or boxed `dyn Trait`. The Arc-specific
+        // override writes `tag + canonical concrete Arc` to preserve allocation identity.
         //
         // Allowed because `PagableTagged` doesn't have `PagableSerialize` as
         // a supertrait — otherwise Rust would auto-synthesize this impl and
@@ -93,6 +103,13 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
                 serializer: &mut dyn pagable::PagableSerializer,
             ) -> pagable::Result<()> {
                 pagable::typetag::PagableTagged::serialize_tagged(self, serializer)
+            }
+
+            fn pagable_serialize_arc_payload(
+                self: std::sync::Arc<Self>,
+                serializer: &mut dyn pagable::PagableSerializer,
+            ) -> pagable::Result<()> {
+                pagable::typetag::PagableTagged::serialize_tagged_arc_payload(self, serializer)
             }
         }
     })
@@ -134,6 +151,12 @@ fn typetag_struct(
                         let value: #self_ty =
                             pagable::PagableDeserialize::pagable_deserialize(deserializer)?;
                         Ok(Box::new(value) as Box<dyn #trait_path>)
+                    },
+                    deserialize_arc_payload: |deserializer| {
+                        let value: std::sync::Arc<#self_ty> =
+                            pagable::PagableDeserialize::pagable_deserialize(deserializer)?;
+                        let value: std::sync::Arc<dyn #trait_path> = value;
+                        Ok(value)
                     },
                 }
             )

@@ -548,8 +548,7 @@ mod tests {
         Ok(keys)
     }
 
-    #[test]
-    fn page_out_distinguishes_concrete_and_dyn_arc_views() -> anyhow::Result<()> {
+    fn check_concrete_and_dyn_arc_views(dyn_first: bool) -> anyhow::Result<()> {
         let mem = InMemoryPagableStorage::new();
         let storage = Arc::new(CountingStorage::new(mem.handle()));
         let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
@@ -565,10 +564,13 @@ mod tests {
         let finished = ArcSerCache::new();
         let storage_context = storage.storage_context();
         let mut ser = SerializerForPaging::new(storage_context);
-        // These views share a data pointer but have different wire formats:
-        // the dyn view starts with a type tag, while the concrete view does not.
-        dyn_view.pagable_serialize(&mut ser)?;
-        concrete.pagable_serialize(&mut ser)?;
+        if dyn_first {
+            dyn_view.pagable_serialize(&mut ser)?;
+            concrete.pagable_serialize(&mut ser)?;
+        } else {
+            concrete.pagable_serialize(&mut ser)?;
+            dyn_view.pagable_serialize(&mut ser)?;
+        }
         let (data, arcs) = ser.finish();
         let root_key = storage
             .page_out_item(data, arcs, &finished, storage_context)
@@ -580,16 +582,46 @@ mod tests {
         storage.flush()?;
 
         let root = storage.fetch_data_blocking(&root_key)?;
+        let (dyn_index, concrete_index) = if dyn_first { (0, 1) } else { (1, 0) };
         assert_ne!(
-            root.arcs[0], root.arcs[1],
+            root.arcs[dyn_index], root.arcs[concrete_index],
             "different serialization views must have distinct stored values",
         );
+        let stored_dyn_view = storage.fetch_data_blocking(&root.arcs[dyn_index])?;
+        assert_eq!(
+            stored_dyn_view.arcs.as_slice(),
+            &[root.arcs[concrete_index]],
+            "the dyn view should reference the canonical concrete Arc",
+        );
         let mut deser = handle.root_deserializer(root_key, &root);
-        let restored_dyn = Arc::<dyn SerializationView>::pagable_deserialize(&mut deser)?;
-        let restored_concrete = Arc::<SerializationViewValue>::pagable_deserialize(&mut deser)?;
+        let (restored_dyn, restored_concrete) = if dyn_first {
+            (
+                Arc::<dyn SerializationView>::pagable_deserialize(&mut deser)?,
+                Arc::<SerializationViewValue>::pagable_deserialize(&mut deser)?,
+            )
+        } else {
+            let concrete = Arc::<SerializationViewValue>::pagable_deserialize(&mut deser)?;
+            let dyn_view = Arc::<dyn SerializationView>::pagable_deserialize(&mut deser)?;
+            (dyn_view, concrete)
+        };
         assert_eq!(restored_dyn.value(), 42);
         assert_eq!(restored_concrete.0, 42);
+        assert_eq!(
+            Arc::as_ptr(&restored_dyn) as *const (),
+            Arc::as_ptr(&restored_concrete) as *const (),
+            "concrete and dyn views should restore the same Arc allocation",
+        );
         Ok(())
+    }
+
+    #[test]
+    fn page_out_preserves_dyn_then_concrete_arc_view() -> anyhow::Result<()> {
+        check_concrete_and_dyn_arc_views(true)
+    }
+
+    #[test]
+    fn page_out_preserves_concrete_then_dyn_arc_view() -> anyhow::Result<()> {
+        check_concrete_and_dyn_arc_views(false)
     }
 
     /// Parallel deserialization of values sharing the same `Arc` must not
