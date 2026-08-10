@@ -22,11 +22,11 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_fs::paths::relative_path::RelativePath;
 use buck2_fs::paths::relative_path::RelativePathBuf;
 use dupe::Dupe;
 use pagable::Pagable;
-use ref_cast::RefCast;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -220,18 +220,35 @@ impl ProjectRoot {
         &self,
         p: &'a P,
     ) -> buck2_error::Result<Cow<'a, ProjectRelativePath>> {
-        let relative_path = p.as_ref().strip_prefix(self.root()).map_err(|_| {
+        // Enforce the invariants that the relaxed relativization skips.
+        match self.relativize_relaxed(p)? {
+            Cow::Borrowed(rel) => Ok(Cow::Borrowed(ProjectRelativePath::new(rel)?)),
+            Cow::Owned(rel) => Ok(Cow::Owned(ProjectRelativePathBuf::try_from(rel)?)),
+        }
+    }
+
+    /// Like `relativize`, but returns the project-relative path as a plain
+    /// string, without requiring it to be representable as a
+    /// `ProjectRelativePath`: components the strict path types reject (most
+    /// notably an embedded backslash on Unix) are preserved as-is. This lets
+    /// callers check whether a path is even interesting (e.g. against ignores)
+    /// before failing on it. It does still fail on paths outside the project
+    /// root and on non-UTF-8 paths, which a string cannot represent.
+    pub fn relativize_relaxed<'a, P: ?Sized + AsRef<AbsNormPath>>(
+        &self,
+        p: &'a P,
+    ) -> buck2_error::Result<Cow<'a, str>> {
+        let path = p.as_ref();
+        let rel = path.strip_prefix_untyped(self.root()).map_err(|_| {
             buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Tier0,
                 "Error relativizing: `{}` is not relative to project root `{}`",
-                p.as_ref(),
+                path,
                 self.root()
             )
         })?;
-        match relative_path {
-            Cow::Borrowed(p) => Ok(Cow::Borrowed(ProjectRelativePath::ref_cast(p))),
-            Cow::Owned(p) => Ok(Cow::Owned(ProjectRelativePathBuf::from(p))),
-        }
+        ForwardRelativePathNormalizer::normalize_path_unchecked(rel)
+            .with_buck_error_context(|| format!("Error relativizing `{path}`"))
     }
 
     /// Remove project root prefix from path (even if path is not canonical)
@@ -803,6 +820,34 @@ mod tests {
 
         assert_eq!("file content", content);
         assert_eq!("new file content", new_content);
+        Ok(())
+    }
+
+    #[test]
+    fn test_relativize_relaxed() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        let root = fs.path();
+
+        let abs = root.root().join(ForwardRelativePath::new("foo/bar")?);
+        assert_eq!("foo/bar", &*root.relativize_relaxed(&abs)?);
+
+        #[cfg(unix)]
+        {
+            use buck2_fs::paths::abs_norm_path::AbsNormPath;
+
+            assert!(
+                root.relativize_relaxed(AbsNormPath::new("/dev/null")?)
+                    .is_err_and(|e| e.to_string().contains("not relative to project root"))
+            );
+
+            // The strict relativization rejects embedded backslashes; the
+            // relaxed one preserves them for the caller to deal with.
+            let path = root.root().as_path().join(r"foo\bar/baz");
+            let abs = AbsNormPath::new(&path)?;
+            assert!(root.relativize(abs).is_err());
+            assert_eq!(r"foo\bar/baz", &*root.relativize_relaxed(abs)?);
+        }
+
         Ok(())
     }
 
