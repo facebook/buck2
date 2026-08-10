@@ -353,6 +353,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
         link_preference = LinkPreference(ctx.attrs.link_preference),
+        # @oss-disable[end= ]: extra_linker_outputs_factory = get_extra_linker_outputs,
+        # @oss-disable[end= ]: extra_linker_outputs_flags_factory = get_extra_linker_output_flags,
     )
     output = cxx_executable(ctx, params)
 
