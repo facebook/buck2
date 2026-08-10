@@ -662,7 +662,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
             .iter()
             .map(|o| {
                 if o.get_path().is_content_based_path() {
-                    internal_error!("Cleanup outputs is not supported for content-based paths!");
+                    return Err(internal_error!("Cleanup outputs is not supported for content-based paths!"));
                 }
                 self.fs().resolve_build(o.get_path(), None)
             })
