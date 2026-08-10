@@ -1395,8 +1395,9 @@ swift_toolchain = prelude_rule(
             # which requires setting up separate platform-specific aliases with the correct constraints.
             "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "platform_path": attrs.option(attrs.source(), default = None),
-            # Rollout flag (buckconfig-driven, mode-independent) that prioritizes
-            # latency-critical Swift module builds.
+            # Prioritizes the Swift critical path by preferring swiftmodule emits
+            # locally, disabling low-pass gating for swiftmodule and PCM actions,
+            # and increasing bulk Swift object-compile weight.
             "prioritize_swift_critical_path": attrs.bool(default = False),
             "provide_swift_debug_info": attrs.bool(default = True),
             "resource_dir": attrs.option(attrs.source(), default = None),

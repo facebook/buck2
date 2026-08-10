@@ -53,23 +53,37 @@ ENFORCED_CATEGORIES = [
 #
 #     return expect_eligible_for_dedupe
 
-def _is_swift_module_category(category: str) -> bool:
+def _is_swiftmodule_emit_category(category: str) -> bool:
+    return "swiftmodule" in category
+
+def _is_swiftmodule_or_pcm_category(category: str) -> bool:
     # Matches swiftmodule_compile[_with_explicit_mods] and every *pcm_compile
     # category (swift_pcm_compile, swift_underlying_pcm_compile,
     # swift_prebuilt_framework_pcm_compile).
-    return "swiftmodule" in category or "pcm_compile" in category
+    return _is_swiftmodule_emit_category(category) or "pcm_compile" in category
 
 def _is_swift_object_category(category: str) -> bool:
     # Bulk Swift object compiles (not swiftmodule/pcm).
     return category in (SWIFT_COMPILE_CATEGORY, SWIFT_COMPILE_CATEGORY + EXPLICIT_MODULES_CATEGORY_SUFFIX)
 
 def _low_pass_filter_for_category(category: str, prioritized: bool) -> bool:
-    # When prioritizing latency-critical Swift path, swiftmodule/pcm
-    # actions escape the low-pass filter (return False) so they stay local
-    # rather than being shed to RE. Everything else keeps the default.
-    if prioritized and _is_swift_module_category(category):
+    # Disable low-pass gating for prioritized swiftmodule and PCM actions.
+    if prioritized and _is_swiftmodule_or_pcm_category(category):
         return False
     return True
+
+def _prefer_local_for_category(
+    category: str,
+    prioritized: bool,
+    local_only: bool,
+    prefer_local: bool,
+) -> bool:
+    if local_only:
+        return prefer_local
+
+    if prioritized and _is_swiftmodule_emit_category(category):
+        return True
+    return prefer_local
 
 def compile_with_argsfile_cmd(
     ctx: AnalysisContext,
@@ -262,7 +276,7 @@ def compile_with_argsfile(
         no_outputs_cleanup = no_outputs_cleanup,
         incremental_remote_outputs = incremental_remote_outputs,
         outputs_for_error_handler = cmd_output.error_outputs,
-        prefer_local = prefer_local,
+        prefer_local = _prefer_local_for_category(category, toolchain.prioritize_swift_critical_path, local_only, prefer_local),
         unique_input_inodes = True,
         weight = weight,
         expect_eligible_for_dedupe = expect_eligible_for_dedupe,

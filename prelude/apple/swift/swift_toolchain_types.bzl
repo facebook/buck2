@@ -33,9 +33,9 @@ SwiftToolchainInfo = provider(
         "mk_swift_interface": provider_field(cmd_args),
         "object_format": provider_field(SwiftObjectFormat),
         "platform_path": provider_field([Artifact, str, None]),
-        # Rollout flag (buckconfig-driven, mode-independent) that prioritizes
-        # latency-critical Swift module builds: swiftmodule/pcm
-        # actions escape the low-pass filter so they stay local.
+        # Prioritizes the Swift critical path by preferring swiftmodule emits
+        # locally, disabling low-pass gating for swiftmodule and PCM actions,
+        # and increasing bulk Swift object-compile weight.
         "prioritize_swift_critical_path": provider_field(bool, default = False),
         "provide_swift_debug_info": provider_field(bool, default = True),
         "resource_dir": provider_field([Artifact, None]),
