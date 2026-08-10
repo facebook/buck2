@@ -1,14 +1,12 @@
 load("@prelude//cfg/modifier:conditional_modifier.bzl", "conditional_modifier")
-load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 
 oncall("build_infra")
 
 # This is for testing `conditional_modifier` rule builds. The bxl tests will test that the produced values
 # do what we expect them to do for modifier resolution
 
-constraint_with_aliases(
+constraint(
     name = "test",
-    aliases = {},
     default = "unspecified",
     values = [
         "test1",
