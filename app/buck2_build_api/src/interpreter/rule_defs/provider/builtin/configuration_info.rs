@@ -134,7 +134,7 @@ impl<'v> ConfigurationInfo<'v> {
                 constraint_setting_label
                     .get_hashed()
                     .expect("StarlarkTargetLabel is hashable"),
-                heap.alloc_complex(constraint_value),
+                heap.alloc(constraint_value),
             );
             assert!(prev.is_none());
         }
