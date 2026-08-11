@@ -19,16 +19,13 @@ use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_values;
+use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::Freeze;
-use starlark::values::FrozenValue;
+use starlark::values::FreezeBranded;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark::values::ValueTypedComplex;
 use starlark::values::starlark_value;
 use starlark::values::string::StarlarkStr;
 
@@ -98,29 +95,28 @@ fn error_methods(builder: &mut MethodsBuilder) {
 #[derive(
     Debug,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     starlark::StarlarkPagablePanic // badbadbad!!! todo!("bxl")
 )]
-#[repr(C)]
-pub(crate) enum StarlarkResultGen<T> {
-    Ok(T),
-    Err(#[freeze(identity)] buck2_error::Error),
+pub(crate) enum StarlarkResult<'v> {
+    Ok(Value<'v>),
+    Err(#[freeze_branded(identity)] buck2_error::Error),
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for StarlarkResultGen<V> {
+impl<'v> Serialize for StarlarkResult<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
         match self {
-            StarlarkResultGen::Ok(val) => {
+            StarlarkResult::Ok(val) => {
                 map.serialize_entry("result", "ok")?;
-                map.serialize_entry("value", &val.to_value())?;
+                map.serialize_entry("value", val)?;
             }
-            StarlarkResultGen::Err(err) => {
+            StarlarkResult::Err(err) => {
                 map.serialize_entry("result", "error")?;
                 map.serialize_entry("value", &format!("{:?}", err))?;
             }
@@ -129,16 +125,13 @@ impl<'v, V: ValueLike<'v>> Serialize for StarlarkResultGen<V> {
     }
 }
 
-pub(crate) type StarlarkResult<'v> = StarlarkResultGen<Value<'v>>;
-pub(crate) type FrozenStarlarkResult = StarlarkResultGen<FrozenValue>;
+starlark_complex_value_branded!(pub(crate) StarlarkResult);
 
-starlark_complex_values!(StarlarkResult);
-
-impl<T: Display> Display for StarlarkResultGen<T> {
+impl<'v> Display for StarlarkResult<'v> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StarlarkResultGen::Ok(val) => fmt_container(f, "Result(Ok = ", ")", [val]),
-            StarlarkResultGen::Err(err) => fmt_container(
+            StarlarkResult::Ok(val) => fmt_container(f, "Result(Ok = ", ")", [val]),
+            StarlarkResult::Err(err) => fmt_container(
                 f,
                 "Result(Err = ",
                 ")",
@@ -150,10 +143,7 @@ impl<T: Display> Display for StarlarkResultGen<T> {
 }
 
 #[starlark_value(type = "bxl.Result")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkResultGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkResult<'v> {
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,
@@ -167,47 +157,33 @@ starlark::methods_static!(BXL_RESULT_METHODS = result_methods);
 #[starlark_module]
 fn result_methods(builder: &mut MethodsBuilder) {
     /// Returns true if the result is an `Ok` value, false if it is an Error
-    fn is_ok<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> starlark::Result<bool> {
-        Ok(match this.unpack() {
-            either::Either::Left(x) => x.is_ok(),
-            either::Either::Right(x) => x.is_ok(),
-        })
+    fn is_ok<'v>(this: &'v StarlarkResult<'v>) -> starlark::Result<bool> {
+        Ok(this.is_ok())
     }
 
     /// Unwrap the result, returning the inner value if the result is `Ok`.
     /// If the result is an `Error`, it will fail
-    fn unwrap<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> starlark::Result<Value<'v>> {
-        match this.unpack() {
-            either::Either::Left(x) => Ok(x.unwrap()?),
-            either::Either::Right(x) => Ok(x.unwrap()?),
-        }
+    fn unwrap<'v>(this: &'v StarlarkResult<'v>) -> starlark::Result<Value<'v>> {
+        Ok(this.unwrap()?)
     }
 
     /// If the result is an `Ok`, return the inner value, otherwise return the default
     fn unwrap_or<'v>(
-        this: ValueTypedComplex<'v, StarlarkResult<'v>>,
+        this: &'v StarlarkResult<'v>,
         #[starlark(require = pos)] default: Value<'v>,
     ) -> starlark::Result<Value<'v>> {
-        match this.unpack() {
-            either::Either::Left(x) => Ok(x.unwrap_or(default)),
-            either::Either::Right(x) => Ok(x.unwrap_or(default)),
-        }
+        Ok(this.unwrap_or(default))
     }
 
     /// Unwrap the error, returning the inner error if the result is `Err`.
     /// If the result is an `Ok`, it will fail
-    fn unwrap_err<'v>(
-        this: ValueTypedComplex<'v, StarlarkResult<'v>>,
-    ) -> starlark::Result<StarlarkError> {
-        match this.unpack() {
-            either::Either::Left(x) => Ok(x.unwrap_err()?),
-            either::Either::Right(x) => Ok(x.unwrap_err()?),
-        }
+    fn unwrap_err<'v>(this: &'v StarlarkResult<'v>) -> starlark::Result<StarlarkError> {
+        Ok(this.unwrap_err()?)
     }
 }
 
-impl<T> StarlarkResultGen<T> {
-    pub(crate) fn from_result(res: buck2_error::Result<T>) -> Self {
+impl<'v> StarlarkResult<'v> {
+    pub(crate) fn from_result(res: buck2_error::Result<Value<'v>>) -> Self {
         match res {
             Ok(val) => Self::Ok(val),
             Err(err) => Self::Err(err),
@@ -216,34 +192,32 @@ impl<T> StarlarkResultGen<T> {
 
     fn is_ok(&self) -> bool {
         match self {
-            StarlarkResultGen::Ok(_) => true,
-            StarlarkResultGen::Err(_) => false,
+            StarlarkResult::Ok(_) => true,
+            StarlarkResult::Err(_) => false,
         }
     }
-}
 
-impl<'v, V: ValueLike<'v>> StarlarkResultGen<V> {
     fn unwrap(&self) -> buck2_error::Result<Value<'v>> {
         match self {
-            StarlarkResultGen::Ok(val) => Ok(val.to_value()),
-            StarlarkResultGen::Err(err) => Err(BxlResultError::UnwrapOnError(err.dupe()).into()),
+            StarlarkResult::Ok(val) => Ok(*val),
+            StarlarkResult::Err(err) => Err(BxlResultError::UnwrapOnError(err.dupe()).into()),
         }
     }
 
     fn unwrap_or(&self, default: Value<'v>) -> Value<'v> {
         match self {
-            StarlarkResultGen::Ok(val) => val.to_value(),
-            StarlarkResultGen::Err(_) => default,
+            StarlarkResult::Ok(val) => *val,
+            StarlarkResult::Err(_) => default,
         }
     }
 
     fn unwrap_err(&self) -> buck2_error::Result<StarlarkError> {
         match self {
-            StarlarkResultGen::Ok(val) => {
+            StarlarkResult::Ok(val) => {
                 let display_str = format!("{val}");
                 Err(BxlResultError::UnwrapErrOnOk(display_str).into())
             }
-            StarlarkResultGen::Err(err) => Ok(StarlarkError { err: err.dupe() }),
+            StarlarkResult::Err(err) => Ok(StarlarkError { err: err.dupe() }),
         }
     }
 }

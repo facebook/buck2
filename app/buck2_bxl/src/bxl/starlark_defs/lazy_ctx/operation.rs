@@ -59,7 +59,7 @@ use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryOperation;
 use crate::bxl::starlark_defs::lazy_ctx::operation::uquery::LazyUqueryResult;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
-use crate::bxl::starlark_defs::result::StarlarkResultGen;
+use crate::bxl::starlark_defs::result::StarlarkResult;
 use crate::bxl::starlark_defs::target_list_expr::OwnedConfiguredTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::OwnedTargetNodeArg;
 use crate::bxl::starlark_defs::target_list_expr::SingleOrCompatibleConfiguredTargets;
@@ -133,7 +133,7 @@ impl LazyResult {
                     Ok(res) => Ok(res.into_value(heap, bxl_eval_extra)?),
                     Err(e) => Err(e),
                 };
-                Ok(heap.alloc(StarlarkResultGen::from_result(val)))
+                Ok(heap.alloc(StarlarkResult::from_result(val)))
             }
         }
     }
