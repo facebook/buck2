@@ -18,16 +18,15 @@ use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Coerce;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
@@ -42,22 +41,20 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::starlark::values::UnpackValue;
-use crate::starlark::values::ValueLike;
 
 #[internal_provider(local_resource_info_creator)]
 #[derive(
     Clone,
     Debug,
-    Freeze,
-    Coerce,
+    FreezeBranded,
     Trace,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze(validator = validate_local_resource_info, bounds = "V: ValueLike<'freeze>")]
+#[freeze_branded(validator = validate_local_resource_info)]
 #[repr(C)]
-pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
+pub struct LocalResourceInfo<'v> {
     /// Command to run to initialize a local resource.
     ///
     /// Running this command writes a JSON to stdout.
@@ -80,18 +77,15 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
     /// name resolved using mapping in `resource_env_vars` field and `"socket_address"` key will be added to
     /// execution command.
-    setup: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
+    setup: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
     /// Mapping from environment variable (appended to an execution command which is dependent on this local resource)
     /// to keys in setup command JSON output.
-    resource_env_vars: ValueOfUncheckedGeneric<V, DictType<String, String>>,
+    resource_env_vars: ValueOfUnchecked<'v, DictType<String, String>>,
     /// Timeout in seconds for `setup` command.
-    setup_timeout_seconds: ValueOfUncheckedGeneric<V, NoneOr<UnpackFloat>>,
+    setup_timeout_seconds: ValueOfUnchecked<'v, NoneOr<UnpackFloat>>,
 }
 
-fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> buck2_error::Result<()>
-where
-    V: ValueLike<'v>,
-{
+fn validate_local_resource_info<'v>(info: &LocalResourceInfo<'v>) -> buck2_error::Result<()> {
     let env_vars = info
         .resource_env_vars
         .cast::<UnpackDictEntries<&str, &str>>()
@@ -104,7 +98,7 @@ where
         ));
     }
 
-    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get().to_value())
+    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get())
         .ok_or_else(|| internal_error!("Validated in constructor"))?;
     let setup_is_empty = match setup.unpack() {
         Either::Left(a) => a.is_empty(),
@@ -149,11 +143,14 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-impl FrozenLocalResourceInfo {
+/// A `LocalResourceInfo` kept alive by its owning frozen heap; usable across threads and awaits.
+pub type OwnedLocalResourceInfo = OwnedFrozen<ValueTyped<'static, LocalResourceInfo<'static>>>;
+
+impl<'v> LocalResourceInfo<'v> {
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
     pub fn env_var_mapping(&self) -> BuckIndexMap<String, String> {
-        let env_vars = DictRef::from_value(self.resource_env_vars.to_value().get()).unwrap();
+        let env_vars = DictRef::from_value(self.resource_env_vars.get()).unwrap();
         env_vars
             .iter()
             .map(|(k, v)| {
@@ -165,8 +162,8 @@ impl FrozenLocalResourceInfo {
             .collect()
     }
 
-    pub fn setup_command_line(&self) -> &dyn CommandLineArgLike<'_> {
-        ValueAsCommandLineLike::unpack_value_err(self.setup.to_value().get())
+    pub fn setup_command_line(&self) -> &'v dyn CommandLineArgLike<'v> {
+        ValueAsCommandLineLike::unpack_value_err(self.setup.get())
             .unwrap()
             .0
     }

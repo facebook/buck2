@@ -46,7 +46,7 @@ use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCo
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::OwnedLocalResourceInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::required_test_local_resource::StarlarkRequiredTestLocalResource;
 use buck2_build_api::keep_going::KeepGoing;
@@ -1792,10 +1792,7 @@ impl BuckTestOrchestrator<'_> {
     async fn setup_local_resources(
         dice: &mut DiceComputations<'_>,
         cancellation: &CancellationContext,
-        required_providers: Vec<(
-            &'_ ConfiguredTargetLabel,
-            OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
-        )>,
+        required_providers: Vec<(&'_ ConfiguredTargetLabel, OwnedLocalResourceInfo)>,
         executor: CommandExecutor,
         default_timeout: Duration,
         liveliness_observer: Arc<dyn LivelinessObserver>,
@@ -1870,10 +1867,7 @@ impl BuckTestOrchestrator<'_> {
 
     async fn prepare_local_resource(
         dice: &mut DiceComputations<'_>,
-        provider: (
-            &ConfiguredTargetLabel,
-            OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
-        ),
+        provider: (&ConfiguredTargetLabel, OwnedLocalResourceInfo),
         fs: &ArtifactFs,
         executor_fs: &ExecutorFs<'_>,
         default_timeout: Duration,
@@ -1881,10 +1875,13 @@ impl BuckTestOrchestrator<'_> {
         let digest_config = dice.global_data().get_digest_config();
 
         let (target, provider) = provider;
+        // The `'v`-branded view of the provider must not be held across an await (only the
+        // `OwnedFrozen` may be), so this is scoped and re-derived below.
         let visited_inputs = {
-            let setup_command_line = provider.setup_command_line();
+            let info = provider.as_ref().value().as_ref();
             let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            setup_command_line.visit_artifacts(&mut artifact_visitor)?;
+            info.setup_command_line()
+                .visit_artifacts(&mut artifact_visitor)?;
             artifact_visitor.inputs
         };
 
@@ -1894,14 +1891,14 @@ impl BuckTestOrchestrator<'_> {
             })
             .await?;
 
+        let info = provider.as_ref().value().as_ref();
         let artifact_path_mapping: BuckHashMap<_, _> = inputs
             .iter()
             .flat_map(|v| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))
             .collect();
         let mut cmd: Vec<String> = vec![];
-        provider
-            .setup_command_line()
+        info.setup_command_line()
             .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut cmd,
                 &artifact_path_mapping,
@@ -1925,12 +1922,12 @@ impl BuckTestOrchestrator<'_> {
         let mut execution_request =
             CommandExecutionRequest::new(vec![], cmd, paths, Default::default());
         execution_request =
-            execution_request.with_timeout(provider.setup_timeout().unwrap_or(default_timeout));
+            execution_request.with_timeout(info.setup_timeout().unwrap_or(default_timeout));
         execution_request = execution_request.with_skip_resource_control();
         Ok(PreparedLocalResourceSetupContext {
             target: target.dupe(),
             execution_request,
-            env_var_mapping: provider.env_var_mapping(),
+            env_var_mapping: info.env_var_mapping(),
         })
     }
 
