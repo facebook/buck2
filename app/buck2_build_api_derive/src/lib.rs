@@ -49,9 +49,10 @@ mod provider;
 ///
 /// ```ignore
 /// #[internal_provider(my_provider_creator)]
-/// #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
-/// struct MyProviderGen<V: ValueLifetimeless> {
-///     field1: ValueOfUncheckedGeneric<V, String>,
+/// #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+/// #[repr(C)]
+/// struct MyProvider<'v> {
+///     field1: ValueOfUnchecked<'v, String>,
 /// }
 /// ```
 ///
@@ -61,9 +62,10 @@ mod provider;
 ///
 /// ```ignore
 /// #[internal_provider(my_provider_creator, methods = my_custom_methods)]
-/// #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
-/// struct MyProviderGen<V: ValueLifetimeless> {
-///     field1: ValueOfUncheckedGeneric<V, String>,
+/// #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+/// #[repr(C)]
+/// struct MyProvider<'v> {
+///     field1: ValueOfUnchecked<'v, String>,
 /// }
 ///
 /// #[starlark_module]

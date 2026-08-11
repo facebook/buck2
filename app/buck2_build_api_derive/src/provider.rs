@@ -15,7 +15,6 @@ use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
 use syn::Fields;
-use syn::TypeParamBound;
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
@@ -74,10 +73,6 @@ struct ProviderCodegen {
     span: proc_macro2::Span,
     input: syn::ItemStruct,
     args: InternalProviderArgs,
-    /// Whether the input is in the branded form (`X<'v>` holding `ValueOfUnchecked<'v, _>`
-    /// fields) rather than the legacy `Gen` form (`XGen<V>` holding
-    /// `ValueOfUncheckedGeneric<V, _>` fields).
-    branded: bool,
 }
 
 impl ProviderCodegen {
@@ -85,11 +80,7 @@ impl ProviderCodegen {
     ///
     /// This modifies the original input and removes any instances of `#[provider()]` macros
     /// on fields of the provided structs, and saves them into `field_attr_providers`.
-    fn new(
-        mut input: syn::ItemStruct,
-        args: InternalProviderArgs,
-        branded: bool,
-    ) -> syn::Result<Self> {
+    fn new(mut input: syn::ItemStruct, args: InternalProviderArgs) -> syn::Result<Self> {
         if let Fields::Named(fields_named) = &mut input.fields {
             for field in fields_named.named.iter_mut() {
                 field.attrs = field.attrs.clone();
@@ -99,27 +90,17 @@ impl ProviderCodegen {
             span: input.ident.span(),
             input,
             args,
-            branded,
         })
     }
 
     fn name(&self) -> syn::Result<syn::Ident> {
-        if self.branded {
-            if self.input.ident.to_string().ends_with("Gen") {
-                return Err(syn::Error::new_spanned(
-                    &self.input.ident,
-                    "branded providers should not have a `Gen` suffix",
-                ));
-            }
-            return Ok(self.input.ident.clone());
-        }
-        match self.input.ident.to_string().strip_suffix("Gen") {
-            Some(v) => Ok(format_ident!("{}", v)),
-            None => Err(syn::Error::new_spanned(
+        if self.input.ident.to_string().ends_with("Gen") {
+            return Err(syn::Error::new_spanned(
                 &self.input.ident,
-                "should end with Gen",
-            )),
+                "should not have a `Gen` suffix",
+            ));
         }
+        Ok(self.input.ident.clone())
     }
 
     fn name_str(&self) -> syn::Result<String> {
@@ -196,11 +177,7 @@ impl ProviderCodegen {
             ));
         }
 
-        let error = if self.branded {
-            "Field type must be `ValueOfUnchecked<'v, SomeType>`"
-        } else {
-            "Field type must be `ValueOfUncheckedGeneric<V, SomeType>`"
-        };
+        let error = "Field type must be `ValueOfUnchecked<'v, SomeType>`";
 
         let syn::Type::Path(ty) = &field.ty else {
             return Err(syn::Error::new_spanned(field, error));
@@ -226,34 +203,15 @@ impl ProviderCodegen {
         else {
             return Err(syn::Error::new_spanned(field, error));
         };
-        let field_type = if self.branded {
-            if ident != "ValueOfUnchecked" {
-                return Err(syn::Error::new_spanned(field, error));
-            }
-            let [
-                syn::GenericArgument::Lifetime(_),
-                syn::GenericArgument::Type(field_type),
-            ] = Vec::from_iter(&args.args).as_slice()
-            else {
-                return Err(syn::Error::new_spanned(field, error));
-            };
-            field_type
-        } else {
-            if ident != "ValueOfUncheckedGeneric" {
-                return Err(syn::Error::new_spanned(field, error));
-            }
-            let [
-                syn::GenericArgument::Type(v),
-                syn::GenericArgument::Type(field_type),
-            ] = Vec::from_iter(&args.args).as_slice()
-            else {
-                return Err(syn::Error::new_spanned(field, error));
-            };
-            let expected_v: syn::Type = syn::parse_quote!(V);
-            if v != &expected_v {
-                return Err(syn::Error::new_spanned(field, error));
-            }
-            field_type
+        if ident != "ValueOfUnchecked" {
+            return Err(syn::Error::new_spanned(field, error));
+        }
+        let [
+            syn::GenericArgument::Lifetime(_),
+            syn::GenericArgument::Type(field_type),
+        ] = Vec::from_iter(&args.args).as_slice()
+        else {
+            return Err(syn::Error::new_spanned(field, error));
         };
 
         let name = field.ident.as_ref().unwrap().to_owned();
@@ -347,20 +305,11 @@ impl ProviderCodegen {
     }
 
     fn builtin_provider_ty(&self) -> syn::Result<syn::Item> {
-        let gen_name = &self.input.ident;
+        let name = self.name()?;
         let callable_name = self.callable_name()?;
-        if self.branded {
-            return Ok(syn::parse_quote_spanned! { self.span =>
-                static BUILTIN_PROVIDER_TY: buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
-                        #gen_name<'static>,
-                        #callable_name,
-                > =
-                    buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
-            });
-        }
         Ok(syn::parse_quote_spanned! { self.span =>
             static BUILTIN_PROVIDER_TY: buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy<
-                    #gen_name<starlark::values::Value>,
+                    #name<'static>,
                     #callable_name,
             > =
                 buck2_build_api::interpreter::rule_defs::provider::builtin::ty::BuiltinProviderTy::new();
@@ -378,28 +327,11 @@ impl ProviderCodegen {
     }
 
     fn impl_display(&self) -> syn::Result<syn::Item> {
-        let gen_name = &self.input.ident;
+        let name = self.name()?;
         let name_str = self.name_str()?;
         let field_names = self.field_names()?;
-        if self.branded {
-            return Ok(syn::parse_quote_spanned! { self.span=>
-                impl<'v> std::fmt::Display for #gen_name<'v> {
-                    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        buck2_build_api::__derive_refs::display_container::fmt_keyed_container(
-                            f,
-                            &format!("{}(", #name_str),
-                            ")",
-                            "=",
-                            [
-                                #((stringify!(#field_names), &self.#field_names.get())),*
-                            ]
-                        )
-                    }
-                }
-            });
-        }
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<V: starlark::values::ValueLifetimeless> std::fmt::Display for #gen_name<V> {
+            impl<'v> std::fmt::Display for #name<'v> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                     buck2_build_api::__derive_refs::display_container::fmt_keyed_container(
                         f,
@@ -417,7 +349,6 @@ impl ProviderCodegen {
 
     fn impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
         let vis = &self.input.vis;
-        let gen_name = &self.input.ident;
         let name = self.name()?;
         let name_str = self.name_str()?;
         // Use custom methods function if provided, otherwise use auto-generated one
@@ -434,63 +365,16 @@ impl ProviderCodegen {
         let starlark_value_attr: syn::Attribute = syn::parse_quote_spanned! { self.span=>
             #[starlark::values::starlark_value(type = #name_str)]
         };
-        if self.branded {
-            return Ok(vec![
-                syn::parse_quote_spanned! { self.span=>
-                    starlark::starlark_complex_value_branded!(#vis #name);
-                },
-                syn::parse_quote_spanned! { self.span=>
-                    starlark::methods_static!(#methods_static_name = #provider_methods_func_name);
-                },
-                syn::parse_quote_spanned! { self.span=>
-                    #starlark_value_attr
-                    impl<'v> starlark::values::StarlarkValue<'v> for #gen_name<'v> {
-                        fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                            Some(#methods_static_name.methods())
-                        }
-
-                        fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
-                            demand.provide_value::<
-                                &dyn buck2_build_api::interpreter::rule_defs::provider::ProviderLike>(self);
-                        }
-
-                        fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
-                            let other: &#name<'v> = match #name::from_value(other) {
-                                Some(other) => other,
-                                None => return Ok(false),
-                            };
-
-                            #(
-                                if !self.#field_names.get().equals(other.#field_names.get())? {
-                                    return Ok(false);
-                                }
-                            )*
-                            Ok(true)
-                        }
-
-                        fn get_type_starlark_repr() -> starlark::typing::Ty {
-                            BUILTIN_PROVIDER_TY.instance()
-                        }
-                    }
-                },
-            ]);
-        }
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
-                starlark::starlark_complex_value!(#vis #name);
+                starlark::starlark_complex_value_branded!(#vis #name);
             },
             syn::parse_quote_spanned! { self.span=>
                 starlark::methods_static!(#methods_static_name = #provider_methods_func_name);
             },
             syn::parse_quote_spanned! { self.span=>
                 #starlark_value_attr
-                impl<'v, V: starlark::values::ValueLike<'v>> starlark::values::StarlarkValue<'v>
-                    for #gen_name<V>
-                where
-                    Self: starlark::any::ProvidesStaticType<'v>,
-                {
-                    type Canonical = #gen_name<starlark::values::FrozenValue>;
-
+                impl<'v> starlark::values::StarlarkValue<'v> for #name<'v> {
                     fn get_methods() -> Option<&'static starlark::environment::Methods> {
                         Some(#methods_static_name.methods())
                     }
@@ -501,14 +385,13 @@ impl ProviderCodegen {
                     }
 
                     fn equals(&self, other: starlark::values::Value<'v>) -> starlark::Result<bool> {
-                        let this: &#name = starlark::coerce::coerce(self);
-                        let other: &#name = match #name::from_value(other) {
+                        let other: &#name<'v> = match #name::from_value(other) {
                             Some(other) => other,
                             None => return Ok(false),
                         };
 
                         #(
-                            if !this.#field_names.to_value().get().equals(other.#field_names.to_value().get())? {
+                            if !self.#field_names.get().equals(other.#field_names.get())? {
                                 return Ok(false);
                             }
                         )*
@@ -518,39 +401,17 @@ impl ProviderCodegen {
                     fn get_type_starlark_repr() -> starlark::typing::Ty {
                         BUILTIN_PROVIDER_TY.instance()
                     }
-
-                    // TODO(cjhopman): UserProvider implements more of the starlark functions. We should probably match them.
                 }
             },
         ])
     }
 
     fn impl_serializable_value(&self) -> syn::Result<syn::Item> {
-        let gen_name = &self.input.ident;
+        let name = self.name()?;
         let field_names = self.field_names()?;
         let field_len = field_names.len();
-        if self.branded {
-            return Ok(syn::parse_quote_spanned! { self.span=>
-                impl<'v> buck2_build_api::__derive_refs::serde::Serialize for #gen_name<'v> {
-                    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S : buck2_build_api::__derive_refs::serde::Serializer {
-                        use buck2_build_api::__derive_refs::serde::ser::SerializeMap;
-
-                        let mut s = s.serialize_map(Some(#field_len))?;
-                        #(
-                            s.serialize_entry(
-                                stringify!(#field_names),
-                                &self.#field_names.get()
-                            )?;
-                        )*
-                        s.end()
-                    }
-                }
-            });
-        }
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v>> buck2_build_api::__derive_refs::serde::Serialize
-                for #gen_name<V>
-            {
+            impl<'v> buck2_build_api::__derive_refs::serde::Serialize for #name<'v> {
                 fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S : buck2_build_api::__derive_refs::serde::Serializer {
                     use buck2_build_api::__derive_refs::serde::ser::SerializeMap;
 
@@ -558,7 +419,7 @@ impl ProviderCodegen {
                     #(
                         s.serialize_entry(
                             stringify!(#field_names),
-                            &self.#field_names.get().to_value()
+                            &self.#field_names.get()
                         )?;
                     )*
                     s.end()
@@ -568,36 +429,18 @@ impl ProviderCodegen {
     }
 
     fn impl_provider_like(&self) -> syn::Result<syn::Item> {
-        let gen_name = &self.input.ident;
+        let name = self.name()?;
         let field_names = self.field_names()?;
         let callable_name = self.callable_name()?;
-        if self.branded {
-            return Ok(syn::parse_quote_spanned! { self.span=>
-                impl<'v> buck2_build_api::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<'v> {
-                    fn id(&self) -> &std::sync::Arc<buck2_core::provider::id::ProviderId> {
-                        #callable_name::provider_id()
-                    }
-
-                    fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
-                        vec![
-                            #((stringify!(#field_names), self.#field_names.get())),*
-                        ]
-                    }
-                }
-            });
-        }
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl<'v, V: starlark::values::ValueLike<'v>> buck2_build_api::interpreter::rule_defs::provider::ProviderLike<'v> for #gen_name<V>
-            where
-                Self: std::fmt::Debug,
-            {
+            impl<'v> buck2_build_api::interpreter::rule_defs::provider::ProviderLike<'v> for #name<'v> {
                 fn id(&self) -> &std::sync::Arc<buck2_core::provider::id::ProviderId> {
                     #callable_name::provider_id()
                 }
 
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
                     vec![
-                        #((stringify!(#field_names), self.#field_names.get().to_value())),*
+                        #((stringify!(#field_names), self.#field_names.get())),*
                     ]
                 }
             }
@@ -808,11 +651,7 @@ pub(crate) fn define_provider(
     args: InternalProviderArgs,
     input: syn::ItemStruct,
 ) -> syn::Result<proc_macro::TokenStream> {
-    // A struct with a single lifetime param is a branded provider; a struct with a single
-    // `V: ValueLifetimeless` type param is a legacy `Gen` one.
-    let branded =
-        input.generics.lifetimes().count() == 1 && input.generics.type_params().count() == 0;
-    let codegen = ProviderCodegen::new(input, args, branded)?;
+    let codegen = ProviderCodegen::new(input, args)?;
 
     if let Some(where_clause) = codegen.input.generics.where_clause {
         return Err(syn::Error::new_spanned(
@@ -826,36 +665,17 @@ pub(crate) fn define_provider(
             "should have no const params",
         ));
     }
-    if !branded {
-        if let Some(lifetime) = codegen.input.generics.lifetimes().next() {
-            return Err(syn::Error::new_spanned(
-                lifetime,
-                "should have no lifetime params",
-            ));
-        }
-        let mut type_params: Vec<_> = codegen.input.generics.type_params().collect();
-        if type_params.len() != 1 {
-            return Err(syn::Error::new_spanned(
-                codegen.input,
-                "should have exactly one type param",
-            ));
-        }
-
-        let type_bound_error = "type param should be V: ValueLifetimeless";
-        let type_param = type_params.pop().unwrap();
-        let Some(bound) = type_param.bounds.iter().into_singleton() else {
-            return Err(syn::Error::new_spanned(type_param, type_bound_error));
-        };
-        match bound {
-            TypeParamBound::Trait(b) => {
-                if b.to_token_stream().to_string() != "ValueLifetimeless" {
-                    return Err(syn::Error::new_spanned(b, type_bound_error));
-                }
-            }
-            _ => {
-                return Err(syn::Error::new_spanned(bound, type_bound_error));
-            }
-        }
+    if let Some(type_param) = codegen.input.generics.type_params().next() {
+        return Err(syn::Error::new_spanned(
+            type_param,
+            "should have no type params",
+        ));
+    }
+    if codegen.input.generics.lifetimes().count() != 1 {
+        return Err(syn::Error::new_spanned(
+            codegen.input,
+            "should have exactly one lifetime param",
+        ));
     }
 
     let input = &codegen.input;
