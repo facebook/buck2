@@ -398,14 +398,14 @@ impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     }
 }
 
-impl<T: for<'a> StarlarkValue<'a>> PagableSerialize for OwnedFrozenValueTyped<T> {
+impl<T: StarlarkValue<'static>> PagableSerialize for OwnedFrozenValueTyped<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         // Delegate to OwnedFrozenValue serialization (same wire format).
         self.to_owned_frozen_value().pagable_serialize(serializer)
     }
 }
 
-impl<'de, T: for<'a> StarlarkValue<'a>> PagableDeserialize<'de> for OwnedFrozenValueTyped<T> {
+impl<'de, T: StarlarkValue<'static>> PagableDeserialize<'de> for OwnedFrozenValueTyped<T> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {

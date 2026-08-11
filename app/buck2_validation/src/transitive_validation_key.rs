@@ -53,24 +53,44 @@ impl TransitiveValidationKey {
         ctx: &mut DiceComputations<'_>,
         transitive_validations: TransitiveValidations,
     ) -> Result<(), TreatValidationFailureAsError> {
-        let info = match &transitive_validations.0.info {
-            Some(info) => info,
+        // Extracted eagerly so that no branded provider values are held across the awaits
+        // below: `ValidationInfo<'v>` views are correctly not `Send` (the type doesn't say
+        // whether they're the frozen instantiation), and the owned handle hits
+        // rust-lang/rust#102211.
+        struct Validation {
+            name: String,
+            optional: bool,
+            artifact: Artifact,
+        }
+        let validations = match &transitive_validations.0.info {
+            Some(info) => info
+                .validations()
+                .map(|spec| {
+                    Ok(Validation {
+                        name: spec.name().to_owned(),
+                        optional: spec.optional(),
+                        artifact: spec.validation_result().get_bound_artifact()?,
+                    })
+                })
+                .collect::<buck2_error::Result<Vec<_>>>()?,
             None => return Ok(()),
         };
 
         let empty = BTreeSet::new();
         let enabled_optional_validations: &BTreeSet<String> =
-            if info.validations().any(|spec| spec.optional()) {
+            if validations.iter().any(|validation| validation.optional) {
                 ctx.compute(&EnabledOptionalValidationsKey).await?
             } else {
                 &empty
             };
 
-        let artifacts = info
-            .validations()
-            .filter(|spec| !spec.optional() || enabled_optional_validations.contains(spec.name()))
-            .map(|spec| spec.validation_result().get_bound_artifact())
-            .collect::<buck2_error::Result<Vec<Artifact>>>()?;
+        let artifacts = validations
+            .into_iter()
+            .filter(|validation| {
+                !validation.optional || enabled_optional_validations.contains(&validation.name)
+            })
+            .map(|validation| validation.artifact)
+            .collect::<Vec<Artifact>>();
         ctx.try_compute_join(artifacts, async |ctx, output| {
             compute_single_validation(ctx, output).await
         })
