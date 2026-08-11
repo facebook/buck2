@@ -11,6 +11,7 @@
 
 import json
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -19,14 +20,20 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_keep_going_json(buck: Buck) -> None:
     result = await buck.targets("//...", "--json", "--keep-going")
     xs = json.loads(result.stdout)
-    # I expect six records, one which is an error
-    assert len(xs) == 6
-    for x in xs:
-        if x["buck.package"] == "root//a":
-            assert x["name"].startswith("target")
-        else:
-            assert x["buck.package"] == "root//b"
-            assert "test_error" in x["buck.error"]
+    errors = [x for x in xs if "buck.error" in x]
+    targets = sorted(x["name"] for x in xs if "name" in x)
+
+    assert targets == [
+        "target1",
+        "target2",
+        "target3",
+        "target4",
+        "target5",
+        "target6",
+    ]
+    assert len(errors) == 1
+    assert errors[0]["buck.package"] == "root//b"
+    assert "test_error" in errors[0]["buck.error"]
 
 
 @buck_test()
@@ -36,9 +43,27 @@ async def test_keep_going(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_keep_going_streaming(buck: Buck) -> None:
-    result = await buck.targets("//...", "--streaming", "--keep-going")
-    assert "test_error" in result.stderr
+@pytest.mark.parametrize("no_cache", [False, True])
+async def test_keep_going_streaming(buck: Buck, no_cache: bool) -> None:
+    args = ["//...", "--json", "--streaming", "--keep-going"]
+    if no_cache:
+        args.append("--no-cache")
+    result = await buck.targets(*args)
+    xs = json.loads(result.stdout)
+    errors = [x for x in xs if "buck.error" in x]
+    targets = sorted(x["name"] for x in xs if "name" in x)
+
+    assert targets == [
+        "target1",
+        "target2",
+        "target3",
+        "target4",
+        "target5",
+        "target6",
+    ]
+    assert len(errors) == 1
+    assert errors[0]["buck.package"] == "root//b"
+    assert "test_error" in errors[0]["buck.error"]
 
 
 @buck_test()

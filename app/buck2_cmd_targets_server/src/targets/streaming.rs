@@ -12,6 +12,7 @@
 
 use std::io::Write;
 use std::mem;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -58,6 +59,34 @@ fn write_str(outputter: &mut dyn Write, s: &mut String) -> buck2_error::Result<(
     Ok(())
 }
 
+struct PackageConcurrency {
+    loads: NonZeroUsize,
+    tasks: NonZeroUsize,
+}
+
+fn package_concurrency(threads: Option<usize>) -> buck2_error::Result<PackageConcurrency> {
+    let max = Semaphore::MAX_PERMITS.min(usize::MAX / 2);
+    let loads = match threads {
+        Some(value) => {
+            let Some(value) = NonZeroUsize::new(value).filter(|value| value.get() <= max) else {
+                return Err(TargetsError::InvalidThreadCount { value, max }.into());
+            };
+            value
+        }
+        None => NonZeroUsize::new(buck2_util::threads::available_parallelism().min(max))
+            .expect("available parallelism and the semaphore limit are non-zero"),
+    };
+    let tasks = NonZeroUsize::new(
+        loads
+            .get()
+            .checked_mul(2)
+            .expect("load concurrency is limited to `usize::MAX / 2`"),
+    )
+    .expect("twice a non-zero value is non-zero");
+
+    Ok(PackageConcurrency { loads, tasks })
+}
+
 /// Run the targets command in streaming mode.
 ///
 /// # Arguments
@@ -79,7 +108,8 @@ pub(crate) async fn targets_streaming(
     threads: Option<usize>,
 ) -> buck2_error::Result<Stats> {
     let imported = Arc::new(Mutex::new(SmallSet::new()));
-    let threads = Arc::new(Semaphore::new(threads.unwrap_or(Semaphore::MAX_PERMITS)));
+    let concurrency = package_concurrency(threads)?;
+    let threads = Arc::new(Semaphore::new(concurrency.loads.get()));
 
     let cloned_dice = dice.clone();
     let mut packages = stream_packages(&cloned_dice, parsed_patterns)
@@ -117,8 +147,8 @@ pub(crate) async fn targets_streaming(
                 cloned_dice.per_transaction_data(),
             )
         })
-        // Use unlimited parallelism - tokio will restrict us anyway
-        .buffer_unordered(1000000);
+        // Keep package loading full while completed loads are formatted and buffered for output.
+        .buffer_unordered(concurrency.tasks.get());
 
     let mut buffer = String::new();
     formatter.begin(&mut buffer);
@@ -367,6 +397,8 @@ enum TargetsError {
         _1.iter().map(|x| format!("`{x}`")).join(", ")
     )]
     MissingTargets(PackageLabel, Vec<TargetName>),
+    #[error("`--num-threads` must be between 1 and {max}, got {value}")]
+    InvalidThreadCount { value: usize, max: usize },
 }
 
 /// Load the targets from a package. If `keep_going` is specified then it may return a `Some` error in the triple.
@@ -431,4 +463,23 @@ async fn package_imports(
         .get()?
         .get_package_file_deps(dice, path)
         .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn package_concurrency_rejects_invalid_values() {
+        assert!(package_concurrency(Some(0)).is_err());
+        assert!(package_concurrency(Some(Semaphore::MAX_PERMITS.min(usize::MAX / 2) + 1)).is_err());
+    }
+
+    #[test]
+    fn package_concurrency_uses_explicit_value() {
+        let concurrency =
+            package_concurrency(Some(7)).expect("positive concurrency should be valid");
+        assert_eq!(7, concurrency.loads.get());
+        assert_eq!(14, concurrency.tasks.get());
+    }
 }
