@@ -201,6 +201,28 @@ where
     }
 }
 
+impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozen<FrozenValueTyped<'static, T>>>
+    for OwnedFrozenValueTyped<T>
+where
+    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+{
+    fn from(value: OwnedFrozen<FrozenValueTyped<'static, T>>) -> Self {
+        value.by_ref(|v| {
+            // SAFETY: `FrozenValueTyped` lifetimes don't brand (the type
+            // predates branding); the owner keeps the value alive either way.
+            let v = unsafe {
+                transmute!(
+                    FrozenValueTyped<'_, T::Reinfect<'_>>,
+                    FrozenValueTyped<'static, T>,
+                    *v
+                )
+            };
+            // SAFETY: The owner of this value is this heap
+            unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
+        })
+    }
+}
+
 /// Wire-compatible with `OwnedFrozenValue` and `OwnedFrozenValueTyped`.
 impl<T: IsStaticType + StarlarkValue<'static>> PagableSerialize
     for OwnedFrozen<ValueTyped<'static, T>>
