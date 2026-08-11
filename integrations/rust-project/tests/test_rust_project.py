@@ -174,6 +174,27 @@ async def test_fallback_compatible_with(buck: Buck) -> None:
     assert dep["source_folder"] is not None
 
 
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_fallback_mapped_srcs(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:g_with_mapped_srcs",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    assert len(result["resolved_deps"]) > 0
+
+    dep = list(result["resolved_deps"].values())[0]
+    mapped_srcs = dep["mapped_srcs"]
+
+    # A filegroup key is resolved to its target label.
+    assert any(k.endswith(":g_filegroup") for k in mapped_srcs), mapped_srcs
+    # A plain source file key is resolved to its path rather than dropped.
+    assert any(k.endswith("mapped_g.rs") for k in mapped_srcs), mapped_srcs
+
+
 # FIXME: Remove once actual tests work on mac and windows
 @buck_test(inplace=True)
 async def test_noop(buck: Buck) -> None:

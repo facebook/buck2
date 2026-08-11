@@ -149,9 +149,14 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
 
         mapped_srcs = {}
         raw_mapped_srcs = _get_attr_no_select(target, "mapped_srcs") or {}
-        for t, t_srcs in raw_mapped_srcs.items():
-            if hasattr(t, "raw_target"):
-                mapped_srcs[t.raw_target()] = t_srcs
+        for src, dst in raw_mapped_srcs.items():
+            # A mapped_srcs key is either a target label (e.g. a filegroup or
+            # genrule), which has `raw_target`, or a plain source file, which the
+            # unconfigured node surfaces as an Artifact addressed by `short_path`.
+            if hasattr(src, "raw_target"):
+                mapped_srcs[src.raw_target()] = dst
+            else:
+                mapped_srcs[src.short_path] = dst
 
         abs_buildfile_path = ctx.root() + "/" + target.buildfile_path.cell + "/" + target.buildfile_path.path
         source_folder = abs_buildfile_path.removesuffix("/TARGETS").removesuffix("/BUCK")

@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:rust_unittest.bzl", "rust_unittest")
@@ -36,6 +37,22 @@ rust_library(
     name = "g_with_compatibility",
     srcs = ["lib_g.rs"],
     crate_root = "lib_g.rs",
+    target_compatible_with = ["ovr_config//cpu/constraints:riscv64"],
+)
+
+buck_filegroup(
+    name = "g_filegroup",
+    srcs = ["gen_g.rs"],
+)
+
+rust_library(
+    name = "g_with_mapped_srcs",
+    srcs = ["lib_g.rs"],
+    crate_root = "lib_g.rs",
+    mapped_srcs = {
+        ":g_filegroup": "src/generated.rs",
+        "mapped_g.rs": "src/mapped.rs",
+    },
     target_compatible_with = ["ovr_config//cpu/constraints:riscv64"],
 )
 
