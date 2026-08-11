@@ -23,9 +23,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
-use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterableGen;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
-use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterableGen;
 
 /// Starlark object for `StarlarkBuildResult` (which is not Starlark value).
 #[derive(
@@ -57,7 +55,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(NoneOr::None),
             BxlBuildResult::Built { .. } => {
-                Ok(NoneOr::Other(StarlarkProvidersArtifactIterableGen(this)))
+                Ok(NoneOr::Other(StarlarkProvidersArtifactIterable(this)))
             }
         }
     }
@@ -76,9 +74,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<NoneOr<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(NoneOr::None),
-            BxlBuildResult::Built { .. } => {
-                Ok(NoneOr::Other(StarlarkFailedArtifactIterableGen(this)))
-            }
+            BxlBuildResult::Built { .. } => Ok(NoneOr::Other(StarlarkFailedArtifactIterable(this))),
         }
     }
 }

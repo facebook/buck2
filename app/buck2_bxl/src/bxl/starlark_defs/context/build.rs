@@ -28,10 +28,9 @@ use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::eval::Evaluator;
-use starlark::starlark_complex_value;
-use starlark::values::Freeze;
+use starlark::starlark_complex_value_branded;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -39,7 +38,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue as _;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
@@ -55,24 +53,19 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     Debug,
     Clone,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     Display,
     ProvidesStaticType,
     NoSerialize,
     Allocative,
     starlark::StarlarkPagable
 )]
-#[repr(C)]
-pub(crate) struct StarlarkProvidersArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);
+pub(crate) struct StarlarkProvidersArtifactIterable<'v>(pub(crate) Value<'v>);
 
-starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
+starlark_complex_value_branded!(pub(crate) StarlarkProvidersArtifactIterable);
 
-impl<'v, V: ValueLike<'v>> StarlarkProvidersArtifactIterableGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
-    fn iter(&self) -> impl Iterator<Item = &'v Artifact> + use<'v, V> {
+impl<'v> StarlarkProvidersArtifactIterable<'v> {
+    fn iter(&self) -> impl Iterator<Item = &'v Artifact> + use<'v> {
         self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
@@ -88,10 +81,7 @@ where
 }
 
 #[starlark_value(type = "bxl.BuiltArtifactsIterable")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkProvidersArtifactIterableGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterable<'v> {
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .iter()
@@ -118,24 +108,19 @@ where
     Debug,
     Clone,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     Display,
     ProvidesStaticType,
     NoSerialize,
     Allocative,
     starlark::StarlarkPagablePanic // okay("bxl")
 )]
-#[repr(C)]
-pub(crate) struct StarlarkFailedArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);
+pub(crate) struct StarlarkFailedArtifactIterable<'v>(pub(crate) Value<'v>);
 
-starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
+starlark_complex_value_branded!(pub(crate) StarlarkFailedArtifactIterable);
 
-impl<'v, V: ValueLike<'v>> StarlarkFailedArtifactIterableGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
-    fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> + use<'v, V> {
+impl<'v> StarlarkFailedArtifactIterable<'v> {
+    fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> + use<'v> {
         self.0
             .downcast_ref::<StarlarkBxlBuildResult>()
             .unwrap()
@@ -150,10 +135,7 @@ where
 }
 
 #[starlark_value(type = "bxl.FailedArtifactsIterable")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkFailedArtifactIterableGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkFailedArtifactIterable<'v> {
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self.iter().map(|e| heap.alloc(format!("{e}"))).collect())
     }
