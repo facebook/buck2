@@ -17,16 +17,13 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Coerce;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 
@@ -52,30 +49,29 @@ enum InstallInfoProviderErrors {
 #[internal_provider(install_info_creator)]
 #[derive(
     Clone,
-    Coerce,
     Debug,
-    Freeze,
+    FreezeBranded,
     Trace,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-#[freeze(validator = validate_install_info, bounds = "V: ValueLike<'freeze>")]
-pub struct InstallInfoGen<V: ValueLifetimeless> {
+#[freeze_branded(validator = validate_install_info)]
+pub struct InstallInfo<'v> {
     // Label for the installer
-    installer: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
+    installer: ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>,
     // list of files that need to be installed
-    files: ValueOfUncheckedGeneric<V, DictType<String, ValueIsInputArtifactAnnotation>>,
+    files: ValueOfUnchecked<'v, DictType<String, ValueIsInputArtifactAnnotation>>,
 }
 
-impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
+impl<'v> InstallInfo<'v> {
     pub fn get_installer(&self) -> buck2_error::Result<ConfiguredProvidersLabel> {
-        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.get().to_value())
+        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.get())
             .ok_or_else(|| {
                 InstallInfoProviderErrors::ExpectedLabel(
-                    self.installer.get().to_value().to_repr(),
-                    self.installer.get().to_value().get_type().to_owned(),
+                    self.installer.get().to_repr(),
+                    self.installer.get().get_type().to_owned(),
                 )
             })?
             .label()
@@ -84,7 +80,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
     }
 
     fn get_files_dict(&self) -> DictRef<'v> {
-        DictRef::from_value(self.files.get().to_value()).expect("Value is a Dict")
+        DictRef::from_value(self.files.get()).expect("Value is a Dict")
     }
 
     fn get_files_iter<'a>(
@@ -136,11 +132,8 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> buck2_error::Result<()>
-where
-    V: ValueLike<'v>,
-{
-    for x in InstallInfoGen::<V>::get_files_iter(&info.get_files_dict()) {
+fn validate_install_info<'v>(info: &InstallInfo<'v>) -> buck2_error::Result<()> {
+    for x in InstallInfo::get_files_iter(&info.get_files_dict()) {
         let (k, v) = x?;
         if let Some(other_artifacts) = v.0.get_associated_artifacts() {
             if !other_artifacts.is_empty() {

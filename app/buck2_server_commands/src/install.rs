@@ -373,10 +373,11 @@ async fn collect_install_request_data<'a>(
             match install_info {
                 Some(install_info) => {
                     let installer_label = install_info.get_installer()?;
+                    let install_files = install_info.get_files()?;
                     installer_to_files_map
                         .entry(installer_label)
                         .or_insert_with(Vec::new)
-                        .push((providers_label.target().dupe(), install_info));
+                        .push((providers_label.target().dupe(), install_files));
                 }
                 None => {
                     return Err(InstallError::NoInstallProvider(
@@ -390,12 +391,7 @@ async fn collect_install_request_data<'a>(
     }
 
     let mut request_data_vec = Vec::with_capacity(installer_to_files_map.len());
-    for (installer_label, install_info_vector) in installer_to_files_map {
-        let mut installed_targets = Vec::with_capacity(install_info_vector.len());
-        for (installed_target, install_info) in install_info_vector {
-            let install_files = install_info.get_files()?;
-            installed_targets.push((installed_target, install_files));
-        }
+    for (installer_label, installed_targets) in installer_to_files_map {
         request_data_vec.push(InstallRequestData {
             installer_label,
             installed_targets,
