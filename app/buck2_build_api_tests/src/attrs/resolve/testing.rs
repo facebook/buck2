@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
@@ -232,15 +232,17 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn resolve_unkeyed_placeholder(
             &mut self,
             name: &str,
-        ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
+        ) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
             for providers in self.deps.values() {
-                if let Some(placeholders) = providers
-                    .provider_collection()
-                    .builtin_provider::<FrozenTemplatePlaceholderInfo>()
-                {
-                    if let Some(value) = placeholders.unkeyed_variables().get(name) {
-                        return Ok(Some(*value));
-                    }
+                let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
+                    let placeholders = collection
+                        .as_ref()
+                        .builtin_provider::<FrozenTemplatePlaceholderInfo>()?;
+                    let value = placeholders.unkeyed_variables().get(name).copied()?;
+                    Some(r.edge(self.module.heap()).rebrand(value))
+                });
+                if let Some(value) = resolved {
+                    return Ok(Some(value));
                 }
             }
             Ok(None)

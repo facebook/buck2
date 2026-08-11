@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -52,7 +52,7 @@ pub trait AttrResolutionContext<'v> {
     fn resolve_unkeyed_placeholder(
         &mut self,
         name: &str,
-    ) -> buck2_error::Result<Option<FrozenCommandLineArg>>;
+    ) -> buck2_error::Result<Option<CommandLineArg<'v>>>;
 
     /// Provides the result of the query. This will only provide results for queries that are reported during the configured attr traversal.
     // TODO(cjhopman): Ideally, we wouldn't need to split query attr resolution in this way, but processing queries is an async operation and the starlark Heap cannot be used in async code.

@@ -149,11 +149,7 @@ fn resolve_configured_macro<'v>(
             let provider = ctx.resolve_unkeyed_placeholder(name)?.ok_or_else(|| {
                 ResolveMacroError::UnkeyedPlaceholderUnresolved((**name).to_owned())
             })?;
-            // TODO(JakobDegen): Have `resolve_unkeyed_placeholder` return a branded handle
-            // directly.
-            Ok(ResolvedMacro::ArgLike(CommandLineArg::new(
-                provider.to_frozen_value().to_value(),
-            )?))
+            Ok(ResolvedMacro::ArgLike(provider))
         }
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
@@ -195,10 +191,7 @@ fn resolve_configured_macro<'v>(
                 }
             };
 
-            // TODO(JakobDegen): Have `keyed_variables` return branded handles directly.
-            Ok(ResolvedMacro::ArgLike(CommandLineArg::new(
-                value.to_frozen_value().to_value(),
-            )?))
+            Ok(ResolvedMacro::ArgLike(value))
         }
         ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
         ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {

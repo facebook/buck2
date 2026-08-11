@@ -20,7 +20,7 @@ use buck2_analysis::analysis::env::resolve_query;
 use buck2_analysis::analysis::env::resolve_unkeyed_placeholder;
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -121,7 +121,7 @@ impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v,
     fn resolve_unkeyed_placeholder(
         &mut self,
         name: &str,
-    ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
+    ) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
         let module = self.eval.module();
         match self
             .cache

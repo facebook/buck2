@@ -14,7 +14,7 @@ use std::time::Instant;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::FrozenValidationInfo;
@@ -98,7 +98,7 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext
     fn resolve_unkeyed_placeholder(
         &mut self,
         name: &str,
-    ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
+    ) -> buck2_error::Result<Option<CommandLineArg<'v>>> {
         Ok(resolve_unkeyed_placeholder(
             &self.dep_analysis_results,
             name,
@@ -130,24 +130,24 @@ pub fn get_dep<'v>(
     }
 }
 
-pub fn resolve_unkeyed_placeholder(
+pub fn resolve_unkeyed_placeholder<'v>(
     dep_analysis_results: &StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
-    module: &Module,
-) -> Option<FrozenCommandLineArg> {
+    module: &Module<'v>,
+) -> Option<CommandLineArg<'v>> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {
-        if let Some(placeholder_info) = providers
-            .provider_collection()
-            .builtin_provider::<FrozenTemplatePlaceholderInfo>()
-        {
-            if let Some(value) = placeholder_info.unkeyed_variables().get(name) {
-                // IMPORTANT: Anything given back to the user must be kept alive
-                module
-                    .frozen_heap()
-                    .add_reference(providers.value().owner());
-                return Some(*value);
-            }
+        let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
+            let placeholder_info = collection
+                .as_ref()
+                .builtin_provider::<FrozenTemplatePlaceholderInfo>()?;
+            let value = placeholder_info.unkeyed_variables().get(name).copied()?;
+            // IMPORTANT: Anything given back to the user must be kept alive; the edge
+            // makes the dep's heap a dependency of the module's heap.
+            Some(r.edge(module.heap()).rebrand(value))
+        });
+        if let Some(value) = resolved {
+            return Some(value);
         }
     }
     None

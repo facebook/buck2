@@ -17,10 +17,9 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -28,13 +27,10 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
-use starlark::values::dict::FrozenDictRef;
-use starlark::values::string::StarlarkStr;
 
 use crate as buck2_build_api;
-use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -101,76 +97,50 @@ pub struct TemplatePlaceholderInfo<'v> {
 }
 
 impl<'v> TemplatePlaceholderInfo<'v> {
-    /// Panics when called on an unfrozen instance.
-    pub fn unkeyed_variables(&self) -> SmallMap<FrozenStringValue, FrozenCommandLineArg> {
-        FrozenDictRef::from_frozen_value(
-            self.unkeyed_variables
-                .get()
-                .unpack_frozen()
-                .expect("only usable on frozen instances"),
-        )
-        .expect("should be a dict-like object")
-        .iter()
-        .map(|(k, v)| {
-            (
-                FrozenValueTyped::<StarlarkStr>::new(k).expect("should have string keys"),
-                FrozenCommandLineArg::new(v).unwrap(),
-            )
-        })
-        .collect()
+    pub fn unkeyed_variables(&self) -> SmallMap<StringValue<'v>, CommandLineArg<'v>> {
+        DictRef::from_value(self.unkeyed_variables.get())
+            .expect("should be a dict-like object")
+            .iter()
+            .map(|(k, v)| {
+                (
+                    StringValue::new(k).expect("should have string keys"),
+                    CommandLineArg::new(v).expect("arg-like values, verified at construction"),
+                )
+            })
+            .collect()
     }
 
-    /// Panics when called on an unfrozen instance.
     pub fn keyed_variables(
         &self,
     ) -> SmallMap<
-        FrozenStringValue,
-        Either<FrozenCommandLineArg, SmallMap<FrozenStringValue, FrozenCommandLineArg>>,
+        StringValue<'v>,
+        Either<CommandLineArg<'v>, SmallMap<StringValue<'v>, CommandLineArg<'v>>>,
     > {
-        FrozenDictRef::from_frozen_value(
-            self.keyed_variables
-                .get()
-                .unpack_frozen()
-                .expect("only usable on frozen instances"),
-        )
-        .expect("should be a dict-like object")
-        .iter()
-        .map(|(k, v)| {
-            (
-                FrozenValueTyped::<StarlarkStr>::new(k).expect("should have string keys"),
-                {
-                    if let Some(dict) = FrozenDictRef::from_frozen_value(v) {
+        DictRef::from_value(self.keyed_variables.get())
+            .expect("should be a dict-like object")
+            .iter()
+            .map(|(k, v)| {
+                (StringValue::new(k).expect("should have string keys"), {
+                    if let Some(dict) = DictRef::from_value(v) {
                         Either::Right(
                             dict.iter()
                                 .map(|(k, v)| {
                                     (
-                                        FrozenValueTyped::<StarlarkStr>::new(k)
-                                            .expect("should have string keys"),
-                                        FrozenCommandLineArg::new(v).unwrap(),
+                                        StringValue::new(k).expect("should have string keys"),
+                                        CommandLineArg::new(v)
+                                            .expect("arg-like values, verified at construction"),
                                     )
                                 })
                                 .collect(),
                         )
-                    } else if let Ok(cmd) = FrozenCommandLineArg::new(v) {
+                    } else if let Ok(cmd) = CommandLineArg::new(v) {
                         Either::Left(cmd)
                     } else {
                         unreachable!("should be dict or command line")
                     }
-                },
-            )
-        })
-        .collect()
-    }
-
-    pub fn _lookup_provider_raw(providers: &FrozenProviderCollectionValue) -> Option<FrozenValue> {
-        let provider_id = TemplatePlaceholderInfoCallable::provider_id();
-        let v = providers
-            .provider_collection()
-            .get_provider_raw(provider_id)?;
-        Some(
-            v.unpack_frozen()
-                .expect("`FrozenProviderCollectionValue` contents are frozen"),
-        )
+                })
+            })
+            .collect()
     }
 
     fn new(unkeyed_variables: Value<'v>, keyed_variables: Value<'v>) -> buck2_error::Result<Self> {
