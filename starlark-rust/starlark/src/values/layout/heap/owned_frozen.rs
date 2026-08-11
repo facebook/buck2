@@ -36,6 +36,7 @@ use crate::values::OwnedFrozenRef;
 use crate::values::OwnedFrozenValue;
 use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::ValueTyped;
 
 /// An alias for `FnOnce`.
@@ -248,6 +249,45 @@ where
             // SAFETY: The owner of this value is this heap
             unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
         })
+    }
+}
+
+impl From<OwnedFrozenValue> for OwnedFrozen<Value<'static>> {
+    fn from(value: OwnedFrozenValue) -> Self {
+        // SAFETY: The owner keeps the value alive, which is `OwnedFrozenValue`'s own invariant
+        let v = unsafe { value.unchecked_frozen_value() }.to_value();
+        // SAFETY: As per above, the owner of this value is this heap
+        unsafe { Self::unchecked_new(value.owner().dupe(), v) }
+    }
+}
+
+/// Wire-compatible with `OwnedFrozenValue`.
+impl PagableSerialize for OwnedFrozen<Value<'static>> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        // Serialize the owner heap ref (via pagable arc mechanism).
+        self.owner().pagable_serialize(serializer)?;
+
+        // Ensure offset maps are registered for the owner heap and its
+        // transitive dependencies; see `OwnedFrozenValue`'s impl.
+        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        state.ensure_chunk_index_registered(self.owner())?;
+
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+        // The value lives in a frozen heap, so it is frozen even though the
+        // branded API hands it out as a `Value`.
+        let fv = self.by_ref(|v| v.unpack_frozen().unwrap());
+        ctx.serialize_frozen_value(fv)
+            .map_err(|e| e.into_anyhow())?;
+
+        Ok(())
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(OwnedFrozenValue::pagable_deserialize(deserializer)?.into())
     }
 }
 
