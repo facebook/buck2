@@ -11,24 +11,22 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
+use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
 use starlark::values::Demand;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
-use super::StarlarkTaggedValueGen;
+use super::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -41,35 +39,30 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Debug,
     Clone,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     Display,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
-#[repr(C)]
 #[display("StarlarkTaggedCommandLine({})", inner)]
-pub struct StarlarkTaggedCommandLineGen<V: ValueLifetimeless> {
-    inner: StarlarkTaggedValueGen<V>,
+pub struct StarlarkTaggedCommandLine<'v> {
+    inner: StarlarkTaggedValue<'v>,
 }
 
-impl<V: ValueLifetimeless> StarlarkTaggedCommandLineGen<V> {
-    pub fn new(inner: StarlarkTaggedValueGen<V>) -> Self {
+impl<'v> StarlarkTaggedCommandLine<'v> {
+    pub fn new(inner: StarlarkTaggedValue<'v>) -> Self {
         Self { inner }
     }
 }
 
-starlark_complex_value!(pub StarlarkTaggedCommandLine);
+starlark_complex_value_branded!(pub StarlarkTaggedCommandLine);
 
 starlark::methods_static!(TAGGED_COMMAND_LINE_METHODS = tagged_command_line_methods);
 
 #[starlark_value(type = "TaggedCommandLine")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedCommandLineGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkTaggedCommandLine<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(TAGGED_COMMAND_LINE_METHODS.methods())
     }
@@ -86,13 +79,13 @@ where
 #[starlark_module]
 fn tagged_command_line_methods(_: &mut MethodsBuilder) {}
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkTaggedCommandLineGen<V> {
+impl<'v> CommandLineArgLike<'v> for StarlarkTaggedCommandLine<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(StarlarkTaggedCommandLine::starlark_type_repr());
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value())?
             .0
             .add_to_command_line(fmt)
     }
@@ -103,13 +96,13 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkTaggedCommandLineG
     ) -> buck2_error::Result<()> {
         let mut visitor = self.inner.wrap_visitor(visitor);
 
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value())?
             .0
             .visit_artifacts(&mut visitor)
     }
 
     fn contains_arg_attr(&self) -> bool {
-        ValueAsCommandLineLike::unpack(self.inner.value().to_value())
+        ValueAsCommandLineLike::unpack(self.inner.value())
             .is_some_and(|inner| inner.0.contains_arg_attr())
     }
 
@@ -118,7 +111,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkTaggedCommandLineG
         visitor: &mut dyn WriteToFileMacroVisitor,
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value())?
             .0
             .visit_write_to_file_macros(visitor, artifact_path_mapping)
     }

@@ -259,7 +259,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
             JsonUnpack::Provider(x) => {
                 serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
-            JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
+            JsonUnpack::TaggedValue(x) => self.with_value(x.value()).serialize(serializer),
             JsonUnpack::BxlSelectConcat(x) => x.serialize(serializer),
             JsonUnpack::BxlSelectDict(x) => x.serialize(serializer),
         }
@@ -374,7 +374,7 @@ pub fn visit_json_artifacts<'v>(
         }
         JsonUnpack::TaggedValue(v) => {
             let mut visitor = v.wrap_visitor(visitor);
-            visit_json_artifacts(*v.value(), &mut visitor)?;
+            visit_json_artifacts(v.value(), &mut visitor)?;
         }
     }
     Ok(())
