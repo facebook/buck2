@@ -22,9 +22,12 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 
+use crate::any::IsStaticType;
+use crate::any::ProvidesStaticType;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::Heap;
+use crate::values::OwnedFrozenRef;
 
 /// A reference to a value stored in a frozen heap with a borrowed reference to the heap.
 #[derive(Copy_, Clone_, Dupe_)]
@@ -91,5 +94,59 @@ impl<'f, T: ?Sized> OwnedRefFrozenRef<'f, T> {
         F: FnOnce(&'f T) -> Option<&'f U>,
     {
         self.try_map_result(|x| f(x).ok_or(())).ok()
+    }
+
+    /// Convert to the [`OwnedFrozenRef`] equivalent of this reference.
+    ///
+    /// The bounds restrict this to types without lifetime parameters. The result is shaped as
+    /// a `&'static T`, which the `OwnedFrozenRef` accessors hand back out as a `&T` at the
+    /// brand.
+    pub fn to_owned_frozen_ref(self) -> OwnedFrozenRef<'f, &'static T>
+    where
+        T: Sync,
+        for<'v> T: ProvidesStaticType<'v, StaticType = T> + IsStaticType<Reinfect<'v> = T>,
+    {
+        // SAFETY: This type's own invariant: the value is kept alive by the heap behind
+        // `owner`
+        unsafe { OwnedFrozenRef::unchecked_new(self.owner, self.value) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use starlark_derive::ProvidesStaticType;
+
+    use crate as starlark;
+    use crate::values::FrozenHeap;
+    use crate::values::OwnedRefFrozenRef;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+
+    #[derive(ProvidesStaticType)]
+    struct Data {
+        s: &'static str,
+        n: u32,
+    }
+
+    static DATA: Data = Data {
+        s: "contents",
+        n: 7,
+    };
+
+    #[test]
+    fn test_to_owned_frozen_ref() {
+        let heap_ref = FrozenHeap::new().into_ref_named(StarlarkTestHeapName::frozen_heap_name());
+        // SAFETY: `DATA` is `'static`, so it is trivially kept alive
+        let legacy: OwnedRefFrozenRef<Data> =
+            unsafe { OwnedRefFrozenRef::new_unchecked(&DATA, &heap_ref) };
+
+        let bridged = legacy.to_owned_frozen_ref();
+        assert_eq!(bridged.value().s, "contents");
+        assert!(std::ptr::eq(bridged.owner(), legacy.owner()));
+
+        // Brand-generic projections on the reference shape
+        let n = bridged.map::<&'static u32, _>(|d| &d.n);
+        assert_eq!(*n.value(), 7);
+        let s = bridged.try_map::<&'static str, (), _>(|d| Ok(d.s)).unwrap();
+        assert_eq!(s.value(), "contents");
     }
 }
