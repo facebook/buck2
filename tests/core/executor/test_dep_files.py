@@ -411,6 +411,218 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     )
 
 
+async def _execution_kinds(buck: Buck) -> list[int]:
+    return await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "execution_kind",
+    )
+
+
+# The persisted local dep-file cache reloads across daemon restarts. After a restart the in-memory
+# cache is gone, but the entry is reloaded from the sqlite db and, because the outputs are still
+# materialized on disk, the identical action is served from the LOCAL_ACTION_CACHE without
+# re-executing. The `_disabled` control proves this only happens with the feature enabled.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    # The persisted dep-file cache is gated on a daemon-startup buckconfig (read once when the daemon
+    # boots, like the materializer/incremental state dbs), so it must be set here rather than via `-c`.
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
+    args = [
+        "app:app_with_dummy_config",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=dummy1",
+    ]
+    # First build populates both buck-out and the persisted dep-file cache.
+    await buck.build(*args)
+    # Killing the daemon drops the in-memory dep-file cache; the sqlite db and outputs persist.
+    await buck.kill()
+    # The rebuild reloads the entry from disk and serves the identical action from the local cache.
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    # Served by the reloaded local dep-file cache before any action-cache lookup.
+    await check_no_cache_query(buck)
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
+async def test_dep_file_not_persisted_across_restart_when_disabled(buck: Buck) -> None:
+    # Control for `test_dep_file_hit_persisted_across_restart`: with the feature disabled (the
+    # default), a restart loses the cache and the identical action re-executes locally.
+    args = [
+        "app:app_with_dummy_config",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=dummy1",
+    ]
+    await buck.build(*args)
+    await buck.kill()
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_changed_action_is_not_served_from_persisted_cache(buck: Buck) -> None:
+    # The risk the persisted cache carries is not missing a hit, it is serving a stale output. A
+    # reloaded entry is only usable for an action that is genuinely identical, so changing an input
+    # across the restart must re-execute and produce the new content.
+    def args(used_input_contents: str) -> list[str]:
+        return [
+            "app:dir_output_dep_file",
+            "--local-only",
+            "--no-remote-cache",
+            "-c",
+            f"test.used_input_contents={used_input_contents}",
+            "--show-output",
+        ]
+
+    await buck.build(*args("used1"))
+    await buck.kill()
+
+    result = await buck.build(*args("used2"))
+    kinds = await _execution_kinds(buck)
+    # The persisted entry exists for this action, but its digests no longer match.
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+
+    # The output on disk must be the newly produced one, not the reloaded entry's.
+    outputs = result.get_target_to_build_output()
+    assert len(outputs) == 1, outputs
+    out_dir = (buck.cwd / next(iter(outputs.values()))).resolve()
+    # The action echoes its used input, so this distinguishes the new tree from a reloaded one.
+    assert (out_dir / "f").read_text() == "used2"
+
+
+# A directory output's tree is not serialized into the dep-file db; only its fingerprint is. Across a
+# restart the tree is rehydrated from the materializer (which persists+reloads it) and verified
+# against that fingerprint, so an action with a directory output still hits the LOCAL_ACTION_CACHE.
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_dir_output_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
+    args = [
+        "app:dir_output_dep_file",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.used_input_contents=used1",
+    ]
+    await buck.build(*args)
+    await buck.kill()
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+    await check_no_cache_query(buck)
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_dir_output_dep_file_hit_persisted_without_content_based_paths(
+    buck: Buck,
+) -> None:
+    # As above, but with a configuration-based output path, so the reload resolves the directory
+    # without a content hash.
+    args = [
+        "app:dir_output_dep_file",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.used_input_contents=used1",
+        "-c",
+        "test.use_content_based_paths=false",
+    ]
+    await buck.build(*args)
+    await buck.kill()
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE in kinds, kinds
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+async def test_flush_dep_files_clears_persisted_cache(buck: Buck) -> None:
+    # `flush-dep-files` clears the in-memory cache synchronously, so the persisted rows must be gone
+    # by the time it returns as well -- a row that outlives it would be reloaded after a restart and
+    # serve an entry the user explicitly invalidated.
+    args = [
+        "app:app_with_dummy_config",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=dummy1",
+    ]
+    await buck.build(*args)
+    await buck.debug("flush-dep-files")
+    # Only a restart can distinguish a cleared db from a still-populated one: without the kill the
+    # empty in-memory cache would produce a miss either way.
+    await buck.kill()
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    # The persisted cache re-validates reloaded outputs against the materializer's own state db, so
+    # it refuses to start without it. Requesting it here should warn and stay disabled, not fail.
+    extra_buck_config={
+        "buck2": {"sqlite_dep_file_state": "true", "sqlite_materializer_state": "false"}
+    },
+)
+async def test_dep_file_persistence_disabled_without_materializer_state(
+    buck: Buck,
+) -> None:
+    args = [
+        "app:app_with_dummy_config",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=dummy1",
+    ]
+    await buck.build(*args)
+    await buck.kill()
+    await buck.build(*args)
+    kinds = await _execution_kinds(buck)
+    assert ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE not in kinds, kinds
+    assert ACTION_EXECUTION_KIND_LOCAL in kinds, kinds
+
+
 # Skipping on windows: simple_dep_file's action uses symlinks, which aren't supported there.
 @buck_test(
     # test uses symlinks that mess up with eden symlink redirection on MacOS

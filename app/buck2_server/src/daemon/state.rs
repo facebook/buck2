@@ -39,6 +39,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -49,6 +50,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::source::ChannelEventSource;
+use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
@@ -63,6 +65,7 @@ use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_execute_impl::re::paranoid_download::ParanoidDownloader;
+use buck2_execute_impl::sqlite::dep_file_state_db::PersistedDepFileStore;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
@@ -94,6 +97,7 @@ use crate::ctx::BaseServerCommandContext;
 use crate::daemon::check_working_dir;
 use crate::daemon::disk_state::DiskStateOptions;
 use crate::daemon::disk_state::delete_unknown_disk_state;
+use crate::daemon::disk_state::maybe_initialize_dep_file_sqlite_db;
 use crate::daemon::disk_state::maybe_initialize_incremental_sqlite_db;
 use crate::daemon::disk_state::maybe_initialize_materializer_sqlite_db;
 use crate::daemon::forkserver::maybe_launch_forkserver;
@@ -530,8 +534,8 @@ impl DaemonState {
                 .unwrap_or(cfg!(any(target_os = "macos", target_os = "windows")));
 
             tracing::info!("Creating materializer...");
-            let (io, _, (materializer_db, materializer_state), incremental_db_state) =
-                futures::future::try_join4(
+            let (io, _, (materializer_db, materializer_state), incremental_db_state, dep_file_db) =
+                futures::future::try_join5(
                     create_io_provider(
                         fb,
                         fs.dupe(),
@@ -564,8 +568,38 @@ impl DaemonState {
                         root_config,
                         &daemon_id,
                     ),
+                    maybe_initialize_dep_file_sqlite_db(
+                        &disk_state_options,
+                        paths.clone(),
+                        blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
+                        root_config,
+                        &daemon_id,
+                    ),
                 )
                 .await?;
+
+            // Install the persisted dep-file store into the process-global dep-file cache
+            // (`buck2_action_impl`), which reads it on demand at lookup time. No entries are loaded
+            // eagerly here. `DEP_FILE_STORE` is set only here, and this runs once per daemon.
+            if let Some(dep_file_db) = dep_file_db {
+                // The cache is opt-in and best-effort, so a store that cannot be built leaves the
+                // daemon running without persistence rather than failing startup.
+                match PersistedDepFileStore::try_new(dep_file_db, digest_config) {
+                    Ok(store) => DEP_FILE_STORE.init(Arc::new(store)),
+                    Err(e) => {
+                        let _unused = soft_error!(
+                            "dep_file_store_init",
+                            buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "Failed to start the persisted dep-file cache; continuing without \
+                                 it. {}",
+                                e
+                            ),
+                            quiet: true
+                        );
+                    }
+                }
+            }
 
             let http_client = http_client_from_startup_config(&init_ctx.daemon_startup_config)
                 .await

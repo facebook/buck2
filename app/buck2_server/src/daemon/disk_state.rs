@@ -15,6 +15,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
@@ -22,6 +23,8 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
+use buck2_execute_impl::sqlite::dep_file_state_db::DEP_FILE_DB_SCHEMA_VERSION;
+use buck2_execute_impl::sqlite::dep_file_state_db::DepFileStateSqliteDb;
 use buck2_execute_impl::sqlite::incremental_state_db::INCREMENTAL_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalStateSqliteDb;
@@ -33,13 +36,13 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::IntentionallyStdHashMap;
+use jiff::Timestamp;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 
 #[derive(Allocative)]
 pub struct DiskStateOptions {
     pub sqlite_materializer_state: bool,
-    // In future, this will include the config for dep files on disk
 }
 
 impl DiskStateOptions {
@@ -195,6 +198,123 @@ pub(crate) async fn maybe_initialize_incremental_sqlite_db(
     )
     .await?;
     Ok(incremental_db_state)
+}
+
+pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
+    options: &DiskStateOptions,
+    paths: InvocationPaths,
+    io_executor: Arc<dyn BlockingExecutor>,
+    root_config: &LegacyBuckConfig,
+    daemon_id: &DaemonId,
+) -> buck2_error::Result<Option<DepFileStateSqliteDb>> {
+    // Opt-in (Phase 1), enabled with `buck2.sqlite_dep_file_state = true` -- but only meaningful with
+    // the materializer state db. A cross-restart hit re-validates outputs via
+    // `Materializer::declare_match`, which after a restart only reports a match if the materializer
+    // reloaded its tracked state from sqlite. Without `sqlite_materializer_state` that tree is empty
+    // post-restart, so no reloaded entry could ever hit and persisting them would be pure overhead.
+    let requested = root_config
+        .parse(BuckconfigKeyRef {
+            section: "buck2",
+            property: "sqlite_dep_file_state",
+        })?
+        .unwrap_or(false);
+    if requested && !options.sqlite_materializer_state {
+        tracing::warn!(
+            "Ignoring `buck2.sqlite_dep_file_state`: it needs `buck2.sqlite_materializer_state`, \
+             which is disabled. The persisted dep-file cache re-validates outputs against the \
+             materializer state db after a restart. Startup continues with the cache disabled."
+        );
+    }
+    let enabled = requested && options.sqlite_materializer_state;
+    if !enabled {
+        // When disabled, delete the db so a future enabled invocation can't use stale entries. This
+        // is the default path, so a failure here must not take the daemon down for a feature nobody
+        // enabled: a db that survives still cannot serve a stale entry, since every reloaded entry
+        // is re-validated against the action's digests and the materializer before use.
+        let removed = io_executor
+            .execute_io_inline(|| {
+                fs_util::remove_all(paths.dep_file_state_path())
+                    .categorize_internal()
+                    .map_err(buck2_error::Error::from)
+            })
+            .await;
+        if let Err(e) = removed {
+            let _unused = soft_error!(
+                "dep_file_state_db_remove",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Failed to delete the disabled dep-file state db. {}",
+                    e
+                ),
+                quiet: true
+            );
+        }
+        return Ok(None);
+    }
+
+    let (metadata, versions) = sqlite_db_setup_metadata_and_versions(
+        root_config,
+        DEP_FILE_DB_SCHEMA_VERSION.to_string(),
+        "sqlite_dep_file_state_version",
+        None,
+        daemon_id,
+    )?;
+
+    // Bound the db across sessions. TTL (0 disables age-based pruning) mirrors the materializer's
+    // 7-day `clean_stale_artifact_ttl_hours`; `max_entries` is an optional hard cap.
+    let ttl_days: u64 = root_config
+        .parse(BuckconfigKeyRef {
+            section: "buck2",
+            property: "sqlite_dep_file_state_ttl_days",
+        })?
+        .unwrap_or(7);
+    let prune_cutoff = if ttl_days == 0 {
+        None
+    } else {
+        // `ttl_days` comes from a buckconfig, so it can be absurd. Saturate the multiply and clamp
+        // to `i64::MAX` before the cast, since `u64::MAX as i64` would otherwise wrap negative and
+        // prune everything. Clamping just means "prune nothing", which is what an absurdly long TTL
+        // asks for anyway.
+        let ttl_seconds = ttl_days.saturating_mul(24 * 60 * 60).min(i64::MAX as u64) as i64;
+        Some(Timestamp::now().as_second().saturating_sub(ttl_seconds))
+    };
+    let max_entries: Option<usize> = root_config.parse(BuckconfigKeyRef {
+        section: "buck2",
+        property: "sqlite_dep_file_state_max_entries",
+    })?;
+
+    // An opt-in cache that fails safe to a miss on every lookup should not keep the daemon from
+    // starting because its db will not open, so a failure here disables persistence for the session
+    // instead of propagating. This mirrors the install site, which treats a store that cannot be
+    // built the same way.
+    let db = match DepFileStateSqliteDb::initialize(
+        paths.dep_file_state_path(),
+        versions,
+        metadata,
+        io_executor,
+        // Like incremental state, the dep-file cache fails safe to a miss on every lookup, so it
+        // does not need identity rejection for the restarter.
+        None,
+        prune_cutoff,
+        max_entries,
+    )
+    .await
+    {
+        Ok(db) => db,
+        Err(e) => {
+            let _unused = soft_error!(
+                "dep_file_state_db_init",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Failed to open the dep-file state db; continuing without persistence. {}",
+                    e
+                ),
+                quiet: true
+            );
+            return Ok(None);
+        }
+    };
+    Ok(Some(db))
 }
 
 // Once we start storing disk state in the cache directory, we need to make sure
