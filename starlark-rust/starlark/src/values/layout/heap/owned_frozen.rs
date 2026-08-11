@@ -19,13 +19,20 @@ use std::fmt;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 
 use crate::any::IsStaticType;
 use crate::cast::transmute;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenValue;
 use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::ValueTyped;
@@ -191,6 +198,56 @@ where
             // the owner.
             unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
         })
+    }
+}
+
+/// Wire-compatible with `OwnedFrozenValue` and `OwnedFrozenValueTyped`.
+impl<T: IsStaticType + StarlarkValue<'static>> PagableSerialize
+    for OwnedFrozen<ValueTyped<'static, T>>
+where
+    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+{
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        // Serialize the owner heap ref (via pagable arc mechanism).
+        self.owner().pagable_serialize(serializer)?;
+
+        // Ensure offset maps are registered for the owner heap and its
+        // transitive dependencies; see `OwnedFrozenValue`'s impl.
+        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        state.ensure_chunk_index_registered(self.owner())?;
+
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+        // The branded API hands the value out as a `Value`, but it lives in a frozen heap.
+        let fv = self.by_ref(|v| {
+            v.to_value()
+                .unpack_frozen()
+                .expect("value in a frozen heap is frozen")
+        });
+        ctx.serialize_frozen_value(fv)
+            .map_err(|e| e.into_anyhow())?;
+
+        Ok(())
+    }
+}
+
+impl<'de, T: IsStaticType + StarlarkValue<'static>> PagableDeserialize<'de>
+    for OwnedFrozen<ValueTyped<'static, T>>
+where
+    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let owned = OwnedFrozenValue::pagable_deserialize(deserializer)?;
+        match owned.downcast::<T>() {
+            Ok(typed) => Ok(typed.into()),
+            Err(owned) => Err(anyhow::anyhow!(
+                "OwnedFrozen deserialization: expected type `{}`, got `{}`",
+                T::TYPE,
+                owned.value().to_string_for_type_error()
+            )),
+        }
     }
 }
 
