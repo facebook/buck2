@@ -21,13 +21,11 @@ use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_util::threads::check_stack_overflow;
-use either::Either;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::enumeration::EnumValue;
 use starlark::values::list::ListRef;
@@ -42,7 +40,7 @@ use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
@@ -109,7 +107,7 @@ fn err<R, E: serde::ser::Error>(res: buck2_error::Result<R>) -> Result<R, E> {
 #[derive(UnpackValue, StarlarkTypeRepr)]
 pub enum JsonArtifact<'v> {
     ValueAsInputArtifactLike(ValueAsInputArtifactLike<'v>),
-    StarlarkOutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
+    StarlarkOutputArtifact(StarlarkOutputArtifactUnpack<'v>),
 }
 
 /// Partially unpack the value into JSON writable with `ctx.actions.write_json`.
@@ -201,9 +199,11 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                                 err(art.resolve_path(fs.fs(), self.artifact_path_mapping.get(&art)))?
                             }
                             JsonArtifact::StarlarkOutputArtifact(x) => {
-                                let art = match x.unpack() {
-                                    Either::Left(x) => err((*x.inner()).get_bound_artifact())?,
-                                    Either::Right(x) => x.inner().artifact(),
+                                let art = match x {
+                                    StarlarkOutputArtifactUnpack::Unfrozen(x) => {
+                                        err((*x.inner()).get_bound_artifact())?
+                                    }
+                                    StarlarkOutputArtifactUnpack::Frozen(x) => x.inner().artifact(),
                                 };
 
                                 err(art.resolve_path(

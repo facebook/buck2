@@ -24,10 +24,10 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePath;
 use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use dupe::Dupe;
-use either::Either;
 use regex::Regex;
 use starlark::values::ValueOfUnchecked;
 
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::OptionsReplacementsRef;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
@@ -58,9 +58,9 @@ pub(crate) fn compute_relative_to_path<'v>(
         .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
     let mut path = match origin {
         RelativeOrigin::OutputArtifact(artifact) => {
-            let value = match artifact.unpack() {
-                Either::Right(value) => value,
-                Either::Left(_) => {
+            let value = match artifact {
+                StarlarkOutputArtifactUnpack::Frozen(value) => value,
+                StarlarkOutputArtifactUnpack::Unfrozen(_) => {
                     return Err(buck2_error::internal_error!(
                         "Non-frozen output artifacts can't be added to CLIs"
                     ));

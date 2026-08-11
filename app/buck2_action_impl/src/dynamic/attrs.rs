@@ -82,7 +82,7 @@ pub(crate) enum DynamicAttrValue<
     // Starlark value passed as is from dynamic actions creation site to impl.
     V: ValueLifetimeless,
 > {
-    Output(ValueOfUncheckedGeneric<V, FrozenStarlarkOutputArtifact>),
+    Output(ValueOfUncheckedGeneric<V, FrozenStarlarkOutputArtifact<'static>>),
     ArtifactValue(Artifact),
     DynamicValue(DynamicValue),
     Value(V),

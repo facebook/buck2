@@ -18,13 +18,11 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use either::Either;
 use starlark::collections::StarlarkHasher;
 use starlark::typing::Ty;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueTypedComplex;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -35,6 +33,7 @@ use crate::interpreter::rule_defs::artifact::methods::EitherStarlarkInputArtifac
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 
@@ -155,7 +154,7 @@ pub struct ValueAsInputArtifactLike<'v>(pub &'v dyn StarlarkInputArtifactLike<'v
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
 pub enum ValueAsArtifactLikeUnpack<'v> {
-    OutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
+    OutputArtifact(StarlarkOutputArtifactUnpack<'v>),
     InputArtifact(&'v dyn StarlarkInputArtifactLike<'v>),
 }
 
@@ -172,9 +171,9 @@ impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike<'v> {
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         match ValueAsArtifactLikeUnpack::unpack_value_opt(value) {
-            Some(ValueAsArtifactLikeUnpack::OutputArtifact(artifact)) => match artifact.unpack() {
-                Either::Left(artifact) => Ok(Some(artifact)),
-                Either::Right(artifact) => Ok(Some(artifact)),
+            Some(ValueAsArtifactLikeUnpack::OutputArtifact(artifact)) => match artifact {
+                StarlarkOutputArtifactUnpack::Unfrozen(artifact) => Ok(Some(artifact)),
+                StarlarkOutputArtifactUnpack::Frozen(artifact) => Ok(Some(artifact)),
             },
             Some(ValueAsArtifactLikeUnpack::InputArtifact(artifact)) => Ok(Some(artifact)),
             None => Ok(None),

@@ -563,7 +563,7 @@ fn artifact_values<'v>(
 
 /// Prepare dict of output artifacts for dynamic actions.
 fn outputs<'v>(
-    outputs: &[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>],
+    outputs: &[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>],
     registry: &mut AnalysisRegistry<'v>,
     heap: Heap<'v>,
 ) -> buck2_error::Result<
@@ -576,7 +576,14 @@ fn outputs<'v>(
     for x in outputs {
         let declared = registry.declare_dynamic_output(x.as_build_artifact(), heap)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
-        outputs_dict.push((x.inner(), v));
+        // Interim re-type until dynamic-lambda params are branded (see the
+        // roadmap): allocating a key from the `'static`-erased params into
+        // this unrelated heap goes through `FrozenValueTyped`'s brand-generic
+        // alloc, which needs the frozen witness back.
+        let artifact = x.inner().unpack_frozen().ok_or_else(|| {
+            internal_error!("Frozen output artifact does not hold a frozen inner artifact")
+        })?;
+        outputs_dict.push((artifact, v));
     }
 
     Ok(heap.alloc_typed_unchecked(AllocDict(outputs_dict)).cast())

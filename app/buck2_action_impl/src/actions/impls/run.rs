@@ -353,7 +353,7 @@ pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) category: FrozenStringValue,
     pub(crate) identifier: Option<FrozenStringValue>,
     pub(crate) outputs_for_error_handler:
-        Vec<FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>>,
+        Vec<FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>>,
 }
 
 starlark::register_simple_vtable_entry!(FrozenStarlarkRunActionValues<'static>);

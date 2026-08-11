@@ -43,12 +43,11 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueTypedComplex;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
-use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifactUnpack;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 
@@ -464,7 +463,7 @@ where
 // because upcasting is not stable).
 #[derive(Display, StarlarkTypeRepr, UnpackValue)]
 pub(crate) enum RelativeOrigin<'v> {
-    OutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
+    OutputArtifact(StarlarkOutputArtifactUnpack<'v>),
     Artifact(&'v dyn StarlarkInputArtifactLike<'v>),
     CellRoot(&'v CellRoot),
     /// Bit of a useless variant since this is simply the default, but we allow it for consistency.

@@ -71,7 +71,7 @@ pub struct FrozenDynamicLambdaParams {
         DynamicAttrValues<FrozenValue>,
         FrozenValueTyped<'static, FrozenStarlarkDynamicActionsCallable>,
     )>,
-    pub(crate) outputs: Box<[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>]>,
+    pub(crate) outputs: Box<[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
