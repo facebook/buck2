@@ -237,7 +237,11 @@ impl CallCompiled {
         let fun = FrozenValueTyped::<FrozenEnumType>::new(fun.as_value()?)?;
         let arg = args.one_pos()?.as_value()?;
         Some(ExprCompiled::Value(
-            fun.as_ref().construct(arg.to_value()).ok()?,
+            fun.as_ref()
+                .construct(arg.to_value())
+                .ok()?
+                .unpack_frozen()
+                .unwrap(),
         ))
     }
 

@@ -21,7 +21,6 @@ use std::fmt::Display;
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
-use either::Either;
 use starlark_derive::FreezeBranded;
 use starlark_derive::Trace;
 use starlark_derive::starlark_module;
@@ -36,10 +35,10 @@ use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::values::enumeration::enum_type::EnumType;
-use crate::values::enumeration::enum_type::FrozenEnumType;
+use crate::values::enumeration::enum_type::AnyEnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
 
 /// A value from an enumeration.
@@ -65,10 +64,7 @@ pub struct EnumValue<'v> {
 
 impl<'v> Display for EnumValue<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ty_enum_data = match self.get_enum_type() {
-            Either::Left(x) => x.ty_enum_data(),
-            Either::Right(x) => x.ty_enum_data(),
-        };
+        let ty_enum_data = self.get_enum_type().ty_enum_data();
         match ty_enum_data {
             Some(ty_enum_data) => {
                 {
@@ -97,9 +93,9 @@ impl<'v> EnumValue<'v> {
     /// The result of calling `type()` on an enum value.
     pub(super) const TYPE: &'static str = "enum";
 
-    fn get_enum_type(&self) -> Either<&'v EnumType<'v>, &'v FrozenEnumType> {
+    fn get_enum_type(&self) -> AnyEnumType<'v> {
         // Safe to unwrap because we always ensure typ is EnumType
-        EnumType::from_value(self.typ.to_value()).unwrap()
+        AnyEnumType::unpack_value_err(self.typ).unwrap()
     }
 }
 
@@ -119,11 +115,7 @@ impl<'v> StarlarkValue<'v> for EnumValue<'v> {
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        let ty_enum_type = match self.get_enum_type() {
-            Either::Left(x) => x.ty_enum_data()?,
-            Either::Right(x) => x.ty_enum_data()?,
-        };
-        Some(ty_enum_type.ty_enum_value.dupe())
+        Some(self.get_enum_type().ty_enum_data()?.ty_enum_value.dupe())
     }
 }
 

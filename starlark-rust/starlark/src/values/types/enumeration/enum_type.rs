@@ -24,14 +24,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use display_container::fmt_container;
 use dupe::Dupe;
-use either::Either;
 use once_cell::unsync::OnceCell;
-use starlark_derive::Coerce;
 use starlark_derive::NoSerialize;
 use starlark_derive::Trace;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
-use starlark_map::Equivalent;
 use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
@@ -44,8 +41,6 @@ use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
-use crate::register_avalue_simple_frozen;
-use crate::starlark_complex_values;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::callable::TyCallable;
@@ -54,13 +49,15 @@ use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserIndex;
 use crate::typing::user::TyUserParams;
-use crate::values::Freeze;
+use crate::values::AllocValue;
+use crate::values::Demand;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
@@ -71,6 +68,7 @@ use crate::values::enumeration::value::EnumValue;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::list::AllocList;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
@@ -84,126 +82,130 @@ enum EnumError {
 }
 
 #[doc(hidden)]
-pub(crate) trait EnumCell: Freeze {
-    type TyEnumDataOpt: Debug;
+pub(crate) trait EnumVariant: Allocative + Debug + 'static {
+    fn get_or_init_ty(&self, f: &dyn Fn() -> crate::Result<Arc<TyEnumData>>) -> crate::Result<()>;
 
-    fn get_or_init_ty(
-        ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
-    ) -> crate::Result<()>;
-    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>>;
+    fn get_ty(&self) -> Option<&Arc<TyEnumData>>;
 }
 
-impl<'v> EnumCell for Value<'v> {
-    type TyEnumDataOpt = OnceCell<Arc<TyEnumData>>;
+#[derive(Debug, Allocative)]
+pub(super) struct EnumVariantUnfrozen {
+    // FIXME(JakobDegen): allocative OSS release
+    #[allocative(skip)]
+    data: OnceCell<Arc<TyEnumData>>,
+}
 
-    fn get_or_init_ty(
-        ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
-    ) -> crate::Result<()> {
-        ty.get_or_try_init(f)?;
+impl EnumVariant for EnumVariantUnfrozen {
+    fn get_or_init_ty(&self, f: &dyn Fn() -> crate::Result<Arc<TyEnumData>>) -> crate::Result<()> {
+        self.data.get_or_try_init(f)?;
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>> {
-        ty.get()
+    fn get_ty(&self) -> Option<&Arc<TyEnumData>> {
+        self.data.get()
     }
 }
 
-impl EnumCell for FrozenValue {
-    type TyEnumDataOpt = Option<Arc<TyEnumData>>;
+#[derive(Debug, Allocative)]
+pub(crate) struct EnumVariantFrozen {
+    data: Option<Arc<TyEnumData>>,
+}
 
-    fn get_or_init_ty(
-        ty: &Self::TyEnumDataOpt,
-        f: impl FnOnce() -> crate::Result<Arc<TyEnumData>>,
-    ) -> crate::Result<()> {
-        let _ignore = (ty, f);
+impl EnumVariant for EnumVariantFrozen {
+    fn get_or_init_ty(&self, _f: &dyn Fn() -> crate::Result<Arc<TyEnumData>>) -> crate::Result<()> {
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyEnumDataOpt) -> Option<&Arc<TyEnumData>> {
-        ty.as_ref()
+    fn get_ty(&self) -> Option<&Arc<TyEnumData>> {
+        self.data.as_ref()
     }
 }
 
 /// The type of an enumeration, created by `enum()`.
-#[derive(Debug, Trace, Coerce, NoSerialize, ProvidesStaticType, Allocative)]
+#[derive(Debug, Trace, NoSerialize, ProvidesStaticType, Allocative)]
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
-pub(crate) struct EnumTypeGen<V: EnumCell> {
+#[trace(bound = "")]
+pub(crate) struct EnumTypeGen<'v, V: EnumVariant + 'static + ?Sized> {
     pub(super) id: TypeInstanceId,
-    #[allocative(skip)] // TODO(nga): do not skip.
-    // TODO(nga): teach derive to do something like `#[trace(static)]`.
-    #[trace(unsafe_ignore)]
-    pub(super) ty_enum_data: V::TyEnumDataOpt,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
     #[allocative(skip)] // TODO(nga): do not skip.
-    elements: UnsafeCell<SmallMap<V, V>>,
+    elements: UnsafeCell<SmallMap<Value<'v>, Value<'v>>>,
+    #[trace(static)]
+    pub(super) ty_enum_data: V,
 }
 
-impl<'v> Freeze for EnumTypeGen<Value<'v>> {
-    type Frozen = EnumTypeGen<FrozenValue>;
+pub(super) type EnumType<'v> = EnumTypeGen<'v, EnumVariantUnfrozen>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+pub(crate) type FrozenEnumType<'v> = EnumTypeGen<'v, EnumVariantFrozen>;
+
+impl<'v> FreezeBranded for EnumType<'v> {
+    type Frozen<'fv> = FrozenEnumType<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let EnumTypeGen {
             id,
-            ty_enum_data: ty_enum_type,
+            ty_enum_data,
             elements,
         } = self;
-        let ty_enum_type = ty_enum_type.into_inner();
         let elements = elements.freeze(freezer)?;
         Ok(EnumTypeGen {
             id,
-            ty_enum_data: ty_enum_type,
+            ty_enum_data: EnumVariantFrozen {
+                data: ty_enum_data.data.into_inner(),
+            },
             elements,
         })
     }
 }
 
-starlark_complex_values!(EnumType);
+impl<'v> AllocValue<'v> for EnumType<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+        heap.alloc_complex_branded(self)
+    }
+}
 
-unsafe impl<V: EnumCell + Freeze> Send for EnumTypeGen<V> {}
-unsafe impl<V: EnumCell + Freeze> Sync for EnumTypeGen<V> {}
+unsafe impl<'v, V: EnumVariant + Send> Send for EnumTypeGen<'v, V> {}
+unsafe impl<'v, V: EnumVariant + Sync> Sync for EnumTypeGen<'v, V> {}
 
-impl<'v, V: EnumCell + ValueLike<'v>> Display for EnumTypeGen<V> {
+impl<'v, V: EnumVariant + ?Sized> Display for EnumTypeGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_container(f, "enum(", ")", self.elements().iter().map(|(k, _v)| k))
     }
 }
 
-/// Unfrozen enum type.
-pub(super) type EnumType<'v> = EnumTypeGen<Value<'v>>;
-/// Frozen enum type.
-pub(crate) type FrozenEnumType = EnumTypeGen<FrozenValue>;
-
-impl StarlarkSerialize for EnumTypeGen<FrozenValue> {
+impl<'v> StarlarkSerialize for FrozenEnumType<'v> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         use pagable::PagableSerialize;
         self.id.starlark_serialize(ctx)?;
-        self.ty_enum_data.pagable_serialize(ctx.pagable())?;
+        self.ty_enum_data.data.pagable_serialize(ctx.pagable())?;
         self.elements().starlark_serialize(ctx)?;
         Ok(())
     }
 }
 
-impl StarlarkDeserialize for EnumTypeGen<FrozenValue> {
+impl<'v> StarlarkDeserialize for FrozenEnumType<'v> {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
         use pagable::PagableDeserialize;
         let id = TypeInstanceId::starlark_deserialize(ctx)?;
-        let ty_enum_data =
-            <FrozenValue as EnumCell>::TyEnumDataOpt::pagable_deserialize(ctx.pagable())?;
+        let data = <Option<Arc<TyEnumData>>>::pagable_deserialize(ctx.pagable())?;
         let elements = SmallMap::starlark_deserialize(ctx)?;
         Ok(EnumTypeGen {
             id,
-            ty_enum_data,
+            ty_enum_data: EnumVariantFrozen { data },
             elements: UnsafeCell::new(elements),
         })
     }
 }
 
-register_avalue_simple_frozen!(FrozenEnumType);
+crate::register_simple_vtable_entry!(FrozenEnumType<'static>);
+// SAFETY: The vtable entry is registered above. The deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> crate::__derive_refs::VtableRegistered for FrozenEnumType<'v> {}
+crate::register_ty_starlark_value!(EnumType<'_>);
+crate::register_ty_starlark_value!(FrozenEnumType<'_>);
 
 impl<'v> EnumType<'v> {
     pub(super) fn new(
@@ -215,7 +217,9 @@ impl<'v> EnumType<'v> {
         // They both point at each other, which adds to the complexity.
         let typ = heap.alloc_typed(EnumType {
             id,
-            ty_enum_data: OnceCell::new(),
+            ty_enum_data: EnumVariantUnfrozen {
+                data: OnceCell::new(),
+            },
             elements: UnsafeCell::new(SmallMap::new()),
         });
 
@@ -243,23 +247,19 @@ impl<'v> EnumType<'v> {
     }
 }
 
-impl<V: EnumCell + Freeze> EnumTypeGen<V> {
-    pub(super) fn elements(&self) -> &SmallMap<V, V> {
+impl<'v, V: EnumVariant + ?Sized> EnumTypeGen<'v, V> {
+    pub(super) fn elements(&self) -> &SmallMap<Value<'v>, Value<'v>> {
         // Safe because we never mutate the elements after construction.
         unsafe { &*self.elements.get() }
     }
 }
 
-impl<'v, V> EnumTypeGen<V>
-where
-    Value<'v>: Equivalent<V>,
-    V: ValueLike<'v> + EnumCell,
-{
+impl<'v, V: EnumVariant + ?Sized> EnumTypeGen<'v, V> {
     pub(super) fn ty_enum_data(&self) -> Option<&Arc<TyEnumData>> {
-        V::get_ty(&self.ty_enum_data)
+        self.ty_enum_data.get_ty()
     }
 
-    pub(crate) fn construct(&self, val: Value<'v>) -> crate::Result<V> {
+    pub(crate) fn construct(&self, val: Value<'v>) -> crate::Result<Value<'v>> {
         match self.elements().get_hashed_by_value(val.get_hashed()?) {
             Some(v) => Ok(*v),
             None => Err(crate::Error::new_other(EnumError::InvalidElement(
@@ -272,15 +272,28 @@ where
 
 starlark::methods_static!(ENUM_TYPE_METHODS = enum_type_methods);
 
+pub(super) type AnyEnumType<'v> = &'v EnumTypeGen<'v, dyn EnumVariant>;
+
+impl<'v> StarlarkTypeRepr for AnyEnumType<'v> {
+    type Canonical = <FrozenEnumType<'v> as StarlarkValue<'v>>::Canonical;
+
+    #[inline]
+    fn starlark_type_repr() -> crate::typing::Ty {
+        <FrozenEnumType<'v> as StarlarkValue<'v>>::get_type_starlark_repr()
+    }
+}
+
+impl<'v> UnpackValue<'v> for AnyEnumType<'v> {
+    type Error = std::convert::Infallible;
+
+    fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        Ok(value.request_value())
+    }
+}
+
 #[starlark_value(type = FUNCTION_TYPE)]
-impl<'v, V> StarlarkValue<'v> for EnumTypeGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-    Value<'v>: Equivalent<V>,
-    V: ValueLike<'v> + EnumCell + Equivalent<V>,
-    for<'a> ValueStr<'a>: Equivalent<V>,
-{
-    type Canonical = FrozenEnumType;
+impl<'v, V: EnumVariant> StarlarkValue<'v> for EnumTypeGen<'v, V> {
+    type Canonical = FrozenEnumType<'v>;
 
     // TODO(nga): replace `Color("RED")` with `Color.RED`.
     //   https://www.internalfb.com/tasks/?t=183515013
@@ -358,7 +371,7 @@ where
         variable_name: &str,
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<()> {
-        V::get_or_init_ty(&self.ty_enum_data, || {
+        self.ty_enum_data.get_or_init_ty(&|| {
             let ty_enum_value = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<EnumValue>(),
@@ -417,31 +430,26 @@ where
             }))
         })
     }
+
+    fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
+        demand.provide_value::<AnyEnumType<'v>>(self);
+    }
 }
 
 #[starlark_module]
 fn enum_type_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: Value, heap: Heap<'_>) -> starlark::Result<Value<'v>> {
-        let this = EnumType::from_value(this).unwrap();
-        let ty_enum_type = match this {
-            Either::Left(x) => x.ty_enum_data(),
-            Either::Right(x) => x.ty_enum_data(),
-        };
-        match ty_enum_type {
+    fn r#type<'v>(this: AnyEnumType<'v>, heap: Heap<'_>) -> starlark::Result<Value<'v>> {
+        match this.ty_enum_data() {
             Some(ty_enum_type) => Ok(heap.alloc(ty_enum_type.name.as_str())),
             None => Ok(heap.alloc(EnumValue::TYPE)),
         }
     }
 
-    fn values<'v>(this: Value<'v>) -> anyhow::Result<AllocList<impl Iterator<Item = Value<'v>>>> {
-        let this = EnumType::from_value(this).unwrap();
-        match this {
-            Either::Left(x) => Ok(AllocList(Either::Left(x.elements().keys().copied()))),
-            Either::Right(x) => Ok(AllocList(Either::Right(
-                x.elements().keys().map(|x| x.to_value()),
-            ))),
-        }
+    fn values<'v>(
+        this: AnyEnumType<'v>,
+    ) -> starlark::Result<AllocList<impl Iterator<Item = Value<'v>>>> {
+        Ok(AllocList(this.elements().keys().copied()))
     }
 }
 
