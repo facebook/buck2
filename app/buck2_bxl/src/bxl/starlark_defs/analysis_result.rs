@@ -167,7 +167,8 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
             this.label.dupe(),
             this.analysis
                 .lookup_inner(&this.label)?
-                .add_heap_ref(eval.heap()),
+                .add_heap_ref(eval.heap())
+                .to_value_typed(),
             None,
         )))
     }

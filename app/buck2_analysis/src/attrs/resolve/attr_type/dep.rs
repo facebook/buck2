@@ -91,7 +91,7 @@ impl DepAttrTypeExt for DepAttrType {
         env.heap().alloc(Dependency::new(
             env.heap(),
             target.clone(),
-            v,
+            v.to_value_typed(),
             execution_platform_resolution,
         ))
     }

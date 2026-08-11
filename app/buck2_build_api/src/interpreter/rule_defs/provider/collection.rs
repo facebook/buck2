@@ -719,7 +719,8 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                         'static,
                         ProviderCollection<'static>,
                     >, buck2_error::Error, _>(
-                        |mut collection_value| {
+                        |collection_value| {
+                            let mut collection_value = collection_value.to_value_typed();
                             for provider_name in &**provider_names {
                                 let maybe_di = collection_value
                                     .default_info()?
@@ -746,7 +747,12 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                                     }
                                 }
                             }
-                            Ok(collection_value)
+                            // This wrapper type's constructors only accept collections stored in
+                            // frozen heaps, and sub-target collections of a frozen `DefaultInfo`
+                            // are themselves frozen.
+                            Ok(collection_value
+                                .unpack_frozen()
+                                .expect("wrapper holds a frozen collection"))
                         },
                     )?;
                     Ok(FrozenProviderCollectionValueRef { inner })

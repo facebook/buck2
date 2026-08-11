@@ -44,7 +44,12 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
         let collection = FrozenProviderCollection::testing_new_default(eval.frozen_heap());
         let collection = eval.frozen_heap_edge().rebrand(collection);
 
-        Ok(Dependency::new(eval.heap(), label, collection, None))
+        Ok(Dependency::new(
+            eval.heap(),
+            label,
+            collection.to_value_typed(),
+            None,
+        ))
     }
 }
 

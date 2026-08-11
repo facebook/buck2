@@ -38,9 +38,10 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
+use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
-use starlark::values::dict::FrozenDictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
@@ -175,9 +176,7 @@ fn validate_default_info<'v>(info: &DefaultInfo<'v>) -> buck2_error::Result<()> 
     for output in info.default_outputs_impl()? {
         output?;
     }
-    for sub_target in info.sub_targets_impl()? {
-        sub_target?;
-    }
+    info.sub_targets_impl()?;
 
     Ok(())
 }
@@ -215,28 +214,22 @@ impl<'v> DefaultInfo<'v> {
     fn get_sub_target_providers_impl(
         &self,
         name: &str,
-    ) -> buck2_error::Result<Option<FrozenValueTyped<'v, ProviderCollection<'v>>>> {
-        FrozenDictRef::from_frozen_value(
-            self.sub_targets
-                .get()
-                .unpack_frozen()
-                .expect("default info is frozen"),
-        )
-        .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?
-        .get_str(name)
-        .map(|v| {
-            FrozenValueTyped::new_err(v).buck_error_context(
-                "Values inside of a frozen provider should be frozen provider collection",
-            )
-        })
-        .transpose()
+    ) -> buck2_error::Result<Option<ValueTyped<'v, ProviderCollection<'v>>>> {
+        DictRef::from_value(self.sub_targets.get())
+            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?
+            .get_str(name)
+            .map(|v| {
+                ValueTyped::new_err(v).buck_error_context(
+                    "Values inside of `sub_targets` should be provider collections",
+                )
+            })
+            .transpose()
     }
 
-    /// Panics when called on an unfrozen instance.
     pub fn get_sub_target_providers(
         &self,
         name: &str,
-    ) -> Option<FrozenValueTyped<'v, ProviderCollection<'v>>> {
+    ) -> Option<ValueTyped<'v, ProviderCollection<'v>>> {
         self.get_sub_target_providers_impl(name).unwrap()
     }
 
@@ -279,39 +272,28 @@ impl<'v> DefaultInfo<'v> {
 
     fn sub_targets_impl(
         &self,
-    ) -> buck2_error::Result<
-        impl Iterator<
-            Item = buck2_error::Result<(&'v str, FrozenValueTyped<'v, ProviderCollection<'v>>)>,
-        > + '_,
-    > {
-        let sub_targets = FrozenDictRef::from_frozen_value(
-            self.sub_targets
-                .get()
-                .unpack_frozen()
-                .expect("default info is frozen"),
-        )
-        .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?;
+    ) -> buck2_error::Result<SmallMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>>> {
+        let sub_targets = DictRef::from_value(self.sub_targets.get())
+            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?;
 
-        Ok(sub_targets.iter().map(|(k, v)| {
-            buck2_error::Ok((
-                k.to_value()
-                    .unpack_str()
-                    .ok_or_else(|| internal_error!("sub_targets should have string keys"))?,
-                FrozenValueTyped::new(v).ok_or_else(|| {
-                    internal_error!(
-                        "Values inside of a frozen provider should be frozen provider collection",
-                    )
-                })?,
-            ))
-        }))
+        sub_targets
+            .iter()
+            .map(|(k, v)| {
+                buck2_error::Ok((
+                    k.unpack_str()
+                        .ok_or_else(|| internal_error!("sub_targets should have string keys"))?,
+                    ValueTyped::new(v).ok_or_else(|| {
+                        internal_error!(
+                            "Values inside of `sub_targets` should be provider collections",
+                        )
+                    })?,
+                ))
+            })
+            .collect()
     }
 
-    /// Panics when called on an unfrozen instance.
-    pub fn sub_targets(&self) -> SmallMap<&'v str, FrozenValueTyped<'v, ProviderCollection<'v>>> {
-        self.sub_targets_impl()
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap()
+    pub fn sub_targets(&self) -> SmallMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>> {
+        self.sub_targets_impl().unwrap()
     }
 
     pub fn sub_targets_raw(&self) -> Value<'v> {

@@ -25,7 +25,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::typing::Ty;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -65,7 +64,6 @@ enum DependencyError {
 #[repr(C)]
 pub struct Dependency<'v> {
     label: ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>,
-    /// Always frozen; the owning module holds a reference to its heap.
     provider_collection: ValueTyped<'v, ProviderCollection<'v>>,
     execution_platform: ValueOfUnchecked<'v, NoneOr<StarlarkExecutionPlatformResolution>>,
 }
@@ -92,7 +90,7 @@ impl<'v> Dependency<'v> {
     pub fn new(
         heap: Heap<'v>,
         label: ConfiguredProvidersLabel,
-        provider_collection: FrozenValueTyped<'v, ProviderCollection<'v>>,
+        provider_collection: ValueTyped<'v, ProviderCollection<'v>>,
         execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
         let execution_platform: ValueOfUnchecked<NoneOr<StarlarkExecutionPlatformResolution>> =
@@ -104,7 +102,7 @@ impl<'v> Dependency<'v> {
             };
         Dependency {
             label: heap.alloc_typed_unchecked(StarlarkConfiguredProvidersLabel::new(label)),
-            provider_collection: provider_collection.to_value_typed(),
+            provider_collection,
             execution_platform,
         }
     }

@@ -249,7 +249,12 @@ async fn alloc_deps<'v>(
             let v = analysis_result.lookup_inner(&configured)?;
 
             let starlark_label = StarlarkProvidersLabel::new(configured.unconfigured());
-            let dependency = Dependency::new(heap, configured, v.add_heap_ref(heap), None);
+            let dependency = Dependency::new(
+                heap,
+                configured,
+                v.add_heap_ref(heap).to_value_typed(),
+                None,
+            );
 
             buck2_error::Ok((starlark_label, dependency))
         })
