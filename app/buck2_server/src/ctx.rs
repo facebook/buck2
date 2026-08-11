@@ -12,6 +12,8 @@ use std::collections::BTreeSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -69,11 +71,13 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_core::soft_error;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_events::schedule_type::SandcastleScheduleType;
+use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -152,6 +156,13 @@ enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),
 }
+
+/// A dep-file flush slower than this at command end means the background writer did not keep up
+/// with the build. Well above what draining a healthy queue costs, so it does not fire on large
+/// builds that simply queued a lot.
+const SLOW_DEP_FILE_FLUSH: Duration = Duration::from_secs(5);
+
+static SLOW_DEP_FILE_FLUSH_REPORTED: AtomicBool = AtomicBool::new(false);
 
 fn parse_concurrency(requested: u32) -> Option<usize> {
     let ret: usize = requested
@@ -489,6 +500,37 @@ impl<'a> ServerCommandContext<'a> {
         mut self,
         triggers_idle_page_out: bool,
     ) -> buck2_error::Result<()> {
+        // Drain the background dep-file writer before the command returns, so a daemon restart
+        // immediately afterwards still sees the entries this command produced. This has to precede
+        // every fallible step below, each of which can return early with `?`. It runs on the
+        // blocking pool because `flush` blocks until the writer thread drains.
+        if let Ok(store) = DEP_FILE_STORE.get() {
+            let store = store.dupe();
+            let queued = store.queue_size();
+            let flush_started = Instant::now();
+            if let Err(e) = tokio::task::spawn_blocking(move || store.flush()).await {
+                tracing::debug!("Failed to flush the persisted dep-file cache: {}", e);
+            }
+            // The wait is unbounded and lands after the build is otherwise done, so a long one is
+            // reported rather than left as unexplained time at the end of the command. Once per
+            // daemon: whether the writer keeps up is a property of the daemon, not of one command.
+            let elapsed = Instant::now() - flush_started;
+            if elapsed > SLOW_DEP_FILE_FLUSH
+                && !SLOW_DEP_FILE_FLUSH_REPORTED.swap(true, Ordering::Relaxed)
+            {
+                let _unused = soft_error!(
+                    "slow_dep_file_flush",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Draining {} queued dep-file cache writes at command end took {:?}",
+                        queued,
+                        elapsed
+                    ),
+                    quiet: true
+                );
+            }
+        }
+
         self.starlark_profiling_manager
             .finalize(&self.base_context.events)
             .await?;

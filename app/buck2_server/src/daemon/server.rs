@@ -1137,7 +1137,12 @@ impl DaemonApi for BuckdServer {
             if retain_locally_produced_dep_files {
                 buck2_file_watcher::dep_files::flush_non_local_dep_files();
             } else {
-                buck2_file_watcher::dep_files::flush_dep_files();
+                // Only this branch reaches the persisted cache, and dropping it waits for the
+                // dep-file db writer thread to drain, so it goes to the blocking pool rather than
+                // parking a runtime worker.
+                let _ignored =
+                    tokio::task::spawn_blocking(buck2_file_watcher::dep_files::flush_dep_files)
+                        .await;
             }
             Ok(GenericResponse {})
         })

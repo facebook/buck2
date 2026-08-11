@@ -91,8 +91,21 @@ pub trait DepFileStore: Send + Sync + 'static {
     /// miss or on any database error). The in-memory cache calls this on demand for a logical action
     /// it has no live entry for, rather than loading the whole database at startup.
     fn get(&self, logical_key: &[u8]) -> Vec<StoredDepFileState>;
-    /// Remove all entries.
+    /// Remove all entries. May block for as long as `flush` does.
     fn clear(&self);
+    /// Writes accepted but not yet applied to the database. Reported per snapshot: the queue is
+    /// unbounded, so sustained growth is the signal that the writer is not keeping up.
+    fn queue_size(&self) -> u64 {
+        0
+    }
+    /// Block until every write issued so far has been applied. Called at the end of a command so
+    /// that a daemon restart afterwards sees everything the command produced. Implementations that
+    /// write synchronously need do nothing.
+    ///
+    /// An implementation that defers its writes blocks here for however long draining them takes,
+    /// which is unbounded. Call this (and `clear`) from `spawn_blocking` rather than directly from
+    /// an async context, or it will park a runtime worker.
+    fn flush(&self) {}
 }
 
 /// The persisted dep-file store, installed by `buck2_server` at daemon startup. Absent (`get()`

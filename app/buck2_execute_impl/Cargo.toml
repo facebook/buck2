@@ -29,6 +29,7 @@ buck2_resource_control.workspace = true
 buck2_util.workspace = true
 buck2_worker_proto.workspace = true
 buck2_wrapper_common.workspace = true
+crossbeam-channel.workspace = true
 derivative.workspace = true
 derive_more.workspace = true
 dice_futures.workspace = true

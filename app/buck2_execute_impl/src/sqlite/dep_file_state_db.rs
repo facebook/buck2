@@ -12,12 +12,16 @@
 //! see that module for the shared open/create/version-gating machinery.
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::sqlite::sqlite_db::SqliteTable;
 use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::soft_error;
+use buck2_error::BuckErrorContext;
 use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::dep_file_state::StoredDepFileState;
 use buck2_execute::digest_config::DigestConfig;
@@ -25,6 +29,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::StdBuckHashMap;
+use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 
 use crate::sqlite::tables::dep_file_state_table::DepFileStateSqliteTable;
@@ -135,55 +140,168 @@ impl DepFileStateSqliteDb {
     }
 }
 
+/// A queued mutation of the db. Writes are applied on a dedicated thread (see
+/// [`PersistedDepFileStore`]), in the order they were issued.
+enum DepFileWrite {
+    Insert {
+        logical_key: Vec<u8>,
+        config_key: Vec<u8>,
+        state: StoredDepFileState,
+    },
+    Delete {
+        logical_key: Vec<u8>,
+        config_key: Vec<u8>,
+    },
+    Clear,
+    /// Acknowledged once every write queued before it has been applied.
+    Flush(crossbeam_channel::Sender<()>),
+}
+
+fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
+    let table = db.dep_file_state_table();
+    let (result, category) = match write {
+        DepFileWrite::Insert {
+            logical_key,
+            config_key,
+            state,
+        } => (
+            table.insert(logical_key, config_key, state),
+            "insert_to_dep_file_db",
+        ),
+        DepFileWrite::Delete {
+            logical_key,
+            config_key,
+        } => (
+            table.delete(&logical_key, &config_key),
+            "delete_from_dep_file_db",
+        ),
+        DepFileWrite::Clear => (table.clear(), "clear_dep_file_db"),
+        DepFileWrite::Flush(ack) => {
+            // Dropping the sender would also wake the waiter, so the send result is irrelevant.
+            let _ignored = ack.send(());
+            return;
+        }
+    };
+    if let Err(e) = result {
+        let _unused = soft_error!(
+            category,
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Failed to write to dep-file sqlite db. {}",
+                e
+            ),
+            quiet: true
+        );
+    }
+}
+
 /// Write-through [`DepFileStore`] over a [`DepFileStateSqliteDb`]. Installed into `buck2_action_impl`
 /// via `DEP_FILE_STORE` once the daemon opens the db. Every db error is downgraded to a quiet soft
 /// error so a database hiccup never fails a build (the in-memory cache remains authoritative).
+///
+/// Writes are queued and applied on a dedicated thread rather than inline: they are issued once per
+/// locally-executed action, and running them on the action's own thread would make every write
+/// contend with concurrent lookups for the single connection mutex. Losing a queued write is
+/// harmless -- it costs a cache miss in a later session -- but [`DepFileStore::flush`] is called at
+/// the end of each command so a restart afterwards sees everything that command produced.
+///
+/// The queue is unbounded. Dropping writes on a full bounded queue would be consistent with losing
+/// them being harmless, but it does not generalize: `clear` relies on its `Clear` reaching the
+/// writer, since dropping that one leaves rows on disk that a later session would serve after the
+/// user explicitly invalidated them. Bounding therefore needs one discipline for `Insert`/`Delete`
+/// and another for `Clear`/`Flush`, and batching several rows into one transaction needs the `Flush`
+/// acknowledgement to stay behind the rows it covers. `dep_file_db_queue_size` is reported per
+/// snapshot so a queue that does grow is visible before either is built.
+///
+/// Reads do not wait for queued writes. They do not need to: the in-memory cache is consulted before
+/// this store and already holds anything just written, and an entry read before its queued delete
+/// lands is still re-validated against the action's digests before use.
+///
+/// They do run synchronously on the calling (async) thread, and reader and writer share one
+/// connection, so WAL's concurrent-reader property is not in play here: a read can wait on the mutex
+/// a write transaction holds, even though it never waits on the queue. The mutex is released before
+/// rows are deserialized, and a read only runs when the in-memory cache misses.
 pub struct PersistedDepFileStore {
-    db: DepFileStateSqliteDb,
+    db: Arc<DepFileStateSqliteDb>,
     digest_config: DigestConfig,
+    writes: crossbeam_channel::Sender<DepFileWrite>,
+    /// Set once the writer thread is found to be gone, so the soft error is reported only once.
+    writer_gone: AtomicBool,
+    /// Writes accepted and writes applied. Their difference is the queue depth, reported per
+    /// snapshot; the channel is unbounded, so this is the only signal that it is growing.
+    queued: AtomicU64,
+    applied: Arc<AtomicU64>,
 }
 
 impl PersistedDepFileStore {
-    pub fn new(db: DepFileStateSqliteDb, digest_config: DigestConfig) -> Self {
-        Self { db, digest_config }
+    /// Fails only if the writer thread cannot be spawned.
+    pub fn try_new(
+        db: DepFileStateSqliteDb,
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<Self> {
+        let db = Arc::new(db);
+        let (writes, receiver) = crossbeam_channel::unbounded();
+        let writer_db = db.dupe();
+        let applied = Arc::new(AtomicU64::new(0));
+        let writer_applied = applied.dupe();
+        // The thread exits when the last sender is dropped, i.e. when the store is dropped. The
+        // daemon's store lives in a process-global `LateBinding`, so there it runs until the process
+        // exits; the drop path is what lets tests reclaim the thread.
+        thread_spawn("buck2-dep-file-db", move || {
+            for write in receiver.iter() {
+                apply_write(&writer_db, write);
+                writer_applied.fetch_add(1, Ordering::Relaxed);
+            }
+        })
+        .buck_error_context("Failed to spawn the dep-file db writer thread")?;
+        Ok(Self {
+            db,
+            digest_config,
+            writes,
+            writer_gone: AtomicBool::new(false),
+            queued: AtomicU64::new(0),
+            applied,
+        })
+    }
+
+    /// Queue a write. The channel only fails once the writer thread is gone (it panicked, since it
+    /// otherwise lives as long as this store), after which every later write is dropped too. That
+    /// silently disables persistence, so report it -- once, because the failure is permanent.
+    fn queue(&self, write: DepFileWrite) {
+        // Counted only once accepted, so a rejected write does not leave `queued` permanently ahead of
+        // `applied` and turn the depth gauge into a monotonic counter.
+        if self.writes.send(write).is_ok() {
+            self.queued.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
+        if !self.writer_gone.swap(true, Ordering::Relaxed) {
+            let _unused = soft_error!(
+                "dep_file_db_writer_gone",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "The dep-file sqlite writer thread is gone; persistence is disabled for the \
+                     rest of this daemon's life"
+                ),
+                quiet: true
+            );
+        }
     }
 }
 
 impl DepFileStore for PersistedDepFileStore {
     fn insert(&self, logical_key: Vec<u8>, config_key: Vec<u8>, state: StoredDepFileState) {
-        if let Err(e) = self
-            .db
-            .dep_file_state_table()
-            .insert(logical_key, config_key, state)
-        {
-            let _unused = soft_error!(
-                "insert_to_dep_file_db",
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "Failed to insert into dep-file sqlite db. {}",
-                    e
-                ),
-                quiet: true
-            );
-        }
+        self.queue(DepFileWrite::Insert {
+            logical_key,
+            config_key,
+            state,
+        });
     }
 
     fn delete(&self, logical_key: Vec<u8>, config_key: Vec<u8>) {
-        if let Err(e) = self
-            .db
-            .dep_file_state_table()
-            .delete(&logical_key, &config_key)
-        {
-            let _unused = soft_error!(
-                "delete_from_dep_file_db",
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "Failed to delete from dep-file sqlite db. {}",
-                    e
-                ),
-                quiet: true
-            );
-        }
+        self.queue(DepFileWrite::Delete {
+            logical_key,
+            config_key,
+        });
     }
 
     fn get(&self, logical_key: &[u8]) -> Vec<StoredDepFileState> {
@@ -209,16 +327,26 @@ impl DepFileStore for PersistedDepFileStore {
     }
 
     fn clear(&self) {
-        if let Err(e) = self.db.dep_file_state_table().clear() {
-            let _unused = soft_error!(
-                "clear_dep_file_db",
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "Failed to clear dep-file sqlite db. {}",
-                    e
-                ),
-                quiet: true
-            );
-        }
+        // Queued (not applied inline) so it cannot overtake writes issued before it, then waited on:
+        // the in-memory cache is cleared synchronously by the caller, so leaving rows on disk that a
+        // lookup could still reach would defeat the invalidation. It is rare enough to block for.
+        self.queue(DepFileWrite::Clear);
+        self.flush();
+    }
+
+    fn flush(&self) {
+        let (ack, wait) = crossbeam_channel::bounded(1);
+        self.queue(DepFileWrite::Flush(ack));
+        // Resolves either on acknowledgement or when the writer thread drops the sender.
+        let _ignored = wait.recv();
+    }
+
+    fn queue_size(&self) -> u64 {
+        // Both counters only increase, so their difference is the depth. The writer can apply a write
+        // before `queue` counts it, so the difference saturates at zero rather than underflowing.
+        // Relaxed ordering makes it approximate, which is all a gauge needs.
+        self.queued
+            .load(Ordering::Relaxed)
+            .saturating_sub(self.applied.load(Ordering::Relaxed))
     }
 }

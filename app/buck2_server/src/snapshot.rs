@@ -17,6 +17,7 @@ use std::time::Instant;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
+use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::fs_util::DiskSpaceStats;
 use buck2_fs::fs_util::disk_space_stats;
@@ -149,6 +150,9 @@ impl SnapshotCollector {
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size =
             self.daemon.blocking_executor.queue_size() as u64;
+        if let Ok(store) = DEP_FILE_STORE.get() {
+            snapshot.dep_file_db_queue_size = store.queue_size();
+        }
     }
 
     fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

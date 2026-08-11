@@ -1191,6 +1191,9 @@ message Snapshot {
   int64 local_cache_lookups = 440;
   int64 local_cache_lookup_latency_microseconds = 441; // Client side metrics.
 
+  // Persisted dep-file cache writes queued but not yet applied to sqlite.
+  uint64 dep_file_db_queue_size = 442;
+
   // Delay between time snapshot is created and time it is received
   // by the client.
   optional int64 this_event_client_delay_ms = 2001;
