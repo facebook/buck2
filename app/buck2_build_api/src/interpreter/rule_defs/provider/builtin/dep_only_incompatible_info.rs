@@ -23,16 +23,13 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Coerce;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
@@ -72,16 +69,15 @@ use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_roll
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct DepOnlyIncompatibleInfoGen<V: ValueLifetimeless> {
+pub struct DepOnlyIncompatibleInfo<'v> {
     pub custom_soft_errors:
-        ValueOfUncheckedGeneric<V, DictType<String, FrozenDepOnlyIncompatibleRollout>>,
+        ValueOfUnchecked<'v, DictType<String, FrozenDepOnlyIncompatibleRollout>>,
 }
 
 #[starlark_module]
@@ -135,7 +131,7 @@ impl DepOnlyIncompatibleRolloutPatterns {
 
 pub type DepOnlyIncompatibleCustomSoftErrors = SmallMap<ArcStr, DepOnlyIncompatibleRolloutPatterns>;
 
-impl FrozenDepOnlyIncompatibleInfo {
+impl<'v> DepOnlyIncompatibleInfo<'v> {
     pub fn custom_soft_errors(
         &self,
         root_cell: CellName,
@@ -152,34 +148,33 @@ impl FrozenDepOnlyIncompatibleInfo {
                 )
             };
 
-        let custom_soft_errors: SmallMap<_, _> =
-            DictRef::from_value(self.custom_soft_errors.get().to_value())
-                .expect("Internal error: expected to be a dict")
-                .iter()
-                .map(|(k, v)| {
-                    let k = ArcStr::from(k.unpack_str().expect("Type checked to be string"));
-                    let v = DepOnlyIncompatibleRollout::from_value(v).expect(
-                        "Internal error: type checked to be a DepOnlyIncompatibleRollout provider",
-                    );
-                    let target_patterns = v
-                        .target_patterns()
-                        .iter()
-                        .map(value_to_target_pattern)
-                        .collect::<buck2_error::Result<Vec<_>>>()?
-                        .into_boxed_slice();
-                    let exclusions = v
-                        .exclusions()
-                        .iter()
-                        .map(value_to_target_pattern)
-                        .collect::<buck2_error::Result<Vec<_>>>()?
-                        .into_boxed_slice();
-                    let v = DepOnlyIncompatibleRolloutPatterns {
-                        target_patterns,
-                        exclusions,
-                    };
-                    Ok((k, v))
-                })
-                .collect::<buck2_error::Result<_>>()?;
+        let custom_soft_errors: SmallMap<_, _> = DictRef::from_value(self.custom_soft_errors.get())
+            .expect("Internal error: expected to be a dict")
+            .iter()
+            .map(|(k, v)| {
+                let k = ArcStr::from(k.unpack_str().expect("Type checked to be string"));
+                let v = DepOnlyIncompatibleRollout::from_value(v).expect(
+                    "Internal error: type checked to be a DepOnlyIncompatibleRollout provider",
+                );
+                let target_patterns = v
+                    .target_patterns()
+                    .iter()
+                    .map(value_to_target_pattern)
+                    .collect::<buck2_error::Result<Vec<_>>>()?
+                    .into_boxed_slice();
+                let exclusions = v
+                    .exclusions()
+                    .iter()
+                    .map(value_to_target_pattern)
+                    .collect::<buck2_error::Result<Vec<_>>>()?
+                    .into_boxed_slice();
+                let v = DepOnlyIncompatibleRolloutPatterns {
+                    target_patterns,
+                    exclusions,
+                };
+                Ok((k, v))
+            })
+            .collect::<buck2_error::Result<_>>()?;
 
         Ok(custom_soft_errors)
     }
