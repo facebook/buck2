@@ -44,6 +44,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::OwnedExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
@@ -175,7 +176,6 @@ use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use sorted_vector_map::SortedVectorMap;
-use starlark::values::OwnedFrozenValueTyped;
 
 use crate::command::InternalRunnerConfig;
 use crate::local_resource_api::LocalResourcesSetupResult;
@@ -194,14 +194,18 @@ const MAX_SUFFIX_LEN: usize = 1024;
 /// `[test].use_internal_runner` to stay consistent with
 /// `command.rs::test_target()`.
 pub(crate) enum OwnedTestInfo {
-    External(OwnedFrozenValueTyped<FrozenExternalRunnerTestInfo>),
+    External(OwnedExternalRunnerTestInfo),
     Internal(OwnedInternalRunnerTestInfo),
 }
 
 impl OwnedTestInfo {
     fn supports_test_execution_caching(&self) -> bool {
         match self {
-            Self::External(info) => info.supports_test_execution_caching(),
+            Self::External(info) => info
+                .as_ref()
+                .value()
+                .as_ref()
+                .supports_test_execution_caching(),
             Self::Internal(_) => false,
         }
     }
@@ -221,7 +225,13 @@ impl OwnedTestInfo {
                 .listing_command()
                 .filter_map(filter)
                 .collect(),
-            (Self::External(info), _) => info.command().filter_map(filter).collect(),
+            (Self::External(info), _) => info
+                .as_ref()
+                .value()
+                .as_ref()
+                .command()
+                .filter_map(filter)
+                .collect(),
             (Self::Internal(info), _) => info
                 .as_ref()
                 .value()
@@ -234,14 +244,14 @@ impl OwnedTestInfo {
 
     fn env_args<'v>(&'v self) -> StdBuckHashMap<&'v str, &'v dyn CommandLineArgLike<'v>> {
         match self {
-            Self::External(info) => info.env().collect(),
+            Self::External(info) => info.as_ref().value().as_ref().env().collect(),
             Self::Internal(info) => info.as_ref().value().as_ref().env().collect(),
         }
     }
 
     fn local_resources(&self) -> BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>> {
         match self {
-            Self::External(info) => info.local_resources(),
+            Self::External(info) => info.as_ref().value().as_ref().local_resources(),
             Self::Internal(info) => info.as_ref().value().as_ref().local_resources(),
         }
     }
@@ -253,6 +263,9 @@ impl OwnedTestInfo {
         };
         match self {
             Self::External(info) => info
+                .as_ref()
+                .value()
+                .as_ref()
                 .required_local_resources()
                 .filter(|r| filter(r))
                 .map(|r| r.name.as_str())
@@ -274,49 +287,54 @@ impl OwnedTestInfo {
 
     fn executor_override(&self, key: &str) -> Option<&StarlarkCommandExecutorConfig> {
         match self {
-            Self::External(info) => info.executor_override(key),
+            Self::External(info) => info.as_ref().value().as_ref().executor_override(key),
             Self::Internal(info) => info.as_ref().value().as_ref().executor_override(key),
         }
     }
 
     fn has_executor_overrides(&self) -> bool {
         match self {
-            Self::External(info) => info.has_executor_overrides(),
+            Self::External(info) => info.as_ref().value().as_ref().has_executor_overrides(),
             Self::Internal(info) => info.as_ref().value().as_ref().has_executor_overrides(),
         }
     }
 
     fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
         match self {
-            Self::External(info) => info.default_executor(),
+            Self::External(info) => info.as_ref().value().as_ref().default_executor(),
             Self::Internal(info) => info.as_ref().value().as_ref().default_executor(),
         }
     }
 
     fn run_from_project_root(&self) -> bool {
         match self {
-            Self::External(info) => info.run_from_project_root(),
+            Self::External(info) => info.as_ref().value().as_ref().run_from_project_root(),
             Self::Internal(info) => info.as_ref().value().as_ref().run_from_project_root(),
         }
     }
 
     fn use_project_relative_paths(&self) -> bool {
         match self {
-            Self::External(info) => info.use_project_relative_paths(),
+            Self::External(info) => info.as_ref().value().as_ref().use_project_relative_paths(),
             Self::Internal(info) => info.as_ref().value().as_ref().use_project_relative_paths(),
         }
     }
 
     fn worker(&self) -> Option<&WorkerInfo<'_>> {
         match self {
-            Self::External(info) => info.worker(),
+            Self::External(info) => info.as_ref().value().as_ref().worker(),
             Self::Internal(info) => info.as_ref().value().as_ref().worker(),
         }
     }
 
     fn has_static_listing_label(&self) -> bool {
         match self {
-            Self::External(info) => info.labels().any(|l| l == "static-listing"),
+            Self::External(info) => info
+                .as_ref()
+                .value()
+                .as_ref()
+                .labels()
+                .any(|l| l == "static-listing"),
             Self::Internal(info) => info
                 .as_ref()
                 .value()
@@ -1590,7 +1608,10 @@ impl BuckTestOrchestrator<'_> {
             }
         }
 
-        if let Some(external) = providers.builtin_provider_value::<FrozenExternalRunnerTestInfo>() {
+        let external: Option<OwnedExternalRunnerTestInfo> = providers
+            .builtin_provider_value::<FrozenExternalRunnerTestInfo>()
+            .map(Into::into);
+        if let Some(external) = external {
             return Ok(OwnedTestInfo::External(external));
         }
 

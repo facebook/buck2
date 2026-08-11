@@ -21,6 +21,7 @@ use futures::future::FutureExt;
 use itertools::Itertools;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
@@ -117,16 +118,16 @@ pub fn build_external_runner_spec<'a>(
     }
 }
 
-impl<'v> TestProvider<'v> for FrozenExternalRunnerTestInfo {
+impl<'v> TestProvider<'v> for ExternalRunnerTestInfo<'v> {
     fn visit_artifacts(
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        FrozenExternalRunnerTestInfo::visit_artifacts(self, visitor)
+        ExternalRunnerTestInfo::visit_artifacts(self, visitor)
     }
 
     fn labels(&self) -> Vec<&str> {
-        FrozenExternalRunnerTestInfo::labels(self).collect()
+        ExternalRunnerTestInfo::labels(self).collect()
     }
 
     fn dispatch<'exec>(

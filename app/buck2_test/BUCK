@@ -60,7 +60,6 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/pagable:pagable",
         "//buck2/remote_execution:remote_execution",
-        "//buck2/starlark-rust/starlark:starlark",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
