@@ -1,10 +1,7 @@
-load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
-
 oncall("build_infra")
 
-constraint_with_aliases(
+constraint(
     name = "bootstrap",
-    aliases = {},
     default = "unspecified",
     values = [
         "use",
