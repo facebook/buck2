@@ -20,11 +20,10 @@ use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::values::Demand;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -33,11 +32,9 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::list::ListRef;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -66,16 +63,15 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
     Debug,
     Clone,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub struct TransitiveSetArgsProjectionGen<V: ValueLifetimeless> {
-    pub(super) transitive_set: ValueOfUncheckedGeneric<V, FrozenTransitiveSet>,
+pub struct TransitiveSetArgsProjection<'v> {
+    pub(super) transitive_set: ValueOfUnchecked<'v, FrozenTransitiveSet>,
 
     /// The index of the projection. Once transitive sets are defined, their projections never
     /// change, so we can afford to just store the index here.
@@ -85,7 +81,7 @@ pub struct TransitiveSetArgsProjectionGen<V: ValueLifetimeless> {
     pub ordering: TransitiveSetOrdering,
 }
 
-impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
+impl<'v> Display for TransitiveSetArgsProjection<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let projection_name = self.projection_name().unwrap_or("<invalid projection>");
         fmt_container(
@@ -100,7 +96,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
+impl<'v> TransitiveSetArgsProjection<'v> {
     fn projection_name(&self) -> buck2_error::Result<&'v str> {
         TransitiveSet::from_value(self.transitive_set.get().to_value())
             .ok_or_else(|| internal_error!("Invalid transitive_set"))?
@@ -108,12 +104,14 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
+impl<'v> TransitiveSetArgsProjection<'v> {
     /// For args projections, we allow either a CommandLineArgLike or a list of them (just like `cmd_args.add()`).
     /// This function allows us to treat those two as the same.
     /// TODO(cjhopman): It may be better to wrap the list case in a new CommandLineArgLike impl when returned from
     /// the projection. Then we'd only have to verify the contents type once and it might be a bit simpler to use.
-    pub(super) fn as_command_line(v: V) -> buck2_error::Result<impl CommandLineArgLike<'v> + 'v> {
+    pub(super) fn as_command_line(
+        v: Value<'v>,
+    ) -> buck2_error::Result<impl CommandLineArgLike<'v> + 'v> {
         enum Impl<'v> {
             Item(&'v dyn CommandLineArgLike<'v>),
             List(&'v [Value<'v>]),
@@ -208,14 +206,14 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
     }
 }
 
-starlark_complex_value!(pub TransitiveSetArgsProjection);
+starlark_complex_value_branded!(pub TransitiveSetArgsProjection);
 
 starlark::methods_static!(
     TRANSITIVE_SET_ARGS_PROJECTION_METHODS = transitive_set_args_projection_methods
 );
 
 #[starlark_value(type = "TransitiveSetArgsProjection")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
+impl<'v> StarlarkValue<'v> for TransitiveSetArgsProjection<'v>
 where
     Self: ProvidesStaticType<'v>,
 {
@@ -228,7 +226,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectionGen<V> {
+impl<'v> CommandLineArgLike<'v> for TransitiveSetArgsProjection<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(TransitiveSetArgsProjection::starlark_type_repr());
     }

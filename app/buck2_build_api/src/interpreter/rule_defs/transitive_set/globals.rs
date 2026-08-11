@@ -13,18 +13,18 @@ use starlark::values::FrozenValue;
 
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetGen;
-use crate::interpreter::rule_defs::transitive_set::transitive_set_args_projection::TransitiveSetArgsProjectionGen;
-use crate::interpreter::rule_defs::transitive_set::transitive_set_json_projection::TransitiveSetJsonProjectionGen;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversalGen;
-use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversalGen;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_args_projection::TransitiveSetArgsProjection;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_json_projection::TransitiveSetJsonProjection;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
+use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 
 #[starlark_module]
 #[starlark_types(
     TransitiveSetGen<FrozenValue> as TransitiveSet,
-    TransitiveSetArgsProjectionGen<FrozenValue> as TransitiveSetArgsProjection,
+    TransitiveSetArgsProjection<'static> as TransitiveSetArgsProjection,
     FrozenTransitiveSetDefinition as TransitiveSetDefinition,
-    TransitiveSetJsonProjectionGen<FrozenValue> as TransitiveSetJsonProjection,
-    TransitiveSetTraversalGen<FrozenValue> as TransitiveSetIterator,
-    TransitiveSetProjectionTraversalGen<FrozenValue> as TransitiveSetArgsProjectionIterator
+    TransitiveSetJsonProjection<'static> as TransitiveSetJsonProjection,
+    TransitiveSetTraversal<'static> as TransitiveSetIterator,
+    TransitiveSetProjectionTraversal<'static> as TransitiveSetArgsProjectionIterator
 )]
 pub fn register_transitive_set_types(globals: &mut GlobalsBuilder) {}

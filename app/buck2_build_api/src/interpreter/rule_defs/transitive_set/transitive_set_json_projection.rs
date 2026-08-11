@@ -19,10 +19,9 @@ use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -30,11 +29,9 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::starlark_value;
 
 use crate::artifact_groups::TransitiveSetProjectionKey;
@@ -52,27 +49,27 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
 #[derive(
     Debug,
     Clone,
-    Coerce,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
-pub struct TransitiveSetJsonProjectionGen<V: ValueLifetimeless> {
-    pub(super) transitive_set: ValueOfUncheckedGeneric<V, FrozenTransitiveSet>,
+pub struct TransitiveSetJsonProjection<'v> {
+    pub(super) transitive_set: ValueOfUnchecked<'v, FrozenTransitiveSet>,
 
     /// The index of the projection. Once transitive sets are defined, their projections never
     /// change, so we can afford to just store the index here.
     pub projection: usize,
 
     /// The ordering to use when traversing the projection.
+    #[freeze_branded(identity)]
     pub ordering: TransitiveSetOrdering,
 }
 
-impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
+impl<'v> Display for TransitiveSetJsonProjection<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let projection_name = self.projection_name().unwrap_or("<invalid projection>");
         fmt_container(
@@ -87,7 +84,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
+impl<'v> TransitiveSetJsonProjection<'v> {
     fn projection_name(&self) -> buck2_error::Result<&'v str> {
         TransitiveSet::from_value(self.transitive_set.get().to_value())
             .ok_or_else(|| internal_error!("Invalid transitive_set"))?
@@ -112,7 +109,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
+impl<'v> TransitiveSetJsonProjection<'v> {
     pub fn iter_values<'a>(
         &'a self,
     ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
@@ -125,17 +122,14 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
     }
 }
 
-starlark_complex_value!(pub TransitiveSetJsonProjection);
+starlark_complex_value_branded!(pub TransitiveSetJsonProjection);
 
 starlark::methods_static!(
     TRANSITIVE_SET_JSON_PROJECTION_METHODS = transitive_set_json_projection_methods
 );
 
 #[starlark_value(type = "TransitiveSetJsonProjection")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for TransitiveSetJsonProjection<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(TRANSITIVE_SET_JSON_PROJECTION_METHODS.methods())
     }
