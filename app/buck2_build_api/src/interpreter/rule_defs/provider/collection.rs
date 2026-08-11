@@ -415,7 +415,7 @@ impl FrozenProviderCollection {
             heap.alloc(FrozenProviderCollection {
                 providers: SmallMap::from_iter([(
                     CollectionKey(DefaultInfoCallable::provider_id().dupe()),
-                    FrozenDefaultInfo::testing_empty(heap)
+                    DefaultInfo::testing_empty(heap)
                         .to_frozen_value()
                         .to_value(),
                 )]),
@@ -497,7 +497,7 @@ impl<'v> ProviderCollection<'v> {
     /// Panics when called on a collection that is still being built; any
     /// collection reached through a `Dependency` or an analysis result is
     /// frozen and hence fine.
-    pub fn default_info(&self) -> buck2_error::Result<FrozenValueTyped<'v, FrozenDefaultInfo>> {
+    pub fn default_info(&self) -> buck2_error::Result<FrozenValueTyped<'v, DefaultInfo<'v>>> {
         self.builtin_provider::<FrozenDefaultInfo>().ok_or_else(|| {
             internal_error!(
                 "DefaultInfo should always be set for providers returned from rule function"
@@ -723,7 +723,6 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                             for provider_name in &**provider_names {
                                 let maybe_di = collection_value
                                     .default_info()?
-                                    .as_ref()
                                     .get_sub_target_providers(provider_name.as_str());
 
                                 match maybe_di {
@@ -781,38 +780,34 @@ pub mod tester {
         }
 
         fn get_default_info_default_outputs<'v>(value: Value<'v>) -> starlark::Result<Value<'v>> {
-            let frozen = value
+            value
                 .unpack_frozen()
                 .expect("a frozen value to fetch DefaultInfo");
-            let collection = frozen
-                .downcast_ref::<FrozenProviderCollection>()
-                .ok_or_else(|| {
-                    buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::StarlarkError,
-                        "{:?} was not a FrozenProviderCollection",
-                        value
-                    )
-                })?;
+            let collection = value.downcast_ref::<ProviderCollection>().ok_or_else(|| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::StarlarkError,
+                    "{:?} was not a ProviderCollection",
+                    value
+                )
+            })?;
 
-            let ret = collection.default_info()?.default_outputs_raw().to_value();
+            let ret = collection.default_info()?.default_outputs_raw();
             Ok(ret)
         }
 
         fn get_default_info_sub_targets<'v>(value: Value<'v>) -> starlark::Result<Value<'v>> {
-            let frozen = value
+            value
                 .unpack_frozen()
                 .expect("a frozen value to fetch DefaultInfo");
-            let collection = frozen
-                .downcast_ref::<FrozenProviderCollection>()
-                .ok_or_else(|| {
-                    buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::StarlarkError,
-                        "{:?} was not a FrozenProviderCollection",
-                        value
-                    )
-                })?;
+            let collection = value.downcast_ref::<ProviderCollection>().ok_or_else(|| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::StarlarkError,
+                    "{:?} was not a ProviderCollection",
+                    value
+                )
+            })?;
 
-            let ret = collection.default_info()?.sub_targets_raw().to_value();
+            let ret = collection.default_info()?.sub_targets_raw();
             Ok(ret)
         }
 

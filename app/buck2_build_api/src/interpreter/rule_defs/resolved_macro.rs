@@ -43,7 +43,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
-use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
+use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 
 // TODO(cjhopman): Consider making DefaultOutputs implement CommandLineArgLike
@@ -55,7 +55,7 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedMacro<'v> {
-    Location(FrozenValueTyped<'v, FrozenDefaultInfo>),
+    Location(FrozenValueTyped<'v, DefaultInfo<'v>>),
     Source(#[starlark_pagable(pagable)] Artifact),
     /// Holds an arg-like value
     ArgLike(FrozenCommandLineArg),

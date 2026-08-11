@@ -104,11 +104,13 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             None
         };
 
-        // SAFETY: FIXME(JakobDegen): This isn't quite right. We know that this is safe because we
-        // know that the underlying references point into frozen heaps kept alive by this module.
-        // However, it's also possible to get `'v`-lifetimed references into the non-frozen heap in
-        // the current module, in which case this is unsound. Ergonomic support for this pattern
-        // would require adopting an additional lifetime to represent the distinction.
+        // SAFETY: FIXME(JakobDegen): This isn't quite right. This erases the brand for storage in
+        // a `'static`-stored simple value; the types are invariant in the lifetime, so only a
+        // transmute can do that. We know that this is safe because we know that the underlying
+        // references point into frozen heaps kept alive by this module. However, it's also
+        // possible to get `'v`-lifetimed references into the non-frozen heap in the current
+        // module, in which case this is unsound. Ergonomic support for this pattern would require
+        // adopting an additional lifetime to represent the distinction.
         let resolved_parts = unsafe {
             std::mem::transmute::<
                 Vec<ResolvedStringWithMacrosPart<'v>>,

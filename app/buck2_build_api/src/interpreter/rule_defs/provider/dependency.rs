@@ -227,9 +227,9 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] subtarget: &str,
         heap: Heap<'v>,
     ) -> starlark::Result<Dependency<'v>> {
-        let di = this.collection().default_info()?;
-        let providers = di
-            .as_ref()
+        let providers = this
+            .collection()
+            .default_info()?
             .get_sub_target_providers(subtarget)
             .ok_or_else(|| {
                 buck2_error::Error::from(DependencyError::UnknownSubtarget(subtarget.to_owned()))
