@@ -26,7 +26,6 @@ use starlark::values::dict::DictRef;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::interpreter::selector::StarlarkSelector;
-use crate::interpreter::selector::StarlarkSelectorGen;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -76,7 +75,7 @@ impl CoercedAttrExr for CoercedAttr {
             }
 
             match *selector {
-                StarlarkSelectorGen::Primary(v) => {
+                StarlarkSelector::Primary(v) => {
                     if let Some(dict) = DictRef::from_value(v.get()) {
                         let has_default = dict.get_str("DEFAULT").is_some();
                         let mut entries =
@@ -138,7 +137,7 @@ impl CoercedAttrExr for CoercedAttr {
                         Err(SelectError::ValueNotDict(v.get().to_repr()).into())
                     }
                 }
-                StarlarkSelectorGen::Sum(l, r) => {
+                StarlarkSelector::Sum(l, r) => {
                     if !attr.supports_concat() {
                         return Err(SelectError::ConcatNotSupported(
                             attr.to_string(),

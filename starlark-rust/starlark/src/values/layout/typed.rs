@@ -44,6 +44,7 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -408,6 +409,20 @@ where
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenValueTyped::new_err(self.0.freeze(freezer)?)
+            .expect("Freezing a value is known to be well-behaved"))
+    }
+}
+
+impl<'v, T> FreezeBranded for ValueTyped<'v, T>
+where
+    T: StarlarkValue<'v>,
+    T: FreezeBranded,
+    for<'fv> <T as FreezeBranded>::Frozen<'fv>: StarlarkValue<'fv>,
+{
+    type Frozen<'fv> = ValueTyped<'fv, <T as FreezeBranded>::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(ValueTyped::new_err(self.0.freeze_branded(freezer)?)
             .expect("Freezing a value is known to be well-behaved"))
     }
 }

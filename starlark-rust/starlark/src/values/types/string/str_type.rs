@@ -45,6 +45,7 @@ use crate::environment::Methods;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -93,6 +94,14 @@ impl Freeze for StarlarkStr {
     type Frozen = StarlarkStr;
 
     fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        Ok(self)
+    }
+}
+
+impl FreezeBranded for StarlarkStr {
+    type Frozen<'fv> = StarlarkStr;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(self)
     }
 }

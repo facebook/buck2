@@ -35,7 +35,7 @@ use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::ValueOf;
-use starlark::values::ValueTypedComplex;
+use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::tuple::UnpackTuple;
 
@@ -459,7 +459,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     fn r#enum<'v>(
         #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         #[starlark(require = named)] default: Option<
-            ValueOf<'v, Either<StringValue<'v>, ValueTypedComplex<'v, StarlarkSelector<'v>>>>,
+            ValueOf<'v, Either<StringValue<'v>, ValueTyped<'v, StarlarkSelector<'v>>>>,
         >,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,

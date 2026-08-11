@@ -19,55 +19,55 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
-use starlark::starlark_complex_value;
+use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::Freeze;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
-use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValue;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
-use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 /// Representation of `select()` in Starlark.
-#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
+#[derive(
+    Debug,
+    ProvidesStaticType,
+    Trace,
+    FreezeBranded,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
-pub enum StarlarkSelectorGen<V: ValueLifetimeless> {
+pub enum StarlarkSelector<'v> {
     /// Simplest form, backed by dictionary representation
     /// wrapped into `select` function call.
-    Primary(ValueOfUncheckedGeneric<V, DictType<FrozenStringValue, FrozenValue>>),
-    Sum(V, V),
+    Primary(ValueOfUnchecked<'v, DictType<StringValue<'static>, Value<'static>>>),
+    Sum(Value<'v>, Value<'v>),
 }
 
-impl<V: ValueLifetimeless> Display for StarlarkSelectorGen<V> {
+impl<'v> Display for StarlarkSelector<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StarlarkSelectorGen::Primary(v) => {
+            StarlarkSelector::Primary(v) => {
                 f.write_str("select(")?;
                 Display::fmt(v, f)?;
                 f.write_str(")")
             }
-            StarlarkSelectorGen::Sum(l, r) => {
+            StarlarkSelector::Sum(l, r) => {
                 Display::fmt(l, f)?;
                 f.write_str(" + ")?;
                 Display::fmt(r, f)
@@ -76,24 +76,16 @@ impl<V: ValueLifetimeless> Display for StarlarkSelectorGen<V> {
     }
 }
 
-unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
-    Coerce<StarlarkSelectorGen<To>> for StarlarkSelectorGen<From>
-{
-}
-
-impl<'v, V: ValueLike<'v>> Serialize for StarlarkSelectorGen<V>
-where
-    Self: StarlarkValue<'v>,
-{
+impl<'v> Serialize for StarlarkSelector<'v> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            StarlarkSelectorGen::Primary(dict_value) => {
+            StarlarkSelector::Primary(dict_value) => {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("__type", "selector")?;
                 map.serialize_entry("entries", &dict_value.get().to_value())?;
                 map.end()
             }
-            StarlarkSelectorGen::Sum(left, right) => {
+            StarlarkSelector::Sum(left, right) => {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("__type", "concat")?;
                 map.serialize_entry("items", &[left.to_value(), right.to_value()])?;
@@ -103,7 +95,7 @@ where
     }
 }
 
-starlark_complex_value!(pub StarlarkSelector);
+starlark_complex_value_branded!(pub StarlarkSelector);
 
 impl<'v> StarlarkSelector<'v> {
     pub fn new(d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>) -> Self {
@@ -169,7 +161,7 @@ impl<'v> StarlarkSelector<'v> {
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                StarlarkSelectorGen::Primary(selector) => {
+                StarlarkSelector::Primary(selector) => {
                     let selector = DictRef::from_value(selector.get()).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
@@ -194,12 +186,10 @@ impl<'v> StarlarkSelector<'v> {
                             .internal_error("validated at construction")?,
                     )))
                 }
-                StarlarkSelectorGen::Sum(left, right) => {
-                    Ok(eval.heap().alloc(StarlarkSelectorGen::Sum(
-                        Self::select_map::<RECURSE>(eval, left, func)?,
-                        Self::select_map::<RECURSE>(eval, right, func)?,
-                    )))
-                }
+                StarlarkSelector::Sum(left, right) => Ok(eval.heap().alloc(StarlarkSelector::Sum(
+                    Self::select_map::<RECURSE>(eval, left, func)?,
+                    Self::select_map::<RECURSE>(eval, right, func)?,
+                ))),
             }
         } else {
             invoke(eval, val, func)
@@ -229,7 +219,7 @@ impl<'v> StarlarkSelector<'v> {
 
         if let Some(selector) = StarlarkSelector::from_value(val) {
             match *selector {
-                StarlarkSelectorGen::Primary(selector) => {
+                StarlarkSelector::Primary(selector) => {
                     let selector = DictRef::from_value(selector.get()).unwrap();
                     for v in selector.values() {
                         // select_test only applies the test to non-SelectFail/SelectIncompatible values.
@@ -244,7 +234,7 @@ impl<'v> StarlarkSelector<'v> {
                     }
                     Ok(false)
                 }
-                StarlarkSelectorGen::Sum(left, right) => {
+                StarlarkSelector::Sum(left, right) => {
                     Ok(Self::select_test(left, eval, func)?
                         || Self::select_test(right, eval, func)?)
                 }
@@ -255,55 +245,16 @@ impl<'v> StarlarkSelector<'v> {
     }
 }
 
-trait StarlarkSelectorBase<'v> {
-    type Item: ValueLike<'v>;
-}
-
-impl<'v> StarlarkSelectorBase<'v> for StarlarkSelector<'v> {
-    type Item = Value<'v>;
-}
-
-unsafe impl<'v> Trace<'v> for StarlarkSelector<'v> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        match self {
-            Self::Primary(a) => a.trace(tracer),
-            Self::Sum(a, b) => {
-                tracer.trace(a);
-                tracer.trace(b);
-            }
-        }
-    }
-}
-
-impl<'v> Freeze for StarlarkSelector<'v> {
-    type Frozen = FrozenStarlarkSelector;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(match self {
-            StarlarkSelector::Primary(v) => FrozenStarlarkSelector::Primary(v.freeze(freezer)?),
-            StarlarkSelector::Sum(l, r) => {
-                FrozenStarlarkSelector::Sum(l.freeze(freezer)?, r.freeze(freezer)?)
-            }
-        })
-    }
-}
-
-impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
-    type Item = FrozenValue;
-}
-
 #[starlark_value(type = "Select")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectorGen<V>
-where
-    Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkSelector<'v> {
     fn to_bool(&self) -> bool {
         true
     }
 
     fn radd(&self, left: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {
         let right = heap.alloc(match self {
-            StarlarkSelectorGen::Primary(x) => StarlarkSelectorGen::Primary(x.to_value()),
-            StarlarkSelectorGen::Sum(x, y) => StarlarkSelectorGen::Sum(x.to_value(), y.to_value()),
+            StarlarkSelector::Primary(x) => StarlarkSelector::Primary(x.to_value()),
+            StarlarkSelector::Sum(x, y) => StarlarkSelector::Sum(x.to_value(), y.to_value()),
         });
         Some(Ok(StarlarkSelector::sum(left, right, heap)))
     }

@@ -10,10 +10,9 @@
 
 use gazebo::prelude::SliceExt;
 use starlark::typing::Ty;
-use starlark::values::Value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
-use crate::interpreter::selector::StarlarkSelectorGen;
+use crate::interpreter::selector::StarlarkSelector;
 
 pub enum TyMaybeSelect {
     /// No inner selects.
@@ -37,7 +36,7 @@ impl TyMaybeSelect {
 
     pub(crate) fn to_ty_with_select(&self) -> Ty {
         fn with_select(ty: Ty) -> Ty {
-            Ty::union2(ty, StarlarkSelectorGen::<Value>::starlark_type_repr())
+            Ty::union2(ty, StarlarkSelector::<'static>::starlark_type_repr())
         }
 
         match self {

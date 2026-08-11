@@ -35,6 +35,7 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -149,6 +150,15 @@ impl<V: ValueLifetimeless + Freeze, T: StarlarkTypeRepr> Freeze for ValueOfUnche
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen = self.0.freeze(freezer)?;
+        Ok(ValueOfUncheckedGeneric::new(frozen))
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
+    type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let frozen = self.0.freeze_branded(freezer)?;
         Ok(ValueOfUncheckedGeneric::new(frozen))
     }
 }
