@@ -30,7 +30,6 @@
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
-pub use owned_frozen_ref::OwnedRefFrozenRef;
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;
 pub use starlark_derive::Freeze;
@@ -138,7 +137,6 @@ mod index;
 pub(crate) mod iter;
 pub(crate) mod layout;
 mod owned;
-pub(crate) mod owned_frozen_ref;
 pub(crate) mod recursive_repr_or_json_guard;
 mod stack_guard;
 pub(crate) mod starlark_type_id;
