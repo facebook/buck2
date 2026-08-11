@@ -17,11 +17,13 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 
@@ -146,7 +148,11 @@ fn validation_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-impl FrozenValidationInfo {
+/// A `ValidationInfo` kept alive by its owning frozen heap; usable across threads and awaits.
+pub type OwnedValidationInfo = OwnedFrozen<ValueTyped<'static, ValidationInfo<'static>>>;
+
+impl<'v> ValidationInfo<'v> {
+    /// Panics when called on an unfrozen instance, whose specs are not yet the frozen variant.
     pub fn validations(&self) -> impl Iterator<Item = &FrozenStarlarkValidationSpec> {
         let it = ListRef::from_value(self.validations.get())
             .expect("type checked during construction or freezing")

@@ -366,7 +366,9 @@ pub fn transitive_validations(
     provider_collection: FrozenProviderCollectionValueRef,
 ) -> Option<TransitiveValidations> {
     let provider_collection = provider_collection.to_owned();
-    let info = provider_collection.builtin_provider_value::<FrozenValidationInfo>();
+    let info = provider_collection
+        .builtin_provider_value::<FrozenValidationInfo>()
+        .map(Into::into);
     if info.is_some() || deps.len() > 1 {
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info,

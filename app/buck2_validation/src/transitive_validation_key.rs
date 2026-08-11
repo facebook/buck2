@@ -64,6 +64,9 @@ impl TransitiveValidationKey {
         }
         let validations = match &transitive_validations.0.info {
             Some(info) => info
+                .as_ref()
+                .value()
+                .as_ref()
                 .validations()
                 .map(|spec| {
                     Ok(Validation {
