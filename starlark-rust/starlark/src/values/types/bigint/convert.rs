@@ -44,7 +44,7 @@ impl<'v> AllocValue<'v> for u32 {
     }
 }
 
-impl AllocFrozenValue for u32 {
+impl<'fv> AllocFrozenValue<'fv> for u32 {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
@@ -66,7 +66,7 @@ impl<'v> AllocValue<'v> for u64 {
     }
 }
 
-impl AllocFrozenValue for u64 {
+impl<'fv> AllocFrozenValue<'fv> for u64 {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
@@ -88,7 +88,7 @@ impl<'v> AllocValue<'v> for i64 {
     }
 }
 
-impl AllocFrozenValue for i64 {
+impl<'fv> AllocFrozenValue<'fv> for i64 {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
@@ -110,7 +110,7 @@ impl<'v> AllocValue<'v> for usize {
     }
 }
 
-impl AllocFrozenValue for usize {
+impl<'fv> AllocFrozenValue<'fv> for usize {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
@@ -132,7 +132,7 @@ impl<'v> AllocValue<'v> for isize {
     }
 }
 
-impl AllocFrozenValue for isize {
+impl<'fv> AllocFrozenValue<'fv> for isize {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
@@ -154,7 +154,7 @@ impl<'v> AllocValue<'v> for BigInt {
     }
 }
 
-impl AllocFrozenValue for BigInt {
+impl<'fv> AllocFrozenValue<'fv> for BigInt {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
     }

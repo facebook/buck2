@@ -114,7 +114,7 @@ impl Serialize for NoneType {
 
 static_starlark_value!(pub(crate) VALUE_NONE: NoneType = NoneType);
 
-impl AllocFrozenValue for NoneType {
+impl<'fv> AllocFrozenValue<'fv> for NoneType {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         FrozenValue::new_none()
     }

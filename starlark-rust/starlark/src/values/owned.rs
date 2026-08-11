@@ -79,7 +79,7 @@ impl StarlarkTypeRepr for OwnedFrozenValue {
     }
 }
 
-impl AllocFrozenValue for OwnedFrozenValue {
+impl<'fv> AllocFrozenValue<'fv> for OwnedFrozenValue {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         // Safe because this is the standard expectation for alloc_frozen_value
         // - you must keep the heap you allocate it on alive.

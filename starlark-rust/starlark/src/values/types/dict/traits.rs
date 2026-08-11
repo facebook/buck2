@@ -42,8 +42,10 @@ impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V>
     }
 }
 
-impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for SmallMap<K, V> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, K: AllocFrozenValue<'fv>, V: AllocFrozenValue<'fv>> AllocFrozenValue<'fv>
+    for SmallMap<K, V>
+{
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -59,12 +61,13 @@ where
     }
 }
 
-impl<'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue for &'a SmallMap<K, V>
+impl<'fv, 'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue<'fv>
+    for &'a SmallMap<K, V>
 where
-    &'a K: AllocFrozenValue,
-    &'a V: AllocFrozenValue,
+    &'a K: AllocFrozenValue<'fv>,
+    &'a V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -116,8 +119,10 @@ impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for BTreeMap<K, V>
     }
 }
 
-impl<K: AllocFrozenValue, V: AllocFrozenValue> AllocFrozenValue for BTreeMap<K, V> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, K: AllocFrozenValue<'fv>, V: AllocFrozenValue<'fv>> AllocFrozenValue<'fv>
+    for BTreeMap<K, V>
+{
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -133,12 +138,13 @@ where
     }
 }
 
-impl<'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue for &'a BTreeMap<K, V>
+impl<'fv, 'a, K: 'a + StarlarkTypeRepr, V: 'a + StarlarkTypeRepr> AllocFrozenValue<'fv>
+    for &'a BTreeMap<K, V>
 where
-    &'a K: AllocFrozenValue,
-    &'a V: AllocFrozenValue,
+    &'a K: AllocFrozenValue<'fv>,
+    &'a V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }

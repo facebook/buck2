@@ -161,7 +161,7 @@ impl<'v> AllocValue<'v> for StarlarkBigInt {
     }
 }
 
-impl AllocFrozenValue for StarlarkBigInt {
+impl<'fv> AllocFrozenValue<'fv> for StarlarkBigInt {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
     }

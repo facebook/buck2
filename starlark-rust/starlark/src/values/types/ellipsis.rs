@@ -50,7 +50,7 @@ impl Ellipsis {
     }
 }
 
-impl AllocFrozenValue for Ellipsis {
+impl<'fv> AllocFrozenValue<'fv> for Ellipsis {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         Ellipsis::new_value()
     }

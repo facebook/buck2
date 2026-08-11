@@ -89,7 +89,7 @@ See also [`typing.Iterable` in the Python documentation][2].
 
 static_starlark_value!(ITERABLE: TypingIterable = TypingIterable);
 
-impl AllocFrozenValue for TypingIterable {
+impl<'fv> AllocFrozenValue<'fv> for TypingIterable {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         ITERABLE.to_frozen_value()
     }

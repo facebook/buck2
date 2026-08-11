@@ -36,8 +36,8 @@ fn new_host_info(
 ) -> OwnedFrozenValue {
     let heap = FrozenHeap::new();
 
-    fn new_struct<V: AllocFrozenValue + Copy>(
-        heap: &FrozenHeap,
+    fn new_struct<'fv, V: AllocFrozenValue<'fv> + Copy>(
+        heap: &'fv FrozenHeap,
         values: &[(&str, V)],
     ) -> FrozenValue {
         heap.alloc(AllocStruct(values.iter().copied()))

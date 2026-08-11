@@ -68,7 +68,7 @@ See also [`typing.Any` in the Python documentation][1].
 
 static_starlark_value!(ANY: TypingAny = TypingAny);
 
-impl AllocFrozenValue for TypingAny {
+impl<'fv> AllocFrozenValue<'fv> for TypingAny {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         ANY.to_frozen_value()
     }

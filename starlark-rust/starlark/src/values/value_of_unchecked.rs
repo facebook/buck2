@@ -126,7 +126,7 @@ impl<'v, V: ValueLike<'v>, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUnchec
     }
 }
 
-impl<T: StarlarkTypeRepr> AllocFrozenValue for ValueOfUncheckedGeneric<FrozenValue, T> {
+impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for ValueOfUncheckedGeneric<FrozenValue, T> {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self.0
     }

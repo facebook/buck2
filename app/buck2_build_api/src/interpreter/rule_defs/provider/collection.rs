@@ -197,7 +197,7 @@ impl<'v> AllocValue<'v> for ProviderCollectionGen<Value<'v>> {
     }
 }
 
-impl AllocFrozenValue for ProviderCollectionGen<FrozenValue> {
+impl<'fv> AllocFrozenValue<'fv> for ProviderCollectionGen<FrozenValue> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if self.providers.is_empty() {
             empty_provider_collection_value().to_frozen_value()

@@ -60,14 +60,9 @@ fn derive_alloc_value_impl(
     let (_impl_generics, type_generics, where_clause) = derive_input.generics.split_for_impl();
 
     let mut generics = derive_input.generics.clone();
-    match which_trait {
-        WhichTrait::AllocValue => {
-            let lifetime = find_v_lifetime(&derive_input.generics)?;
-            if lifetime.is_none() {
-                generics.params.push(syn::parse_quote!('v));
-            }
-        }
-        WhichTrait::AllocFrozenValue => {}
+    let lifetime = find_v_lifetime(&derive_input.generics)?;
+    if lifetime.is_none() {
+        generics.params.push(syn::parse_quote!('v));
     }
 
     let type_name = &derive_input.ident;
@@ -92,7 +87,7 @@ fn derive_alloc_value_impl(
         WhichTrait::AllocFrozenValue => {
             syn::parse_quote_spanned! {
             derive_input.span() =>
-                impl #generics starlark::values::AllocFrozenValue for #type_name #type_generics #where_clause {
+                impl #generics starlark::values::AllocFrozenValue<'v> for #type_name #type_generics #where_clause {
                     fn alloc_frozen_value(
                         self,
                         heap: &starlark::values::FrozenHeap,

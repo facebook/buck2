@@ -95,8 +95,8 @@ impl<'v, T: AllocValue<'v>> AllocValue<'v> for NoneOr<T> {
     }
 }
 
-impl<T: AllocFrozenValue> AllocFrozenValue for NoneOr<T> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, T: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for NoneOr<T> {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         match self {
             NoneOr::None => FrozenValue::new_none(),
             NoneOr::Other(x) => x.alloc_frozen_value(heap),

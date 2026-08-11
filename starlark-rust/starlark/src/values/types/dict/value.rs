@@ -148,7 +148,7 @@ impl StarlarkTypeRepr for FrozenDictData {
     }
 }
 
-impl AllocFrozenValue for FrozenDictData {
+impl<'fv> AllocFrozenValue<'fv> for FrozenDictData {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if self.content.is_empty() {
             VALUE_EMPTY_FROZEN_DICT.to_frozen_value()

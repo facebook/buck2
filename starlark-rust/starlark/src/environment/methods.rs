@@ -189,7 +189,7 @@ impl MethodsBuilder {
 
     /// Set a constant value in the [`MethodsBuilder`] that will be suitable for use with
     /// [`StarlarkValue::get_methods`](crate::values::StarlarkValue::get_methods).
-    pub fn set_attribute<'v, V: AllocFrozenValue>(
+    pub fn set_attribute<'v, V: for<'fv> AllocFrozenValue<'fv>>(
         &'v mut self,
         name: &str,
         value: V,
@@ -257,7 +257,7 @@ impl MethodsBuilder {
     }
 
     /// Allocate a value using the same underlying heap as the [`MethodsBuilder`]
-    pub fn alloc<'v, V: AllocFrozenValue>(&'v self, value: V) -> FrozenValue {
+    pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
         value.alloc_frozen_value(&self.heap)
     }
 }

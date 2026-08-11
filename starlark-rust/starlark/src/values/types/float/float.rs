@@ -224,7 +224,7 @@ impl<'v> AllocValue<'v> for StarlarkFloat {
     }
 }
 
-impl AllocFrozenValue for StarlarkFloat {
+impl<'fv> AllocFrozenValue<'fv> for StarlarkFloat {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
     }
@@ -236,7 +236,7 @@ impl<'v> AllocValue<'v> for f64 {
     }
 }
 
-impl AllocFrozenValue for f64 {
+impl<'fv> AllocFrozenValue<'fv> for f64 {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkFloat(self))
     }

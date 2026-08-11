@@ -107,9 +107,11 @@ impl<'v, A: AllocValue<'v>, B: AllocValue<'v>> AllocValue<'v> for Either<A, B> {
     }
 }
 
-impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B> {
+impl<'fv, A: AllocFrozenValue<'fv>, B: AllocFrozenValue<'fv>> AllocFrozenValue<'fv>
+    for Either<A, B>
+{
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         match self {
             Either::Left(a) => a.alloc_frozen_value(heap),
             Either::Right(b) => b.alloc_frozen_value(heap),
@@ -133,18 +135,18 @@ impl<A: AllocFrozenValue, B: AllocFrozenValue> AllocFrozenValue for Either<A, B>
 ///     Str(String),
 /// }
 /// ```
-pub trait AllocFrozenValue: StarlarkTypeRepr {
+pub trait AllocFrozenValue<'fv>: StarlarkTypeRepr {
     /// Allocate a value in the frozen heap and return a reference to the allocated value.
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue;
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue;
 }
 
 /// Type which allocates a string.
-pub trait AllocFrozenStringValue: AllocFrozenValue + Sized {
+pub trait AllocFrozenStringValue<'fv>: AllocFrozenValue<'fv> + Sized {
     /// Allocate a string.
-    fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue;
+    fn alloc_frozen_string_value(self, heap: &'fv FrozenHeap) -> FrozenStringValue;
 }
 
-impl AllocFrozenValue for FrozenValue {
+impl<'fv> AllocFrozenValue<'fv> for FrozenValue {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self
     }

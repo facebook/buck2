@@ -354,7 +354,7 @@ impl GlobalsBuilder {
     }
 
     /// Set a value in the [`GlobalsBuilder`].
-    pub fn set<'v, V: AllocFrozenValue>(&'v mut self, name: &str, value: V) {
+    pub fn set<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v mut self, name: &str, value: V) {
         let value = value.alloc_frozen_value(&self.heap);
         self.set_inner(name, value, false)
     }
@@ -412,7 +412,7 @@ impl GlobalsBuilder {
     /// Allocate a value using the same underlying heap as the [`GlobalsBuilder`],
     /// only intended for values that are referred to by those which are passed
     /// to [`set`](GlobalsBuilder::set).
-    pub fn alloc<'v, V: AllocFrozenValue>(&'v self, value: V) -> FrozenValue {
+    pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
         value.alloc_frozen_value(&self.heap)
     }
 

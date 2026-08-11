@@ -70,12 +70,12 @@ where
     }
 }
 
-impl<T> AllocFrozenValue for AllocTuple<T>
+impl<'fv, T> AllocFrozenValue<'fv> for AllocTuple<T>
 where
     T: IntoIterator,
-    T::Item: AllocFrozenValue,
+    T::Item: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_tuple_iter(self.0.into_iter().map(|x| x.alloc_frozen_value(heap)))
     }
 }

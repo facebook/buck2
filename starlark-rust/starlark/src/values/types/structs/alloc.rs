@@ -89,13 +89,13 @@ where
     }
 }
 
-impl<K, V, S> AllocFrozenValue for AllocStruct<S>
+impl<'fv, K, V, S> AllocFrozenValue<'fv> for AllocStruct<S>
 where
     S: IntoIterator<Item = (K, V)>,
-    K: AllocFrozenStringValue,
-    V: AllocFrozenValue,
+    K: AllocFrozenStringValue<'fv>,
+    V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         let iter = self.0.into_iter();
         let mut fields = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {

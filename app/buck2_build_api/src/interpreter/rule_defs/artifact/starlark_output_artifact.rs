@@ -100,7 +100,7 @@ impl<'v> AllocValue<'v> for StarlarkOutputArtifact<'v> {
     }
 }
 
-impl AllocFrozenValue for FrozenStarlarkOutputArtifact {
+impl<'fv> AllocFrozenValue<'fv> for FrozenStarlarkOutputArtifact {
     #[inline]
     fn alloc_frozen_value(
         self,

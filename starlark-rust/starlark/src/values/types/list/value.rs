@@ -246,8 +246,8 @@ impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
     }
 }
 
-impl<V: AllocFrozenValue> AllocFrozenValue for Vec<V> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, V: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for Vec<V> {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_list(&self.into_map(|x| x.alloc_frozen_value(heap)))
     }
 }
@@ -272,11 +272,11 @@ where
     }
 }
 
-impl<'a, V: 'a> AllocFrozenValue for &'a [V]
+impl<'fv, 'a, V: 'a> AllocFrozenValue<'fv> for &'a [V]
 where
-    &'a V: AllocFrozenValue,
+    &'a V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_list(&self.map(|x| x.alloc_frozen_value(heap)))
     }
 }

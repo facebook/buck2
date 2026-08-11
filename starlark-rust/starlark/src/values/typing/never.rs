@@ -91,7 +91,7 @@ See also [`typing.Never` in the Python documentation][1].
 
 static_starlark_value!(NEVER: TypingNever = TypingNever);
 
-impl AllocFrozenValue for TypingNever {
+impl<'fv> AllocFrozenValue<'fv> for TypingNever {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         NEVER.to_frozen_value()
     }

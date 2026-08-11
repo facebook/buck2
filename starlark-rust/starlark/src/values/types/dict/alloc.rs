@@ -90,13 +90,13 @@ where
     }
 }
 
-impl<D, K, V> AllocFrozenValue for AllocDict<D>
+impl<'fv, D, K, V> AllocFrozenValue<'fv> for AllocDict<D>
 where
     D: IntoIterator<Item = (K, V)>,
-    K: AllocFrozenValue,
-    V: AllocFrozenValue,
+    K: AllocFrozenValue<'fv>,
+    V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         let iter = self.0.into_iter();
         let mut map = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {

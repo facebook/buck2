@@ -1090,13 +1090,13 @@ impl FrozenHeap {
     }
 
     /// Allocate a new value on a [`FrozenHeap`].
-    pub fn alloc<T: AllocFrozenValue>(&self, val: T) -> FrozenValue {
+    pub fn alloc<'fv, T: AllocFrozenValue<'fv>>(&'fv self, val: T) -> FrozenValue {
         val.alloc_frozen_value(self)
     }
 
     /// Allocate a value and return [`ValueOfUnchecked`] of it.
-    pub fn alloc_typed_unchecked<T: AllocFrozenValue>(
-        &self,
+    pub fn alloc_typed_unchecked<'fv, T: AllocFrozenValue<'fv>>(
+        &'fv self,
         val: T,
     ) -> FrozenValueOfUnchecked<'static, T> {
         FrozenValueOfUnchecked::new(val.alloc_frozen_value(self))

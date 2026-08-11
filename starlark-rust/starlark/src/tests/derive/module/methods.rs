@@ -63,7 +63,7 @@ impl<'v> StarlarkValue<'v> for Applaud {
     }
 }
 
-impl AllocFrozenValue for Applaud {
+impl<'fv> AllocFrozenValue<'fv> for Applaud {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
     }

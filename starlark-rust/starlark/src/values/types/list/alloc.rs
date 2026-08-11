@@ -68,12 +68,12 @@ where
     }
 }
 
-impl<L> AllocFrozenValue for AllocList<L>
+impl<'fv, L> AllocFrozenValue<'fv> for AllocList<L>
 where
     L: IntoIterator,
-    L::Item: AllocFrozenValue,
+    L::Item: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_list_iter(self.0.into_iter().map(|x| heap.alloc(x)))
     }
 }

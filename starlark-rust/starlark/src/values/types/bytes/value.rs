@@ -78,7 +78,7 @@ impl<'v> AllocValue<'v> for &'_ [u8] {
     }
 }
 
-impl AllocFrozenValue for &'_ [u8] {
+impl<'fv> AllocFrozenValue<'fv> for &'_ [u8] {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkBytes::new(self))
     }
@@ -98,7 +98,7 @@ impl<'v> AllocValue<'v> for Vec<u8> {
     }
 }
 
-impl AllocFrozenValue for Vec<u8> {
+impl<'fv> AllocFrozenValue<'fv> for Vec<u8> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkBytes::from_vec(self))
     }

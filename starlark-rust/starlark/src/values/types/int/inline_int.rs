@@ -366,7 +366,7 @@ impl<'v> AllocValue<'v> for InlineInt {
     }
 }
 
-impl AllocFrozenValue for InlineInt {
+impl<'fv> AllocFrozenValue<'fv> for InlineInt {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         FrozenValue::new_int(self)
     }

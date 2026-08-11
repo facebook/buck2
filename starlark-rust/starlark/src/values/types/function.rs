@@ -135,7 +135,7 @@ pub(crate) struct NativeFunction {
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
-impl AllocFrozenValue for NativeFunction {
+impl<'fv> AllocFrozenValue<'fv> for NativeFunction {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc_simple(self)
     }

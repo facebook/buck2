@@ -51,7 +51,7 @@ impl<'v> AllocValue<'v> for StarlarkProjectRoot {
     }
 }
 
-impl AllocFrozenValue for StarlarkProjectRoot {
+impl<'fv> AllocFrozenValue<'fv> for StarlarkProjectRoot {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         instance()
     }

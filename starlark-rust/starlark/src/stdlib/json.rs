@@ -78,7 +78,7 @@ impl<'v> AllocValue<'v> for serde_json::Number {
     }
 }
 
-impl<'a> AllocFrozenValue for &'a serde_json::Number {
+impl<'fv, 'a> AllocFrozenValue<'fv> for &'a serde_json::Number {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if let Some(x) = self.as_u64() {
             heap.alloc(x)
@@ -94,7 +94,7 @@ impl<'a> AllocFrozenValue for &'a serde_json::Number {
     }
 }
 
-impl AllocFrozenValue for serde_json::Number {
+impl<'fv> AllocFrozenValue<'fv> for serde_json::Number {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]
@@ -134,13 +134,13 @@ impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
     }
 }
 
-impl<'a> AllocFrozenValue for &'a serde_json::Map<String, serde_json::Value> {
+impl<'fv, 'a> AllocFrozenValue<'fv> for &'a serde_json::Map<String, serde_json::Value> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(AllocDict(self.iter().map(|(k, v)| (k.as_str(), v))))
     }
 }
 
-impl AllocFrozenValue for serde_json::Map<String, serde_json::Value> {
+impl<'fv> AllocFrozenValue<'fv> for serde_json::Map<String, serde_json::Value> {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]
@@ -187,7 +187,7 @@ impl<'v> AllocValue<'v> for serde_json::Value {
     }
 }
 
-impl<'a> AllocFrozenValue for &'a serde_json::Value {
+impl<'fv, 'a> AllocFrozenValue<'fv> for &'a serde_json::Value {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         match self {
             serde_json::Value::Null => FrozenValue::new_none(),
@@ -200,7 +200,7 @@ impl<'a> AllocFrozenValue for &'a serde_json::Value {
     }
 }
 
-impl AllocFrozenValue for serde_json::Value {
+impl<'fv> AllocFrozenValue<'fv> for serde_json::Value {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]

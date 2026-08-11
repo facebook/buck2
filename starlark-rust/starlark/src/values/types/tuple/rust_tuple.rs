@@ -54,14 +54,14 @@ impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>, T3: AllocValue<'v>> AllocValue<
     }
 }
 
-impl<T1: AllocFrozenValue> AllocFrozenValue for (T1,) {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, T1: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for (T1,) {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_tuple(&[self.0.alloc_frozen_value(heap)])
     }
 }
 
-impl<T1: AllocFrozenValue, T2: AllocFrozenValue> AllocFrozenValue for (T1, T2) {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv, T1: AllocFrozenValue<'fv>, T2: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for (T1, T2) {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_tuple(&[
             self.0.alloc_frozen_value(heap),
             self.1.alloc_frozen_value(heap),
@@ -69,10 +69,10 @@ impl<T1: AllocFrozenValue, T2: AllocFrozenValue> AllocFrozenValue for (T1, T2) {
     }
 }
 
-impl<T1: AllocFrozenValue, T2: AllocFrozenValue, T3: AllocFrozenValue> AllocFrozenValue
-    for (T1, T2, T3)
+impl<'fv, T1: AllocFrozenValue<'fv>, T2: AllocFrozenValue<'fv>, T3: AllocFrozenValue<'fv>>
+    AllocFrozenValue<'fv> for (T1, T2, T3)
 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         heap.alloc_tuple(&[
             self.0.alloc_frozen_value(heap),
             self.1.alloc_frozen_value(heap),

@@ -33,25 +33,25 @@ use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 
-impl AllocFrozenValue for String {
+impl<'fv> AllocFrozenValue<'fv> for String {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         self.alloc_frozen_string_value(heap).to_frozen_value()
     }
 }
 
-impl AllocFrozenStringValue for String {
+impl<'fv> AllocFrozenStringValue<'fv> for String {
     fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue {
         heap.alloc_str(self.as_str())
     }
 }
 
-impl<'a> AllocFrozenValue for &'a str {
+impl<'fv, 'a> AllocFrozenValue<'fv> for &'a str {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         self.alloc_frozen_string_value(heap).to_frozen_value()
     }
 }
 
-impl<'a> AllocFrozenStringValue for &'a str {
+impl<'fv, 'a> AllocFrozenStringValue<'fv> for &'a str {
     fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue {
         heap.alloc_str(self)
     }

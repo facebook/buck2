@@ -37,7 +37,7 @@ impl<'v> AllocValue<'v> for i32 {
         heap.alloc(StarlarkInt::from(self))
     }
 }
-impl AllocFrozenValue for i32 {
+impl<'fv> AllocFrozenValue<'fv> for i32 {
     #[inline]
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         heap.alloc(StarlarkInt::from(self))
