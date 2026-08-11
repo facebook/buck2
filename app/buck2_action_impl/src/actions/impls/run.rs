@@ -114,7 +114,6 @@ use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
@@ -348,12 +347,10 @@ pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     // The strings stay unbranded so that `category`/`identifier` can hand out
-    // `&'static str`s; the artifacts stay unbranded until their types are
-    // converted.
+    // `&'static str`s.
     pub(crate) category: FrozenStringValue,
     pub(crate) identifier: Option<FrozenStringValue>,
-    pub(crate) outputs_for_error_handler:
-        Vec<FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>>,
+    pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>>,
 }
 
 starlark::register_simple_vtable_entry!(FrozenStarlarkRunActionValues<'static>);
@@ -418,7 +415,7 @@ impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
             outputs_for_error_handler: {
                 let mut frozen_outputs = Vec::with_capacity(outputs_for_error_handler.len());
                 for output in outputs_for_error_handler {
-                    frozen_outputs.push(Freeze::freeze(output, freezer)?);
+                    frozen_outputs.push(FreezeBranded::freeze(output, freezer)?);
                 }
                 frozen_outputs
             },
