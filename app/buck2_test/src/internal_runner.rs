@@ -16,7 +16,7 @@
 
 use std::time::Duration;
 
-use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_error::BuckErrorContext;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
@@ -45,14 +45,19 @@ pub async fn run_internal_test(
     orchestrator: &dyn TestOrchestrator,
     spec: ExternalRunnerSpec,
     listing_spec: ExternalRunnerSpec,
-    provider: &FrozenInternalRunnerTestInfo,
+    provider: &OwnedInternalRunnerTestInfo,
     timeout: Duration,
 ) -> buck2_error::Result<()> {
     let target_handle = spec.target.handle;
     let suite = spec.target.target.clone();
 
+    // `'v`-branded views of the provider must not be held across awaits (only the `OwnedFrozen`
+    // may be), so views are derived in scopes that end before the next await.
     let required_local_resources = RequiredLocalResources {
         resources: provider
+            .as_ref()
+            .value()
+            .as_ref()
             .required_local_resources()
             .map(|r| LocalResourceType {
                 name: r.name.clone(),
@@ -112,6 +117,9 @@ pub async fn run_internal_test(
 
     // Step 2: Parse listing output via Starlark callback
     let discovered_tests = provider
+        .as_ref()
+        .value()
+        .as_ref()
         .parse_test_listing_output(&listing_output)
         .buck_error_context("Failed to parse test listing output")?;
 
@@ -198,6 +206,9 @@ pub async fn run_internal_test(
                 };
 
                 let result_entries = provider
+                    .as_ref()
+                    .value()
+                    .as_ref()
                     .parse_test_result_output(&stdout_str, &stderr_str, exit_code)
                     .buck_error_context("Failed to parse test result output")?;
 

@@ -32,7 +32,7 @@ use crate::build::ProvidersToBuild;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
+use crate::interpreter::rule_defs::provider::test_provider::test_provider_from_collection;
 
 /// Gets the list of outputs for a top-level build/run/install/test/etc target.
 pub async fn get_outputs_for_top_level_target(
@@ -95,7 +95,7 @@ pub async fn get_outputs_for_top_level_target(
                 }
             }
             if providers_to_build.tests {
-                if let Some(test_provider) = <dyn TestProvider>::from_collection(collection) {
+                if let Some(test_provider) = test_provider_from_collection(collection) {
                     let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
                     test_provider.visit_artifacts(&mut artifact_visitor)?;
                     for input in artifact_visitor.inputs {

@@ -29,10 +29,12 @@ use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::build_external_runner_spec;
+use buck2_build_api::interpreter::rule_defs::provider::test_provider::test_provider_from_collection;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
@@ -1474,7 +1476,7 @@ async fn build_target_result(
     // 1. It's a test (aka it produces a TestInfo provider) and it is not skipped by label filtering
     // 2. --build-default-info is requested
     // 3. --build-run-info is requested and the target produces a RunInfo
-    if let Some(test_info) = <dyn TestProvider>::from_collection(collections) {
+    if let Some(test_info) = test_provider_from_collection(collections) {
         let skip_build_based_on_labels = !label_filtering.build_filtered_targets
             && label_filtering.is_excluded(test_info.labels());
         if skip_build_based_on_labels {
@@ -1542,14 +1544,24 @@ async fn test_target<'a, 'e>(
     // Check for InternalRunnerTestInfo first — run in-process.
     // Gated by [test].use_internal_runner (default true, comma-separated framework types,
     // or false to force TPX fallback).
-    if let Some(internal_provider) = collection.builtin_provider::<FrozenInternalRunnerTestInfo>() {
-        let framework_type = internal_provider.as_ref().test_type();
-        if driver_state
-            .internal_runner_config
-            .should_use(framework_type)
-        {
-            let test_info: &dyn TestProvider = internal_provider.as_ref();
-            if label_filtering.is_excluded(test_info.labels()) {
+    let internal_provider: Option<OwnedInternalRunnerTestInfo> = providers
+        .builtin_provider_value::<FrozenInternalRunnerTestInfo>()
+        .map(Into::into);
+    if let Some(internal_provider) = internal_provider {
+        // `'v`-branded views of the provider must not be held across awaits (only the
+        // `OwnedFrozen` may be), so views are derived in scopes that end before the next await.
+        let use_internal_runner = {
+            let provider = internal_provider.as_ref().value().as_ref();
+            driver_state
+                .internal_runner_config
+                .should_use(provider.test_type())
+        };
+        if use_internal_runner {
+            let excluded = {
+                let provider = internal_provider.as_ref().value().as_ref();
+                label_filtering.is_excluded(provider.labels().collect())
+            };
+            if excluded {
                 return Ok(None);
             }
 
@@ -1580,32 +1592,35 @@ async fn test_target<'a, 'e>(
                 })
                 .await?;
 
-            let provider = internal_provider.as_ref();
-            let listing_spec = build_external_runner_spec(
-                provider.listing_command(),
-                provider.env().map(|(k, _)| k),
-                provider.test_type(),
-                provider.labels(),
-                provider.contacts(),
-                handle.clone(),
-                working_dir_cell,
-                &tenting_acl_names,
-            );
-            let spec = build_external_runner_spec(
-                provider.command(),
-                provider.env().map(|(k, _)| k),
-                provider.test_type(),
-                provider.labels(),
-                provider.contacts(),
-                handle,
-                working_dir_cell,
-                &tenting_acl_names,
-            );
+            let (spec, listing_spec) = {
+                let provider = internal_provider.as_ref().value().as_ref();
+                let listing_spec = build_external_runner_spec(
+                    provider.listing_command(),
+                    provider.env().map(|(k, _)| k),
+                    provider.test_type(),
+                    provider.labels(),
+                    provider.contacts(),
+                    handle.clone(),
+                    working_dir_cell,
+                    &tenting_acl_names,
+                );
+                let spec = build_external_runner_spec(
+                    provider.command(),
+                    provider.env().map(|(k, _)| k),
+                    provider.test_type(),
+                    provider.labels(),
+                    provider.contacts(),
+                    handle,
+                    working_dir_cell,
+                    &tenting_acl_names,
+                );
+                (spec, listing_spec)
+            };
             crate::internal_runner::run_internal_test(
                 orchestrator.as_ref(),
                 spec,
                 listing_spec,
-                internal_provider.as_ref(),
+                &internal_provider,
                 internal_test_timeout,
             )
             .await?;
@@ -1613,7 +1628,7 @@ async fn test_target<'a, 'e>(
         }
     }
 
-    let fut = match <dyn TestProvider>::from_collection(collection) {
+    let fut = match test_provider_from_collection(collection) {
         Some(test_info) => {
             if label_filtering.is_excluded(test_info.labels()) {
                 return Ok(None);
@@ -1664,7 +1679,7 @@ fn convert_error(build_result: &BuildTargetResult) -> Vec<buck2_error::Error> {
 fn run_tests<'a, 'b>(
     test_executor: Arc<dyn TestExecutor + 'a>,
     providers_label: ConfiguredProvidersLabel,
-    test_info: &'b dyn TestProvider,
+    test_info: &'b dyn TestProvider<'b>,
     session: &'b TestSession,
     cell_resolver: &'b CellResolver,
     working_dir_cell: CellName,

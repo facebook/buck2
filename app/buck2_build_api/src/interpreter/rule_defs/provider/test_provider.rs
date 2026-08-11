@@ -24,12 +24,13 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
-pub trait TestProvider {
+pub trait TestProvider<'v> {
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()>;
 
     fn labels(&self) -> Vec<&str>;
@@ -116,10 +117,10 @@ pub fn build_external_runner_spec<'a>(
     }
 }
 
-impl TestProvider for FrozenExternalRunnerTestInfo {
+impl<'v> TestProvider<'v> for FrozenExternalRunnerTestInfo {
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         FrozenExternalRunnerTestInfo::visit_artifacts(self, visitor)
     }
@@ -149,16 +150,16 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
     }
 }
 
-impl TestProvider for FrozenInternalRunnerTestInfo {
+impl<'v> TestProvider<'v> for InternalRunnerTestInfo<'v> {
     fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        FrozenInternalRunnerTestInfo::visit_artifacts(self, visitor)
+        InternalRunnerTestInfo::visit_artifacts(self, visitor)
     }
 
     fn labels(&self) -> Vec<&str> {
-        FrozenInternalRunnerTestInfo::labels(self).collect()
+        InternalRunnerTestInfo::labels(self).collect()
     }
 
     // NOTE: This dispatch() sends the spec to the external test runner (TPX).
@@ -187,17 +188,17 @@ impl TestProvider for FrozenInternalRunnerTestInfo {
     }
 }
 
-impl dyn TestProvider {
-    pub fn from_collection<'v>(providers: &ProviderCollection<'v>) -> Option<&'v dyn TestProvider> {
-        // Check for InternalRunnerTestInfo first
-        if let Some(provider) = providers.builtin_provider::<FrozenInternalRunnerTestInfo>() {
-            return Some(provider.as_ref());
-        }
-
-        if let Some(provider) = providers.builtin_provider::<FrozenExternalRunnerTestInfo>() {
-            return Some(provider.as_ref());
-        }
-
-        None
+pub fn test_provider_from_collection<'v>(
+    providers: &ProviderCollection<'v>,
+) -> Option<&'v dyn TestProvider<'v>> {
+    // Check for InternalRunnerTestInfo first
+    if let Some(provider) = providers.builtin_provider::<FrozenInternalRunnerTestInfo>() {
+        return Some(provider.as_ref());
     }
+
+    if let Some(provider) = providers.builtin_provider::<FrozenExternalRunnerTestInfo>() {
+        return Some(provider.as_ref());
+    }
+
+    None
 }

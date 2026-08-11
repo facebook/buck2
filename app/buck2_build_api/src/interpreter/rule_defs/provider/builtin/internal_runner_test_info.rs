@@ -24,21 +24,20 @@ use buck2_test_api::data::TestStatus;
 use either::Either;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FrozenValue;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::float::StarlarkFloat;
@@ -76,68 +75,67 @@ use crate::interpreter::rule_defs::required_test_local_resource::StarlarkRequire
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze(validator = validate_internal_runner_test_info, bounds = "V: ValueLike<'freeze>")]
+#[freeze_branded(validator = validate_internal_runner_test_info)]
 #[repr(C)]
-pub struct InternalRunnerTestInfoGen<V: ValueLifetimeless> {
+pub struct InternalRunnerTestInfo<'v> {
     /// A Starlark value representing the type of this test.
-    test_type: ValueOfUncheckedGeneric<V, String>,
+    test_type: ValueOfUnchecked<'v, String>,
 
     /// A Starlark value representing the command for this test. The test runner is what
     /// gives meaning to this command.
-    command: ValueOfUncheckedGeneric<V, Vec<Either<String, FrozenValue>>>,
+    command: ValueOfUnchecked<'v, Vec<Either<String, FrozenValue>>>,
 
     /// A Starlark value representing the command used for test discovery (listing).
     /// This is the command that runs the test binary with framework-specific listing
     /// flags (e.g., `["binary", "--gtest_list_tests"]` for GTest). The internal runner
     /// uses this for the listing step, while `command` is used for execution.
-    listing_command: ValueOfUncheckedGeneric<V, Vec<Either<String, FrozenValue>>>,
+    listing_command: ValueOfUnchecked<'v, Vec<Either<String, FrozenValue>>>,
 
     /// A Starlark value representing the environment for this test.
     /// This is of type `dict[str, ArgLike]`.
-    env: ValueOfUncheckedGeneric<V, DictType<String, FrozenValue>>,
+    env: ValueOfUnchecked<'v, DictType<String, FrozenValue>>,
 
     /// A starlark value representing the labels for this test.
-    labels: ValueOfUncheckedGeneric<V, Vec<String>>,
+    labels: ValueOfUnchecked<'v, Vec<String>>,
 
     /// A starlark value representing the contacts for this test. This is largely expected to be an
     /// oncall, though it's not validated in any way.
-    contacts: ValueOfUncheckedGeneric<V, Vec<String>>,
+    contacts: ValueOfUnchecked<'v, Vec<String>>,
 
     /// Whether this test should use relative paths
-    use_project_relative_paths: ValueOfUncheckedGeneric<V, bool>,
+    use_project_relative_paths: ValueOfUnchecked<'v, bool>,
 
     /// Whether this test should run from the project root, as opposed to the cell root
     ///
     /// Defaults to `True`.
-    run_from_project_root: ValueOfUncheckedGeneric<V, bool>,
+    run_from_project_root: ValueOfUnchecked<'v, bool>,
 
     /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
-    default_executor: ValueOfUncheckedGeneric<V, StarlarkCommandExecutorConfig>,
+    default_executor: ValueOfUnchecked<'v, StarlarkCommandExecutorConfig>,
 
     /// Executors that can be used to override the default executor.
-    executor_overrides: ValueOfUncheckedGeneric<V, DictType<String, StarlarkCommandExecutorConfig>>,
+    executor_overrides: ValueOfUnchecked<'v, DictType<String, StarlarkCommandExecutorConfig>>,
 
     /// Mapping from a local resource type to a target with a corresponding provider.
     /// Required types are passed from test runner.
     /// If the value for a corresponding type is omitted it means local resource
     /// should be ignored when executing tests even if those are passed as required from test runner.
     local_resources:
-        ValueOfUncheckedGeneric<V, DictType<String, Option<StarlarkConfiguredProvidersLabel>>>,
+        ValueOfUnchecked<'v, DictType<String, Option<StarlarkConfiguredProvidersLabel>>>,
 
     /// List of local resource types which should be set up additionally to those which are
     /// passed from test runner. Allows specifying local resources on a per-rule basis.
-    required_local_resources: ValueOfUncheckedGeneric<V, Vec<StarlarkRequiredTestLocalResource>>,
+    required_local_resources: ValueOfUnchecked<'v, Vec<StarlarkRequiredTestLocalResource>>,
 
     /// Configuration needed to spawn a new worker. This worker will be used to run every single
     /// command related to test execution, including listing.
-    worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
+    worker: ValueOfUnchecked<'v, FrozenWorkerInfo>,
 
     /// A Starlark callable that parses test listing output into structured test
     /// entries. The callback signature is:
@@ -149,8 +147,8 @@ pub struct InternalRunnerTestInfoGen<V: ValueLifetimeless> {
     ///         "filter": str     — argument to select this test for execution
     ///     """
     /// ```
-    parse_test_listing: ValueOfUncheckedGeneric<
-        V,
+    parse_test_listing: ValueOfUnchecked<
+        'v,
         FrozenStarlarkCallable<(String,), ListType<DictType<String, FrozenValue>>>,
     >,
 
@@ -167,43 +165,45 @@ pub struct InternalRunnerTestInfoGen<V: ValueLifetimeless> {
     ///         "details": str | None      — full diagnostic output
     ///     """
     /// ```
-    parse_test_result: ValueOfUncheckedGeneric<
-        V,
+    parse_test_result: ValueOfUnchecked<
+        'v,
         FrozenStarlarkCallable<(String, String, i32), ListType<DictType<String, FrozenValue>>>,
     >,
 }
 
+/// An `InternalRunnerTestInfo` kept alive by its owning frozen heap; usable across threads and
+/// awaits.
+pub type OwnedInternalRunnerTestInfo =
+    OwnedFrozen<ValueTyped<'static, InternalRunnerTestInfo<'static>>>;
+
 // NOTE: All the methods here unwrap because we validate at freeze time.
-impl FrozenInternalRunnerTestInfo {
-    pub fn test_type(&self) -> &str {
-        self.test_type.to_value().get().unpack_str().unwrap()
+impl<'v> InternalRunnerTestInfo<'v> {
+    pub fn test_type(&self) -> &'v str {
+        self.test_type.get().unpack_str().unwrap()
     }
 
-    pub fn command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
-        unwrap_all(iter_test_command(self.command.get().to_value()))
+    pub fn command(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
+        unwrap_all(iter_test_command(self.command.get()))
     }
 
-    pub fn listing_command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
-        unwrap_all(iter_test_command(self.listing_command.get().to_value()))
+    pub fn listing_command(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
+        unwrap_all(iter_test_command(self.listing_command.get()))
     }
 
-    pub fn env<'v>(&self) -> impl Iterator<Item = (&'v str, &'v dyn CommandLineArgLike<'v>)> {
-        unwrap_all(iter_test_env(self.env.get().to_value()))
+    pub fn env(&self) -> impl Iterator<Item = (&'v str, &'v dyn CommandLineArgLike<'v>)> {
+        unwrap_all(iter_test_env(self.env.get()))
     }
 
-    pub fn labels(&self) -> impl Iterator<Item = &str> {
-        unwrap_all(iter_opt_str_list(self.labels.get().to_value(), "labels"))
+    pub fn labels(&self) -> impl Iterator<Item = &'v str> {
+        unwrap_all(iter_opt_str_list(self.labels.get(), "labels"))
     }
 
-    pub fn contacts(&self) -> impl Iterator<Item = &str> {
-        unwrap_all(iter_opt_str_list(
-            self.contacts.get().to_value(),
-            "contacts",
-        ))
+    pub fn contacts(&self) -> impl Iterator<Item = &'v str> {
+        unwrap_all(iter_opt_str_list(self.contacts.get(), "contacts"))
     }
 
     pub fn use_project_relative_paths(&self) -> bool {
-        NoneOr::<bool>::unpack_value(self.use_project_relative_paths.get().to_value())
+        NoneOr::<bool>::unpack_value(self.use_project_relative_paths.get())
             .unwrap()
             .unwrap()
             .into_option()
@@ -211,37 +211,37 @@ impl FrozenInternalRunnerTestInfo {
     }
 
     pub fn run_from_project_root(&self) -> bool {
-        NoneOr::<bool>::unpack_value(self.run_from_project_root.get().to_value())
+        NoneOr::<bool>::unpack_value(self.run_from_project_root.get())
             .unwrap()
             .unwrap()
             .into_option()
             .unwrap_or(true)
     }
 
-    pub fn default_executor(&self) -> Option<&StarlarkCommandExecutorConfig> {
-        unpack_opt_executor(self.default_executor.get().to_value()).unwrap()
+    pub fn default_executor(&self) -> Option<&'v StarlarkCommandExecutorConfig> {
+        unpack_opt_executor(self.default_executor.get()).unwrap()
     }
 
     pub fn has_executor_overrides(&self) -> bool {
-        !self.executor_overrides.get().to_value().is_none()
+        !self.executor_overrides.get().is_none()
     }
 
     /// Access a specific executor override.
-    pub fn executor_override(&self, key: &str) -> Option<&StarlarkCommandExecutorConfig> {
-        let executor_overrides = DictRef::from_value(self.executor_overrides.get().to_value())?;
+    pub fn executor_override(&self, key: &str) -> Option<&'v StarlarkCommandExecutorConfig> {
+        let executor_overrides = DictRef::from_value(self.executor_overrides.get())?;
         executor_overrides
             .get_str(key)
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
-    pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
-        unwrap_all(iter_local_resources(self.local_resources.get().to_value())).collect()
+    pub fn local_resources(&self) -> IndexMap<&'v str, Option<&'v ConfiguredProvidersLabel>> {
+        unwrap_all(iter_local_resources(self.local_resources.get())).collect()
     }
 
     pub fn required_local_resources(
         &self,
-    ) -> impl Iterator<Item = &StarlarkRequiredTestLocalResource> {
-        let val = self.required_local_resources.get().to_value();
+    ) -> impl Iterator<Item = &'v StarlarkRequiredTestLocalResource> {
+        let val = self.required_local_resources.get();
         if val.is_none() {
             return Either::Left(empty());
         }
@@ -255,20 +255,30 @@ impl FrozenInternalRunnerTestInfo {
         )
     }
 
-    pub fn worker(&self) -> Option<&WorkerInfo<'_>> {
-        unpack_opt_worker(self.worker.get().to_value()).unwrap()
+    pub fn worker(&self) -> Option<&'v WorkerInfo<'v>> {
+        unpack_opt_worker(self.worker.get()).unwrap()
     }
 
+    /// Panics when called on an unfrozen instance.
     pub fn parse_test_listing(&self) -> FrozenValue {
-        self.parse_test_listing.get()
+        self.parse_test_listing
+            .get()
+            .unpack_frozen()
+            .expect("only usable on frozen instances")
     }
 
+    /// Panics when called on an unfrozen instance.
     pub fn parse_test_result(&self) -> FrozenValue {
-        self.parse_test_result.get()
+        self.parse_test_result
+            .get()
+            .unpack_frozen()
+            .expect("only usable on frozen instances")
     }
 
     /// Invoke the `parse_test_listing` Starlark callback with raw listing
     /// output and return structured `TestListingEntry` values.
+    ///
+    /// Panics when called on an unfrozen instance.
     pub fn parse_test_listing_output(
         &self,
         listing_content: &str,
@@ -335,7 +345,7 @@ impl FrozenInternalRunnerTestInfo {
 
     pub fn visit_artifacts(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'_>,
+        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
         for member in self.command() {
             match member {
@@ -364,6 +374,8 @@ impl FrozenInternalRunnerTestInfo {
 
     /// Invoke the `parse_test_result` Starlark callback with raw execution
     /// output and return structured `TestResultEntry` values.
+    ///
+    /// Panics when called on an unfrozen instance.
     pub fn parse_test_result_output(
         &self,
         stdout: &str,
@@ -489,16 +501,13 @@ impl FrozenInternalRunnerTestInfo {
     }
 }
 
-fn validate_internal_runner_test_info<'v, V>(
-    info: &InternalRunnerTestInfoGen<V>,
-) -> buck2_error::Result<()>
-where
-    V: ValueLike<'v>,
-{
-    check_all(iter_test_command(info.command.get().to_value()))?;
-    check_all(iter_test_command(info.listing_command.get().to_value()))?;
+fn validate_internal_runner_test_info<'v>(
+    info: &InternalRunnerTestInfo<'v>,
+) -> buck2_error::Result<()> {
+    check_all(iter_test_command(info.command.get()))?;
+    check_all(iter_test_command(info.listing_command.get()))?;
     // listing_command must be non-empty — it's the command used for test discovery.
-    let listing_cmd_val = info.listing_command.get().to_value();
+    let listing_cmd_val = info.listing_command.get();
     if listing_cmd_val.is_none() {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -513,21 +522,16 @@ where
             ));
         }
     }
-    check_all(iter_test_env(info.env.get().to_value()))?;
-    check_all(iter_opt_str_list(info.labels.get().to_value(), "labels"))?;
-    check_all(iter_opt_str_list(
-        info.contacts.get().to_value(),
-        "contacts",
-    ))?;
-    check_all(iter_executor_overrides(
-        info.executor_overrides.get().to_value(),
-    ))?;
+    check_all(iter_test_env(info.env.get()))?;
+    check_all(iter_opt_str_list(info.labels.get(), "labels"))?;
+    check_all(iter_opt_str_list(info.contacts.get(), "contacts"))?;
+    check_all(iter_executor_overrides(info.executor_overrides.get()))?;
 
     let provided_local_resources =
-        iter_local_resources(info.local_resources.get().to_value())
+        iter_local_resources(info.local_resources.get())
             .collect::<buck2_error::Result<IndexMap<&str, Option<&ConfiguredProvidersLabel>>>>()?;
 
-    let required_local_resources = info.required_local_resources.get().to_value();
+    let required_local_resources = info.required_local_resources.get();
     if !required_local_resources.is_none() {
         for resource_type in iter_value(required_local_resources).buck_error_context("`required_local_resources` should be a list or a tuple of `RequiredTestLocalResource` objects")? {
             let resource_type = StarlarkRequiredTestLocalResource::from_value(resource_type)
@@ -542,17 +546,17 @@ where
         }
     }
 
-    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get().to_value())?.ok_or_else(
-        || internal_error!("`use_project_relative_paths` must be a bool if provided"),
-    )?;
-    NoneOr::<bool>::unpack_value(info.run_from_project_root.get().to_value())?
+    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get())?.ok_or_else(|| {
+        internal_error!("`use_project_relative_paths` must be a bool if provided")
+    })?;
+    NoneOr::<bool>::unpack_value(info.run_from_project_root.get())?
         .ok_or_else(|| internal_error!("`run_from_project_root` must be a bool if provided"))?;
-    unpack_opt_executor(info.default_executor.get().to_value())
+    unpack_opt_executor(info.default_executor.get())
         .buck_error_context("Invalid `default_executor`")?;
-    unpack_opt_worker(info.worker.get().to_value()).buck_error_context("Invalid `worker`")?;
+    unpack_opt_worker(info.worker.get()).buck_error_context("Invalid `worker`")?;
 
     // Both parse_test_listing and parse_test_result are required callables.
-    let ptl = info.parse_test_listing.get().to_value();
+    let ptl = info.parse_test_listing.get();
     if ptl.is_none() {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -562,7 +566,7 @@ where
     NoneOr::<StarlarkCallable>::unpack_value(ptl)?
         .ok_or_else(|| internal_error!("`parse_test_listing` must be a callable"))?;
 
-    let ptr = info.parse_test_result.get().to_value();
+    let ptr = info.parse_test_result.get();
     if ptr.is_none() {
         return Err(buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -574,7 +578,6 @@ where
 
     info.test_type
         .get()
-        .to_value()
         .unpack_str()
         .ok_or_else(|| internal_error!("`type` must be a str"))?;
     Ok(())
