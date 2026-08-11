@@ -9,7 +9,7 @@
  */
 
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
+use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
@@ -104,20 +104,6 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             None
         };
 
-        // SAFETY: FIXME(JakobDegen): This isn't quite right. This erases the brand for storage in
-        // a `'static`-stored simple value; the types are invariant in the lifetime, so only a
-        // transmute can do that. We know that this is safe because we know that the underlying
-        // references point into frozen heaps kept alive by this module. However, it's also
-        // possible to get `'v`-lifetimed references into the non-frozen heap in the current
-        // module, in which case this is unsound. Ergonomic support for this pattern would require
-        // adopting an additional lifetime to represent the distinction.
-        let resolved_parts = unsafe {
-            std::mem::transmute::<
-                Vec<ResolvedStringWithMacrosPart<'v>>,
-                Vec<ResolvedStringWithMacrosPart<'static>>,
-            >(resolved_parts)
-        };
-
         Ok(ctx.heap().alloc(ResolvedStringWithMacros::new(
             resolved_parts,
             configured_macros,
@@ -134,8 +120,8 @@ fn resolve_configured_macro<'v>(
         ConfiguredMacro::Location { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
             let providers_value = ctx.get_dep(label)?;
-            // `ResolvedMacro` stores its parts `'static`-erased, so this genuinely needs the
-            // frozen form.
+            // `ResolvedMacro::Location` wants the frozen witness; dep provider collections are
+            // always frozen, so this cannot fail.
             let default_info = providers_value
                 .as_ref()
                 .default_info()?
@@ -152,11 +138,8 @@ fn resolve_configured_macro<'v>(
                     return Err(ResolveMacroError::ExpectedRunInfo(label.to_string()).into());
                 }
             };
-            let run_info = run_info
-                .unpack_frozen()
-                .ok_or_else(|| internal_error!("dep provider collections are frozen"))?;
             // A RunInfo is an arg-like value.
-            Ok(ResolvedMacro::ArgLike(FrozenCommandLineArg::new(run_info)?))
+            Ok(ResolvedMacro::ArgLike(CommandLineArg::new(run_info)?))
         }
         ConfiguredMacro::Source(p) => {
             let buck_path = SourcePath::new(pkg.dupe(), p.path().dupe());
@@ -166,7 +149,11 @@ fn resolve_configured_macro<'v>(
             let provider = ctx.resolve_unkeyed_placeholder(name)?.ok_or_else(|| {
                 ResolveMacroError::UnkeyedPlaceholderUnresolved((**name).to_owned())
             })?;
-            Ok(ResolvedMacro::ArgLike(provider))
+            // TODO(JakobDegen): Have `resolve_unkeyed_placeholder` return a branded handle
+            // directly.
+            Ok(ResolvedMacro::ArgLike(CommandLineArg::new(
+                provider.to_frozen_value().to_value(),
+            )?))
         }
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
@@ -186,7 +173,7 @@ fn resolve_configured_macro<'v>(
                 )
             })?;
 
-            let value: FrozenCommandLineArg = match (arg, either_cmd_or_mapping) {
+            let value = match (arg, either_cmd_or_mapping) {
                 (None, Either::Left(mapping)) => *mapping,
                 (Some(arg), Either::Left(_)) => {
                     return Err(ResolveMacroError::KeyedPlaceholderMappingNotADict(
@@ -208,7 +195,10 @@ fn resolve_configured_macro<'v>(
                 }
             };
 
-            Ok(ResolvedMacro::ArgLike(value))
+            // TODO(JakobDegen): Have `keyed_variables` return branded handles directly.
+            Ok(ResolvedMacro::ArgLike(CommandLineArg::new(
+                value.to_frozen_value().to_value(),
+            )?))
         }
         ConfiguredMacro::Query(query) => Ok(ResolvedMacro::Query(query.resolve(ctx)?)),
         ConfiguredMacro::UnrecognizedMacro(box UnrecognizedMacro {
