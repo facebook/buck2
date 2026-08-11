@@ -179,15 +179,7 @@ fn derive_provides_static_type_impl(input: proc_macro::TokenStream) -> syn::Resu
                 let param_bounds = param.bounds.iter();
                 if has_static_lifetime_bound {
                     type_param_bounds.push(quote! {
-                        #param_name : #(#param_bounds+)* Sized
-                    });
-                    let param_bounds = param
-                        .bounds
-                        .iter()
-                        .map(type_param_bound_replace_lifetimes_with_static)
-                        .collect::<syn::Result<Vec<_>>>()?;
-                    type_param_static_type_bounds.push(quote! {
-                        #param_name : #(#param_bounds+)* Sized
+                        #param_name : #(#param_bounds)+*
                     });
                     static_type_params.push(quote! { #param_name});
                 } else {
