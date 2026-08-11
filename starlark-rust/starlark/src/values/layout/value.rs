@@ -879,6 +879,11 @@ impl<'v> Value<'v> {
         freezer.freeze(self)
     }
 
+    /// Convert a value to a frozen value using a supplied [`Freezer`].
+    pub fn freeze_branded<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
+        freezer.freeze_branded(self)
+    }
+
     /// Implement the `str()` function - converts a string value to itself,
     /// otherwise calls `collect_str()` (which handles bytes, etc.).
     pub fn to_str(self) -> String {

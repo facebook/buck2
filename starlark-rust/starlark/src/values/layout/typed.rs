@@ -490,6 +490,25 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for FrozenVal
     }
 }
 
+/// Only frozen heaps are serialized; branded frozen types store their contents
+/// as `ValueTyped<'fv, T>`.
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for ValueTyped<'v, T> {
+    fn starlark_serialize(
+        &self,
+        ctx: &mut dyn crate::pagable::starlark_serialize::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        self.to_value().starlark_serialize(ctx)
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for ValueTyped<'v, T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        Ok(FrozenValueTyped::<T>::starlark_deserialize(ctx)?.to_value_typed())
+    }
+}
+
 impl<'fv> AllocFrozenStringValue<'fv> for FrozenStringValue {
     fn alloc_frozen_string_value(self, _heap: &'fv FrozenHeap) -> FrozenStringValue {
         self

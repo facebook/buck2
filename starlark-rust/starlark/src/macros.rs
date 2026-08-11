@@ -21,6 +21,7 @@ macro_rules! starlark_complex_value_branded {
     ($v:vis $x:ident) => {
         $crate::__macro_refs::item! {
             /// Type of frozen value.
+            #[allow(unused)]
             $v type [< Frozen $x >] = $x<'static>;
 
             $crate::register_simple_vtable_entry!($x<'static>);
