@@ -128,9 +128,9 @@ impl<'v> ResolvedMacro<'v> {
         Ok(())
     }
 
-    fn visit_artifacts(
+    fn visit_artifacts<'x>(
         &self,
-        visitor: &mut dyn CommandLineArtifactVisitor<'v>,
+        visitor: &mut dyn CommandLineArtifactVisitor<'x>,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Location(info) => {
