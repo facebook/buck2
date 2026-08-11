@@ -9,7 +9,6 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
-use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -20,7 +19,6 @@ use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::FrozenValueTyped;
 
 #[starlark_module]
 fn dependency_creator(builder: &mut GlobalsBuilder) {
@@ -44,10 +42,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
             }
         };
         let collection = FrozenProviderCollection::testing_new_default(eval.frozen_heap());
-        // The module's frozen heap keeps the collection alive for `'v`; going through the
-        // unbranded `FrozenValue` re-types it at `'v`.
-        let collection: FrozenValueTyped<'v, ProviderCollection<'v>> =
-            FrozenValueTyped::new(collection.to_frozen_value()).unwrap();
+        let collection = eval.frozen_heap_edge().rebrand(collection);
 
         Ok(Dependency::new(eval.heap(), label, collection, None))
     }
