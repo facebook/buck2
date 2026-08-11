@@ -12,17 +12,15 @@ use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::starlark_complex_value;
+use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
+use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::starlark_value;
 
@@ -34,30 +32,25 @@ use starlark::values::starlark_value;
     Debug,
     Clone,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     Display,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
-#[repr(C)]
 #[display("AssembledDirEntry(copy = {}, {})", copy, artifact)]
-pub struct StarlarkAssembledDirEntryGen<V: ValueLifetimeless> {
+pub struct StarlarkAssembledDirEntry<'v> {
     /// `true`: lay the artifact out as real bytes; `false`: symlink to it.
     pub(crate) copy: bool,
     /// The input artifact; validated as artifact-like at construction.
-    pub(crate) artifact: V,
+    pub(crate) artifact: Value<'v>,
 }
 
-starlark_complex_value!(pub StarlarkAssembledDirEntry);
+starlark_complex_value_branded!(pub StarlarkAssembledDirEntry);
 
 #[starlark_value(type = "AssembledDirEntry")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkAssembledDirEntryGen<V> where
-    Self: ProvidesStaticType<'v>
-{
-}
+impl<'v> StarlarkValue<'v> for StarlarkAssembledDirEntry<'v> {}
 
 /// Entry constructors for `ctx.actions.assembled_dir`.
 #[starlark_module]
