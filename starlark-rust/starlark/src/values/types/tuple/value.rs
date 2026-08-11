@@ -31,35 +31,31 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
-use crate::coerce::coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::static_starlark_value;
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
 
-/// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.
+/// Define the tuple type. [`FrozenTuple`] is an alias for `Tuple<'static>`.
 #[repr(C)]
 #[derive(ProvidesStaticType, Allocative)]
-pub(crate) struct TupleGen<V: ValueLifetimeless> {
+pub(crate) struct Tuple<'v> {
     len: usize,
     /// The data stored by the tuple.
-    content: [V; 0],
+    content: [Value<'v>; 0],
 }
 
-impl<'v, V: ValueLike<'v>> Display for TupleGen<V> {
+impl<'v> Display for Tuple<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // For single-item tuples we need to add a trailing ',' and easier to just handle that ourself than configure display_container correctly
         if self.len() == 1 {
@@ -74,7 +70,7 @@ impl<'v, V: ValueLike<'v>> Display for TupleGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> Debug for TupleGen<V> {
+impl<'v> Debug for Tuple<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("TupleGen")
             .field("content", &self.content())
@@ -82,12 +78,12 @@ impl<'v, V: ValueLike<'v>> Debug for TupleGen<V> {
     }
 }
 
-impl<V: ValueLifetimeless> TupleGen<V> {
+impl<'v> Tuple<'v> {
     /// `type(())`.
     pub(crate) const TYPE: &'static str = "tuple";
 
-    pub(crate) const unsafe fn new(len: usize) -> TupleGen<V> {
-        TupleGen { len, content: [] }
+    pub(crate) const unsafe fn new(len: usize) -> Tuple<'v> {
+        Tuple { len, content: [] }
     }
 
     pub(crate) fn offset_of_content() -> usize {
@@ -97,36 +93,28 @@ impl<V: ValueLifetimeless> TupleGen<V> {
 
 static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: FrozenTuple = unsafe { FrozenTuple::new(0) });
 
-/// Runtime type of unfrozen tuple.
-pub(crate) type Tuple<'v> = TupleGen<Value<'v>>;
 /// Runtime type of frozen tuple.
-pub(crate) type FrozenTuple = TupleGen<FrozenValue>;
-
-unsafe impl<'v> Coerce<Tuple<'v>> for FrozenTuple {}
+pub(crate) type FrozenTuple = Tuple<'static>;
 
 impl<'v> Tuple<'v> {
     /// Downcast a value to a tuple.
     pub(crate) fn from_value(value: Value<'v>) -> Option<&'v Self> {
-        if value.unpack_frozen().is_some() {
-            value.downcast_ref::<FrozenTuple>().map(coerce)
-        } else {
-            value.downcast_ref::<Tuple<'v>>()
-        }
+        value.downcast_ref::<Self>()
     }
 }
 
-impl<'v, V: ValueLike<'v>> TupleGen<V> {
+impl<'v> Tuple<'v> {
     /// Get the length of the tuple.
     pub(crate) fn len(&self) -> usize {
         self.content().len()
     }
 
     /// Tuple elements.
-    pub(crate) fn content(&self) -> &[V] {
+    pub(crate) fn content(&self) -> &[Value<'v>] {
         unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
     }
 
-    pub(crate) fn content_mut(&mut self) -> &mut [V] {
+    pub(crate) fn content_mut(&mut self) -> &mut [Value<'v>] {
         unsafe { slice::from_raw_parts_mut(self.content.as_mut_ptr(), self.len) }
     }
 
@@ -140,10 +128,7 @@ impl<'v, V: ValueLike<'v>> TupleGen<V> {
 }
 
 #[starlark_value(type = Tuple::TYPE)]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TupleGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for Tuple<'v> {
     fn is_special(_: Private) -> bool
     where
         Self: Sized,
@@ -201,7 +186,7 @@ where
         stride: Option<Value>,
         heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
-        Ok(heap.alloc_tuple(&apply_slice(coerce(self.content()), start, stop, stride)?))
+        Ok(heap.alloc_tuple(&apply_slice(self.content(), start, stop, stride)?))
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
@@ -265,7 +250,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for TupleGen<V> {
+impl<'v> Serialize for Tuple<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

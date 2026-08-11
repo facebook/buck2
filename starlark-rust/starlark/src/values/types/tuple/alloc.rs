@@ -84,7 +84,6 @@ where
 mod tests {
     use crate::values::FrozenHeap;
     use crate::values::Heap;
-    use crate::values::tuple::FrozenTupleRef;
     use crate::values::tuple::TupleRef;
     use crate::values::tuple::alloc::AllocTuple;
 
@@ -119,20 +118,14 @@ mod tests {
         let c = heap.alloc(AllocTuple([1, 2]));
         assert_eq!(
             2,
-            FrozenTupleRef::from_frozen_value(c)
-                .unwrap()
-                .content()
-                .len()
+            TupleRef::from_value(c.to_value()).unwrap().content().len()
         );
 
         // Iterator of unknown length.
         let d = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|c| *c > 1)));
         assert_eq!(
             2,
-            FrozenTupleRef::from_frozen_value(d)
-                .unwrap()
-                .content()
-                .len()
+            TupleRef::from_value(d.to_value()).unwrap().content().len()
         );
     }
 }

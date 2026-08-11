@@ -476,7 +476,7 @@ fn test_frozen_list_round_trip() -> crate::Result<()> {
 
 #[test]
 fn test_frozen_tuple_round_trip() -> crate::Result<()> {
-    use crate::values::types::tuple::value::FrozenTuple;
+    use crate::values::types::tuple::value::Tuple;
 
     // Create a heap with SimpleData values and a frozen tuple referencing them.
     let heap = FrozenHeap::new();
@@ -492,7 +492,7 @@ fn test_frozen_tuple_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test"));
 
     let restored = round_trip_owned(heap_ref, root)?;
-    let tuple_value: &FrozenTuple = restored.value().downcast_ref::<FrozenTuple>().unwrap();
+    let tuple_value: &Tuple = restored.value().downcast_ref::<Tuple>().unwrap();
     let content = tuple_value.content();
     assert_eq!(content.len(), 2);
 
@@ -1218,7 +1218,7 @@ impl<'v> StarlarkValue<'v> for TestStackFrame {
 
 #[test]
 fn test_stack_frame_data_round_trip() -> crate::Result<()> {
-    use crate::values::types::tuple::value::FrozenTuple;
+    use crate::values::types::tuple::value::Tuple;
 
     let heap = FrozenHeap::new();
 
@@ -1244,7 +1244,7 @@ fn test_stack_frame_data_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_stack_frame_data"));
 
     let restored = round_trip_owned(heap_ref, root)?;
-    let tuple: &FrozenTuple = restored.value().downcast_ref::<FrozenTuple>().unwrap();
+    let tuple: &Tuple = restored.value().downcast_ref::<Tuple>().unwrap();
     let content = tuple.content();
     assert_eq!(content.len(), 2);
 
@@ -1433,9 +1433,9 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
     let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
-    let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
         .value()
-        .downcast_ref::<crate::values::types::tuple::value::FrozenTuple>()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
         .unwrap();
     let content = tuple.content();
     let rt_a: &FrozenRecordType = content[0].downcast_ref::<FrozenRecordType>().unwrap();
@@ -1506,9 +1506,9 @@ fn test_static_frozen_value_round_trip() -> crate::Result<()> {
 
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_static"));
     let restored = round_trip_owned(heap_ref, root)?;
-    let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
         .value()
-        .downcast_ref::<crate::values::types::tuple::value::FrozenTuple>()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
         .unwrap();
     let content = tuple.content();
 
@@ -1794,9 +1794,9 @@ fn test_with_starlark_context_arc_dedup_round_trip() -> crate::Result<()> {
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
     let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
-    let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
         .value()
-        .downcast_ref::<crate::values::types::tuple::value::FrozenTuple>()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
         .unwrap();
     let content = tuple.content();
     let outer_a: &OuterArcValue = content[0].downcast_ref::<OuterArcValue>().unwrap();
@@ -1889,9 +1889,9 @@ fn test_arc_blanket_round_trip() -> crate::Result<()> {
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
     let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
-    let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
         .value()
-        .downcast_ref::<crate::values::types::tuple::value::FrozenTuple>()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
         .unwrap();
     let content = tuple.content();
     let outer_a: &ArcBlanketOuter = content[0].downcast_ref::<ArcBlanketOuter>().unwrap();
@@ -1972,9 +1972,9 @@ fn test_starlark_any_multiple_values_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any_multi"));
 
     let restored = round_trip_owned(heap_ref, root)?;
-    let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
+    let tuple: &crate::values::types::tuple::value::Tuple = restored
         .value()
-        .downcast_ref::<crate::values::types::tuple::value::FrozenTuple>()
+        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
         .unwrap();
     let content = tuple.content();
     let got_a: &crate::values::any::StarlarkAny<AnyPayload> = content[0]
