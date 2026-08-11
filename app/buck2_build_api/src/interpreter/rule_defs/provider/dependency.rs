@@ -11,7 +11,6 @@
 use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::mem;
 
 use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -20,12 +19,12 @@ use buck2_core::provider::label::ProviderName;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
+use starlark::starlark_complex_value_branded;
 use starlark::typing::Ty;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -34,15 +33,12 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark_map::StarlarkHasher;
 
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
@@ -61,24 +57,23 @@ enum DependencyError {
 #[derive(
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     NoSerialize,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct DependencyGen<V: ValueLifetimeless> {
-    label: ValueOfUncheckedGeneric<V, StarlarkConfiguredProvidersLabel>,
-    provider_collection: FrozenValueTyped<'static, FrozenProviderCollection>,
-    // This could be `Option<...>`, but that breaks `Coerce`.
-    execution_platform: ValueOfUncheckedGeneric<V, NoneOr<StarlarkExecutionPlatformResolution>>,
+pub struct Dependency<'v> {
+    label: ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>,
+    /// Always frozen; the owning module holds a reference to its heap.
+    provider_collection: ValueTyped<'v, ProviderCollection<'v>>,
+    execution_platform: ValueOfUnchecked<'v, NoneOr<StarlarkExecutionPlatformResolution>>,
 }
 
-starlark_complex_value!(pub Dependency);
+starlark_complex_value_branded!(pub Dependency);
 
-impl<V: ValueLifetimeless> Display for DependencyGen<V> {
+impl<'v> Display for Dependency<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<dependency ")?;
         Display::fmt(&self.label, f)?;
@@ -86,25 +81,13 @@ impl<V: ValueLifetimeless> Display for DependencyGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> DependencyGen<V> {
-    pub fn label(&self) -> &'v StarlarkConfiguredProvidersLabel {
-        StarlarkConfiguredProvidersLabel::from_value(self.label.get().to_value()).unwrap()
-    }
-}
-
 impl<'v> Dependency<'v> {
-    /// The stored collection, rebranded from its `'static`-erased form.
-    ///
-    /// SAFETY-adjacent: the values in the collection are frozen, so handing
-    /// them out at any in-scope heap lifetime is the `FrozenValue::to_value`
-    /// contract. Goes away when `Dependency` is converted to the branded
-    /// pattern.
+    pub fn label(&self) -> &'v StarlarkConfiguredProvidersLabel {
+        StarlarkConfiguredProvidersLabel::from_value(self.label.get()).unwrap()
+    }
+
     fn collection(&self) -> &ProviderCollection<'v> {
-        unsafe {
-            mem::transmute::<&ProviderCollection<'static>, &ProviderCollection<'v>>(
-                self.provider_collection.as_ref(),
-            )
-        }
+        self.provider_collection.as_ref()
     }
 
     pub fn new(
@@ -122,12 +105,7 @@ impl<'v> Dependency<'v> {
             };
         Dependency {
             label: heap.alloc_typed_unchecked(StarlarkConfiguredProvidersLabel::new(label)),
-            provider_collection: unsafe {
-                mem::transmute::<
-                    FrozenValueTyped<'v, ProviderCollection<'v>>,
-                    FrozenValueTyped<'static, ProviderCollection<'static>>,
-                >(provider_collection)
-            },
+            provider_collection: provider_collection.to_value_typed(),
             execution_platform,
         }
     }
@@ -145,12 +123,9 @@ impl<'v> Dependency<'v> {
 starlark::methods_static!(DEPENDENCY_METHODS = dependency_methods);
 
 #[starlark_value(type = "Dependency")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for Dependency<'v> {
     fn get_type_starlark_repr() -> Ty {
-        Ty::starlark_value::<DependencyGen<Value<'v>>>()
+        Ty::starlark_value::<Dependency>()
     }
 
     fn get_methods() -> Option<&'static Methods> {
@@ -170,12 +145,9 @@ where
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        let other = match other.downcast_ref::<Dependency<'v>>() {
+        let other = match Dependency::from_value(other) {
             Some(other) => other.label(),
-            None => match other.downcast_ref::<FrozenDependency>() {
-                Some(other) => other.label(),
-                None => return Ok(false),
-            },
+            None => return Ok(false),
         };
         Ok(self.label().inner() == other.inner())
     }
@@ -307,6 +279,6 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 #[starlark_types(
-    DependencyGen<FrozenValue> as Dependency
+    Dependency<'static> as Dependency
 )]
 pub(crate) fn register_dependency(globals: &mut GlobalsBuilder) {}
