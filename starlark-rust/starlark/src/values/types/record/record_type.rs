@@ -277,7 +277,7 @@ where
                     };
                     values.push(value);
                 }
-                Ok(eval.heap().alloc_complex(Record {
+                Ok(eval.heap().alloc_complex_branded(Record {
                     typ: this,
                     values: values.into_boxed_slice(),
                 }))
