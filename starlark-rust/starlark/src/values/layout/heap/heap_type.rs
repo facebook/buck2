@@ -90,6 +90,7 @@ use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
+use crate::values::layout::heap::edge::HeapEdge;
 use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::owned_frozen::FnOncish;
 use crate::values::layout::heap::owned_frozen::FnOncish2;
@@ -1733,6 +1734,27 @@ impl<'fv> OwnedFrozenReconstructor<'fv> {
     {
         // SAFETY: The heap ref keeps the value alive for `'fv`
         unsafe { OwnedFrozen::unchecked_new(self.heap_ref.dupe(), v) }
+    }
+
+    /// Make this heap a dependency of the given heap, witnessed by the returned edge.
+    ///
+    /// This is the escape hatch out of the closure-based `OwnedFrozen` APIs: `'fv`-branded
+    /// values can be rebranded for the given heap and returned from the closure.
+    pub fn edge<'v>(&self, heap: Heap<'v>) -> HeapEdge<'v, 'fv> {
+        heap.add_reference(self.heap_ref);
+
+        // SAFETY: The reference we just added keeps our heap alive for `'v`, and `'fv` is a
+        // closure-introduced brand
+        unsafe { HeapEdge::unchecked_new() }
+    }
+
+    /// Like [`edge`](OwnedFrozenReconstructor::edge), but for a frozen heap
+    pub fn frozen_edge<'v>(&self, heap: &'v FrozenHeap) -> HeapEdge<'v, 'fv> {
+        heap.add_reference(self.heap_ref);
+
+        // SAFETY: The reference we just added keeps our heap alive for `'v`, and `'fv` is a
+        // closure-introduced brand
+        unsafe { HeapEdge::unchecked_new() }
     }
 }
 

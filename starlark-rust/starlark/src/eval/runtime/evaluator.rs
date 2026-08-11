@@ -74,6 +74,7 @@ use crate::stdlib::extra::PrintHandler;
 use crate::stdlib::extra::StderrPrintHandler;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -567,6 +568,14 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// and [`OwnedFrozenValue::owned_frozen_value`](crate::values::OwnedFrozenValue::owned_frozen_value).
     pub fn frozen_heap(&self) -> &'a FrozenHeap {
         self.module_env.frozen_heap()
+    }
+
+    /// Witness that values in the module's [`frozen_heap`](Evaluator::frozen_heap) remain valid
+    /// in the context of the module's own heap.
+    pub fn frozen_heap_edge(&self) -> HeapEdge<'v, 'a> {
+        // SAFETY: The module keeps its frozen heap alive at least as long as its value heap; at
+        // freeze time, the value heap's contents move into the frozen heap
+        unsafe { HeapEdge::unchecked_new() }
     }
 
     pub(crate) fn get_slot_module(&self, slot: ModuleSlotId) -> crate::Result<Value<'v>> {

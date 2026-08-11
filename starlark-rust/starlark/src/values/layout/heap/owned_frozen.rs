@@ -396,6 +396,11 @@ mod tests {
             assert_eq!(v.unpack_str(), Some("contents"));
         });
 
+        crate::values::Heap::temp(|unfrozen| {
+            let v = owned.by_ref_with_reconstructor(|v, r| r.edge(unfrozen).rebrand(*v));
+            assert_eq!(v.unpack_str(), Some("contents"));
+        });
+
         let other = crate::values::FrozenHeap::new();
         let v = owned.as_ref().add_to_frozen_heap(&other);
         assert_eq!(v.unpack_str(), Some("contents"));
