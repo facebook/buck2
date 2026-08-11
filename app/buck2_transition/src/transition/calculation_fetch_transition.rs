@@ -30,11 +30,12 @@ use starlark::values::FrozenStringValue;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::transition::provider::FrozenTransitionInfo;
+use crate::transition::provider::OwnedTransitionInfo;
 use crate::transition::starlark::FrozenTransition;
 
 pub(crate) enum TransitionData {
     MagicObject(OwnedFrozenValueTyped<FrozenTransition>),
-    Target(OwnedFrozenValueTyped<FrozenTransitionInfo>),
+    Target(OwnedTransitionInfo),
 }
 
 impl TransitionData {
@@ -53,9 +54,9 @@ impl TransitionData {
             TransitionData::MagicObject(v) => Some(Either::Left(
                 v.attrs_names.as_ref()?.iter().map(|s| s.as_str()),
             )),
-            TransitionData::Target(v) => {
-                Some(Either::Right(v.as_ref().get_attrs_names()?.into_iter()))
-            }
+            TransitionData::Target(v) => Some(Either::Right(
+                v.as_ref().value().as_ref().get_attrs_names()?.into_iter(),
+            )),
         }
     }
 
@@ -106,7 +107,7 @@ impl FetchTransition for DiceComputations<'_> {
                     .await?
                     .builtin_provider_value::<FrozenTransitionInfo>()
                     .ok_or_else(|| FetchTransitionError::MissingTransitionInfo(label.clone()))?;
-                Ok(TransitionData::Target(transition_info))
+                Ok(TransitionData::Target(transition_info.into()))
             }
         }
     }

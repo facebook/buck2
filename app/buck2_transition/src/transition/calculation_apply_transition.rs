@@ -92,7 +92,7 @@ fn call_transition_function<'v>(
             args.push(("refs", refs));
             v.implementation.to_value()
         }
-        TransitionData::Target(v) => v.r#impl.to_value().get(),
+        TransitionData::Target(v) => v.as_ref().add_to_heap(eval.heap()).as_ref().r#impl.get(),
     };
     if let Some(attrs) = attrs {
         args.push(("attrs", attrs));

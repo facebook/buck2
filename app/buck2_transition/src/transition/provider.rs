@@ -13,23 +13,20 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use dupe::Dupe;
-use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::util::ArcStr;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
@@ -67,18 +64,19 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
-    Pagable,
     StarlarkPagable
 )]
 #[repr(C)]
-pub(crate) struct TransitionInfoGen<V: ValueLifetimeless> {
-    pub(crate) r#impl: ValueOfUncheckedGeneric<V, StarlarkCallable<'static>>,
-    pub(crate) attrs: ValueOfUncheckedGeneric<V, NoneOr<UnpackListOrTuple<String>>>,
+pub(crate) struct TransitionInfo<'v> {
+    pub(crate) r#impl: ValueOfUnchecked<'v, StarlarkCallable<'static>>,
+    pub(crate) attrs: ValueOfUnchecked<'v, NoneOr<UnpackListOrTuple<String>>>,
 }
+
+/// A `TransitionInfo` kept alive by its owning frozen heap; usable across threads and awaits.
+pub(crate) type OwnedTransitionInfo = OwnedFrozen<ValueTyped<'static, TransitionInfo<'static>>>;
 
 #[starlark_module]
 fn transition_info_creator(globals: &mut GlobalsBuilder) {
@@ -93,15 +91,15 @@ fn transition_info_creator(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<TransitionInfo<'v>> {
         let attrs = attrs.map_or(Value::new_none(), |v| v.value);
         Ok(TransitionInfo {
-            r#impl: ValueOfUncheckedGeneric::new(r#impl.0),
-            attrs: ValueOfUncheckedGeneric::new(attrs),
+            r#impl: ValueOfUnchecked::new(r#impl.0),
+            attrs: ValueOfUnchecked::new(attrs),
         })
     }
 }
 
-impl<'v, V: ValueLike<'v>> TransitionInfoGen<V> {
-    pub(crate) fn get_attrs_names(&self) -> Option<impl IntoIterator<Item = &'v str> + use<'v, V>> {
-        let v = self.attrs.get().to_value();
+impl<'v> TransitionInfo<'v> {
+    pub(crate) fn get_attrs_names(&self) -> Option<impl IntoIterator<Item = &'v str> + use<'v>> {
+        let v = self.attrs.get();
         let slice: &[_] = if v.is_none() {
             return None;
         } else if let Some(v) = ListRef::from_value(v) {
