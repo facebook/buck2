@@ -11,15 +11,14 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
-use starlark::starlark_complex_value;
-use starlark::values::Freeze;
+use starlark::starlark_complex_value_branded;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
-use starlark::values::ValueLike;
+use starlark::values::Value;
 use starlark::values::starlark_value;
 
 /// Representation of `select_incompatible()` in Starlark.
@@ -29,13 +28,11 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    Freeze,
+    FreezeBranded,
     Trace,
-    Coerce,
     StarlarkPagable
 )]
-#[repr(C)]
-pub struct StarlarkSelectIncompatibleGen<V>(V);
+pub struct StarlarkSelectIncompatible<'v>(Value<'v>);
 
 impl<'v> StarlarkSelectIncompatible<'v> {
     pub fn new(v: StringValue<'v>) -> Self {
@@ -47,10 +44,7 @@ impl<'v> StarlarkSelectIncompatible<'v> {
     }
 }
 
-starlark_complex_value!(pub StarlarkSelectIncompatible);
+starlark_complex_value_branded!(pub StarlarkSelectIncompatible);
 
 #[starlark_value(type = "SelectIncompatible")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectIncompatibleGen<V> where
-    Self: ProvidesStaticType<'v>
-{
-}
+impl<'v> StarlarkValue<'v> for StarlarkSelectIncompatible<'v> {}

@@ -11,15 +11,14 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
-use starlark::starlark_complex_value;
-use starlark::values::Freeze;
+use starlark::starlark_complex_value_branded;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
-use starlark::values::ValueLike;
+use starlark::values::Value;
 use starlark::values::starlark_value;
 
 /// Representation of `select_fail()` in Starlark.
@@ -29,13 +28,11 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    Freeze,
+    FreezeBranded,
     Trace,
-    Coerce,
     StarlarkPagable
 )]
-#[repr(C)]
-pub struct StarlarkSelectFailGen<V>(V);
+pub struct StarlarkSelectFail<'v>(Value<'v>);
 
 impl<'v> StarlarkSelectFail<'v> {
     pub fn new(v: StringValue<'v>) -> Self {
@@ -47,10 +44,7 @@ impl<'v> StarlarkSelectFail<'v> {
     }
 }
 
-starlark_complex_value!(pub StarlarkSelectFail);
+starlark_complex_value_branded!(pub StarlarkSelectFail);
 
 #[starlark_value(type = "SelectFail")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectFailGen<V> where
-    Self: ProvidesStaticType<'v>
-{
-}
+impl<'v> StarlarkValue<'v> for StarlarkSelectFail<'v> {}
