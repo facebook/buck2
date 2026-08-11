@@ -14,9 +14,8 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -24,10 +23,8 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
 use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
@@ -56,16 +53,15 @@ enum ExecutionPlatformRegistrationTypeError {
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
+pub struct ExecutionPlatformRegistrationInfo<'v> {
     /// The list of execution platforms that are available for the build.
-    platforms: ValueOfUncheckedGeneric<V, Vec<FrozenExecutionPlatformInfo>>,
+    platforms: ValueOfUnchecked<'v, Vec<FrozenExecutionPlatformInfo>>,
     /// Specifies the behavior when no compatible execution platform is found from the `platforms` list.
     /// Can be one of:
     /// - `None` or `"use_unspecified"`: Proceed with an unspecified execution platform.
@@ -74,23 +70,23 @@ pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
     /// - An `ExecutionPlatformInfo`: Use this specific platform as a fallback when no other
     ///   platform from the `platforms` list matches.
     // TODO(nga): specify type more precisely.
-    fallback: ValueOfUncheckedGeneric<V, FrozenValue>,
+    fallback: ValueOfUnchecked<'v, FrozenValue>,
     /// Optional marker constraint that identifies platforms as execution platforms.
     /// If set, every execution platform in `platforms` will be marked with this constraint,
     /// allowing to distinguish execution platforms from target platforms.
-    exec_marker_constraint: ValueOfUncheckedGeneric<V, Option<FrozenStringValue>>,
+    exec_marker_constraint: ValueOfUnchecked<'v, Option<FrozenStringValue>>,
 }
 
-impl FrozenExecutionPlatformRegistrationInfo {
-    // TODO(cjhopman): If we impl this on the non-frozen one, we can check validity when constructed rather than only when used.
+impl<'v> ExecutionPlatformRegistrationInfo<'v> {
+    // TODO(cjhopman): Validity could be checked when constructed rather than only when used.
     pub fn platforms(
         &self,
     ) -> buck2_error::Result<Vec<FrozenValueTyped<'static, FrozenExecutionPlatformInfo>>> {
-        ListRef::from_frozen_value(self.platforms.get())
+        ListRef::from_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
-                    self.platforms.to_value().get().to_repr(),
-                    self.platforms.to_value().get().get_type().to_owned(),
+                    self.platforms.get().to_repr(),
+                    self.platforms.get().get_type().to_owned(),
                 )
             })?
             .iter()
@@ -112,7 +108,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
         if self.fallback.get().is_none() {
             return Ok(ExecutionPlatformFallback::UseUnspecifiedExec);
         }
-        let fallback = self.fallback.get().to_value();
+        let fallback = self.fallback.get();
         if let Some(v) = ExecutionPlatformInfo::from_value(fallback) {
             return Ok(ExecutionPlatformFallback::Platform(
                 v.to_execution_platform()?,
@@ -131,7 +127,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
     }
 
     pub fn exec_marker_constraint(&self) -> Option<&str> {
-        let value = self.exec_marker_constraint.get().to_value();
+        let value = self.exec_marker_constraint.get();
         if value.is_none() {
             None
         } else {
