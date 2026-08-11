@@ -41,8 +41,10 @@ use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
+use starlark::values::Value;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
 use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
@@ -69,7 +71,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        starlark_data: Option<OwnedFrozenValue>,
+        starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
@@ -95,23 +97,26 @@ enum WriteMacrosActionValidationError {
 
 #[derive(Debug, Allocative, Pagable)]
 struct WriteMacrosToFileAction {
-    contents: OwnedFrozenValue, // StarlarkCmdArgs
+    contents: OwnedFrozen<Value<'static>>, // StarlarkCmdArgs
     outputs: Box<[BuildArtifact]>,
     inner: UnregisteredWriteMacrosToFileAction,
 }
 
 impl WriteMacrosToFileAction {
     fn new(
-        contents: OwnedFrozenValue,
+        contents: OwnedFrozen<Value<'static>>,
         outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteMacrosToFileAction,
     ) -> buck2_error::Result<Self> {
+        let is_command_line = contents.by_ref(|v| -> buck2_error::Result<bool> {
+            Ok(ValueAsCommandLineLike::unpack_value(*v)?.is_some())
+        })?;
         if outputs.is_empty() {
             Err(WriteMacrosActionValidationError::NoOutputsSpecified.into())
-        } else if ValueAsCommandLineLike::unpack_value(contents.value())?.is_none() {
+        } else if !is_command_line {
             Err(
                 WriteMacrosActionValidationError::ContentsNotCommandLineValue(
-                    contents.value().to_repr(),
+                    contents.by_ref(|v| v.to_repr()),
                 )
                 .into(),
             )
@@ -138,10 +143,12 @@ impl Action for WriteMacrosToFileAction {
         }
 
         let mut visitor = CommandLineContentBasedInputVisitor::new();
-        ValueAsCommandLineLike::unpack_value(self.contents.value())?
-            .unwrap()
-            .0
-            .visit_artifacts(&mut visitor)?;
+        self.contents.by_ref(|v| -> buck2_error::Result<()> {
+            ValueAsCommandLineLike::unpack_value(*v)?
+                .unwrap()
+                .0
+                .visit_artifacts(&mut visitor)
+        })?;
         Ok(Cow::Owned(
             visitor.content_based_inputs.into_iter().collect(),
         ))
@@ -182,21 +189,21 @@ impl Action for WriteMacrosToFileAction {
                 let mut output_contents = Vec::with_capacity(self.outputs.len());
                 let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
 
-                let command_line = ValueAsCommandLineLike::unpack_value(self.contents.value())?
-                    .unwrap()
-                    .0;
+                self.contents.by_ref(|v| -> buck2_error::Result<()> {
+                    let command_line = ValueAsCommandLineLike::unpack_value(*v)?.unwrap().0;
 
-                if self.inner.use_dep_files_placeholder_for_content_based_paths {
-                    command_line.visit_write_to_file_macros(
-                        &mut macro_writer,
-                        &DepFilesPlaceholderArtifactPathMapper {},
-                    )?;
-                } else {
-                    command_line.visit_write_to_file_macros(
-                        &mut macro_writer,
-                        &ctx.artifact_path_mapping(None),
-                    )?;
-                }
+                    if self.inner.use_dep_files_placeholder_for_content_based_paths {
+                        command_line.visit_write_to_file_macros(
+                            &mut macro_writer,
+                            &DepFilesPlaceholderArtifactPathMapper {},
+                        )
+                    } else {
+                        command_line.visit_write_to_file_macros(
+                            &mut macro_writer,
+                            &ctx.artifact_path_mapping(None),
+                        )
+                    }
+                })?;
 
                 if self.outputs.len() != output_contents.len() {
                     return Err(

@@ -603,11 +603,14 @@ impl<'v> AnalysisValueStorage<'v> {
 }
 
 impl AnalysisValueFetcher {
-    /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
+    /// Get the action's starlark data and error handler for an `ActionKey`, if present
     pub fn get_action_data(
         &self,
         id: &ActionKey,
-    ) -> buck2_error::Result<(Option<OwnedFrozenValue>, Option<OwnedFrozenValue>)> {
+    ) -> buck2_error::Result<(
+        Option<OwnedFrozen<Value<'static>>>,
+        Option<OwnedFrozenValue>,
+    )> {
         let Some(module) = &self.frozen_module else {
             return Ok((None, None));
         };
@@ -634,7 +637,7 @@ impl AnalysisValueFetcher {
         // The entries were just looked up inside `storage`, so they live in its heap.
         let storage_value = storage.to_owned_frozen_value();
         Ok((
-            value.0.map(|v| storage_value.map(|_| v)),
+            value.0.map(|v| storage_value.map(|_| v).into()),
             value.1.map(|v| storage_value.map(|_| v.0)),
         ))
     }

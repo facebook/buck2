@@ -45,8 +45,10 @@ use buck2_hash::buck_indexmap;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
+use starlark::values::Value;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
 
@@ -114,7 +116,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        starlark_data: Option<OwnedFrozenValue>,
+        starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
@@ -126,14 +128,14 @@ impl UnregisteredAction for UnregisteredWriteAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct WriteAction {
-    contents: OwnedFrozenValue, // StarlarkCmdArgs
+    contents: OwnedFrozen<Value<'static>>, // StarlarkCmdArgs
     output: BuildArtifact,
     inner: UnregisteredWriteAction,
 }
 
 impl WriteAction {
     fn new(
-        contents: OwnedFrozenValue,
+        contents: OwnedFrozen<Value<'static>>,
         outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
     ) -> buck2_error::Result<Self> {
@@ -145,9 +147,12 @@ impl WriteAction {
             (Some(..), Some(..)) => return Err(WriteActionValidationError::TooManyOutputs.into()),
         };
 
-        if ValueAsCommandLineLike::unpack_value(contents.value())?.is_none() {
+        let is_command_line = contents.by_ref(|v| -> buck2_error::Result<bool> {
+            Ok(ValueAsCommandLineLike::unpack_value(*v)?.is_some())
+        })?;
+        if !is_command_line {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(
-                contents.value().to_repr(),
+                contents.by_ref(|v| v.to_repr()),
             )
             .into());
         }
@@ -178,17 +183,19 @@ impl WriteAction {
             })
             .transpose()?;
 
-        let mut fmt = CommandLineBuilder::new_with_options(
-            &mut cli,
-            artifact_path_mapping,
-            fs,
-            self.inner.absolute,
-            macro_files,
-        );
-        ValueAsCommandLineLike::unpack_value_err(self.contents.value())
-            .unwrap()
-            .0
-            .add_to_command_line(&mut fmt)?;
+        self.contents.by_ref(|v| -> buck2_error::Result<()> {
+            let mut fmt = CommandLineBuilder::new_with_options(
+                &mut cli,
+                artifact_path_mapping,
+                fs,
+                self.inner.absolute,
+                macro_files,
+            );
+            ValueAsCommandLineLike::unpack_value_err(*v)?
+                .0
+                .add_to_command_line(&mut fmt)?;
+            Ok(())
+        })?;
 
         Ok(cli.join("\n"))
     }
@@ -207,9 +214,11 @@ impl Action for WriteAction {
         }
 
         let mut visitor = CommandLineContentBasedInputVisitor::new();
-        ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
-            .0
-            .visit_artifacts(&mut visitor)?;
+        self.contents.by_ref(|v| -> buck2_error::Result<()> {
+            ValueAsCommandLineLike::unpack_value_err(*v)?
+                .0
+                .visit_artifacts(&mut visitor)
+        })?;
         let mut content_based_inputs = visitor.content_based_inputs;
         if let Some(macro_files) = &self.inner.macro_files {
             for artifact in macro_files {

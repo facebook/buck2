@@ -73,7 +73,9 @@ use pagable::PagableTagged;
 use pagable::pagable_typetag;
 use remote_execution::TActionResult2;
 use starlark::values::Heap;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::dict::DictType;
 
@@ -107,7 +109,7 @@ pub trait UnregisteredAction: Allocative + Send {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        starlark_data: Option<OwnedFrozenValue>,
+        starlark_data: Option<OwnedFrozen<Value<'static>>>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>>;
 }
@@ -480,7 +482,7 @@ impl ActionToBeRegistered {
 
     fn register(
         self,
-        starlark_data: Option<OwnedFrozenValue>,
+        starlark_data: Option<OwnedFrozen<Value<'static>>>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         self.action

@@ -36,7 +36,9 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -72,7 +74,7 @@ impl UnregisteredAction for UnregisteredCopyAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        _starlark_data: Option<OwnedFrozenValue>,
+        _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(CopyAction::new(self.copy, self.src, outputs)?))

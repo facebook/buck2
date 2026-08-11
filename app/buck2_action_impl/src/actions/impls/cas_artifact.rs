@@ -49,7 +49,9 @@ use jiff::Timestamp;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use remote_execution as RE;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 
 use crate::actions::impls::offline;
 
@@ -108,7 +110,7 @@ impl UnregisteredAction for UnregisteredCasArtifactAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        _starlark_data: Option<OwnedFrozenValue>,
+        _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(CasArtifactAction::new(outputs, *self)?))

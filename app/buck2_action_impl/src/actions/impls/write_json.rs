@@ -56,6 +56,7 @@ use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -111,7 +112,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        starlark_data: Option<OwnedFrozenValue>,
+        starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
@@ -122,18 +123,20 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
 
 #[derive(Debug, Allocative, Pagable)]
 struct WriteJsonAction {
-    contents: OwnedFrozenValue, // JSON value
+    contents: OwnedFrozen<Value<'static>>, // JSON value
     output: BuildArtifact,
     inner: UnregisteredWriteJsonAction,
 }
 
 impl WriteJsonAction {
     fn new(
-        contents: OwnedFrozenValue,
+        contents: OwnedFrozen<Value<'static>>,
         outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> buck2_error::Result<Self> {
-        validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
+        contents.by_ref(|v| -> buck2_error::Result<()> {
+            validate_json(JsonUnpack::unpack_value_err(*v)?)
+        })?;
 
         let mut outputs = outputs.into_iter();
 
@@ -158,14 +161,16 @@ impl WriteJsonAction {
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<Vec<u8>> {
         let mut writer = Vec::new();
-        json::write_json(
-            JsonUnpack::unpack_value_err(self.contents.value())?,
-            Some(fs),
-            &mut writer,
-            self.inner.pretty,
-            self.inner.absolute,
-            artifact_path_mapping,
-        )?;
+        self.contents.by_ref(|v| -> buck2_error::Result<()> {
+            json::write_json(
+                JsonUnpack::unpack_value_err(*v)?,
+                Some(fs),
+                &mut writer,
+                self.inner.pretty,
+                self.inner.absolute,
+                artifact_path_mapping,
+            )
+        })?;
         Ok(writer)
     }
 }
@@ -183,7 +188,8 @@ impl Action for WriteJsonAction {
         }
 
         let mut visitor = CommandLineContentBasedInputVisitor::new();
-        json::visit_json_artifacts(self.contents.value(), &mut visitor)?;
+        self.contents
+            .by_ref(|v| json::visit_json_artifacts(*v, &mut visitor))?;
         Ok(Cow::Owned(
             visitor.content_based_inputs.into_iter().collect(),
         ))

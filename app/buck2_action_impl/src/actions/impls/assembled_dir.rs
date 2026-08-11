@@ -41,7 +41,9 @@ use gazebo::prelude::*;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
 use starlark_map::small_set::SmallSet;
@@ -228,7 +230,7 @@ impl UnregisteredAction for UnregisteredAssembledDirAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
-        _starlark_data: Option<OwnedFrozenValue>,
+        _starlark_data: Option<OwnedFrozen<Value<'static>>>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(AssembledDirAction {
