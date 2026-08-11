@@ -29,7 +29,7 @@ use crate::hash_value::StarlarkHashValue;
 ///
 /// Starlark relies on stable hashing, and this is the hasher.
 /// The output is identical on every platform regardless of endianness and
-/// pointer width; see [`Fx64Hasher`].
+/// pointer width; see `Fx64Hasher`.
 #[derive(Default)]
 pub struct StarlarkHasher(Fx64Hasher);
 
