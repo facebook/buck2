@@ -272,7 +272,7 @@ impl<'v, V: EnumVariant + ?Sized> EnumTypeGen<'v, V> {
 
 starlark::methods_static!(ENUM_TYPE_METHODS = enum_type_methods);
 
-pub(super) type AnyEnumType<'v> = &'v EnumTypeGen<'v, dyn EnumVariant>;
+pub(crate) type AnyEnumType<'v> = &'v EnumTypeGen<'v, dyn EnumVariant>;
 
 impl<'v> StarlarkTypeRepr for AnyEnumType<'v> {
     type Canonical = <FrozenEnumType<'v> as StarlarkValue<'v>>::Canonical;

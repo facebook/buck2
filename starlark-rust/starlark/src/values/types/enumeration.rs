@@ -41,5 +41,5 @@ mod matcher;
 mod ty_enum_type;
 mod value;
 
-pub(crate) use enum_type::FrozenEnumType;
+pub(crate) use enum_type::AnyEnumType;
 pub use value::EnumValue;
