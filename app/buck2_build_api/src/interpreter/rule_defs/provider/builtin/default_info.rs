@@ -240,30 +240,20 @@ impl<'v> DefaultInfo<'v> {
             .ok_or_else(|| internal_error!("Should be list of artifacts"))?;
 
         Ok(list.iter().map(|v| {
-            let frozen_value = v
-                .unpack_frozen()
-                .ok_or_else(|| internal_error!("should be frozen"))?;
-
             Ok(
-                if let Some(starlark_artifact) = frozen_value.downcast_ref::<StarlarkArtifact>() {
+                if let Some(starlark_artifact) = v.downcast_ref::<StarlarkArtifact>() {
                     starlark_artifact.dupe()
                 } else {
-                    // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
-                    let artifact_like =
-                        ValueAsInputArtifactLike::unpack_value(frozen_value.to_value())?
-                            .ok_or_else(|| internal_error!("Should be list of artifacts"))?;
-                    artifact_like.0.get_bound_starlark_artifact()?
+                    ValueAsInputArtifactLike::unpack_value_err(v)?
+                        .0
+                        .get_bound_starlark_artifact()?
                 },
             )
         }))
     }
 
-    /// Panics when called on an unfrozen instance.
-    pub fn default_outputs(&self) -> Vec<StarlarkArtifact> {
-        self.default_outputs_impl()
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap()
+    pub fn default_outputs(&self) -> buck2_error::Result<Vec<StarlarkArtifact>> {
+        self.default_outputs_impl()?.collect()
     }
 
     pub fn default_outputs_raw(&self) -> Value<'v> {

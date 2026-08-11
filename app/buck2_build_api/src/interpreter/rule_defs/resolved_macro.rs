@@ -77,14 +77,10 @@ size_assert::words_of_type!(ResolvedMacro, 2);
 impl<'v> Display for ResolvedMacro<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResolvedMacro::Location(r) => {
-                let default_outputs = r.default_outputs();
-                if default_outputs.is_empty() {
-                    write!(f, "$(location ...)")
-                } else {
-                    write!(f, "$(location {})", default_outputs[0])
-                }
-            }
+            ResolvedMacro::Location(r) => match r.default_outputs() {
+                Ok(outputs) if !outputs.is_empty() => write!(f, "$(location {})", outputs[0]),
+                _ => write!(f, "$(location ...)"),
+            },
             ResolvedMacro::Source(a) => write!(f, "$(source {a})"),
             ResolvedMacro::ArgLike(x) => Display::fmt(x, f),
             ResolvedMacro::Query(x) => Display::fmt(x, f),
@@ -120,9 +116,9 @@ impl<'v> ResolvedMacro<'v> {
                 fmt.push_artifact(artifact)?;
             }
             Self::Location(info) => {
-                let outputs = &info.default_outputs();
+                let outputs = info.default_outputs()?;
 
-                add_outputs_to_arg(fmt, outputs)?;
+                add_outputs_to_arg(fmt, &outputs)?;
             }
             Self::ArgLike(command_line_like) => {
                 fmt.push_scope_delimiter(" ");
