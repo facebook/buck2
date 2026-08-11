@@ -43,7 +43,6 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
-use starlark::values::FrozenHeap;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -203,7 +202,6 @@ impl<'v> BxlActions<'v> {
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         heap: Heap<'v>,
-        _frozen_heap: &FrozenHeap,
         ctx: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, heap, ctx).await?;

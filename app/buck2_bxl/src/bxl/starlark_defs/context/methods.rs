@@ -424,7 +424,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<BxlActions<'v>> {
         let heap = eval.heap();
-        let frozen_heap = eval.frozen_heap();
         Ok(this.via_dice(eval, |ctx| {
             ctx.via(|ctx| {
                 async {
@@ -523,7 +522,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                         exec_deps.to_vec(),
                         toolchains.to_vec(),
                         heap,
-                        frozen_heap,
                         ctx,
                     )
                     .await
