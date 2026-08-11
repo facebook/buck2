@@ -54,7 +54,6 @@ use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -604,49 +603,40 @@ impl<'v> AnalysisValueStorage<'v> {
 }
 
 impl AnalysisValueFetcher {
-    fn extra_value(
-        &self,
-    ) -> buck2_error::Result<Option<(&FrozenAnalysisValueStorage<'static>, &FrozenHeapRef)>> {
-        match &self.frozen_module {
-            None => Ok(None),
-            Some(module) => {
-                let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
-                    .value
-                    .analysis_value_storage
-                    .ok_or_else(|| internal_error!("analysis_value_storage not set"))?
-                    .as_ref();
-                Ok(Some((&analysis_extra_value.value, module.frozen_heap())))
-            }
-        }
-    }
-
     /// Get the `OwnedFrozenValue` that corresponds to a `DeferredId`, if present
     pub fn get_action_data(
         &self,
         id: &ActionKey,
     ) -> buck2_error::Result<(Option<OwnedFrozenValue>, Option<OwnedFrozenValue>)> {
-        let Some((storage, heap_ref)) = self.extra_value()? else {
+        let Some(module) = &self.frozen_module else {
             return Ok((None, None));
         };
 
-        if id.holder_key() != &storage.self_key {
+        let storage = FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
+            v.value
+                .analysis_value_storage
+                .ok_or_else(|| internal_error!("analysis_value_storage not set"))
+        })?;
+
+        let storage_ref = &storage.as_ref().value;
+        if id.holder_key() != &storage_ref.self_key {
             return Err(internal_error!(
                 "Wrong action owner: expecting `{}`, got `{}`",
-                storage.self_key,
+                storage_ref.self_key,
                 id
             ));
         }
 
-        let Some(value) = storage.action_data.get(&id.action_index()) else {
+        let Some(value) = storage_ref.action_data.get(&id.action_index()) else {
             return Ok((None, None));
         };
 
-        unsafe {
-            Ok((
-                value.0.map(|v| OwnedFrozenValue::new(heap_ref.dupe(), v)),
-                value.1.map(|v| OwnedFrozenValue::new(heap_ref.dupe(), v.0)),
-            ))
-        }
+        // The entries were just looked up inside `storage`, so they live in its heap.
+        let storage_value = storage.to_owned_frozen_value();
+        Ok((
+            value.0.map(|v| storage_value.map(|_| v)),
+            value.1.map(|v| storage_value.map(|_| v.0)),
+        ))
     }
 
     pub(crate) fn get_recorded_values(
