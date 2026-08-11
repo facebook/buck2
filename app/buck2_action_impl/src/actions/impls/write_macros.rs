@@ -42,7 +42,6 @@ use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
@@ -72,7 +71,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
-        _error_handler: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
 

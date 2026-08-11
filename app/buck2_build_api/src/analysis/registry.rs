@@ -609,7 +609,7 @@ impl AnalysisValueFetcher {
         id: &ActionKey,
     ) -> buck2_error::Result<(
         Option<OwnedFrozen<Value<'static>>>,
-        Option<OwnedFrozenValue>,
+        Option<OwnedFrozen<Value<'static>>>,
     )> {
         let Some(module) = &self.frozen_module else {
             return Ok((None, None));
@@ -638,7 +638,7 @@ impl AnalysisValueFetcher {
         let storage_value = storage.to_owned_frozen_value();
         Ok((
             value.0.map(|v| storage_value.map(|_| v).into()),
-            value.1.map(|v| storage_value.map(|_| v.0)),
+            value.1.map(|v| storage_value.map(|_| v.0).into()),
         ))
     }
 

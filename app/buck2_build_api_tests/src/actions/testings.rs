@@ -35,7 +35,6 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 
 /// A simple unregistered action that will eventually be resolved into an action that runs the
@@ -101,7 +100,7 @@ impl UnregisteredAction for SimpleUnregisteredAction {
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
-        _error_handler: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(SimpleAction {
             inputs: BoxSliceSet::from(self.inputs),

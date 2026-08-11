@@ -117,7 +117,6 @@ use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -309,7 +308,7 @@ impl UnregisteredAction for UnregisteredRunAction {
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
-        error_handler: Option<OwnedFrozenValue>,
+        error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let starlark_values =
             starlark_data.ok_or_else(|| internal_error!("module data to be present"))?;
@@ -467,7 +466,7 @@ pub(crate) struct RunAction {
     inner: UnregisteredRunAction,
     starlark_values: OwnedFrozen<ValueTyped<'static, FrozenStarlarkRunActionValues<'static>>>,
     outputs: BoxSliceSet<BuildArtifact>,
-    error_handler: Option<OwnedFrozenValue>,
+    error_handler: Option<OwnedFrozen<Value<'static>>>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -876,7 +875,7 @@ impl RunAction {
         inner: UnregisteredRunAction,
         starlark_values: OwnedFrozen<Value<'static>>,
         outputs: BuckIndexSet<BuildArtifact>,
-        error_handler: Option<OwnedFrozenValue>,
+        error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Self> {
         let starlark_values: OwnedFrozen<
             ValueTyped<'static, FrozenStarlarkRunActionValues<'static>>,
@@ -1546,7 +1545,7 @@ impl Action for RunAction {
         }
     }
 
-    fn error_handler(&self) -> Option<&OwnedFrozenValue> {
+    fn error_handler(&self) -> Option<&OwnedFrozen<Value<'static>>> {
         self.error_handler.as_ref()
     }
 

@@ -42,7 +42,6 @@ use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
@@ -231,7 +230,7 @@ impl UnregisteredAction for UnregisteredAssembledDirAction {
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozen<Value<'static>>>,
-        _error_handler: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(AssembledDirAction {
             args: self.args,

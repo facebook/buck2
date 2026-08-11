@@ -56,7 +56,6 @@ use starlark::values::Demand;
 use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
@@ -110,7 +109,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozen<Value<'static>>>,
-        _error_handler: Option<OwnedFrozenValue>,
+        _error_handler: Option<OwnedFrozen<Value<'static>>>,
     ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
         let action = WriteJsonAction::new(contents, outputs, *self)?;
