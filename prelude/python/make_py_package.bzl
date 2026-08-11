@@ -450,6 +450,7 @@ def _make_py_package_wrapper(
             python_internal_tools,
             output_suffix,
             package_style,
+            allow_cache_upload,
         )
     return _make_py_package_impl(
         ctx,
@@ -591,7 +592,12 @@ def _make_py_package_impl(
         modules.add(modules_args)
         if package_style == PackageStyle("outplace"):
             modules.add(cmd_args("--copy-files", hidden = runtime_artifacts))
-        ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
+        ctx.actions.run(
+            modules,
+            category = "par",
+            identifier = "modules{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
 
         bootstrap = cmd_args(python_internal_tools.make_py_package_inplace)
         bootstrap.add(bootstrap_args)
@@ -604,7 +610,12 @@ def _make_py_package_impl(
         for flag in ctx.attrs.interpreter_args:
             bootstrap.add(cmd_args(["--python-interpreter-flags={}".format(flag)]))
 
-        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
+        ctx.actions.run(
+            bootstrap,
+            category = "par",
+            identifier = "bootstrap{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
 
     run_args = []
 
@@ -647,6 +658,7 @@ def _make_py_package_live(
     python_internal_tools: PythonInternalToolsInfo,
     output_suffix: str,
     package_style: PackageStyle,
+    allow_cache_upload: bool,
 ) -> PexProviders:
     """
     Bundle contents of par into symlink dir
@@ -822,8 +834,8 @@ def _make_py_package_live(
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.extend([a for a, _ in generated_files])
 
-    allow_cache_upload = None
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
+        # Windows can't produce these pars in a cache-portable form.
         allow_cache_upload = False
 
     if is_outplace:
@@ -850,7 +862,11 @@ def _make_py_package_live(
             category = "par",
             identifier = "make_live_par_incremental{}".format(output_suffix),
             no_outputs_cleanup = True,
-            allow_cache_upload = allow_cache_upload,
+            # Incremental action: its output is a function of the prior on-disk
+            # state, not solely of its inputs, so uploading it to the cache is
+            # never sound. Keep it off regardless of the rule/toolchain
+            # `allow_cache_upload`, mirroring how cxx excludes incremental links.
+            allow_cache_upload = False,
         )
 
     runtime_files.append(symlink_tree_path)
