@@ -65,7 +65,6 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
@@ -411,7 +410,7 @@ pub struct AnalysisValueStorage<'v> {
     action_data: SmallMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: Vec<ValueTyped<'v, TransitiveSet<'v>>>,
     pub lambda_params: Box<DynStarlark<'v, dyn DynamicLambdaParamsStorage<'v>>>,
-    result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
+    result_value: OnceCell<ValueTyped<'v, ProviderCollection<'v>>>,
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
@@ -501,6 +500,13 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             );
         }
+        let result_value = match result_value.into_inner() {
+            None => None,
+            Some(v) => Some(
+                FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                    .map_err(|e| FreezeError::new(e.to_string()))?,
+            ),
+        };
         Ok(FrozenAnalysisValueStorage {
             self_key,
             action_data: frozen_action_data,
@@ -508,7 +514,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .into_iter()
                 .collect::<MiniBoxSlice<_>>(),
             lambda_params: lambda_params.freeze(freezer)?,
-            result_value: result_value.freeze(freezer)?,
+            result_value,
         })
     }
 }
@@ -593,7 +599,7 @@ impl<'v> AnalysisValueStorage<'v> {
 
     pub fn set_result_value(
         &self,
-        providers: ValueTypedComplex<'v, ProviderCollection<'v>>,
+        providers: ValueTyped<'v, ProviderCollection<'v>>,
     ) -> buck2_error::Result<()> {
         if self.result_value.set(providers).is_err() {
             return Err(internal_error!("result_value is already set"));

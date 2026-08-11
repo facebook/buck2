@@ -101,7 +101,6 @@ use starlark::values::DynStarlark;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::UnpackDictEntries;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
@@ -568,7 +567,7 @@ impl AnonTargetKey {
                     .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
             })?;
 
-            let res = ValueTypedComplex::new(res)
+            let res = ValueTyped::new(res)
                 .ok_or_else(|| internal_error!("Just allocated the provider collection"))?;
 
             // Pull the ctx object back out, and steal ctx.action's state back

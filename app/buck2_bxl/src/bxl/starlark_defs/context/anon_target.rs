@@ -55,7 +55,6 @@ use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
@@ -313,7 +312,7 @@ async fn eval_bxl_for_anon_target_inner(
                 .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
         })?;
 
-        let res = ValueTypedComplex::new(res)
+        let res = ValueTyped::new(res)
             .ok_or_else(|| internal_error!("Just allocated the provider collection"))?;
 
         let analysis_registry = bxl_ctx.take_state_anon()?;

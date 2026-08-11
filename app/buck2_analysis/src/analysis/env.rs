@@ -54,7 +54,6 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
 use crate::analysis::calculation::AnalysisSplitInstants;
@@ -322,13 +321,9 @@ async fn run_analysis_with_env_underlying(
 
         // TODO: Convert the ValueError from `try_from_value` better than just printing its Debug
         let res_typed = ProviderCollection::try_from_value(list_res)?;
-        {
-            let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
-                .internal_error("Just allocated provider collection")?;
-            analysis_registry
-                .analysis_value_storage
-                .set_result_value(provider_collection)?;
-        }
+        analysis_registry
+            .analysis_value_storage
+            .set_result_value(env.heap().alloc_typed(res_typed))?;
 
         let finished_eval = reentrant_eval.finish_evaluation();
 

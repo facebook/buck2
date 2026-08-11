@@ -76,7 +76,6 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::list::AllocList;
@@ -242,9 +241,7 @@ fn execute_lambda_inner<'v>(
 
         let providers: ProviderCollection =
             invoke_dynamic_output_lambda(eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
-        let providers = eval.heap().alloc(providers);
-        let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-            .ok_or_else(|| internal_error!("Just allocated ProviderCollection"))?;
+        let providers = eval.heap().alloc_typed(providers);
 
         ctx.assert_no_promises()?;
 
