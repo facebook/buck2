@@ -26,6 +26,8 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate::any::ProvidesStaticType;
+use crate::cast::transmute;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -63,6 +65,26 @@ pub trait FreezeBranded {
     /// trying to unpack these objects will crash the process.
     /// So the function is only allowed to access `Value` objects after it froze them.
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>>;
+}
+
+/// Implements a plain [`Freeze`](crate::values::Freeze) in terms of
+/// [`FreezeBranded`], by erasing the heap brand from the result.
+///
+/// This exists so that branded types can still be held by containers whose
+/// `Freeze` impls have not been migrated yet. The erasure means the resulting
+/// value's lifetimes no longer tie it to the heap that keeps it alive — the
+/// same pre-branding contract that `FrozenValue` and every legacy `FrozenFoo`
+/// type operate under, so during the migration this makes nothing worse.
+pub fn freeze_via_branded<'f, T, F>(value: T, freezer: &Freezer<'f>) -> FreezeResult<F>
+where
+    T: FreezeBranded,
+    T::Frozen<'f>: ProvidesStaticType<'f, StaticType = F> + Sized,
+    F: 'static,
+{
+    let frozen = value.freeze(freezer)?;
+    // SAFETY: The contract on `ProvidesStaticType` guarantees that
+    // `T::Frozen<'f>` and `F` are the same type up to lifetimes.
+    Ok(unsafe { transmute!(T::Frozen<'f>, F, frozen) })
 }
 
 macro_rules! impl_freeze_branded_identity {

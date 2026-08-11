@@ -55,6 +55,7 @@ pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
 pub use crate::values::freeze::Freeze;
 pub use crate::values::freeze_branded::FreezeBranded;
+pub use crate::values::freeze_branded::freeze_via_branded;
 pub use crate::values::freeze_error::FreezeError;
 pub use crate::values::freeze_error::FreezeErrorContext;
 pub use crate::values::freeze_error::FreezeResult;
