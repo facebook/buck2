@@ -31,19 +31,6 @@ macro_rules! starlark_complex_value_branded {
             // covers the frozen form at any heap lifetime.
             unsafe impl<'v> $crate::__derive_refs::VtableRegistered for $x<'v> {}
 
-            // Interop for containers whose `Freeze` impls have not been
-            // migrated to `FreezeBranded`; see `freeze_via_branded`.
-            impl<'v> $crate::values::Freeze for $x<'v> {
-                type Frozen = $x<'static>;
-
-                fn freeze(
-                    self,
-                    freezer: &$crate::values::Freezer,
-                ) -> $crate::values::FreezeResult<Self::Frozen> {
-                    $crate::values::freeze_via_branded(self, freezer)
-                }
-            }
-
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
                 #[inline]
                 fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
