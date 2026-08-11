@@ -48,7 +48,10 @@ impl Input<'_> {
     fn format_impl_generics(
         &self,
         bounds: bool,
+        kind: &Kind,
     ) -> syn::Result<(TokenStream, TokenStream, TokenStream)> {
+        let trait_ = &kind.trait_;
+        let lts = &kind.lts;
         let span = self.input.span();
         let mut impl_params = Vec::new();
         let mut input_params = Vec::new();
@@ -63,7 +66,7 @@ impl Input<'_> {
                     let bounds = t.bounds.iter();
                     impl_params.push(quote_spanned! {
                         span=>
-                        #name: #(#bounds +)* starlark::values::Freeze
+                        #name: #(#bounds +)* #trait_
                     });
                     input_params.push(quote_spanned! {
                         span=>
@@ -71,13 +74,17 @@ impl Input<'_> {
                     });
                     output_params.push(quote_spanned! {
                         span=>
-                        <#name as starlark::values::Freeze>::Frozen
+                        <#name as #trait_>::Frozen #lts
                     });
                 }
                 GenericParam::Lifetime(lt) => {
                     impl_params.push(quote_spanned! { span=> #lt });
                     input_params.push(quote_spanned! { span=> #lt });
-                    output_params.push(quote_spanned! { span=> 'static });
+                    if kind.branded {
+                        output_params.push(quote! { 'fv });
+                    } else {
+                        output_params.push(quote! { 'static });
+                    }
                 }
                 GenericParam::Const(_) => {
                     return Err(syn::Error::new_spanned(
@@ -95,7 +102,7 @@ impl Input<'_> {
     }
 }
 
-fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
+fn derive_freeze_impl(input: DeriveInput, kind: Kind) -> syn::Result<syn::ItemImpl> {
     let span = input.span();
     let input = Input { input: &input };
 
@@ -115,7 +122,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     }
 
     let (impl_params, input_params, output_params) =
-        input.format_impl_generics(bounds.is_some())?;
+        input.format_impl_generics(bounds.is_some(), &kind)?;
 
     let validate_body = match validator {
         Some(validator) => quote_spanned! {
@@ -133,14 +140,17 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         None => quote_spanned! { span=> },
     };
 
-    let body = freeze_impl(input.input)?;
+    let body = freeze_impl(input.input, &kind)?;
+
+    let trait_ = &kind.trait_;
+    let lts = &kind.lts;
 
     let r#gen = syn::parse_quote_spanned! {
         span=>
-        impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
-            type Frozen = #name #output_params;
+        impl #impl_params #trait_ for #name #input_params #bounds_body {
+            type Frozen #lts = #name #output_params;
             #[allow(unused_variables)]
-            fn freeze(self, freezer: &starlark::values::Freezer) -> starlark::values::FreezeResult<Self::Frozen> {
+            fn freeze<'fv>(self, freezer: &starlark::values::Freezer<'fv>) -> starlark::values::FreezeResult<Self::Frozen #lts> {
                 let frozen = #body;
                 #validate_body
                 std::result::Result::Ok(frozen)
@@ -217,7 +227,8 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
     Ok(opts)
 }
 
-fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
+fn freeze_impl(derive_input: &DeriveInput, kind: &Kind) -> syn::Result<syn::Expr> {
+    let trait_ = &kind.trait_;
     let derive_input = DeriveInputUtil::new(derive_input)?;
     derive_input.match_self(|struct_or_enum_variant, fields| {
         let fields: Vec<syn::Expr> = fields
@@ -249,7 +260,7 @@ fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
                     })
                 } else {
                     Ok(syn::parse_quote_spanned! { span=>
-                        starlark::values::Freeze::freeze(#ident, freezer)?
+                        #trait_::freeze(#ident, freezer)?
                     })
                 }
             })
@@ -258,10 +269,33 @@ fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
     })
 }
 
-pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+/// Params describing either `Freeze` or `FreezeBranded`.
+struct Kind {
+    branded: bool,
+    /// `starlark::values::Freeze` or `starlark::values::FreezeBranded`
+    trait_: TokenStream,
+    /// `` or `<'fv>`
+    lts: TokenStream,
+}
+
+pub fn derive_freeze(input: proc_macro::TokenStream, branded: bool) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    match derive_freeze_impl(input) {
+    let kind = if branded {
+        Kind {
+            branded: true,
+            trait_: quote! { starlark::values::FreezeBranded },
+            lts: quote! { <'fv> },
+        }
+    } else {
+        Kind {
+            branded: false,
+            trait_: quote! { starlark::values::Freeze },
+            lts: quote! {},
+        }
+    };
+
+    match derive_freeze_impl(input, kind) {
         Ok(input) => quote! { #input }.into(),
         Err(e) => e.to_compile_error().into(),
     }

@@ -34,6 +34,7 @@ pub use owned_frozen_ref::OwnedRefFrozenRef;
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;
 pub use starlark_derive::Freeze;
+pub use starlark_derive::FreezeBranded;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkAttrs;
 pub use starlark_derive::StarlarkPagable;

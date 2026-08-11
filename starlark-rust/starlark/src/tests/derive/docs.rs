@@ -19,7 +19,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -28,17 +28,16 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
 use crate::docs::DocMember;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::starlark_complex_value;
+use crate::starlark_complex_value_branded;
 use crate::starlark_simple_value;
 use crate::values::StarlarkValue;
-use crate::values::ValueLike;
+use crate::values::Value;
 
 /// Main module docs
 #[starlark_module]
@@ -77,21 +76,17 @@ impl<'v> StarlarkValue<'v> for TestExample {
 #[derive(
     Clone,
     Debug,
-    Coerce,
     Display,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-struct ComplexTestExampleGen<V>(V);
+struct ComplexTestExample<'v>(Value<'v>);
 
-impl<V> Serialize for ComplexTestExampleGen<V>
-where
-    V: Serialize,
-{
+impl<'v> Serialize for ComplexTestExample<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -100,12 +95,12 @@ where
     }
 }
 
-starlark_complex_value!(ComplexTestExample);
+starlark_complex_value_branded!(ComplexTestExample);
 
 starlark::methods_static!(COMPLEX_TEST_EXAMPLE_METHODS = object_docs_1);
 
 #[starlark_value(type = "ComplexTestExample")]
-impl<'v, T: ValueLike<'v> + ProvidesStaticType<'v>> StarlarkValue<'v> for ComplexTestExampleGen<T>
+impl<'v> StarlarkValue<'v> for ComplexTestExample<'v>
 where
     Self: ProvidesStaticType<'v>,
 {

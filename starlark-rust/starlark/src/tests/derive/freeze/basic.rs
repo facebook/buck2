@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
+use starlark_derive::FreezeBranded;
+
 use crate as starlark;
 use crate::values::Freeze;
 
 #[derive(Freeze)]
+#[derive(FreezeBranded)]
 #[allow(dead_code)]
 struct TestUnitStruct;

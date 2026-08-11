@@ -1288,6 +1288,25 @@ impl StarlarkDeserialize for FrozenValue {
     }
 }
 
+/// Only frozen heaps are serialized, so a `Value` reached during serialization
+/// is always frozen; branded frozen types store their contents as `Value<'fv>`.
+impl<'v> StarlarkSerialize for Value<'v> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        match self.unpack_frozen() {
+            Some(fv) => fv.starlark_serialize(ctx),
+            None => Err(value_error!(
+                "Attempted to serialize a non-frozen value; only frozen heaps can be serialized"
+            )),
+        }
+    }
+}
+
+impl<'v> StarlarkDeserialize for Value<'v> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        Ok(FrozenValue::starlark_deserialize(ctx)?.to_value())
+    }
+}
+
 impl<'v> StarlarkTypeRepr for Value<'v> {
     type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
 

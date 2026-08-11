@@ -16,11 +16,13 @@
  */
 
 use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 
 use crate as starlark;
 
 #[allow(dead_code)] // If it compiles, it works.
 #[derive(Freeze)]
+#[derive(FreezeBranded)]
 enum TestFreezeEnum<V> {
     A,
     B(),
