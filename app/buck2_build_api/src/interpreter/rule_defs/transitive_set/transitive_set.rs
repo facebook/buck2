@@ -24,7 +24,6 @@ use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
-use either::Either;
 use gazebo::prelude::*;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -47,7 +46,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
@@ -67,7 +65,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetDefinitionLike;
@@ -93,16 +90,7 @@ impl TypeMatcher for TransitiveSetMatcher {
         let Some(tset) = ValueTyped::<TransitiveSet>::new(value) else {
             return false;
         };
-        let tset_definition = tset.definition.to_value();
-        let tset_definition = ValueTypedComplex::<TransitiveSetDefinition>::new(tset_definition)
-            .expect("wrong type of definition");
-        let exported = match tset_definition.unpack() {
-            Either::Left(definition) => match definition.exported.get() {
-                Some(definition) => definition,
-                None => return false,
-            },
-            Either::Right(definition) => &definition.exported,
-        };
+        let exported = &tset.definition.as_ref().exported;
         // TODO(nga): suboptimal: we could just compare to the pointer of the definition.
         exported.set_type_instance_id == self.type_instance_id
     }
@@ -277,11 +265,8 @@ impl<'v> TransitiveSet<'v> {
         }
     }
 
-    pub(crate) fn definition(
-        &self,
-    ) -> buck2_error::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
-        ValueTypedComplex::unpack_value_err(self.definition.to_value())
-            .buck_error_context("Must be a TransitiveSetDefinition")
+    pub(crate) fn definition(&self) -> FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>> {
+        self.definition
     }
 
     pub fn visit_projection_direct_inputs<V: CommandLineArtifactVisitor<'v>>(
@@ -717,8 +702,8 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn definition<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
-    ) -> starlark::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
-        Ok(this.typed.definition()?)
+    ) -> starlark::Result<FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>> {
+        Ok(this.typed.definition())
     }
 
     #[starlark(attribute)]
