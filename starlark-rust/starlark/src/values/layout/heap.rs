@@ -24,6 +24,7 @@ pub(crate) mod call_enter_exit;
 mod fast_cell;
 pub(crate) mod heap_type;
 pub(crate) mod maybe_uninit_slice_util;
+pub(crate) mod owned_frozen;
 pub(crate) mod profile;
 pub(crate) mod repr;
 pub(crate) mod send;

@@ -49,6 +49,7 @@ use pagable::PartialPagableWeak;
 use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
 
+use crate::any::IsStaticType;
 use crate::cast;
 use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
@@ -90,6 +91,7 @@ use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
+use crate::values::layout::heap::owned_frozen::FnOncish2;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
@@ -1532,6 +1534,199 @@ impl FrozenHeapRef {
         self.0
             .as_ref()
             .and_then(|heap| heap.locate_value_for_diagnostic(raw_ptr))
+    }
+}
+
+/// A value in a frozen heap that is automatically kept alive.
+///
+/// This type is a `T` together with a `FrozenHeapRef` which keeps that `T` alive.
+///
+/// There are a number of methods on this type providing direct access to the `T`. When using these
+/// methods, the value you actually get access to is "`T` but with all lifetimes replaced with an
+/// unknown lifetime `'fv`." In other words, if you're holding a `OwnedFrozen<Value<'static>>`,
+/// `get_by_ref` actually gives you a `Value<'fv>` for some unknown lifetime `'fv`, preventing you
+/// from putting the underlying value somewhere the heap ref won't keep it alive. For more on this,
+/// see the documentation in the `branding` module.
+///
+/// The more typical way of accessing the underlying value though is with the `add_to_heap` method.
+pub struct OwnedFrozen<T> {
+    heap_ref: FrozenHeapRef,
+    // This is morally storing a `T::Reinfect<'fv>` for `'fv` the lifetime associated with the
+    // frozen heap. It would be a little bit more natural to store a `T::Reinfect<'static>` here;
+    // `T` is guaranteed by the safety contract on `ProvidesStaticType` to be the same, but if we
+    // had a `T::Reinfect<'static>` we wouldn't need to rely on that.
+    //
+    // The problem is that that would require us to add a `T: IsStaticType` bound to this *type*.
+    // That does mostly turn out fine, except that it turns out to be the *exact* pattern that
+    // consistently hits the compiler bug in <https://github.com/rust-lang/rust/issues/102211>,
+    // making this type ~unusable in async contexts. Once that bug is fixed, it may be worth to
+    // revisit.
+    v: T,
+    _no_auto_traits: PhantomData<dyn Any>,
+}
+
+// This module only has the safety-critical impls for this type. Additional conveniences and trait
+// impls are found in `owned_frozen.rs` and based on the safe APIs provided here
+impl<T> OwnedFrozen<T>
+where
+    for<'fv> T: IsStaticType<Reinfect<'fv> = T>,
+{
+    /// Get a reference to the inner value
+    pub fn get<'a>(&'a self) -> &'a T {
+        &self.v
+    }
+}
+
+impl<T: IsStaticType> OwnedFrozen<T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Create a new `OwnedFrozen` from the given heap and a value associated with that heap.
+    ///
+    /// # SAFETY
+    ///
+    /// The `'fv` provided must be kept alive by the passed `heap_ref`.
+    pub unsafe fn unchecked_new<'fv>(heap_ref: FrozenHeapRef, v: T::Reinfect<'fv>) -> Self
+    where
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
+    {
+        Self {
+            heap_ref,
+            // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
+            // lifetimes, and the caller guarantees that `heap_ref`, which is stored alongside,
+            // keeps `'fv` alive.
+            v: unsafe { transmute!(T::Reinfect<'fv>, T, v) },
+            _no_auto_traits: PhantomData,
+        }
+    }
+
+    /// Get access to this value within the provided heap
+    ///
+    /// See the `branding` module for more details.
+    pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v> {
+        heap.add_reference(&self.heap_ref);
+
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Access the underlying value and a reconstructor in a closure
+    pub fn by_ref_with_reconstructor<'s, F, R>(&'s self, f: F) -> R
+    where
+        // Note: This `'a` is intentionally not `'s`. The danger that poses is that `'fv` is
+        // supposed to be a brand and hence and arbitrary lifetime, but using `'s` would allow the
+        // user to prove `'fv: 's` which makes the lifetime no longer arbitrary. In the extreme
+        // case, if the caller supplies `'s = 'static`, they can prove `'fv = 'static`, meaning the
+        // `'fv` is no longer unique at all.
+        //
+        // It's not clear that this is actually a problem, since if `'s = 'static` this thing lives
+        // forever and the poison is mostly gone anyway, but it's still very hard to reason about.
+        for<'a, 'fv> F: FnOnce(&'a T::Reinfect<'fv>, OwnedFrozenReconstructor<'fv>) -> R,
+    {
+        // SAFETY: See the comment on the type
+        f(
+            unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) },
+            OwnedFrozenReconstructor {
+                heap_ref: &self.heap_ref,
+                _invariant: PhantomData,
+            },
+        )
+    }
+
+    /// Map the underlying value and access a reconstructor
+    pub fn try_by_value_with_reconstructor<U, E, R, F>(self, f: F) -> (Result<OwnedFrozen<U>, E>, R)
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fv> F: FnOncish2<
+                T::Reinfect<'fv>,
+                OwnedFrozenReconstructor<'fv>,
+                (Result<U::Reinfect<'fv>, E>, R),
+            >,
+    {
+        // SAFETY: See the comment on the type
+        let (v, extra) = f(
+            unsafe { transmute!(T, T::Reinfect<'_>, self.v) },
+            OwnedFrozenReconstructor {
+                // We have to transmute this lifetime because we want to allow our borrow of
+                // `self.heap_ref` to expire when we move `self.heap_ref` below, but the lifetime of
+                // that borrow is also the lifetime of the `'fv` in `v` which would have to expire
+                // then too.
+                //
+                // SAFETY: `self.heap_ref` is not moved until after `f` returns, so the
+                // lifetime-extended reference stays valid for the duration of the call.
+                heap_ref: unsafe { transmute!(&FrozenHeapRef, &FrozenHeapRef, &self.heap_ref) },
+                _invariant: PhantomData,
+            },
+        );
+        match v {
+            // SAFETY: `v`'s `'fv` is the brand of the heap owned by `self.heap_ref`, which we
+            // pass in as the owner.
+            Ok(v) => unsafe { (Ok(OwnedFrozen::unchecked_new(self.heap_ref, v)), extra) },
+            Err(e) => (Err(e), extra),
+        }
+    }
+}
+
+/// SAFETY: We would like to write the following impls:
+///
+/// ```rust,ignore
+/// unsafe impl<T: IsStaticType> Send for OwnedFrozen<T>
+/// where
+///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+/// {
+/// }
+/// unsafe impl<T: IsStaticType> Sync for OwnedFrozen<T>
+/// where
+///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+/// {
+/// }
+/// ```
+///
+/// The justification for such impls would be effectively the ones discussed in the `send` module;
+/// `for<'fv> HeapSendable<'fv> + HeapSyncable<'fv>` bounds are functionally `Send + Sync` up to any
+/// values contained in them, and those values must be frozen values so sending/syncing them is ok.
+///
+/// However, actually writing such an impl once more runs headfirst into
+/// <https://github.com/rust-lang/rust/issues/102211> where the compiler completely fails to prove
+/// them in any async context (there's a test for this in `owned_frozen.rs`). So instead, we impl
+/// `Send + Sync` unconditionally here and impose those bounds at construction time. That's a little
+/// less flexible but otherwise ok.
+unsafe impl<T> Send for OwnedFrozen<T> {}
+unsafe impl<T> Sync for OwnedFrozen<T> {}
+
+/// Marker providing the ability to reconstruct `OwnedFrozen` values.
+///
+/// This type is provided as an argument to a number of the closures in `OwnedFrozen` APIs. It
+/// allows constructing more `OwnedFrozen`s referring to the same heap:
+///
+/// ```rust,ignore
+/// let v: OwnedFrozen<(Value<'static>, Value<'static>)> = ...;
+/// let v: (OwnedFrozen<Value<'static>>, OwnedFrozen<Value<'static>>) = v
+///     .by_ref_with_reconstructor(|vs, reconstructor| {
+///         let v0 = reconstructor.reconstruct(vs.0);
+///         let v1 = reconstructor.reconstruct(vs.1);
+///         (v0, v1)
+///     });
+/// ```
+///
+/// Usually this is not needed and combinations of `map`, `clone` suffice instead.
+#[derive(Copy, Clone, Dupe)]
+pub struct OwnedFrozenReconstructor<'fv> {
+    heap_ref: &'fv FrozenHeapRef,
+    // Ensure this is invariant in `'fv`; other than that, it's fine for it to be `Send + Sync`,
+    // though not very useful
+    _invariant: PhantomData<fn(&'fv ()) -> &'fv ()>,
+}
+
+impl<'fv> OwnedFrozenReconstructor<'fv> {
+    pub fn reconstruct<T: IsStaticType>(&self, v: T::Reinfect<'fv>) -> OwnedFrozen<T>
+    where
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2> + Sized,
+    {
+        // SAFETY: The heap ref keeps the value alive for `'fv`
+        unsafe { OwnedFrozen::unchecked_new(self.heap_ref.dupe(), v) }
     }
 }
 
