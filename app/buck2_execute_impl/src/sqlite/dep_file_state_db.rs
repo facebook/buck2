@@ -23,6 +23,7 @@ use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::dep_file_state::DepFileStore;
+use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileState;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -195,6 +196,18 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
     }
 }
 
+fn report_read_failure(e: buck2_error::Error) {
+    let _unused = soft_error!(
+        "read_from_dep_file_db",
+        buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Failed to read from dep-file sqlite db. {}",
+            e
+        ),
+        quiet: true
+    );
+}
+
 /// Write-through [`DepFileStore`] over a [`DepFileStateSqliteDb`]. Installed into `buck2_action_impl`
 /// via `DEP_FILE_STORE` once the daemon opens the db. Every db error is downgraded to a quiet soft
 /// error so a database hiccup never fails a build (the in-memory cache remains authoritative).
@@ -304,24 +317,30 @@ impl DepFileStore for PersistedDepFileStore {
         });
     }
 
-    fn get(&self, logical_key: &[u8]) -> Vec<StoredDepFileState> {
+    fn get_digests(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
         match self
             .db
             .dep_file_state_table()
-            .read_by_logical(logical_key, self.digest_config)
+            .read_digests_by_logical(logical_key, self.digest_config)
         {
-            Ok(states) => states,
+            Ok(digests) => digests,
             Err(e) => {
-                let _unused = soft_error!(
-                    "read_from_dep_file_db",
-                    buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
-                        "Failed to read from dep-file sqlite db. {}",
-                        e
-                    ),
-                    quiet: true
-                );
+                report_read_failure(e);
                 Vec::new()
+            }
+        }
+    }
+
+    fn get_entry(&self, logical_key: &[u8], config_key: &[u8]) -> Option<StoredDepFileState> {
+        match self
+            .db
+            .dep_file_state_table()
+            .read_entry(logical_key, config_key, self.digest_config)
+        {
+            Ok(state) => state,
+            Err(e) => {
+                report_read_failure(e);
+                None
             }
         }
     }

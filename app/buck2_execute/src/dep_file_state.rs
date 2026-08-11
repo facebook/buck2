@@ -47,6 +47,18 @@ pub struct StoredDepFileState {
     pub outputs: Vec<StoredOutput>,
 }
 
+/// The scalar (digest) columns of one persisted entry, without its outputs or declared dep files.
+/// Enough to reject a candidate that cannot match the live action, which is the common case.
+#[derive(Clone, Debug)]
+pub struct StoredDepFileDigests {
+    /// Identifies which configuration's entry this is; pass it back to `DepFileStore::get_entry`.
+    pub config_key: Vec<u8>,
+    /// Raw bytes of the expanded command line digest.
+    pub cli_digest: Vec<u8>,
+    pub directory_digest: FileDigest,
+    pub local_worker_directory_digest: Option<TrackedFileDigest>,
+}
+
 /// One persisted output of a dep-file cache entry, keyed by its target-relative path.
 #[derive(Clone, Debug, Allocative)]
 pub struct StoredOutput {
@@ -87,10 +99,14 @@ pub trait DepFileStore: Send + Sync + 'static {
     fn insert(&self, logical_key: Vec<u8>, config_key: Vec<u8>, state: StoredDepFileState);
     /// Remove the entry for `(logical_key, config_key)`, if present.
     fn delete(&self, logical_key: Vec<u8>, config_key: Vec<u8>);
-    /// Every persisted entry for `logical_key`, one per configuration it was built under (empty on a
-    /// miss or on any database error). The in-memory cache calls this on demand for a logical action
-    /// it has no live entry for, rather than loading the whole database at startup.
-    fn get(&self, logical_key: &[u8]) -> Vec<StoredDepFileState>;
+    /// The digests of every persisted entry for `logical_key`, one per configuration it was built
+    /// under (empty on a miss or on any database error). Reads only the scalar table, so a candidate
+    /// that cannot match costs nothing more than this. The in-memory cache calls this on demand for a
+    /// logical action it has no live entry for, rather than loading the whole database at startup.
+    fn get_digests(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests>;
+    /// The complete entry for one configuration, including its outputs and declared dep files.
+    /// Call only once `get_digests` reported a match: this is the expensive half of a lookup.
+    fn get_entry(&self, logical_key: &[u8], config_key: &[u8]) -> Option<StoredDepFileState>;
     /// Remove all entries. May block for as long as `flush` does.
     fn clear(&self);
     /// Writes accepted but not yet applied to the database. Reported per snapshot: the queue is

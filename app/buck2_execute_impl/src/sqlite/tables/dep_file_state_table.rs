@@ -20,6 +20,7 @@
 //!   - `dep_file_declared`: one row per declared dep-file identity.
 
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
@@ -30,6 +31,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileIdentity;
 use buck2_execute::dep_file_state::StoredDepFileState;
 use buck2_execute::dep_file_state::StoredOutput;
@@ -37,7 +39,6 @@ use buck2_execute::dep_file_state::StoredOutputValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -58,13 +59,6 @@ enum DepFileStateTableError {
         field: &'static str,
         artifact_type: ArtifactType,
     },
-}
-
-/// The composite key identifying one dep-file cache entry across the three tables.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct EntryKey {
-    logical_key: Vec<u8>,
-    config_key: Vec<u8>,
 }
 
 fn file_digest_parts(digest: &FileDigest) -> (u64, &[u8], u8) {
@@ -212,9 +206,21 @@ fn delete_key_in_tx(
     logical_key: &[u8],
     config_key: &[u8],
 ) -> buck2_error::Result<()> {
-    for table in [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
-        let sql = format!("DELETE FROM {table} WHERE logical_key = ?1 AND config_key = ?2");
-        tx.prepare_cached(&sql)?
+    static STATE_SQL: LazyLock<String> = LazyLock::new(|| {
+        format!("DELETE FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
+    });
+    static OUTPUTS_SQL: LazyLock<String> = LazyLock::new(|| {
+        format!("DELETE FROM {OUTPUTS_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
+    });
+    static DECLARED_SQL: LazyLock<String> = LazyLock::new(|| {
+        format!("DELETE FROM {DECLARED_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
+    });
+    for (table, sql) in [
+        (STATE_TABLE_NAME, &STATE_SQL),
+        (OUTPUTS_TABLE_NAME, &OUTPUTS_SQL),
+        (DECLARED_TABLE_NAME, &DECLARED_SQL),
+    ] {
+        tx.prepare_cached(sql)?
             .execute(rusqlite::params![logical_key, config_key])
             .with_buck_error_context(|| format!("deleting from {table}"))?;
     }
@@ -301,15 +307,21 @@ impl DepFileStateSqliteTable {
         config_key: Vec<u8>,
         state: StoredDepFileState,
     ) -> buck2_error::Result<()> {
-        let state_sql = format!(
-            "INSERT INTO {STATE_TABLE_NAME} (logical_key, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
-        );
-        let output_sql = format!(
-            "INSERT INTO {OUTPUTS_TABLE_NAME} (logical_key, config_key, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
-        );
-        let declared_sql = format!(
-            "INSERT INTO {DECLARED_TABLE_NAME} (logical_key, config_key, label, path, projected, is_content_based, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
-        );
+        static STATE_SQL: LazyLock<String> = LazyLock::new(|| {
+            format!(
+                "INSERT INTO {STATE_TABLE_NAME} (logical_key, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+            )
+        });
+        static OUTPUT_SQL: LazyLock<String> = LazyLock::new(|| {
+            format!(
+                "INSERT INTO {OUTPUTS_TABLE_NAME} (logical_key, config_key, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+            )
+        });
+        static DECLARED_SQL: LazyLock<String> = LazyLock::new(|| {
+            format!(
+                "INSERT INTO {DECLARED_TABLE_NAME} (logical_key, config_key, label, path, projected, is_content_based, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+            )
+        });
 
         let (directory_size, directory_hash, directory_hash_kind) =
             file_digest_parts(&state.directory_digest);
@@ -332,7 +344,7 @@ impl DepFileStateSqliteTable {
         // full composite PK, so it would update/insert the surviving rows but leave the vanished ones
         // orphaned -- it can't delete rows no longer in the new set.
         delete_key_in_tx(&tx, &logical_key, &config_key)?;
-        tx.prepare_cached(&state_sql)?
+        tx.prepare_cached(&STATE_SQL)?
             .execute(rusqlite::params![
                 logical_key,
                 config_key,
@@ -430,7 +442,7 @@ impl DepFileStateSqliteTable {
                     }
                 },
             };
-            tx.prepare_cached(&output_sql)?
+            tx.prepare_cached(&OUTPUT_SQL)?
                 .execute(rusqlite::params![
                     logical_key,
                     config_key,
@@ -448,7 +460,7 @@ impl DepFileStateSqliteTable {
         }
 
         for identity in &state.declared {
-            tx.prepare_cached(&declared_sql)?
+            tx.prepare_cached(&DECLARED_SQL)?
                 .execute(rusqlite::params![
                     logical_key,
                     config_key,
@@ -540,120 +552,158 @@ impl DepFileStateSqliteTable {
         Ok(pruned)
     }
 
-    /// Every persisted entry for `logical_key`, one per configuration it was built under (empty if
-    /// none). Used by the on-demand lookup, which loads a single logical action's rows rather than
-    /// the whole table at startup.
-    pub(crate) fn read_by_logical(
+    /// The scalar row of every configuration's entry for `logical_key`. Touches only
+    /// `dep_file_state`, so a lookup that is going to be rejected never reads the outputs or
+    /// declared rows.
+    pub(crate) fn read_digests_by_logical(
         &self,
         logical_key: &[u8],
         digest_config: DigestConfig,
-    ) -> buck2_error::Result<Vec<StoredDepFileState>> {
-        Ok(self
-            .read_filtered(digest_config, Some(logical_key))?
-            .into_iter()
-            .map(|(_, _, state)| state)
-            .collect())
+    ) -> buck2_error::Result<Vec<StoredDepFileDigests>> {
+        let rows = {
+            let conn = self.connection.lock();
+            static SQL: LazyLock<String> = LazyLock::new(|| {
+                format!(
+                    "SELECT config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind FROM {STATE_TABLE_NAME} WHERE logical_key = ?1"
+                )
+            });
+            let mut stmt = conn.prepare_cached(&SQL)?;
+            stmt.query_map(rusqlite::params![logical_key], |row| {
+                let config_key: Vec<u8> = row.get(0)?;
+                let cli_digest: Vec<u8> = row.get(1)?;
+                let directory_size: u64 = row.get(2)?;
+                let directory_hash: Vec<u8> = row.get(3)?;
+                let directory_hash_kind: u8 = row.get(4)?;
+                let local_worker_size: Option<u64> = row.get(5)?;
+                let local_worker_hash: Option<Vec<u8>> = row.get(6)?;
+                let local_worker_hash_kind: Option<u8> = row.get(7)?;
+                Ok((
+                    config_key,
+                    cli_digest,
+                    directory_size,
+                    directory_hash,
+                    directory_hash_kind,
+                    local_worker_size,
+                    local_worker_hash,
+                    local_worker_hash_kind,
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .with_buck_error_context(|| format!("reading {STATE_TABLE_NAME}"))?
+        };
+
+        rows.into_iter()
+            .map(
+                |(
+                    config_key,
+                    cli_digest,
+                    directory_size,
+                    directory_hash,
+                    directory_hash_kind,
+                    local_worker_size,
+                    local_worker_hash,
+                    local_worker_hash_kind,
+                )| {
+                    Ok(StoredDepFileDigests {
+                        config_key,
+                        cli_digest,
+                        directory_digest: rebuild_file_digest(
+                            directory_size,
+                            &directory_hash,
+                            directory_hash_kind,
+                        )?,
+                        local_worker_directory_digest: match (
+                            local_worker_size,
+                            local_worker_hash,
+                            local_worker_hash_kind,
+                        ) {
+                            (Some(size), Some(bytes), Some(kind)) => Some(TrackedFileDigest::new(
+                                rebuild_file_digest(size, &bytes, kind)?,
+                                digest_config.cas_digest_config(),
+                            )),
+                            _ => None,
+                        },
+                    })
+                },
+            )
+            .collect()
     }
 
-    /// Read persisted entries, reassembled as `(logical_key, config_key, state)`. `logical_key`
-    /// restricts the read to that one logical action's rows; `None` reads the whole table.
-    fn read_filtered(
+    /// The complete entry for one `(logical_key, config_key)`, or `None` if it is not present.
+    /// Reads the scalar row plus that entry's output and declared rows, then reassembles them.
+    pub(crate) fn read_entry(
         &self,
+        logical_key: &[u8],
+        config_key: &[u8],
         digest_config: DigestConfig,
-        logical_key: Option<&[u8]>,
-    ) -> buck2_error::Result<Vec<(Vec<u8>, Vec<u8>, StoredDepFileState)>> {
-        let mut outputs: StdBuckHashMap<EntryKey, Vec<OutputRow>> = StdBuckHashMap::default();
-        let mut declared: StdBuckHashMap<EntryKey, Vec<StoredDepFileIdentity>> =
-            StdBuckHashMap::default();
-
+    ) -> buck2_error::Result<Option<StoredDepFileState>> {
         let conn = self.connection.lock();
-        // Restrict every read to one logical action's rows when a key is given; the parameter slice
-        // is empty (and the `WHERE` omitted) for a full-table read.
-        let key_slice: &[&[u8]] = match &logical_key {
-            Some(k) => std::slice::from_ref(k),
-            None => &[],
-        };
-        let where_clause = if logical_key.is_some() {
-            " WHERE logical_key = ?1"
-        } else {
-            ""
-        };
 
+        let mut output_rows = Vec::new();
         {
-            let mut stmt = conn.prepare_cached(&format!(
-                "SELECT logical_key, config_key, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path FROM {OUTPUTS_TABLE_NAME}{where_clause}"
-            ))?;
+            static SQL: LazyLock<String> = LazyLock::new(|| {
+                format!(
+                    "SELECT output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path FROM {OUTPUTS_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                )
+            });
+            let mut stmt = conn.prepare_cached(&SQL)?;
             let rows = stmt
-                .query_map(rusqlite::params_from_iter(key_slice), |row| {
-                    Ok((
-                        EntryKey {
-                            logical_key: row.get(0)?,
-                            config_key: row.get(1)?,
-                        },
-                        OutputRow {
-                            output_path: row.get(2)?,
-                            artifact_type: row.get(3)?,
-                            entry_size: row.get(4)?,
-                            entry_hash: row.get(5)?,
-                            entry_hash_kind: row.get(6)?,
-                            file_is_executable: row.get(7)?,
-                            symlink_target: row.get(8)?,
-                            symlink_remaining_path: row.get(9)?,
-                        },
-                    ))
+                .query_map(rusqlite::params![logical_key, config_key], |row| {
+                    Ok(OutputRow {
+                        output_path: row.get(0)?,
+                        artifact_type: row.get(1)?,
+                        entry_size: row.get(2)?,
+                        entry_hash: row.get(3)?,
+                        entry_hash_kind: row.get(4)?,
+                        file_is_executable: row.get(5)?,
+                        symlink_target: row.get(6)?,
+                        symlink_remaining_path: row.get(7)?,
+                    })
                 })?
                 .collect::<Result<Vec<_>, _>>()
                 .with_buck_error_context(|| format!("reading {OUTPUTS_TABLE_NAME}"))?;
-            for (key, out) in rows {
-                outputs.entry(key).or_default().push(out);
-            }
+            output_rows.extend(rows);
         }
 
+        let mut declared: Vec<StoredDepFileIdentity> = Vec::new();
         {
-            let mut stmt = conn.prepare_cached(&format!(
-                "SELECT logical_key, config_key, label, path, projected, is_content_based FROM {DECLARED_TABLE_NAME}{where_clause}"
-            ))?;
+            static SQL: LazyLock<String> = LazyLock::new(|| {
+                format!(
+                    "SELECT label, path, projected, is_content_based FROM {DECLARED_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                )
+            });
+            let mut stmt = conn.prepare_cached(&SQL)?;
             let rows = stmt
-                .query_map(rusqlite::params_from_iter(key_slice), |row| {
-                    Ok((
-                        EntryKey {
-                            logical_key: row.get(0)?,
-                            config_key: row.get(1)?,
-                        },
-                        StoredDepFileIdentity {
-                            label: row.get(2)?,
-                            path: row.get(3)?,
-                            projected: row.get(4)?,
-                            is_content_based: row.get(5)?,
-                        },
-                    ))
+                .query_map(rusqlite::params![logical_key, config_key], |row| {
+                    Ok(StoredDepFileIdentity {
+                        label: row.get(0)?,
+                        path: row.get(1)?,
+                        projected: row.get(2)?,
+                        is_content_based: row.get(3)?,
+                    })
                 })?
                 .collect::<Result<Vec<_>, _>>()
                 .with_buck_error_context(|| format!("reading {DECLARED_TABLE_NAME}"))?;
-            for (key, identity) in rows {
-                declared.entry(key).or_default().push(identity);
-            }
+            declared.extend(rows);
         }
 
-        let scalar_rows = {
-            let mut stmt = conn.prepare_cached(&format!(
-                "SELECT logical_key, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME}{where_clause}"
-            ))?;
-            stmt.query_map(rusqlite::params_from_iter(key_slice), |row| {
-                let key = EntryKey {
-                    logical_key: row.get(0)?,
-                    config_key: row.get(1)?,
-                };
-                let cli_digest: Vec<u8> = row.get(2)?;
-                let directory_size: u64 = row.get(3)?;
-                let directory_hash: Vec<u8> = row.get(4)?;
-                let directory_hash_kind: u8 = row.get(5)?;
-                let local_worker_size: Option<u64> = row.get(6)?;
-                let local_worker_hash: Option<Vec<u8>> = row.get(7)?;
-                let local_worker_hash_kind: Option<u8> = row.get(8)?;
-                let was_produced_locally: bool = row.get(9)?;
+        let scalar_row = {
+            static SQL: LazyLock<String> = LazyLock::new(|| {
+                format!(
+                    "SELECT cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                )
+            });
+            let mut stmt = conn.prepare_cached(&SQL)?;
+            stmt.query_row(rusqlite::params![logical_key, config_key], |row| {
+                let cli_digest: Vec<u8> = row.get(0)?;
+                let directory_size: u64 = row.get(1)?;
+                let directory_hash: Vec<u8> = row.get(2)?;
+                let directory_hash_kind: u8 = row.get(3)?;
+                let local_worker_size: Option<u64> = row.get(4)?;
+                let local_worker_hash: Option<Vec<u8>> = row.get(5)?;
+                let local_worker_hash_kind: Option<u8> = row.get(6)?;
+                let was_produced_locally: bool = row.get(7)?;
                 Ok((
-                    key,
                     cli_digest,
                     directory_size,
                     directory_hash,
@@ -663,8 +713,8 @@ impl DepFileStateSqliteTable {
                     local_worker_hash_kind,
                     was_produced_locally,
                 ))
-            })?
-            .collect::<Result<Vec<_>, _>>()
+            })
+            .optional()
             .with_buck_error_context(|| format!("reading {STATE_TABLE_NAME}"))?
         };
 
@@ -673,9 +723,7 @@ impl DepFileStateSqliteTable {
         // that every concurrent lookup contends on.
         drop(conn);
 
-        let mut result = Vec::with_capacity(scalar_rows.len());
-        for (
-            key,
+        let Some((
             cli_digest,
             directory_size,
             directory_hash,
@@ -684,48 +732,35 @@ impl DepFileStateSqliteTable {
             local_worker_hash,
             local_worker_hash_kind,
             was_produced_locally,
-        ) in scalar_rows
-        {
-            let directory_digest =
-                rebuild_file_digest(directory_size, &directory_hash, directory_hash_kind)?;
-            let local_worker_directory_digest =
-                match (local_worker_size, local_worker_hash, local_worker_hash_kind) {
-                    (Some(size), Some(bytes), Some(kind)) => Some(TrackedFileDigest::new(
-                        rebuild_file_digest(size, &bytes, kind)?,
-                        digest_config.cas_digest_config(),
-                    )),
-                    _ => None,
-                };
+        )) = scalar_row
+        else {
+            return Ok(None);
+        };
 
-            let entry_outputs = outputs
-                .remove(&key)
-                .unwrap_or_default()
-                .into_iter()
-                .map(|out| output_row_to_stored_output(out, digest_config))
-                .collect::<buck2_error::Result<Vec<_>>>()?;
-
-            let stored = StoredDepFileState {
-                cli_digest,
-                directory_digest,
-                local_worker_directory_digest,
-                was_produced_locally,
-                declared: declared.remove(&key).unwrap_or_default(),
-                outputs: entry_outputs,
+        let directory_digest =
+            rebuild_file_digest(directory_size, &directory_hash, directory_hash_kind)?;
+        let local_worker_directory_digest =
+            match (local_worker_size, local_worker_hash, local_worker_hash_kind) {
+                (Some(size), Some(bytes), Some(kind)) => Some(TrackedFileDigest::new(
+                    rebuild_file_digest(size, &bytes, kind)?,
+                    digest_config.cas_digest_config(),
+                )),
+                _ => None,
             };
-            result.push((key.logical_key, key.config_key, stored));
-        }
 
-        Ok(result)
-    }
+        let outputs = output_rows
+            .into_iter()
+            .map(|out| output_row_to_stored_output(out, digest_config))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
-    /// Read the whole table, reassembled as `(logical_key, config_key, state)`. Only used by tests;
-    /// production reads a single logical action's rows on demand via `read_by_logical`.
-    #[cfg(test)]
-    pub(crate) fn read_all(
-        &self,
-        digest_config: DigestConfig,
-    ) -> buck2_error::Result<Vec<(Vec<u8>, Vec<u8>, StoredDepFileState)>> {
-        self.read_filtered(digest_config, None)
+        Ok(Some(StoredDepFileState {
+            cli_digest,
+            directory_digest,
+            local_worker_directory_digest,
+            was_produced_locally,
+            declared,
+            outputs,
+        }))
     }
 }
 
@@ -797,6 +832,21 @@ mod tests {
             .unwrap()
     }
 
+    /// Rows across all three tables. Reads by key can only speak for the keys a test knows about;
+    /// this is what says the table itself is empty.
+    fn total_row_count(table: &DepFileStateSqliteTable) -> i64 {
+        let conn = table.connection.lock();
+        [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME]
+            .iter()
+            .map(|name| {
+                conn.query_row(&format!("SELECT COUNT(*) FROM {name}"), [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap()
+            })
+            .sum()
+    }
+
     #[test]
     fn test_prune_ttl_and_max_entries() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
@@ -822,21 +872,16 @@ mod tests {
 
         // TTL: drop entries with last_write_time < 150 -> only "a".
         assert_eq!(table.prune(Some(150), None)?, 1);
-        let keys: Vec<Vec<u8>> = table
-            .read_all(digest_config)?
-            .into_iter()
-            .map(|(l, _, _)| l)
-            .collect();
-        assert_eq!(keys.len(), 2);
-        assert!(!keys.contains(&b"a".to_vec()));
+        assert!(table.read_entry(b"a", b"cfg", digest_config)?.is_none());
+        assert!(table.read_entry(b"b", b"cfg", digest_config)?.is_some());
+        assert!(table.read_entry(b"c", b"cfg", digest_config)?.is_some());
         // The pruned entry's child rows are gone too (no orphans).
         assert_eq!(output_row_count(&table, b"a", b"cfg"), 0);
 
         // max_entries: keep only the most-recently-written ("c").
         assert_eq!(table.prune(None, Some(1))?, 1);
-        let mut all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1);
-        assert_eq!(all.pop().unwrap().0, b"c");
+        assert!(table.read_entry(b"b", b"cfg", digest_config)?.is_none());
+        assert!(table.read_entry(b"c", b"cfg", digest_config)?.is_some());
         Ok(())
     }
 
@@ -875,9 +920,7 @@ mod tests {
         };
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let mut all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1);
-        let (_, _, read) = all.pop().unwrap();
+        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
         assert_eq!(read.outputs.len(), 2);
 
         let value_at = |p: &str| {
@@ -924,11 +967,9 @@ mod tests {
 
         table.insert(b"logical".to_vec(), b"cfg".to_vec(), stored)?;
 
-        let mut all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1);
-        let (logical, config, read) = all.pop().unwrap();
-        assert_eq!(logical, b"logical".to_vec());
-        assert_eq!(config, b"cfg".to_vec());
+        let read = table
+            .read_entry(b"logical", b"cfg", digest_config)?
+            .unwrap();
         assert_eq!(read.cli_digest, vec![7u8; 32]);
         assert_eq!(read.directory_digest, directory_digest);
         assert!(read.local_worker_directory_digest.is_none());
@@ -976,9 +1017,7 @@ mod tests {
 
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let mut all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1);
-        let (_, _, read) = all.pop().unwrap();
+        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
         assert_eq!(read.outputs.len(), 1);
         assert_eq!(read.outputs[0].path.as_str(), "out/dir");
         match &read.outputs[0].value {
@@ -1006,13 +1045,22 @@ mod tests {
         };
         table.insert(b"a".to_vec(), b"c1".to_vec(), make())?;
         table.insert(b"b".to_vec(), b"c1".to_vec(), make())?;
-        assert_eq!(table.read_all(digest_config)?.len(), 2);
+        assert!(table.read_entry(b"a", b"c1", digest_config)?.is_some());
+        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_some());
 
         table.delete(b"a", b"c1")?;
-        assert_eq!(table.read_all(digest_config)?.len(), 1);
+        assert!(table.read_entry(b"a", b"c1", digest_config)?.is_none());
+        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_some());
+        // The deleted entry's child rows go with it (no orphans).
+        assert_eq!(output_row_count(&table, b"a", b"c1"), 0);
+
+        // Rows survive the delete, so the count below is answering a real question.
+        assert_ne!(total_row_count(&table), 0);
 
         table.clear()?;
-        assert_eq!(table.read_all(digest_config)?.len(), 0);
+        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_none());
+        // `clear` empties the whole db, not just the keys this test inserted.
+        assert_eq!(total_row_count(&table), 0);
         Ok(())
     }
 
@@ -1045,9 +1093,7 @@ mod tests {
         // Second insert of the same key with different content and a different output path.
         table.insert(b"k".to_vec(), b"c".to_vec(), make(b"v2", "b.o"))?;
 
-        let all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1, "re-insert must replace, not duplicate");
-        let (_, _, read) = &all[0];
+        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
         assert_eq!(
             read.directory_digest,
             dir(b"v2"),
@@ -1108,9 +1154,7 @@ mod tests {
         };
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let mut all = table.read_all(digest_config)?;
-        assert_eq!(all.len(), 1);
-        let (_, _, read) = all.pop().unwrap();
+        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
         match &read.outputs[0].value {
             StoredOutputValue::Leaf(v) => {
                 // The symlink itself round-trips ...
@@ -1120,6 +1164,61 @@ mod tests {
             }
             StoredOutputValue::Directory(_) => panic!("expected a leaf"),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_digests_then_entry() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+        let table = table();
+        let dir = |content: &[u8]| {
+            TrackedFileDigest::from_content(content, digest_config.cas_digest_config())
+                .data()
+                .dupe()
+        };
+        let make = |cli: u8, content: &[u8], output: &str| StoredDepFileState {
+            cli_digest: vec![cli; 32],
+            directory_digest: dir(content),
+            local_worker_directory_digest: None,
+            was_produced_locally: true,
+            declared: vec![],
+            outputs: vec![leaf_output(
+                output,
+                file_value(digest_config, content, false),
+            )],
+        };
+
+        // The same logical action built under two configurations.
+        table.insert(b"k".to_vec(), b"cfg1".to_vec(), make(1, b"v1", "a.o"))?;
+        table.insert(b"k".to_vec(), b"cfg2".to_vec(), make(2, b"v2", "b.o"))?;
+
+        // The digest probe returns one row per configuration, and nothing else.
+        let mut digests = table.read_digests_by_logical(b"k", digest_config)?;
+        digests.sort_by(|a, b| a.config_key.cmp(&b.config_key));
+        assert_eq!(digests.len(), 2);
+        assert_eq!(digests[0].config_key, b"cfg1");
+        assert_eq!(digests[0].cli_digest, vec![1u8; 32]);
+        assert_eq!(digests[0].directory_digest, dir(b"v1"));
+        assert_eq!(digests[1].config_key, b"cfg2");
+        assert_eq!(digests[1].cli_digest, vec![2u8; 32]);
+        assert_eq!(digests[1].directory_digest, dir(b"v2"));
+
+        // Fetching an entry returns only that configuration's outputs, not the sibling's.
+        let entry = table
+            .read_entry(b"k", b"cfg2", digest_config)?
+            .expect("cfg2 was inserted");
+        assert_eq!(entry.directory_digest, dir(b"v2"));
+        assert_eq!(entry.outputs.len(), 1);
+        assert_eq!(entry.outputs[0].path.as_str(), "b.o");
+
+        // Absent keys are a miss, not an error.
+        assert!(table.read_entry(b"k", b"cfg3", digest_config)?.is_none());
+        assert!(table.read_entry(b"nope", b"cfg1", digest_config)?.is_none());
+        assert!(
+            table
+                .read_digests_by_logical(b"nope", digest_config)?
+                .is_empty()
+        );
         Ok(())
     }
 }

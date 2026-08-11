@@ -53,6 +53,7 @@ use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileIdentity;
 use buck2_execute::dep_file_state::StoredDepFileState;
 use buck2_execute::dep_file_state::StoredOutput;
@@ -520,6 +521,52 @@ pub(crate) struct CommandDigests {
     pub(crate) local_worker_directory: Option<TrackedFileDigest>,
 }
 
+fn cli_digest_from_bytes(bytes: &[u8]) -> buck2_error::Result<ExpandedCommandLineDigest> {
+    let bytes: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| internal_error!("Persisted cli digest has unexpected length"))?;
+    Ok(ExpandedCommandLineDigest::from_bytes(bytes))
+}
+
+/// The digests of a persisted candidate, in the form `check_action` compares against.
+fn stored_command_digests(digests: &StoredDepFileDigests) -> buck2_error::Result<CommandDigests> {
+    Ok(CommandDigests {
+        cli: cli_digest_from_bytes(&digests.cli_digest)?,
+        directory: digests.directory_digest.dupe(),
+        local_worker_directory: digests.local_worker_directory_digest.dupe(),
+    })
+}
+
+/// The individual digest comparisons `check_action` makes, so that the cheap pre-check the persisted
+/// store performs (`matches_all`) cannot drift from the authoritative check: both are built from
+/// these, and changing one changes both.
+impl CommandDigests {
+    fn cli_matches(&self, cli: &ExpandedCommandLineDigest) -> bool {
+        self.cli == *cli
+    }
+
+    fn local_worker_matches(&self, local_worker: &Option<TrackedFileDigest>) -> bool {
+        self.local_worker_directory == *local_worker
+    }
+
+    fn directory_matches(&self, directory: &FileDigest) -> bool {
+        self.directory == *directory
+    }
+
+    /// Whether all three digests are those of this action -- the digest half of `check_action`'s
+    /// `Hit` verdict.
+    fn matches_all(
+        &self,
+        cli: &ExpandedCommandLineDigest,
+        local_worker: &Option<TrackedFileDigest>,
+        directory: &FileDigest,
+    ) -> bool {
+        self.cli_matches(cli)
+            && self.local_worker_matches(local_worker)
+            && self.directory_matches(directory)
+    }
+}
+
 impl DepFileState {
     pub(crate) fn has_signatures(&self) -> bool {
         match &self.declared {
@@ -550,20 +597,14 @@ impl DepFileState {
 impl LoadedEntry {
     /// Reconstruct a reloaded entry from its persisted, configuration-independent form.
     fn from_stored(stored: StoredDepFileState) -> buck2_error::Result<Self> {
-        let cli_bytes: [u8; 32] = stored
-            .cli_digest
-            .as_slice()
-            .try_into()
-            .map_err(|_| internal_error!("Persisted cli digest has unexpected length"))?;
         let digests = CommandDigests {
-            cli: ExpandedCommandLineDigest::from_bytes(cli_bytes),
+            cli: cli_digest_from_bytes(&stored.cli_digest)?,
             directory: stored.directory_digest,
             local_worker_directory: stored.local_worker_directory_digest,
         };
         // Validate paths loaded from disk rather than trusting them: a corrupt or
-        // differently-versioned row surfaces as a `from_stored` error (caught by the
-        // "Skipping malformed persisted dep-file entry" path at lookup time) instead of
-        // constructing an invalid path that misbehaves later.
+        // differently-versioned row surfaces as a `from_stored` error, which the lookup path drops
+        // and reports, instead of constructing an invalid path that misbehaves later.
         let identities: Box<[DeclaredDepFileIdentity]> = stored
             .declared
             .into_iter()
@@ -1214,11 +1255,55 @@ pub(crate) async fn match_if_identical_action(
     if let Ok(store) = DEP_FILE_STORE.get()
         && let Some(logical_key) = encode_logical_key(&logical)
     {
-        for stored in store.get(&logical_key) {
+        // Two phases: reject on the scalar row alone, and only fetch a candidate's outputs and
+        // declared dep files once its digests match. `probe_cross_config_candidate` honors nothing
+        // but `Hit`, whose digest half is exactly `matches_all`, so a candidate rejected here could
+        // never have been served -- but reading it costs two more queries and the deserialization of
+        // every output row, on a path taken once per run action by a freshly started daemon.
+        //
+        // The probe is advisory in both directions. Writes are applied asynchronously, so a write
+        // can land between the two reads and the fetched entry can differ from the row probed;
+        // `check_action` re-validates the entry that is actually served, so a stale probe costs at
+        // most a wasted fetch.
+        // A row that cannot be decoded never will be, so drop it instead of skipping it: leaving it
+        // would re-read and re-fail on every lookup of this action until its TTL expires. Reported
+        // rather than logged: `DEP_FILE_DB_SCHEMA_VERSION` recreates the db whenever the encoding
+        // changes, so a row that fails to decode means that version was not bumped, and the drift
+        // would otherwise disable the cache silently.
+        let drop_malformed = |config_key: Vec<u8>, e: buck2_error::Error| {
+            let _unused = soft_error!(
+                "malformed_dep_file_db_entry",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Dropping malformed persisted dep-file entry. {}",
+                    e
+                ),
+                quiet: true
+            );
+            store.delete(logical_key.clone(), config_key);
+        };
+        for digests in store.get_digests(&logical_key) {
+            let candidate_digests = match stored_command_digests(&digests) {
+                Ok(candidate_digests) => candidate_digests,
+                Err(e) => {
+                    drop_malformed(digests.config_key, e);
+                    continue;
+                }
+            };
+            if !candidate_digests.matches_all(
+                cli_digest,
+                local_worker_digest,
+                input_directory_digest,
+            ) {
+                continue;
+            }
+            let Some(stored) = store.get_entry(&logical_key, &digests.config_key) else {
+                continue;
+            };
             let loaded = match LoadedEntry::from_stored(stored) {
                 Ok(loaded) => loaded,
                 Err(e) => {
-                    tracing::debug!("Skipping malformed persisted dep-file entry: {}", e);
+                    drop_malformed(digests.config_key, e);
                     continue;
                 }
             };
@@ -1623,19 +1708,25 @@ fn check_action(
         return Ok(InitialDepFileLookupResult::Miss);
     }
 
-    if *cli_digest != candidate.digests().cli {
+    if !candidate.digests().cli_matches(cli_digest) {
         tracing::trace!("Dep files miss: Command line has changed");
         evict();
         return Ok(InitialDepFileLookupResult::Miss);
     }
 
-    if *local_worker_digest != candidate.digests().local_worker_directory {
+    if !candidate
+        .digests()
+        .local_worker_matches(local_worker_digest)
+    {
         tracing::trace!("Dep files miss: Local worker directory has changed");
         evict();
         return Ok(InitialDepFileLookupResult::Miss);
     }
 
-    if *input_directory_digest == candidate.digests().directory {
+    if candidate
+        .digests()
+        .directory_matches(input_directory_digest)
+    {
         // The actions are identical
         tracing::trace!("Dep files hit: Command line and directory have not changed");
         return Ok(InitialDepFileLookupResult::Hit);
