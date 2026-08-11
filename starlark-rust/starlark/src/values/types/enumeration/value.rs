@@ -22,25 +22,21 @@ use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
-use starlark_derive::Coerce;
-use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::Trace;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 
 use crate as starlark;
-use crate::__derive_refs::serde;
 use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::starlark_complex_value;
-use crate::starlark_complex_values;
+use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 use crate::values::enumeration::enum_type::EnumType;
 use crate::values::enumeration::enum_type::FrozenEnumType;
@@ -51,24 +47,23 @@ use crate::values::types::type_instance_id::TypeInstanceId;
     Clone,
     Derivative,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
 #[derivative(Debug)]
-pub struct EnumValueGen<V: ValueLifetimeless> {
+pub struct EnumValue<'v> {
     // Must ignore value.typ or type.elements, since they are circular
     #[derivative(Debug = "ignore")]
-    pub(super) typ: V, // Must be EnumType it points back to (so it can get the type)
-    pub(super) value: V,   // The value of this enumeration
-    pub(super) index: i32, // The index in the enumeration
+    pub(super) typ: Value<'v>, // Must be EnumType it points back to (so it can get the type)
+    pub(super) value: Value<'v>, // The value of this enumeration
+    pub(super) index: i32,       // The index in the enumeration
     pub(super) id: TypeInstanceId,
 }
 
-impl<'v, V: ValueLike<'v>> Display for EnumValueGen<V> {
+impl<'v> Display for EnumValue<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ty_enum_data = match self.get_enum_type() {
             Either::Left(x) => x.ty_enum_data(),
@@ -96,10 +91,9 @@ impl<'v, V: ValueLike<'v>> Display for EnumValueGen<V> {
     }
 }
 
-starlark_complex_values!(EnumType);
-starlark_complex_value!(pub EnumValue);
+starlark_complex_value_branded!(pub EnumValue);
 
-impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
+impl<'v> EnumValue<'v> {
     /// The result of calling `type()` on an enum value.
     pub(super) const TYPE: &'static str = "enum";
 
@@ -112,10 +106,7 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
 starlark::methods_static!(ENUM_VALUE_METHODS = enum_value_methods);
 
 #[starlark_value(type = EnumValue::TYPE)]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for EnumValueGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for EnumValue<'v> {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.value.write_hash(hasher)
     }
@@ -136,7 +127,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> serde::Serialize for EnumValueGen<V> {
+impl<'v> serde::Serialize for EnumValue<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

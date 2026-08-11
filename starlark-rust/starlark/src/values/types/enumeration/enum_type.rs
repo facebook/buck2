@@ -45,6 +45,7 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::register_avalue_simple_frozen;
+use crate::starlark_complex_values;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::callable::TyCallable;
@@ -160,6 +161,8 @@ impl<'v> Freeze for EnumTypeGen<Value<'v>> {
         })
     }
 }
+
+starlark_complex_values!(EnumType);
 
 unsafe impl<V: EnumCell + Freeze> Send for EnumTypeGen<V> {}
 unsafe impl<V: EnumCell + Freeze> Sync for EnumTypeGen<V> {}

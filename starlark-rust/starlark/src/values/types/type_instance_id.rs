@@ -23,6 +23,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::StarlarkPagableViaPagable;
 use starlark_syntax::internal_error;
 use strong_hash::StrongHash;
@@ -54,6 +55,7 @@ use crate::pagable::heap_ref_id::Blake3StrongHasher;
     PartialOrd,
     Allocative,
     Freeze,
+    FreezeBranded,
     Pagable,
     StarlarkPagableViaPagable,
     StrongHash
