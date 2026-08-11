@@ -527,10 +527,26 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 }
 
+/// Unpack a `cmd_args` in either form, at the value's own heap brand.
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub enum StarlarkCmdArgsUnpack<'v> {
+    Unfrozen(&'v StarlarkCmdArgs<'v>),
+    Frozen(&'v FrozenStarlarkCmdArgs<'v>),
+}
+
+impl<'v> StarlarkCmdArgsUnpack<'v> {
+    pub fn is_empty(&self) -> bool {
+        match self {
+            StarlarkCmdArgsUnpack::Unfrozen(x) => x.is_empty(),
+            StarlarkCmdArgsUnpack::Frozen(x) => x.is_empty(),
+        }
+    }
+}
+
 starlark::methods_static!(CMD_ARGS_METHODS = cmd_args_methods);
 starlark::methods_static!(FROZEN_CMD_ARGS_METHODS = cmd_args_methods);
 
-#[starlark_value(type = "cmd_args")]
+#[starlark_value(type = "cmd_args", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(CMD_ARGS_METHODS.methods())
@@ -554,7 +570,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-#[starlark_value(type = "cmd_args")]
+#[starlark_value(type = "cmd_args", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs<'v> {
     type Canonical = StarlarkCmdArgs<'v>;
 

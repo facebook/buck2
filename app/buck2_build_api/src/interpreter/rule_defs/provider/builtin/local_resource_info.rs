@@ -14,7 +14,6 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::internal_error;
 use buck2_hash::BuckIndexMap;
-use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -27,7 +26,6 @@ use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
@@ -38,6 +36,7 @@ use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgsUnpack;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::starlark::values::UnpackValue;
@@ -98,13 +97,9 @@ fn validate_local_resource_info<'v>(info: &LocalResourceInfo<'v>) -> buck2_error
         ));
     }
 
-    let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get())
-        .ok_or_else(|| internal_error!("Validated in constructor"))?;
-    let setup_is_empty = match setup.unpack() {
-        Either::Left(a) => a.is_empty(),
-        Either::Right(b) => b.is_empty(),
-    };
-    if setup_is_empty {
+    let setup = StarlarkCmdArgsUnpack::unpack_value_err(info.setup.get())
+        .map_err(|_| internal_error!("Validated in constructor"))?;
+    if setup.is_empty() {
         return Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Input,
             "Value for `setup` field is an empty command line: `{}`",
