@@ -31,7 +31,6 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::structs::StructRef;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
@@ -53,7 +52,7 @@ pub(crate) struct DynamicLambdaStaticFields {
 #[derive(Allocative, Trace, Debug, ProvidesStaticType)]
 pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
-    pub(crate) plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+    pub(crate) plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) attr_values: Option<(
         DynamicAttrValues<Value<'v>>,
@@ -88,14 +87,13 @@ impl FrozenDynamicLambdaParams {
 
     pub(crate) fn plugins<'v>(
         &'v self,
-    ) -> buck2_error::Result<Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>> {
+    ) -> buck2_error::Result<Option<ValueTyped<'v, AnalysisPlugins<'v>>>> {
         let Some(plugins) = self.plugins else {
             return Ok(None);
         };
-        Ok(Some(
-            ValueTypedComplex::new(plugins.to_value())
-                .ok_or_else(|| internal_error!("plugins must be AnalysisPlugins"))?,
-        ))
+        Ok(Some(ValueTyped::new(plugins.to_value()).ok_or_else(
+            || internal_error!("plugins must be AnalysisPlugins"),
+        )?))
     }
 
     pub fn lambda<'v>(&'v self) -> Value<'v> {
@@ -118,7 +116,14 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
         };
         Ok(FrozenDynamicLambdaParams {
             attributes: self.attributes.try_map(|a| Ok(a.freeze(freezer)?.cast()))?,
-            plugins: self.plugins.freeze(freezer)?,
+            plugins: self
+                .plugins
+                .map(|v| {
+                    v.to_value().freeze(freezer).and_then(|v| {
+                        FrozenValueTyped::new_err(v).map_err(|e| FreezeError::new(e.to_string()))
+                    })
+                })
+                .transpose()?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values,
             // N.B. collect::<Result<_>> sets the lower bound to zero,

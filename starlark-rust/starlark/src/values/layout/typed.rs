@@ -291,7 +291,10 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
 
     /// Convert to the value.
     #[inline]
-    pub fn to_value(self) -> Value<'v> {
+    pub fn to_value<'v2>(self) -> Value<'v2>
+    where
+        'v: 'v2,
+    {
         self.0.to_value()
     }
 

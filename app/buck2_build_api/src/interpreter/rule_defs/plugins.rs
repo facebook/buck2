@@ -15,14 +15,10 @@ use buck2_core::plugins::PluginKind;
 use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
-use starlark::coerce::CoerceKey;
-use starlark::coerce::coerce;
 use starlark::pagable::SmallMapKeyDeserialize;
 use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
-use starlark::starlark_complex_value;
-use starlark::values::Coerce;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
@@ -30,7 +26,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use starlark_map::Hashed;
@@ -48,13 +43,13 @@ use starlark_map::small_map::SmallMap;
     Ord,
     PartialOrd,
     Allocative,
-    Freeze,
+    FreezeBranded,
     Trace,
     StarlarkPagable
 )]
 #[repr(transparent)]
 struct PluginKindWrapper(
-    #[freeze(identity)]
+    #[freeze_branded(identity)]
     #[starlark_pagable(pagable)]
     PluginKind,
 );
@@ -67,13 +62,6 @@ impl SmallMapKeyDeserialize for PluginKindWrapper {
     }
 }
 
-// SAFETY: Trivial coercion is always correct
-unsafe impl Coerce<PluginKindWrapper> for PluginKindWrapper {}
-unsafe impl CoerceKey<PluginKindWrapper> for PluginKindWrapper {}
-// SAFETY: `#[repr(transparent)]` and impls are derived
-unsafe impl Coerce<PluginKindWrapper> for PluginKind {}
-unsafe impl CoerceKey<PluginKindWrapper> for PluginKind {}
-
 impl Borrow<PluginKind> for PluginKindWrapper {
     fn borrow(&self) -> &PluginKind {
         &self.0
@@ -84,9 +72,8 @@ impl Borrow<PluginKind> for PluginKindWrapper {
 #[derive(
     Debug,
     Display,
+    FreezeBranded,
     Trace,
-    Coerce,
-    Freeze,
     ProvidesStaticType,
     NoSerialize,
     Allocative,
@@ -94,11 +81,11 @@ impl Borrow<PluginKind> for PluginKindWrapper {
 )]
 #[display("<ctx.plugins>")]
 #[repr(transparent)]
-pub struct AnalysisPluginsGen<V: ValueLifetimeless> {
-    plugins: SmallMap<PluginKindWrapper, V>,
+pub struct AnalysisPlugins<'v> {
+    plugins: SmallMap<PluginKindWrapper, Value<'v>>,
 }
 
-starlark_complex_value!(pub AnalysisPlugins);
+starlark_complex_value_branded!(pub AnalysisPlugins);
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -108,10 +95,7 @@ enum AnalysisPluginsError {
 }
 
 #[starlark_value(type = "AnalysisPlugins")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for AnalysisPluginsGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for AnalysisPlugins<'v> {
     fn at(&self, index: Value<'v>, _heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let kind = (PLUGIN_KIND_FROM_VALUE.get()?)(index)?;
         match self.plugins.get(&kind) {
@@ -131,7 +115,10 @@ where
 impl<'v> AnalysisPlugins<'v> {
     pub fn new(plugins: SmallMap<PluginKind, Value<'v>>) -> Self {
         Self {
-            plugins: coerce(plugins),
+            plugins: plugins
+                .into_iter()
+                .map(|(k, v)| (PluginKindWrapper(k), v))
+                .collect(),
         }
     }
 }

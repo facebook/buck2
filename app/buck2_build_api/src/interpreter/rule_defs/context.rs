@@ -44,7 +44,6 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::structs::StructRef;
@@ -104,7 +103,7 @@ pub struct AnalysisActions<'v> {
     pub state: RefCell<Option<AnalysisRegistry<'v>>>,
     /// Copies from the ctx, so we can capture them for `dynamic`.
     pub attributes: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
-    pub plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+    pub plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
     /// Digest configuration to use when interpreting digests passed in analysis.
     pub digest_config: DigestConfig,
 }
@@ -224,7 +223,7 @@ pub struct AnalysisContext<'v> {
     pub actions: ValueTyped<'v, AnalysisActions<'v>>,
     /// Only `None` when running a `dynamic_output` action from Bxl.
     label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
-    plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+    plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
 }
 
 impl<'v> Display for AnalysisContext<'v> {
@@ -246,7 +245,7 @@ impl<'v> AnalysisContext<'v> {
         heap: Heap<'v>,
         attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
-        plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+        plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> Self {
@@ -267,7 +266,7 @@ impl<'v> AnalysisContext<'v> {
         heap: Heap<'v>,
         attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
         label: Option<ConfiguredTargetLabel>,
-        plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
+        plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
     ) -> ValueTyped<'v, AnalysisContext<'v>> {
@@ -377,7 +376,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn plugins<'v>(
         this: RefAnalysisContext<'v>,
-    ) -> starlark::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
         Ok(this.0.plugins.ok_or_else(|| {
             internal_error!("`plugins` is not available for `dynamic_output` or BXL")
         })?)
