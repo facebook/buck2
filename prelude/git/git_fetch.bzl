@@ -63,9 +63,16 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
 
+    sub_targets = {path: [DefaultInfo(default_output = work_tree.project(path))] for path in ctx.attrs.sub_targets}
+
+    # The repository itself, for consumers that need to serve the fetch as a local git remote
+    # rather than read the checked-out files. git refuses to track a path named ".git", so no
+    # requested work-tree projection can ever claim this key.
+    sub_targets[".git"] = [DefaultInfo(default_output = git_dir)]
+
     return [
         DefaultInfo(
             default_output = work_tree,
-            sub_targets = {path: [DefaultInfo(default_output = work_tree.project(path))] for path in ctx.attrs.sub_targets},
+            sub_targets = sub_targets,
         )
     ]
