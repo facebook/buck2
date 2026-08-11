@@ -19,6 +19,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -144,6 +145,9 @@ fn resolve_configured_macro<'v>(
                     return Err(ResolveMacroError::ExpectedRunInfo(label.to_string()).into());
                 }
             };
+            let run_info = run_info
+                .unpack_frozen()
+                .ok_or_else(|| internal_error!("dep provider collections are frozen"))?;
             // A RunInfo is an arg-like value.
             Ok(ResolvedMacro::ArgLike(FrozenCommandLineArg::new(run_info)?))
         }

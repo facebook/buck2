@@ -25,7 +25,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::typing::Ty;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -203,7 +202,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     /// Returns a list of all providers available from this dependency.
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
-    fn providers<'v>(this: &Dependency) -> starlark::Result<Vec<FrozenValue>> {
+    fn providers<'v>(this: &Dependency<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(this.collection().iter_providers().map(|(_, v)| v).collect())
     }
 

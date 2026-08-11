@@ -493,10 +493,10 @@ impl<'v> FreezeBranded for ProviderCollection<'v> {
     }
 }
 
-/// Typed accessors. These are only usable on frozen collections (any
-/// collection reached through a `Dependency` or an analysis result is frozen);
-/// they panic when called on a collection that is still being built.
 impl<'v> ProviderCollection<'v> {
+    /// Panics when called on a collection that is still being built; any
+    /// collection reached through a `Dependency` or an analysis result is
+    /// frozen and hence fine.
     pub fn default_info(&self) -> buck2_error::Result<FrozenValueTyped<'v, FrozenDefaultInfo>> {
         self.builtin_provider().ok_or_else(|| {
             internal_error!(
@@ -509,26 +509,30 @@ impl<'v> ProviderCollection<'v> {
         self.providers.contains_key(provider_id)
     }
 
+    /// Panics when called on a collection that is still being built; any
+    /// collection reached through a `Dependency` or an analysis result is
+    /// frozen and hence fine.
     pub fn builtin_provider<T: FrozenBuiltinProviderLike>(
         &self,
     ) -> Option<FrozenValueTyped<'v, T>> {
         self.builtin_provider_value::<T>()
     }
 
+    /// Panics when called on a collection that is still being built; any
+    /// collection reached through a `Dependency` or an analysis result is
+    /// frozen and hence fine.
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
     ) -> Option<FrozenValueTyped<'v, T>> {
-        let provider = self.get_provider_raw(T::builtin_provider_id())?;
+        let provider = self
+            .get_provider_raw(T::builtin_provider_id())?
+            .unpack_frozen()
+            .expect("provider collection is frozen");
         Some(FrozenValueTyped::new(provider).expect("Incorrect provider type"))
     }
 
-    pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<FrozenValue> {
-        Some(
-            self.providers
-                .get(provider_id)?
-                .unpack_frozen()
-                .expect("provider collection is frozen"),
-        )
+    pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<Value<'v>> {
+        self.providers.get(provider_id).copied()
     }
 
     pub fn provider_names(&self) -> Vec<String> {
@@ -539,14 +543,9 @@ impl<'v> ProviderCollection<'v> {
         self.providers.keys().map(|k| &***k).collect()
     }
 
-    /// Iterate over `(ProviderId, FrozenValue)` pairs in this collection.
-    pub fn iter_providers(&self) -> impl Iterator<Item = (&ProviderId, FrozenValue)> {
-        self.providers.iter().map(|(k, v)| {
-            (
-                &***k,
-                v.unpack_frozen().expect("provider collection is frozen"),
-            )
-        })
+    /// Iterate over `(ProviderId, Value)` pairs in this collection.
+    pub fn iter_providers(&self) -> impl Iterator<Item = (&ProviderId, Value<'v>)> {
+        self.providers.iter().map(|(k, v)| (&***k, *v))
     }
 }
 

@@ -126,13 +126,8 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkAnalysisResult,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let collection: FrozenValueTyped<'_, ProviderCollection<'_>> = unsafe {
-            this.analysis
-                .lookup_inner(&this.label)?
-                .value()
-                .value_typed()
-        };
         let heap = eval.heap();
+        let collection = this.analysis.lookup_inner(&this.label)?.add_heap_ref(heap);
         let mut result = Vec::new();
         for (id, value) in collection.as_ref().iter_providers() {
             let name = heap.alloc(id.name.as_str());
@@ -143,7 +138,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
             let info = heap.alloc(starlark::values::structs::AllocStruct([
                 ("name", name),
                 ("path", path),
-                ("value", value.to_value()),
+                ("value", value),
             ]));
             result.push(info);
         }
