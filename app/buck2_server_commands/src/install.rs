@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::OwnedRunInfo;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
@@ -901,15 +902,20 @@ async fn build_launch_installer(
         .await?
         .require_compatible()?;
 
-    if let Some(installer_run_info) = frozen_providers
-        .provider_collection()
-        .builtin_provider::<FrozenRunInfo>()
-    {
+    // Held across awaits, so this needs the owned form; the branded view is derived at each use.
+    let installer_run_info: Option<OwnedRunInfo> = frozen_providers
+        .builtin_provider_value::<FrozenRunInfo>()
+        .map(Into::into);
+    if let Some(installer_run_info) = installer_run_info {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let inputs = {
             // Restrict lifetime of mutable artifact_visitor.
             let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
-            installer_run_info.visit_artifacts(&mut artifact_visitor)?;
+            installer_run_info
+                .as_ref()
+                .value()
+                .as_ref()
+                .visit_artifacts(&mut artifact_visitor)?;
             artifact_visitor.inputs
         };
         let ensured_inputs = ctx
@@ -943,7 +949,11 @@ async fn build_launch_installer(
             true,
             None,
         );
-        installer_run_info.add_to_command_line(&mut fmt)?;
+        installer_run_info
+            .as_ref()
+            .value()
+            .as_ref()
+            .add_to_command_line(&mut fmt)?;
 
         let stderr = if installer_log_console {
             Stdio::inherit()

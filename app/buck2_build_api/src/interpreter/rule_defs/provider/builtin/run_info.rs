@@ -13,17 +13,15 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -81,17 +79,19 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(transparent)]
-pub struct RunInfoGen<V: ValueLifetimeless> {
+pub struct RunInfo<'v> {
     /// The command to run, stored as CommandLine
-    args: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
+    args: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
 }
+
+/// A `RunInfo` kept alive by its owning frozen heap; usable across threads and awaits.
+pub type OwnedRunInfo = OwnedFrozen<ValueTyped<'static, RunInfo<'static>>>;
 
 #[starlark_module]
 fn run_info_creator(globals: &mut GlobalsBuilder) {
@@ -110,13 +110,13 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for RunInfoGen<V> {
+impl<'v> CommandLineArgLike<'v> for RunInfo<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(RunInfo::starlark_type_repr());
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.args.get())
             .expect("a command line from construction")
             .0
             .add_to_command_line(fmt)?;
@@ -127,7 +127,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for RunInfoGen<V> {
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor<'v>,
     ) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.args.get())
             .expect("a command line from construction")
             .0
             .visit_artifacts(visitor)?;
@@ -135,7 +135,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for RunInfoGen<V> {
     }
 
     fn contains_arg_attr(&self) -> bool {
-        ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.args.get())
             .expect("a command line from construction")
             .0
             .contains_arg_attr()

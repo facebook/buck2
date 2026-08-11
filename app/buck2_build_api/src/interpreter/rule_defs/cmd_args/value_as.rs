@@ -24,7 +24,6 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_ty;
-use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 
 pub struct ValueAsCommandLineLike<'v>(pub &'v dyn CommandLineArgLike<'v>);
@@ -58,7 +57,6 @@ impl<'v> ValueAsCommandLineLike<'v> {
         // * or live outside of `buck2_build_api` crate,
         //   so `impl StarlarkValue` cannot provide `CommandLineArgLike`
         check!(RunInfo);
-        check!(FrozenRunInfo);
         check!(StarlarkCellPath);
         check!(StarlarkTargetLabel);
         check!(StarlarkConfiguredProvidersLabel);

@@ -229,7 +229,11 @@ impl<'a> ResultReporter<'a> {
                 true,
                 None,
             );
-            runinfo.add_to_command_line(&mut fmt)?;
+            runinfo
+                .as_ref()
+                .value()
+                .as_ref()
+                .add_to_command_line(&mut fmt)?;
             if error_counting_artifact_path_mapper
                 .content_based_paths_with_no_hash
                 .get()

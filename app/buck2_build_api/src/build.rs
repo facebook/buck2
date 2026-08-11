@@ -42,7 +42,6 @@ use futures::stream::StreamExt;
 use itertools::Itertools;
 use pagable::Pagable;
 use starlark::collections::SmallSet;
-use starlark::values::OwnedFrozenValueTyped;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -61,6 +60,7 @@ use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use crate::interpreter::rule_defs::provider::builtin::run_info::OwnedRunInfo;
 use crate::keep_going::KeepGoing;
 use crate::materialize::HasMaterializationQueueTracker;
 use crate::materialize::MaterializationAndUploadContext;
@@ -101,7 +101,7 @@ impl<T: Allocative> Allocative for Timed<T> {
 #[derive(Clone, Debug, Allocative)]
 pub struct ConfiguredBuildTargetResultGen<T> {
     pub outputs: Vec<Timed<T>>,
-    pub run_info: Option<OwnedFrozenValueTyped<FrozenRunInfo>>,
+    pub run_info: Option<OwnedRunInfo>,
     pub target_rule_type_name: Option<String>,
     pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
     pub errors: Vec<Timed<buck2_error::Error>>,
@@ -491,7 +491,7 @@ pub enum ConfiguredBuildEventVariant {
         modifiers: Modifiers,
     },
     Prepared {
-        run_info: Option<OwnedFrozenValueTyped<FrozenRunInfo>>,
+        run_info: Option<OwnedRunInfo>,
         target_rule_type_name: String,
     },
     Execution(ConfiguredBuildEventExecutionVariant),
@@ -624,12 +624,13 @@ async fn build_configured_label_inner(
     let target_rule_type_name =
         get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
-    let run_info = if opts.return_run_args {
+    let run_info: Option<OwnedRunInfo> = if opts.return_run_args {
         ctx.get()
             .get_providers(&providers_label)
             .await?
             .require_compatible()?
             .builtin_provider_value::<FrozenRunInfo>()
+            .map(Into::into)
     } else {
         None
     };
