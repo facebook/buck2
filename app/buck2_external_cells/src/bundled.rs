@@ -463,31 +463,36 @@ pub(crate) async fn get_file_ops_delegate(
         .dupe()
 }
 
+/// Materializes every file actually bundled with this binary for `cell`, returning each file's
+/// path relative to the cell root paired with the buck-out path it was materialized to.
+///
+/// Does not return the buck-out directory root: that directory persists across buck2 upgrades
+/// and can hold stale files no longer bundled, so callers must copy exactly the files listed
+/// here rather than the directory as a whole.
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
-) -> buck2_error::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<Vec<(ForwardRelativePathBuf, ProjectRelativePathBuf)>> {
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 
     let ops = get_file_ops_delegate(ctx, cell).await?;
     let materializer = ctx.per_transaction_data().get_materializer();
+    let mut files = Vec::new();
     let mut paths = Vec::new();
-    for (path, _entry) in ops.dir.unordered_walk_leaves().with_paths() {
-        let path = buck_out_resolver.resolve_external_cell_source(
-            CellRelativePath::new(path.as_ref()),
+    for (rel_path, _entry) in ops.dir.unordered_walk_leaves().with_paths() {
+        let source_path = buck_out_resolver.resolve_external_cell_source(
+            CellRelativePath::new(rel_path.as_ref()),
             ExternalCellOrigin::Bundled(cell),
         );
-        paths.push(path);
+        paths.push(source_path.clone());
+        files.push((rel_path, source_path));
     }
 
     materializer
         .ensure_materialized(paths, MaterializationPurpose::IntermediateOnly)
         .await?;
-    Ok(buck_out_resolver.resolve_external_cell_source(
-        CellRelativePath::unchecked_new(""),
-        ExternalCellOrigin::Bundled(cell),
-    ))
+    Ok(files)
 }
 
 #[cfg(test)]
