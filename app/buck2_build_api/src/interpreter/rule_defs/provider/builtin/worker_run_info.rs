@@ -24,7 +24,6 @@ use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::list::AllocList;
 use starlark::values::none::NoneOr;
 
@@ -92,16 +91,16 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
 }
 
 impl<'v> WorkerRunInfo<'v> {
-    pub fn worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
+    pub fn worker(&self) -> Option<ValueTyped<'v, WorkerInfo<'v>>> {
         let value = self.worker.get();
-        NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
+        NoneOr::<ValueTyped<WorkerInfo>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()
     }
 
-    pub fn remote_worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
+    pub fn remote_worker(&self) -> Option<ValueTyped<'v, WorkerInfo<'v>>> {
         let value = self.remote_worker.get();
-        NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
+        NoneOr::<ValueTyped<WorkerInfo>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()
     }

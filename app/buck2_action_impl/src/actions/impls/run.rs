@@ -110,7 +110,6 @@ use starlark::collections::SmallSet;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
@@ -127,7 +126,6 @@ use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
@@ -323,8 +321,8 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
-    pub(crate) worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
-    pub(crate) remote_worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
+    pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
+    pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
     pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
@@ -386,27 +384,12 @@ impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
             outputs_for_error_handler,
         } = self;
 
-        fn freeze_worker<'v, 'fv>(
-            freezer: &Freezer<'fv>,
-            worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
-        ) -> FreezeResult<Option<ValueTyped<'fv, WorkerInfo<'fv>>>> {
-            match worker {
-                None => Ok(None),
-                Some(worker) => {
-                    let worker = freezer.freeze_branded(worker.to_value())?;
-                    Ok(Some(ValueTyped::new_err(worker).map_err(|e| {
-                        FreezeError::new(format!("frozen `WorkerInfo` changed type: {e}"))
-                    })?))
-                }
-            }
-        }
-
         Ok(FrozenStarlarkRunActionValues {
             exe: FreezeBranded::freeze(exe, freezer)?,
             args: FreezeBranded::freeze(args, freezer)?,
             env: FreezeBranded::freeze(env, freezer)?,
-            worker: freeze_worker(freezer, worker)?,
-            remote_worker: freeze_worker(freezer, remote_worker)?,
+            worker: FreezeBranded::freeze(worker, freezer)?,
+            remote_worker: FreezeBranded::freeze(remote_worker, freezer)?,
             category: Freeze::freeze(category, freezer)?,
             identifier: Freeze::freeze(identifier, freezer)?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,

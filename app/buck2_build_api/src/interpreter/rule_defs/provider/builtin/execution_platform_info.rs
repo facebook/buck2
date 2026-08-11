@@ -26,7 +26,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark::values::ValueTypedComplex;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
@@ -114,7 +113,7 @@ impl<'v> ExecutionPlatformInfo<'v> {
 fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformInfo<'v>(
         #[starlark(require = named)] label: ValueTyped<'v, StarlarkTargetLabel>,
-        #[starlark(require = named)] configuration: ValueTypedComplex<'v, ConfigurationInfo<'v>>,
+        #[starlark(require = named)] configuration: ValueTyped<'v, ConfigurationInfo<'v>>,
         #[starlark(require = named)] executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
     ) -> starlark::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {

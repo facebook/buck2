@@ -25,7 +25,7 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueTypedComplex;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::none::NoneOr;
@@ -141,7 +141,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
     fn ExecutionPlatformRegistrationInfo<'v>(
         #[starlark(require = named)] platforms: ValueOf<
             'v,
-            ListType<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>,
+            ListType<ValueTyped<'v, ExecutionPlatformInfo<'v>>>,
         >,
         #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
         #[starlark(require = named, default = NoneOr::None)] exec_marker_constraint: NoneOr<

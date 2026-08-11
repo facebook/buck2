@@ -34,7 +34,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueTypedComplex;
+use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictMut;
 use starlark::values::dict::DictRef;
@@ -264,14 +264,14 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         heap: Heap<'v>,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
         let constraints =
             DictRef::from_value(this.constraints.get()).expect("type checked on construction");
 
         let label = key.typed.label();
         match constraints.get(label.to_value())? {
             Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                let v = ValueTyped::new_err(v).expect("type checked on construction");
                 Ok(NoneOr::Other(v))
             }
             // if not find in the constraints, we return the default constraint value
@@ -305,7 +305,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] value: ValueOf<'v, &'v ConstraintValueInfo<'v>>,
         heap: Heap<'v>,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
         let constraint_value = value.typed;
         let setting_info = constraint_value.setting();
         let label = setting_info.typed.label();
@@ -322,7 +322,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 
         match v {
             Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                let v = ValueTyped::new_err(v).expect("type checked on construction");
                 Ok(NoneOr::Other(v))
             }
             // if not found in the constraints, we return the default constraint value
@@ -359,7 +359,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         heap: Heap<'v>,
-    ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
         let label = key.typed.label();
         let mut constraints = DictMut::from_value(this.constraints.get())?;
 
@@ -373,7 +373,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 
         match removed {
             Some(v) => {
-                let v = ValueTypedComplex::new_err(v).expect("type checked on construction");
+                let v = ValueTyped::new_err(v).expect("type checked on construction");
                 Ok(NoneOr::Other(v))
             }
             // if not found in the constraints, we return the default constraint value
@@ -431,9 +431,9 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 fn get_default_constraint_value<'v>(
     key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
     heap: Heap<'v>,
-) -> NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>> {
+) -> NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>> {
     NoneOr::from_option(
         ConstraintValueInfo::default_from_constraint_setting(key)
-            .map(|constraint_value| heap.alloc_typed(constraint_value).into()),
+            .map(|constraint_value| heap.alloc_typed(constraint_value)),
     )
 }
