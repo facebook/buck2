@@ -68,6 +68,7 @@ pub use crate::values::layout::heap::heap_type::FrozenHeapName;
 pub use crate::values::layout::heap::heap_type::FrozenHeapRef;
 pub use crate::values::layout::heap::heap_type::Heap;
 pub use crate::values::layout::heap::heap_type::OwnedFrozen;
+pub use crate::values::layout::heap::heap_type::OwnedFrozenRef;
 pub use crate::values::layout::heap::heap_type::SingletonFrozenHeapName;
 pub use crate::values::layout::heap::heap_type::StringUserHeapName;
 pub use crate::values::layout::heap::heap_type::Tracer;

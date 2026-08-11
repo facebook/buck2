@@ -91,6 +91,7 @@ use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
+use crate::values::layout::heap::owned_frozen::FnOncish;
 use crate::values::layout::heap::owned_frozen::FnOncish2;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -1732,6 +1733,147 @@ impl<'fv> OwnedFrozenReconstructor<'fv> {
     {
         // SAFETY: The heap ref keeps the value alive for `'fv`
         unsafe { OwnedFrozen::unchecked_new(self.heap_ref.dupe(), v) }
+    }
+}
+
+/// A value in a frozen heap, kept alive by a borrowed [`FrozenHeapRef`].
+///
+/// This is the borrowed counterpart of [`OwnedFrozen`]: instead of owning the heap ref, it
+/// borrows one for `'f`, and `'f` doubles as the brand under which the value is handed out. That
+/// makes access much lighter-weight than `OwnedFrozen`'s closure-based APIs — [`value`] hands out
+/// the branded value directly — and the type is `Copy` when `T` is.
+///
+/// Because `'f` is an ordinary lifetime rather than a closure-introduced one, it is a weaker
+/// brand: two `OwnedFrozenRef`s for different heaps may share the same `'f`. The soundness of
+/// this type does not depend on brand uniqueness — only on the heap ref outliving `'f` — but
+/// APIs that accept `'f`-branded values back cannot exist on this type; use the brand-generic
+/// [`try_map`] and friends instead.
+///
+/// Create one with [`OwnedFrozen::as_ref`].
+///
+/// [`value`]: OwnedFrozenRef::value
+/// [`try_map`]: OwnedFrozenRef::try_map
+pub struct OwnedFrozenRef<'f, T> {
+    heap_ref: &'f FrozenHeapRef,
+    // Morally a `T::Reinfect<'f>`, stored brand-erased for the same reasons as `OwnedFrozen::v`
+    v: T,
+    _no_auto_traits: PhantomData<dyn Any>,
+}
+
+// This type has the same relationship to its safety-critical impls as `OwnedFrozen`: everything
+// here upholds the invariant that `v` is kept alive by the heap behind `heap_ref`; conveniences
+// live in `owned_frozen.rs`.
+impl<'f, T: IsStaticType> OwnedFrozenRef<'f, T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Create a new `OwnedFrozenRef` from the given heap ref and a value associated with that
+    /// heap.
+    ///
+    /// # SAFETY
+    ///
+    /// The value must be kept alive by the heap behind `heap_ref`.
+    pub unsafe fn unchecked_new(heap_ref: &'f FrozenHeapRef, v: T::Reinfect<'f>) -> Self
+    where
+        // See comments on the `Send` and `Sync` impls for `OwnedFrozen`
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        Self {
+            heap_ref,
+            // SAFETY: Caller promised
+            v: unsafe { transmute!(T::Reinfect<'f>, T, v) },
+            _no_auto_traits: PhantomData,
+        }
+    }
+
+    /// Get the underlying frozen heap
+    pub fn owner(&self) -> &'f FrozenHeapRef {
+        self.heap_ref
+    }
+
+    /// Get the value, branded with `'f`
+    pub fn value(&self) -> T::Reinfect<'f>
+    where
+        T: Copy,
+    {
+        // SAFETY: The heap ref keeps the value alive for `'f`
+        unsafe { transmute!(T, T::Reinfect<'f>, self.v) }
+    }
+
+    /// Get access to this value within the provided heap
+    ///
+    /// See the `branding` module for more details.
+    pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v> {
+        heap.add_reference(self.heap_ref);
+
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Like [`add_to_heap`](OwnedFrozenRef::add_to_heap), but for a frozen heap
+    pub fn add_to_frozen_heap<'v>(self, heap: &'v FrozenHeap) -> T::Reinfect<'v> {
+        heap.add_reference(self.heap_ref);
+
+        // SAFETY: The heap we just added the reference to keeps this alive as long as it lives,
+        // which is at least `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Convert to an [`OwnedFrozen`] of the same value
+    pub fn to_owned(&self) -> OwnedFrozen<T>
+    where
+        T: Copy,
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        // SAFETY: The heap ref keeps the value alive
+        unsafe { OwnedFrozen::unchecked_new(self.heap_ref.dupe(), self.value()) }
+    }
+
+    /// Fallibly transform the contained value
+    pub fn try_map<U, E, F>(self, f: F) -> Result<OwnedFrozenRef<'f, U>, E>
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fv> F: FnOncish<T::Reinfect<'fv>, Result<U::Reinfect<'fv>, E>>,
+    {
+        // SAFETY: The heap ref keeps the value alive for `'f`
+        let v = f(unsafe { transmute!(T, T::Reinfect<'f>, self.v) })?;
+        // SAFETY: `f` is generic over the brand, so up to unbranded (frozen) values it can only
+        // return values derived from its input, which our heap keeps alive
+        Ok(unsafe { OwnedFrozenRef::unchecked_new(self.heap_ref, v) })
+    }
+}
+
+impl<'f, T: Copy> Copy for OwnedFrozenRef<'f, T> {}
+
+impl<'f, T: Copy> Clone for OwnedFrozenRef<'f, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'f, T: Copy> Dupe for OwnedFrozenRef<'f, T> {}
+
+/// SAFETY: As for `OwnedFrozen`: the bounds that would justify conditional impls are instead
+/// imposed at construction time, to avoid <https://github.com/rust-lang/rust/issues/102211>.
+/// Additionally, the `heap_ref` field is fine to share because `FrozenHeapRef` is `Sync`.
+unsafe impl<'f, T> Send for OwnedFrozenRef<'f, T> {}
+unsafe impl<'f, T> Sync for OwnedFrozenRef<'f, T> {}
+
+impl<T: IsStaticType> OwnedFrozen<T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Borrow this value as an [`OwnedFrozenRef`], using the borrow as the brand
+    pub fn as_ref(&self) -> OwnedFrozenRef<'_, T>
+    where
+        T: Copy,
+    {
+        OwnedFrozenRef {
+            heap_ref: &self.heap_ref,
+            v: self.v,
+            _no_auto_traits: PhantomData,
+        }
     }
 }
 

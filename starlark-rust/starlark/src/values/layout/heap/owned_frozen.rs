@@ -32,6 +32,7 @@ use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenRef;
 use crate::values::OwnedFrozenValue;
 use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
@@ -88,6 +89,33 @@ where
 
     /// Transform the contained value
     pub fn maybe_map<U, F>(self, f: F) -> Option<OwnedFrozen<U>>
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fv> F: FnOncish<T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
+    {
+        self.try_map(|v| f(v).ok_or(())).ok()
+    }
+}
+
+impl<'f, T: IsStaticType> OwnedFrozenRef<'f, T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Transform the contained value
+    pub fn map<U, F>(self, f: F) -> OwnedFrozenRef<'f, U>
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fv> F: FnOncish<T::Reinfect<'fv>, U::Reinfect<'fv>>,
+    {
+        match self.try_map::<_, std::convert::Infallible, _>(|v| Ok(f(v))) {
+            Ok(x) => x,
+        }
+    }
+
+    /// Transform the contained value
+    pub fn maybe_map<U, F>(self, f: F) -> Option<OwnedFrozenRef<'f, U>>
     where
         U: IsStaticType,
         for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
@@ -340,5 +368,36 @@ mod tests {
     fn _check_owned_frozen_value_typed_conversion_actually_usable() {
         let v: OwnedFrozenValueTyped<MyComplex<'static>> = construct_any();
         let _v: OwnedFrozen<ValueTyped<'static, MyComplex<'static>>> = v.into();
+    }
+
+    #[test]
+    fn test_owned_frozen_ref() {
+        let heap = crate::values::FrozenHeap::new();
+        let v = heap.alloc("contents");
+        let heap_ref = heap.into_ref_named(
+            crate::values::layout::heap::heap_type::StarlarkTestHeapName::frozen_heap_name(),
+        );
+        let owned: OwnedFrozen<Value<'static>> =
+            unsafe { OwnedFrozen::unchecked_new(heap_ref, v.to_value()) };
+
+        let r = owned.as_ref();
+        assert_eq!(r.value().unpack_str(), Some("contents"));
+        assert!(std::ptr::eq(r.owner(), owned.owner()));
+
+        let r = r
+            .maybe_map::<Value<'static>, _>(|v| Some(v))
+            .unwrap()
+            .map::<Value<'static>, _>(|v| v);
+        let owned2 = r.to_owned();
+        owned2.by_ref(|v| assert_eq!(v.unpack_str(), Some("contents")));
+
+        crate::values::Heap::temp(|unfrozen| {
+            let v = owned.as_ref().add_to_heap(unfrozen);
+            assert_eq!(v.unpack_str(), Some("contents"));
+        });
+
+        let other = crate::values::FrozenHeap::new();
+        let v = owned.as_ref().add_to_frozen_heap(&other);
+        assert_eq!(v.unpack_str(), Some("contents"));
     }
 }
