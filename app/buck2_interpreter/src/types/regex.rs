@@ -21,6 +21,9 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
+use starlark::values::FreezeBranded;
+use starlark::values::FreezeResult;
+use starlark::values::Freezer;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
@@ -88,6 +91,14 @@ impl Display for StarlarkBuckRegex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // TODO(nga): should use starlark string repr.
         write!(f, "regex({:?})", self.as_str())
+    }
+}
+
+impl FreezeBranded for StarlarkBuckRegex {
+    type Frozen<'fv> = StarlarkBuckRegex;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(self)
     }
 }
 

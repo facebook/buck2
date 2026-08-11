@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
+use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::size_assert;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -38,6 +39,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
+use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::StringValueLike;
@@ -164,13 +166,26 @@ impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
         match self {
             Self::Unfrozen(v) => Either::Left(v.iter().copied()),
             Self::Frozen(v) => Either::Right(v.iter().map(|(r, s)| {
-                (
-                    match r {
-                        FrozenCmdArgsRegex::Str(s) => CmdArgsRegex::Str(s.to_string_value()),
-                        FrozenCmdArgsRegex::Regex(s) => CmdArgsRegex::Regex(s.to_value_typed()),
-                    },
-                    s.to_string_value(),
-                )
+                // The unbranded frozen storage instantiates `CmdArgsRegex` at
+                // `'static`; re-type its (frozen) contents at the reader's
+                // brand. Dies when the storage itself becomes branded.
+                let r = match r {
+                    CmdArgsRegex::Str(s) => CmdArgsRegex::Str(
+                        s.unpack_frozen()
+                            .expect("frozen storage holds frozen values")
+                            .to_string_value(),
+                    ),
+                    CmdArgsRegex::Regex(r) => CmdArgsRegex::Regex(
+                        FrozenValueTyped::<StarlarkBuckRegex>::new(
+                            r.unpack_frozen()
+                                .expect("frozen storage holds frozen values")
+                                .to_frozen_value(),
+                        )
+                        .expect("a frozen value's type does not change across brands")
+                        .to_value_typed(),
+                    ),
+                };
+                (r, s.to_string_value())
             })),
         }
     }
