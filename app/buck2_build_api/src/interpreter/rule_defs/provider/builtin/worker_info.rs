@@ -22,20 +22,16 @@ use buck2_error::internal_error;
 use either::Either;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::list::AllocList;
@@ -54,25 +50,24 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze(validator = validate_worker_info, bounds = "V: ValueLike<'freeze>")]
+#[freeze_branded(validator = validate_worker_info)]
 #[repr(C)]
-pub struct WorkerInfoGen<V: ValueLifetimeless> {
+pub struct WorkerInfo<'v> {
     // Command to spawn a new worker
-    pub exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
+    pub exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
     /// A Starlark value representing the environment for the command that spawns the worker.
-    env: ValueOfUncheckedGeneric<V, DictType<String, FrozenStarlarkCmdArgs>>,
+    env: ValueOfUnchecked<'v, DictType<String, FrozenStarlarkCmdArgs>>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
-    pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
+    pub concurrency: ValueOfUnchecked<'v, NoneOr<usize>>,
     // Whether to always run actions using this worker via the streaming API
-    pub streaming: ValueOfUncheckedGeneric<V, bool>,
+    pub streaming: ValueOfUnchecked<'v, bool>,
     // Bazel remote persistent worker protocol capable worker
-    pub supports_bazel_remote_persistent_worker_protocol: ValueOfUncheckedGeneric<V, bool>,
+    pub supports_bazel_remote_persistent_worker_protocol: ValueOfUnchecked<'v, bool>,
 
     pub id: u64,
 }
@@ -146,29 +141,28 @@ fn iter_env<'v>(
     }))
 }
 
-impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
+impl<'v> WorkerInfo<'v> {
     pub fn exe_command_line(&self) -> &'v dyn CommandLineArgLike<'v> {
-        ValueAsCommandLineLike::unpack_value_err(self.exe.get().to_value())
+        ValueAsCommandLineLike::unpack_value_err(self.exe.get())
             .expect("validated at construction")
             .0
     }
 
     pub fn env(&self) -> Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)> {
-        iter_env(self.env.get().to_value())
+        iter_env(self.env.get())
             .map(|e| e.expect("validated at construction"))
             .collect_vec()
     }
 
     pub fn concurrency(&self) -> Option<usize> {
         self.concurrency
-            .to_value()
             .unpack()
             .expect("validated at construction")
             .into_option()
     }
 
     pub fn streaming(&self) -> bool {
-        NoneOr::<bool>::unpack_value(self.streaming.get().to_value())
+        NoneOr::<bool>::unpack_value(self.streaming.get())
             .unwrap()
             .unwrap()
             .into_option()
@@ -177,24 +171,18 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
 
     pub fn supports_bazel_remote_persistent_worker_protocol(&self) -> bool {
         self.supports_bazel_remote_persistent_worker_protocol
-            .to_value()
             .unpack()
             .expect("validated at construction")
     }
 }
 
-fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> buck2_error::Result<()>
-where
-    V: ValueLike<'v>,
-{
-    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_buck_error_context(
-        || {
-            format!(
-                "Value for `exe` field is not a command line: `{}`",
-                info.exe
-            )
-        },
-    )?;
+fn validate_worker_info<'v>(info: &WorkerInfo<'v>) -> buck2_error::Result<()> {
+    let exe = StarlarkCmdArgs::try_from_value(info.exe.get()).with_buck_error_context(|| {
+        format!(
+            "Value for `exe` field is not a command line: `{}`",
+            info.exe
+        )
+    })?;
     if exe.is_empty() {
         return Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Input,
@@ -203,7 +191,7 @@ where
         ));
     }
 
-    let env = iter_env(info.env.get().to_value());
+    let env = iter_env(info.env.get());
     for res in env {
         res?;
     }
