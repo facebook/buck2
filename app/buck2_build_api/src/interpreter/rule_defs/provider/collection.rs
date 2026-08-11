@@ -50,6 +50,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkPagable;
@@ -559,10 +560,7 @@ pub struct FrozenProviderCollectionValue {
 
 #[derive(Clone, Copy, Dupe)]
 pub struct FrozenProviderCollectionValueRef<'f> {
-    /// Heap that owns the value.
-    heap: &'f FrozenHeapRef,
-    /// `'f` doubles as the heap brand.
-    value: FrozenValueTyped<'f, ProviderCollection<'f>>,
+    inner: OwnedFrozenRef<'f, FrozenValueTyped<'static, ProviderCollection<'static>>>,
 }
 
 impl Serialize for FrozenProviderCollectionValue {
@@ -598,19 +596,18 @@ impl FrozenProviderCollectionValue {
     }
 
     pub fn as_ref<'f>(&'f self) -> FrozenProviderCollectionValueRef<'f> {
-        let value: OwnedFrozenValueTyped<FrozenProviderCollection> = self.value.dupe().into();
-        // SAFETY: The returned ref borrows `self`, which keeps the heap alive;
-        // rebranding to that borrow's lifetime cannot outlive the heap.
-        let value = unsafe {
-            mem::transmute::<
-                FrozenValueTyped<'static, ProviderCollection<'static>>,
-                FrozenValueTyped<'f, ProviderCollection<'f>>,
-            >(value.value_typed())
-        };
-        FrozenProviderCollectionValueRef {
-            heap: self.value.owner(),
-            value,
-        }
+        let inner = self
+            .value
+            .as_ref()
+            .map::<FrozenValueTyped<'static, ProviderCollection<'static>>, _>(|v| {
+                FrozenValueTyped::new(
+                    v.to_value()
+                        .unpack_frozen()
+                        .expect("value is in a frozen heap"),
+                )
+                .expect("value is a `ProviderCollection`")
+            });
+        FrozenProviderCollectionValueRef { inner }
     }
 
     pub fn add_heap_ref<'v>(&self, heap: Heap<'v>) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
@@ -647,14 +644,13 @@ impl FrozenProviderCollectionValue {
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
     ) -> Option<OwnedFrozenValueTyped<T>> {
-        let r = self.as_ref();
-        let v = r.value().as_ref().builtin_provider_value::<T>()?;
-        // SAFETY: `T` is a legacy `Frozen*` type, so its `FrozenValueTyped`
-        // lifetime doesn't brand; the owner heap keeps the value alive.
-        let v =
-            unsafe { mem::transmute::<FrozenValueTyped<'_, T>, FrozenValueTyped<'static, T>>(v) };
-        // SAFETY: The owner of this value is this heap.
-        Some(unsafe { OwnedFrozenValueTyped::new(r.owner().dupe(), v) })
+        let v = self
+            .as_ref()
+            .inner
+            .maybe_map::<FrozenValueTyped<'static, T>, _>(|v| {
+                v.as_ref().builtin_provider_value::<T>()
+            })?;
+        Some(v.to_owned().into())
     }
 }
 
@@ -663,54 +659,44 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that:
-    /// - The `value` was allocated on the `heap` and the heap outlives the returned reference.
-    /// - The lifetime `'f` accurately represents the lifetime of the heap allocation.
+    /// The value must be kept alive by the heap behind `heap`.
     pub unsafe fn new(
         heap: &'f FrozenHeapRef,
-        value: FrozenValueTyped<'f, ProviderCollection<'f>>,
+        value: FrozenValueTyped<'static, FrozenProviderCollection>,
     ) -> Self {
-        FrozenProviderCollectionValueRef { heap, value }
+        // Re-type the unbranded value at `'f`
+        let value = FrozenValueTyped::new(value.to_frozen_value())
+            .expect("value is a `ProviderCollection`");
+        // SAFETY: Caller promised
+        let inner = unsafe { OwnedFrozenRef::unchecked_new(heap, value) };
+        FrozenProviderCollectionValueRef { inner }
     }
 
     pub fn value(self) -> FrozenValueTyped<'f, ProviderCollection<'f>> {
-        self.value
+        self.inner.value()
     }
 
     pub fn owner(self) -> &'f FrozenHeapRef {
-        self.heap
+        self.inner.owner()
     }
 
     pub fn to_owned(self) -> FrozenProviderCollectionValue {
-        // SAFETY: `heap` keeps the value alive, which is an invariant of this type.
-        let value =
-            unsafe { OwnedFrozen::unchecked_new(self.heap.dupe(), self.value.to_value_typed()) };
+        let value = self
+            .inner
+            .to_owned()
+            .map::<ValueTyped<'static, ProviderCollection<'static>>, _>(|v| v.to_value_typed());
         FrozenProviderCollectionValue { value }
     }
 
     pub fn add_heap_ref<'v>(self, heap: Heap<'v>) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
-        heap.add_reference(self.heap);
-        // SAFETY: `heap` now keeps the value alive for `'v`.
-        unsafe {
-            mem::transmute::<
-                FrozenValueTyped<'f, ProviderCollection<'f>>,
-                FrozenValueTyped<'v, ProviderCollection<'v>>,
-            >(self.value)
-        }
+        self.inner.add_to_heap(heap)
     }
 
     pub fn add_frozen_heap_ref<'v>(
         self,
         heap: &'v FrozenHeap,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
-        heap.add_reference(self.heap);
-        // SAFETY: `heap` now keeps the value alive for as long as it lives.
-        unsafe {
-            mem::transmute::<
-                FrozenValueTyped<'f, ProviderCollection<'f>>,
-                FrozenValueTyped<'v, ProviderCollection<'v>>,
-            >(self.value)
-        }
+        self.inner.add_to_frozen_heap(heap)
     }
 
     pub fn lookup_inner(
@@ -721,38 +707,42 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
             ProvidersName::Default => buck2_error::Ok(self),
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
                 NonDefaultProvidersName::Named(provider_names) => {
-                    let mut collection_value = self.value;
+                    let inner = self.inner.try_map::<FrozenValueTyped<
+                        'static,
+                        ProviderCollection<'static>,
+                    >, buck2_error::Error, _>(
+                        |mut collection_value| {
+                            for provider_name in &**provider_names {
+                                let maybe_di = collection_value
+                                    .default_info()?
+                                    .as_ref()
+                                    .get_sub_target_providers(provider_name.as_str());
 
-                    for provider_name in &**provider_names {
-                        let maybe_di = collection_value
-                            .default_info()?
-                            .as_ref()
-                            .get_sub_target_providers(provider_name.as_str());
-
-                        match maybe_di {
-                            // The inner values should all be frozen if in a frozen provider collection
-                            Some(inner) => {
-                                collection_value = inner;
+                                match maybe_di {
+                                    Some(inner) => {
+                                        collection_value = inner;
+                                    }
+                                    None => {
+                                        return Err(
+                                            ProviderCollectionError::RequestedInvalidSubTarget(
+                                                provider_name.clone(),
+                                                label.dupe(),
+                                                collection_value
+                                                    .default_info()?
+                                                    .sub_targets()
+                                                    .keys()
+                                                    .map(|s| (*s).to_owned())
+                                                    .collect(),
+                                            )
+                                            .into(),
+                                        );
+                                    }
+                                }
                             }
-                            None => {
-                                return Err(ProviderCollectionError::RequestedInvalidSubTarget(
-                                    provider_name.clone(),
-                                    label.dupe(),
-                                    collection_value
-                                        .default_info()?
-                                        .sub_targets()
-                                        .keys()
-                                        .map(|s| (*s).to_owned())
-                                        .collect(),
-                                )
-                                .into());
-                            }
-                        }
-                    }
-                    Ok(FrozenProviderCollectionValueRef {
-                        heap: self.heap,
-                        value: collection_value,
-                    })
+                            Ok(collection_value)
+                        },
+                    )?;
+                    Ok(FrozenProviderCollectionValueRef { inner })
                 }
                 NonDefaultProvidersName::UnrecognizedFlavor(flavor) => {
                     Err(ProviderCollectionError::UnknownFlavors {

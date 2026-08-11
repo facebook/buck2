@@ -44,13 +44,10 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
             }
         };
         let collection = FrozenProviderCollection::testing_new_default(eval.frozen_heap());
-        // SAFETY: The module's frozen heap outlives the eval heap.
-        let collection = unsafe {
-            std::mem::transmute::<
-                FrozenValueTyped<'_, ProviderCollection<'_>>,
-                FrozenValueTyped<'v, ProviderCollection<'v>>,
-            >(collection)
-        };
+        // The module's frozen heap keeps the collection alive for `'v`; going through the
+        // unbranded `FrozenValue` re-types it at `'v`.
+        let collection: FrozenValueTyped<'v, ProviderCollection<'v>> =
+            FrozenValueTyped::new(collection.to_frozen_value()).unwrap();
 
         Ok(Dependency::new(eval.heap(), label, collection, None))
     }

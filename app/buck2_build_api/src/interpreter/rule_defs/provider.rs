@@ -61,6 +61,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use buck2_core::provider::id::ProviderId;
+use starlark::any::IsStaticType;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
 use starlark::values::StarlarkValue;
@@ -95,7 +96,14 @@ pub trait ProviderLike<'v>: Debug {
 }
 
 /// Implemented by frozen builtin providers.
-pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + for<'v> StarlarkValue<'v> {
+pub trait FrozenBuiltinProviderLike:
+    ProviderLike<'static>
+    + for<'v> StarlarkValue<'v>
+    + for<'v> ProvidesStaticType<'v, StaticType = Self>
+    + for<'v> IsStaticType<Reinfect<'v> = Self>
+    + Send
+    + Sync
+{
     fn builtin_provider_id() -> &'static Arc<ProviderId>;
 }
 

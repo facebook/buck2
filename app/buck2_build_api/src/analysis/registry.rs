@@ -802,18 +802,9 @@ impl RecordedAnalysisValues {
             .value
             .result_value
             .ok_or_else(|| internal_error!("missing provider collection"))?;
-        unsafe {
-            // SAFETY: The values in the collection are kept alive by the
-            // storage owner, which the returned ref borrows.
-            let value = std::mem::transmute::<
-                FrozenValueTyped<'static, ProviderCollection<'static>>,
-                FrozenValueTyped<'_, ProviderCollection<'_>>,
-            >(value);
-            Ok(FrozenProviderCollectionValueRef::new(
-                analysis_storage.owner(),
-                value,
-            ))
-        }
+        // SAFETY: The values in the collection are kept alive by the
+        // storage owner, which the returned ref borrows.
+        Ok(unsafe { FrozenProviderCollectionValueRef::new(analysis_storage.owner(), value) })
     }
 
     pub(crate) fn retained_memory(&self) -> buck2_error::Result<usize> {
