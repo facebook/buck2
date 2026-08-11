@@ -35,7 +35,6 @@ use starlark_map::sorted_map::SortedMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::eval::Arguments;
@@ -43,7 +42,6 @@ use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::eval::ParametersSpecParam;
 use crate::pagable::StarlarkPagable;
-use crate::starlark_complex_values;
 use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -53,65 +51,75 @@ use crate::typing::user::TyUser;
 use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserParams;
 use crate::util::ArcStr;
-use crate::values::Freeze;
+use crate::values::AllocValue;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
-use crate::values::ValueTypedComplex;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::Record;
-use crate::values::record::field::FieldGen;
+use crate::values::record::field::Field;
 use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::ty_record_type::TyRecordData;
+use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
-#[doc(hidden)]
-pub trait RecordCell: ValueLifetimeless {
-    type TyRecordDataOpt: Debug;
-
+pub trait RecordVariant: Allocative + Debug + 'static {
     fn get_or_init_ty(
-        ty: &Self::TyRecordDataOpt,
+        &self,
         f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
     ) -> crate::Result<()>;
-    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>>;
+
+    fn get_ty(&self) -> Option<&Arc<TyRecordData>>;
 }
 
-impl<'v> RecordCell for Value<'v> {
-    type TyRecordDataOpt = OnceCell<Arc<TyRecordData>>;
+#[doc(hidden)]
+#[derive(Debug, Allocative)]
+pub struct RecordVariantUnfrozen {
+    #[allocative(skip)] // FIXME(JakobDegen): Allocative OSS release
+    ty: OnceCell<Arc<TyRecordData>>,
+}
 
+impl RecordVariant for RecordVariantUnfrozen {
     fn get_or_init_ty(
-        ty: &Self::TyRecordDataOpt,
+        &self,
         f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
     ) -> crate::Result<()> {
-        ty.get_or_try_init(f)?;
+        self.ty.get_or_try_init(f)?;
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>> {
-        ty.get()
+    fn get_ty(&self) -> Option<&Arc<TyRecordData>> {
+        self.ty.get()
     }
 }
 
-impl RecordCell for FrozenValue {
-    type TyRecordDataOpt = Option<Arc<TyRecordData>>;
+#[doc(hidden)]
+#[derive(Debug, Allocative, starlark_derive::StarlarkPagable)]
+pub struct RecordVariantFrozen {
+    pub(crate) ty: Option<Arc<TyRecordData>>,
+}
 
+impl RecordVariant for RecordVariantFrozen {
     fn get_or_init_ty(
-        ty: &Self::TyRecordDataOpt,
-        f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
+        &self,
+        _f: impl FnOnce() -> crate::Result<Arc<TyRecordData>>,
     ) -> crate::Result<()> {
-        let _ignore = (ty, f);
+        // `ty` is fixed at freeze time, so this is intentionally a no-op;
+        // callers handle `get_ty` returning `None`.
         Ok(())
     }
 
-    fn get_ty(ty: &Self::TyRecordDataOpt) -> Option<&Arc<TyRecordData>> {
-        ty.as_ref()
+    fn get_ty(&self) -> Option<&Arc<TyRecordData>> {
+        self.ty.as_ref()
     }
 }
 
@@ -132,63 +140,94 @@ enum RecordTypeError {
     Allocative,
     starlark_derive::StarlarkPagable
 )]
-#[starlark_pagable(bound = "V: StarlarkPagable, V::TyRecordDataOpt: StarlarkPagable")]
-pub struct RecordTypeGen<V: RecordCell> {
+#[starlark_pagable(bound = "V: StarlarkPagable")]
+#[trace(bound = "")]
+pub struct RecordTypeGen<'v, V: RecordVariant + 'static> {
     pub(crate) id: TypeInstanceId,
-    #[allocative(skip)] // TODO(nga): do not skip.
-    // TODO(nga): teach derive to do something like `#[trace(static)]`.
-    #[trace(unsafe_ignore)]
-    pub(crate) ty_record_data: V::TyRecordDataOpt,
+    #[trace(static)]
+    pub(crate) ty_record_data: V,
     /// The V is the type the field must satisfy (e.g. `"string"`)
-    pub(crate) fields: SmallMap<String, FieldGen<V>>,
+    pub(crate) fields: SmallMap<String, Field<'v>>,
 }
 
-impl<'v, V: ValueLike<'v> + RecordCell> Display for RecordTypeGen<V> {
+impl<'v, V: RecordVariant> Display for RecordTypeGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_keyed_container(f, "record(", ")", "=", &self.fields)
     }
 }
 
 /// Type of a record in a heap.
-pub type RecordType<'v> = RecordTypeGen<Value<'v>>;
+pub type RecordType<'v> = RecordTypeGen<'v, RecordVariantUnfrozen>;
 /// Type of a record in a frozen heap.
-pub type FrozenRecordType = RecordTypeGen<FrozenValue>;
+pub type FrozenRecordType<'v> = RecordTypeGen<'v, RecordVariantFrozen>;
 
-starlark_complex_values!(RecordType);
+crate::register_simple_vtable_entry!(FrozenRecordType<'static>);
+// SAFETY: The vtable entry is registered above. The deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> crate::__derive_refs::VtableRegistered for FrozenRecordType<'v> {}
+crate::register_ty_starlark_value!(RecordType<'_>);
+crate::register_ty_starlark_value!(FrozenRecordType<'_>);
+
+pub(super) type AnyRecordType<'v> = Either<&'v RecordType<'v>, &'v FrozenRecordType<'v>>;
+
+impl<'v> AllocValue<'v> for RecordType<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+        heap.alloc_complex_branded(self)
+    }
+}
+
+impl<'v, V: RecordVariant> StarlarkTypeRepr for &'v RecordTypeGen<'v, V> {
+    type Canonical = <RecordTypeGen<'v, V> as StarlarkValue<'v>>::Canonical;
+
+    #[inline]
+    fn starlark_type_repr() -> crate::typing::Ty {
+        <RecordTypeGen<'v, V> as StarlarkValue<'v>>::get_type_starlark_repr()
+    }
+}
+
+impl<'v, V: RecordVariant> UnpackValue<'v> for &'v RecordTypeGen<'v, V> {
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn unpack_value_impl(x: Value<'v>) -> Result<Option<Self>, Self::Error> {
+        Ok(x.downcast_ref())
+    }
+}
 
 pub(super) fn record_fields<'v>(
-    x: Either<&'v RecordType<'v>, &'v FrozenRecordType>,
-) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
-    x.either(|x| &x.fields, |x| coerce(&x.fields))
+    x: Either<&'v RecordType<'v>, &'v FrozenRecordType<'v>>,
+) -> &'v SmallMap<String, Field<'v>> {
+    x.either(|x| &x.fields, |x| &x.fields)
 }
 
 impl<'v> RecordType<'v> {
     /// Creates a new `RecordType`.
-    pub fn new(fields: SmallMap<String, FieldGen<Value<'v>>>, id: TypeInstanceId) -> Self {
+    pub fn new(fields: SmallMap<String, Field<'v>>, id: TypeInstanceId) -> Self {
         Self {
             id,
             fields,
-            ty_record_data: OnceCell::new(),
+            ty_record_data: RecordVariantUnfrozen {
+                ty: OnceCell::new(),
+            },
         }
     }
 }
 
-impl<'v> Freeze for RecordType<'v> {
-    type Frozen = FrozenRecordType;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+impl<'v> FreezeBranded for RecordType<'v> {
+    type Frozen<'fv> = FrozenRecordType<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenRecordType {
             id: self.id,
             fields: self.fields.freeze(freezer)?,
-            ty_record_data: self.ty_record_data.into_inner(),
+            ty_record_data: RecordVariantFrozen {
+                ty: self.ty_record_data.ty.into_inner(),
+            },
         })
     }
 }
 
-impl<'v, V: ValueLike<'v> + RecordCell + 'v> RecordTypeGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-    FieldGen<V>: ProvidesStaticType<'v>,
-{
+impl<'v, V: RecordVariant> RecordTypeGen<'v, V> {
     fn ty_record_data(&self) -> Option<&Arc<TyRecordData>> {
         V::get_ty(&self.ty_record_data)
     }
@@ -202,7 +241,7 @@ where
 
     pub(crate) fn make_parameter_spec(
         name: &str,
-        fields: &SmallMap<String, FieldGen<V>>,
+        fields: &SmallMap<String, Field<'_>>,
     ) -> ParametersSpec<FrozenValue> {
         ParametersSpec::new_named_only(
             name,
@@ -222,12 +261,8 @@ where
 starlark::methods_static!(RECORD_TYPE_METHODS = record_type_methods);
 
 #[starlark_value(type = FUNCTION_TYPE)]
-impl<'v, V: ValueLike<'v> + RecordCell + 'v> StarlarkValue<'v> for RecordTypeGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-    FieldGen<V>: ProvidesStaticType<'v>,
-{
-    type Canonical = FrozenRecordType;
+impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
+    type Canonical = FrozenRecordType<'v>;
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         for (name, typ) in &self.fields {
@@ -255,7 +290,7 @@ where
         ty_record_data
             .parameter_spec
             .parser(args, eval, |param_parser, eval| {
-                let fields = record_fields(RecordType::from_value(this).unwrap());
+                let fields = record_fields(AnyRecordType::unpack_value_err(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());
                 for (name, field) in fields.iter() {
                     let value = match field.default {
@@ -361,10 +396,10 @@ where
 #[starlark_module]
 fn record_type_methods(methods: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: ValueTypedComplex<'v, RecordType<'v>>) -> starlark::Result<&'v str> {
-        let ty_record_type = match this.unpack() {
-            Either::Left(x) => x.ty_record_data.get(),
-            Either::Right(x) => x.ty_record_data.as_ref(),
+    fn r#type<'v>(this: AnyRecordType<'v>) -> starlark::Result<&'v str> {
+        let ty_record_type = match this {
+            Either::Left(x) => x.ty_record_data.get_ty(),
+            Either::Right(x) => x.ty_record_data.get_ty(),
         };
         Ok(ty_record_type.map_or(Record::TYPE, |s| s.name.as_str()))
     }

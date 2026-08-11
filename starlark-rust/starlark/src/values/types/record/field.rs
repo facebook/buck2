@@ -21,7 +21,6 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -30,11 +29,11 @@ use starlark_map::StarlarkHasher;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
-use crate::starlark_complex_value;
+use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
+use crate::values::FreezeBranded;
 use crate::values::StarlarkValue;
-use crate::values::ValueLifetimeless;
+use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
@@ -44,20 +43,20 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
     Debug,
     Dupe,
     Trace,
-    Freeze,
+    FreezeBranded,
     NoSerialize,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-pub struct FieldGen<V: ValueLifetimeless> {
+pub struct Field<'v> {
     /// The expected type of the field.
-    pub typ: TypeCompiled<V>,
+    pub typ: TypeCompiled<Value<'v>>,
     /// The default value (if provided).
-    pub default: Option<V>,
+    pub default: Option<Value<'v>>,
 }
 
-impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
+impl<'v> Display for Field<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "field(")?;
         Display::fmt(&self.typ, f)?;
@@ -69,32 +68,23 @@ impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
     }
 }
 
-// Manual because no instance for Option<V>
-unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless> Coerce<FieldGen<To>>
-    for FieldGen<From>
-{
-}
+starlark_complex_value_branded!(pub Field);
 
-starlark_complex_value!(pub Field);
-
-impl<V: ValueLifetimeless> FieldGen<V> {
+impl<'v> Field<'v> {
     /// Creates a new `FieldGen`.
-    pub fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
+    pub fn new(typ: TypeCompiled<Value<'v>>, default: Option<Value<'v>>) -> Self {
         Self { typ, default }
     }
 }
 
-impl<'v, V: ValueLike<'v>> FieldGen<V> {
+impl<'v> Field<'v> {
     pub(super) fn ty(&self) -> Ty {
         self.typ.as_ty().clone()
     }
 }
 
 #[starlark_value(type = "field")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for FieldGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for Field<'v> {
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.typ.write_hash(hasher)?;
         self.default.is_some().hash(hasher);

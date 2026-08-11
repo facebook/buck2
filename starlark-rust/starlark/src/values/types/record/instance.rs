@@ -37,12 +37,13 @@ use crate::values::Heap;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
+use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::comparison::equals_slice;
-use crate::values::record::field::FieldGen;
-use crate::values::record::record_type::FrozenRecordType;
-use crate::values::record::record_type::RecordType;
+use crate::values::record::field::Field;
+use crate::values::record::record_type::AnyRecordType;
+use crate::values::record::record_type::RecordVariant;
 use crate::values::record::record_type::record_fields;
 use crate::values::types::type_instance_id::TypeInstanceId;
 
@@ -75,15 +76,15 @@ impl<'v> Record<'v> {
     /// `type(x)` for records.
     pub const TYPE: &'static str = "record";
 
-    fn get_record_type(&self) -> Either<&'v RecordType<'v>, &'v FrozenRecordType> {
+    fn get_record_type(&self) -> AnyRecordType<'v> {
         // Safe to unwrap because we always ensure typ is RecordType
-        RecordType::from_value(self.typ.to_value()).unwrap()
+        AnyRecordType::unpack_value_err(self.typ.to_value()).unwrap()
     }
 
     fn record_type_name(&self) -> Option<&'v str> {
         match self.get_record_type() {
-            Either::Left(x) => Some(&x.ty_record_data.get()?.name),
-            Either::Right(x) => Some(&x.ty_record_data.as_ref()?.name),
+            Either::Left(x) => Some(&x.ty_record_data.get_ty()?.name),
+            Either::Right(x) => Some(&x.ty_record_data.get_ty()?.name),
         }
     }
 
@@ -94,7 +95,7 @@ impl<'v> Record<'v> {
         }
     }
 
-    fn get_record_fields(&self) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
+    fn get_record_fields(&self) -> &'v SmallMap<String, Field<'v>> {
         record_fields(self.get_record_type())
     }
 

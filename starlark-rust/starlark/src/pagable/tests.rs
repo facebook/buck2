@@ -1371,8 +1371,9 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
     use crate::eval::ParametersSpec;
     use crate::eval::ParametersSpecParam;
     use crate::typing::Ty;
-    use crate::values::record::field::FieldGen;
+    use crate::values::record::field::Field;
     use crate::values::record::record_type::FrozenRecordType;
+    use crate::values::record::record_type::RecordVariantFrozen;
     use crate::values::record::ty_record_type::TyRecordData;
     use crate::values::types::type_instance_id::TypeInstanceId;
     use crate::values::typing::type_compiled::compiled::TypeCompiled;
@@ -1396,18 +1397,18 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
     });
 
     let make_fields = || {
-        let mut fields: SmallMap<String, FieldGen<FrozenValue>> = SmallMap::new();
+        let mut fields: SmallMap<String, Field> = SmallMap::new();
         fields.insert(
             "x".to_owned(),
-            FieldGen {
-                typ: TypeCompiled::any(),
+            Field {
+                typ: TypeCompiled::any().to_value(),
                 default: None,
             },
         );
         fields.insert(
             "y".to_owned(),
-            FieldGen {
-                typ: TypeCompiled::any(),
+            Field {
+                typ: TypeCompiled::any().to_value(),
                 default: None,
             },
         );
@@ -1418,12 +1419,14 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
     let id_b = TypeInstanceId::r#gen();
     let rt_a_fv = heap.alloc_simple(FrozenRecordType {
         id: id_a,
-        ty_record_data: Some(shared.clone()),
+        ty_record_data: RecordVariantFrozen {
+            ty: Some(shared.clone()),
+        },
         fields: make_fields(),
     });
     let rt_b_fv = heap.alloc_simple(FrozenRecordType {
         id: id_b,
-        ty_record_data: Some(shared),
+        ty_record_data: RecordVariantFrozen { ty: Some(shared) },
         fields: make_fields(),
     });
     let root = heap.alloc_tuple(&[rt_a_fv, rt_b_fv]);
@@ -1453,10 +1456,12 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
 
     let data_a = rt_a
         .ty_record_data
+        .ty
         .as_ref()
         .expect("ty_record_data restored");
     let data_b = rt_b
         .ty_record_data
+        .ty
         .as_ref()
         .expect("ty_record_data restored");
     assert_eq!(data_a.name, "MyRec");
