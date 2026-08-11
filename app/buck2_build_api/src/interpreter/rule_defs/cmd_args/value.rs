@@ -16,7 +16,6 @@ use dupe::Dupe;
 use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
@@ -71,10 +70,10 @@ impl<'v> PartialEq for CommandLineArg<'v> {
 impl<'v> Eq for CommandLineArg<'v> {}
 
 impl<'v> Freeze for CommandLineArg<'v> {
-    type Frozen = FrozenCommandLineArg;
+    type Frozen = FrozenValue;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineArg> {
-        Ok(FrozenCommandLineArg(self.0.freeze(freezer)?))
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
+        self.0.freeze(freezer)
     }
 }
 
@@ -127,40 +126,11 @@ impl<'v> CommandLineArg<'v> {
     pub fn to_value(self) -> Value<'v> {
         self.0
     }
-}
 
-#[derive(
-    Debug,
-    Allocative,
-    Eq,
-    PartialEq,
-    derive_more::Display,
-    Clone,
-    Copy,
-    Dupe,
-    StarlarkPagable
-)]
-#[repr(transparent)]
-pub struct FrozenCommandLineArg(FrozenValue);
-
-unsafe impl<'v> Coerce<CommandLineArg<'v>> for FrozenCommandLineArg {}
-
-impl FrozenCommandLineArg {
-    pub fn new(value: FrozenValue) -> buck2_error::Result<FrozenCommandLineArg> {
-        ValueAsCommandLineLike::unpack_value_err(value.to_value())?;
-        Ok(FrozenCommandLineArg(value))
-    }
-
-    pub fn as_command_line_arg<'v>(self) -> &'v dyn CommandLineArgLike<'v> {
-        CommandLineArg(self.0.to_value()).as_command_line_arg()
-    }
-
-    pub fn to_frozen_value(&self) -> FrozenValue {
-        self.0
-    }
-
-    pub fn slice_from_frozen_value_unchecked(v: &[FrozenValue]) -> &[FrozenCommandLineArg] {
-        // SAFETY: `#[repr(transparent)]`
+    /// Re-type a `FrozenStarlarkCmdArgs`' element storage, whose elements were checked when
+    /// the unfrozen form was built.
+    pub fn slice_from_frozen_value_unchecked(v: &[FrozenValue]) -> &[CommandLineArg<'v>] {
+        // SAFETY: `#[repr(transparent)]` over `Value`, to which `FrozenValue` is coercible
         unsafe { std::slice::from_raw_parts(v.as_ptr() as *const _, v.len()) }
     }
 }

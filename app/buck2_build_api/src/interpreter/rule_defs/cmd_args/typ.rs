@@ -33,7 +33,6 @@ use gazebo::prelude::*;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -84,7 +83,6 @@ use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
-use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 
 #[derive(Debug, buck2_error::Error)]
 pub enum CommandLineError {
@@ -379,7 +377,7 @@ impl<'v> Serialize for StarlarkCmdArgs<'v> {
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenStarlarkCmdArgs {
-    // Elements are `FrozenCommandLineArg`s
+    // Elements are frozen `CommandLineArg`s
     items: ThinBoxSliceFrozenValue<'static>,
     hidden: ThinBoxSliceFrozenValue<'static>,
     options: FrozenCommandLineOptions,
@@ -419,15 +417,11 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
 
 impl<'v> Fields<'v> for FrozenStarlarkCmdArgs {
     fn items(&self) -> &[CommandLineArg<'v>] {
-        coerce(FrozenCommandLineArg::slice_from_frozen_value_unchecked(
-            &self.items,
-        ))
+        CommandLineArg::slice_from_frozen_value_unchecked(&self.items)
     }
 
     fn hidden(&self) -> &[CommandLineArg<'v>] {
-        coerce(FrozenCommandLineArg::slice_from_frozen_value_unchecked(
-            &self.hidden,
-        ))
+        CommandLineArg::slice_from_frozen_value_unchecked(&self.hidden)
     }
 
     fn options(&self) -> Option<&dyn CommandLineOptionsTrait<'v>> {
@@ -643,18 +637,8 @@ impl<'v> Freeze for StarlarkCmdArgs<'v> {
             options,
         } = self.0.into_inner();
 
-        let items = ThinBoxSliceFrozenValue::from_iter(
-            items
-                .freeze(freezer)?
-                .into_iter()
-                .map(|a| a.to_frozen_value()),
-        );
-        let hidden = ThinBoxSliceFrozenValue::from_iter(
-            hidden
-                .freeze(freezer)?
-                .into_iter()
-                .map(|a| a.to_frozen_value()),
-        );
+        let items = ThinBoxSliceFrozenValue::from_iter(items.freeze(freezer)?);
+        let hidden = ThinBoxSliceFrozenValue::from_iter(hidden.freeze(freezer)?);
         let options = options
             .try_map(|options| (*options).freeze(freezer))?
             .unwrap_or_default();
