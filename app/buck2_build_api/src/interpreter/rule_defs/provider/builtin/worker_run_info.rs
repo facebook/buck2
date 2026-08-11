@@ -13,19 +13,16 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::list::AllocList;
@@ -42,23 +39,22 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 #[derive(
     Clone,
     Debug,
-    Coerce,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
+pub struct WorkerRunInfo<'v> {
     // Configuration needed to spawn a new local worker
-    worker: ValueOfUncheckedGeneric<V, NoneOr<FrozenWorkerInfo>>,
+    worker: ValueOfUnchecked<'v, NoneOr<FrozenWorkerInfo>>,
 
     // Configuration needed to spawn a new remote worker
-    remote_worker: ValueOfUncheckedGeneric<V, FrozenWorkerInfo>,
+    remote_worker: ValueOfUnchecked<'v, FrozenWorkerInfo>,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
-    exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
+    exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
 }
 
 #[starlark_module]
@@ -95,22 +91,22 @@ fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-impl<'v, V: ValueLike<'v>> WorkerRunInfoGen<V> {
+impl<'v> WorkerRunInfo<'v> {
     pub fn worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
-        let value = self.worker.get().to_value();
+        let value = self.worker.get();
         NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()
     }
 
     pub fn remote_worker(&self) -> Option<ValueTypedComplex<'v, WorkerInfo<'v>>> {
-        let value = self.remote_worker.get().to_value();
+        let value = self.remote_worker.get();
         NoneOr::<ValueTypedComplex<WorkerInfo>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()
     }
 
     pub fn exe(&self) -> ValueTyped<'v, StarlarkCmdArgs<'v>> {
-        ValueTyped::new_err(self.exe.get().to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.exe.get()).expect("validated at construction")
     }
 }
