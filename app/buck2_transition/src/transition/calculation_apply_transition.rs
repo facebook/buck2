@@ -135,15 +135,9 @@ async fn do_apply_transition(
 ) -> buck2_error::Result<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
     let mut refs = Vec::new();
-    let mut refs_refs = Vec::new();
     for (s, t) in transition.refs() {
         let provider_collection_value = ctx.fetch_transition_function_reference(t).await?;
-        refs.push((
-            *s,
-            // This is safe because we store a reference to provider collection in `refs_refs`.
-            unsafe { provider_collection_value.value().to_frozen_value() },
-        ));
-        refs_refs.push(provider_collection_value);
+        refs.push((*s, provider_collection_value));
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
     let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
@@ -153,7 +147,10 @@ async fn do_apply_transition(
             provider.with_evaluator(&module, cancellation.into(), |eval, _| {
                 eval.set_print_handler(&print);
                 eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                let refs = module.heap().alloc(AllocStruct(refs));
+                let refs = module.heap().alloc(AllocStruct(
+                    refs.iter()
+                        .map(|(s, v)| (*s, v.add_heap_ref(module.heap()))),
+                ));
                 let attrs = match (transition.attr_names(), attrs) {
                     (Some(names), Some(values)) => {
                         let mut attrs = Vec::new();

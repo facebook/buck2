@@ -555,10 +555,6 @@ impl FrozenProviderCollectionValue {
         })
     }
 
-    pub fn value(&self) -> OwnedFrozenValueTyped<FrozenProviderCollection> {
-        self.value.dupe().into()
-    }
-
     pub fn provider_collection<'f>(&'f self) -> &'f ProviderCollection<'f> {
         self.as_ref().value().as_ref()
     }
