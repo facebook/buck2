@@ -23,13 +23,13 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::StringValue;
 use crate::values::Value;
-use crate::values::enumeration::EnumType;
+use crate::values::enumeration::enum_type::EnumType;
 use crate::values::tuple::UnpackTuple;
 use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
 use crate::values::types::type_instance_id::TypeInstanceId;
 
 #[starlark_module]
-pub fn register_enum(builder: &mut GlobalsBuilder) {
+pub(crate) fn register_enum(builder: &mut GlobalsBuilder) {
     /// The `enum` type represents one value picked from a set of values.
     ///
     /// For example:

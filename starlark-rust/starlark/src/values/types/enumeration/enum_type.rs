@@ -64,9 +64,9 @@ use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::dict::value::ValueStr;
-use crate::values::enumeration::EnumValue;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
+use crate::values::enumeration::value::EnumValue;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::list::AllocList;
@@ -83,7 +83,7 @@ enum EnumError {
 }
 
 #[doc(hidden)]
-pub trait EnumCell: Freeze {
+pub(crate) trait EnumCell: Freeze {
     type TyEnumDataOpt: Debug;
 
     fn get_or_init_ty(
@@ -130,12 +130,12 @@ impl EnumCell for FrozenValue {
 #[repr(C)]
 // Deliberately store fully populated values
 // for each entry, so we can produce enum values with zero allocation.
-pub struct EnumTypeGen<V: EnumCell> {
-    pub(crate) id: TypeInstanceId,
+pub(crate) struct EnumTypeGen<V: EnumCell> {
+    pub(super) id: TypeInstanceId,
     #[allocative(skip)] // TODO(nga): do not skip.
     // TODO(nga): teach derive to do something like `#[trace(static)]`.
     #[trace(unsafe_ignore)]
-    pub(crate) ty_enum_data: V::TyEnumDataOpt,
+    pub(super) ty_enum_data: V::TyEnumDataOpt,
     // The key is the value of the enumeration
     // The value is a value of type EnumValue
     #[allocative(skip)] // TODO(nga): do not skip.
@@ -171,9 +171,9 @@ impl<'v, V: EnumCell + ValueLike<'v>> Display for EnumTypeGen<V> {
 }
 
 /// Unfrozen enum type.
-pub type EnumType<'v> = EnumTypeGen<Value<'v>>;
+pub(super) type EnumType<'v> = EnumTypeGen<Value<'v>>;
 /// Frozen enum type.
-pub type FrozenEnumType = EnumTypeGen<FrozenValue>;
+pub(crate) type FrozenEnumType = EnumTypeGen<FrozenValue>;
 
 impl StarlarkSerialize for EnumTypeGen<FrozenValue> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
@@ -203,7 +203,7 @@ impl StarlarkDeserialize for EnumTypeGen<FrozenValue> {
 register_avalue_simple_frozen!(FrozenEnumType);
 
 impl<'v> EnumType<'v> {
-    pub(crate) fn new(
+    pub(super) fn new(
         elements: Vec<StringValue<'v>>,
         heap: Heap<'v>,
         id: TypeInstanceId,
@@ -241,7 +241,7 @@ impl<'v> EnumType<'v> {
 }
 
 impl<V: EnumCell + Freeze> EnumTypeGen<V> {
-    pub(crate) fn elements(&self) -> &SmallMap<V, V> {
+    pub(super) fn elements(&self) -> &SmallMap<V, V> {
         // Safe because we never mutate the elements after construction.
         unsafe { &*self.elements.get() }
     }
@@ -252,7 +252,7 @@ where
     Value<'v>: Equivalent<V>,
     V: ValueLike<'v> + EnumCell,
 {
-    pub(crate) fn ty_enum_data(&self) -> Option<&Arc<TyEnumData>> {
+    pub(super) fn ty_enum_data(&self) -> Option<&Arc<TyEnumData>> {
         V::get_ty(&self.ty_enum_data)
     }
 

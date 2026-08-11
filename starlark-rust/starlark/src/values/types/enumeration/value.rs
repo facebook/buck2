@@ -62,10 +62,10 @@ use crate::values::types::type_instance_id::TypeInstanceId;
 pub struct EnumValueGen<V: ValueLifetimeless> {
     // Must ignore value.typ or type.elements, since they are circular
     #[derivative(Debug = "ignore")]
-    pub(crate) typ: V, // Must be EnumType it points back to (so it can get the type)
-    pub(crate) value: V,   // The value of this enumeration
-    pub(crate) index: i32, // The index in the enumeration
-    pub(crate) id: TypeInstanceId,
+    pub(super) typ: V, // Must be EnumType it points back to (so it can get the type)
+    pub(super) value: V,   // The value of this enumeration
+    pub(super) index: i32, // The index in the enumeration
+    pub(super) id: TypeInstanceId,
 }
 
 impl<'v, V: ValueLike<'v>> Display for EnumValueGen<V> {
@@ -101,7 +101,7 @@ starlark_complex_value!(pub EnumValue);
 
 impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
     /// The result of calling `type()` on an enum value.
-    pub const TYPE: &'static str = "enum";
+    pub(super) const TYPE: &'static str = "enum";
 
     fn get_enum_type(&self) -> Either<&'v EnumType<'v>, &'v FrozenEnumType> {
         // Safe to unwrap because we always ensure typ is EnumType

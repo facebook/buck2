@@ -91,8 +91,6 @@ use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
-use crate::values::enumeration::EnumType;
-use crate::values::enumeration::FrozenEnumValue;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
@@ -1227,8 +1225,6 @@ impl FrozenValue {
             || FrozenValueTyped::<FrozenDef>::new(self).is_some()
             || FrozenValueTyped::<NativeFunction>::new(self).is_some()
             || FrozenValueTyped::<FrozenStruct>::new(self).is_some()
-            || FrozenValueTyped::<EnumType>::new(self).is_some()
-            || FrozenValueTyped::<FrozenEnumValue>::new(self).is_some()
     }
 
     /// Can `invoke` be called on this object speculatively?
