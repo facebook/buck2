@@ -77,7 +77,7 @@ pub struct LocalResourceInfo<'v> {
     /// will be reserved from the pool, for example `{"socket_address": "bar:2"}` and environment variable with
     /// name resolved using mapping in `resource_env_vars` field and `"socket_address"` key will be added to
     /// execution command.
-    setup: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
+    setup: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs<'static>>,
     /// Mapping from environment variable (appended to an execution command which is dependent on this local resource)
     /// to keys in setup command JSON output.
     resource_env_vars: ValueOfUnchecked<'v, DictType<String, String>>,

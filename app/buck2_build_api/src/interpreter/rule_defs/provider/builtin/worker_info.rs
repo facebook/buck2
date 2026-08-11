@@ -59,9 +59,9 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 #[repr(C)]
 pub struct WorkerInfo<'v> {
     // Command to spawn a new worker
-    pub exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
+    pub exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs<'static>>,
     /// A Starlark value representing the environment for the command that spawns the worker.
-    env: ValueOfUnchecked<'v, DictType<String, FrozenStarlarkCmdArgs>>,
+    env: ValueOfUnchecked<'v, DictType<String, FrozenStarlarkCmdArgs<'static>>>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
     pub concurrency: ValueOfUnchecked<'v, NoneOr<usize>>,
     // Whether to always run actions using this worker via the streaming API

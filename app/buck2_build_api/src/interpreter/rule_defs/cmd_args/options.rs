@@ -17,12 +17,10 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
-use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::size_assert;
 use derive_more::Display;
 use display_container::fmt_container;
 use dupe::Dupe;
-use either::Either;
 use gazebo::prelude::*;
 use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
@@ -39,10 +37,8 @@ use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
-use starlark::values::StringValueLike;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -125,11 +121,8 @@ pub(crate) struct CommandLineOptions<'v> {
     pub(crate) replacements: Option<Box<Vec<(CmdArgsRegex<'v>, StringValue<'v>)>>>,
 }
 
-#[derive(Clone, Copy, Dupe)]
-pub(crate) enum OptionsReplacementsRef<'v, 'a> {
-    Unfrozen(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]),
-    Frozen(&'a [(CmdArgsRegex<'static>, StringValue<'static>)]),
-}
+#[derive(Clone, Copy, Dupe, Default)]
+pub(crate) struct OptionsReplacementsRef<'v, 'a>(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]);
 
 impl<'v, 'a> Display for OptionsReplacementsRef<'v, 'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -153,42 +146,13 @@ impl<'v, 'a> Display for OptionsReplacementsRef<'v, 'a> {
 
 impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
     pub(crate) fn is_empty(&self) -> bool {
-        match self {
-            Self::Unfrozen(v) => v.is_empty(),
-            Self::Frozen(v) => v.is_empty(),
-        }
+        self.0.is_empty()
     }
 
     pub(crate) fn iter(
         &self,
     ) -> impl ExactSizeIterator<Item = (CmdArgsRegex<'v>, StringValue<'v>)> + use<'v, 'a> {
-        match self {
-            Self::Unfrozen(v) => Either::Left(v.iter().copied()),
-            Self::Frozen(v) => Either::Right(v.iter().map(|(r, s)| {
-                // The unbranded frozen storage instantiates the items at
-                // `'static`; re-type the (frozen) contents at the reader's
-                // brand. Dies when the storage itself becomes branded.
-                let r = match r {
-                    CmdArgsRegex::Str(s) => CmdArgsRegex::Str(retype_frozen_string(*s)),
-                    CmdArgsRegex::Regex(r) => CmdArgsRegex::Regex(
-                        FrozenValueTyped::<StarlarkBuckRegex>::new(
-                            r.unpack_frozen()
-                                .expect("frozen storage holds frozen values")
-                                .to_frozen_value(),
-                        )
-                        .expect("a frozen value's type does not change across brands")
-                        .to_value_typed(),
-                    ),
-                };
-                (r, retype_frozen_string(*s))
-            })),
-        }
-    }
-}
-
-impl<'v, 'a> Default for OptionsReplacementsRef<'v, 'a> {
-    fn default() -> Self {
-        Self::Frozen(&[])
+        self.0.iter().copied()
     }
 }
 
@@ -197,10 +161,7 @@ impl<'v, 'a> Serialize for OptionsReplacementsRef<'v, 'a> {
     where
         S: Serializer,
     {
-        match self {
-            Self::Unfrozen(v) => v.serialize(serializer),
-            Self::Frozen(v) => v.serialize(serializer),
-        }
+        self.0.serialize(serializer)
     }
 }
 
@@ -263,7 +224,7 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
             quote: self.quote.dupe(),
             replacements: match &self.replacements {
                 None => OptionsReplacementsRef::default(),
-                Some(v) => OptionsReplacementsRef::Unfrozen(v.as_slice()),
+                Some(v) => OptionsReplacementsRef(v.as_slice()),
             },
         }
     }
@@ -334,10 +295,7 @@ impl<'v> FrozenCommandLineOptions<'v> {
     }
 }
 
-/// Until `FrozenStarlarkCmdArgs` is branded, its (`'static`-instantiated)
-/// options are read at arbitrary brands; the frozen contents get re-typed at
-/// the reader's brand item by item. Becomes brand-fixed together with it.
-impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'static> {
+impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'v> {
     fn ignore_artifacts(&self) -> bool {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::IgnoreArtifacts = option {
@@ -350,7 +308,7 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'static> {
     fn delimiter(&self) -> Option<StringValue<'v>> {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::Delimiter(value) = option {
-                return Some(retype_frozen_string(*value));
+                return Some(*value);
             }
         }
         None
@@ -361,20 +319,13 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'static> {
         for option in &*self.options {
             match option {
                 FrozenCommandLineOption::RelativeTo(value, parent) => {
-                    let value = ValueOfUnchecked::new(
-                        value
-                            .get()
-                            .unpack_frozen()
-                            .expect("frozen storage holds frozen values")
-                            .to_value(),
-                    );
-                    options.relative_to = Some((value, *parent));
+                    options.relative_to = Some((*value, *parent));
                 }
                 FrozenCommandLineOption::AbsolutePrefix(value) => {
-                    options.absolute_prefix = Some(retype_frozen_string(*value));
+                    options.absolute_prefix = Some(*value);
                 }
                 FrozenCommandLineOption::AbsoluteSuffix(value) => {
-                    options.absolute_suffix = Some(retype_frozen_string(*value));
+                    options.absolute_suffix = Some(*value);
                 }
                 FrozenCommandLineOption::Parent(parent) => {
                     options.parent = *parent;
@@ -383,31 +334,24 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'static> {
                     options.ignore_artifacts = true;
                 }
                 FrozenCommandLineOption::Delimiter(value) => {
-                    options.delimiter = Some(retype_frozen_string(*value));
+                    options.delimiter = Some(*value);
                 }
                 FrozenCommandLineOption::Format(value) => {
-                    options.format = Some(retype_frozen_string(*value));
+                    options.format = Some(*value);
                 }
                 FrozenCommandLineOption::Prepend(value) => {
-                    options.prepend = Some(retype_frozen_string(*value));
+                    options.prepend = Some(*value);
                 }
                 FrozenCommandLineOption::Quote(value) => {
                     options.quote = Some(value.dupe());
                 }
                 FrozenCommandLineOption::Replacements(value) => {
-                    options.replacements = OptionsReplacementsRef::Frozen(value);
+                    options.replacements = OptionsReplacementsRef(value);
                 }
             }
         }
         options
     }
-}
-
-fn retype_frozen_string<'v>(value: StringValue<'static>) -> StringValue<'v> {
-    value
-        .unpack_frozen()
-        .expect("frozen storage holds frozen values")
-        .to_string_value()
 }
 
 impl<'v> Serialize for CommandLineOptions<'v> {
@@ -419,7 +363,7 @@ impl<'v> Serialize for CommandLineOptions<'v> {
     }
 }
 
-impl Serialize for FrozenCommandLineOptions<'static> {
+impl<'v> Serialize for FrozenCommandLineOptions<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

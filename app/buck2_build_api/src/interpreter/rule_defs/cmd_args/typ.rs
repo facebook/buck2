@@ -42,6 +42,7 @@ use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -376,20 +377,25 @@ impl<'v> Serialize for StarlarkCmdArgs<'v> {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
-pub struct FrozenStarlarkCmdArgs {
+pub struct FrozenStarlarkCmdArgs<'v> {
     // Elements are frozen `CommandLineArg`s
-    items: ThinBoxSliceFrozenValue<'static>,
-    hidden: ThinBoxSliceFrozenValue<'static>,
-    options: FrozenCommandLineOptions<'static>,
+    items: ThinBoxSliceFrozenValue<'v>,
+    hidden: ThinBoxSliceFrozenValue<'v>,
+    options: FrozenCommandLineOptions<'v>,
 }
 
-static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs = FrozenStarlarkCmdArgs {
+starlark::register_simple_vtable_entry!(FrozenStarlarkCmdArgs<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkCmdArgs<'v> {}
+
+static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs<'static> = FrozenStarlarkCmdArgs {
     items: ThinBoxSliceFrozenValue::empty(),
     hidden: ThinBoxSliceFrozenValue::empty(),
     options: FrozenCommandLineOptions::empty(),
 });
 
-impl Serialize for FrozenStarlarkCmdArgs {
+impl<'v> Serialize for FrozenStarlarkCmdArgs<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -415,7 +421,7 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
     }
 }
 
-impl<'v> Fields<'v> for FrozenStarlarkCmdArgs {
+impl<'v> Fields<'v> for FrozenStarlarkCmdArgs<'v> {
     fn items(&self) -> &[CommandLineArg<'v>] {
         CommandLineArg::slice_from_frozen_value_unchecked(&self.items)
     }
@@ -472,7 +478,7 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
 size_assert::words_of_type!(StarlarkCmdArgs<'static>, 8);
-size_assert::words_of_type!(FrozenStarlarkCmdArgs, 3);
+size_assert::words_of_type!(FrozenStarlarkCmdArgs<'static>, 3);
 size_assert::words_of_type!(CommandLineOptions<'static>, 10);
 
 impl<'v> Display for StarlarkCmdArgs<'v> {
@@ -484,7 +490,7 @@ impl<'v> Display for StarlarkCmdArgs<'v> {
     }
 }
 
-impl Display for FrozenStarlarkCmdArgs {
+impl<'v> Display for FrozenStarlarkCmdArgs<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&FieldsRef(self, PhantomData), f)
     }
@@ -505,7 +511,7 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 }
 
-impl FrozenStarlarkCmdArgs {
+impl<'v> FrozenStarlarkCmdArgs<'v> {
     pub(crate) fn is_concat(&self) -> bool {
         FieldsRef(self, PhantomData).is_concat()
     }
@@ -549,7 +555,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
 }
 
 #[starlark_value(type = "cmd_args")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
+impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs<'v> {
     type Canonical = StarlarkCmdArgs<'v>;
 
     fn get_methods() -> Option<&'static Methods> {
@@ -565,7 +571,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
 
 impl<'v> AllocValue<'v> for StarlarkCmdArgs<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
@@ -599,7 +605,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs {
+impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs<'v> {
     fn register_me(&self) {
         command_line_arg_like_impl!(FrozenStarlarkCmdArgs::starlark_type_repr());
     }
@@ -628,19 +634,22 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs {
     }
 }
 
-impl<'v> Freeze for StarlarkCmdArgs<'v> {
-    type Frozen = FrozenStarlarkCmdArgs;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+impl<'v> FreezeBranded for StarlarkCmdArgs<'v> {
+    type Frozen<'fv> = FrozenStarlarkCmdArgs<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let StarlarkCommandLineData {
             items,
             hidden,
             options,
         } = self.0.into_inner();
 
-        let items = ThinBoxSliceFrozenValue::from_iter(items.freeze(freezer)?);
-        let hidden = ThinBoxSliceFrozenValue::from_iter(hidden.freeze(freezer)?);
+        // The element storage is raw `FrozenValue`s, so the elements' plain
+        // `Freeze` (which targets exactly that) is the right one here.
+        let items = ThinBoxSliceFrozenValue::from_iter(Freeze::freeze(items, freezer)?);
+        let hidden = ThinBoxSliceFrozenValue::from_iter(Freeze::freeze(hidden, freezer)?);
         let options = options
-            .try_map(|options| (*options).freeze(freezer))?
+            .try_map(|options| FreezeBranded::freeze(*options, freezer))?
             .unwrap_or_default();
 
         Ok(FrozenStarlarkCmdArgs {
@@ -648,6 +657,16 @@ impl<'v> Freeze for StarlarkCmdArgs<'v> {
             hidden,
             options,
         })
+    }
+}
+
+// Interop for containers whose `Freeze` impls have not been migrated to
+// `FreezeBranded`; see `freeze_via_branded`.
+impl<'v> Freeze for StarlarkCmdArgs<'v> {
+    type Frozen = FrozenStarlarkCmdArgs<'static>;
+
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        starlark::values::freeze_via_branded(self, freezer)
     }
 }
 

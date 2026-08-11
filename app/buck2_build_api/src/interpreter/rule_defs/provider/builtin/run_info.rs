@@ -87,7 +87,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 #[repr(transparent)]
 pub struct RunInfo<'v> {
     /// The command to run, stored as CommandLine
-    args: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
+    args: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs<'static>>,
 }
 
 /// A `RunInfo` kept alive by its owning frozen heap; usable across threads and awaits.

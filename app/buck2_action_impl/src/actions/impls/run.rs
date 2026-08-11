@@ -341,8 +341,8 @@ pub(crate) struct StarlarkRunActionValues<'v> {
 )]
 #[display("RunActionValues")]
 pub(crate) struct FrozenStarlarkRunActionValues {
-    pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
-    pub(crate) args: FrozenValueTyped<'static, FrozenStarlarkCmdArgs>,
+    pub(crate) exe: FrozenValueTyped<'static, FrozenStarlarkCmdArgs<'static>>,
+    pub(crate) args: FrozenValueTyped<'static, FrozenStarlarkCmdArgs<'static>>,
     pub(crate) env:
         Option<FrozenValueOfUnchecked<'static, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
@@ -519,8 +519,12 @@ impl RunAction {
     fn unpack<'v>(
         values: &'v OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     ) -> buck2_error::Result<UnpackedRunActionValues<'v>> {
-        let exe: &dyn CommandLineArgLike = &*values.exe;
-        let args: &dyn CommandLineArgLike = &*values.args;
+        // The `'static`-instantiated fields get re-typed at the reader's brand;
+        // dies when the next diff makes the storage an `OwnedFrozen` carrier.
+        let exe =
+            ValueAsCommandLineLike::unpack_value_err(values.exe.to_frozen_value().to_value())?.0;
+        let args =
+            ValueAsCommandLineLike::unpack_value_err(values.args.to_frozen_value().to_value())?.0;
         let env = match values.env {
             None => Vec::new(),
             Some(env) => {

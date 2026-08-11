@@ -54,7 +54,7 @@ pub struct WorkerRunInfo<'v> {
     remote_worker: ValueOfUnchecked<'v, FrozenWorkerInfo>,
 
     // Command to execute without spawning a worker, when the build environment or configuration does not support workers
-    exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs>,
+    exe: ValueOfUnchecked<'v, FrozenStarlarkCmdArgs<'static>>,
 }
 
 #[starlark_module]
