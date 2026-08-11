@@ -20,15 +20,11 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 
@@ -52,23 +48,22 @@ enum ExecutionPlatformProviderErrors {
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct ExecutionPlatformInfoGen<V: ValueLifetimeless> {
+pub struct ExecutionPlatformInfo<'v> {
     /// label of the defining rule, used in informative messages
-    label: ValueOfUncheckedGeneric<V, StarlarkTargetLabel>,
+    label: ValueOfUnchecked<'v, StarlarkTargetLabel>,
     /// The configuration of the execution platform
-    configuration: ValueOfUncheckedGeneric<V, FrozenConfigurationInfo>,
+    configuration: ValueOfUnchecked<'v, FrozenConfigurationInfo>,
     /// The executor config
-    executor_config: ValueOfUncheckedGeneric<V, StarlarkCommandExecutorConfig>,
+    executor_config: ValueOfUnchecked<'v, StarlarkCommandExecutorConfig>,
 }
 
-impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
+impl<'v> ExecutionPlatformInfo<'v> {
     pub fn to_execution_platform(&self) -> buck2_error::Result<ExecutionPlatform> {
         self.to_execution_platform_with_marker(None)
     }
@@ -79,11 +74,11 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
         marker_constraint: Option<&(ConstraintKey, ConstraintValue)>,
     ) -> buck2_error::Result<ExecutionPlatform> {
         let target = self.label.cast::<&StarlarkTargetLabel>().unpack()?.label();
-        let mut cfg = ConfigurationInfo::from_value(self.configuration.get().to_value())
+        let mut cfg = ConfigurationInfo::from_value(self.configuration.get())
             .ok_or_else(|| {
                 ExecutionPlatformProviderErrors::ExpectedConfigurationInfo(
-                    self.configuration.to_value().get().to_repr(),
-                    self.configuration.to_value().get().get_type().to_owned(),
+                    self.configuration.get().to_repr(),
+                    self.configuration.get().get_type().to_owned(),
                 )
             })?
             .to_configuration_data()?;
@@ -98,16 +93,15 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             cfg,
             marker_constraint.is_some(),
         )?;
-        let executor_config =
-            StarlarkCommandExecutorConfig::from_value(self.executor_config.get().to_value())
-                .ok_or_else(|| {
-                    ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
-                        self.configuration.get().to_value().to_repr(),
-                        self.configuration.get().to_value().get_type().to_owned(),
-                    )
-                })?
-                .0
-                .dupe();
+        let executor_config = StarlarkCommandExecutorConfig::from_value(self.executor_config.get())
+            .ok_or_else(|| {
+                ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
+                    self.executor_config.get().to_repr(),
+                    self.executor_config.get().get_type().to_owned(),
+                )
+            })?
+            .0
+            .dupe();
         Ok(ExecutionPlatform::platform(
             target.dupe(),
             cfg,
