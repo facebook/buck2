@@ -101,10 +101,11 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
 
     The target's `network_access` policy (if any) is attached to the returned
     `CommandExecutorConfig`(s) so it is enforced for both local and remote test
-    execution. When a target has no RE profile but does request a `network_access`
-    policy, a local-only executor is synthesized solely to carry that policy; it is
-    reported with `run_from_project_root = False` so the test keeps running in-place
-    rather than being switched to project-root/RE-style execution.
+    execution. When a target has no RE profile, a local-only executor is synthesized
+    so Buck does not fall back to a remote-only build execution platform for a test
+    whose cell-relative paths make it ineligible for RE. The executor is reported with
+    `run_from_project_root = False` so the test keeps running in-place rather than
+    being switched to project-root/RE-style execution.
 
     Args:
         ctx: The analysis context.
@@ -156,18 +157,16 @@ def _get_re_executors(
 
     re_props = re_arg.re_props
     if re_props == None:
-        if network_access != None:
-            # No RE profile, but the target requests a network policy. Synthesize a
-            # local-only executor purely to carry it. Crucially this executor is NOT
-            # marked as needing the project root, so the test still runs in-place
-            # (from the cell root) just as it would with no executor at all.
-            #
-            # `remote_cache_enabled = False` keeps this a plain `Executor::Local`
-            # (parity: the unset default is True in fbcode but False in OSS), and
-            # nothing is uploaded from here anyway (`allow_cache_uploads` is False).
-            executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False, remote_cache_enabled = False, **_network_access_kwargs(network_access))
-            return RemoteTestExecutorConfig(default_executor = executor)
-        return RemoteTestExecutorConfig()
+        # A test without an RE profile uses cell-relative paths, which makes the test
+        # action local-only. Give it an explicit local executor instead of inheriting
+        # the rule's build execution platform: that platform may be remote-only when
+        # cross-building, even though the target binary must run on the local host.
+        #
+        # `remote_cache_enabled = False` keeps this a plain `Executor::Local`
+        # (parity: the unset default is True in fbcode but False in OSS), and nothing
+        # is uploaded from here anyway (`allow_cache_uploads` is False).
+        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False, remote_cache_enabled = False, **_network_access_kwargs(network_access))
+        return RemoteTestExecutorConfig(default_executor = executor)
 
     re_props_copy = dict(re_props)
     missing_props = [name for name in ("capabilities", "use_case") if name not in re_props_copy]
