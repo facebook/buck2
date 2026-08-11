@@ -80,6 +80,11 @@ impl<'fv> Freezer<'fv> {
         }
     }
 
+    /// Freeze a nested value while freezing yourself.
+    pub fn freeze_branded<'v>(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
+        self.freeze(value).map(|fv| fv.to_value())
+    }
+
     /// Frozen heap where the values are frozen to.
     ///
     /// Can be used to allocate additional values while freezing.
