@@ -13,6 +13,7 @@ use std::fmt::Arguments;
 #[doc(hidden)]
 #[cold]
 #[track_caller]
+#[must_use = "errors must be returned/used"]
 pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
     let caller = std::panic::Location::caller();
     let source_location = crate::source_location::SourceLocation::new(caller.file(), caller.line());
@@ -22,6 +23,7 @@ pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
 #[doc(hidden)]
 #[cold]
 #[track_caller]
+#[must_use = "internal errors must be returned/used"]
 pub fn internal_error_impl(args: Arguments) -> crate::Error {
     buck2_error_impl(
         crate::ErrorTag::InternalError,
