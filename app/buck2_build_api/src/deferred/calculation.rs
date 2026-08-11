@@ -24,7 +24,8 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::Future;
 use pagable::Pagable;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
+use starlark::values::ValueTyped;
 
 use crate::actions::RegisteredAction;
 use crate::analysis::AnalysisResult;
@@ -36,7 +37,7 @@ use crate::bxl::calculation::BXL_CALCULATION_IMPL;
 use crate::bxl::result::BxlResult;
 use crate::dynamic::calculation::DynamicLambdaResult;
 use crate::dynamic::calculation::dynamic_lambda_result;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 pub static EVAL_ANON_TARGET: LateBinding<
     for<'c, 'd> fn(
@@ -112,7 +113,7 @@ impl<'d> DeferredHolder<'d> {
     pub(crate) fn lookup_transitive_set(
         self,
         key: &TransitiveSetKey,
-    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
         self.analysis_values().lookup_transitive_set(key)
     }
 

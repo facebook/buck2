@@ -95,7 +95,7 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
             }
             ResolvedArtifactGroup::TransitiveSetProjection(t) => {
                 let set = t.key.lookup(ctx).await?;
-                todo.extend(set.get_projection_sub_inputs(t.projection)?);
+                todo.extend(set.by_ref(|s| s.get_projection_sub_inputs(t.projection))?);
             }
         }
     }

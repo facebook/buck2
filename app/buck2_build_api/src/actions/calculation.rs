@@ -273,7 +273,9 @@ async fn collect_eager_paths(
             }
             ArtifactGroup::TransitiveSetProjection(tset) => {
                 let set = tset.key.key.lookup(ctx).await?;
-                queue.extend(set.get_projection_sub_inputs(tset.key.projection)?);
+                let sub_inputs =
+                    set.by_ref(|set| set.get_projection_sub_inputs(tset.key.projection))?;
+                queue.extend(sub_inputs);
             }
             ArtifactGroup::Promise(_) => {
                 // Skip promise artifacts - they should not be eagerly materialized

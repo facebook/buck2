@@ -563,7 +563,8 @@ impl Key for EnsureTransitiveSetProjectionKey {
     ) -> Self::Value {
         let set = self.0.key.lookup(ctx).await?;
 
-        let projection_sub_inputs = set.get_projection_sub_inputs(self.0.projection)?;
+        let projection_sub_inputs =
+            set.by_ref(|s| s.get_projection_sub_inputs(self.0.projection))?;
 
         let sub_inputs: Vec<_> =
             KeepGoing::try_compute_join_all(ctx, projection_sub_inputs.iter(), async |ctx, a| {

@@ -206,7 +206,7 @@ fn compute_tset_node<'c>(
     async move {
         let set = key.key.lookup(ctx).await?;
 
-        let sub_inputs = set.get_projection_sub_inputs(key.projection)?;
+        let sub_inputs = set.by_ref(|s| s.get_projection_sub_inputs(key.projection))?;
 
         let inputs = convert_inputs(ctx, node_cache, sub_inputs.iter()).await?;
 

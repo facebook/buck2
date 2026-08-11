@@ -32,25 +32,21 @@ use serde::Serialize;
 use serde::Serializer;
 use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::type_matcher;
-use starlark::values::Freeze;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
-use starlark::values::FrozenValue;
+use starlark::values::FreezeBranded;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
@@ -69,19 +65,19 @@ use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
-use crate::interpreter::rule_defs::transitive_set::DfsTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
-use crate::interpreter::rule_defs::transitive_set::PostorderTransitiveSetIteratorGen;
-use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
-use crate::interpreter::rule_defs::transitive_set::TopologicalTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetArgsProjection;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
-use crate::interpreter::rule_defs::transitive_set::TransitiveSetIteratorLike;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetJsonProjection;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetDefinitionLike;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_definition::TransitiveSetProjectionKind;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::BfsTransitiveSetIterator;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::DfsTransitiveSetIterator;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::PostorderTransitiveSetIterator;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::PreorderTransitiveSetIterator;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::TopologicalTransitiveSetIterator;
+use crate::interpreter::rule_defs::transitive_set::transitive_set_iterator::TransitiveSetIteratorLike;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTraversal;
 
@@ -94,13 +90,10 @@ pub(crate) struct TransitiveSetMatcher {
 #[type_matcher]
 impl TypeMatcher for TransitiveSetMatcher {
     fn matches(&self, value: Value) -> bool {
-        let Some(tset) = ValueTypedComplex::<TransitiveSet>::new(value) else {
+        let Some(tset) = ValueTyped::<TransitiveSet>::new(value) else {
             return false;
         };
-        let tset_definition: Value = match tset.unpack() {
-            Either::Left(tset) => tset.definition.to_value(),
-            Either::Right(tset) => tset.definition.to_value(),
-        };
+        let tset_definition = tset.definition.to_value();
         let tset_definition = ValueTypedComplex::<TransitiveSetDefinition>::new(tset_definition)
             .expect("wrong type of definition");
         let exported = match tset_definition.unpack() {
@@ -116,7 +109,17 @@ impl TypeMatcher for TransitiveSetMatcher {
 }
 
 /// Compact bitfield for per-projection boolean flags, stored as a u64.
-#[derive(Debug, Clone, Copy, Trace, Allocative, PartialEq, Eq, StarlarkPagable)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Trace,
+    FreezeBranded,
+    Allocative,
+    PartialEq,
+    Eq,
+    StarlarkPagable
+)]
 pub(crate) struct ProjectionBitSet(u64);
 
 impl ProjectionBitSet {
@@ -152,44 +155,52 @@ impl ProjectionBitSet {
     }
 }
 
-#[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative, StarlarkPagable)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    FreezeBranded,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
-pub struct TransitiveSetGen<V: ValueLifetimeless> {
+pub struct TransitiveSet<'v> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
     #[starlark_pagable(pagable)]
+    #[freeze_branded(identity)]
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
+    #[freeze_branded(identity)]
     pub(crate) definition: FrozenValueTyped<'static, FrozenTransitiveSetDefinition>,
 
     /// The immediate value of this node. If None, then this node will not yield anything when
     /// iterated over (but we'll still traverse to its children).
-    pub(crate) node: Option<NodeGen<V>>,
+    pub(crate) node: Option<Node<'v>>,
 
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
-    pub(crate) reductions: Box<[V]>,
+    pub(crate) reductions: Box<[Value<'v>]>,
 
     pub(crate) projection_path_resolution_may_require_artifact_value: ProjectionBitSet,
 
     pub(crate) projection_is_eligible_for_dedupe: ProjectionBitSet,
 
     /// Further transitive sets.
-    pub children: Box<[V]>,
+    pub children: Box<[Value<'v>]>,
 }
 
-#[derive(Debug, Clone, Trace, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
 #[repr(C)]
-pub struct NodeGen<V: ValueLifetimeless> {
+pub struct Node<'v> {
     /// The value
-    pub value: V,
+    pub value: Value<'v>,
 
     /// Pre-computed projections.
-    pub projections: Box<[V]>,
+    pub projections: Box<[Value<'v>]>,
 }
 
-unsafe impl<'v> Coerce<TransitiveSetGen<Value<'v>>> for TransitiveSetGen<FrozenValue> {}
-
-impl<V: ValueLifetimeless> fmt::Display for TransitiveSetGen<V> {
+impl<'v> fmt::Display for TransitiveSet<'v> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt_container(
             f,
@@ -205,7 +216,7 @@ impl<V: ValueLifetimeless> fmt::Display for TransitiveSetGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for TransitiveSetGen<V> {
+impl<'v> Serialize for TransitiveSet<'v> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -221,24 +232,11 @@ impl<'v, V: ValueLike<'v>> Serialize for TransitiveSetGen<V> {
     }
 }
 
-impl<V: ValueLifetimeless> TransitiveSetGen<V> {
+impl<'v> TransitiveSet<'v> {
     pub fn key(&self) -> &TransitiveSetKey {
         &self.key
     }
-}
 
-impl<'v> NodeGen<Value<'v>> {
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<NodeGen<FrozenValue>> {
-        let Self { value, projections } = self;
-
-        let value = value.freeze(freezer)?;
-        let projections = projections.freeze(freezer)?;
-
-        Ok(NodeGen { value, projections })
-    }
-}
-
-impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
     fn matches_definition(
         &self,
         definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
@@ -258,7 +256,10 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
             .as_str())
     }
 
-    pub fn get_projection_value(&self, projection: usize) -> buck2_error::Result<Option<V>> {
+    pub fn get_projection_value(
+        &self,
+        projection: usize,
+    ) -> buck2_error::Result<Option<Value<'v>>> {
         match &self.node {
             None => Ok(None),
             Some(node) => Ok(Some(
@@ -283,17 +284,15 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         ValueTypedComplex::unpack_value_err(self.definition.to_value())
             .buck_error_context("Must be a TransitiveSetDefinition")
     }
-}
 
-impl FrozenTransitiveSet {
-    pub fn visit_projection_direct_inputs<'v, V: CommandLineArtifactVisitor<'v>>(
+    pub fn visit_projection_direct_inputs<V: CommandLineArtifactVisitor<'v>>(
         &self,
         projection: usize,
         visitor: &mut V,
     ) -> buck2_error::Result<()> {
         if let Some(projection) = self.get_projection_value(projection)? {
             // It's either an args-like or a json projection. visit_json_artifacts handles both the way we want.
-            visit_json_artifacts(projection.to_value(), visitor)?;
+            visit_json_artifacts(projection, visitor)?;
         }
         Ok(())
     }
@@ -331,30 +330,22 @@ impl FrozenTransitiveSet {
     }
 }
 
-impl<'v, V> TransitiveSetGen<V>
-where
-    V: ValueLike<'v>,
-    TransitiveSetGen<V>: StarlarkValue<'v> + TransitiveSetLike<'v>,
-{
+impl<'v> TransitiveSet<'v> {
     pub fn iter<'a>(
         &'a self,
         ordering: TransitiveSetOrdering,
-    ) -> Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>
+    ) -> Box<dyn TransitiveSetIteratorLike<'a, 'v> + 'a>
     where
         'v: 'a,
     {
         match ordering {
-            TransitiveSetOrdering::Preorder => {
-                Box::new(PreorderTransitiveSetIteratorGen::new(self))
-            }
-            TransitiveSetOrdering::Postorder => {
-                Box::new(PostorderTransitiveSetIteratorGen::new(self))
-            }
+            TransitiveSetOrdering::Preorder => Box::new(PreorderTransitiveSetIterator::new(self)),
+            TransitiveSetOrdering::Postorder => Box::new(PostorderTransitiveSetIterator::new(self)),
             TransitiveSetOrdering::Topological => {
-                Box::new(TopologicalTransitiveSetIteratorGen::new(self))
+                Box::new(TopologicalTransitiveSetIterator::new(self))
             }
-            TransitiveSetOrdering::Bfs => Box::new(BfsTransitiveSetIteratorGen::new(self)),
-            TransitiveSetOrdering::Dfs => Box::new(DfsTransitiveSetIteratorGen::new(self)),
+            TransitiveSetOrdering::Bfs => Box::new(BfsTransitiveSetIterator::new(self)),
+            TransitiveSetOrdering::Dfs => Box::new(DfsTransitiveSetIterator::new(self)),
         }
     }
 
@@ -396,64 +387,14 @@ where
     }
 }
 
-pub trait TransitiveSetLike<'v> {
-    fn from_value(v: Value<'v>) -> Option<&'v Self>;
-}
-
-impl<'v> TransitiveSetLike<'v> for TransitiveSet<'v> {
-    fn from_value(v: Value<'v>) -> Option<&'v Self> {
-        TransitiveSet::from_value(v)
-    }
-}
-
-impl<'v> TransitiveSetLike<'v> for FrozenTransitiveSet {
-    fn from_value(v: Value<'v>) -> Option<&'v Self> {
-        // FrozenTransitiveSet::from_value(v)
-
-        v.downcast_ref::<FrozenTransitiveSet>()
-    }
-}
-
-starlark_complex_value!(pub TransitiveSet);
+starlark_complex_value_branded!(pub TransitiveSet);
 
 starlark::methods_static!(TRANSITIVE_SET_METHODS = transitive_set_methods);
 
 #[starlark_value(type = "TransitiveSet")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetGen<V>
-where
-    Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,
-{
+impl<'v> StarlarkValue<'v> for TransitiveSet<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(TRANSITIVE_SET_METHODS.methods())
-    }
-}
-
-impl<'v> Freeze for TransitiveSet<'v> {
-    type Frozen = FrozenTransitiveSet;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let Self {
-            key,
-            definition,
-            node,
-            reductions,
-            projection_path_resolution_may_require_artifact_value,
-            projection_is_eligible_for_dedupe,
-            children,
-        } = self;
-        let definition = definition.freeze(freezer)?;
-        let node = node.try_map(|node| node.freeze(freezer))?;
-        let children = children.freeze(freezer)?;
-        let reductions = reductions.freeze(freezer)?;
-        Ok(TransitiveSetGen {
-            key,
-            definition,
-            node,
-            reductions,
-            projection_path_resolution_may_require_artifact_value,
-            projection_is_eligible_for_dedupe,
-            children,
-        })
     }
 }
 
@@ -511,7 +452,7 @@ impl<'v> TransitiveSet<'v> {
                 })
                 .collect::<Result<Box<[_]>, _>>()?;
 
-            buck2_error::Ok(NodeGen { value, projections })
+            buck2_error::Ok(Node { value, projections })
         })?;
 
         let reductions = def

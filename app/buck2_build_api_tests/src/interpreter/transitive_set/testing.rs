@@ -14,7 +14,6 @@ use std::sync::atomic::Ordering;
 
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
-use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
@@ -30,8 +29,9 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::FreezeErrorContext;
 use starlark::values::FrozenValueTyped;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
@@ -66,7 +66,7 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
 
 pub(crate) fn new_transitive_set(
     code: &str,
-) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
     Module::with_temp_heap(|env| {
         let globals = GlobalsBuilder::standard()
             .with(register_transitive_set)
@@ -96,11 +96,12 @@ pub(crate) fn new_transitive_set(
                 .freeze_named(Buck2TestHeapName::frozen_heap_name())
                 .map_err(from_freeze_error)?;
 
-            frozen
+            Ok(frozen
                 .owned_extra_value()
                 .ok_or_else(|| internal_error!("Frozen value must be in extra value"))?
-                .downcast_starlark()
-                .map_err(buck2_error::Error::from)
+                .downcast_starlark::<TransitiveSet<'static>>()
+                .map_err(buck2_error::Error::from)?
+                .into())
         })
     })
 }
@@ -119,7 +120,7 @@ fn test_new_transitive_set() -> buck2_error::Result<()> {
     ))?;
 
     assert_eq!(
-        set.as_ref().iter(TransitiveSetOrdering::Preorder).count(),
+        set.by_ref(|s| s.iter(TransitiveSetOrdering::Preorder).count()),
         2
     );
 

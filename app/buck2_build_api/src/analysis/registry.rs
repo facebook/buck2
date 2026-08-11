@@ -58,6 +58,7 @@ use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::OwnedRefFrozenRef;
@@ -740,7 +741,7 @@ impl RecordedAnalysisValues {
     pub(crate) fn lookup_transitive_set(
         &self,
         key: &TransitiveSetKey,
-    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
         if key.holder_key() != &self.self_key {
             return Err(internal_error!(
                 "Wrong owner for transitive set: expecting `{}`, got `{}`",
@@ -748,11 +749,13 @@ impl RecordedAnalysisValues {
                 key
             ));
         }
-        self.analysis_storage
+        Ok(self
+            .analysis_storage
             .as_ref()
             .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?
             .maybe_map(|v| v.value.transitive_sets.get(key.index().0 as usize).copied())
-            .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))
+            .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))?
+            .into())
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {

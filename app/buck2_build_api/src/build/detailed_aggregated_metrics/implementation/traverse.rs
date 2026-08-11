@@ -18,8 +18,8 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dupe::Dupe;
-use starlark::values::FrozenValueTyped;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
+use starlark::values::ValueTyped;
 
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
@@ -27,7 +27,7 @@ use crate::deferred::calculation::ActionLookup;
 use crate::deferred::calculation::OwnedDeferredHolder;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash)]
 enum Key {
@@ -40,13 +40,17 @@ impl Eq for ResolvedTransitiveSetProjection {}
 
 impl PartialEq for ResolvedTransitiveSetProjection {
     fn eq(&self, other: &Self) -> bool {
-        self.projection == other.projection && self.tset.key() == other.tset.key()
+        self.projection == other.projection
+            && self
+                .tset
+                .by_ref(|s| other.tset.by_ref(|o| s.key() == o.key()))
     }
 }
 
 impl std::hash::Hash for ResolvedTransitiveSetProjection {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.tset.get_projection_key(self.projection).hash(state);
+        self.tset
+            .by_ref(|t| t.get_projection_key(self.projection).hash(state));
     }
 }
 
@@ -56,7 +60,7 @@ impl std::hash::Hash for ResolvedTransitiveSetProjection {
 #[derive(Clone, Dupe, Debug)]
 struct ResolvedTransitiveSetProjection {
     projection: usize,
-    tset: OwnedFrozenValueTyped<FrozenTransitiveSet>,
+    tset: OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>,
 }
 
 #[derive(Clone, Dupe, Debug)]
@@ -143,12 +147,12 @@ impl<'a> Graph<'a> {
                 }
             }
             Node::TransitiveSetProjection(proj_node) => {
-                for idx in 0..proj_node.tset.children.len() {
+                for idx in 0..proj_node.tset.by_ref(|t| t.children.len()) {
                     visit_dep(Key::ResolvedTransitiveSetProjection(
                         ResolvedTransitiveSetProjection {
                             projection: proj_node.projection,
-                            tset: proj_node.tset.try_map(|v| {
-                                FrozenValueTyped::new(v.children[idx])
+                            tset: proj_node.tset.dupe().try_map(|v| {
+                                ValueTyped::new(v.children[idx])
                                     .ok_or_else(|| internal_error!("tset children should be tsets"))
                             })?,
                         },
@@ -187,9 +191,9 @@ impl<'a> Graph<'a> {
                     }
                 }
                 let mut visitor = Visitor(&mut visit_dep, self, Ok(()));
-                proj_node
-                    .tset
-                    .visit_projection_direct_inputs(proj_node.projection, &mut visitor)?;
+                proj_node.tset.by_ref(|t| {
+                    t.visit_projection_direct_inputs(proj_node.projection, &mut visitor)
+                })?;
                 visitor.2?;
             }
             Node::Missing(_holder_key) => {

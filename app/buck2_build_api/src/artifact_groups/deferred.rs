@@ -14,11 +14,12 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagableViaPagable;
+use starlark::values::ValueTyped;
 
 use crate::deferred::calculation::lookup_deferred_holder;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
 #[derive(
     Hash,
@@ -60,7 +61,7 @@ impl TransitiveSetKey {
     pub async fn lookup(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>> {
         lookup_deferred_holder(ctx, &self.0)
             .await?
             .lookup_transitive_set(self)

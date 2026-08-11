@@ -22,7 +22,7 @@ use buck2_build_api::artifact_groups::TransitiveSetProjectionWrapper;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::context::SetBuildContextData;
-use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_common::dice::cells::SetCellResolver;
@@ -52,23 +52,26 @@ use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::btreemap;
-use starlark::values::OwnedFrozenValue;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
+use starlark::values::ValueTyped;
 
 use crate::interpreter::transitive_set::testing::TSET_TEST_LOCK;
 use crate::interpreter::transitive_set::testing::new_transitive_set;
 
 fn mock_analysis_for_tsets(
     mut dice_builder: DiceBuilder,
-    tsets: Vec<OwnedFrozenValueTyped<FrozenTransitiveSet>>,
+    tsets: Vec<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>>,
 ) -> DiceBuilder {
     let mut by_target: StdBuckHashMap<
         ConfiguredTargetLabel,
-        Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+        Vec<(
+            TransitiveSetKey,
+            OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>,
+        )>,
     > = StdBuckHashMap::default();
 
     for value in tsets {
-        let key = value.key().dupe();
+        let key = value.by_ref(|s| s.key().dupe());
         match key.holder_key() {
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)) => {
                 by_target
@@ -86,7 +89,7 @@ fn mock_analysis_for_tsets(
             ResultMaybeCompatible::Compatible(AnalysisResult::new(
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
-                    tsets,
+                    tsets.into_iter().map(|(k, v)| (k, v.into())).collect(),
                     RecordedActions::new(0),
                 ),
                 None,
@@ -129,8 +132,6 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
                 return make_tset(TestSet, value = bar, children = [s1])
             "#
     ))?;
-
-    let heap = set.owner();
 
     let cell_resolver = CellResolver::testing_with_names_and_paths(&[
         (
@@ -192,13 +193,13 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     let mut all_tsets = vec![set.dupe()];
     // This is kinda clowny, but we can't upcast the TransitiveSetGen back to a Value so we
     // have to access Values from their parents.
-    for set in set.as_ref().iter(TransitiveSetOrdering::Preorder) {
-        for child in set.children.iter() {
-            // Safety: We know the entire set came from the same heap.
-            let child = unsafe { OwnedFrozenValue::new(heap.dupe(), *child) };
-            all_tsets.push(child.downcast().unwrap());
+    set.by_ref_with_reconstructor(|s, reconstructor| {
+        for set in s.iter(TransitiveSetOrdering::Preorder) {
+            for child in set.children.iter() {
+                all_tsets.push(reconstructor.reconstruct(ValueTyped::new(*child).unwrap()));
+            }
         }
-    }
+    });
 
     // Register all the sets as deferreds.
     dice_builder = mock_analysis_for_tsets(dice_builder, all_tsets);
@@ -217,7 +218,7 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
         .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(Arc::new(
             TransitiveSetProjectionWrapper::new(
                 TransitiveSetProjectionKey {
-                    key: set.key.dupe(),
+                    key: set.by_ref(|s| s.key.dupe()),
                     projection: 0,
                 },
                 false,

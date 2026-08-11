@@ -9,10 +9,9 @@
  */
 
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FrozenValue;
 
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
-use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetGen;
+use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_args_projection::TransitiveSetArgsProjection;
 use crate::interpreter::rule_defs::transitive_set::transitive_set_json_projection::TransitiveSetJsonProjection;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
@@ -20,7 +19,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTrave
 
 #[starlark_module]
 #[starlark_types(
-    TransitiveSetGen<FrozenValue> as TransitiveSet,
+    TransitiveSet<'static> as TransitiveSet,
     TransitiveSetArgsProjection<'static> as TransitiveSetArgsProjection,
     FrozenTransitiveSetDefinition as TransitiveSetDefinition,
     TransitiveSetJsonProjection<'static> as TransitiveSetJsonProjection,
