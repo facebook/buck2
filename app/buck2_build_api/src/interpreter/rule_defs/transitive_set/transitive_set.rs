@@ -172,8 +172,7 @@ pub struct TransitiveSet<'v> {
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
-    #[freeze_branded(identity)]
-    pub(crate) definition: FrozenValueTyped<'static, FrozenTransitiveSetDefinition>,
+    pub(crate) definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
 
     /// The immediate value of this node. If None, then this node will not yield anything when
     /// iterated over (but we'll still traverse to its children).
@@ -239,7 +238,7 @@ impl<'v> TransitiveSet<'v> {
 
     fn matches_definition(
         &self,
-        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
     ) -> bool {
         definition.to_value().ptr_eq(self.definition.to_value())
     }
@@ -401,7 +400,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSet<'v> {
 impl<'v> TransitiveSet<'v> {
     pub fn new(
         key: TransitiveSetKey,
-        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: impl IntoIterator<Item = Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -415,7 +414,7 @@ impl<'v> TransitiveSet<'v> {
         let children_sets = children.try_map(|v| match TransitiveSet::from_value(*v) {
             Some(set) if set.matches_definition(definition) => Ok(set),
             Some(set) => {
-                fn format_def(def: &FrozenTransitiveSetDefinition) -> String {
+                fn format_def(def: &FrozenTransitiveSetDefinition<'_>) -> String {
                     format!("{:?}", def.as_debug())
                 }
                 Err(TransitiveSetError::TransitiveValueIsOfWrongType {
@@ -607,14 +606,6 @@ impl<'v> TransitiveSet<'v> {
                     format!("in transitive set {:?}", definition.as_debug())
                 })?;
 
-        // Cast lifetime from 'v to 'static
-        let definition =
-            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<
-                FrozenTransitiveSetDefinition,
-            >::to_frozen_value(
-                definition
-            ))
-            .ok_or_else(|| internal_error!("internal error"))?;
         Ok(Self {
             key,
             definition,
@@ -628,7 +619,7 @@ impl<'v> TransitiveSet<'v> {
 
     pub fn new_from_values(
         key: TransitiveSetKey,
-        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,

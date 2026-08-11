@@ -43,7 +43,7 @@ pub static TSET_TEST_LOCK: Mutex<()> = Mutex::new(());
 #[starlark_module]
 pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
     fn make_tset<'v>(
-        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>, // An iterable.
         eval: &mut Evaluator<'v, '_, '_>,

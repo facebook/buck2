@@ -21,7 +21,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetTrave
 #[starlark_types(
     TransitiveSet<'static> as TransitiveSet,
     TransitiveSetArgsProjection<'static> as TransitiveSetArgsProjection,
-    FrozenTransitiveSetDefinition as TransitiveSetDefinition,
+    FrozenTransitiveSetDefinition<'static> as TransitiveSetDefinition,
     TransitiveSetJsonProjection<'static> as TransitiveSetJsonProjection,
     TransitiveSetTraversal<'static> as TransitiveSetIterator,
     TransitiveSetProjectionTraversal<'static> as TransitiveSetArgsProjectionIterator

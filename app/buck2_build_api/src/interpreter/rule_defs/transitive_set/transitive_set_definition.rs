@@ -23,8 +23,6 @@ use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
-use starlark::coerce::coerce;
 use starlark::collections::SmallMap;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -35,6 +33,7 @@ use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -45,8 +44,7 @@ use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::list::ListType;
 use starlark::values::starlark_value;
 use starlark::values::typing::FrozenStarlarkCallable;
@@ -100,12 +98,11 @@ impl TransitiveSetProjectionKind {
     }
 }
 
-// The Coerce derivation doesn't work if this is just a tuple in the SmallMap value.
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Allocative, StarlarkPagable)]
-#[repr(C)]
-pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
+#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+pub struct TransitiveSetProjectionSpec<'v> {
+    #[freeze_branded(identity)]
     pub kind: TransitiveSetProjectionKind,
-    pub projection: ValueOfUncheckedGeneric<V, FrozenStarlarkCallable<(FrozenValue,), FrozenValue>>,
+    pub projection: ValueOfUnchecked<'v, FrozenStarlarkCallable<(FrozenValue,), FrozenValue>>,
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
@@ -134,30 +131,27 @@ pub struct TransitiveSetDefinition<'v> {
     /// The module id where this `TransitiveSetDefinition` is created and assigned
     module_id: ImportPath,
 
-    operations: TransitiveSetOperationsGen<Value<'v>>,
+    operations: TransitiveSetOperations<'v>,
 }
 
-#[derive(Debug, Clone, Trace, Coerce, Freeze, Allocative, StarlarkPagable)]
-#[repr(C)]
-pub struct TransitiveSetOperationsGen<V: ValueLifetimeless> {
+#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+pub struct TransitiveSetOperations<'v> {
     /// Callables that will project the values contained in transitive sets of this type to
     /// cmd_args or json. This can be used to include a transitive set into a command or json file.
-    pub(crate) projections: SmallMap<String, TransitiveSetProjectionSpec<V>>,
+    pub(crate) projections: SmallMap<String, TransitiveSetProjectionSpec<'v>>,
 
     /// Callables that will reduce the values contained in transitive sets to a single value per
     /// node. This can be used to e.g. aggregate flags throughout a transitive set;
     pub(crate) reductions: SmallMap<
         String,
-        ValueOfUncheckedGeneric<
-            V,
+        ValueOfUnchecked<
+            'v,
             FrozenStarlarkCallable<(ListType<FrozenValue>, FrozenValue), FrozenValue>,
         >,
     >,
 }
 
-pub type TransitiveSetOperations<'v> = TransitiveSetOperationsGen<Value<'v>>;
-
-impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
+impl<'v> TransitiveSetOperations<'v> {
     pub fn valid_projections(&self, kind: TransitiveSetProjectionKind) -> Vec<String> {
         self.projections
             .iter()
@@ -237,13 +231,13 @@ impl<'v> TransitiveSetDefinition<'v> {
 
 impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
 #[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
-    type Canonical = FrozenTransitiveSetDefinition;
+    type Canonical = FrozenTransitiveSetDefinition<'v>;
 
     fn export_as(
         &self,
@@ -317,13 +311,18 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
 
 #[derive(Display, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[display("{}", exported.id)]
-pub struct FrozenTransitiveSetDefinition {
+pub struct FrozenTransitiveSetDefinition<'v> {
     pub(crate) exported: TransitiveSetDefinitionExported,
 
-    operations: TransitiveSetOperationsGen<FrozenValue>,
+    operations: TransitiveSetOperations<'v>,
 }
 
-impl fmt::Debug for FrozenTransitiveSetDefinition {
+starlark::register_simple_vtable_entry!(FrozenTransitiveSetDefinition<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenTransitiveSetDefinition<'v> {}
+
+impl<'v> fmt::Debug for FrozenTransitiveSetDefinition<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -333,7 +332,7 @@ impl fmt::Debug for FrozenTransitiveSetDefinition {
     }
 }
 
-impl Serialize for FrozenTransitiveSetDefinition {
+impl<'v> Serialize for FrozenTransitiveSetDefinition<'v> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -343,7 +342,7 @@ impl Serialize for FrozenTransitiveSetDefinition {
 }
 
 #[starlark_value(type = "TransitiveSetDefinition")]
-impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
+impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition<'v> {
     type Canonical = Self;
 
     fn dir_attr(&self) -> Vec<String> {
@@ -373,12 +372,10 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     }
 }
 
-starlark_simple_value!(FrozenTransitiveSetDefinition);
+impl<'v> FreezeBranded for TransitiveSetDefinition<'v> {
+    type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 
-impl<'v> Freeze for TransitiveSetDefinition<'v> {
-    type Frozen = FrozenTransitiveSetDefinition;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let Self {
             exported,
             module_id: _,
@@ -400,6 +397,32 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
         Ok(FrozenTransitiveSetDefinition {
             exported,
             operations,
+        })
+    }
+}
+
+// Interop for containers whose `Freeze` impls have not been migrated to
+// `FreezeBranded`; see `freeze_via_branded`.
+impl<'v> Freeze for TransitiveSetDefinition<'v> {
+    type Frozen = FrozenTransitiveSetDefinition<'static>;
+
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        starlark::values::freeze_via_branded(self, freezer)
+    }
+}
+
+impl<'v> FreezeBranded for FrozenTransitiveSetDefinition<'v> {
+    type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // Already frozen: freezing the contained values just re-brands them.
+        let Self {
+            exported,
+            operations,
+        } = self;
+        Ok(FrozenTransitiveSetDefinition {
+            exported,
+            operations: operations.freeze(freezer)?,
         })
     }
 }
@@ -426,7 +449,7 @@ impl<'v> TransitiveSetDefinitionLike<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
+impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition<'v> {
     fn has_id(&self) -> bool {
         true
     }
@@ -436,7 +459,7 @@ impl<'v> TransitiveSetDefinitionLike<'v> for FrozenTransitiveSetDefinition {
     }
 
     fn operations(&self) -> &TransitiveSetOperations<'v> {
-        coerce(&self.operations)
+        &self.operations
     }
 }
 
@@ -465,7 +488,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                     k,
                     TransitiveSetProjectionSpec {
                         kind: TransitiveSetProjectionKind::Args,
-                        projection: ValueOfUncheckedGeneric::new(v.0),
+                        projection: ValueOfUnchecked::new(v.0),
                     },
                 )
             })
@@ -478,7 +501,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
                             k,
                             TransitiveSetProjectionSpec {
                                 kind: TransitiveSetProjectionKind::Json,
-                                projection: ValueOfUncheckedGeneric::new(v.0),
+                                projection: ValueOfUnchecked::new(v.0),
                             },
                         )
                     }),
@@ -488,7 +511,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
         let reductions = reductions
             .unwrap_or_default()
             .into_iter()
-            .map(|(k, v)| (k, ValueOfUncheckedGeneric::new(v.0)))
+            .map(|(k, v)| (k, ValueOfUnchecked::new(v.0)))
             .collect();
 
         let starlark_path: StarlarkPath = starlark_path_from_build_context(eval)?;

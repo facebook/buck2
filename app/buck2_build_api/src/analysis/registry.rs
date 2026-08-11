@@ -290,7 +290,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn create_transitive_set(
         &mut self,
-        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
         value: Option<Value<'v>>,
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,

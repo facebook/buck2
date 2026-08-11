@@ -97,7 +97,10 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// Creates a new transitive set. For details, see https://buck2.build/docs/rule_authors/transitive_sets/.
     fn tset<'v>(
         this: &AnalysisActions<'v>,
-        #[starlark(require = pos)] definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition>,
+        #[starlark(require = pos)] definition: FrozenValueTyped<
+            'v,
+            FrozenTransitiveSetDefinition<'v>,
+        >,
         #[starlark(require = named)] value: Option<Value<'v>>,
         #[starlark(require = named)] children: Option<
             ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
