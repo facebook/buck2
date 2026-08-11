@@ -12,7 +12,7 @@ use std::fmt;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use buck2_hash::BuckHasher;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use pagable::Pagable;
 
@@ -135,9 +135,14 @@ impl ExhaustivenessHash {
             return uniform;
         }
 
-        let mut hasher = BuckHasher::new();
+        // Mixed hashes are embedded in pagable-persisted directory data, so the mix is part
+        // of a persisted format: it must be computed with a hash whose algorithm never
+        // changes, with platform-independent input bytes. Blake3 (the strong-hash choice) is
+        // that; general-purpose hashers like `BuckHasher` are allowed to change between
+        // versions.
+        let mut hasher = Blake3StrongHasher::new();
         for c in dir_children() {
-            hasher.write_u64(c.0);
+            hasher.write(&c.0.to_le_bytes());
         }
         // Mask to 63 bits so the shift below cannot truncate `mix` to zero, then force it
         // non-zero; mixed values are thereby always distinct from both sentinels.
@@ -269,6 +274,24 @@ mod tests {
         assert_eq!(
             ExhaustivenessHash::compute(Exhaustiveness::NonExhaustive, mixed_input),
             ExhaustivenessHash::compute(Exhaustiveness::NonExhaustive, mixed_input),
+        );
+    }
+
+    /// Golden values locking mixed hashes on every platform. Mixed hashes are embedded in
+    /// pagable-persisted directory data; if this fails, previously persisted data no longer
+    /// matches what a fresh binary computes. That is a persisted-format change: do not update
+    /// the golden values without versioning or invalidating that data.
+    #[test]
+    fn test_mixed_hashes_are_stable() {
+        let mixed_n = ExhaustivenessHash::compute(Exhaustiveness::NonExhaustive, mixed_input);
+        let mixed_e = ExhaustivenessHash::compute(Exhaustiveness::Exhaustive, mixed_input);
+        let nested = ExhaustivenessHash::compute(Exhaustiveness::NonExhaustive, || {
+            [mixed_n, mixed_e, ExhaustivenessHash::UNIFORMLY_EXHAUSTIVE]
+        });
+        assert_eq!(
+            [mixed_n.0, mixed_e.0, nested.0],
+            [0xe8a00d2eec2e91ce, 0xe8a00d2eec2e91cf, 0x6c9ec375220b0142],
+            "see this test's doc comment before updating these values"
         );
     }
 }
