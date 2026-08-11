@@ -33,6 +33,12 @@ impl ExpandedCommandLineDigest {
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }
+
+    /// Reconstruct a digest from the 32 bytes returned by [`Self::as_bytes`]. Used to rehydrate
+    /// persisted dep-file cache entries.
+    pub fn from_bytes(bytes: [u8; blake3::OUT_LEN]) -> Self {
+        ExpandedCommandLineDigest(blake3::Hash::from_bytes(bytes))
+    }
 }
 
 /// Obtain a hash of this command line. Conceptually this is as if we serialized the command

@@ -507,6 +507,39 @@ async def test_dep_file_hit_across_configurations(buck: Buck) -> None:
     data_dir="dep_files",
     skip_for_os=["windows"],
 )
+async def test_no_cross_config_hit_without_content_based_paths(buck: Buck) -> None:
+    # The mirror of `test_dep_file_hit_across_configurations`: with non-content-based paths the
+    # action is not configuration-independent, so building it under a second configuration must
+    # execute rather than reuse the first configuration's entry.
+    #
+    # This pins the precondition that `hit_outputs_if_present` relies on. It verifies the outputs of
+    # the *live* configuration are materialized rather than the candidate's, and those resolve to
+    # the same path on disk only when the outputs are content-based. A non-content-based action
+    # never reaches that check cross-configuration today, because its output paths are part of the
+    # command line digest and so differ per configuration -- this test is what keeps that true.
+    for platform in ["platform_a", "platform_b"]:
+        await buck.build(
+            "app:simple_dep_file",
+            "--target-platforms",
+            f"root//platforms:{platform}",
+            "-c",
+            "test.use_content_based_paths=false",
+            "--local-only",
+            "--no-remote-cache",
+            "--show-output",
+        )
+        await check_execution_kind(
+            buck,
+            [ACTION_EXECUTION_KIND_LOCAL],
+            ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+        )
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
 async def test_select_divergent_actions_do_not_thrash_across_configurations(
     buck: Buck,
 ) -> None:

@@ -63,10 +63,11 @@ async fn audit_dep_files(
     };
 
     let artifact_fs = ctx.ctx().get_artifact_fs().await?;
+    let result = state.result();
     let dep_files = read_dep_files(
         state.has_signatures(),
         declared_dep_files,
-        state.result(),
+        result,
         artifact_fs,
         ctx.per_transaction_data().get_materializer(),
     )
