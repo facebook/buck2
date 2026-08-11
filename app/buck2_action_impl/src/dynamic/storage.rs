@@ -34,7 +34,6 @@ use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozenRef;
-use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark_map::small_map::SmallMap;
@@ -125,27 +124,25 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
 
 impl FrozenDynamicLambdaParamsStorageImpl {
     pub(crate) fn lookup_lambda<'f>(
-        storage: OwnedRefFrozenRef<'f, FrozenAnalysisValueStorage<'static>>,
+        storage: OwnedFrozenRef<'f, &'static FrozenAnalysisValueStorage<'static>>,
         key: &DynamicLambdaResultsKey,
     ) -> buck2_error::Result<OwnedFrozenRef<'f, &'static FrozenDynamicLambdaParams>> {
-        if key.holder_key() != &storage.as_ref().self_key {
+        if key.holder_key() != &storage.value().self_key {
             return Err(internal_error!(
                 "Wrong owner for lambda: expecting `{}`, got `{}`",
-                storage.as_ref().self_key,
+                storage.value().self_key,
                 key
             ));
         }
-        Ok(storage
-            .try_map_result(|s| {
-                s.lambda_params
-                    .as_any()
-                    .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
-                    .ok_or_else(|| internal_error!("Wrong type for lambda params storage"))?
-                    .lambda_params
-                    .get(key)
-                    .ok_or_else(|| internal_error!("missing lambda `{key}`"))
-            })?
-            .to_owned_frozen_ref())
+        storage.try_map::<&'static FrozenDynamicLambdaParams, buck2_error::Error, _>(|s| {
+            s.lambda_params
+                .as_any()
+                .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
+                .ok_or_else(|| internal_error!("Wrong type for lambda params storage"))?
+                .lambda_params
+                .get(key)
+                .ok_or_else(|| internal_error!("missing lambda `{key}`"))
+        })
     }
 }
 

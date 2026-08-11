@@ -59,9 +59,9 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
-use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
@@ -655,11 +655,15 @@ impl AnalysisValueFetcher {
     ) -> buck2_error::Result<RecordedAnalysisValues> {
         let analysis_storage = match &self.frozen_module {
             None => None,
-            Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
-                v.value
-                    .analysis_value_storage
-                    .ok_or_else(|| internal_error!("analysis_value_storage not set"))
-            })?),
+            Some(module) => Some(
+                FrozenAnalysisExtraValue::get(module)?
+                    .try_map(|v| {
+                        v.value
+                            .analysis_value_storage
+                            .ok_or_else(|| internal_error!("analysis_value_storage not set"))
+                    })?
+                    .into(),
+            ),
         };
 
         Ok(RecordedAnalysisValues {
@@ -674,8 +678,9 @@ impl AnalysisValueFetcher {
 #[derive(Debug, Allocative, pagable::Pagable)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
-    analysis_storage:
-        Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
+    analysis_storage: Option<
+        OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
+    >,
     actions: RecordedActions,
 }
 
@@ -734,8 +739,9 @@ impl RecordedAnalysisValues {
                         value,
                     )
                 }
-                .downcast()
-                .unwrap(),
+                .downcast::<StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>()
+                .unwrap()
+                .into(),
             ),
             actions,
         }
@@ -752,23 +758,20 @@ impl RecordedAnalysisValues {
                 key
             ));
         }
-        let storage = self
+        Ok(self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?;
-        Ok(storage
-            // The closure's argument is handed out at a fresh lifetime, at which the branded
-            // storage type is not usable; go through the `'static` borrow instead.
-            .maybe_map(|_| {
-                storage
-                    .as_ref()
+            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?
+            .as_ref()
+            .maybe_map::<ValueTyped<'static, TransitiveSet<'static>>, _>(|v| {
+                v.as_ref()
                     .value
                     .transitive_sets
                     .get(key.index().0 as usize)
-                    .copied()
+                    .map(|v| v.to_value_typed())
             })
             .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))?
-            .into())
+            .to_owned())
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
@@ -789,35 +792,46 @@ impl RecordedAnalysisValues {
 
     pub fn analysis_storage(
         &self,
-    ) -> buck2_error::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage<'static>>> {
+    ) -> buck2_error::Result<OwnedFrozenRef<'_, &'static FrozenAnalysisValueStorage<'static>>> {
         Ok(self
             .analysis_storage
             .as_ref()
             .ok_or_else(|| internal_error!("missing analysis storage"))?
-            .as_owned_ref_frozen_ref()
-            .map(|v| &v.value))
+            .as_ref()
+            .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value))
     }
 
     /// Iterates over the declared dynamic_output/actions.
     pub fn iter_dynamic_lambda_outputs(&self) -> impl Iterator<Item = BuildArtifact> + '_ {
-        self.analysis_storage
-            .iter()
-            .flat_map(|v| v.value.lambda_params.iter_dynamic_lambda_outputs())
+        self.analysis_storage.iter().flat_map(|v| {
+            v.as_ref()
+                .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value)
+                .value()
+                .lambda_params
+                .iter_dynamic_lambda_outputs()
+        })
     }
 
     pub fn provider_collection(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {
-        let analysis_storage = self
+        let inner = self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("missing analysis storage"))?;
-        let value = analysis_storage
+            .ok_or_else(|| internal_error!("missing analysis storage"))?
             .as_ref()
-            .value
-            .result_value
-            .ok_or_else(|| internal_error!("missing provider collection"))?;
+            .try_map::<FrozenValueTyped<'static, ProviderCollection<'static>>, buck2_error::Error, _>(
+                |v| {
+                    v.as_ref()
+                        .value
+                        .result_value
+                        .ok_or_else(|| internal_error!("missing provider collection"))
+                },
+            )?;
+        // Re-type the branded value at `'static` for the legacy constructor
+        let value = FrozenValueTyped::new(inner.value().to_frozen_value())
+            .ok_or_else(|| internal_error!("value is a `ProviderCollection`"))?;
         // SAFETY: The values in the collection are kept alive by the
         // storage owner, which the returned ref borrows.
-        Ok(unsafe { FrozenProviderCollectionValueRef::new(analysis_storage.owner(), value) })
+        Ok(unsafe { FrozenProviderCollectionValueRef::new(inner.owner(), value) })
     }
 
     pub(crate) fn retained_memory(&self) -> buck2_error::Result<usize> {
