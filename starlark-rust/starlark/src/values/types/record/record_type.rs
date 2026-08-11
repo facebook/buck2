@@ -98,6 +98,7 @@ impl<'v> RecordCell for Value<'v> {
         ty.get()
     }
 }
+
 impl RecordCell for FrozenValue {
     type TyRecordDataOpt = Option<Arc<TyRecordData>>;
 
@@ -155,7 +156,7 @@ pub type FrozenRecordType = RecordTypeGen<FrozenValue>;
 
 starlark_complex_values!(RecordType);
 
-pub(crate) fn record_fields<'v>(
+pub(super) fn record_fields<'v>(
     x: Either<&'v RecordType<'v>, &'v FrozenRecordType>,
 ) -> &'v SmallMap<String, FieldGen<Value<'v>>> {
     x.either(|x| &x.fields, |x| coerce(&x.fields))
@@ -188,11 +189,11 @@ where
     Self: ProvidesStaticType<'v>,
     FieldGen<V>: ProvidesStaticType<'v>,
 {
-    pub(crate) fn ty_record_data(&self) -> Option<&Arc<TyRecordData>> {
+    fn ty_record_data(&self) -> Option<&Arc<TyRecordData>> {
         V::get_ty(&self.ty_record_data)
     }
 
-    pub(crate) fn instance_ty(&self) -> Ty {
+    pub(super) fn instance_ty(&self) -> Ty {
         self.ty_record_data()
             .expect("Instances can only be created if named are assigned")
             .ty_record

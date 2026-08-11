@@ -115,8 +115,6 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::none::none_type::VALUE_NONE;
 use crate::values::range::Range;
-use crate::values::record::instance::FrozenRecord;
-use crate::values::record::record_type::RecordType;
 use crate::values::recursive_repr_or_json_guard::json_stack_push;
 use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
@@ -1229,8 +1227,6 @@ impl FrozenValue {
             || FrozenValueTyped::<FrozenDef>::new(self).is_some()
             || FrozenValueTyped::<NativeFunction>::new(self).is_some()
             || FrozenValueTyped::<FrozenStruct>::new(self).is_some()
-            || FrozenValueTyped::<RecordType>::new(self).is_some()
-            || FrozenValueTyped::<FrozenRecord>::new(self).is_some()
             || FrozenValueTyped::<EnumType>::new(self).is_some()
             || FrozenValueTyped::<FrozenEnumValue>::new(self).is_some()
     }

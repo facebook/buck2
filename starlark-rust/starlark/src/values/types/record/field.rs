@@ -85,7 +85,7 @@ impl<V: ValueLifetimeless> FieldGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> FieldGen<V> {
-    pub(crate) fn ty(&self) -> Ty {
+    pub(super) fn ty(&self) -> Ty {
         self.typ.as_ty().clone()
     }
 }
