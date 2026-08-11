@@ -44,21 +44,6 @@ pub(crate) enum CmdArgsRegex<'v> {
     Regex(ValueTyped<'v, StarlarkBuckRegex>),
 }
 
-pub(crate) type FrozenCmdArgsRegex = CmdArgsRegex<'static>;
-
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> starlark::values::Freeze for CmdArgsRegex<'v> {
-    type Frozen = FrozenCmdArgsRegex;
-
-    fn freeze(
-        self,
-        freezer: &starlark::values::Freezer,
-    ) -> starlark::values::FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
-    }
-}
-
 impl<'v> CmdArgsRegex<'v> {
     pub(crate) fn validate(&self) -> buck2_error::Result<()> {
         match self {

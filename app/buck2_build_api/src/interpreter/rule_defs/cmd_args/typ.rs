@@ -41,7 +41,6 @@ use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -660,10 +659,20 @@ impl<'v> FreezeBranded for StarlarkCmdArgs<'v> {
             options,
         } = self.0.into_inner();
 
-        // The element storage is raw `FrozenValue`s, so the elements' plain
-        // `Freeze` (which targets exactly that) is the right one here.
-        let items = ThinBoxSliceFrozenValue::from_iter(Freeze::freeze(items, freezer)?);
-        let hidden = ThinBoxSliceFrozenValue::from_iter(Freeze::freeze(hidden, freezer)?);
+        // The element storage is raw `FrozenValue`s, so freeze the elements'
+        // inner `Value`s directly.
+        fn freeze_elements<'fv>(
+            elements: Vec<CommandLineArg<'_>>,
+            freezer: &Freezer<'fv>,
+        ) -> FreezeResult<ThinBoxSliceFrozenValue<'fv>> {
+            let frozen = elements
+                .into_iter()
+                .map(|x| x.to_value().freeze(freezer))
+                .collect::<FreezeResult<Vec<_>>>()?;
+            Ok(ThinBoxSliceFrozenValue::from_iter(frozen))
+        }
+        let items = freeze_elements(items, freezer)?;
+        let hidden = freeze_elements(hidden, freezer)?;
         let options = options
             .try_map(|options| FreezeBranded::freeze(*options, freezer))?
             .unwrap_or_default();
@@ -673,16 +682,6 @@ impl<'v> FreezeBranded for StarlarkCmdArgs<'v> {
             hidden,
             options,
         })
-    }
-}
-
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> Freeze for StarlarkCmdArgs<'v> {
-    type Frozen = FrozenStarlarkCmdArgs<'static>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
     }
 }
 

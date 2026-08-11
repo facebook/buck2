@@ -40,7 +40,6 @@ use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -185,16 +184,6 @@ starlark::register_simple_vtable_entry!(ProviderCollection<'static>);
 // SAFETY: The vtable entry is registered above; the deser type id is
 // lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
 unsafe impl<'v> starlark::__derive_refs::VtableRegistered for ProviderCollection<'v> {}
-
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> Freeze for ProviderCollection<'v> {
-    type Frozen = FrozenProviderCollection;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
-    }
-}
 
 // These are the hand-written equivalents of `starlark_complex_value_branded!`,
 // which we can't use because empty collections should be allocated as the

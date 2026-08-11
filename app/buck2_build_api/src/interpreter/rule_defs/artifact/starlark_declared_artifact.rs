@@ -29,7 +29,6 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -312,16 +311,6 @@ impl<'v> FreezeBranded for StarlarkDeclaredArtifact<'v> {
             artifact,
             associated_artifacts: self.associated_artifacts,
         })
-    }
-}
-
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> Freeze for StarlarkDeclaredArtifact<'v> {
-    type Frozen = StarlarkArtifact;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
     }
 }
 

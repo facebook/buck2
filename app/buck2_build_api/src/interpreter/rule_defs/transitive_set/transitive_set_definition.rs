@@ -401,16 +401,6 @@ impl<'v> FreezeBranded for TransitiveSetDefinition<'v> {
     }
 }
 
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> Freeze for TransitiveSetDefinition<'v> {
-    type Frozen = FrozenTransitiveSetDefinition<'static>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
-    }
-}
-
 impl<'v> FreezeBranded for FrozenTransitiveSetDefinition<'v> {
     type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 

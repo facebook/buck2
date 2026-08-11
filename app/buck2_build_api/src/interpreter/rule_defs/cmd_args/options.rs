@@ -439,16 +439,6 @@ impl<'v> FreezeBranded for CommandLineOptions<'v> {
     }
 }
 
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
-impl<'v> Freeze for CommandLineOptions<'v> {
-    type Frozen = FrozenCommandLineOptions<'static>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
-    }
-}
-
 fn serialize_opt_display<V: Display, S>(v: &Option<(V, u32)>, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

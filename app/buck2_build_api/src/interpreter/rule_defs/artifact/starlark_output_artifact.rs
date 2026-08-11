@@ -97,8 +97,9 @@ impl<'v> FreezeBranded for StarlarkOutputArtifact<'v> {
     }
 }
 
-// Interop for containers whose `Freeze` impls have not been migrated to
-// `FreezeBranded`; see `freeze_via_branded`.
+// The last plain-`Freeze` impl on a branded type: the dynamic-lambda-params
+// storage still freezes these through `derive(Freeze)` containers. Dies when
+// that storage is branded; see `freeze_via_branded`.
 impl<'v> Freeze for StarlarkOutputArtifact<'v> {
     type Frozen = FrozenStarlarkOutputArtifact<'static>;
 

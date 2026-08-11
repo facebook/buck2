@@ -17,11 +17,9 @@ use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::ThinBoxSliceFrozenValue;
 use starlark::values::Trace;
@@ -69,14 +67,6 @@ impl<'v> PartialEq for CommandLineArg<'v> {
 }
 
 impl<'v> Eq for CommandLineArg<'v> {}
-
-impl<'v> Freeze for CommandLineArg<'v> {
-    type Frozen = FrozenValue;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
-        self.0.freeze(freezer)
-    }
-}
 
 impl<'v> FreezeBranded for CommandLineArg<'v> {
     type Frozen<'fv> = CommandLineArg<'fv>;
