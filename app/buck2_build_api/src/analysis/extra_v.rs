@@ -49,7 +49,7 @@ pub struct AnalysisExtraValue<'v> {
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenAnalysisExtraValue {
     pub(crate) analysis_value_storage:
-        Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
+        Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
 }
 
 starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue);

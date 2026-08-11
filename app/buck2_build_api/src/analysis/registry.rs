@@ -416,7 +416,7 @@ pub struct AnalysisValueStorage<'v> {
 }
 
 #[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
-pub struct FrozenAnalysisValueStorage {
+pub struct FrozenAnalysisValueStorage<'fv> {
     #[starlark_pagable(pagable)]
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
@@ -424,15 +424,15 @@ pub struct FrozenAnalysisValueStorage {
         serialize_with = "serialize_transitive_sets",
         deserialize_with = "deserialize_transitive_sets"
     )]
-    transitive_sets: MiniBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    transitive_sets: MiniBoxSlice<FrozenValueTyped<'fv, TransitiveSet<'fv>>>,
     // `Box<dyn FrozenDynamicLambdaParamsStorage>` round-trips via pagable typetag
     #[starlark_pagable(pagable)]
     pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
-    result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
+    result_value: Option<FrozenValueTyped<'fv, ProviderCollection<'fv>>>,
 }
 
-fn serialize_transitive_sets(
-    field: &MiniBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>,
+fn serialize_transitive_sets<'v>(
+    field: &MiniBoxSlice<FrozenValueTyped<'v, TransitiveSet<'v>>>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -442,13 +442,15 @@ fn serialize_transitive_sets(
     Ok(())
 }
 
-fn deserialize_transitive_sets(
+fn deserialize_transitive_sets<'v>(
     ctx: &mut dyn StarlarkDeserializeContext<'_>,
-) -> starlark::Result<MiniBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>> {
+) -> starlark::Result<MiniBoxSlice<FrozenValueTyped<'v, TransitiveSet<'v>>>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);
     for _ in 0..len {
-        items.push(FrozenValueTyped::<'static, FrozenTransitiveSet>::starlark_deserialize(ctx)?);
+        items.push(FrozenValueTyped::<TransitiveSet>::starlark_deserialize(
+            ctx,
+        )?);
     }
     Ok(MiniBoxSlice::from_iter(items))
 }
@@ -476,7 +478,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
 }
 
 impl<'v> Freeze for AnalysisValueStorage<'v> {
-    type Frozen = FrozenAnalysisValueStorage;
+    type Frozen = FrozenAnalysisValueStorage<'static>;
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let AnalysisValueStorage {
@@ -604,7 +606,7 @@ impl<'v> AnalysisValueStorage<'v> {
 impl AnalysisValueFetcher {
     fn extra_value(
         &self,
-    ) -> buck2_error::Result<Option<(&FrozenAnalysisValueStorage, &FrozenHeapRef)>> {
+    ) -> buck2_error::Result<Option<(&FrozenAnalysisValueStorage<'static>, &FrozenHeapRef)>> {
         match &self.frozen_module {
             None => Ok(None),
             Some(module) => {
@@ -672,11 +674,12 @@ impl AnalysisValueFetcher {
 #[derive(Debug, Allocative, pagable::Pagable)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
-    analysis_storage: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
+    analysis_storage:
+        Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
     actions: RecordedActions,
 }
 
-starlark::register_starlark_any_complex!(AnalysisValueStorage<'_>, frozen FrozenAnalysisValueStorage);
+starlark::register_starlark_any_complex!(AnalysisValueStorage<'_>, frozen FrozenAnalysisValueStorage<'_>);
 
 impl RecordedAnalysisValues {
     /// Creates a minimal RecordedAnalysisValues for testing action lookups only.
@@ -749,11 +752,21 @@ impl RecordedAnalysisValues {
                 key
             ));
         }
-        Ok(self
+        let storage = self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?
-            .maybe_map(|v| v.value.transitive_sets.get(key.index().0 as usize).copied())
+            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?;
+        Ok(storage
+            // The closure's argument is handed out at a fresh lifetime, at which the branded
+            // storage type is not usable; go through the `'static` borrow instead.
+            .maybe_map(|_| {
+                storage
+                    .as_ref()
+                    .value
+                    .transitive_sets
+                    .get(key.index().0 as usize)
+                    .copied()
+            })
             .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))?
             .into())
     }
@@ -776,7 +789,7 @@ impl RecordedAnalysisValues {
 
     pub fn analysis_storage(
         &self,
-    ) -> buck2_error::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage>> {
+    ) -> buck2_error::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage<'static>>> {
         Ok(self
             .analysis_storage
             .as_ref()

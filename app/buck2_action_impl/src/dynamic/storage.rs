@@ -124,7 +124,7 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
 
 impl FrozenDynamicLambdaParamsStorageImpl {
     pub(crate) fn lookup_lambda<'f>(
-        storage: OwnedRefFrozenRef<'f, FrozenAnalysisValueStorage>,
+        storage: OwnedRefFrozenRef<'f, FrozenAnalysisValueStorage<'static>>,
         key: &DynamicLambdaResultsKey,
     ) -> buck2_error::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
         if key.holder_key() != &storage.as_ref().self_key {
