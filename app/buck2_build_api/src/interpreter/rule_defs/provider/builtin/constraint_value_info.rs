@@ -20,18 +20,14 @@ use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel
 use buck2_interpreter::types::target_label::LabelArg;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
-use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
 use crate as buck2_build_api;
@@ -45,25 +41,24 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::F
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct ConstraintValueInfoGen<V: ValueLifetimeless> {
-    setting: ValueOfUncheckedGeneric<V, FrozenConstraintSettingInfo>,
-    label: ValueOfUncheckedGeneric<V, StarlarkProvidersLabel>,
+pub struct ConstraintValueInfo<'v> {
+    setting: ValueOfUnchecked<'v, FrozenConstraintSettingInfo>,
+    label: ValueOfUnchecked<'v, StarlarkProvidersLabel>,
 }
 
-impl<'v, V: ValueLike<'v>> ConstraintValueInfoGen<V> {
+impl<'v> ConstraintValueInfo<'v> {
     pub(crate) fn setting(&self) -> ValueOf<'v, &'v ConstraintSettingInfo<'v>> {
-        ValueOf::unpack_value_err(self.setting.get().to_value()).expect("validated at construction")
+        ValueOf::unpack_value_err(self.setting.get()).expect("validated at construction")
     }
 
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkProvidersLabel> {
-        ValueTyped::new_err(self.label.get().to_value()).expect("validated at construction")
+        ValueTyped::new_err(self.label.get()).expect("validated at construction")
     }
 
     /// Convert to a ConstraintValue for use in configuration data.
@@ -77,14 +72,12 @@ impl<'v, V: ValueLike<'v>> ConstraintValueInfoGen<V> {
         let constraint_value = self.to_constraint_value();
         (constraint_key, constraint_value)
     }
-}
 
-impl<'v> ConstraintValueInfo<'v> {
     pub(crate) fn new(
         setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         label: ValueOf<'v, &'v StarlarkProvidersLabel>,
     ) -> ConstraintValueInfo<'v> {
-        ConstraintValueInfoGen {
+        ConstraintValueInfo {
             setting: ValueOfUnchecked::new(setting.value),
             label: label.as_unchecked().cast(),
         }
