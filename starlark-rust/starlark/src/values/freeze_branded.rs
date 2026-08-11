@@ -43,14 +43,14 @@ use crate::values::Value;
 /// ```
 /// # struct AdditionalData;
 ///
-/// use starlark::values::Freeze;
-/// use starlark::values::FreezeResult;
+/// use starlark::values::FreezeBranded;
+/// use starlark::values::Value;
 ///
-/// #[derive(Freeze)]
-/// struct MyType<V> {
-///     value: V,
+/// #[derive(FreezeBranded)]
+/// struct MyType<'v> {
+///     value: Value<'v>,
 ///     // This field does not implement `FreezeBranded`, but we can use it as is for freeze.
-///     #[freeze(identity)]
+///     #[freeze_branded(identity)]
 ///     data: AdditionalData,
 /// }
 /// ```

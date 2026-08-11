@@ -15,8 +15,12 @@ mod provider;
 
 /// Generates the starlark implementation for an internal provider.
 ///
-/// Implements StarlarkValue, ComplexValue, ProviderLike for the provider type and
-/// adds a ProviderCallable that's used in starlark as the constructor.
+/// Implements `StarlarkValue` and `ProviderLike` for the provider type and
+/// adds a `ProviderCallable` that's used in starlark as the constructor.
+///
+/// The struct must have the branded shape: one lifetime parameter and
+/// `ValueOfUnchecked<'v, _>`/`ValueTyped<'v, _>`-style fields, with
+/// `#[derive(FreezeBranded)]`. The frozen form is the `'static` alias.
 ///
 /// # Arguments
 ///
@@ -39,9 +43,9 @@ mod provider;
 /// In rust, a utility is added for getting the provider from a provider collection like
 /// Foo::from_providers(collection).
 ///
-/// You can customize the freeze implementation (for example if you want to do validation
-/// at that point) by passing it to the attribute like:
-/// `#[internal_provider(creator, freeze=my_freeze)]`
+/// To run validation at freeze time, put `#[freeze_branded(validator = my_validate)]`
+/// on the struct; that is an option of the `FreezeBranded` derive, not of this
+/// attribute.
 ///
 /// # Examples
 ///
