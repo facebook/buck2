@@ -211,6 +211,14 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         self.0
     }
 
+    /// Attempt to convert to a frozen-value handle without rechecking the type.
+    #[inline]
+    pub fn unpack_frozen(self) -> Option<FrozenValueTyped<'v, T>> {
+        let value = self.to_value().unpack_frozen()?;
+        // SAFETY: Type was checked when `self` was constructed.
+        Some(unsafe { FrozenValueTyped::new_unchecked(value) })
+    }
+
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {

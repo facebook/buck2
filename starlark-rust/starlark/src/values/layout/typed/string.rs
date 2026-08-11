@@ -146,13 +146,6 @@ impl<'v> StringValue<'v> {
     pub fn get_hashed_value(self) -> Hashed<Value<'v>> {
         Hashed::new_unchecked(self.get_hash(), self.to_value())
     }
-
-    /// If this string value is frozen, return it.
-    pub fn unpack_frozen(self) -> Option<FrozenStringValue> {
-        self.to_value()
-            .unpack_frozen()
-            .map(|s| unsafe { FrozenStringValue::new_unchecked(s) })
-    }
 }
 
 /// Common type for [`StringValue`] and [`FrozenStringValue`].
