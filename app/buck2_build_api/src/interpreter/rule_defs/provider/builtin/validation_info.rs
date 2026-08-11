@@ -110,17 +110,10 @@ fn validate_validation_info<'v>(info: &ValidationInfo<'v>) -> buck2_error::Resul
     let mut spec_names = HashSet::new();
     for value in values {
         let wrong_type_error = || ValidationInfoError::WrongSpecType(format!("{value}"));
-        let name = if let Some(frozen_value) = value.unpack_frozen() {
-            let spec = frozen_value
-                .downcast_ref::<FrozenStarlarkValidationSpec>()
-                .ok_or_else(wrong_type_error)?;
-            spec.name()
-        } else {
-            let spec = value
-                .downcast_ref::<StarlarkValidationSpec>()
-                .ok_or_else(wrong_type_error)?;
-            spec.name()
-        };
+        let name = value
+            .downcast_ref::<StarlarkValidationSpec>()
+            .ok_or_else(wrong_type_error)?
+            .name();
         if !spec_names.insert(name) {
             return Err(ValidationInfoError::SpecsWithDuplicateName(name.to_owned()).into());
         }
@@ -152,13 +145,12 @@ fn validation_info_creator(globals: &mut GlobalsBuilder) {
 pub type OwnedValidationInfo = OwnedFrozen<ValueTyped<'static, ValidationInfo<'static>>>;
 
 impl<'v> ValidationInfo<'v> {
-    /// Panics when called on an unfrozen instance, whose specs are not yet the frozen variant.
-    pub fn validations(&self) -> impl Iterator<Item = &FrozenStarlarkValidationSpec> {
+    pub fn validations(&self) -> impl Iterator<Item = &'v StarlarkValidationSpec<'v>> {
         let it = ListRef::from_value(self.validations.get())
             .expect("type checked during construction or freezing")
             .iter();
         it.map(|x| {
-            x.downcast_ref::<FrozenStarlarkValidationSpec>()
+            x.downcast_ref::<StarlarkValidationSpec>()
                 .expect("type checked during construction or freezing")
         })
     }

@@ -13,11 +13,10 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -26,10 +25,8 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::starlark_value;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -63,19 +60,17 @@ enum ValidationSpecError {
     Debug,
     Trace,
     NoSerialize,
-    Coerce,
     ProvidesStaticType,
     Allocative,
-    Freeze,
+    FreezeBranded,
     StarlarkPagable
 )]
-#[freeze(validator = validate_validation_spec, bounds = "V: ValueLike<'freeze>")]
-#[repr(C)]
-pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
+#[freeze_branded(validator = validate_validation_spec)]
+pub struct StarlarkValidationSpec<'v> {
     /// Name identifying this validation. Must be non-empty and unique within
     /// the enclosing `ValidationInfo`. Surfaces in CLI output and is the
     /// handle used by `--enable-optional-validations <name>`.
-    name: ValueOfUncheckedGeneric<V, String>,
+    name: ValueOfUnchecked<'v, String>,
     /// Build artifact produced by the validator. After the action that
     /// produces it runs, Buck2 reads the file as UTF-8 JSON and expects
     /// the following shape:
@@ -101,7 +96,7 @@ pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
     ///
     /// See [Writing the validator](https://buck2.build/docs/rule_authors/validation/#writing-the-validator)
     /// in the Validations guide for the full schema reference and examples.
-    validation_result: ValueOfUncheckedGeneric<V, ValueIsInputArtifactAnnotation>,
+    validation_result: ValueOfUnchecked<'v, ValueIsInputArtifactAnnotation>,
 
     /// If `True`, the validation is skipped by default and only runs when
     /// the user passes `--enable-optional-validations <name>`. Defaults to
@@ -109,9 +104,9 @@ pub struct StarlarkValidationSpecGen<V: ValueLifetimeless> {
     optional: bool,
 }
 
-starlark_complex_value!(pub(crate) StarlarkValidationSpec);
+starlark_complex_value_branded!(pub(crate) StarlarkValidationSpec);
 
-impl<'v, V: ValueLike<'v>> StarlarkValidationSpecGen<V> {
+impl<'v> StarlarkValidationSpec<'v> {
     pub fn name(&self) -> &'v str {
         self.name
             .cast::<&str>()
@@ -120,7 +115,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValidationSpecGen<V> {
     }
 
     pub fn validation_result(&self) -> &'v dyn StarlarkInputArtifactLike<'v> {
-        ValueAsInputArtifactLike::unpack_value_opt(self.validation_result.get().to_value())
+        ValueAsInputArtifactLike::unpack_value_opt(self.validation_result.get())
             .expect("type checked during construction or freezing")
             .0
     }
@@ -130,10 +125,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValidationSpecGen<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> Display for StarlarkValidationSpecGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> Display for StarlarkValidationSpec<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "ValidationSpec(name={}, validation_result=", self.name)?;
         Display::fmt(&self.validation_result, f)?;
@@ -141,16 +133,12 @@ where
     }
 }
 
-fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> buck2_error::Result<()>
-where
-    V: ValueLike<'v>,
-{
+fn validate_validation_spec<'v>(spec: &StarlarkValidationSpec<'v>) -> buck2_error::Result<()> {
     let name = spec.name.unpack()?;
     if name.is_empty() {
         return Err(ValidationSpecError::EmptyName.into());
     }
-    let artifact =
-        ValueAsInputArtifactLike::unpack_value_err(spec.validation_result.get().to_value())?;
+    let artifact = ValueAsInputArtifactLike::unpack_value_err(spec.validation_result.get())?;
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {
@@ -166,10 +154,7 @@ where
 starlark::methods_static!(VALIDATION_SPEC_METHODS = validation_spec_methods);
 
 #[starlark_value(type = "ValidationSpec")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkValidationSpec<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(VALIDATION_SPEC_METHODS.methods())
     }
@@ -231,8 +216,7 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     fn validation_result<'v>(
         this: &'v StarlarkValidationSpec,
     ) -> starlark::Result<StarlarkArtifact> {
-        let artifact =
-            ValueAsInputArtifactLike::unpack_value_err(this.validation_result.get().to_value())?;
+        let artifact = ValueAsInputArtifactLike::unpack_value_err(this.validation_result.get())?;
         Ok(artifact.0.get_bound_starlark_artifact()?)
     }
 }
