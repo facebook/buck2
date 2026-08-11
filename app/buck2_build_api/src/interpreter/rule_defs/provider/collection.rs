@@ -494,10 +494,7 @@ impl<'v> FreezeBranded for ProviderCollection<'v> {
 }
 
 impl<'v> ProviderCollection<'v> {
-    /// Panics when called on a collection that is still being built; any
-    /// collection reached through a `Dependency` or an analysis result is
-    /// frozen and hence fine.
-    pub fn default_info(&self) -> buck2_error::Result<FrozenValueTyped<'v, DefaultInfo<'v>>> {
+    pub fn default_info(&self) -> buck2_error::Result<ValueTyped<'v, DefaultInfo<'v>>> {
         self.builtin_provider::<FrozenDefaultInfo>().ok_or_else(|| {
             internal_error!(
                 "DefaultInfo should always be set for providers returned from rule function"
@@ -509,32 +506,14 @@ impl<'v> ProviderCollection<'v> {
         self.providers.contains_key(provider_id)
     }
 
-    /// Panics when called on a collection that is still being built; any
-    /// collection reached through a `Dependency` or an analysis result is
-    /// frozen and hence fine.
     pub fn builtin_provider<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<FrozenValueTyped<'v, T::Reinfect<'v>>>
+    ) -> Option<ValueTyped<'v, T::Reinfect<'v>>>
     where
         T::Reinfect<'v>: StarlarkValue<'v> + Sized,
     {
-        self.builtin_provider_value::<T>()
-    }
-
-    /// Panics when called on a collection that is still being built; any
-    /// collection reached through a `Dependency` or an analysis result is
-    /// frozen and hence fine.
-    pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
-        &self,
-    ) -> Option<FrozenValueTyped<'v, T::Reinfect<'v>>>
-    where
-        T::Reinfect<'v>: StarlarkValue<'v> + Sized,
-    {
-        let provider = self
-            .get_provider_raw(T::builtin_provider_id())?
-            .unpack_frozen()
-            .expect("provider collection is frozen");
-        Some(FrozenValueTyped::new(provider).expect("Incorrect provider type"))
+        let provider = self.get_provider_raw(T::builtin_provider_id())?;
+        Some(ValueTyped::new(provider).expect("Incorrect provider type"))
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<Value<'v>> {
@@ -656,7 +635,12 @@ impl FrozenProviderCollectionValue {
             .as_ref()
             .inner
             .maybe_map::<FrozenValueTyped<'static, T>, _>(|v| {
-                v.as_ref().builtin_provider_value::<T>()
+                // This wrapper type's constructors only accept collections stored in frozen
+                // heaps, so the providers in them are frozen too.
+                v.as_ref().builtin_provider::<T>().map(|p| {
+                    p.unpack_frozen()
+                        .expect("wrapper holds a frozen collection")
+                })
             })?;
         Some(v.to_owned().into())
     }

@@ -134,9 +134,14 @@ fn resolve_configured_macro<'v>(
         ConfiguredMacro::Location { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
             let providers_value = ctx.get_dep(label)?;
-            Ok(ResolvedMacro::Location(
-                providers_value.as_ref().default_info()?,
-            ))
+            // `ResolvedMacro` stores its parts `'static`-erased, so this genuinely needs the
+            // frozen form.
+            let default_info = providers_value
+                .as_ref()
+                .default_info()?
+                .unpack_frozen()
+                .ok_or_else(|| internal_error!("dep provider collections are frozen"))?;
+            Ok(ResolvedMacro::Location(default_info))
         }
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
