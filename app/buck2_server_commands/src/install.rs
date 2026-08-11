@@ -369,8 +369,7 @@ async fn collect_install_request_data<'a>(
                 .get_providers(&providers_label)
                 .await?
                 .require_compatible()?
-                .value
-                .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenInstallInfo>());
+                .builtin_provider_value::<FrozenInstallInfo>();
             match install_info {
                 Some(install_info) => {
                     let installer_label = install_info.get_installer()?;

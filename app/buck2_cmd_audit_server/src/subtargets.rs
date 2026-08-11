@@ -14,7 +14,7 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::subtargets::AuditSubtargetsCommand;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -97,7 +97,7 @@ async fn server_execute_with_dice(
                 if recursive {
                     if json_format {
                         fn serialize_nested_subtargets(
-                            providers: &FrozenProviderCollection,
+                            providers: &ProviderCollection<'_>,
                         ) -> buck2_error::Result<serde_json::Value> {
                             let mut entries = serde_json::Map::new();
                             for (subtarget, providers) in
@@ -118,7 +118,7 @@ async fn server_execute_with_dice(
                         );
                     } else {
                         fn recursive_iterate(
-                            providers: &FrozenProviderCollection,
+                            providers: &ProviderCollection<'_>,
                             stdout: &mut StdoutPartialOutput,
                             label: &mut Subtarget,
                         ) -> buck2_error::Result<()> {

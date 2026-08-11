@@ -203,11 +203,11 @@ impl<'v> BxlActions<'v> {
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         heap: Heap<'v>,
-        frozen_heap: &FrozenHeap,
+        _frozen_heap: &FrozenHeap,
         ctx: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<BxlActions<'v>> {
-        let exec_deps = alloc_deps(exec_deps, heap, frozen_heap, ctx).await?;
-        let toolchains = alloc_deps(toolchains, heap, frozen_heap, ctx).await?;
+        let exec_deps = alloc_deps(exec_deps, heap, ctx).await?;
+        let toolchains = alloc_deps(toolchains, heap, ctx).await?;
         Ok(Self {
             actions,
             exec_deps,
@@ -231,7 +231,6 @@ impl<'v> BxlActions<'v> {
 async fn alloc_deps<'v>(
     deps: Vec<ConfiguredProvidersLabel>,
     heap: Heap<'v>,
-    frozen_heap: &FrozenHeap,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
@@ -250,12 +249,7 @@ async fn alloc_deps<'v>(
             let v = analysis_result.lookup_inner(&configured)?;
 
             let starlark_label = StarlarkProvidersLabel::new(configured.unconfigured());
-            let dependency = Dependency::new(
-                heap,
-                configured,
-                v.value().owned_frozen_value_typed(frozen_heap),
-                None,
-            );
+            let dependency = Dependency::new(heap, configured, v.add_heap_ref(heap), None);
 
             buck2_error::Ok((starlark_label, dependency))
         })

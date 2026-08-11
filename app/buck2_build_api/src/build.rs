@@ -629,8 +629,7 @@ async fn build_configured_label_inner(
             .get_providers(&providers_label)
             .await?
             .require_compatible()?
-            .value
-            .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenRunInfo>())
+            .builtin_provider_value::<FrozenRunInfo>()
     } else {
         None
     };

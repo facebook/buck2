@@ -15,8 +15,8 @@ use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::registration::register_builtin_providers;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -220,7 +220,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn get_dep(
             &mut self,
             target: &ConfiguredProvidersLabel,
-        ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+        ) -> buck2_error::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
             Ok(self
                 .deps
                 .get(target)

@@ -18,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineA
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::FrozenValidationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
@@ -92,7 +91,7 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext
     fn get_dep(
         &mut self,
         target: &ConfiguredProvidersLabel,
-    ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+    ) -> buck2_error::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
         get_dep(&self.dep_analysis_results, target, self.module)
     }
 
@@ -120,7 +119,7 @@ pub fn get_dep<'v>(
     dep_analysis_results: &StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
     module: &Module<'v>,
-) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+) -> buck2_error::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
     match dep_analysis_results.get(target.target()) {
         None => Err(AnalysisError::MissingDep(target.dupe()).into()),
         Some(x) => {
@@ -367,9 +366,7 @@ pub fn transitive_validations(
     provider_collection: FrozenProviderCollectionValueRef,
 ) -> Option<TransitiveValidations> {
     let provider_collection = provider_collection.to_owned();
-    let info = provider_collection
-        .value
-        .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenValidationInfo>());
+    let info = provider_collection.builtin_provider_value::<FrozenValidationInfo>();
     if info.is_some() || deps.len() > 1 {
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info,

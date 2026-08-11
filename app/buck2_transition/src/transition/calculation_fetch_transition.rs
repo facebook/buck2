@@ -104,14 +104,8 @@ impl FetchTransition for DiceComputations<'_> {
                 let transition_info = self
                     .get_configuration_analysis_result(label)
                     .await?
-                    .value
-                    .try_map(|c| {
-                        c.as_ref()
-                            .builtin_provider_value::<FrozenTransitionInfo>()
-                            .ok_or_else(|| {
-                                FetchTransitionError::MissingTransitionInfo(label.clone())
-                            })
-                    })?;
+                    .builtin_provider_value::<FrozenTransitionInfo>()
+                    .ok_or_else(|| FetchTransitionError::MissingTransitionInfo(label.clone()))?;
                 Ok(TransitionData::Target(transition_info))
             }
         }

@@ -219,10 +219,10 @@ impl FrozenDefaultInfo {
         .unwrap()
     }
 
-    fn get_sub_target_providers_impl(
-        &self,
+    fn get_sub_target_providers_impl<'v>(
+        &'v self,
         name: &str,
-    ) -> buck2_error::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
+    ) -> buck2_error::Result<Option<FrozenValueTyped<'v, ProviderCollection<'v>>>> {
         FrozenDictRef::from_frozen_value(self.sub_targets.get())
             .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?
             .get_str(name)
@@ -234,10 +234,10 @@ impl FrozenDefaultInfo {
             .transpose()
     }
 
-    pub fn get_sub_target_providers(
-        &self,
+    pub fn get_sub_target_providers<'v>(
+        &'v self,
         name: &str,
-    ) -> Option<FrozenValueTyped<'static, FrozenProviderCollection>> {
+    ) -> Option<FrozenValueTyped<'v, ProviderCollection<'v>>> {
         self.get_sub_target_providers_impl(name).unwrap()
     }
 

@@ -191,12 +191,7 @@ fn eval_post_constraint_analysis<'v>(
                     refs_providers_map
                         .into_iter()
                         .map(|(label, providers)| {
-                            (
-                                label,
-                                eval.heap()
-                                    .access_owned_frozen_value_typed(providers.value())
-                                    .to_value(),
-                            )
+                            (label, providers.add_heap_ref(eval.heap()).to_value())
                         })
                         .collect::<SmallMap<String, Value<'_>>>(),
                 ),

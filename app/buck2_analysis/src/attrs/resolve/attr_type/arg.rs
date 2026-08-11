@@ -139,7 +139,7 @@ fn resolve_configured_macro<'v>(
             // Don't need to consider exec_dep as it already was applied when configuring the label.
             let providers = ctx.get_dep(label)?;
             let run_info = match providers.get_provider_raw(RunInfoCallable::provider_id()) {
-                Some(value) => *value,
+                Some(value) => value,
                 None => {
                     return Err(ResolveMacroError::ExpectedRunInfo(label.to_string()).into());
                 }

@@ -43,6 +43,7 @@ use starlark::values::starlark_value;
 use starlark_map::StarlarkHasher;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
@@ -92,10 +93,24 @@ impl<'v, V: ValueLike<'v>> DependencyGen<V> {
 }
 
 impl<'v> Dependency<'v> {
+    /// The stored collection, rebranded from its `'static`-erased form.
+    ///
+    /// SAFETY-adjacent: the values in the collection are frozen, so handing
+    /// them out at any in-scope heap lifetime is the `FrozenValue::to_value`
+    /// contract. Goes away when `Dependency` is converted to the branded
+    /// pattern.
+    fn collection(&self) -> &ProviderCollection<'v> {
+        unsafe {
+            mem::transmute::<&ProviderCollection<'static>, &ProviderCollection<'v>>(
+                self.provider_collection.as_ref(),
+            )
+        }
+    }
+
     pub fn new(
         heap: Heap<'v>,
         label: ConfiguredProvidersLabel,
-        provider_collection: FrozenValueTyped<'v, FrozenProviderCollection>,
+        provider_collection: FrozenValueTyped<'v, ProviderCollection<'v>>,
         execution_platform: Option<&ExecutionPlatformResolution>,
     ) -> Self {
         let execution_platform: ValueOfUnchecked<NoneOr<StarlarkExecutionPlatformResolution>> =
@@ -109,8 +124,8 @@ impl<'v> Dependency<'v> {
             label: heap.alloc_typed_unchecked(StarlarkConfiguredProvidersLabel::new(label)),
             provider_collection: unsafe {
                 mem::transmute::<
-                    FrozenValueTyped<'_, FrozenProviderCollection>,
-                    FrozenValueTyped<'_, FrozenProviderCollection>,
+                    FrozenValueTyped<'v, ProviderCollection<'v>>,
+                    FrozenValueTyped<'static, ProviderCollection<'static>>,
                 >(provider_collection)
             },
             execution_platform,
@@ -217,12 +232,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
     fn providers<'v>(this: &Dependency) -> starlark::Result<Vec<FrozenValue>> {
-        Ok(this
-            .provider_collection
-            .providers
-            .values()
-            .copied()
-            .collect())
+        Ok(this.collection().iter_providers().map(|(_, v)| v).collect())
     }
 
     /// Returns a `Dependency` object of the subtarget of this target.
@@ -246,10 +256,13 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] subtarget: &str,
         heap: Heap<'v>,
     ) -> starlark::Result<Dependency<'v>> {
-        let di = this.provider_collection.default_info()?;
-        let providers = di.get_sub_target_providers(subtarget).ok_or_else(|| {
-            buck2_error::Error::from(DependencyError::UnknownSubtarget(subtarget.to_owned()))
-        })?;
+        let di = this.collection().default_info()?;
+        let providers = di
+            .as_ref()
+            .get_sub_target_providers(subtarget)
+            .ok_or_else(|| {
+                buck2_error::Error::from(DependencyError::UnknownSubtarget(subtarget.to_owned()))
+            })?;
         let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label.get())
             .unwrap()
             .inner();
@@ -286,12 +299,9 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         this: &Dependency<'v>,
         index: Value<'v>,
     ) -> starlark::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
-        Ok(this
-            .provider_collection
-            .get(index)
-            .with_buck_error_context(|| {
-                format!("Error accessing dependencies of `{}`", this.label)
-            })?)
+        Ok(this.collection().get(index).with_buck_error_context(|| {
+            format!("Error accessing dependencies of `{}`", this.label)
+        })?)
     }
 }
 

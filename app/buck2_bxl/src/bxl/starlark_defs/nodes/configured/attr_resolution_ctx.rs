@@ -21,8 +21,8 @@ use buck2_analysis::analysis::env::resolve_unkeyed_placeholder;
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -103,7 +103,7 @@ impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v,
     fn get_dep(
         &mut self,
         target: &ConfiguredProvidersLabel,
-    ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+    ) -> buck2_error::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
         let module = self.eval.module();
         match self
             .cache

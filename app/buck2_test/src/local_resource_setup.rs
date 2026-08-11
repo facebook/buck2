@@ -91,11 +91,7 @@ async fn get_local_resource_info<'v>(
         .get_providers(target)
         .await?
         .require_compatible()?
-        .value
-        .maybe_map(|c| {
-            c.as_ref()
-                .builtin_provider_value::<FrozenLocalResourceInfo>()
-        })
+        .builtin_provider_value::<FrozenLocalResourceInfo>()
         .ok_or_else(|| {
             internal_error!("Target `{target}` expected to contain `LocalResourceInfo` provider")
         })?;

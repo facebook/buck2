@@ -156,7 +156,7 @@ impl FrozenTemplatePlaceholderInfo {
             .collect()
     }
 
-    pub fn _lookup_provider_raw(providers: &FrozenProviderCollectionValue) -> Option<&FrozenValue> {
+    pub fn _lookup_provider_raw(providers: &FrozenProviderCollectionValue) -> Option<FrozenValue> {
         let provider_id = TemplatePlaceholderInfoCallable::provider_id();
         providers
             .provider_collection()

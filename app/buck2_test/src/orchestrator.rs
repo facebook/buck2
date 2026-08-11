@@ -1562,19 +1562,13 @@ impl BuckTestOrchestrator<'_> {
         // selection in command.rs::test_target(). Without this check
         // the orchestrator could resolve fields from the Internal
         // provider while TPX was set up with the External one.
-        if let Some(internal) = providers.value.maybe_map(|c| {
-            c.as_ref()
-                .builtin_provider_value::<FrozenInternalRunnerTestInfo>()
-        }) {
+        if let Some(internal) = providers.builtin_provider_value::<FrozenInternalRunnerTestInfo>() {
             if internal_runner_config.should_use(internal.test_type()) {
                 return Ok(OwnedTestInfo::Internal(internal));
             }
         }
 
-        if let Some(external) = providers.value.maybe_map(|c| {
-            c.as_ref()
-                .builtin_provider_value::<FrozenExternalRunnerTestInfo>()
-        }) {
+        if let Some(external) = providers.builtin_provider_value::<FrozenExternalRunnerTestInfo>() {
             return Ok(OwnedTestInfo::External(external));
         }
 

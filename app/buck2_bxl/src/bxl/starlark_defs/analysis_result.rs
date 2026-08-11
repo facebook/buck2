@@ -12,7 +12,7 @@ use std::fmt;
 
 use allocative::Allocative;
 use buck2_build_api::analysis::AnalysisResult;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dupe::Dupe;
@@ -23,6 +23,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::FrozenValueTyped;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -96,16 +97,9 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn providers<'v>(
         this: &'v StarlarkAnalysisResult,
-    ) -> starlark::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
-        unsafe {
-            // SAFETY: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
-            // which is kept alive for 'v
-            Ok(this
-                .analysis
-                .lookup_inner(&this.label)?
-                .value()
-                .value_typed())
-        }
+        heap: Heap<'v>,
+    ) -> starlark::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
+        Ok(this.analysis.lookup_inner(&this.label)?.add_heap_ref(heap))
     }
 
     /// Returns a list of structs describing each provider in the collection.
@@ -132,7 +126,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkAnalysisResult,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let collection: FrozenValueTyped<'_, FrozenProviderCollection> = unsafe {
+        let collection: FrozenValueTyped<'_, ProviderCollection<'_>> = unsafe {
             this.analysis
                 .lookup_inner(&this.label)?
                 .value()
@@ -178,8 +172,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
             this.label.dupe(),
             this.analysis
                 .lookup_inner(&this.label)?
-                .value()
-                .owned_frozen_value_typed(eval.frozen_heap()),
+                .add_heap_ref(eval.heap()),
             None,
         )))
     }

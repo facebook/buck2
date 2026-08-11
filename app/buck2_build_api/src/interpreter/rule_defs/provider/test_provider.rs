@@ -24,7 +24,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
 pub trait TestProvider {
     fn visit_artifacts(
@@ -188,7 +188,7 @@ impl TestProvider for FrozenInternalRunnerTestInfo {
 }
 
 impl dyn TestProvider {
-    pub fn from_collection(providers: &FrozenProviderCollection) -> Option<&dyn TestProvider> {
+    pub fn from_collection<'v>(providers: &ProviderCollection<'v>) -> Option<&'v dyn TestProvider> {
         // Check for InternalRunnerTestInfo first
         if let Some(provider) = providers.builtin_provider::<FrozenInternalRunnerTestInfo>() {
             return Some(provider.as_ref());
