@@ -438,6 +438,22 @@ where
     }
 }
 
+impl<'v, T> FreezeBranded for FrozenValueTyped<'v, T>
+where
+    T: StarlarkValue<'v>,
+    T: FreezeBranded,
+    for<'fv> <T as FreezeBranded>::Frozen<'fv>: StarlarkValue<'fv>,
+{
+    type Frozen<'fv> = FrozenValueTyped<'fv, <T as FreezeBranded>::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // The value is already frozen; the target heap takes over the source heap's
+        // dependencies, so re-typing at the new brand is all that's needed.
+        Ok(FrozenValueTyped::new_err(self.0)
+            .expect("a frozen value's type does not change across brands"))
+    }
+}
+
 impl<'v> AllocStringValue<'v> for StringValue<'v> {
     fn alloc_string_value(self, _heap: Heap<'v>) -> StringValue<'v> {
         self
