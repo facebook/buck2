@@ -12,13 +12,11 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::Coerce;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
-use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 
@@ -31,18 +29,17 @@ use crate as buck2_build_api;
     Clone,
     Debug,
     Trace,
-    Coerce,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-pub struct DepOnlyIncompatibleRolloutGen<V: ValueLifetimeless> {
+pub struct DepOnlyIncompatibleRollout<'v> {
     /// A list of target patterns (minus exclusions) that we want to soft error on.
-    pub target_patterns: ValueOfUncheckedGeneric<V, ListType<String>>,
+    pub target_patterns: ValueOfUnchecked<'v, ListType<String>>,
     /// A list of target patterns that we want to exclude from the soft error.
-    pub exclusions: ValueOfUncheckedGeneric<V, ListType<String>>,
+    pub exclusions: ValueOfUnchecked<'v, ListType<String>>,
 }
 
 impl<'v> DepOnlyIncompatibleRollout<'v> {
