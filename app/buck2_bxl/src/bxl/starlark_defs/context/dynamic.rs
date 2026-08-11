@@ -53,7 +53,7 @@ use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
-use starlark::values::OwnedRefFrozenRef;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::ValueTyped;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallableChecked;
@@ -69,7 +69,7 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DynamicLambdaResultsKey,
-    dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
+    dynamic_lambda: OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'v BuckIndexMap<&'v Artifact, &'v ArtifactValue>,
@@ -153,7 +153,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     data: BxlContextCoreData,
     self_key: DynamicLambdaResultsKey,
     liveness: CancellationObserver,
-    dynamic_lambda: OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>,
+    dynamic_lambda: OwnedFrozenRef<'f, &'static FrozenDynamicLambdaParams>,
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     input_artifacts_materialized: InputArtifactsMaterialized,

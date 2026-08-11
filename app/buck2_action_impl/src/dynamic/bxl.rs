@@ -24,7 +24,7 @@ use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use futures::Future;
-use starlark::values::OwnedRefFrozenRef;
+use starlark::values::OwnedFrozenRef;
 
 use crate::dynamic::deferred::InputArtifactsMaterialized;
 use crate::dynamic::params::FrozenDynamicLambdaParams;
@@ -33,7 +33,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(
         &'v BaseDeferredKeyBxl,
         DynamicLambdaResultsKey,
-        OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
+        OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams>,
         &'v mut DiceComputations,
         InputArtifactsMaterialized,
         &'v BuckIndexMap<&Artifact, &ArtifactValue>,
@@ -48,7 +48,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DynamicLambdaResultsKey,
-    dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
+    dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'v BuckIndexMap<&Artifact, &ArtifactValue>,
