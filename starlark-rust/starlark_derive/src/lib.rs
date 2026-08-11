@@ -157,7 +157,7 @@ pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 }
 
 /// Derive the `FreezeBranded` trait
-#[proc_macro_derive(FreezeBranded, attributes(freeze))]
+#[proc_macro_derive(FreezeBranded, attributes(freeze_branded))]
 pub fn derive_freeze_branded(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     freeze::derive_freeze(input, true)
 }

@@ -27,6 +27,7 @@ use syn::Token;
 use syn::WherePredicate;
 use syn::parse::ParseStream;
 use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 use crate::util::DeriveInputUtil;
@@ -56,7 +57,7 @@ impl Input<'_> {
         let mut impl_params = Vec::new();
         let mut input_params = Vec::new();
         let mut output_params = Vec::new();
-        if bounds {
+        if bounds && !kind.branded {
             impl_params.push(quote_spanned! { span=> 'freeze });
         }
         for param in &self.input.generics.params {
@@ -112,7 +113,7 @@ fn derive_freeze_impl(input: DeriveInput, kind: Kind) -> syn::Result<syn::ItemIm
         validator,
         bounds,
         identity,
-    } = extract_options(&input.input.attrs)?;
+    } = extract_options(&input.input.attrs, &kind)?;
 
     if let Some(identity) = identity {
         return Err(syn::Error::new_spanned(
@@ -168,20 +169,24 @@ struct FreezeDeriveOptions {
     /// `#[freeze(validator = function)]`.
     validator: Option<Ident>,
     /// `#[freeze(bounds = ...)]`.
-    bounds: Option<WherePredicate>,
+    bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     /// `#[freeze(identity)]`.
     identity: Option<identity>,
 }
 
-/// Parse a #[freeze(validator = function)] annotation.
-fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
+/// Parse a `#[freeze(...)]` (or, for branded derives, `#[freeze_branded(...)]`) annotation.
+fn extract_options(attrs: &[Attribute], kind: &Kind) -> syn::Result<FreezeDeriveOptions> {
     syn::custom_keyword!(validator);
     syn::custom_keyword!(bounds);
 
     let mut opts = FreezeDeriveOptions::default();
 
     for attr in attrs.iter() {
-        if !attr.path().is_ident("freeze") {
+        if !attr.path().is_ident(if kind.branded {
+            "freeze_branded"
+        } else {
+            "freeze"
+        }) {
             continue;
         }
 
@@ -202,7 +207,7 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
                     }
                     input.parse::<Token![=]>()?;
                     let bounds_input = input.parse::<LitStr>()?;
-                    opts.bounds = Some(bounds_input.parse()?);
+                    opts.bounds = Some(bounds_input.parse_with(Punctuated::parse_terminated)?);
                 } else if let Some(identity) = input.parse::<Option<identity>>()? {
                     if opts.identity.is_some() {
                         return Err(syn::Error::new_spanned(
@@ -240,7 +245,7 @@ fn freeze_impl(derive_input: &DeriveInput, kind: &Kind) -> syn::Result<syn::Expr
                     validator,
                     bounds,
                     identity,
-                } = extract_options(&f.attrs)?;
+                } = extract_options(&f.attrs, kind)?;
                 if let Some(validator) = validator {
                     return Err(syn::Error::new_spanned(
                         validator,

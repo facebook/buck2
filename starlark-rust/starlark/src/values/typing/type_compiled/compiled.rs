@@ -48,6 +48,7 @@ use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -283,6 +284,7 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     Debug,
     Allocative,
     Freeze,
+    FreezeBranded,
     Trace,
     Clone,
     Copy,
@@ -292,6 +294,7 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     StarlarkPagable
 )]
 #[repr(transparent)]
+#[freeze_branded(bounds = "for<'fv> <V as FreezeBranded>::Frozen<'fv>: ValueLifetimeless")]
 pub struct TypeCompiled<V: ValueLifetimeless>(
     /// `V` is `TypeCompiledImplAsStarlarkValue`.
     V,
