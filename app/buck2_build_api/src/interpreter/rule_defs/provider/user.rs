@@ -12,7 +12,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -22,15 +21,13 @@ use dupe::Dupe;
 use indexmap::map::RawEntryApiV1;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::coerce::Coerce;
-use starlark::coerce::coerce;
 use starlark::collections::Hashed;
 use starlark::collections::StarlarkHasher;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::typing::Ty;
 use starlark::values::Demand;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -58,28 +55,26 @@ enum UserProviderError {
 #[derive(
     Debug,
     Clone,
-    Coerce,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[repr(C)]
-pub struct UserProviderGen<'v, V: ValueLike<'v>> {
+pub struct UserProvider<'v> {
+    #[freeze_branded(identity)]
     pub(crate) callable: FrozenAnyValue<UserProviderCallableData>,
-    attributes: Box<[V]>,
-    _marker: PhantomData<&'v ()>,
+    attributes: Box<[Value<'v>]>,
 }
 
-starlark_complex_value!(pub UserProvider<'v>);
+starlark_complex_value_branded!(pub UserProvider);
 
-impl<'v, V: ValueLike<'v>> UserProviderGen<'v, V> {
+impl<'v> UserProvider<'v> {
     pub(crate) fn callable_data(&self) -> &UserProviderCallableData {
         &self.callable
     }
 
-    fn iter_items(&self) -> impl Iterator<Item = (&str, V)> {
+    fn iter_items(&self) -> impl Iterator<Item = (&str, Value<'v>)> {
         let callable_data = self.callable_data();
         assert_eq!(callable_data.fields.len(), self.attributes.len());
         callable_data
@@ -90,7 +85,7 @@ impl<'v, V: ValueLike<'v>> UserProviderGen<'v, V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
+impl<'v> Display for UserProvider<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_keyed_container(
             f,
@@ -103,10 +98,7 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
 }
 
 #[starlark_value(type = "Provider")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for UserProviderGen<'v, V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for UserProvider<'v> {
     fn dir_attr(&self) -> Vec<String> {
         self.callable_data().fields.keys().cloned().collect()
     }
@@ -121,24 +113,23 @@ where
             .fields
             .raw_entry_v1()
             .index_from_hash(attribute.hash().promote(), |k| k == attribute.key())?;
-        Some(self.attributes[index].to_value())
+        Some(self.attributes[index])
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        let this: &UserProvider = coerce(self);
         let other: &UserProvider = match UserProvider::from_value(other) {
             Some(other) => other,
             None => return Ok(false),
         };
-        if this.callable_data().provider_id != other.callable_data().provider_id {
+        if self.callable_data().provider_id != other.callable_data().provider_id {
             return Ok(false);
         }
-        if this.attributes.len() != other.attributes.len() {
+        if self.attributes.len() != other.attributes.len() {
             // If provider ids are equal, then providers point to the same provider callable,
             // and lengths should be equal. So this code is unreachable.
             return Ok(false);
         }
-        for ((k1, v1), (k2, v2)) in this.iter_items().zip(other.iter_items()) {
+        for ((k1, v1), (k2, v2)) in self.iter_items().zip(other.iter_items()) {
             if k1 != k2 {
                 // If provider ids are equal, then providers point to the same provider callable,
                 // and keys should be equal. So this code is unreachable.
@@ -165,7 +156,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {
+impl<'v> serde::Serialize for UserProvider<'v> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -174,13 +165,13 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> ProviderLike<'v> for UserProviderGen<'v, V> {
+impl<'v> ProviderLike<'v> for UserProvider<'v> {
     fn id(&self) -> &Arc<ProviderId> {
         &self.callable_data().provider_id
     }
 
     fn items(&self) -> Vec<(&str, Value<'v>)> {
-        self.iter_items().map(|(k, v)| (k, v.to_value())).collect()
+        self.iter_items().collect()
     }
 }
 
@@ -216,6 +207,5 @@ pub(crate) fn user_provider_creator<'v>(
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,
-        _marker: PhantomData,
     }))
 }
