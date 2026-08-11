@@ -15,9 +15,11 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
+use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
@@ -52,17 +54,36 @@ where
     Trace,
     derive_more::Display,
     Serialize,
-    Allocative
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
 )]
 #[serde(transparent)]
 #[repr(transparent)]
 pub struct CommandLineArg<'v>(#[serde(serialize_with = "serialize_as_display")] Value<'v>);
+
+impl<'v> PartialEq for CommandLineArg<'v> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.ptr_eq(other.0)
+    }
+}
+
+impl<'v> Eq for CommandLineArg<'v> {}
 
 impl<'v> Freeze for CommandLineArg<'v> {
     type Frozen = FrozenCommandLineArg;
 
     fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineArg> {
         Ok(FrozenCommandLineArg(self.0.freeze(freezer)?))
+    }
+}
+
+impl<'v> FreezeBranded for CommandLineArg<'v> {
+    type Frozen<'fv> = CommandLineArg<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<CommandLineArg<'fv>> {
+        // Freezing does not change a value's type, so the constructor check carries over.
+        Ok(CommandLineArg(self.0.freeze_branded(freezer)?))
     }
 }
 
@@ -87,6 +108,11 @@ impl<'v> UnpackValue<'v> for CommandLineArg<'v> {
 }
 
 impl<'v> CommandLineArg<'v> {
+    pub fn new(value: Value<'v>) -> buck2_error::Result<CommandLineArg<'v>> {
+        ValueAsCommandLineLike::unpack_value_err(value)?;
+        Ok(CommandLineArg(value))
+    }
+
     pub fn from_cmd_args(cmd_args: ValueTyped<'v, StarlarkCmdArgs<'v>>) -> Self {
         let _no_check_needed: &dyn CommandLineArgLike<'v> = cmd_args.as_ref();
         CommandLineArg(cmd_args.to_value())
