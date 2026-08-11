@@ -826,12 +826,7 @@ impl RecordedAnalysisValues {
                         .ok_or_else(|| internal_error!("missing provider collection"))
                 },
             )?;
-        // Re-type the branded value at `'static` for the legacy constructor
-        let value = FrozenValueTyped::new(inner.value().to_frozen_value())
-            .ok_or_else(|| internal_error!("value is a `ProviderCollection`"))?;
-        // SAFETY: The values in the collection are kept alive by the
-        // storage owner, which the returned ref borrows.
-        Ok(unsafe { FrozenProviderCollectionValueRef::new(inner.owner(), value) })
+        Ok(FrozenProviderCollectionValueRef::from_inner(inner))
     }
 
     pub(crate) fn retained_memory(&self) -> buck2_error::Result<usize> {

@@ -647,20 +647,10 @@ impl FrozenProviderCollectionValue {
 }
 
 impl<'f> FrozenProviderCollectionValueRef<'f> {
-    /// Creates a new `FrozenProviderCollectionValueRef` from a heap reference and value.
-    ///
-    /// # Safety
-    ///
-    /// The value must be kept alive by the heap behind `heap`.
-    pub unsafe fn new(
-        heap: &'f FrozenHeapRef,
-        value: FrozenValueTyped<'static, FrozenProviderCollection>,
+    /// Creates a new `FrozenProviderCollectionValueRef` from the underlying projection.
+    pub fn from_inner(
+        inner: OwnedFrozenRef<'f, FrozenValueTyped<'static, ProviderCollection<'static>>>,
     ) -> Self {
-        // Re-type the unbranded value at `'f`
-        let value = FrozenValueTyped::new(value.to_frozen_value())
-            .expect("value is a `ProviderCollection`");
-        // SAFETY: Caller promised
-        let inner = unsafe { OwnedFrozenRef::unchecked_new(heap, value) };
         FrozenProviderCollectionValueRef { inner }
     }
 
