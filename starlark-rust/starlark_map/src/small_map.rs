@@ -1552,4 +1552,32 @@ mod tests {
         assert_eq!(*value3, 210);
         assert_eq!(map.get("key3"), Some(&210));
     }
+
+    #[cfg(feature = "pagable_dep")]
+    #[test]
+    fn pagable_bytes_embed_stable_hashes() {
+        use pagable::PagableSerialize;
+        use pagable::testing::TestingSerializer;
+
+        // The serialized form stores each entry's `StarlarkHashValue`, so these
+        // golden bytes lock the hash function as well as the format. If this fails,
+        // previously persisted pagable data no longer matches what a fresh binary
+        // computes and must be versioned or invalidated.
+        let mut map = SmallMap::new();
+        map.insert("name".to_owned(), 1u32);
+        map.insert("srcs".to_owned(), 2u32);
+
+        let mut serializer = TestingSerializer::new();
+        map.pagable_serialize(&mut serializer)
+            .expect("in-memory serialization should not fail");
+        assert_eq!(
+            serializer.finish(),
+            [
+                2, 4, 110, 97, 109, 101, 1, 198, 251, 226, 117, 4, 115, 114, 99, 115, 2, 185, 234,
+                190, 158, 13
+            ],
+            "the pagable encoding of `SmallMap` changed (format or hash function); \
+             previously persisted pagable data must be versioned or invalidated"
+        );
+    }
 }

@@ -19,20 +19,19 @@ use std::hash::BuildHasher;
 use std::hash::Hasher;
 
 use dupe::Dupe;
-use fxhash::FxHasher64;
 #[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 
+use crate::fx64::Fx64Hasher;
 use crate::hash_value::StarlarkHashValue;
 
 /// A hasher used by Starlark implementation.
 ///
 /// Starlark relies on stable hashing, and this is the hasher.
+/// The output is identical on every platform regardless of endianness and
+/// pointer width; see [`Fx64Hasher`].
 #[derive(Default)]
-pub struct StarlarkHasher(
-    // TODO(nga): `FxHasher64` is endian-dependent, this is not right.
-    FxHasher64,
-);
+pub struct StarlarkHasher(Fx64Hasher);
 
 impl StarlarkHasher {
     /// Creates a new hasher.
@@ -44,10 +43,11 @@ impl StarlarkHasher {
     /// Finish the hash computation and return the result.
     #[inline]
     pub fn finish_small(&self) -> StarlarkHashValue {
-        // NOTE: Here we throw away half the key material we are given,
-        // taking only the lower 32 bits.
-        // Not a problem because `DefaultHasher` produces well-swizzled bits.
-        StarlarkHashValue::new_unchecked(self.finish() as u32)
+        // Fold the halves together rather than truncating: multiply-based hashers
+        // drive their entropy toward the high bits, and plain low-32 truncation made
+        // names differing only in trailing bytes collide deterministically.
+        let hash = self.finish();
+        StarlarkHashValue::new_unchecked((hash ^ (hash >> 32)) as u32)
     }
 }
 
@@ -104,5 +104,30 @@ impl BuildHasher for StarlarkHasherBuilder {
     #[inline]
     fn build_hasher(&self) -> StarlarkHasher {
         StarlarkHasher::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::StarlarkHashValue;
+
+    /// Golden values locking the 32-bit hash on every platform. Pagable
+    /// serialization persists these hashes; a change here invalidates that data.
+    #[test]
+    fn starlark_hash_value_is_stable() {
+        assert_eq!(
+            [
+                StarlarkHashValue::new(""),
+                StarlarkHashValue::new("hello"),
+                StarlarkHashValue::new("fbcode//some/package/path:some_rule_name_12345"),
+            ],
+            [
+                StarlarkHashValue::new_unchecked(4037386314),
+                StarlarkHashValue::new_unchecked(2146119937),
+                StarlarkHashValue::new_unchecked(2842163668),
+            ],
+            "the hash function changed; persisted pagable data embedding \
+             `StarlarkHashValue` must be versioned or invalidated"
+        );
     }
 }

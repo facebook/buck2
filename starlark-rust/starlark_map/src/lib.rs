@@ -26,6 +26,7 @@
 #![cfg_attr(rust_nightly, feature(cfg_version))]
 #![cfg_attr(rust_nightly, allow(internal_features))]
 
+mod fx64;
 mod hash_value;
 mod hashed;
 mod hasher;

@@ -16,11 +16,11 @@ rust_library(
         "--cfg=rust_nightly",
     ],
     test_deps = [
+        "fbsource//third-party/rust:rustc-hash",
         "fbsource//third-party/rust:serde_json",
     ],
     deps = [
         "fbsource//third-party/rust:equivalent",
-        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:hashbrown",
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
