@@ -23,12 +23,17 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 
-macro_rules! any_lifetime {
+macro_rules! provides_static_type_static {
     ( $t:ty ) => {
         unsafe impl<'a> $crate::any::ProvidesStaticType<'a> for $t {
             type StaticType = $t;
+        }
+
+        impl $crate::any::IsStaticType for $t {
+            type Reinfect<'lt> = $t;
         }
     };
 }
@@ -36,37 +41,53 @@ macro_rules! any_lifetime {
 // One of the disadvantages of AnyLifetime is there is no finite covering set of
 // types so we predeclare instances for things that seem useful, but the list is
 // pretty adhoc
-any_lifetime!(());
-any_lifetime!(bool);
-any_lifetime!(u8);
-any_lifetime!(u16);
-any_lifetime!(u32);
-any_lifetime!(u64);
-any_lifetime!(u128);
-any_lifetime!(usize);
-any_lifetime!(i8);
-any_lifetime!(i16);
-any_lifetime!(i32);
-any_lifetime!(i64);
-any_lifetime!(i128);
-any_lifetime!(isize);
-any_lifetime!(f32);
-any_lifetime!(f64);
-any_lifetime!(String);
-any_lifetime!(str);
+provides_static_type_static!(());
+provides_static_type_static!(bool);
+provides_static_type_static!(u8);
+provides_static_type_static!(u16);
+provides_static_type_static!(u32);
+provides_static_type_static!(u64);
+provides_static_type_static!(u128);
+provides_static_type_static!(usize);
+provides_static_type_static!(i8);
+provides_static_type_static!(i16);
+provides_static_type_static!(i32);
+provides_static_type_static!(i64);
+provides_static_type_static!(i128);
+provides_static_type_static!(isize);
+provides_static_type_static!(f32);
+provides_static_type_static!(f64);
+provides_static_type_static!(String);
+provides_static_type_static!(str);
 
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for &'a T {
     type StaticType = &'static T::StaticType;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for &'static T {
+    type Reinfect<'lt> = &'lt T::Reinfect<'lt>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for &'a mut T {
     type StaticType = &'static mut T::StaticType;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for &'static mut T {
+    type Reinfect<'lt> = &'lt mut T::Reinfect<'lt>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for *const T {
     type StaticType = *const T::StaticType;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for *const T {
+    type Reinfect<'lt> = *const T::Reinfect<'lt>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for *mut T {
     type StaticType = *mut T::StaticType;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for *mut T {
+    type Reinfect<'lt> = *mut T::Reinfect<'lt>;
+}
+
 unsafe impl<'a, T> ProvidesStaticType<'a> for [T]
 where
     T: ProvidesStaticType<'a>,
@@ -74,24 +95,64 @@ where
 {
     type StaticType = [T::StaticType];
 }
+impl<T: IsStaticType> IsStaticType for [T]
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = [T::Reinfect<'lt>];
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Box<T> {
     type StaticType = Box<T::StaticType>;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for Box<T> {
+    type Reinfect<'lt> = Box<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Rc<T> {
     type StaticType = Rc<T::StaticType>;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for Rc<T> {
+    type Reinfect<'lt> = Rc<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a> + ?Sized> ProvidesStaticType<'a> for Arc<T> {
     type StaticType = Arc<T::StaticType>;
 }
+impl<T: IsStaticType + ?Sized> IsStaticType for Arc<T> {
+    type Reinfect<'lt> = Arc<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for Cell<T> {
     type StaticType = Cell<T::StaticType>;
 }
+impl<T: IsStaticType> IsStaticType for Cell<T>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = Cell<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for UnsafeCell<T> {
     type StaticType = UnsafeCell<T::StaticType>;
 }
+impl<T: IsStaticType> IsStaticType for UnsafeCell<T>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = UnsafeCell<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T: ProvidesStaticType<'a>> ProvidesStaticType<'a> for RefCell<T> {
     type StaticType = RefCell<T::StaticType>;
 }
+impl<T: IsStaticType> IsStaticType for RefCell<T>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = RefCell<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T> ProvidesStaticType<'a> for Option<T>
 where
     T: ProvidesStaticType<'a>,
@@ -99,6 +160,13 @@ where
 {
     type StaticType = Option<T::StaticType>;
 }
+impl<T: IsStaticType> IsStaticType for Option<T>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = Option<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T, E> ProvidesStaticType<'a> for Result<T, E>
 where
     T: ProvidesStaticType<'a>,
@@ -108,6 +176,14 @@ where
 {
     type StaticType = Result<T::StaticType, E::StaticType>;
 }
+impl<T: IsStaticType, E: IsStaticType> IsStaticType for Result<T, E>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+    for<'lt> E::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = Result<T::Reinfect<'lt>, E::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, T> ProvidesStaticType<'a> for Vec<T>
 where
     T: ProvidesStaticType<'a>,
@@ -115,6 +191,13 @@ where
 {
     type StaticType = Vec<T::StaticType>;
 }
+impl<T: IsStaticType> IsStaticType for Vec<T>
+where
+    for<'lt> T::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = Vec<T::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, K, V> ProvidesStaticType<'a> for HashMap<K, V>
 where
     K: ProvidesStaticType<'a>,
@@ -124,6 +207,14 @@ where
 {
     type StaticType = HashMap<K::StaticType, V::StaticType>;
 }
+impl<K: IsStaticType, V: IsStaticType> IsStaticType for HashMap<K, V>
+where
+    for<'lt> K::Reinfect<'lt>: Sized,
+    for<'lt> V::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = HashMap<K::Reinfect<'lt>, V::Reinfect<'lt>>;
+}
+
 unsafe impl<'a, K, V> ProvidesStaticType<'a> for BTreeMap<K, V>
 where
     K: ProvidesStaticType<'a>,
@@ -132,4 +223,11 @@ where
     V::StaticType: Sized,
 {
     type StaticType = BTreeMap<K::StaticType, V::StaticType>;
+}
+impl<K: IsStaticType, V: IsStaticType> IsStaticType for BTreeMap<K, V>
+where
+    for<'lt> K::Reinfect<'lt>: Sized,
+    for<'lt> V::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = BTreeMap<K::Reinfect<'lt>, V::Reinfect<'lt>>;
 }
