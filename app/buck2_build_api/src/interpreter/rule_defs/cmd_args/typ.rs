@@ -380,7 +380,7 @@ pub struct FrozenStarlarkCmdArgs {
     // Elements are frozen `CommandLineArg`s
     items: ThinBoxSliceFrozenValue<'static>,
     hidden: ThinBoxSliceFrozenValue<'static>,
-    options: FrozenCommandLineOptions,
+    options: FrozenCommandLineOptions<'static>,
 }
 
 static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs = FrozenStarlarkCmdArgs {

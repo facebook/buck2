@@ -30,15 +30,15 @@ use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::any::ProvidesStaticType;
 use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -55,7 +55,6 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
-use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
 
 /// Supported ways of quoting arguments.
 #[derive(
@@ -129,7 +128,7 @@ pub(crate) struct CommandLineOptions<'v> {
 #[derive(Clone, Copy, Dupe)]
 pub(crate) enum OptionsReplacementsRef<'v, 'a> {
     Unfrozen(&'a [(CmdArgsRegex<'v>, StringValue<'v>)]),
-    Frozen(&'a [(FrozenCmdArgsRegex, FrozenStringValue)]),
+    Frozen(&'a [(CmdArgsRegex<'static>, StringValue<'static>)]),
 }
 
 impl<'v, 'a> Display for OptionsReplacementsRef<'v, 'a> {
@@ -166,15 +165,11 @@ impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
         match self {
             Self::Unfrozen(v) => Either::Left(v.iter().copied()),
             Self::Frozen(v) => Either::Right(v.iter().map(|(r, s)| {
-                // The unbranded frozen storage instantiates `CmdArgsRegex` at
-                // `'static`; re-type its (frozen) contents at the reader's
+                // The unbranded frozen storage instantiates the items at
+                // `'static`; re-type the (frozen) contents at the reader's
                 // brand. Dies when the storage itself becomes branded.
                 let r = match r {
-                    CmdArgsRegex::Str(s) => CmdArgsRegex::Str(
-                        s.unpack_frozen()
-                            .expect("frozen storage holds frozen values")
-                            .to_string_value(),
-                    ),
+                    CmdArgsRegex::Str(s) => CmdArgsRegex::Str(retype_frozen_string(*s)),
                     CmdArgsRegex::Regex(r) => CmdArgsRegex::Regex(
                         FrozenValueTyped::<StarlarkBuckRegex>::new(
                             r.unpack_frozen()
@@ -185,7 +180,7 @@ impl<'v, 'a> OptionsReplacementsRef<'v, 'a> {
                         .to_value_typed(),
                     ),
                 };
-                (r, s.to_string_value())
+                (r, retype_frozen_string(*s))
             })),
         }
     }
@@ -275,40 +270,37 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
 }
 
 #[derive(Debug, Allocative, StarlarkPagable)]
-enum FrozenCommandLineOption {
-    RelativeTo(
-        FrozenValueOfUnchecked<'static, RelativeOrigin<'static>>,
-        u32,
-    ),
-    AbsolutePrefix(FrozenStringValue),
-    AbsoluteSuffix(FrozenStringValue),
+enum FrozenCommandLineOption<'v> {
+    RelativeTo(ValueOfUnchecked<'v, RelativeOrigin<'v>>, u32),
+    AbsolutePrefix(StringValue<'v>),
+    AbsoluteSuffix(StringValue<'v>),
     Parent(u32),
     IgnoreArtifacts,
-    Delimiter(FrozenStringValue),
-    Format(FrozenStringValue),
-    Prepend(FrozenStringValue),
+    Delimiter(StringValue<'v>),
+    Format(StringValue<'v>),
+    Prepend(StringValue<'v>),
     Quote(#[starlark_pagable(pagable)] QuoteStyle),
     Replacements(
         #[starlark_pagable(
             serialize_with = "serialize_minibox_starlark",
             deserialize_with = "deserialize_minibox_starlark"
         )]
-        MiniBoxSlice<(FrozenCmdArgsRegex, FrozenStringValue)>,
+        MiniBoxSlice<(CmdArgsRegex<'v>, StringValue<'v>)>,
     ),
 }
 
-size_assert::words_of_type!(FrozenCommandLineOption, 2);
+size_assert::words_of_type!(FrozenCommandLineOption<'static>, 2);
 
-#[derive(Debug, Default, Allocative, StarlarkPagable)]
-pub(crate) struct FrozenCommandLineOptions {
+#[derive(Debug, Default, ProvidesStaticType, Allocative, StarlarkPagable)]
+pub(crate) struct FrozenCommandLineOptions<'v> {
     #[starlark_pagable(
         serialize_with = "serialize_minibox_starlark",
         deserialize_with = "deserialize_minibox_starlark"
     )]
-    options: MiniBoxSlice<FrozenCommandLineOption>,
+    options: MiniBoxSlice<FrozenCommandLineOption<'v>>,
 }
 
-fn serialize_minibox_starlark<T: StarlarkSerialize + 'static>(
+fn serialize_minibox_starlark<T: StarlarkSerialize>(
     field: &MiniBoxSlice<T>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
@@ -319,7 +311,7 @@ fn serialize_minibox_starlark<T: StarlarkSerialize + 'static>(
     Ok(())
 }
 
-fn deserialize_minibox_starlark<T: StarlarkDeserialize + 'static>(
+fn deserialize_minibox_starlark<T: StarlarkDeserialize>(
     ctx: &mut dyn StarlarkDeserializeContext<'_>,
 ) -> starlark::Result<MiniBoxSlice<T>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
@@ -330,7 +322,7 @@ fn deserialize_minibox_starlark<T: StarlarkDeserialize + 'static>(
     Ok(MiniBoxSlice::from_iter(items))
 }
 
-impl FrozenCommandLineOptions {
+impl<'v> FrozenCommandLineOptions<'v> {
     pub const fn empty() -> Self {
         FrozenCommandLineOptions {
             options: MiniBoxSlice::new(),
@@ -342,7 +334,10 @@ impl FrozenCommandLineOptions {
     }
 }
 
-impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
+/// Until `FrozenStarlarkCmdArgs` is branded, its (`'static`-instantiated)
+/// options are read at arbitrary brands; the frozen contents get re-typed at
+/// the reader's brand item by item. Becomes brand-fixed together with it.
+impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions<'static> {
     fn ignore_artifacts(&self) -> bool {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::IgnoreArtifacts = option {
@@ -355,7 +350,7 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
     fn delimiter(&self) -> Option<StringValue<'v>> {
         for option in self.options.iter() {
             if let FrozenCommandLineOption::Delimiter(value) = option {
-                return Some(value.to_string_value());
+                return Some(retype_frozen_string(*value));
             }
         }
         None
@@ -366,14 +361,20 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
         for option in &*self.options {
             match option {
                 FrozenCommandLineOption::RelativeTo(value, parent) => {
-                    let value = ValueOfUnchecked::new(value.get().to_value());
+                    let value = ValueOfUnchecked::new(
+                        value
+                            .get()
+                            .unpack_frozen()
+                            .expect("frozen storage holds frozen values")
+                            .to_value(),
+                    );
                     options.relative_to = Some((value, *parent));
                 }
                 FrozenCommandLineOption::AbsolutePrefix(value) => {
-                    options.absolute_prefix = Some(value.to_string_value());
+                    options.absolute_prefix = Some(retype_frozen_string(*value));
                 }
                 FrozenCommandLineOption::AbsoluteSuffix(value) => {
-                    options.absolute_suffix = Some(value.to_string_value());
+                    options.absolute_suffix = Some(retype_frozen_string(*value));
                 }
                 FrozenCommandLineOption::Parent(parent) => {
                     options.parent = *parent;
@@ -382,13 +383,13 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
                     options.ignore_artifacts = true;
                 }
                 FrozenCommandLineOption::Delimiter(value) => {
-                    options.delimiter = Some(value.to_string_value());
+                    options.delimiter = Some(retype_frozen_string(*value));
                 }
                 FrozenCommandLineOption::Format(value) => {
-                    options.format = Some(value.to_string_value());
+                    options.format = Some(retype_frozen_string(*value));
                 }
                 FrozenCommandLineOption::Prepend(value) => {
-                    options.prepend = Some(value.to_string_value());
+                    options.prepend = Some(retype_frozen_string(*value));
                 }
                 FrozenCommandLineOption::Quote(value) => {
                     options.quote = Some(value.dupe());
@@ -402,6 +403,13 @@ impl<'v> CommandLineOptionsTrait<'v> for FrozenCommandLineOptions {
     }
 }
 
+fn retype_frozen_string<'v>(value: StringValue<'static>) -> StringValue<'v> {
+    value
+        .unpack_frozen()
+        .expect("frozen storage holds frozen values")
+        .to_string_value()
+}
+
 impl<'v> Serialize for CommandLineOptions<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -411,7 +419,7 @@ impl<'v> Serialize for CommandLineOptions<'v> {
     }
 }
 
-impl Serialize for FrozenCommandLineOptions {
+impl Serialize for FrozenCommandLineOptions<'static> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -420,10 +428,10 @@ impl Serialize for FrozenCommandLineOptions {
     }
 }
 
-impl<'v> Freeze for CommandLineOptions<'v> {
-    type Frozen = FrozenCommandLineOptions;
+impl<'v> FreezeBranded for CommandLineOptions<'v> {
+    type Frozen<'fv> = FrozenCommandLineOptions<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineOptions> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenCommandLineOptions<'fv>> {
         let CommandLineOptions {
             relative_to,
             absolute_prefix,
@@ -439,18 +447,18 @@ impl<'v> Freeze for CommandLineOptions<'v> {
 
         let mut options = Vec::new();
         if let Some((relative_to, parent)) = relative_to {
-            let relative_to = relative_to.get().freeze(freezer)?;
+            let relative_to = freezer.freeze_branded(relative_to.get())?;
             options.push(FrozenCommandLineOption::RelativeTo(
-                FrozenValueOfUnchecked::new(relative_to),
+                ValueOfUnchecked::new(relative_to),
                 parent,
             ));
         }
         if let Some(absolute_prefix) = absolute_prefix {
-            let absolute_prefix = absolute_prefix.freeze(freezer)?;
+            let absolute_prefix = FreezeBranded::freeze(absolute_prefix, freezer)?;
             options.push(FrozenCommandLineOption::AbsolutePrefix(absolute_prefix));
         }
         if let Some(absolute_suffix) = absolute_suffix {
-            let absolute_suffix = absolute_suffix.freeze(freezer)?;
+            let absolute_suffix = FreezeBranded::freeze(absolute_suffix, freezer)?;
             options.push(FrozenCommandLineOption::AbsoluteSuffix(absolute_suffix));
         }
         if parent != 0 {
@@ -460,15 +468,15 @@ impl<'v> Freeze for CommandLineOptions<'v> {
             options.push(FrozenCommandLineOption::IgnoreArtifacts);
         }
         if let Some(delimiter) = delimiter {
-            let delimiter = delimiter.freeze(freezer)?;
+            let delimiter = FreezeBranded::freeze(delimiter, freezer)?;
             options.push(FrozenCommandLineOption::Delimiter(delimiter));
         }
         if let Some(format) = format {
-            let format = format.freeze(freezer)?;
+            let format = FreezeBranded::freeze(format, freezer)?;
             options.push(FrozenCommandLineOption::Format(format));
         }
         if let Some(prepend) = prepend {
-            let prepend = prepend.freeze(freezer)?;
+            let prepend = FreezeBranded::freeze(prepend, freezer)?;
             options.push(FrozenCommandLineOption::Prepend(prepend));
         }
         if let Some(quote) = quote {
@@ -476,7 +484,8 @@ impl<'v> Freeze for CommandLineOptions<'v> {
         }
         if let Some(replacements) = replacements {
             if !replacements.is_empty() {
-                let replacements = MiniBoxSlice::from_iter((*replacements).freeze(freezer)?);
+                let replacements =
+                    MiniBoxSlice::from_iter(FreezeBranded::freeze(*replacements, freezer)?);
                 options.push(FrozenCommandLineOption::Replacements(replacements));
             }
         }
@@ -484,6 +493,16 @@ impl<'v> Freeze for CommandLineOptions<'v> {
         Ok(FrozenCommandLineOptions {
             options: MiniBoxSlice::from_iter(options),
         })
+    }
+}
+
+// Interop for containers whose `Freeze` impls have not been migrated to
+// `FreezeBranded`; see `freeze_via_branded`.
+impl<'v> Freeze for CommandLineOptions<'v> {
+    type Frozen = FrozenCommandLineOptions<'static>;
+
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        starlark::values::freeze_via_branded(self, freezer)
     }
 }
 
