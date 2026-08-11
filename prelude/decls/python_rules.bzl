@@ -366,13 +366,26 @@ prebuilt_python_library = prelude_rule(
         # @unsorted-dict-items
         buck.labels_arg()
         | {
-            "binary_src": attrs.source(
+            "binary_src": attrs.option(
+                attrs.source(),
+                default = None,
                 doc = """
-                The path to the `.whl` or `.egg` to use.
+                The path to the `.whl`, `.egg`, or `.tar.gz` archive to extract.
 
-                 Note: `.egg` files have a very particular naming convention
-                 that must be followed - otherwise it will not be found at runtime!
-            """
+                 Exactly one of `binary_src` and `source_dir` must be set. Note:
+                 `.egg` files have a very particular naming convention that must
+                 be followed, otherwise they will not be found at runtime.
+            """,
+            ),
+            "source_dir": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
+                A directory containing an already-materialized Python package.
+
+                 The directory is manifested in place without being copied or
+                 archived. Exactly one of `binary_src` and `source_dir` must be set.
+            """,
             ),
         }
         | python_common.deps_arg()

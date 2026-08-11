@@ -50,20 +50,42 @@ load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps
 def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
-    # Extract prebuilt wheel and wrap in python library provider.
+    binary_src = ctx.attrs.binary_src
+    source_dir = ctx.attrs.source_dir
+    if (binary_src == None) == (source_dir == None):
+        fail("exactly one of `binary_src` or `source_dir` must be set")
+    if source_dir != None and ctx.attrs.strip_soabi_tags:
+        fail("`strip_soabi_tags` is only supported with `binary_src`")
+
+    # Archives must be extracted before their contents can be manifested. A
+    # source directory can be manifested directly, while still using the
+    # preparation tool to discover entry points and optional C++ headers.
     entry_points = ctx.actions.declare_output("entry_points.manifest", has_content_based_path = False)
     entry_points_dir = ctx.actions.declare_output("__entry_points__", dir = True, has_content_based_path = False)
-    extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True, has_content_based_path = False)
-    cmd = cmd_args(
-        ctx.attrs._extract[RunInfo],
-        ctx.attrs.binary_src,
-        "--output",
-        extracted_src.as_output(),
-        "--entry-points-manifest",
-        entry_points.as_output(),
-        "--entry-points",
-        entry_points_dir.as_output(),
-    )
+    if binary_src != None:
+        source = binary_src
+        source_root = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True, has_content_based_path = False)
+        cmd = cmd_args(
+            ctx.attrs._extract[RunInfo],
+            binary_src,
+            "--output",
+            source_root.as_output(),
+            "--entry-points-manifest",
+            entry_points.as_output(),
+            "--entry-points",
+            entry_points_dir.as_output(),
+        )
+    else:
+        source = source_dir
+        source_root = source_dir
+        cmd = cmd_args(
+            ctx.attrs._extract[RunInfo],
+            source_dir,
+            "--entry-points-manifest",
+            entry_points.as_output(),
+            "--entry-points",
+            entry_points_dir.as_output(),
+        )
     if ctx.attrs.strip_soabi_tags:
         cmd.add("--strip-soabi-tags")
     inferred_cxx_header_dirs = None
@@ -73,9 +95,10 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             "--cxx-header-dirs",
             inferred_cxx_header_dirs.as_output(),
         )
-    ctx.actions.run(cmd, category = "py_extract_prebuilt_library")
+    ctx.actions.run(cmd, category = "py_prepare_prebuilt_library")
     deps, shared_deps = gather_dep_libraries(ctx.attrs.deps)
-    src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src, exclude = "\\.pyc$")
+    manifest_param = "binary_src" if binary_src != None else "source_dir"
+    src_manifest = create_manifest_for_source_dir(ctx, manifest_param, source_root, exclude = "\\.pyc$")
     bytecode = compile_manifests(ctx, [src_manifest])
 
     lazy_imports_analyzer = get_lazy_imports_analyzer(ctx)
@@ -129,7 +152,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             source_db_no_deps,
         )
         sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = lazy_imports_cache_output)]
-    providers.append(DefaultInfo(default_output = ctx.attrs.binary_src, sub_targets = sub_targets))
+    providers.append(DefaultInfo(default_output = source, sub_targets = sub_targets))
 
     # C++ resources.
     providers.append(
@@ -151,7 +174,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 root = create_third_party_build_root(
                     ctx = ctx,
                     paths = [
-                        ("lib/python", extracted_src),
+                        ("lib/python", source_root),
                     ],
                     manifests = [
                         ("bin", entry_points_manifest),
@@ -194,7 +217,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         for header_dir in ctx.attrs.cxx_header_dirs:
             pp_args.append(
                 format_system_include_arg(
-                    cmd_args(extracted_src.project(header_dir)),
+                    cmd_args(source_root.project(header_dir)),
                     "clang",
                 ),
             )
@@ -206,7 +229,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             for header_dir in header_dirs.read_string().splitlines():
                 lines.append(
                     format_system_include_arg(
-                        cmd_args(extracted_src.project(header_dir)),
+                        cmd_args(source_root.project(header_dir)),
                         "clang",
                     )
                 )
@@ -226,7 +249,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(
                 pp_argsfile,
                 format = "@{}",
-                hidden = [extracted_src],
+                hidden = [source_root],
             ),
         )
     if pp_args:
