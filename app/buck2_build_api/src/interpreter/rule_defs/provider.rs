@@ -95,14 +95,12 @@ pub trait ProviderLike<'v>: Debug {
     fn items(&self) -> Vec<(&str, Value<'v>)>;
 }
 
-/// Implemented by frozen builtin providers.
+/// Implemented by the frozen form of builtin providers.
+///
+/// `Self` is the brand-erased frozen type; `Self::Reinfect` recovers the branded form. For
+/// legacy (`Gen`-based) providers the two coincide: `Reinfect<'v> = Self` at every brand.
 pub trait FrozenBuiltinProviderLike:
-    ProviderLike<'static>
-    + for<'v> StarlarkValue<'v>
-    + for<'v> ProvidesStaticType<'v, StaticType = Self>
-    + for<'v> IsStaticType<Reinfect<'v> = Self>
-    + Send
-    + Sync
+    ProviderLike<'static> + StarlarkValue<'static> + IsStaticType + Send + Sync
 {
     fn builtin_provider_id() -> &'static Arc<ProviderId>;
 }

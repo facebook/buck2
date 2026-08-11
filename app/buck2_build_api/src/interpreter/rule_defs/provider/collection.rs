@@ -498,7 +498,7 @@ impl<'v> ProviderCollection<'v> {
     /// collection reached through a `Dependency` or an analysis result is
     /// frozen and hence fine.
     pub fn default_info(&self) -> buck2_error::Result<FrozenValueTyped<'v, FrozenDefaultInfo>> {
-        self.builtin_provider().ok_or_else(|| {
+        self.builtin_provider::<FrozenDefaultInfo>().ok_or_else(|| {
             internal_error!(
                 "DefaultInfo should always be set for providers returned from rule function"
             )
@@ -514,7 +514,10 @@ impl<'v> ProviderCollection<'v> {
     /// frozen and hence fine.
     pub fn builtin_provider<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<FrozenValueTyped<'v, T>> {
+    ) -> Option<FrozenValueTyped<'v, T::Reinfect<'v>>>
+    where
+        T::Reinfect<'v>: StarlarkValue<'v> + Sized,
+    {
         self.builtin_provider_value::<T>()
     }
 
@@ -523,7 +526,10 @@ impl<'v> ProviderCollection<'v> {
     /// frozen and hence fine.
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<FrozenValueTyped<'v, T>> {
+    ) -> Option<FrozenValueTyped<'v, T::Reinfect<'v>>>
+    where
+        T::Reinfect<'v>: StarlarkValue<'v> + Sized,
+    {
         let provider = self
             .get_provider_raw(T::builtin_provider_id())?
             .unpack_frozen()
@@ -642,7 +648,10 @@ impl FrozenProviderCollectionValue {
     /// Get a provider from the collection, keeping it alive by its owner heap.
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<OwnedFrozenValueTyped<T>> {
+    ) -> Option<OwnedFrozenValueTyped<T>>
+    where
+        for<'x> T::Reinfect<'x>: StarlarkValue<'x> + Sized,
+    {
         let v = self
             .as_ref()
             .inner
