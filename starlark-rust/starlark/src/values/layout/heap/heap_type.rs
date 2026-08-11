@@ -1601,6 +1601,11 @@ where
         }
     }
 
+    /// Get the underlying frozen heap
+    pub fn owner(&self) -> &FrozenHeapRef {
+        &self.heap_ref
+    }
+
     /// Get access to this value within the provided heap
     ///
     /// See the `branding` module for more details.

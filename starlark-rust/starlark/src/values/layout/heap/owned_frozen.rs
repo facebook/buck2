@@ -21,9 +21,14 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::any::IsStaticType;
+use crate::cast::transmute;
+use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenValueTyped;
+use crate::values::StarlarkValue;
+use crate::values::ValueTyped;
 
 /// An alias for `FnOnce`.
 ///
@@ -142,10 +147,75 @@ where
     }
 }
 
+impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozenValueTyped<T>>
+    for OwnedFrozen<ValueTyped<'static, T>>
+where
+    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+    // If the bounds on `ProvidesStaticType::StaticType` were better and the compiler were a little
+    // bit smarter, it would be able to infer this from just `T::Reinfect<'fv>: ...` instead of
+    // having to bound on `ValueTyped<...>`. Alas...
+    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
+{
+    fn from(value: OwnedFrozenValueTyped<T>) -> Self {
+        // SAFETY: We're going to keep the heap alive below
+        let vt: ValueTyped<'static, T> = unsafe { value.value_typed().to_value_typed() };
+        // SAFETY: Similar story to the safety for `unchecked_new`, the safety contract on
+        // `ProvidesStaticType` requires that these are the same type
+        let vt: ValueTyped<'static, T::Reinfect<'static>> = unsafe {
+            transmute!(
+                ValueTyped<'static, T>,
+                ValueTyped<'static, T::Reinfect<'static>>,
+                vt
+            )
+        };
+        // SAFETY: As per above, the owner of this value is this heap
+        unsafe { Self::unchecked_new(value.owner().dupe(), vt) }
+    }
+}
+
+impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozen<ValueTyped<'static, T>>>
+    for OwnedFrozenValueTyped<T>
+where
+    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
+{
+    fn from(value: OwnedFrozen<ValueTyped<'static, T>>) -> Self {
+        value.by_ref(|v| {
+            let v = FrozenValueTyped::new(
+                v.to_value()
+                    .unpack_frozen()
+                    .expect("value in a frozen heap is frozen"),
+            )
+            .expect("the `ValueTyped` already witnesses the type");
+            // SAFETY: `value.owner()` is the heap that keeps `v` alive, and it is passed in as
+            // the owner.
+            unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use allocative::Allocative;
+    use derive_more::Display;
+    use starlark_derive::FreezeBranded;
+    use starlark_derive::NoSerialize;
+    use starlark_derive::Trace;
+    use starlark_derive::starlark_value;
+
+    use crate as starlark;
+    use crate::any::ProvidesStaticType;
+    use crate::starlark_complex_value_branded;
     use crate::values::OwnedFrozen;
+    use crate::values::OwnedFrozenValueTyped;
+    use crate::values::StarlarkValue;
     use crate::values::Value;
+    use crate::values::ValueTyped;
+
+    #[allow(dead_code)]
+    fn construct_any<T>() -> T {
+        unreachable!()
+    }
 
     fn _check_send_sync()
     where
@@ -154,17 +224,13 @@ mod tests {
     }
 
     fn _check_send_sync_provable_in_generator_interior() {
-        fn construct() -> OwnedFrozen<Value<'static>> {
-            unreachable!()
-        }
-
         // An async block holding a `OwnedFrozen<Value<'static>>` in a capture
         //
         // When attempting to prove that this future is `Send`, rustc incorrectly tries to prove
         // `for<'fv> OwnedFrozen<Value<'fv>>: Send` instead of just the `'static` case. This is
         // the standard mcve for <https://github.com/rust-lang/rust/issues/102211>.
         async fn hold_in_generator_interior() {
-            let v = construct();
+            let v: OwnedFrozen<Value<'static>> = construct_any();
             async {}.await;
             drop(v);
         }
@@ -172,5 +238,28 @@ mod tests {
         fn _prove_send_sync() -> impl Send + Sync {
             hold_in_generator_interior()
         }
+    }
+
+    #[derive(
+        Clone,
+        Debug,
+        Display,
+        Trace,
+        FreezeBranded,
+        ProvidesStaticType,
+        NoSerialize,
+        Allocative,
+        starlark_derive::StarlarkPagable
+    )]
+    struct MyComplex<'v>(Value<'v>);
+
+    starlark_complex_value_branded!(MyComplex);
+
+    #[starlark_value(type = "MyComplex")]
+    impl<'v> StarlarkValue<'v> for MyComplex<'v> {}
+
+    fn _check_owned_frozen_value_typed_conversion_actually_usable() {
+        let v: OwnedFrozenValueTyped<MyComplex<'static>> = construct_any();
+        let _v: OwnedFrozen<ValueTyped<'static, MyComplex<'static>>> = v.into();
     }
 }

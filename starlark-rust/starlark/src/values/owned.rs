@@ -261,7 +261,7 @@ impl<T: StarlarkValue<'static>> Deref for OwnedFrozenValueTyped<T> {
     }
 }
 
-impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
+impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     /// Create an [`OwnedFrozenValueTyped`] - generally [`OwnedFrozenValueTyped`]s are obtained
     /// from downcasting [`OwnedFrozenValue`].
     ///
@@ -276,14 +276,13 @@ impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     /// let value = heap.alloc("test");
     /// unsafe { OwnedFrozenValue::new(heap.into_ref_named(FrozenHeapName::user("test")), value) };
     /// ```
-    pub unsafe fn new<'a>(owner: FrozenHeapRef, value: FrozenValueTyped<'a, T>) -> Self {
+    pub unsafe fn new(owner: FrozenHeapRef, value: FrozenValueTyped<'static, T>) -> Self {
         // SAFETY: The caller has asserted that this heap ref keeps the value alive.
-        let value = unsafe {
-            std::mem::transmute::<FrozenValueTyped<'a, T>, FrozenValueTyped<'static, T>>(value)
-        };
         Self { owner, value }
     }
+}
 
+impl<T: StarlarkValue<'static>> OwnedFrozenValueTyped<T> {
     /// Erase the type.
     ///
     /// This operation is unsafe because returned value is not bound by the heap lifetime.
@@ -366,7 +365,7 @@ impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     /// Operate on the [`FrozenValue`] stored inside.
     /// Safe provided you don't store the argument [`FrozenValue`] after the closure has returned.
     /// Using this function is discouraged when possible.
-    pub fn map<U: for<'a> StarlarkValue<'a>>(
+    pub fn map<U: StarlarkValue<'static>>(
         &self,
         f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> FrozenValueTyped<'a, U>,
     ) -> OwnedFrozenValueTyped<U> {
@@ -377,7 +376,7 @@ impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     }
 
     /// Same as [`map`](OwnedFrozenValue::map) above but with [`Result`]
-    pub fn try_map<U: for<'a> StarlarkValue<'a>, E>(
+    pub fn try_map<U: StarlarkValue<'static>, E>(
         &self,
         f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> Result<FrozenValueTyped<'a, U>, E>,
     ) -> Result<OwnedFrozenValueTyped<U>, E> {
@@ -388,7 +387,7 @@ impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     }
 
     /// Same as [`map`](OwnedFrozenValue::map) above but with [`Option`]
-    pub fn maybe_map<U: for<'a> StarlarkValue<'a>>(
+    pub fn maybe_map<U: StarlarkValue<'static>>(
         &self,
         f: impl for<'a> FnOnce(FrozenValueTyped<'a, T>) -> Option<FrozenValueTyped<'a, U>>,
     ) -> Option<OwnedFrozenValueTyped<U>> {
