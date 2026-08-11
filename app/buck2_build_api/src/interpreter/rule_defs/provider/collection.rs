@@ -198,17 +198,12 @@ impl<'v> AllocValue<'v> for ProviderCollection<'v> {
     }
 }
 
-// `'v: 'fv` rather than `'v == 'fv` so that `FrozenProviderCollection` can be
-// allocated onto any heap, matching what other `Frozen*` types allow.
-impl<'fv, 'v: 'fv> AllocFrozenValue<'fv> for ProviderCollection<'v> {
+impl<'fv> AllocFrozenValue<'fv> for ProviderCollection<'fv> {
     fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         if self.providers.is_empty() {
             empty_provider_collection_value().to_frozen_value()
         } else {
-            // SAFETY: Shrinking the brand; the values outlive `'fv`.
-            let this =
-                unsafe { mem::transmute::<ProviderCollection<'v>, ProviderCollection<'fv>>(self) };
-            heap.alloc_simple_typed(this).to_frozen_value()
+            heap.alloc_simple_typed(self).to_frozen_value()
         }
     }
 }
@@ -401,7 +396,7 @@ impl FrozenProviderCollection {
         heap: &'v FrozenHeap,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
         FrozenValueTyped::new_err(
-            heap.alloc(FrozenProviderCollection {
+            heap.alloc(ProviderCollection {
                 providers: SmallMap::from_iter([(
                     CollectionKey(DefaultInfoCallable::provider_id().dupe()),
                     DefaultInfo::testing_empty(heap)

@@ -194,12 +194,10 @@ impl<'v> DefaultInfo<'v> {
     }
 
     pub(crate) fn testing_empty(heap: &'v FrozenHeap) -> FrozenValueTyped<'v, DefaultInfo<'v>> {
-        let sub_targets = heap
-            .alloc_typed_unchecked(AllocDict(
-                iter::empty::<(String, FrozenProviderCollection)>(),
-            ))
-            .cast()
-            .to_value();
+        let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(
+            heap.alloc(AllocDict(iter::empty::<(String, ProviderCollection)>()))
+                .to_value(),
+        );
         let default_outputs =
             ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY).to_value());
         let other_outputs =
