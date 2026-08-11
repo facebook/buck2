@@ -83,7 +83,7 @@
 }.
 
 -type outcome() ::
-    passed | failed | timeout | skipped | omitted.
+    passed | failed | timeout | skipped | omitted | infra_failure.
 
 -type group_path() :: [atom()].
 
@@ -236,11 +236,16 @@ report_end_failure(
         end,
     report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
 
+%% A genuine failure or timeout outranks an infra failure, so that a real breakage is
+%% never masked behind an infra label (tpx applies the same precedence when it
+%% reconciles a retry against its previous attempt).
 -spec merge_outcome(outcome(), outcome()) -> outcome().
 merge_outcome(failed, _) -> failed;
 merge_outcome(_, failed) -> failed;
 merge_outcome(timeout, _) -> timeout;
 merge_outcome(_, timeout) -> timeout;
+merge_outcome(infra_failure, _) -> infra_failure;
+merge_outcome(_, infra_failure) -> infra_failure;
 merge_outcome(skipped, _) -> skipped;
 merge_outcome(_, skipped) -> skipped;
 merge_outcome(passed, Other) -> Other.
@@ -304,6 +309,7 @@ collect_node(
         fun
             (#{outcome := failed}) -> false;
             (#{outcome := timeout}) -> false;
+            (#{outcome := infra_failure}) -> false;
             (_) -> true
         end,
         NewInits
@@ -409,6 +415,18 @@ handle_skipped_result([Init | Inits], MainResult = #{name := Name}, CollectedStd
                 details =>
                     io_lib:format(
                         ~"Timed-out because init ~ts timed-out, with error message:\n ~ts",
+                        [maps:get(name, Init), maps:get(details, Init)]
+                    ),
+
+                std_out => InitStdOut
+            };
+        infra_failure ->
+            #{
+                name => Name,
+                outcome => infra_failure,
+                details =>
+                    io_lib:format(
+                        ~"Infra failure because init ~ts hit an infra failure, with error message:\n ~ts",
                         [maps:get(name, Init), maps:get(details, Init)]
                     ),
 
