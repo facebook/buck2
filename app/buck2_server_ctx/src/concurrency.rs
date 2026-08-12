@@ -905,6 +905,76 @@ mod tests {
         dice
     }
 
+    /// Builder for a test call to [`ConcurrencyHandler::enter`], which otherwise takes twelve
+    /// arguments of which most tests care about one or two. Defaults describe a plain command:
+    /// not nested, not exclusive, never preemptible, never exiting early.
+    struct TestCommand {
+        dispatcher: EventDispatcher,
+        preemptible: PreemptibleWhen,
+        exit_when: ExitWhen,
+        is_nested_invocation: bool,
+    }
+
+    impl TestCommand {
+        fn new() -> Self {
+            Self {
+                dispatcher: EventDispatcher::null(),
+                preemptible: PreemptibleWhen::Never,
+                exit_when: ExitWhen::ExitNever,
+                is_nested_invocation: false,
+            }
+        }
+
+        fn dispatcher(mut self, dispatcher: EventDispatcher) -> Self {
+            self.dispatcher = dispatcher;
+            self
+        }
+
+        fn preemptible(mut self, preemptible: PreemptibleWhen) -> Self {
+            self.preemptible = preemptible;
+            self
+        }
+
+        async fn run<F, Fut, R>(
+            self,
+            concurrency: &Arc<ConcurrencyHandler>,
+            updates: &dyn DiceUpdater,
+            exec: F,
+        ) -> buck2_error::Result<R>
+        where
+            F: FnOnce(DiceTransaction, EarlyCommandTimingBuilder) -> Fut,
+            Fut: Future<Output = R> + Send,
+        {
+            let project_root = ProjectRootTemp::new().unwrap();
+            concurrency
+                .enter(
+                    self.dispatcher,
+                    updates,
+                    exec,
+                    self.is_nested_invocation,
+                    Vec::new(),
+                    None,
+                    CancellationContext::testing(),
+                    self.preemptible,
+                    LockedPreviousCommandData::default().into(),
+                    project_root.path(),
+                    self.exit_when,
+                    EarlyCommandTimingBuilder::new(Instant::now()),
+                )
+                .await
+        }
+    }
+
+    /// Matches an instant `TagEvent` carrying `tag`.
+    fn is_tag_event(tag: &'static str) -> impl Fn(&BuckEvent) -> bool {
+        move |e: &BuckEvent| match e.data() {
+            buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                data: Some(buck2_data::instant_event::Data::TagEvent(t)),
+            }) => t.tags.iter().any(|it| it == tag),
+            _ => false,
+        }
+    }
+
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
         // FIXME: This times out on open source, and we don't know why
@@ -1506,6 +1576,228 @@ mod tests {
         drop(blocked2);
         fut2.await??;
         fut3.await??;
+
+        Ok(())
+    }
+
+    /// `PreemptibleWhen::OnDifferentState` must not preempt when the arriving command shares the
+    /// active state. This is the `is_same_state` short circuit in `cancel_preemptible_commands`,
+    /// reached only from the `BypassSemaphore::Run` call site.
+    #[tokio::test]
+    async fn on_different_state_survives_a_same_state_command() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice);
+
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let preemptible = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let entered = entered.dupe();
+            let block = block.dupe();
+
+            async move {
+                TestCommand::new()
+                    .preemptible(PreemptibleWhen::OnDifferentState)
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _g = block.read().await;
+                    })
+                    .await
+            }
+        });
+
+        entered.wait().await;
+
+        // A command with the same state runs concurrently and completes.
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        drop(blocked);
+        preemptible.await??;
+
+        Ok(())
+    }
+
+    /// The other half of the matrix: `OnDifferentState` is preempted when the arriving command has
+    /// a different state. Note the blocking guard is deliberately never released — preemption is
+    /// what unblocks the first command, by dropping its `exec` future.
+    #[tokio::test]
+    async fn on_different_state_is_preempted_by_a_different_state_command()
+    -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice);
+
+        let block = Arc::new(RwLock::new(()));
+        let _blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let preemptible = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let entered = entered.dupe();
+            let block = block.dupe();
+
+            async move {
+                TestCommand::new()
+                    .preemptible(PreemptibleWhen::OnDifferentState)
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _g = block.read().await;
+                    })
+                    .await
+            }
+        });
+
+        entered.wait().await;
+
+        let different = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+                    .await
+            }
+        });
+
+        // Bounded: if preemption regresses, the first command stays blocked on a guard that is
+        // never released, so without this the test deadlocks rather than failing.
+        let result = tokio::time::timeout(Duration::from_secs(10), preemptible)
+            .await
+            .buck_error_context("Command was never preempted")?;
+
+        let error: buck2_error::Error = result?.unwrap_err();
+        assert!(
+            error
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonPreempted),
+            "Command should have been preempted, got: {error}"
+        );
+
+        different.await??;
+
+        Ok(())
+    }
+
+    /// The state machine's only externally visible signals. Integration tests key off these, so
+    /// they are part of the contract: a command that installs a fresh DICE state reports
+    /// `NoActiveDiceState`, and one that joins an equivalent state reports `DiceEqualityCheck`.
+    #[tokio::test]
+    async fn dice_state_transitions_are_reported_as_events() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+        let concurrency = ConcurrencyHandler::new(dice);
+
+        let (mut first_source, first_sink) = create_source_sink_pair();
+        TestCommand::new()
+            .dispatcher(EventDispatcher::new(
+                TraceId::new(),
+                DaemonId::new(),
+                first_sink,
+            ))
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        wait_for_event(
+            &mut first_source,
+            Box::new(|e: &BuckEvent| {
+                matches!(
+                    e.data(),
+                    buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                        data: Some(buck2_data::instant_event::Data::NoActiveDiceState(..)),
+                    })
+                )
+            }),
+        )
+        .await?;
+
+        // The active DICE version is not cleared when a command exits, so the next command with an
+        // equivalent state reuses it rather than installing a new one.
+        let (mut second_source, second_sink) = create_source_sink_pair();
+        TestCommand::new()
+            .dispatcher(EventDispatcher::new(
+                TraceId::new(),
+                DaemonId::new(),
+                second_sink,
+            ))
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        wait_for_event(
+            &mut second_source,
+            Box::new(|e: &BuckEvent| {
+                matches!(
+                    e.data(),
+                    buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
+                        data: Some(buck2_data::instant_event::Data::DiceEqualityCheck(
+                            DiceEqualityCheck { is_equal: true }
+                        )),
+                    })
+                )
+            }),
+        )
+        .await?;
+
+        // Deliberately not asserted: whether a *different* state command emits
+        // `DiceEqualityCheck { is_equal: false }` before blocking depends on whether the previous
+        // command's entry has been reaped yet, and reaping happens on a detached task.
+
+        Ok(())
+    }
+
+    /// A command that takes ownership of an unowned DICE state while work from a previous
+    /// transaction is still winding down is tainted, and says so.
+    #[tokio::test]
+    async fn command_taking_over_non_idle_dice_is_tagged_tainted() -> buck2_error::Result<()> {
+        let dice = make_default_dice().await;
+
+        let key = CleanupTestKey {
+            is_executing: Arc::new(Mutex::new(())),
+        };
+        let key = &key;
+
+        // Abandon a transaction with a computation still running, leaving DICE a task pending
+        // cancellation. `CleanupTestKey` holds a cancellation critical section for a second, so it
+        // stays pending for the rest of the test.
+        {
+            let transaction = dice.updater().commit().await;
+
+            let compute = transaction.compute(key).fuse();
+            let started = async {
+                while !key.is_executing.is_locked() {
+                    tokio::task::yield_now().await;
+                }
+            }
+            .fuse();
+
+            futures::pin_mut!(compute);
+            futures::pin_mut!(started);
+
+            futures::select! {
+                _ = compute => panic!("compute finished before started?"),
+                _ = started => {}
+            }
+        }
+
+        assert!(
+            !dice.is_idle().await,
+            "DICE should have a task pending cancellation"
+        );
+
+        let concurrency = ConcurrencyHandler::new(dice);
+        let (mut source, sink) = create_source_sink_pair();
+
+        TestCommand::new()
+            .dispatcher(EventDispatcher::new(TraceId::new(), DaemonId::new(), sink))
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        wait_for_event(&mut source, Box::new(is_tag_event("concurrency-tainted"))).await?;
+
+        assert!(
+            concurrency.data.lock().await.previously_tainted,
+            "Taint should latch for subsequent commands"
+        );
 
         Ok(())
     }
