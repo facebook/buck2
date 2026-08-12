@@ -769,7 +769,8 @@ def _make_py_package_live(
         # bytecode is compiled per library so the actual bytecode artifacts are directories
         # the compile command outputs json manifest in the form
         # [(src, dst, origin),]
-        bytecode_manifests = pex_modules.manifests.bytecode_manifests(PycInvalidationMode("checked_hash"))
+        pyc_mode = PycInvalidationMode("unchecked_hash") if is_outplace else PycInvalidationMode("checked_hash")
+        bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
         bytecode_manifests_path = ctx.actions.write(
             "__bytecode_manifests{}.txt".format(output_suffix),
             bytecode_manifests,
@@ -777,7 +778,7 @@ def _make_py_package_live(
         )
         cmd.add(cmd_args(bytecode_manifests_path, format = "--bytecode={}", hidden = bytecode_manifests))
 
-        bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(PycInvalidationMode("checked_hash"))
+        bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(pyc_mode)
         runtime_files.extend(bytecode_artifacts)
 
         # Pass resolved bytecode artifact paths so the Rust builder can replace
