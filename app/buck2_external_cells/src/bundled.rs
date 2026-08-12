@@ -65,7 +65,10 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
-use pagable::PagablePanic;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use pagable::pagable_typetag;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
@@ -219,9 +222,29 @@ impl DirectoryDigester<ContentsAndMetadata, BundledDirectoryDigest> for BundledD
     }
 }
 
-#[derive(allocative::Allocative, PagablePanic)]
+#[derive(allocative::Allocative)]
 pub(crate) struct BundledFileOpsDelegate {
+    cell_name: CellName,
+    digest_config: DigestConfig,
     dir: ImmutableDirectory<ContentsAndMetadata, BundledDirectoryDigest>,
+}
+
+impl PagableSerialize for BundledFileOpsDelegate {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.cell_name.pagable_serialize(serializer)?;
+        self.digest_config.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for BundledFileOpsDelegate {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let cell_name = CellName::pagable_deserialize(deserializer)?;
+        let digest_config = DigestConfig::pagable_deserialize(deserializer)?;
+        get_file_ops_delegate_impl(cell_name, digest_config)
+            .map_err(|e| pagable::Error::msg(e.to_string()))
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -357,9 +380,10 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
 }
 
 fn get_file_ops_delegate_impl(
-    data: BundledCell,
+    cell_name: CellName,
     digest_config: DigestConfig,
 ) -> buck2_error::Result<BundledFileOpsDelegate> {
+    let data = find_bundled_data(cell_name)?;
     let mut builder: DirectoryBuilder<ContentsAndMetadata, BundledDirectoryDigest> =
         DirectoryBuilder::empty_non_exhaustive();
     let source_digest_config = digest_config.cas_digest_config().source_files_config();
@@ -382,7 +406,11 @@ fn get_file_ops_delegate_impl(
             .internal_error("conflicting bundled source paths")?;
     }
     let builder = builder.fingerprint(&BundledDirectoryDigester);
-    Ok(BundledFileOpsDelegate { dir: builder })
+    Ok(BundledFileOpsDelegate {
+        cell_name,
+        digest_config,
+        dir: builder,
+    })
 }
 
 async fn declare_all_source_artifacts(
@@ -442,8 +470,7 @@ pub(crate) async fn get_file_ops_delegate(
             ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
-            let data = find_bundled_data(self.0)?;
-            let ops = get_file_ops_delegate_impl(data, ctx.global_data().get_digest_config())?;
+            let ops = get_file_ops_delegate_impl(self.0, ctx.global_data().get_digest_config())?;
             declare_all_source_artifacts(ctx, self.0, &ops).await?;
             Ok(Arc::new(ops))
         }
@@ -494,11 +521,17 @@ pub(crate) async fn materialize_all(
 mod tests {
     use std::assert_matches;
 
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
+
     use super::*;
 
     fn testing_ops() -> BundledFileOpsDelegate {
-        let data = find_bundled_data(CellName::testing_new("test_bundled_cell")).unwrap();
-        get_file_ops_delegate_impl(data, DigestConfig::testing_default()).unwrap()
+        get_file_ops_delegate_impl(
+            CellName::testing_new("test_bundled_cell"),
+            DigestConfig::testing_default(),
+        )
+        .unwrap()
     }
 
     #[tokio::test]
@@ -584,7 +617,28 @@ mod tests {
     #[test]
     fn test_load_all_bundled_cells() {
         for c in get_bundled_data() {
-            get_file_ops_delegate_impl(*c, DigestConfig::testing_default()).unwrap();
+            get_file_ops_delegate_impl(
+                CellName::testing_new(c.name),
+                DigestConfig::testing_default(),
+            )
+            .unwrap();
         }
+    }
+
+    #[test]
+    fn test_pagable_round_trip() {
+        let ops = testing_ops();
+        let mut serializer = TestingSerializer::new();
+        ops.pagable_serialize(&mut serializer).unwrap();
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored = BundledFileOpsDelegate::pagable_deserialize(&mut deserializer).unwrap();
+
+        let path = CellRelativePath::unchecked_new("dir/src.txt");
+        assert_eq!(
+            ops.read_file_if_exists(path).unwrap(),
+            restored.read_file_if_exists(path).unwrap()
+        );
     }
 }
