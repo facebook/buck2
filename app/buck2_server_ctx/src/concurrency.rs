@@ -965,6 +965,25 @@ mod tests {
         }
     }
 
+    /// Waits until finished commands have been deregistered.
+    ///
+    /// `enter` returning does not mean the command is no longer registered: `OnExecExit::drop` only
+    /// spawns the removal, so the entry lingers in `active_commands` until that detached task
+    /// acquires the lock. Anything that observes registration afterwards — `ExitWhen::ExitNotIdle`
+    /// in particular — races the reaper without this.
+    async fn wait_for_commands_to_be_reaped(
+        concurrency: &ConcurrencyHandler,
+    ) -> buck2_error::Result<()> {
+        // Short timeouts are too flaky in OD environments under load.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !concurrency.data.lock().await.has_no_active_commands() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .buck_error_context("Timed out waiting for finished commands to be deregistered")
+    }
+
     /// Matches an instant `TagEvent` carrying `tag`.
     fn is_tag_event(tag: &'static str) -> impl Fn(&BuckEvent) -> bool {
         move |e: &BuckEvent| match e.data() {
@@ -2828,8 +2847,7 @@ mod tests {
             )
             .await?;
 
-        // Wait for a moment to let async cleanup processes finish.
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        wait_for_commands_to_be_reaped(&concurrency).await?;
 
         // Daemon should now be idle
         // Second command with --exit-when=notidle and same state should succeed
@@ -2894,8 +2912,7 @@ mod tests {
             )
             .await?;
 
-        // Wait for a moment to let async cleanup processes finish.
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        wait_for_commands_to_be_reaped(&concurrency).await?;
 
         // Daemon should now be idle
         // Second command with --exit-when=notidle and different state should succeed
