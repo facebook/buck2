@@ -67,11 +67,13 @@ class AndroidInstallerManager implements InstallCommand {
   @Override
   public InstallResult fileReady(String artifactName, Path artifactPath, InstallId installId) {
     try {
+      AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
+      androidArtifacts.recordFileArrival(artifactName, System.currentTimeMillis());
+
       if (artifactName.equals("cpu_filters")) {
         return checkAbiCompatibility(AbsPath.of(artifactPath));
       }
 
-      AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
       if (artifactName.equals("options")) {
         androidArtifacts.setApkOptions(
             new AndroidInstallApkOptions(artifactPath, options.adbExecutablePath));
@@ -201,7 +203,8 @@ class AndroidInstallerManager implements InstallCommand {
               IsolatedApkInfo.of(
                   androidArtifacts.getAndroidManifestPath(), androidArtifacts.getApk()),
               isolatedExopackageInfo,
-              installId);
+              installId,
+              androidArtifacts);
       return androidInstaller.installApk();
 
     } catch (Exception err) {

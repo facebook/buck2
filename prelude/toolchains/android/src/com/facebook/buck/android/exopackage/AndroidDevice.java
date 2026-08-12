@@ -150,8 +150,6 @@ public interface AndroidDevice {
 
   boolean uninstallApkFromDevice(String packageName, boolean keepData) throws Exception;
 
-  String getInstallerMethodName();
-
   default List<String> getDiskSpace() {
     return Arrays.asList("_", "_", "_");
   }

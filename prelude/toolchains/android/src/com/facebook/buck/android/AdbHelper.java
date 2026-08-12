@@ -20,6 +20,7 @@ import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.AndroidDevicesHelper;
 import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
+import com.facebook.buck.android.exopackage.InstallTimings;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -110,6 +111,7 @@ public class AdbHelper implements AndroidDevicesHelper {
   private final boolean skipMetadataIfNoInstalls;
   private final AndroidInstallPrinter androidPrinter;
   private final SetDebugAppMode setDebugAppMode;
+  private final InstallTimings timings;
 
   @Nullable private ListeningExecutorService executorService = null;
 
@@ -124,6 +126,29 @@ public class AdbHelper implements AndroidDevicesHelper {
       boolean restartAdbOnFailure,
       boolean skipMetadataIfNoInstalls,
       SetDebugAppMode setDebugAppMode) {
+    this(
+        adbUtils,
+        adbOptions,
+        deviceOptions,
+        adbExecutionContext,
+        androidPrinter,
+        restartAdbOnFailure,
+        skipMetadataIfNoInstalls,
+        setDebugAppMode,
+        InstallTimings.NONE);
+  }
+
+  public AdbHelper(
+      AdbUtils adbUtils,
+      AdbOptions adbOptions,
+      TargetDeviceOptions deviceOptions,
+      AdbExecutionContext adbExecutionContext,
+      AndroidInstallPrinter androidPrinter,
+      boolean restartAdbOnFailure,
+      boolean skipMetadataIfNoInstalls,
+      SetDebugAppMode setDebugAppMode,
+      InstallTimings timings) {
+    this.timings = timings;
     this.adbUtils = adbUtils;
     this.options = adbOptions;
     this.deviceOptions = deviceOptions;
@@ -326,7 +351,7 @@ public class AdbHelper implements AndroidDevicesHelper {
                     AndroidDeviceInfo.DensityClass.forPhysicalDensity(dpi),
                     sdk,
                     isEmulator,
-                    device.getInstallerMethodName());
+                    AndroidDeviceInfo.transportOf(device.getSerialNumber()));
             LOG.info("Device info [%s]: %s", device.getSerialNumber(), deviceInfo);
             deviceInfos.add(deviceInfo);
           } catch (IncompatibleAbiException e) {
@@ -777,7 +802,8 @@ public class AdbHelper implements AndroidDevicesHelper {
                   packageName,
                   device,
                   skipMetadataIfNoInstalls,
-                  buck2BuildUuid)
+                  buck2BuildUuid,
+                  timings)
               .doInstall(isolatedApkInfo, setDebugAppMode);
           return true;
         },

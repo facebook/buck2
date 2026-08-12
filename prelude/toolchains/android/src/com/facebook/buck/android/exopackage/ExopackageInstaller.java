@@ -73,6 +73,7 @@ public class ExopackageInstaller {
   private final Optional<String> buck2BuildUuid;
   private final Path dataRoot;
   private final boolean skipMetadataIfNoInstalls;
+  private final InstallTimings timings;
 
   public ExopackageInstaller(
       IsolatedExopackageInfo exoInfo,
@@ -82,6 +83,27 @@ public class ExopackageInstaller {
       AndroidDevice device,
       boolean skipMetadataIfNoInstalls,
       Optional<String> buck2BuildUuid) {
+    this(
+        exoInfo,
+        androidPrinter,
+        rootPath,
+        packageName,
+        device,
+        skipMetadataIfNoInstalls,
+        buck2BuildUuid,
+        InstallTimings.NONE);
+  }
+
+  public ExopackageInstaller(
+      IsolatedExopackageInfo exoInfo,
+      AndroidInstallPrinter androidPrinter,
+      AbsPath rootPath,
+      String packageName,
+      AndroidDevice device,
+      boolean skipMetadataIfNoInstalls,
+      Optional<String> buck2BuildUuid,
+      InstallTimings timings) {
+    this.timings = timings;
     this.exoInfo = exoInfo;
     this.androidPrinter = androidPrinter;
     this.rootPath = rootPath;
@@ -101,9 +123,11 @@ public class ExopackageInstaller {
       device.setDebugAppPackageName(packageName);
     }
     if (exopackageEnabled()) {
+      long setupStart = System.currentTimeMillis();
       device.mkDirP(dataRoot.toString());
       device.fixRootDir(dataRoot.toString());
       ImmutableSortedSet<Path> presentFiles = device.listDirRecursive(dataRoot);
+      timings.recordDeviceSetup(setupStart, System.currentTimeMillis());
       installMissingExopackageFiles(presentFiles);
       finishExoFileInstallation(presentFiles);
     }
@@ -123,6 +147,7 @@ public class ExopackageInstaller {
     File apk = isolatedApkInfo.getApkPath().toFile();
 
     if (shouldAppBeInstalled(isolatedApkInfo)) {
+      long installStart = System.currentTimeMillis();
       boolean success =
           device.installApkOnDevice(
               apk,
@@ -133,6 +158,7 @@ public class ExopackageInstaller {
               /* userId= */ null,
               /* allowFastDeploy= */ false,
               packageName);
+      timings.recordApkInstall(installStart, System.currentTimeMillis());
       if (!success) {
         throw new RuntimeException("Installing Apk failed.");
       }
@@ -228,6 +254,11 @@ public class ExopackageInstaller {
    * @return true if the given apk info contains any items which need to be installed via exopackage
    */
   private boolean exopackageEnabled() {
+    return isExopackage(exoInfo);
+  }
+
+  /** True when {@code exoInfo} carries any payload to be pushed alongside the apk. */
+  public static boolean isExopackage(IsolatedExopackageInfo exoInfo) {
     return exoInfo.getDexInfo().isPresent()
         || exoInfo.getNativeLibsInfo().isPresent()
         || exoInfo.getResourcesInfo().isPresent();
@@ -338,7 +369,9 @@ public class ExopackageInstaller {
                       entry -> dataRoot.resolve(entry.getKey()),
                       entry -> rootPath.resolve(entry.getValue()).getPath()));
       // Install the files.
+      long pushStart = System.currentTimeMillis();
       device.installFiles(filesType, installPaths);
+      timings.recordPush(filesType, pushStart, System.currentTimeMillis());
     }
   }
 

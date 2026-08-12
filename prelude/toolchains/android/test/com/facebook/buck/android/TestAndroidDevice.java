@@ -155,11 +155,6 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public String getInstallerMethodName() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public List<String> getDiskSpace() {
     return Arrays.asList("_", "_", "_");
   }

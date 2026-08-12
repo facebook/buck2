@@ -642,8 +642,6 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  override fun getInstallerMethodName(): String = "adb_installer"
-
   override fun getDiskSpace(): List<String> {
     try {
       val result: String = executeAdbShellCommand("df -h /data | awk '{print \$2, \$3, \$4}'")

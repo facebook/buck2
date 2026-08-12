@@ -10,8 +10,6 @@
 
 package com.facebook.buck.installer.android;
 
-import static java.util.Map.entry;
-
 import com.facebook.buck.android.AdbExecutionContext;
 import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.AdbOptions;
@@ -19,6 +17,7 @@ import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
+import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -32,6 +31,7 @@ import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +54,7 @@ class AndroidInstall {
   private final Logger logger;
   private final AdbHelper adbHelper;
   private final ByteArrayOutputStream stderr;
+  private final AndroidArtifacts artifacts;
 
   public AndroidInstall(
       Logger logger,
@@ -62,13 +63,15 @@ class AndroidInstall {
       AndroidInstallApkOptions apkOptions,
       IsolatedApkInfo apkInfo,
       Optional<IsolatedExopackageInfo> exopackageInfo,
-      InstallId installId) {
+      InstallId installId,
+      AndroidArtifacts artifacts) {
     this.logger = logger;
     this.rootPath = rootPath;
     this.apkInfo = apkInfo;
     this.exopackageInfo = exopackageInfo;
     this.installId = installId;
     this.cliOptions = cliOptions;
+    this.artifacts = artifacts;
 
     // Set-up adbOptions
     AdbOptions adbOptions =
@@ -115,7 +118,8 @@ class AndroidInstall {
             new IsolatedAndroidInstallerPrinter(logger),
             apkOptions.restartAdbOnFailure,
             apkOptions.skipInstallMetadata,
-            setDebugAppMode);
+            setDebugAppMode,
+            artifacts);
   }
 
   /** Uses AdbHelper to do actual install with APK */
@@ -134,18 +138,23 @@ class AndroidInstall {
         }
         logger.info(String.format("Attempting install of %s", apkInfo.getApkPath()));
         Instant start = Instant.now();
+        // Everything from here on is device work, including probing it for its properties.
+        long deviceWorkStart = System.currentTimeMillis();
 
+        boolean isExopackage = exopackageInfo.map(ExopackageInstaller::isExopackage).orElse(false);
         Set<AndroidDeviceInfo> androidDeviceInfos = adbHelper.getAndroidDeviceInfo(apkInfo);
         for (AndroidDeviceInfo deviceInfo : androidDeviceInfos) {
-          Map<String, String> infoMap =
-              Map.ofEntries(
-                  entry("installer", deviceInfo.getAndroidDeviceImplementation()),
-                  entry("sdk", deviceInfo.getSdk()),
-                  entry("abi", deviceInfo.getAbi()),
-                  entry("locale", deviceInfo.getLocale()),
-                  entry("build_fingerprint", deviceInfo.getBuildFingerprint()),
-                  entry("is_emulator", deviceInfo.isEmulator() ? "1" : "0"),
-                  entry("density", deviceInfo.getDensity().toString()));
+          Map<String, String> infoMap = new LinkedHashMap<>();
+          infoMap.put("sdk", deviceInfo.getSdk());
+          infoMap.put("abi", deviceInfo.getAbi());
+          infoMap.put("locale", deviceInfo.getLocale());
+          infoMap.put("build_fingerprint", deviceInfo.getBuildFingerprint());
+          infoMap.put("is_emulator", deviceInfo.isEmulator() ? "1" : "0");
+          infoMap.put("density", deviceInfo.getDensity().toString());
+          infoMap.put("transport", deviceInfo.getTransport());
+          // With the device fields rather than the timings below, so that it is still reported
+          // when an install fails before any timing is complete.
+          infoMap.put("is_exopackage", isExopackage ? "1" : "0");
           deviceInfos.add(infoMap);
         }
         for (AndroidDeviceInfo deviceInfo : androidDeviceInfos) {
@@ -159,6 +168,12 @@ class AndroidInstall {
             installViaSd,
             /* quiet= */ false,
             installId.getValue());
+        artifacts.recordDeviceWork(deviceWorkStart, System.currentTimeMillis());
+
+        // Only now are the stage timings complete, so the metrics cannot be gathered any earlier.
+        Map<String, String> installMetrics =
+            artifacts.getInstallMetrics(System.currentTimeMillis());
+        deviceInfos.forEach(infoMap -> infoMap.putAll(installMetrics));
         logger.info(
             String.format(
                 "Install of %s finished in %d seconds",

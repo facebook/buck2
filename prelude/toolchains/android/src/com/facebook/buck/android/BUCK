@@ -96,6 +96,7 @@ UTILS_API_SRCS = [
     "exopackage/AndroidDeviceInfo.kt",
     "exopackage/AndroidDevice.java",
     "exopackage/AndroidIntent.java",
+    "exopackage/InstallTimings.java",
     "IsolatedApkInfo.java",
     "exopackage/PackageInfo.java",
 ]
