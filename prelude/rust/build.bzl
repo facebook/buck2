@@ -536,97 +536,6 @@ def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, su
         out_archive = out_archive,
     )
 
-def _rust_cxx_link(
-    ctx: AnalysisContext,
-    compile_ctx: CompileContext,
-    extraction: LinkExtraction,
-    crate_type: CrateType,
-    reloc_model: RelocModel,
-    dist_thin_lto_codegen_flags: list[typing.Any],
-    inherited_link_args: LinkArgs,
-    extra_link_args: list[typing.Any],
-    external_debug_info: ArtifactTSet,
-    import_library: Artifact | None,
-    import_library_args: list[typing.Any],
-    output: Artifact,
-    identifier: str | None,
-    enable_distributed_thinlto: bool,
-) -> CxxLinkResult:
-    rust_argsfile = cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)
-    if extraction.out_archive == None:
-        rust_objects = LinkArgs(flags = [rust_argsfile])
-    else:
-        rust_objects = LinkArgs(
-            infos = [
-                LinkInfo(
-                    name = "rust_objects",
-                    dist_thin_lto_codegen_flags = dist_thin_lto_codegen_flags,
-                    pre_flags = [rust_argsfile],
-                    linkables = [
-                        ArchiveLinkable(
-                            archive = Archive(artifact = extraction.out_archive),
-                            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-                            # link_whole because everything rustc emits has to end up in the input.
-                            link_whole = True,
-                        )
-                    ],
-                )
-            ]
-        )
-
-    is_shared = crate_type in [CrateType("dylib"), CrateType("cdylib")]
-
-    links = [
-        LinkArgs(flags = compile_ctx.linker_pre_args),
-        LinkArgs(flags = extra_link_args),
-    ]
-
-    if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
-        # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
-        # we should be passing blindly on the user's behalf. Unfortunately some builds break if
-        # you take it out.
-        flags = ["-Wl,--as-needed"]
-
-        # The objects were codegened at the relocation model chosen in
-        # `_get_reloc_model`, which the toolchain's link flags cannot know
-        # about. Pin the PIE-ness of the executable to match, as rustc does
-        # for links it drives.
-        if not is_shared:
-            flags.append("-no-pie" if reloc_model == RelocModel("static") else "-pie")
-
-        links.append(LinkArgs(flags = flags))
-
-    links += [
-        rust_objects,
-        inherited_link_args,
-        LinkArgs(flags = import_library_args),
-        LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
-    ]
-    if not is_shared and link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
-        link_execution_preference = LinkExecutionPreference("local")
-    else:
-        link_execution_preference = LinkExecutionPreference("any")
-
-    return cxx_link_into(
-        ctx = ctx,
-        output = output,
-        result_type = CxxLinkResultType("shared_library" if is_shared else "executable"),
-        opts = link_options(
-            links = links,
-            link_execution_preference = link_execution_preference,
-            # The link is local only so the fbcode linker wrapper can stamp
-            # build info from the repo (D115067153); dwp needs no repo and is
-            # memory-hungry enough that pinning it to the link's host thrashes
-            # small workers. Let it schedule anywhere, matching the
-            # non-deferred-link path, which runs dwp with no preference.
-            dwp_execution_preference = LinkExecutionPreference("any"),
-            category_suffix = "rust_dylib" if is_shared else "rust_binary",
-            identifier = identifier,
-            import_library = import_library,
-            enable_distributed_thinlto = enable_distributed_thinlto,
-        ),
-    )
-
 # Generate a compilation action. A single instance of rustc can emit
 # numerous output artifacts, so return an artifact object for each of
 # them.
@@ -659,8 +568,6 @@ def rust_compile(
             fail("`{}` profiling uses unstable `-Z` flags and requires a toolchain with `nightly_features = True`".format(profile_mode.value))
 
     lints = _lint_flags(compile_ctx, infallible_diagnostics, emit == Emit("clippy"))
-    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
-    emit_cbp = use_cbp if predeclared_output == None else False
 
     common_args = _compute_common_args(
         ctx = ctx,
@@ -676,9 +583,23 @@ def rust_compile(
     )
 
     requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
+    extracts_objects = emit == Emit("rlib-from-link")
 
-    deferred_link = requires_linking and deferred_link_enabled(compile_ctx, params, emit)
-    dist_thinlto = deferred_link and _dist_thinlto_enabled(ctx, compile_ctx)
+    if extracts_objects:
+        if params.crate_type != CrateType("bin"):
+            fail("`rlib-from-link` is only supported for executables; other crate types would need rustc's version script preserved")
+        if not can_emit_rlib_from_link(compile_ctx):
+            fail("`rlib-from-link` is unsupported for this configuration, see `can_emit_rlib_from_link`")
+        if predeclared_output != None:
+            fail("`rlib-from-link` produces no linked output; the caller owns the linked artifact and must produce it via `rust_link_binary`")
+
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+
+    # The extraction argsfile embeds the path of its sibling artifacts
+    # directory, but a content-based artifact is only assigned its final path
+    # after the action that produces it runs, so the extraction outputs must
+    # stay config-based.
+    emit_cbp = use_cbp if predeclared_output == None and not extracts_objects else False
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -726,7 +647,6 @@ def rust_compile(
             params = params,
             predeclared_output = predeclared_output,
             incremental_enabled = incremental_enabled,
-            deferred_link = deferred_link,
             profile_mode = profile_mode,
         )
 
@@ -757,9 +677,6 @@ def rust_compile(
     pdb_artifact = None
     dwp_inputs = []
     link_extraction = None
-    cxx_inherited_link_args = None
-    cxx_import_library_args = []
-    inherited_debug_info = ArtifactTSet()
     if requires_linking:
         if params.crate_type in [CrateType("cdylib"), CrateType("dylib")]:
             linker_info = compile_ctx.cxx_toolchain_info.linker_info
@@ -778,6 +695,9 @@ def rust_compile(
         else:
             import_library_args = []
 
+        subdir = common_args.subdir
+        tempfile = common_args.tempfile
+
         inherited_link_args = _inherited_link_args(
             ctx,
             compile_ctx,
@@ -786,94 +706,86 @@ def rust_compile(
             transformation_spec_context,
         )
 
+        link_args_output = make_link_args(
+            ctx,
+            ctx.actions,
+            compile_ctx.cxx_toolchain_info,
+            [
+                LinkArgs(flags = extra_link_args),
+                inherited_link_args,
+                LinkArgs(flags = import_library_args),
+            ],
+            output_short_path = emit_op.output.short_path,
+            has_content_based_path = emit_cbp,
+        )
+
+        separate_debug_info_args = cmd_args()
         if has_split_debug:
             inherited_debug_info = inherited_external_debug_info(
                 ctx = ctx,
                 dep_ctx = compile_ctx.dep_ctx,
                 dep_link_strategy = params.dep_link_strategy,
             )
+            external_debug_infos = project_artifacts(ctx.actions, inherited_debug_info)
+            dwp_inputs.extend(external_debug_infos)
 
-        if deferred_link:
-            # The link args are passed to `cxx_link_into` below instead; rustc
-            # never sees them.
-            link_extraction = _setup_link_extraction(
-                ctx,
-                compile_ctx,
-                common_args.subdir,
-                emit_cbp,
-                archive_objects = dist_thinlto,
-            )
-            linker = link_extraction.linker_wrapper
-            cxx_inherited_link_args = inherited_link_args
-            cxx_import_library_args = import_library_args
-        else:
-            subdir = common_args.subdir
-            tempfile = common_args.tempfile
+            # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
+            # using split debug with content-based paths.
+            if (
+                compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+                and
+                # Darwin does not embed paths in object files themselves, but rather
+                # the linker writes those paths based on the location of object files passed
+                # to the link.
+                compile_ctx.cxx_toolchain_info.linker_info.type != LinkerType("darwin")
+            ):
+                # Note: Unlike in C++, Rust does binary linking and object code generation in the same
+                # action. As a result, the .dwo files generated by that action are missing from the
+                # inputs here and so do not participate in the re-writing. Right now that doesn't matter
+                # anyway because Rust doesn't have content addressed artifacts. In the future that may
+                # be a source of bugs though.
+                separate_debug_info_path_file, _ = ctx.actions.write(
+                    "{}/__{}_dwo_paths.txt".format(subdir, tempfile),
+                    external_debug_infos,
+                    allow_args = True,
+                    has_content_based_path = False,
+                )
+                separate_debug_info_args = cmd_args(
+                    "--rewrite-content-based-dwo-paths",
+                    separate_debug_info_path_file,
+                    "--content-based-dwo-suffix",
+                    ".dwo" if split_debug_mode == SplitDebugMode("split") else ".o",
+                )
 
-            link_args_output = make_link_args(
-                ctx,
-                ctx.actions,
-                compile_ctx.cxx_toolchain_info,
-                [
-                    LinkArgs(flags = extra_link_args),
-                    inherited_link_args,
-                    LinkArgs(flags = import_library_args),
-                ],
-                output_short_path = emit_op.output.short_path,
-                has_content_based_path = emit_cbp,
-            )
+        linker_argsfile, _ = ctx.actions.write(
+            "{}/__{}_linker_args.txt".format(subdir, tempfile),
+            cmd_args(link_args_output.link_args, separate_debug_info_args),
+            allow_args = True,
+            has_content_based_path = False,
+        )
+        linker_argsfile = cmd_args(
+            linker_argsfile,
+            hidden = [link_args_output.hidden, separate_debug_info_args],
+        )
 
-            separate_debug_info_args = cmd_args()
-            if has_split_debug:
-                external_debug_infos = project_artifacts(ctx.actions, inherited_debug_info)
-                dwp_inputs.extend(external_debug_infos)
+        pdb_artifact = link_args_output.pdb_artifact
+        dwp_inputs.append(link_args_output.link_args)
 
-                # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
-                # using split debug with content-based paths.
-                if (
-                    compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
-                    and
-                    # Darwin does not embed paths in object files themselves, but rather
-                    # the linker writes those paths based on the location of object files passed
-                    # to the link.
-                    compile_ctx.cxx_toolchain_info.linker_info.type != LinkerType("darwin")
-                ):
-                    # Note: Unlike in C++, Rust does binary linking and object code generation in the same
-                    # action. As a result, the .dwo files generated by that action are missing from the
-                    # inputs here and so do not participate in the re-writing. Right now that doesn't matter
-                    # anyway because Rust doesn't have content addressed artifacts. In the future that may
-                    # be a source of bugs though.
-                    separate_debug_info_path_file, _ = ctx.actions.write(
-                        "{}/__{}_dwo_paths.txt".format(subdir, tempfile),
-                        external_debug_infos,
-                        allow_args = True,
-                        has_content_based_path = False,
-                    )
-                    separate_debug_info_args = cmd_args(
-                        "--rewrite-content-based-dwo-paths",
-                        separate_debug_info_path_file,
-                        "--content-based-dwo-suffix",
-                        ".dwo" if split_debug_mode == SplitDebugMode("split") else ".o",
-                    )
-
-            linker_argsfile, _ = ctx.actions.write(
-                "{}/__{}_linker_args.txt".format(subdir, tempfile),
-                cmd_args(link_args_output.link_args, separate_debug_info_args),
-                allow_args = True,
-                has_content_based_path = False,
-            )
-            linker_argsfile = cmd_args(
-                linker_argsfile,
-                hidden = [link_args_output.hidden, separate_debug_info_args],
-            )
-
-            pdb_artifact = link_args_output.pdb_artifact
-            dwp_inputs.append(link_args_output.link_args)
-
-            rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-            linker = compile_ctx.linker_with_pre_args
-
-        rustc_cmd.add(cmd_args(linker, format = "-Clinker={}"))
+        rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
+        rustc_cmd.add(cmd_args(compile_ctx.linker_with_pre_args, format = "-Clinker={}"))
+    elif extracts_objects:
+        # rustc only compiles; the caller links the extracted objects through
+        # cxx (see `rust_link_binary`), and the link args are constructed
+        # there. rustc never sees them.
+        link_extraction = _setup_link_extraction(
+            ctx,
+            compile_ctx,
+            common_args.subdir,
+            emit_cbp,
+            # FIXME(JakobDegen): Better explain why this is needed
+            archive_objects = _dist_thinlto_enabled(ctx, compile_ctx),
+        )
+        rustc_cmd.add(cmd_args(link_extraction.linker_wrapper, format = "-Clinker={}"))
 
     if toolchain_info.rust_target_path != None:
         emit_op.env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
@@ -889,46 +801,20 @@ def rust_compile(
             rustc_cmd,
             emit_op.args,
         ),
-        required_outputs = [emit_op.output],
+        required_outputs = [emit_op.output] if emit_op.output else [],
         is_clippy = emit.value == "clippy",
         infallible_diagnostics = infallible_diagnostics,
         allow_cache_upload = allow_cache_upload and emit != Emit("clippy"),
         crate_map = common_args.crate_map,
         env = emit_op.env,
         incremental_enabled = incremental_enabled,
-        deferred_link = deferred_link,
         profile_mode = profile_mode,
     )
 
-    cxx_link_result = None
-    if deferred_link:
-        cxx_external_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            artifacts = [emit_op.extra_out] if has_split_debug else [],
-            children = [inherited_debug_info],
-        )
-        cxx_link_result = _rust_cxx_link(
-            ctx = ctx,
-            compile_ctx = compile_ctx,
-            extraction = link_extraction,
-            crate_type = params.crate_type,
-            reloc_model = params.reloc_model,
-            # The opt actions re-run codegen and take their relocation model
-            # from their own command line, so they must match the relocation
-            # model rustc's own codegen used: PIC for every strategy but
-            # `static` (see `_get_reloc_model`).
-            dist_thin_lto_codegen_flags = (compile_ctx.toolchain_info.dist_thin_lto_codegen_flags if params.dep_link_strategy != LinkStrategy("static") else []),
-            inherited_link_args = cxx_inherited_link_args,
-            extra_link_args = extra_link_args,
-            external_debug_info = cxx_external_debug_info,
-            import_library = import_library,
-            import_library_args = cxx_import_library_args,
-            output = emit_op.output,
-            identifier = invoke.identifier,
-            enable_distributed_thinlto = dist_thinlto,
-        )
-        filtered_output = cxx_link_result.linked_object.output
+    if extracts_objects:
+        # There is no linked artifact; stand in with the list of objects,
+        # which is the closest thing this compile produced.
+        filtered_output = link_extraction.out_argsfile
     elif infallible_diagnostics and emit != Emit("clippy"):
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
@@ -953,15 +839,13 @@ def rust_compile(
         ),
     )
 
-    if emit == Emit("link") and has_split_debug:
+    if (emit == Emit("link") or extracts_objects) and has_split_debug:
         dwo_output_directory = emit_op.extra_out
         dwp_inputs.append(dwo_output_directory)
     else:
         dwo_output_directory = None
 
-    if cxx_link_result != None:
-        dwp_output = cxx_link_result.linked_object.dwp
-    elif requires_linking and dwp_available(compile_ctx.cxx_toolchain_info):
+    if requires_linking and dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
             compile_ctx.cxx_toolchain_info,
@@ -1015,12 +899,13 @@ def rust_compile(
             remarks_json = remarks_json,
         ),
         link_output = RustcLinkOutput(
-            import_library = cxx_link_result.linked_object.import_library if cxx_link_result else import_library,
-            pdb = cxx_link_result.linked_object.pdb if cxx_link_result else pdb_artifact,
+            import_library = import_library,
+            pdb = pdb_artifact,
             dwp_output = dwp_output,
         )
         if emit == Emit("link")
         else None,
+        link_extraction = link_extraction,
     )
 
 # --extern <crate>=<path> for direct dependencies
@@ -1252,6 +1137,7 @@ def _abbreviated_subdir(
         Emit("llvm-ir-noopt"): "n",
         Emit("obj"): "o",
         Emit("link"): "L",
+        Emit("rlib-from-link"): "O",
         Emit("dep-info"): "d",
         Emit("mir"): "m",
         Emit("expand"): "e",
@@ -1559,6 +1445,16 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
     if emit == Emit("metadata-fast"):
         base = "diag" if infallible_diagnostics else "check"
 
+    if emit == Emit("rlib-from-link"):
+        base = (
+            "rlib-from-link"
+            + {
+                LinkStrategy("static"): "",
+                LinkStrategy("static_pic"): " [pic]",
+                LinkStrategy("shared"): " [shared]",
+            }[link_strategy]
+        )
+
     if emit == Emit("link"):
         link_strategy_suffix = {
             LinkStrategy("static"): "",
@@ -1602,7 +1498,9 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
         return base
 
 EmitOperation = record(
-    output = field(Artifact),
+    # None exactly for `Emit("rlib-from-link")`: the caller owns the linked
+    # artifact, and rustc produces only the extraction outputs.
+    output = field(Artifact | None),
     args = field(cmd_args),
     env = field(dict[str, str]),
     extra_out = field(Artifact | None),
@@ -1619,7 +1517,6 @@ def _rustc_emit(
     incremental_enabled: bool,
     profile_mode: ProfileMode | None,
     predeclared_output: Artifact | None = None,
-    deferred_link: bool = False,
 ) -> EmitOperation:
     simple_crate = attr_simple_crate_for_filenames(ctx)
     crate_type = params.crate_type
@@ -1643,10 +1540,15 @@ def _rustc_emit(
     else:
         extra_hash = "-" + _metadata(compile_ctx, ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
-        filename = subdir + "/" + output_filename(compile_ctx, simple_crate, emit, params, extra_hash)
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
-        emit_output = ctx.actions.declare_output(filename, has_content_based_path = emit_cbp)
+        if emit == Emit("rlib-from-link"):
+            # The caller links the extracted objects through cxx and owns the
+            # linked artifact; there is no rustc output to declare.
+            emit_output = None
+        else:
+            filename = subdir + "/" + output_filename(compile_ctx, simple_crate, emit, params, extra_hash)
+            emit_output = ctx.actions.declare_output(filename, has_content_based_path = emit_cbp)
 
     if emit == Emit("expand"):
         emit_args.add(
@@ -1678,13 +1580,14 @@ def _rustc_emit(
         elif emit == Emit("llvm-ir-noopt"):
             effective_emit = "llvm-ir"
             emit_args.add("-Cno-prepopulate-passes")
+        elif emit == Emit("rlib-from-link"):
+            # Compile exactly as for a link; the extraction wrapper set via
+            # `-Clinker=` captures the objects, so there is no output to bind.
+            effective_emit = "link"
         else:
             effective_emit = emit.value
 
-        # When using deferred link, we still want to pass `--emit` to rustc to trigger
-        # the correct compilation behavior, but we do not want to pass emit_output here.
-        # Instead, we will bind the emit output to the actual deferred link action.
-        if deferred_link and effective_emit == "link":
+        if emit_output == None:
             emit_args.add(cmd_args("--emit=", effective_emit, delimiter = ""))
         else:
             emit_args.add(cmd_args("--emit=", effective_emit, "=", emit_output.as_output(), delimiter = ""))
@@ -1744,7 +1647,6 @@ def _rustc_invoke(
     incremental_enabled: bool,
     crate_map: list[(CrateName, Label)],
     env: dict[str, str | ResolvedStringWithMacros | Artifact],
-    deferred_link: bool,
     profile_mode: ProfileMode | None,
 ) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
@@ -1831,9 +1733,9 @@ def _rustc_invoke(
 
     # None defers the choice to the `buck2.default_allow_cache_upload` config; an
     # explicit False overrides it. Actions without a preference pass None.
-    if allow_cache_upload or deferred_link:
-        # Opted in, or a deferred link. In the latter rustc compiles objects
-        # without linking, and we always cache those.
+    if allow_cache_upload:
+        # Opted in, or an object-extraction compile; we always cache the
+        # latter's objects.
         action_allow_cache_upload = True
     elif is_clippy:
         # Clippy never uploads.
@@ -1845,8 +1747,7 @@ def _rustc_invoke(
     ctx.actions.run(
         compile_cmd,
         local_only = local_only,
-        # We only want to prefer_local here if rustc is performing the link
-        prefer_local = prefer_local and not deferred_link,
+        prefer_local = prefer_local,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
@@ -1966,8 +1867,11 @@ def process_env(
 
     return (plain_env, path_env)
 
-def deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit: Emit) -> bool:
-    if not compile_ctx.toolchain_info.advanced_unstable_linking or emit != Emit("link"):
+def can_emit_rlib_from_link(compile_ctx: CompileContext) -> bool:
+    """Whether this configuration supports `Emit("rlib-from-link")`."""
+    if not compile_ctx.toolchain_info.advanced_unstable_linking:
+        # Without AUL, dependency link providers do not carry the rlibs for
+        # cxx to link.
         return False
 
     # The extraction preserves only rustc's synthesized objects and drops the
@@ -1979,11 +1883,7 @@ def deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit
     # `--no-entry`, ...) are load-bearing, and wasm AUL binaries exist
     # (fbcode/cards).
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
-    if linker_type != LinkerType("gnu") and linker_type != LinkerType("darwin"):
-        return False
-
-    # TODO: support cdylib deferred link
-    return params.crate_type in [CrateType("dylib"), CrateType("bin")]
+    return linker_type == LinkerType("gnu") or linker_type == LinkerType("darwin")
 
 def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> bool:
     if not getattr(ctx.attrs, "enable_distributed_thinlto", False):
@@ -2070,3 +1970,122 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
         ),
         name = compile_ctx.soname,
     ).linked_object
+
+def rust_link_binary(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    extraction: LinkExtraction,
+    dep_link_strategy: LinkStrategy,
+    reloc_model: RelocModel,
+    extra_link_args: list[typing.Any],
+    rust_cxx_link_group_info: RustCxxLinkGroupInfo | None,
+    transformation_spec_context: TransformationSpecContext | None,
+    dwo_output_directory: Artifact | None,
+    output: Artifact,
+    identifier: str | None,
+) -> CxxLinkResult:
+    """Link an executable from the objects that an `Emit("rlib-from-link")`
+    `rust_compile` extracted, plus the link args of the dependency graph."""
+    dist_thinlto = extraction.out_archive != None
+
+    rust_argsfile = cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)
+    if not dist_thinlto:
+        rust_objects = LinkArgs(flags = [rust_argsfile])
+    else:
+        rust_objects = LinkArgs(
+            infos = [
+                LinkInfo(
+                    name = "rust_objects",
+                    # The opt actions re-run codegen and take their relocation
+                    # model from their own command line, so they must match the
+                    # relocation model rustc's own codegen used: PIC for every
+                    # strategy but `static` (see `_get_reloc_model`).
+                    dist_thin_lto_codegen_flags = (compile_ctx.toolchain_info.dist_thin_lto_codegen_flags if dep_link_strategy != LinkStrategy("static") else []),
+                    pre_flags = [rust_argsfile],
+                    linkables = [
+                        ArchiveLinkable(
+                            archive = Archive(artifact = extraction.out_archive),
+                            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+                            # link_whole because everything rustc emits has to end up in the input.
+                            link_whole = True,
+                        )
+                    ],
+                )
+            ]
+        )
+
+    inherited_link_args = _inherited_link_args(
+        ctx,
+        compile_ctx,
+        dep_link_strategy,
+        rust_cxx_link_group_info,
+        transformation_spec_context,
+    )
+
+    split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
+    if split_debug_mode != SplitDebugMode("none"):
+        inherited_debug_info = inherited_external_debug_info(
+            ctx = ctx,
+            dep_ctx = compile_ctx.dep_ctx,
+            dep_link_strategy = dep_link_strategy,
+        )
+    else:
+        inherited_debug_info = ArtifactTSet()
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        artifacts = [dwo_output_directory] if dwo_output_directory else [],
+        children = [inherited_debug_info],
+    )
+
+    links = [
+        LinkArgs(flags = compile_ctx.linker_pre_args),
+        LinkArgs(flags = extra_link_args),
+    ]
+
+    if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
+        links.append(
+            LinkArgs(
+                flags = [
+                    # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
+                    # we should be passing blindly on the user's behalf. Unfortunately some builds break if
+                    # you take it out.
+                    "-Wl,--as-needed",
+                    # The objects were codegened at the relocation model chosen in
+                    # `_get_reloc_model`, which the toolchain's link flags cannot know
+                    # about. Pin the PIE-ness of the executable to match, as rustc does
+                    # for links it drives.
+                    "-no-pie" if reloc_model == RelocModel("static") else "-pie",
+                ]
+            )
+        )
+
+    links += [
+        rust_objects,
+        inherited_link_args,
+        LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
+    ]
+
+    if link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
+        link_execution_preference = LinkExecutionPreference("local")
+    else:
+        link_execution_preference = LinkExecutionPreference("any")
+
+    return cxx_link_into(
+        ctx = ctx,
+        output = output,
+        result_type = CxxLinkResultType("executable"),
+        opts = link_options(
+            links = links,
+            link_execution_preference = link_execution_preference,
+            # The link is local only so the fbcode linker wrapper can stamp
+            # build info from the repo (D115067153); dwp needs no repo and is
+            # memory-hungry enough that pinning it to the link's host thrashes
+            # small workers. Let it schedule anywhere, matching the
+            # rustc-linked path, which runs dwp with no preference.
+            dwp_execution_preference = LinkExecutionPreference("any"),
+            category_suffix = "rust_binary",
+            identifier = identifier,
+            enable_distributed_thinlto = dist_thinlto,
+        ),
+    )

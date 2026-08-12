@@ -57,6 +57,12 @@ Emit = enum(
     "llvm-ir-noopt",
     "obj",
     "link",
+    # Pseudo emit: compile exactly as for `link`, but capture the objects rustc
+    # would have handed the linker instead of performing the link; the caller
+    # links them through cxx (see `rust_link_binary`). Executables only —
+    # dylibs and cdylibs would additionally need rustc's version script
+    # preserved.
+    "rlib-from-link",
     "dep-info",
     "mir",
     "expand",  # pseudo emit alias for -Zunpretty=expanded
@@ -94,6 +100,7 @@ def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
         Emit("llvm-ir-noopt"): MetadataKind("full"),
         Emit("obj"): MetadataKind("full"),
         Emit("link"): MetadataKind("link"),
+        Emit("rlib-from-link"): MetadataKind("link"),
         Emit("mir"): MetadataKind("full"),
         Emit("metadata-fast"): MetadataKind("fast"),
         Emit("clippy"): MetadataKind("fast"),

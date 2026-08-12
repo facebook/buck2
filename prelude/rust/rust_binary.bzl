@@ -74,9 +74,10 @@ load(
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
+    "can_emit_rlib_from_link",
     "generate_rustdoc",
     "rust_compile",
-    _deferred_link_enabled = "deferred_link_enabled",
+    "rust_link_binary",
 )
 load(
     ":build_params.bzl",
@@ -211,7 +212,12 @@ def _rust_binary_common(
     params = strategy_param[link_strategy]
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
 
-    deferred_link_enabled = _deferred_link_enabled(compile_ctx, params, Emit("link"))
+    # Where supported, the binary is compiled via `Emit("rlib-from-link")` and
+    # linked through cxx below (`rust_link_binary`), mirroring how
+    # rust_library produces dylibs via `rust_link_shared`.
+    links_via_cxx = can_emit_rlib_from_link(compile_ctx)
+    bin_emit = Emit("rlib-from-link") if links_via_cxx else Emit("link")
+
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
     unstamped_name = None
@@ -322,9 +328,9 @@ def _rust_binary_common(
     # bundle dir instead. Static binaries reuse their content-based exe in the
     # bundle directly (no RPATH to break).
     exe_content_based = content_based_output and not needs_shlib_tree
-    if deferred_link_enabled:
-        # cxx performs the terminal link and its own late build-info stamping, so
-        # rust_compile returns the final (stamped) binary; we must not stamp again.
+    if links_via_cxx:
+        # cxx performs the terminal link (see `rust_link_binary` below) and its
+        # own late build-info stamping; we must not stamp again.
         if enable_late_build_info_stamping:
             # Use the pre-stamp suffix so cxx's stamp strips it back to `name`.
             predeclared_output = ctx.actions.declare_output(
@@ -334,7 +340,7 @@ def _rust_binary_common(
         else:
             predeclared_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
 
-        # final_output is whatever cxx returns, set after rust_compile below.
+        # final_output is whatever cxx returns, set after the link below.
         final_output = None
         # rpath and symlink-tree are computed against the pre-stamped output
         shlib_args_output = predeclared_output
@@ -357,15 +363,16 @@ def _rust_binary_common(
         shared_libs,
     )
 
-    # Compile rust binary.
+    # Compile rust binary. With `rlib-from-link`, this only compiles: rustc's
+    # synthesized objects are extracted and linked below.
     link = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        emit = Emit("link"),
+        emit = bin_emit,
         params = params,
         default_roots = default_roots,
         extra_link_args = executable_shlib_args.extra_link_args,
-        predeclared_output = predeclared_output,
+        predeclared_output = None if links_via_cxx else predeclared_output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
@@ -373,9 +380,25 @@ def _rust_binary_common(
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
-    if deferred_link_enabled:
-        # Use the cxx stamped output if available
-        final_output = link.output
+    dwp_output = link.link_output.dwp_output if link.link_output else None
+    pdb_output = link.link_output.pdb if link.link_output else None
+    if links_via_cxx:
+        link_result = rust_link_binary(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            extraction = link.link_extraction,
+            dep_link_strategy = params.dep_link_strategy,
+            reloc_model = params.reloc_model,
+            extra_link_args = executable_shlib_args.extra_link_args,
+            rust_cxx_link_group_info = rust_cxx_link_group_info,
+            transformation_spec_context = transformation_spec_context,
+            dwo_output_directory = link.compile_output.dwo_output_directory,
+            output = predeclared_output,
+            identifier = name,
+        )
+        final_output = link_result.linked_object.output
+        dwp_output = link_result.linked_object.dwp
+        pdb_output = link_result.linked_object.pdb
     elif enable_late_build_info_stamping:
         stamp_build_info(ctx, link.output, final_output)
 
@@ -550,7 +573,7 @@ def _rust_binary_common(
     remarks = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        emit = Emit("link"),
+        emit = bin_emit,
         params = params,
         default_roots = default_roots,
         extra_flags = extra_flags,
@@ -588,7 +611,7 @@ def _rust_binary_common(
         llvm_time_trace = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = bin_emit,
             params = params,
             default_roots = default_roots,
             extra_link_args = executable_shlib_args.extra_link_args,
@@ -600,7 +623,7 @@ def _rust_binary_common(
         self_profile = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = bin_emit,
             params = params,
             default_roots = default_roots,
             extra_link_args = executable_shlib_args.extra_link_args,
@@ -646,17 +669,17 @@ def _rust_binary_common(
     if named_deps_names:
         extra_compiled_targets["named_deps"] = named_deps_names
 
-    if link.link_output.dwp_output:
+    if dwp_output:
         sub_targets["dwp"] = [
             DefaultInfo(
-                default_output = link.link_output.dwp_output,
+                default_output = dwp_output,
                 other_outputs = [shlib.lib.dwp for shlib in shared_libs if shlib.lib.dwp]
                 + ([executable_shlib_args.dwp_symlink_tree] if executable_shlib_args.dwp_symlink_tree else []),
             ),
         ]
 
-    if link.link_output.pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.link_output.pdb, binary = final_output)
+    if pdb_output:
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = pdb_output, binary = final_output)
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:
