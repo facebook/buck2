@@ -32,7 +32,6 @@ use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
-use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
 use buck2_node::package_values_calculation::PackageValues;
@@ -53,6 +52,7 @@ use pagable::pagable_typetag;
 use smallvec::SmallVec;
 use starlark::environment::Globals;
 
+use crate::interpreter::dice_calculation_delegate::BuildFileEvaluationMode;
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
@@ -69,6 +69,27 @@ pub(crate) fn init_target_graph_calculation_impl() {
     TARGET_GRAPH_CALCULATION_IMPL.init(&TargetGraphCalculationInstance);
 }
 
+async fn eval_interpreter_results(
+    ctx: &mut DiceComputations<'_>,
+    package: PackageLabel,
+    mode: BuildFileEvaluationMode,
+    cancellation: &CancellationContext,
+) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
+    match ctx
+        .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
+            PackageFilePath::package_file_for_dir(package.as_cell_path()),
+        ))
+        .await
+    {
+        Ok(mut interpreter) => {
+            interpreter
+                .eval_build_file_with_mode(package.dupe(), mode, cancellation)
+                .await
+        }
+        Err(e) => (TimeSpan::empty_now(), Err(e)),
+    }
+}
+
 #[async_trait]
 impl Key for InterpreterResultsKey {
     type Value = buck2_error::Result<Arc<EvaluationResult>>;
@@ -77,9 +98,12 @@ impl Key for InterpreterResultsKey {
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
-        let ((time_span, result), spans) = async_record_root_spans(
-            ctx.get_interpreter_results_uncached(self.0.dupe(), cancellation),
-        )
+        let ((time_span, result), spans) = async_record_root_spans(eval_interpreter_results(
+            ctx,
+            self.0.dupe(),
+            BuildFileEvaluationMode::Tracked,
+            cancellation,
+        ))
         .await;
 
         ctx.store_evaluation_data(InterpreterResultsKeyActivationData {
@@ -113,19 +137,13 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         package: PackageLabel,
         cancellation: &CancellationContext,
     ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
-        match ctx
-            .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
-                PackageFilePath::package_file_for_dir(package.as_cell_path()),
-            ))
-            .await
-        {
-            Ok(mut interpreter) => {
-                interpreter
-                    .eval_build_file(package.dupe(), cancellation)
-                    .await
-            }
-            Err(e) => (TimeSpan::empty_now(), Err(e)),
-        }
+        eval_interpreter_results(
+            ctx,
+            package,
+            BuildFileEvaluationMode::Untracked,
+            cancellation,
+        )
+        .await
     }
 
     fn get_interpreter_results<'a, 'd>(

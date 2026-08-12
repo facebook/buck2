@@ -184,6 +184,12 @@ pub struct DiceCalculationDelegate<'c, 'd> {
     configs: &'d Arc<InterpreterForDir>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum BuildFileEvaluationMode {
+    Tracked,
+    Untracked,
+}
+
 impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn get_legacy_buck_config_for_starlark(
         &mut self,
@@ -234,6 +240,12 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ))
     }
 
+    /// Always reads with dependency tracking, and must stay that way: its callers are the
+    /// bodies of memoized keys (`EvalImportKey`, `PackageFileKey`). Threading a
+    /// `BuildFileEvaluationMode` through here would let a memoized value depend on a read
+    /// DICE cannot see, which it would then never invalidate. Uncached build-file
+    /// evaluation selects its untracked package-listing path in `eval_build_file_with_mode`
+    /// before calling this tracked helper.
     pub async fn prepare_eval(
         &mut self,
         starlark_file: StarlarkPath<'_>,
@@ -584,12 +596,26 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn resolve_package_listing(
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
+        mode: BuildFileEvaluationMode,
     ) -> buck2_error::Result<PackageListing> {
         span_async_simple(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
             },
-            DicePackageListingResolver(ctx).resolve_package_listing(package.dupe()),
+            async move {
+                match mode {
+                    BuildFileEvaluationMode::Tracked => {
+                        DicePackageListingResolver(ctx)
+                            .resolve_package_listing(package.dupe())
+                            .await
+                    }
+                    BuildFileEvaluationMode::Untracked => {
+                        DicePackageListingResolver(ctx)
+                            .resolve_package_listing_untracked(package.dupe())
+                            .await
+                    }
+                }
+            },
             buck2_data::LoadPackageEnd {
                 path: package.as_cell_path().to_string(),
             },
@@ -602,6 +628,16 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         package: PackageLabel,
         cancellation: &CancellationContext,
     ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
+        self.eval_build_file_with_mode(package, BuildFileEvaluationMode::Tracked, cancellation)
+            .await
+    }
+
+    pub(crate) async fn eval_build_file_with_mode(
+        &mut self,
+        package: PackageLabel,
+        mode: BuildFileEvaluationMode,
+        cancellation: &CancellationContext,
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());
         let eval_result: buck2_error::Result<_> = try {
@@ -609,7 +645,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 .ctx
                 .try_compute2(
                     async |ctx| check_starlark_stack_size(ctx).await,
-                    async |ctx| Self::resolve_package_listing(ctx, package.dupe()).await,
+                    async |ctx| Self::resolve_package_listing(ctx, package.dupe(), mode).await,
                 )
                 .await?;
 

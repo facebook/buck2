@@ -28,7 +28,11 @@ use crate::super_package::SuperPackage;
 
 #[async_trait]
 pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
-    /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
+    /// Like `get_interpreter_results`, but does not cache the result on the DICE graph, and
+    /// evaluates through paths that do not record a dependency edge for everything they read.
+    ///
+    /// Must not be called from inside a `Key::compute`. The computed value would depend on
+    /// reads that DICE cannot see, so it would never be invalidated when they change.
     async fn get_interpreter_results_uncached(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -52,7 +56,11 @@ pub static TARGET_GRAPH_CALCULATION_IMPL: LateBinding<&'static dyn TargetGraphCa
 
 #[async_trait]
 pub trait TargetGraphCalculation<'d> {
-    /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
+    /// Like `get_interpreter_results`, but does not cache the result on the DICE graph, and
+    /// evaluates through paths that do not record a dependency edge for everything they read.
+    ///
+    /// Must not be called from inside a `Key::compute`. The computed value would depend on
+    /// reads that DICE cannot see, so it would never be invalidated when they change.
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,

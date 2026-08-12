@@ -118,4 +118,13 @@ impl DicePackageListingResolver<'_, '_> {
     ) -> buck2_error::Result<PackageListing> {
         self.resolve(package).await
     }
+
+    pub async fn resolve_package_listing_untracked(
+        &mut self,
+        package: PackageLabel,
+    ) -> buck2_error::Result<PackageListing> {
+        Ok(InterpreterPackageListingResolver::new(self.0)
+            .gather_package_listing(package)
+            .await?)
+    }
 }
