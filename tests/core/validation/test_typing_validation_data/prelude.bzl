@@ -8,8 +8,8 @@
 
 # Simulates the typing_validation flow: a python_library-like rule that
 # creates a ValidationSpec named "pyre" when typing_validation=True, using
-# validation result JSON in the same format as per_target_type_checking.py
-# --convert-validation output.
+# validation result JSON in the same format as
+# type_check_result_to_validation.py output.
 
 def _impl(ctx) -> list[Provider]:
     if ctx.attrs.typing and ctx.attrs.typing_validation:

@@ -469,7 +469,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         # Build-time type check validation (separate action for sole-output constraint)
         if ctx.attrs.typing and ctx.attrs.typing_validation:
-            validation_output = create_type_check_validation(ctx, type_checker, type_check_info.default_outputs[0])
+            validation_output = create_type_check_validation(ctx, type_check_info.default_outputs[0])
             pyre_validation_spec = ValidationSpec(name = "pyre", validation_result = validation_output)
 
     providers.append(DefaultInfo(sub_targets = sub_targets))

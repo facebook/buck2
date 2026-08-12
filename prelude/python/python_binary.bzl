@@ -258,7 +258,7 @@ def _add_executable_subtargets(
         exe.sub_targets.update({"typecheck": [type_check_info]})
 
         if ctx.attrs.typing and ctx.attrs.typing_validation:
-            validation_output = create_type_check_validation(ctx, type_checker, type_check_info.default_outputs[0])
+            validation_output = create_type_check_validation(ctx, type_check_info.default_outputs[0])
 
     return exe, validation_output
 

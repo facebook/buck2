@@ -114,6 +114,12 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
+    name = "type_check_result_to_validation",
+    main = "type_check_result_to_validation.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "wheel",
     main = "wheel.py",
     visibility = ["PUBLIC"],
@@ -127,6 +133,7 @@ prelude.sh_binary(
     resources = [
         "make_py_package_inplace.py",
         "run_inplace.py.in",
+        "type_check_result_to_validation.py",
         "wheel.py",
     ]
     + glob(["tests/**/*.py"]),
