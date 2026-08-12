@@ -73,6 +73,21 @@ PythonToolchainInfo = provider(
         "make_py_package_live": provider_field(Dependency | None, default = None),
         "make_py_package_standalone": provider_field(ArgLike | None, default = None),
         "pex_extension": provider_field(str, default = ".par"),
+        # An optional executable for per-target type checking. It is invoked as
+        # `<type_checker> <config.json> --output <result.json>`.
+        #
+        # The input JSON contains `sources` and `dependencies` manifest lists,
+        # a `typeshed` manifest, `py_version`, and `system_platform`. The checker
+        # must write a Pyre-compatible JSON object containing an `errors` list.
+        # Each error must include `code`; `name` and `severity` are optional.
+        # Errors that fail validation must also include `path`, `line`, `column`,
+        # and `description`. Diagnostics with code 0, name `unused-ignore`, or
+        # severity `info`, `ignore`, or `warn` do not fail validation.
+        #
+        # The checker must exit successfully whenever it writes valid result
+        # JSON, including when that result contains type errors. A nonzero exit
+        # fails the type-checking action before Buck2 can convert the result to
+        # validation output.
         "type_checker": provider_field(RunInfo | None, default = None),
         "typeshed_stubs": provider_field(ManifestInfo | None, default = None),
         "emit_omnibus_metadata": provider_field(bool | None, default = None),

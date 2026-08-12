@@ -101,6 +101,7 @@ def _system_python_toolchain_impl(ctx):
             package_style = "inplace",
             pex_extension = ctx.attrs.pex_extension,
             native_link_strategy = "separate",
+            type_checker = ctx.attrs.type_checker[RunInfo] if ctx.attrs.type_checker != None else None,
         ),
         PythonPlatformInfo(name = "x86_64"),
     ]
@@ -112,6 +113,11 @@ system_python_toolchain = rule(
         "interpreter": attrs.string(default = _INTERPRETER),
         "linker_flags": attrs.default_only(attrs.list(attrs.arg(), default = [])),
         "pex_extension": attrs.string(default = ".pex"),
+        "type_checker": attrs.option(
+            attrs.exec_dep(providers = [RunInfo]),
+            default = None,
+            doc = "See `PythonToolchainInfo.type_checker` for the executable contract.",
+        ),
     },
     is_toolchain_rule = True,
 )
@@ -128,6 +134,7 @@ def python_toolchain_impl(ctx) -> list[Provider]:
             linker_flags = [],
             binary_linker_flags = [],
             extension_linker_flags = ctx.attrs.extension_linker_flags,
+            type_checker = ctx.attrs.type_checker[RunInfo] if ctx.attrs.type_checker != None else None,
         ),
         PythonPlatformInfo(name = "x86_64"),
     ]
@@ -138,6 +145,11 @@ python_toolchain = rule(
         "compile": attrs.default_only(attrs.dep(default = "prelude//python/tools:compile.py")),
         "extension_linker_flags": attrs.list(attrs.arg()),
         "interpreter": attrs.dep(providers = [RunInfo]),
+        "type_checker": attrs.option(
+            attrs.exec_dep(providers = [RunInfo]),
+            default = None,
+            doc = "See `PythonToolchainInfo.type_checker` for the executable contract.",
+        ),
     },
     is_toolchain_rule = True,
     doc = "A Python toolchain that can build Python extensions, given an interpreter and the extra linker flags to use with it. See `remote_python_toolchain` for a toolchain that configures the interpreter and linker flags for you.",
@@ -185,6 +197,7 @@ def remote_python_toolchain(
     Sets up a Python toolchain by using a pre-built CPython installation, downloaded from the [python-build-standalone project](https://github.com/astral-sh/python-build-standalone).
 
     If `bootstrap` is set to `True`, this will also set up a bootstrap toolchain using the same interpreter.
+    Other arguments, including `type_checker`, are forwarded to `python_toolchain`.
     """
 
     native.http_archive(
