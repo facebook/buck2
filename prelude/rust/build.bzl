@@ -467,7 +467,8 @@ def generate_rustdoc_test(
 LinkExtraction = record(
     # cmd_script set via `-Clinker=`.
     linker_wrapper = field(typing.Any),
-    # Filtered rustc link argv.
+    # The rustc-synthesized objects, listed as an argsfile. Empty when they
+    # are archived instead.
     out_argsfile = field(Artifact),
     # Extracted link inputs directory.
     out_artifacts_dir = field(Artifact),
@@ -540,6 +541,7 @@ def _rust_cxx_link(
     compile_ctx: CompileContext,
     extraction: LinkExtraction,
     crate_type: CrateType,
+    reloc_model: RelocModel,
     dist_thin_lto_codegen_flags: list[typing.Any],
     inherited_link_args: LinkArgs,
     extra_link_args: list[typing.Any],
@@ -572,16 +574,34 @@ def _rust_cxx_link(
             ]
         )
 
+    is_shared = crate_type in [CrateType("dylib"), CrateType("cdylib")]
+
     links = [
         LinkArgs(flags = compile_ctx.linker_pre_args),
         LinkArgs(flags = extra_link_args),
+    ]
+
+    if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
+        # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
+        # we should be passing blindly on the user's behalf. Unfortunately some builds break if
+        # you take it out.
+        flags = ["-Wl,--as-needed"]
+
+        # The objects were codegened at the relocation model chosen in
+        # `_get_reloc_model`, which the toolchain's link flags cannot know
+        # about. Pin the PIE-ness of the executable to match, as rustc does
+        # for links it drives.
+        if not is_shared:
+            flags.append("-no-pie" if reloc_model == RelocModel("static") else "-pie")
+
+        links.append(LinkArgs(flags = flags))
+
+    links += [
         rust_objects,
         inherited_link_args,
         LinkArgs(flags = import_library_args),
         LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
     ]
-
-    is_shared = crate_type in [CrateType("dylib"), CrateType("cdylib")]
     if not is_shared and link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
         link_execution_preference = LinkExecutionPreference("local")
     else:
@@ -893,9 +913,11 @@ def rust_compile(
             compile_ctx = compile_ctx,
             extraction = link_extraction,
             crate_type = params.crate_type,
-            # rustc emits `-pie` for every strategy but `static`, which gets
-            # `-no-pie`. The opt actions re-run codegen and take their relocation
-            # model from their own command line, so a PIE link has to ask for PIC.
+            reloc_model = params.reloc_model,
+            # The opt actions re-run codegen and take their relocation model
+            # from their own command line, so they must match the relocation
+            # model rustc's own codegen used: PIC for every strategy but
+            # `static` (see `_get_reloc_model`).
             dist_thin_lto_codegen_flags = (compile_ctx.toolchain_info.dist_thin_lto_codegen_flags if params.dep_link_strategy != LinkStrategy("static") else []),
             inherited_link_args = cxx_inherited_link_args,
             extra_link_args = extra_link_args,
