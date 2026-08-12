@@ -151,6 +151,10 @@ def get_multi_dex(
         not pre_dexed_inputs or (multidex_min_api and int(multidex_min_api) > 21),
         "Pre-dexed native multidex inputs require multidex_min_api > 21",
     )
+    expect(
+        not pre_dexed_inputs or not primary_dex_patterns,
+        "Pre-dexed native multidex inputs cannot honor primary_dex_patterns, because D8 rejects a main-dex list above min SDK 21",
+    )
     primary_dex_file = ctx.actions.declare_output("classes.dex", has_content_based_path = False)
     primary_dex_class_names = ctx.actions.declare_output("primary_dex_class_names.txt", has_content_based_path = False)
     root_module_secondary_dex_output_dir = ctx.actions.declare_output("root_module_secondary_dex_output_dir", dir = True, has_content_based_path = False)

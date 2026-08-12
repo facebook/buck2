@@ -281,7 +281,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                     multidex_min_api = getattr(ctx.attrs, "_dex_min_sdk_version", None)
                 if multidex_min_api == None:
                     multidex_min_api = ctx.attrs.min_sdk_version
-                if multidex_min_api != None and int(multidex_min_api) > 21:
+                if multidex_min_api != None and int(multidex_min_api) > 21 and not ctx.attrs.primary_dex_patterns:
                     dex_files_info = get_multi_dex(
                         ctx,
                         android_toolchain,
