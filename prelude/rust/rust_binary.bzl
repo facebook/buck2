@@ -61,6 +61,7 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -71,6 +72,7 @@ load(
     "@prelude//utils:build_graph_pattern.bzl",
     "new_build_graph_info",
 )
+load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
@@ -101,6 +103,7 @@ load(
     "inherited_linkable_graphs",
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
+    "resolve_deps",
 )
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
@@ -187,7 +190,7 @@ def _create_content_based_dist(
 
 def _rust_binary_common(
     ctx: AnalysisContext, compile_ctx: CompileContext, default_roots: list[str], extra_flags: list[str], allow_cache_upload: bool
-) -> (list[Provider], cmd_args):
+) -> (list[Provider], cmd_args, Artifact):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -693,12 +696,12 @@ def _rust_binary_common(
             default_roots = default_roots,
         )
     )
-    return (providers, args)
+    return (providers, args, dist_exe if dist_bundle else final_output)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx, binary = True)
 
-    providers, args = _rust_binary_common(
+    providers, args, binary = _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         default_roots = ["main.rs"],
@@ -706,7 +709,23 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
 
-    return providers + [RunInfo(args = args)]
+    return providers + [
+        RunInfo(args = args),
+        create_unix_env_info(
+            actions = ctx.actions,
+            env = UnixEnv(
+                label = ctx.label,
+                binaries = [
+                    create_manifest_for_entries(
+                        ctx = ctx,
+                        name = "unix_env",
+                        entries = [(ctx.label.name, binary, "")],
+                    ),
+                ],
+            ),
+            deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)],
+        ),
+    ]
 
 def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     compile_ctx = compile_context(ctx, binary = True)
@@ -716,7 +735,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.framework:
         extra_flags += ["--test"]
 
-    providers, args = _rust_binary_common(
+    providers, args, _binary = _rust_binary_common(
         ctx = ctx,
         compile_ctx = compile_ctx,
         # Unless default_roots are provided, it is ambiguous whether this test rule is invoked

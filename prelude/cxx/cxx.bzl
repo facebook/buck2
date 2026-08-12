@@ -317,9 +317,10 @@ def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupI
 
 def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    deps = cxx_attr_deps(ctx)
     link_group_info = get_link_group_info(
         ctx,
-        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        filter_and_map_idx(LinkableGraph, deps),
         link_strategy,
     )
     params = CxxRuleConstructorParams(
@@ -387,9 +388,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                     ),
                 ],
             ),
-            # TODO(agallagher): We only want to traverse deps when dynamically
-            # linking.
-            # deps = ctx.attrs.deps,
+            deps = deps,
         ),
     )
 
