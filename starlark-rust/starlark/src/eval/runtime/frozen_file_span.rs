@@ -68,9 +68,30 @@ impl FrozenFileSpan {
     }
 
     pub(crate) fn new(file: FrozenAnyValue<CodeMap>, span: Span) -> FrozenFileSpan {
-        // Check the span is valid: this will panic if the span is not valid.
-        file.source_span(span);
-
+        // Spans outside their file have been observed in production, and
+        // resolving one degrades to a clamped snippet rather than panicking.
+        // Debug builds fail fast here; release builds report through the
+        // global soft-error handler so the corrupt pairing stays visible for
+        // root-causing instead of degrading silently.
+        if span.begin() > span.end() || span.end() > file.full_span().end() {
+            debug_assert!(
+                false,
+                "span {:?} does not lie within `{}` ({} bytes)",
+                span,
+                file.filename(),
+                file.full_span().end().get(),
+            );
+            crate::eval::soft_error::global_soft_error(
+                "corrupt_file_span",
+                crate::Error::new_other(std::io::Error::other(format!(
+                    "span {:?} does not lie within `{}` ({} bytes); \
+                     span resolution will degrade to clamped snippets",
+                    span,
+                    file.filename(),
+                    file.full_span().end().get(),
+                ))),
+            );
+        }
         Self::new_unchecked(file, span)
     }
 

@@ -41,6 +41,7 @@ pub use runtime::params::spec::ParametersSpecParam;
 pub use runtime::profile::data::ProfileData;
 pub use runtime::profile::mode::ProfileMode;
 pub use soft_error::SoftErrorHandler;
+pub use soft_error::set_global_soft_error_handler;
 pub use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::module::AstModule;
