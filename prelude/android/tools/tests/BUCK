@@ -15,6 +15,14 @@ prelude.python_test(
 )
 
 prelude.python_test(
+    name = "test_filter_dex",
+    srcs = ["test_filter_dex.py"],
+    deps = [
+        "prelude//android/tools:filter_dex_lib",
+    ],
+)
+
+prelude.python_test(
     name = "test_combine_apk_with_relinked_libs",
     srcs = ["test_combine_apk_with_relinked_libs.py"],
     deps = [

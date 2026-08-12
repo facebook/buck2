@@ -112,6 +112,13 @@ def _parse_args():
         help="a path to a ref count file (format: '<method_count> <field_count> <type_count>')",
     )
     parser.add_argument(
+        "--synthetic-contexts",
+        type=pathlib.Path,
+        nargs="+",
+        default=[],
+        help="a path to a synthetic-to-context file (one '<synthetic> <context>' pair per line)",
+    )
+    parser.add_argument(
         "--output",
         type=pathlib.Path,
         required=True,
@@ -133,6 +140,50 @@ def _parse_ref_counts(ref_count_path):
         return parts[0], parts[1], parts[2]
 
 
+def _parse_synthetic_contexts(synthetic_contexts_path):
+    """Parse '<synthetic> <context>' lines, as written by the pre-dex step, into a dict."""
+    synthetic_to_context = {}
+    with open(synthetic_contexts_path) as synthetic_contexts_file:
+        for line in synthetic_contexts_file:
+            line = line.strip()
+            if not line:
+                continue
+            synthetic, _, context = line.partition(" ")
+            if not context:
+                raise ValueError(
+                    f"Malformed line in {synthetic_contexts_path}: {line!r}"
+                )
+            synthetic_to_context[synthetic] = context
+    return synthetic_to_context
+
+
+def _resolve_synthesizing_context(java_class, synthetic_to_context):
+    """Follow a synthetic back to the class it was synthesized from.
+
+    D8 can synthesize from a synthetic, so the chain is walked to its end. The seen-set guards
+    against a cycle in D8's output, which would otherwise hang the build.
+    """
+    seen = set()
+    while java_class in synthetic_to_context and java_class not in seen:
+        seen.add(java_class)
+        java_class = synthetic_to_context[java_class]
+    return java_class
+
+
+def _belongs_in_primary_dex(java_class, class_name_filter, synthetic_to_context):
+    if class_name_filter.class_name_matches_filter(java_class):
+        return True
+
+    # A synthetic has to land in the same dex as the class it was synthesized from, which
+    # references it directly. Splitting them puts the reference across a dex boundary that the
+    # primary dex cannot resolve. primary_dex_patterns are written against real class names, so
+    # match the context rather than the synthetic's mangled name.
+    context = _resolve_synthesizing_context(java_class, synthetic_to_context)
+    return context != java_class and class_name_filter.class_name_matches_filter(
+        context
+    )
+
+
 def main():
     args = _parse_args()
 
@@ -146,6 +197,7 @@ def main():
     class_names_paths = args.class_names
     weight_estimate_paths = args.weight_estimates
     ref_count_paths = args.ref_counts
+    synthetic_contexts_paths = args.synthetic_contexts
     output = args.output
 
     assert len(dex_target_identifiers) == len(class_names_paths), (
@@ -159,6 +211,10 @@ def main():
     assert len(dex_target_identifiers) == len(ref_count_paths), (
         "Must provide same number of ref count files as dex target identifiers!"
     )
+
+    assert not synthetic_contexts_paths or len(dex_target_identifiers) == len(
+        synthetic_contexts_paths
+    ), "Must provide same number of synthetic context files as dex target identifiers!"
 
     json_output = {}
     for i in range(len(dex_target_identifiers)):
@@ -175,10 +231,18 @@ def main():
         with open(class_names_path) as class_names_file:
             all_class_names = [line.rstrip() for line in class_names_file]
 
+        synthetic_to_context = (
+            _parse_synthetic_contexts(synthetic_contexts_paths[i])
+            if synthetic_contexts_paths
+            else {}
+        )
+
         primary_dex_class_names = []
         secondary_dex_class_names = []
         for java_class in all_class_names:
-            if class_name_filter.class_name_matches_filter(java_class):
+            if _belongs_in_primary_dex(
+                java_class, class_name_filter, synthetic_to_context
+            ):
                 primary_dex_class_names.append(java_class + ".class")
             else:
                 secondary_dex_class_names.append(java_class + ".class")

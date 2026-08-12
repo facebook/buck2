@@ -36,6 +36,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_library(
+    name = "filter_dex_lib",
+    srcs = ["filter_dex.py"],
+    visibility = ["PUBLIC"],
+)
+
 prelude.python_bootstrap_binary(
     name = "sort_pre_dexed_files",
     main = "sort_pre_dexed_files.py",
