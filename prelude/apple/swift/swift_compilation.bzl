@@ -456,6 +456,8 @@ def compile_swift(
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION, has_content_based_path = uses_content_based_paths)
 
     swift_framework_output = None
+    output_swiftinterface = None
+    swiftinterface_subtarget_enabled = getattr(ctx.attrs, "swiftinterface_subtarget_enabled", False)
 
     if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
@@ -465,9 +467,9 @@ def compile_swift(
                 module_name + ".swiftdoc", has_content_based_path = uses_content_based_paths
             ),  # this is generated automatically once we pass -emit-module-info, so must have this name
         )
-
-    output_swiftinterface = None
-    if getattr(ctx.attrs, "swiftinterface_subtarget_enabled", False):
+        if swiftinterface_subtarget_enabled:
+            output_swiftinterface = swift_framework_output.swiftinterface
+    elif swiftinterface_subtarget_enabled:
         output_swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", has_content_based_path = uses_content_based_paths)
         _compile_swiftinterface(
             ctx,
