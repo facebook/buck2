@@ -264,7 +264,6 @@ public class MergeAndroidResources {
       ImmutableSet<String> referencedResources)
       throws IOException {
     Files.createDirectories(outputDir);
-    ImmutableList.Builder<Integer> allCustomDrawablesBuilder = ImmutableList.builder();
     ImmutableList.Builder<Integer> allGrayscaleImagesBuilder = ImmutableList.builder();
     for (String rDotJavaPackage : packageToResources.keySet()) {
       Path outputFile = getPathToRDotJava(outputDir, rDotJavaPackage);
@@ -274,7 +273,6 @@ public class MergeAndroidResources {
         writer.format("package %s;\n\n", rDotJavaPackage);
         writer.write("public class R {\n");
 
-        ImmutableList.Builder<Integer> customDrawablesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Integer> grayscaleImagesBuilder = ImmutableList.builder();
         RType lastType = null;
 
@@ -302,9 +300,7 @@ public class MergeAndroidResources {
                 forceFinalResourceIds ? " final " : " ", res.idType, res.name, res.idValue);
           }
 
-          if (type == RType.DRAWABLE && res.customType == RDotTxtEntry.CustomDrawableType.CUSTOM) {
-            customDrawablesBuilder.add(Integer.decode(res.idValue));
-          } else if (type == RType.DRAWABLE
+          if (type == RType.DRAWABLE
               && res.customType == RDotTxtEntry.CustomDrawableType.GRAYSCALE_IMAGE) {
             grayscaleImagesBuilder.add(Integer.decode(res.idValue));
           }
@@ -314,23 +310,6 @@ public class MergeAndroidResources {
         // closed.
         if (lastType != null) {
           writer.println("  }\n");
-        }
-
-        ImmutableList<Integer> customDrawables = customDrawablesBuilder.build();
-        if (customDrawables.size() > 0) {
-          Path customDrawablesAuxFile =
-              getPathToJavaFile(outputDir, rDotJavaPackage, "RCustom.java");
-          writePackagePrivateArrayHolderClass(
-              customDrawablesAuxFile,
-              rDotJavaPackage,
-              "RCustom",
-              "custom_drawables",
-              customDrawables);
-          // Add a new field for the custom drawables.
-          writer.format(
-              "  public static final int[] custom_drawables = %s.RCustom.custom_drawables;",
-              rDotJavaPackage);
-          writer.format("\n");
         }
 
         ImmutableList<Integer> grayscaleImages = grayscaleImagesBuilder.build();
@@ -350,7 +329,6 @@ public class MergeAndroidResources {
           writer.format("\n");
         }
 
-        allCustomDrawablesBuilder.addAll(customDrawables);
         allGrayscaleImagesBuilder.addAll(grayscaleImages);
 
         // Close the class definition.
@@ -358,9 +336,8 @@ public class MergeAndroidResources {
       }
     }
 
-    ImmutableList<Integer> allCustomDrawables = allCustomDrawablesBuilder.build();
     ImmutableList<Integer> allGrayscaleImages = allGrayscaleImagesBuilder.build();
-    if (!allCustomDrawables.isEmpty() || !allGrayscaleImages.isEmpty()) {
+    if (!allGrayscaleImages.isEmpty()) {
       String drawablesPackage = "com.facebook.buck.android.drawables";
       String drawablesPackageReplaced = drawablesPackage.replace('.', '/');
 
@@ -368,24 +345,12 @@ public class MergeAndroidResources {
       // generate 1 class per array. Further class splitting into chunks holding
       // subarrays could be done if problems continue. Please note that int[]
       // array construction may have ramifications on dead resource elimination.
-      String arrayHolderClassCustom = "CustomDrawablesAux";
-      Path customOutputFile =
-          outputDir
-              .resolve(drawablesPackageReplaced)
-              .resolve(String.format("%s.java", arrayHolderClassCustom));
-      Files.createDirectories(Objects.requireNonNull(customOutputFile.getParent()));
-      writePackagePrivateArrayHolderClass(
-          customOutputFile,
-          drawablesPackage,
-          arrayHolderClassCustom,
-          "customDrawables",
-          ImmutableList.sortedCopyOf(Comparator.naturalOrder(), allCustomDrawables));
-
       String arrayHolderClassGrayscale = "GrayscaleDrawablesAux";
       Path grayscaleOutputFile =
           outputDir
               .resolve(drawablesPackageReplaced)
               .resolve(String.format("%s.java", arrayHolderClassGrayscale));
+      Files.createDirectories(Objects.requireNonNull(grayscaleOutputFile.getParent()));
       writePackagePrivateArrayHolderClass(
           grayscaleOutputFile,
           drawablesPackage,
@@ -410,27 +375,12 @@ public class MergeAndroidResources {
         writer.format("\n");
 
         writer.format(
-            "  private static final int[] customDrawables = %s.%s.customDrawables;",
-            drawablesPackage, arrayHolderClassCustom);
-        writer.format("\n");
-
-        writer.format(
             "  private static final int[] grayscaleDrawables = %s.%s.grayscaleDrawables;",
             drawablesPackage, arrayHolderClassGrayscale);
         writer.format("\n");
 
-        writer.format("  public static boolean isCustomDrawable(int resourceId) {\n");
-        writer.format("    return Arrays.binarySearch(customDrawables, resourceId) >= 0;\n");
-        writer.format("  }\n");
-        writer.format("\n");
-
         writer.format("  public static boolean isGrayscaleDrawable(int resourceId) {\n");
         writer.format("    return Arrays.binarySearch(grayscaleDrawables, resourceId) >= 0;\n");
-        writer.format("  }\n");
-        writer.format("\n");
-
-        writer.format("  public static int[] getCustomDrawableIds() {\n");
-        writer.format("    return customDrawables;\n");
         writer.format("  }\n");
         writer.format("\n");
 

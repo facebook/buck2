@@ -308,39 +308,6 @@ public class MiniAaptTest {
             FakeEntry.create(IdType.INT, RType.DRAWABLE, "android_drawable")));
   }
 
-  @Test
-  public void testParsingCustomDrawables() throws IOException, ResourceParseException {
-    ImmutableList<String> lines =
-        ImmutableList.<String>builder()
-            .add(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
-                "<app-network xmlns:android=\"http://schemas.android.com/apk/res/android\">",
-                "  xmlns:fbui=\"http://schemas.android.com/apk/res-auto\"",
-                "  fbui:imageUri=\"http://facebook.com\"",
-                "  android:width=\"128px\"",
-                "  android:height=\"128px\"",
-                "  fbui:density=\"160\"",
-                "  >",
-                "</app-network>")
-            .build();
-
-    ProjectFilesystemUtils.writeLinesToPath(
-        tmpFolder.getRoot(), lines, Paths.get("custom_drawable.xml"));
-
-    MiniAapt aapt = new MiniAapt(ImmutableSet.of());
-    aapt.processDrawables(
-        ProjectFilesystemUtils.getPathForRelativePath(
-            tmpFolder.getRoot(), Paths.get("custom_drawable.xml")));
-
-    Set<RDotTxtEntry> definitions = aapt.getResourceCollector().getResources();
-
-    assertEquals(
-        createTestingFakesWithCustomDrawables(definitions),
-        ImmutableSet.<RDotTxtEntry>of(
-            FakeEntry.createWithCustomDrawable(
-                IdType.INT, RType.DRAWABLE, "custom_drawable", CustomDrawableType.CUSTOM)));
-  }
-
   private void testParsingGrayscaleImageImpl(String normalFilename, String grayscaleFilename)
       throws IOException, ResourceParseException {
     ImmutableList<String> lines = ImmutableList.<String>builder().add("").build();

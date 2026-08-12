@@ -70,7 +70,6 @@ public class MiniAapt {
   private static final String OVERLAYABLE_TAG = "overlayable";
   private static final String PUBLIC_TAG = "public";
   private static final String PUBLIC_FILENAME = "public.xml";
-  private static final String CUSTOM_DRAWABLE_PREFIX = "app-";
 
   private static final XPathExpression ANDROID_ID_AND_ATTR_USAGE =
       createExpression(
@@ -252,16 +251,8 @@ public class MiniAapt {
     int dotIndex = filename.indexOf('.');
     String resourceName = dotIndex != -1 ? filename.substring(0, dotIndex) : filename;
 
-    // Look into the XML file.
     boolean isGrayscaleImage = false;
-    boolean isCustomDrawable = false;
-    if (filename.endsWith(".xml")) {
-      try (InputStream stream = new BufferedInputStream(Files.newInputStream(resourceFile))) {
-        Document dom = parseXml(resourceFile, stream);
-        Element root = Objects.requireNonNull(dom.getDocumentElement());
-        isCustomDrawable = root.getNodeName().startsWith(CUSTOM_DRAWABLE_PREFIX);
-      }
-    } else {
+    if (!filename.endsWith(".xml")) {
       // .g.png is no longer an allowed filename in newer versions of aapt2.
       isGrayscaleImage = filename.endsWith(".g.png") || filename.endsWith(GRAYSCALE_SUFFIX);
       if (isGrayscaleImage) {
@@ -270,10 +261,7 @@ public class MiniAapt {
       }
     }
 
-    if (isCustomDrawable) {
-      resourceCollector.addCustomDrawableResourceIfNotPresent(
-          RType.DRAWABLE, resourceName, CustomDrawableType.CUSTOM);
-    } else if (isGrayscaleImage) {
+    if (isGrayscaleImage) {
       resourceCollector.addCustomDrawableResourceIfNotPresent(
           RType.DRAWABLE, resourceName, CustomDrawableType.GRAYSCALE_IMAGE);
     } else {

@@ -33,7 +33,6 @@ public class RDotTxtEntry implements Comparable<RDotTxtEntry> {
             String.format("'%s' does not have a custom identifier.", this));
       }
     },
-    CUSTOM(CUSTOM_DRAWABLE_IDENTIFIER),
     GRAYSCALE_IMAGE(GRAYSCALE_IMAGE_IDENTIFIER);
 
     private final String identifier;
@@ -113,17 +112,13 @@ public class RDotTxtEntry implements Comparable<RDotTxtEntry> {
         return entry.get();
       };
 
-  // An identifier for custom drawables.
-  private static final String CUSTOM_DRAWABLE_IDENTIFIER = "#";
   private static final String GRAYSCALE_IMAGE_IDENTIFIER = "G";
   public static final String INT_ARRAY_SEPARATOR = ",";
   private static final Pattern TEXT_SYMBOLS_LINE =
       Pattern.compile(
           "(\\S+) (\\S+) (\\S+) ([^("
-              + CUSTOM_DRAWABLE_IDENTIFIER
               + GRAYSCALE_IMAGE_IDENTIFIER
               + ")]+)( ["
-              + CUSTOM_DRAWABLE_IDENTIFIER
               + GRAYSCALE_IMAGE_IDENTIFIER
               + "])?");
 
@@ -230,9 +225,7 @@ public class RDotTxtEntry implements Comparable<RDotTxtEntry> {
       custom = custom.substring(1);
     }
 
-    if (CUSTOM_DRAWABLE_IDENTIFIER.equals(custom)) {
-      customType = CustomDrawableType.CUSTOM;
-    } else if (GRAYSCALE_IMAGE_IDENTIFIER.equals(custom)) {
+    if (GRAYSCALE_IMAGE_IDENTIFIER.equals(custom)) {
       customType = CustomDrawableType.GRAYSCALE_IMAGE;
     }
 
