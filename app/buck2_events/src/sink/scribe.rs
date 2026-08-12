@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -19,6 +21,7 @@ use buck2_data::Location;
 use buck2_data::StructuredError;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_hash::BuckDefaultHasher;
 use buck2_util::truncate::truncate;
 use fbinit::FacebookInit;
 use prost::Message;
@@ -75,7 +78,7 @@ impl RemoteEventSink {
         let messages = events
             .into_iter()
             .map(|e| {
-                let message_key = e.trace_id().unwrap().hash();
+                let message_key = message_key(&e);
                 scribe_client::Message {
                     category: self.category.clone(),
                     message: Self::encode_message(e),
@@ -91,7 +94,7 @@ impl RemoteEventSink {
 
     // Send this event by placing it on the internal message queue.
     pub fn offer(&self, event: BuckEvent) {
-        let message_key = event.trace_id().unwrap().hash();
+        let message_key = message_key(&event);
         self.client.offer(scribe_client::Message {
             category: self.category.clone(),
             message: Self::encode_message(event),
@@ -274,6 +277,28 @@ impl EventSink for RemoteEventSink {
     }
 }
 
+/// The message key determines which Scribe consumer shard receives the
+/// message.
+///
+/// Events are keyed by trace id, so that one consumer shard sees an entire
+/// invocation. `ConfigurationCreated` events are the exception: they are keyed
+/// by the configuration's name. The same configurations are recreated by many
+/// invocations, and routing each configuration to a single consumer shard
+/// makes the consumer's in-memory deduplication of the resulting database
+/// writes effective fleet-wide, instead of once per consumer shard. Nothing
+/// downstream correlates these events with the rest of their invocation.
+fn message_key(event: &BuckEvent) -> i64 {
+    if let buck2_data::buck_event::Data::Instant(instant) = event.data()
+        && let Some(buck2_data::instant_event::Data::ConfigurationCreated(created)) = &instant.data
+        && let Some(cfg) = &created.cfg
+    {
+        let mut hasher = BuckDefaultHasher::new();
+        cfg.full_name.hash(&mut hasher);
+        return hasher.finish() as i64;
+    }
+    event.trace_id().unwrap().hash()
+}
+
 fn action_has_cache_hit(action: &ActionExecutionEnd) -> bool {
     for details in action.commands.iter().filter_map(|e| e.details.as_ref()) {
         if get_is_cache_hit(details) {
@@ -364,6 +389,52 @@ mod tests {
         let size_approx = res.len() * 8;
         assert!(size_approx > TRUNCATED_SCRIBE_MESSAGE_SIZE);
         assert!(size_approx < SCRIBE_MESSAGE_SIZE_LIMIT);
+    }
+
+    #[test]
+    fn test_message_key() {
+        let configuration_created = |name: &str| {
+            BuckEvent::new(
+                SystemTime::now(),
+                TraceId::new(),
+                None,
+                None,
+                buck2_data::buck_event::Data::Instant(InstantEvent {
+                    data: Some(buck2_data::instant_event::Data::ConfigurationCreated(
+                        buck2_data::ConfigurationCreated {
+                            cfg: Some(buck2_data::ConfigurationWithConstraints {
+                                full_name: name.to_owned(),
+                                constraint: Vec::new(),
+                            }),
+                        },
+                    )),
+                }),
+            )
+        };
+
+        // Same configuration from different invocations shards identically;
+        // different configurations shard independently.
+        let a = configuration_created("cfg:linux-x86_64#abc123");
+        let b = configuration_created("cfg:linux-x86_64#abc123");
+        let c = configuration_created("cfg:linux-x86_64#def456");
+        assert_eq!(message_key(&a), message_key(&b));
+        assert_ne!(message_key(&a), message_key(&c));
+
+        // Everything else is keyed by its trace id.
+        let trace = TraceId::new();
+        let trace_key = trace.hash();
+        let other = BuckEvent::new(
+            SystemTime::now(),
+            trace,
+            None,
+            None,
+            buck2_data::buck_event::Data::Instant(InstantEvent {
+                data: Some(buck2_data::instant_event::Data::StructuredError(
+                    StructuredError::default(),
+                )),
+            }),
+        );
+        assert_eq!(message_key(&other), trace_key);
     }
 
     #[test]
