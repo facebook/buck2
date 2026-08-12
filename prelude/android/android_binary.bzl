@@ -88,6 +88,8 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     )
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
+    preprocess_predex_merge = ctx.attrs.preprocess_java_classes_bash and not has_proguard_config and not ctx.attrs.disable_pre_dex
+
     enhancement_ctx = create_enhancement_context(ctx)
     if target_to_module_mapping_file:
         enhancement_ctx.debug_output("module.mapping", target_to_module_mapping_file)
@@ -130,7 +132,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         use_proto_format = use_proto_format,
         referenced_resources_lists = referenced_resources_lists,
         manifest_entries = ctx.attrs.manifest_entries,
-        generate_strings_and_ids_separately = should_pre_dex,
+        generate_strings_and_ids_separately = should_pre_dex or preprocess_predex_merge,
         aapt2_preferred_density = ctx.attrs.aapt2_preferred_density,
     )
     sub_targets["manifest"] = [DefaultInfo(default_output = resources_info.manifest)]
@@ -234,7 +236,6 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         else:
             proguard_output = None
 
-        preprocess_predex_merge = ctx.attrs.preprocess_java_classes_bash and not has_proguard_config and not ctx.attrs.disable_pre_dex
         if preprocess_predex_merge:
             dex_toolchain = ctx.attrs._dex_toolchain[DexToolchainInfo]
             preprocessed_jars = list(jars_to_owners.keys())
