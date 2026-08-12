@@ -352,6 +352,67 @@ mod tests {
         );
     }
 
+    /// Repeatedly races a re-`register` against a `wake_all` on another thread, and returns the
+    /// number of iterations in which the waker passed to the racing `register` was never woken
+    /// by any subsequent `wake_all`.
+    fn count_lost_wakeups(iterations: usize) -> usize {
+        let set = Arc::new(AtomicWakerSet::new());
+        // Iteration counters used to hand control back and forth between the two threads.
+        let register_ready = Arc::new(AtomicUsize::new(0));
+        let wake_all_done = Arc::new(AtomicUsize::new(0));
+
+        let wake_thread = std::thread::spawn({
+            let set = set.clone();
+            let register_ready = register_ready.clone();
+            let wake_all_done = wake_all_done.clone();
+            move || {
+                for i in 1..=iterations {
+                    while register_ready.load(Ordering::Acquire) != i {
+                        std::hint::spin_loop();
+                    }
+                    set.wake_all();
+                    wake_all_done.store(i, Ordering::Release);
+                }
+            }
+        });
+
+        let mut lost = 0;
+        for i in 1..=iterations {
+            let racing_waker = CountingWaker::new();
+            let mut entry = pin!(AtomicWakerSetEntry::new());
+            unsafe {
+                entry
+                    .as_mut()
+                    .register(&set, Waker::from(CountingWaker::new()));
+                register_ready.store(i, Ordering::Release);
+                // Races with the `wake_all` on the other thread.
+                entry
+                    .as_mut()
+                    .register(&set, Waker::from(racing_waker.clone()));
+                while wake_all_done.load(Ordering::Acquire) != i {
+                    std::hint::spin_loop();
+                }
+                // The racing `register` completed before this `wake_all` starts, so by now the
+                // racing waker must have been woken by one of the two `wake_all` calls.
+                set.wake_all();
+                entry.as_mut().disconnect(&set);
+            }
+            if racing_waker.count() == 0 {
+                lost += 1;
+            }
+        }
+
+        wake_thread.join().unwrap();
+        lost
+    }
+
+    #[test]
+    fn register_racing_with_wake_all_loses_wakeups() {
+        let lost = count_lost_wakeups(100_000);
+        // This assertion documents a bug: no wakeups should ever be lost.
+        assert!(lost > 0, "expected the race to lose at least one wakeup");
+    }
+
     #[test]
     fn all_entries_in_a_larger_set_are_woken() {
         let set = AtomicWakerSet::new();
