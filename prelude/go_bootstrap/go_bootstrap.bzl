@@ -49,6 +49,7 @@ def go_bootstrap_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         go_toolchain.go,
         ["--workdir", srcs_dir],
         "build",
+        "-trimpath",
         ["-o", cmd_args(output.as_output(), relative_to = srcs_dir)],
         ctx.attrs.build_args,
     ])
