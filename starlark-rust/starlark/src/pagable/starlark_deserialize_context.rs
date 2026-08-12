@@ -215,14 +215,26 @@ impl AtomicSlotState {
 }
 
 struct InitWaiters {
-    lock: Mutex<()>,
+    state: Mutex<InitWaiterState>,
     cv: OnceLock<Condvar>,
+}
+
+#[derive(Default)]
+struct InitWaiterState {
+    /// Failure records are sparse because successful slots never need this
+    /// diagnostic state.
+    failures: Vec<SlotFailure>,
+}
+
+struct SlotFailure {
+    index: usize,
+    cause: Arc<str>,
 }
 
 impl InitWaiters {
     fn new() -> Self {
         Self {
-            lock: Mutex::new(()),
+            state: Mutex::new(InitWaiterState::default()),
             cv: OnceLock::new(),
         }
     }
@@ -519,7 +531,7 @@ impl HeapDeserializationState {
         let cv = m.init_waiters.cv.get_or_init(Condvar::new);
         let mut guard = m
             .init_waiters
-            .lock
+            .state
             .lock()
             .expect("init waiter lock poisoned");
 
@@ -549,29 +561,67 @@ impl HeapDeserializationState {
     /// Publish slot `index` as done; waiters in `wait_for_slot` then return. Call
     /// after `write_vtable_to_header`. No header argument — see `finalize`.
     pub(crate) fn finalize_claim(&self, index: usize) {
-        self.publish_and_notify(index, AtomicSlotState::finalize);
+        self.publish_and_notify(index, |state, _waiters| state.finalize());
     }
 
     /// Publish slot `index` as failed. Call if the winning deserializer errors
     /// before `finalize_claim`.
-    pub(crate) fn abort_claim(&self, index: usize) {
-        self.publish_and_notify(index, AtomicSlotState::fail);
+    #[cold]
+    pub(crate) fn abort_claim(&self, index: usize, error: &crate::Error) {
+        let cause = Arc::<str>::from(format!("{error:#}"));
+        self.publish_and_notify(index, |state, waiters| {
+            waiters.failures.push(SlotFailure { index, cause });
+            state.fail();
+        });
     }
 
-    /// Apply a terminal transition to slot `index` under the init-waiter lock,
-    /// then wake any waiters. Doing the store and the notify under one lock pairs
-    /// with `wait_for_init` to avoid lost wakeups.
-    fn publish_and_notify(&self, index: usize, transition: impl FnOnce(&AtomicSlotState)) {
+    /// Reconstruct the typed error for a slot whose original deserializer
+    /// already failed.
+    #[cold]
+    fn partial_deserialization_error(&self, value_index: u32) -> PagableError {
+        let m = self
+            .metadata
+            .get()
+            .expect("failed slot must have parsed metadata");
+        let index = value_index as usize;
+        let cause = m
+            .init_waiters
+            .state
+            .lock()
+            .expect("init waiter lock poisoned")
+            .failures
+            .iter()
+            .find(|failure| failure.index == index)
+            .map(|failure| failure.cause.dupe())
+            .unwrap_or_else(|| Arc::from("original deserialization error was not recorded"));
+
+        PagableError::PartialDeserializationFailed {
+            heap_id: self.heap_id,
+            value_index,
+            value_type: m.slots[index].vtable.type_name,
+            cause,
+        }
+    }
+
+    /// Apply a terminal transition and its diagnostic state under the
+    /// init-waiter lock, then wake any waiters. Publishing both under one lock
+    /// prevents lost wakeups and makes the failure cause visible before the
+    /// atomic slot state becomes `Failed`.
+    fn publish_and_notify(
+        &self,
+        index: usize,
+        transition: impl FnOnce(&AtomicSlotState, &mut InitWaiterState),
+    ) {
         let m = self
             .metadata
             .get()
             .expect("publish_and_notify called before metadata parse");
-        let _guard = m
+        let mut waiters = m
             .init_waiters
-            .lock
+            .state
             .lock()
             .expect("init waiter lock poisoned");
-        transition(&m.init_states[index]);
+        transition(&m.init_states[index], &mut waiters);
         if let Some(cv) = m.init_waiters.cv.get() {
             cv.notify_all();
         }
@@ -956,7 +1006,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                 };
 
                 if let Err(e) = result {
-                    target_state.abort_claim(value_index as usize);
+                    target_state.abort_claim(value_index as usize, &e);
                     return Err(e);
                 }
                 // Replace the sentinel vtable with the real one before publishing done.
@@ -983,24 +1033,18 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                 match target_state.wait_for_slot(value_index as usize, &storage)? {
                     ClaimResult::Done => {}
                     ClaimResult::Failed => {
-                        return Err(anyhow::anyhow!(
-                            "partial deserialization failed for heap {:?} value_index {}",
-                            heap_id,
-                            value_index,
-                        )
-                        .into());
+                        return Err(target_state
+                            .partial_deserialization_error(value_index)
+                            .into());
                     }
                     _ => unreachable!(),
                 }
             }
             ClaimResult::Done => {}
             ClaimResult::Failed => {
-                return Err(anyhow::anyhow!(
-                    "partial deserialization failed for heap {:?} value_index {}",
-                    heap_id,
-                    value_index,
-                )
-                .into());
+                return Err(target_state
+                    .partial_deserialization_error(value_index)
+                    .into());
             }
         }
 

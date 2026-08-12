@@ -17,9 +17,12 @@
 
 //! Error types for pagable serialization/deserialization.
 
+use std::sync::Arc;
+
 use thiserror::Error;
 
 use crate::pagable::DeserTypeId;
+use crate::pagable::heap_ref_id::HeapRefId;
 
 /// Errors that can occur during pagable serialization/deserialization.
 #[derive(Debug, Error)]
@@ -56,14 +59,14 @@ pub enum PagableError {
     #[error("Heap {heap_id:?} is not bound in this page-in scope")]
     HeapNotBoundInPageInScope {
         /// The logical heap identity whose binding was not found.
-        heap_id: crate::pagable::heap_ref_id::HeapRefId,
+        heap_id: HeapRefId,
     },
 
     /// An exact native heap allocation has no registered value for the serialized index.
     #[error("Native heap {heap_id:?} has no registered value at index {value_index}")]
     NativeHeapValueNotRegistered {
         /// The logical identity of the native heap.
-        heap_id: crate::pagable::heap_ref_id::HeapRefId,
+        heap_id: HeapRefId,
         /// The serialized index that could not be resolved.
         value_index: u32,
     },
@@ -75,13 +78,29 @@ pub enum PagableError {
     )]
     ConflictingHeapBinding {
         /// The ambiguous logical heap identity.
-        heap_id: crate::pagable::heap_ref_id::HeapRefId,
+        heap_id: HeapRefId,
         /// Display of the `FrozenHeapName` shared by both allocations.
         heap_name: String,
         /// Address of the allocation already bound in this scope.
         bound_heap_ptr: usize,
         /// Address of the allocation that could not be bound.
         conflicting_heap_ptr: usize,
+    },
+
+    /// A lazily deserialized heap slot was previously claimed, but its
+    /// deserializer failed before publishing the completed value.
+    #[error(
+        "Partial deserialization failed for heap {heap_id:?} value_index {value_index} type `{value_type}`; original error: {cause}"
+    )]
+    PartialDeserializationFailed {
+        /// The logical identity of the heap containing the failed slot.
+        heap_id: HeapRefId,
+        /// The serialized index of the failed slot.
+        value_index: u32,
+        /// The Starlark value type registered for the slot.
+        value_type: &'static str,
+        /// The complete error chain reported by the original deserializer.
+        cause: Arc<str>,
     },
 
     /// A frozen heap was registered with more than one serialization state.
