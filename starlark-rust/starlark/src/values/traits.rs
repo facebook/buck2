@@ -312,9 +312,34 @@ pub trait StarlarkValue<'v>:
 
     /// Get the members associated with this type, accessible via `this_type.x`.
     /// These members will have `dir`/`getattr`/`hasattr` properly implemented,
-    /// so it is the preferred way to go if possible. See
-    /// [`MethodsStatic`](crate::environment::MethodsStatic) for an example of how
-    /// to define this method.
+    /// so it is the preferred way to go if possible.
+    ///
+    /// `#[starlark_module]` creates a [`MethodsStatic`](crate::environment::MethodsStatic)
+    /// named after the initializer function. Attributes and methods can be attached
+    /// to a value with that generated static:
+    ///
+    /// ```ignore
+    /// #[starlark_module]
+    /// fn foo_methods(builder: &mut MethodsBuilder) {
+    ///     #[starlark(attribute)]
+    ///     fn name<'v>(this: &'v Foo) -> starlark::Result<&'v str> {
+    ///         Ok(this.name.as_str())
+    ///     }
+    /// }
+    ///
+    /// #[starlark_value(type = "foo")]
+    /// impl<'v> StarlarkValue<'v> for Foo {
+    ///     fn get_methods() -> Option<&'static Methods> {
+    ///         Some(FOO_METHODS_STATICS.methods())
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// The generated `FOO_METHODS_STATICS` already owns the method table; do not
+    /// also register the initializer with [`methods_static!`](crate::methods_static).
+    /// When migrating from `StarlarkAttrs`, remove field-level `#[starlark(skip)]`
+    /// and `#[starlark(clone)]` attributes. Omit getters for skipped fields, and
+    /// return borrowed or preallocated values instead of cloning expensive fields.
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,

@@ -243,8 +243,7 @@ impl ImplStarlarkValue {
         self.find_fn(name).is_some()
     }
 
-    /// The impl block contains a macro invocation in item position, for example
-    /// `starlark_attrs!()`.
+    /// The impl block contains a macro invocation in item position.
     ///
     /// Attribute macros run before item macros are expanded, so we cannot see which
     /// `StarlarkValue` methods such a macro is going to define. Whenever the answer to
@@ -350,8 +349,8 @@ impl ImplStarlarkValue {
     /// `fn attr_ty()`.
     fn attr_ty(&self) -> syn::Result<Option<syn::ImplItem>> {
         if self.has_fn("attr_ty") || self.has_macro_item() {
-            // User has custom `attr_ty` implementation, or an item macro (such as
-            // `starlark_attrs!()`) which may expand to `get_attr`/`attr_ty`.
+            // User has custom `attr_ty` implementation, or an item macro which may
+            // expand to `get_attr`/`attr_ty`.
             // Fall back to the default implementation, which returns `Any` for every
             // attribute: we cannot prove the attribute does not exist.
             Ok(None)

@@ -16,9 +16,9 @@
  */
 
 mod alloc_value;
-mod attrs;
 mod docs;
 mod freeze;
+mod macro_item;
 mod module;
 mod trace;
 mod unpack_value;
