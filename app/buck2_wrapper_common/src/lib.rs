@@ -107,6 +107,46 @@ fn get_all_tgids_linux() -> Option<StdBuckHashSet<sysinfo::Pid>> {
     Some(all_tgids)
 }
 
+/// This process and all of its ancestors. Requires the processes to be refreshed in `system`.
+fn current_parents(system: &System) -> StdBuckHashSet<sysinfo::Pid> {
+    let mut current_parents = StdBuckHashSet::default();
+    let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
+    while let Some(pid) = parent {
+        // There is a small chance on Windows that the PID of a dead parent
+        // was reused by some of its descendants, and this can create a loop.
+        if !current_parents.insert(pid) {
+            break;
+        }
+        parent = system.process(pid).and_then(|p| p.parent());
+    }
+    current_parents
+}
+
+/// Whether `pid` is a buck2 process that [`killall`] would kill: a buck2 executable, and not an
+/// ancestor of this process. `None` if the process exists but cannot be identified, in which case
+/// callers must not assume either answer.
+pub fn is_killable_buck2_process(pid: Pid, who_is_asking: WhoIsAsking) -> Option<bool> {
+    let mut system = System::new();
+    let linux_tgids =
+        get_all_tgids_linux().map(|pids| pids.into_iter().collect::<Vec<sysinfo::Pid>>());
+    let processes_to_update = match &linux_tgids {
+        Some(pids) => ProcessesToUpdate::Some(pids),
+        None => ProcessesToUpdate::All,
+    };
+    system.refresh_processes_specifics(
+        processes_to_update,
+        true,
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
+    );
+
+    let sys_pid = sysinfo::Pid::from_u32(pid.to_u32());
+    let Some(process) = system.process(sys_pid) else {
+        return Some(false);
+    };
+    let exe = process.exe()?;
+    Some(is_buck2_exe(exe, who_is_asking) && !current_parents(&system).contains(&sys_pid))
+}
+
 /// Find all buck2 processes in the system.
 fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
@@ -122,16 +162,7 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
         ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
     );
 
-    let mut current_parents = StdBuckHashSet::default();
-    let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
-    while let Some(pid) = parent {
-        // There is a small chance on Windows that the PID of a dead parent
-        // was reused by some of its descendants, and this can create a loop.
-        if !current_parents.insert(pid) {
-            break;
-        }
-        parent = system.process(pid).and_then(|p| p.parent());
-    }
+    let current_parents = current_parents(&system);
 
     let mut buck2_processes = Vec::new();
     for (sys_pid, process) in system.processes() {
@@ -297,6 +328,57 @@ mod tests {
             let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
             assert_eq!(expected.map(str::to_owned), parse_isolation_dir(&args));
         }
+    }
+
+    #[test]
+    fn test_is_killable_buck2_process_rejects_non_buck2_process() {
+        let mut command = if !cfg!(windows) {
+            let mut command = buck2_util::process::background_command("sh");
+            command.args(["-c", "sleep 10000"]);
+            command
+        } else {
+            let mut command = buck2_util::process::background_command("powershell");
+            command.args(["-c", "Start-Sleep -Seconds 10000"]);
+            command
+        };
+        let mut child = command.spawn().unwrap();
+        let pid = Pid::from_u32(child.id()).unwrap();
+
+        assert_eq!(
+            Some(false),
+            is_killable_buck2_process(pid, WhoIsAsking::Buck2),
+            "a non-buck2 process must not be killable; pid {pid}"
+        );
+
+        child.kill().unwrap();
+        child.wait().unwrap();
+    }
+
+    #[test]
+    fn test_is_killable_buck2_process_reports_exited_process() {
+        let mut command = buck2_util::process::background_command("sh");
+        command.args(["-c", "exit 0"]);
+        let mut child = command.spawn().unwrap();
+        let pid = Pid::from_u32(child.id()).unwrap();
+        child.wait().unwrap();
+
+        assert_eq!(
+            Some(false),
+            is_killable_buck2_process(pid, WhoIsAsking::Buck2),
+            "an exited process must not be killable; pid {pid}"
+        );
+    }
+
+    #[test]
+    fn test_is_killable_buck2_process_rejects_own_ancestors() {
+        // The test binary shares its file stem with the current exe, so it satisfies
+        // `is_buck2_exe` and only the ancestor check can reject it.
+        let pid = Pid::from_u32(std::process::id()).unwrap();
+        assert_eq!(
+            Some(false),
+            is_killable_buck2_process(pid, WhoIsAsking::Buck2),
+            "the current process must never be killable; pid {pid}"
+        );
     }
 
     #[cfg(target_os = "linux")]

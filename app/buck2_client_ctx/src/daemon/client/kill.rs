@@ -15,6 +15,8 @@ use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_data::error::ErrorTag;
 use buck2_error::buck2_error;
+use buck2_wrapper_common::is_buck2::WhoIsAsking;
+use buck2_wrapper_common::is_killable_buck2_process;
 use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
@@ -192,6 +194,11 @@ async fn hard_kill_impl(
             .as_deref()
             .unwrap_or("<unknown>")
     );
+
+    if is_killable_buck2_process(pid, WhoIsAsking::Buck2) == Some(false) {
+        tracing::info!("Not killing PID {}: not a buck2 process", pid);
+        return Ok(());
+    }
 
     let Some(handle) = kill::kill(pid)? else {
         return Ok(());
