@@ -516,6 +516,7 @@ def _define_kotlincd_action(
         toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
         extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
         extra_jvm_args_target = kotlin_toolchain.kotlincd_jvm_args_target,
+        java_runtime_version = java_toolchain.java_runtime_version,
     )
 
     args = cmd_args()

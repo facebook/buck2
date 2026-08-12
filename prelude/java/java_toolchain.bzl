@@ -43,6 +43,9 @@ JavaToolchainInfo = provider(
         "java_base_jar": provider_field(typing.Any, default = None),
         "java_error_handler": provider_field(typing.Any, default = None),
         "java_for_tests": provider_field(typing.Any, default = None),
+        # Major version of the JDK that `java` points at, or None when that is not known
+        # (for example when a toolchain supplies its own `java` binary).
+        "java_runtime_version": provider_field(typing.Any, default = None),
         "javac": provider_field(typing.Any, default = None),
         "javac_protocol": provider_field(typing.Any, default = None),
         "javacd": provider_field(typing.Any, default = None),
@@ -74,6 +77,22 @@ JavaToolchainInfo = provider(
         "zip_scrubber": provider_field(typing.Any, default = None),
     },
 )
+
+def unsafe_memory_access_jvm_args(java_runtime_version: [int, None]) -> list[str]:
+    """
+    JVM args that keep the compiler daemon from warning about protobuf-java's use of
+    sun.misc.Unsafe.
+
+    protobuf-java, which carries the daemon's command protocol, calls
+    sun.misc.Unsafe::arrayBaseOffset from a static initializer. JDK 24 and up print a
+    terminal-deprecation warning for that call, and it lands in the stderr buck2 reports
+    for a failed compilation. No protobuf-java release has dropped the call, so the
+    warning has to be turned off at the JVM. The option does not exist before JDK 24,
+    where passing it stops the JVM from starting at all.
+    """
+    if java_runtime_version != None and java_runtime_version >= 24:
+        return ["--sun-misc-unsafe-memory-access=allow"]
+    return []
 
 JavaTestToolchainInfo = provider(
     doc = "Java test toolchain info",

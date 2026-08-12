@@ -303,6 +303,7 @@ def _define_javacd_action(
         toolchain_specified_debug_target = java_toolchain.javacd_debug_target,
         extra_jvm_args = java_toolchain.javacd_jvm_args,
         extra_jvm_args_target = java_toolchain.javacd_jvm_args_target,
+        java_runtime_version = java_toolchain.java_runtime_version,
     )
 
     post_build_params = {}

@@ -14,7 +14,7 @@ load(
     "create_abi",
     "derive_compiling_deps",
 )
-load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo")
+load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo", "unsafe_memory_access_jvm_args")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties")  # @unused Used as type
 load(
     "@prelude//java/plugins:java_plugin.bzl",
@@ -353,9 +353,10 @@ def prepare_cd_exe(
     toolchain_specified_debug_target: [Label, None],
     extra_jvm_args: list[str],
     extra_jvm_args_target: list[Label],
+    java_runtime_version: [int, None],
 ) -> tuple:
     local_only = False
-    jvm_args = ["-XX:-MaxFDLimit"]
+    jvm_args = ["-XX:-MaxFDLimit"] + unsafe_memory_access_jvm_args(java_runtime_version)
 
     # The variables 'extra_jvm_args' and 'extra_jvm_args_target' are generally used, but they are primarily designed for profiling use-cases.
     # The following section is configured with the profiling use-case in mind.
