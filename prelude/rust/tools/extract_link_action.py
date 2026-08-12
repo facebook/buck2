@@ -87,9 +87,10 @@ def expand_response_files(args: list[str]) -> list[str]:
 
     When the argv would exceed the OS command-line limit (which a Rust link
     line always does on Windows), rustc re-invokes the linker with all
-    arguments in a single `@file`: one argument per line, backslashes and
-    spaces escaped with a backslash. That is the gcc-flavored form of rustc's
-    fallback; msvc-flavored linkers get UTF-16 instead, which we reject.
+    arguments in a single `@file`, one argument per line. For gcc-flavored
+    linkers that is UTF-8 with backslashes and spaces escaped by a backslash;
+    for msvc-flavored linkers it is UTF-16 with each argument quoted and
+    embedded quotes doubled.
     """
     expanded = []
     for arg in args:
@@ -98,10 +99,13 @@ def expand_response_files(args: list[str]) -> list[str]:
             continue
         data = Path(arg[1:]).read_bytes()
         if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
-            eprint(
-                f"extract_link_action.py: {arg} is UTF-16; msvc-flavored response files are unsupported"
-            )
-            sys.exit(1)
+            for line in data.decode("utf-16").splitlines():
+                if not line:
+                    continue
+                if line.startswith('"') and line.endswith('"'):
+                    line = line[1:-1].replace('""', '"')
+                expanded.append(line)
+            continue
         for line in data.decode("utf-8").splitlines():
             if line:
                 expanded.append(re.sub(r"\\(.)", r"\1", line))
@@ -187,6 +191,24 @@ def process_link_args(
             continue
         elif arg.startswith("--entry="):
             retained_args.append(arg)
+            i += 1
+            continue
+
+        # Debugger-visualizer files (crate-graph natvis, embedded into the
+        # PDB by the linker). Deliberately dropped rather than extracted: the
+        # natvis set is declarable in the dependency graph — the attribute
+        # names an ordinary source file — and C++ treats visualizers as
+        # build/debugger configuration, not compiler output. Marked handled
+        # so the temp-file check stays quiet.
+        elif arg.startswith("/NATVIS:"):
+            handled.add(arg)
+            i += 1
+            continue
+
+        # The msvc-style spelling of `-o` below; the temporary output path
+        # is embedded in the token, so mark it handled.
+        elif arg.startswith("/OUT:"):
+            handled.add(arg)
             i += 1
             continue
 
