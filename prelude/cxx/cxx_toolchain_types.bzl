@@ -63,6 +63,8 @@ LinkerInfo = provider(
         # "o" on Unix, "obj" on Windows
         "object_file_extension": provider_field(typing.Any, default = None),  # str
         "post_linker_flags": provider_field(typing.Any, default = None),
+        # `LinkInfo`s (list[LinkInfo]) of the runtime libraries the toolchain provides.
+        "runtime_library_files": provider_field(list[typing.Any], default = []),
         "sanitizer_runtime_enabled": provider_field(bool, default = False),
         "sanitizer_runtime_files": provider_field(list[Artifact], default = []),
         "shlib_interfaces": provider_field(ShlibInterfacesMode),

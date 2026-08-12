@@ -21,6 +21,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "LinkOrdering",  # @unused Used as a type
+    "link_info_to_args",
     "unpack_link_args",
     "unpack_link_args_excluding_object_files_and_lazy_archives",
     "unpack_link_args_object_files_and_lazy_archives_only",
@@ -211,6 +212,19 @@ def cxx_sanitizer_runtime_arguments(ctx: AnalysisContext, cxx_toolchain: CxxTool
         )
 
     return CxxSanitizerRuntimeArguments()
+
+def cxx_runtime_library_arguments(cxx_toolchain: CxxToolchainInfo) -> list[ArgLike]:
+    # Runtime-library files (e.g. compiler-rt builtins) the toolchain provides are
+    # linked here, toward the end of the link line, to match the Clang driver's
+    # placement of compiler-rt. The consumer is responsible for stopping the driver
+    # from also injecting these (e.g. `-nodefaultlibs`).
+    linker_info = cxx_toolchain.linker_info
+    link_infos = linker_info.runtime_library_files
+    if not link_infos:
+        return []
+    if linker_info.type != LinkerType("gnu"):
+        fail("runtime_library_files is only supported for the gnu linker, got {}".format(linker_info.type))
+    return [link_info_to_args(link_info) for link_info in link_infos]
 
 def executable_shared_lib_arguments(
     ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, output: Artifact, shared_libs: list[SharedLibrary]

@@ -167,6 +167,7 @@ def _cxx_toolchain_override(ctx):
         mk_shlib_intf = _pick_dep(ctx.attrs.mk_shlib_intf, base_linker_info.mk_shlib_intf),
         requires_archives = base_linker_info.requires_archives,
         requires_objects = base_linker_info.requires_objects,
+        runtime_library_files = base_linker_info.runtime_library_files,
         supports_distributed_thinlto = base_linker_info.supports_distributed_thinlto,
         independent_shlib_interface_linker_flags = base_linker_info.independent_shlib_interface_linker_flags,
         sanitizer_runtime_enabled = value_or(ctx.attrs.sanitizer_runtime_enabled, base_linker_info.sanitizer_runtime_enabled),

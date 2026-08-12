@@ -38,9 +38,11 @@ load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
 load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkOrdering",
     "LinkStyle",
 )
+load("@prelude//linking:linkable_graph.bzl", "LinkableGraph")
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -203,6 +205,9 @@ def cxx_toolchain_impl(ctx):
         requires_objects = value_or(ctx.attrs.requires_objects, False),
         sanitizer_runtime_enabled = ctx.attrs.sanitizer_runtime_enabled,
         sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]),
+        runtime_library_files = [
+            dep[LinkableGraph].nodes.value.linkable.link_infos[LibOutputStyle("pic_archive")].default for dep in ctx.attrs.runtime_library_files
+        ],
         supports_distributed_thinlto = ctx.attrs.supports_distributed_thinlto,
         shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
         shared_library_name_default_prefix = _get_shared_library_name_default_prefix(ctx),
@@ -352,6 +357,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "rc_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "remap_cwd": attrs.bool(default = False),
         "requires_objects": attrs.bool(default = False),
+        "runtime_library_files": attrs.set(attrs.dep(), sorted = True, default = []),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.set(attrs.dep(), sorted = True, default = []),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.enum(ShlibInterfacesMode.values(), default = "disabled"),

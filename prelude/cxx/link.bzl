@@ -63,6 +63,7 @@ load(
     ":cxx_link_utility.bzl",
     "LinkArgsOutput",
     "cxx_link_cmd_parts",
+    "cxx_runtime_library_arguments",
     "cxx_sanitizer_runtime_arguments",
     "gc_sections_args",
     "generates_split_debug",
@@ -217,6 +218,8 @@ def cxx_link_into(
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
+        if linker_info.runtime_library_files:
+            fail("runtime_library_files is not supported with distributed thin-lto")
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
 
         linker_type = linker_info.type
@@ -268,6 +271,7 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(cxx_toolchain_info) or split_debug_output != None)
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
+    runtime_library_args = cxx_runtime_library_arguments(cxx_toolchain_info)
 
     def create_local_linker_invocation(add_linker_outputs: bool) -> LinkArgsOutput:
         if linker_map != None and add_linker_outputs:
@@ -315,6 +319,10 @@ def cxx_link_into(
         # behavior of Swift runtime loading when the app also has an embedded
         # Swift runtime.
         all_link_args.add(sanitizer_runtime_args.extra_link_args)
+
+        # Runtime libraries the toolchain provides (e.g. compiler-rt builtins) go at
+        # the end, to match the Clang driver's placement of compiler-rt.
+        all_link_args.add(runtime_library_args)
 
         if linker_info.thin_lto_double_codegen_enabled:
             # This flag should only be passed to the toolchain when using local thin-lto,
