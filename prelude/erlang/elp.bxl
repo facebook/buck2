@@ -62,7 +62,7 @@ def _generate_sources(ctx, src, build_results) -> list:
         target = src.configured_target()
         deps = ctx.cquery().deps(target)
         inputs = ctx.cquery().inputs(deps)
-        return [f.cell() + "//" + f.path() for f in inputs]
+        return [f.cell + "//" + f.path for f in inputs]
 
     else:
         return []
