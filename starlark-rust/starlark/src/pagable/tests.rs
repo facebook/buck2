@@ -851,8 +851,13 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
         )
         .expect_err("a different live heap with the same ID should be rejected");
     assert!(matches!(
-        error,
-        PagableError::ConflictingHeapBinding { heap_id: actual } if actual == heap_id,
+        &error,
+        PagableError::ConflictingHeapBinding {
+            heap_id: actual,
+            heap_name,
+            ..
+        } if *actual == heap_id
+            && heap_name == "TestHeapName(conflicting_deser_binding)",
     ));
 
     drop(first);

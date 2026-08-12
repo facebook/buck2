@@ -70,10 +70,18 @@ pub enum PagableError {
 
     /// One root page-in encountered two live heap allocations with the same
     /// logical heap identity.
-    #[error("Heap {heap_id:?} is already bound to a different heap in this page-in scope")]
+    #[error(
+        "Heap {heap_id:?} is already bound to a different heap in this page-in scope; heap name `{heap_name}`, bound allocation {bound_heap_ptr:#x}, conflicting allocation {conflicting_heap_ptr:#x}"
+    )]
     ConflictingHeapBinding {
         /// The ambiguous logical heap identity.
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
+        /// Display of the `FrozenHeapName` shared by both allocations.
+        heap_name: String,
+        /// Address of the allocation already bound in this scope.
+        bound_heap_ptr: usize,
+        /// Address of the allocation that could not be bound.
+        conflicting_heap_ptr: usize,
     },
 
     /// A frozen heap was registered with more than one serialization state.

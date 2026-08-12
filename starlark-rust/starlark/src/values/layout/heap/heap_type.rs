@@ -405,6 +405,12 @@ struct FrozenFrozenHeap {
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
 pub(crate) struct FrozenHeapPtr(usize);
 
+impl FrozenHeapPtr {
+    pub(crate) fn addr(self) -> usize {
+        self.0
+    }
+}
+
 #[derive(Clone, Dupe, Allocative)]
 pub(crate) struct WeakFrozenHeapRef(PartialPagableWeak<FrozenFrozenHeap>);
 

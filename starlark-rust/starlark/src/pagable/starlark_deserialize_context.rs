@@ -707,6 +707,25 @@ impl Drop for WaitGuard {
     }
 }
 
+/// Describe a heap-identity collision. Cold because naming the heap allocates a
+/// `String` that the (overwhelmingly common) non-conflicting path never needs.
+#[cold]
+fn conflicting_heap_binding(
+    heap_id: HeapRefId,
+    bound: &FrozenHeapRef,
+    bound_heap_ptr: FrozenHeapPtr,
+    conflicting_heap_ptr: FrozenHeapPtr,
+) -> PagableError {
+    PagableError::ConflictingHeapBinding {
+        heap_id,
+        heap_name: bound
+            .name()
+            .map_or_else(|| "<unnamed>".to_owned(), |name| name.to_string()),
+        bound_heap_ptr: bound_heap_ptr.addr(),
+        conflicting_heap_ptr: conflicting_heap_ptr.addr(),
+    }
+}
+
 impl StarlarkDeserScope {
     pub(crate) fn new() -> Self {
         Self {
@@ -729,8 +748,13 @@ impl StarlarkDeserScope {
                 if entry.get().heap_ptr() == heap_ptr {
                     return Ok(());
                 }
-                if entry.get().upgrade().is_some() {
-                    return Err(PagableError::ConflictingHeapBinding { heap_id });
+                if let Some(bound) = entry.get().upgrade() {
+                    return Err(conflicting_heap_binding(
+                        heap_id,
+                        &bound,
+                        entry.get().heap_ptr(),
+                        heap_ptr,
+                    ));
                 }
                 entry.insert(heap);
             }
@@ -749,8 +773,13 @@ impl StarlarkDeserScope {
         if entry.heap_ptr() == heap_ptr {
             return Ok(true);
         }
-        if entry.upgrade().is_some() {
-            return Err(PagableError::ConflictingHeapBinding { heap_id });
+        if let Some(bound) = entry.upgrade() {
+            return Err(conflicting_heap_binding(
+                heap_id,
+                &bound,
+                entry.heap_ptr(),
+                heap_ptr,
+            ));
         }
         Ok(false)
     }
