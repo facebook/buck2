@@ -34,6 +34,7 @@ use buck2_execute::execute::cache_uploader::DepFileCacheUploadOutcome;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::result::CommandExecutionResult;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
@@ -344,8 +345,11 @@ impl CacheUploader {
         let mut output_files: Vec<TFile> = Vec::new();
         let mut output_directories: Vec<TDirectory2> = Vec::new();
 
+        let mut content_paths = Vec::new();
+
         for output_result in result.resolve_outputs(&self.artifact_fs) {
-            let (output, value) = output_result?;
+            let (output, content_path, value) = output_result?;
+            content_paths.push(content_path.clone());
             match value.entry().as_ref() {
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                     output_files.push(TFile {
@@ -364,10 +368,13 @@ impl CacheUploader {
                     });
 
                     let fut = async move {
+                        // We use the content-based path so we don't have to
+                        // hold a lock for the placeholder path used by
+                        // execution.
                         let name = self
                             .artifact_fs
                             .fs()
-                            .resolve(output.path())
+                            .resolve(&content_path)
                             .as_maybe_relativized_str()?
                             .to_owned();
 
@@ -406,7 +413,7 @@ impl CacheUploader {
                                 self.artifact_fs.fs(),
                                 self.materializer.as_ref(),
                                 &action_blobs,
-                                output.path(),
+                                &content_path,
                                 &d.dupe().as_immutable(),
                                 identity,
                                 digest_config,
@@ -433,6 +440,15 @@ impl CacheUploader {
         }
 
         let uploads = async {
+            // This may be belt-and-suspenders: the action just ran, so one
+            // would expect these to exist. I'm not sure it's 100% necessary to
+            // ask the materializer to ensure just-built possibly-content-based
+            // paths exist.
+            self.materializer
+                .ensure_materialized(content_paths, MaterializationPurpose::IntermediateOnly)
+                .await
+                .buck_error_context("Error materializing outputs for cache upload")?;
+
             buck2_util::future::try_join_all(upload_futs)
                 .await
                 .buck_error_context("Error uploading outputs")?;

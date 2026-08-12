@@ -937,8 +937,9 @@ impl LocalExecutor {
                         // wrote outputs at "placeholder" paths, not the final content-based paths (because
                         // they are not know until the output is produced), and (b) other actions can declare
                         // outputs at the same content-based path. Note that only remote actions can do that
-                        // concurrently (with this local action), as we prevent any local actions with any of
-                        // the same placeholder output paths from running at the same time.
+                        // concurrently (with this local action), as we prevent any local run actions with any of
+                        // the same placeholder output paths from running at the same time (see
+                        // NamedSemaphores and HostSharingRequirements).
                         // We do the following:
                         // (1) We create a symlink from the configuration-based path to the content-based path
                         //     (for any users/tooling that only has access to the configuration-based path)
