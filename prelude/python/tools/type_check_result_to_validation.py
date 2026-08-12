@@ -25,26 +25,43 @@ def convert_type_check_result(input_path: Path, output_path: Path) -> None:
     try:
         with input_path.open() as input_file:
             data: Any = json.load(input_file)
-        blocking_errors = [
-            error
-            for error in data.get("errors", [])
-            if error["code"] != 0
-            and error.get("name") != "unused-ignore"
-            and error.get("severity") not in ("info", "ignore", "warn")
-        ]
-        if blocking_errors:
-            validation["data"] = {
-                "status": "failure",
-                "message": "\n".join(
-                    f"{error['path']}:{error['line']}:{error['column']} {error['description']}"
-                    for error in blocking_errors
-                ),
-            }
-    except (OSError, json.JSONDecodeError, KeyError):
+    except (OSError, json.JSONDecodeError):
         validation["data"] = {
             "status": "failure",
             "message": "Failed to read type checker output",
         }
+    else:
+        messages = []
+        malformed = False
+        errors = data.get("errors", []) if isinstance(data, dict) else None
+        if not isinstance(errors, list):
+            errors = []
+            malformed = True
+
+        for error in errors:
+            if not isinstance(error, dict) or "code" not in error:
+                malformed = True
+                continue
+            if (
+                error["code"] == 0
+                or error.get("name") == "unused-ignore"
+                or error.get("severity") in ("info", "ignore", "warn")
+            ):
+                continue
+            try:
+                messages.append(
+                    f"{error['path']}:{error['line']}:{error['column']} {error['description']}"
+                )
+            except KeyError:
+                malformed = True
+
+        if malformed:
+            messages.append("Malformed type checker output")
+        if messages:
+            validation["data"] = {
+                "status": "failure",
+                "message": "\n".join(messages),
+            }
 
     with output_path.open("w") as output_file:
         json.dump(validation, output_file)

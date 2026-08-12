@@ -73,15 +73,43 @@ class ConvertTypeCheckResultTest(unittest.TestCase):
             },
         )
 
-    def test_invalid_result_produces_failure(self) -> None:
-        result = self._convert({"errors": [{"code": 6}]})
+    def test_malformed_error_preserves_blocking_diagnostics(self) -> None:
+        result = self._convert(
+            {
+                "errors": [
+                    {"code": 6},
+                    {
+                        "code": 7,
+                        "path": "foo.py",
+                        "line": 10,
+                        "column": 5,
+                        "description": "Expected int, got str",
+                    },
+                ]
+            }
+        )
         self.assertEqual(
             result,
             {
                 "version": 1,
                 "data": {
                     "status": "failure",
-                    "message": "Failed to read type checker output",
+                    "message": (
+                        "foo.py:10:5 Expected int, got str\n"
+                        "Malformed type checker output"
+                    ),
+                },
+            },
+        )
+
+    def test_non_object_result_produces_failure(self) -> None:
+        self.assertEqual(
+            self._convert([]),
+            {
+                "version": 1,
+                "data": {
+                    "status": "failure",
+                    "message": "Malformed type checker output",
                 },
             },
         )
