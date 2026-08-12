@@ -125,7 +125,8 @@ public interface AndroidDevice {
 
   AutoCloseable createForward() throws Exception;
 
-  void installFiles(String filesType, Map<Path, Path> installPaths) throws Exception;
+  void installFiles(String filesType, Map<Path, Path> installPaths, String packageName)
+      throws Exception;
 
   void mkDirP(String dirpath) throws Exception;
 

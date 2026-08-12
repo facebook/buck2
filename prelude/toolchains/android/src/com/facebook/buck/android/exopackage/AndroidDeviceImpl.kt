@@ -504,7 +504,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   @Throws(Exception::class)
-  override fun installFiles(filesType: String, installPaths: Map<Path, Path>) {
+  override fun installFiles(
+      filesType: String,
+      installPaths: Map<Path, Path>,
+      packageName: String,
+  ) {
     LOG.debug(
         "%s: %s",
         filesType,
@@ -525,33 +529,52 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         "resources" -> {
           // create a temp folder for each destination folder
           val tempFolders = mutableMapOf<Path, Path>()
-          installPaths.keys
-              .stream()
-              .map { it.parent }
-              .distinct()
-              .forEach { tempFolders[it] = Files.createTempDirectory("${it.fileName}_") }
-          installPaths.forEach { (destination, source) ->
-            val targetPath = tempFolders[destination.parent]?.resolve(destination.fileName)
-            Files.copy(source, targetPath, StandardCopyOption.REPLACE_EXISTING)
-          }
-          // TODO consider tarballing all the files in the temp for faster transfer
-          // push the temp folder to the device
-          tempFolders.forEach { (destination, source) ->
-            try {
-              executeAdbCommand("push -z brotli $source /data/local/tmp")
-              executeAdbShellCommand("mv /data/local/tmp/${source.fileName}/* $destination")
-              // instagram will fail to star if dex files are writable
-              executeAdbShellCommand("chmod 644 $destination/*")
-              executeAdbShellCommand("rm -rf /data/local/tmp/${source.fileName}")
-            } catch (e: AdbCommandFailedException) {
-              throw AndroidInstallException.adbCommandFailedException(
-                  "Failed to push $source to $destination.",
-                  e.message,
-              )
+          val stagingDir = scratchDirFor(packageName)
+          var pushFailure: Throwable? = null
+          try {
+            installPaths.keys
+                .stream()
+                .map { it.parent }
+                .distinct()
+                .forEach { tempFolders[it] = Files.createTempDirectory("${it.fileName}_") }
+            installPaths.forEach { (destination, source) ->
+              val targetPath = tempFolders[destination.parent]?.resolve(destination.fileName)
+              Files.copy(source, targetPath, StandardCopyOption.REPLACE_EXISTING)
+            }
+            // push the temp folder to the device
+            mkDirP(stagingDir)
+            tempFolders.forEach { (destination, source) ->
+              try {
+                executeAdbCommand("push -z brotli $source $stagingDir")
+                executeAdbShellCommand("mv $stagingDir/${source.fileName}/* $destination")
+                // instagram will fail to star if dex files are writable
+                executeAdbShellCommand("chmod 644 $destination/*")
+              } catch (e: AdbCommandFailedException) {
+                throw AndroidInstallException.adbCommandFailedException(
+                    "Failed to push $source to $destination.",
+                    e.message,
+                )
+              }
+            }
+          } catch (t: Throwable) {
+            pushFailure = t
+            throw t
+          } finally {
+            // `values`, not `keys`: the keys are on-device destinations.
+            tempFolders.values.forEach { it.toFile().deleteRecursively() }
+            // Only what this call pushed, since concurrent calls share the package's staging
+            // directory.
+            if (tempFolders.isNotEmpty()) {
+              val pushed = tempFolders.values.joinToString(" ") { "$stagingDir/${it.fileName}" }
+              try {
+                executeAdbShellCommand("rm -rf $pushed")
+              } catch (e: Exception) {
+                // Leaving a payload behind is a failure in its own right, but not one worth losing
+                // the push failure over: while unwinding, attach it instead of replacing it.
+                pushFailure?.addSuppressed(e) ?: throw e
+              }
             }
           }
-          // delete temp folder
-          tempFolders.keys.map { it.toFile() }.forEach { it.deleteRecursively() }
         }
         else -> {
           installPaths.forEach { (destination, source) ->
@@ -565,6 +588,16 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       }
     }
     LOG.info("$filesType: Transferred ${installPaths.size} files in ${timeSpent/1000.0} seconds")
+  }
+
+  /**
+   * Where payloads for [packageName] are pushed before being moved into place. Per package, so that
+   * reclaiming one app's leftovers cannot destroy a transfer another install has in flight.
+   */
+  private fun scratchDirFor(packageName: String): String {
+    // Interpolated into the adb shell commands that move payloads into place.
+    require(PACKAGE_NAME_PATTERN.matches(packageName)) { "Not a package name: $packageName" }
+    return "$SCRATCH_ROOT/$packageName"
   }
 
   @Throws(Exception::class)
@@ -751,5 +784,10 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         Regex("package (\\S+) signatures do not match", RegexOption.IGNORE_CASE)
 
     private val PACKAGE_NAME_PATTERN = Regex("[\\w.]+")
+
+    // Payloads are pushed here and then moved into place. Keeping them under one directory, rather
+    // than loose in /data/local/tmp, is what makes leftovers from an interrupted install
+    // identifiable, and so reclaimable.
+    private const val SCRATCH_ROOT = "/data/local/tmp/buck-exo-staging"
   }
 }

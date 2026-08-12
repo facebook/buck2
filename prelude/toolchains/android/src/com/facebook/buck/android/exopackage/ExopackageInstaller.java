@@ -370,7 +370,7 @@ public class ExopackageInstaller {
                       entry -> rootPath.resolve(entry.getValue()).getPath()));
       // Install the files.
       long pushStart = System.currentTimeMillis();
-      device.installFiles(filesType, installPaths);
+      device.installFiles(filesType, installPaths, packageName);
       timings.recordPush(filesType, pushStart, System.currentTimeMillis());
     }
   }
