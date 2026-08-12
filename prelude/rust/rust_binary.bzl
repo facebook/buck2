@@ -741,8 +741,8 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
                 contacts = ctx.attrs.contacts,
                 default_executor = re_executors.default_executor,
                 executor_overrides = re_executors.executor_overrides,
-                run_from_project_root = re_executors.run_from_project_root,
-                use_project_relative_paths = re_executors.use_project_relative_paths,
+                run_from_project_root = True,
+                use_project_relative_paths = True,
             ),
         )
         + providers
