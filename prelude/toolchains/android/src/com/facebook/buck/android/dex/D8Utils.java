@@ -17,6 +17,8 @@ import com.android.tools.r8.D8Command;
 import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.SyntheticInfoConsumer;
+import com.android.tools.r8.SyntheticInfoConsumerData;
 import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
@@ -181,8 +183,27 @@ public class D8Utils {
           }
         };
 
+    // Ask D8 which class each synthetic was synthesized from. Synthetics have to be placed in the
+    // same dex as their context class, and their names are mangled in a format D8 does not treat
+    // as stable (see setEnableVerboseSyntheticNames), so the names cannot be parsed for this.
+    // D8 invokes acceptSyntheticInfo from its worker threads, so this has to be thread safe.
+    Map<String, String> syntheticToSynthesizingContext = new ConcurrentHashMap<>();
+    SyntheticInfoConsumer syntheticInfoConsumer =
+        new SyntheticInfoConsumer() {
+          @Override
+          public void acceptSyntheticInfo(SyntheticInfoConsumerData data) {
+            syntheticToSynthesizingContext.put(
+                data.getSyntheticClass().getBinaryName(),
+                data.getSynthesizingContextClass().getBinaryName());
+          }
+
+          @Override
+          public void finished() {}
+        };
+
     D8Command.Builder builder =
         D8Command.builder(diagnosticsHandler)
+            .setSyntheticInfoConsumer(syntheticInfoConsumer)
             .addProgramFiles(inputs)
             .setIntermediate(options.contains(D8Options.INTERMEDIATE))
             .addLibraryFiles(androidJarPath)
@@ -237,7 +258,8 @@ public class D8Utils {
         writtenDescriptors,
         outputClassDescriptorConsumer == null
             ? ImmutableMap.of()
-            : outputClassDescriptorConsumer.getOutputClassDescriptors());
+            : outputClassDescriptorConsumer.getOutputClassDescriptors(),
+        syntheticToSynthesizingContext);
   }
 
   private static class OutputClassDescriptorConsumer extends DexIndexedConsumer.ForwardingConsumer {

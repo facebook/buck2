@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -102,6 +103,10 @@ public class D8ExecutableMain {
   @Option(name = "--ref-count-path")
   @Nullable
   private String refCountOutput = null;
+
+  @Option(name = "--synthetic-contexts-path")
+  @Nullable
+  private String syntheticContextsOutput = null;
 
   /**
    * When using jar compression, the secondary dex directory consists of N secondary dex jars, each
@@ -225,6 +230,8 @@ public class D8ExecutableMain {
         Optional.ofNullable(minSdkVersionString).map(Integer::parseInt);
     Optional<Path> weightEstimatePath = Optional.ofNullable(weightEstimateOutput).map(Paths::get);
     Optional<Path> classNamesPath = Optional.ofNullable(classNamesOutput).map(Paths::get);
+    Optional<Path> syntheticContextsPath =
+        Optional.ofNullable(syntheticContextsOutput).map(Paths::get);
 
     Path outputPath = Paths.get(outputDex);
     Path d8Output =
@@ -339,6 +346,12 @@ public class D8ExecutableMain {
             Collections.singletonList(methodRefCount + " " + fieldRefCount + " " + typeRefCount));
       }
 
+      if (syntheticContextsPath.isPresent()) {
+        Files.write(
+            syntheticContextsPath.get(),
+            toSyntheticContextLines(d8InternalData.getSyntheticToSynthesizingContext()));
+      }
+
       if (weightEstimatePath.isPresent() || classNamesPath.isPresent()) {
         int totalWeightEstimate = 0;
 
@@ -437,6 +450,17 @@ public class D8ExecutableMain {
     return descriptors.stream()
         .filter(d -> d.length() > 2 && d.charAt(0) == 'L' && d.endsWith(";"))
         .map(d -> d.substring(1, d.length() - 1))
+        .sorted()
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /**
+   * Renders the synthetic-to-context map as "{@code <synthetic> <context>}" lines, sorted for
+   * deterministic output.
+   */
+  static ImmutableList<String> toSyntheticContextLines(Map<String, String> syntheticToContext) {
+    return syntheticToContext.entrySet().stream()
+        .map(entry -> entry.getKey() + " " + entry.getValue())
         .sorted()
         .collect(ImmutableList.toImmutableList());
   }

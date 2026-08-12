@@ -29,6 +29,11 @@ DexLibraryInfo = provider(
         # (single line). These are the actual counts that the 64K DEX limits apply to,
         # unlike weight_estimate which is a byte-size proxy.
         "ref_count": provider_field(typing.Any, default = None),  # ["artifact", None]
+        # a file mapping each synthetic class D8 created to the class it was synthesized from,
+        # one "<synthetic> <context>" pair per line. A synthetic must be placed in the same dex
+        # as its context class, and D8 reports the pairing because the synthetic's name is
+        # mangled in a format it does not treat as stable.
+        "synthetic_contexts": provider_field(typing.Any, default = None),  # ["artifact", None]
     },
 )
 
@@ -83,6 +88,9 @@ def get_dex_produced_from_java_library(
     ref_count_file = ctx.actions.declare_output(prefix + "_ref_count.txt", has_content_based_path = True)
     d8_cmd.add(["--ref-count-path", ref_count_file.as_output()])
 
+    synthetic_contexts_file = ctx.actions.declare_output(prefix + "_synthetic_contexts.txt", has_content_based_path = True)
+    d8_cmd.add(["--synthetic-contexts-path", synthetic_contexts_file.as_output()])
+
     min_sdk_version = getattr(ctx.attrs, "_dex_min_sdk_version", None) or getattr(ctx.attrs, "min_sdk_version", None)
     if min_sdk_version:
         d8_cmd.add(["--min-sdk-version", str(min_sdk_version)])
@@ -102,4 +110,5 @@ def get_dex_produced_from_java_library(
         referenced_resources = referenced_resources_file,
         weight_estimate = weight_estimate_file,
         ref_count = ref_count_file,
+        synthetic_contexts = synthetic_contexts_file,
     )

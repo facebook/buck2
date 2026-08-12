@@ -31,13 +31,22 @@ public class D8Output {
   /** Class descriptors emitted in each indexed dex output. */
   private final ImmutableMap<Integer, ImmutableSet<String>> outputClassDescriptors;
 
+  /**
+   * Internal names ("com/example/Foo") of each synthetic class D8 created, mapped to the class it
+   * was synthesized from. Reported by D8 itself rather than derived from the synthetic's name,
+   * whose mangling is an unstable implementation detail.
+   */
+  private final ImmutableMap<String, String> syntheticToSynthesizingContext;
+
   public D8Output(
       Collection<String> referencedResources,
       Collection<String> writtenClassDescriptors,
-      Map<Integer, ImmutableSet<String>> outputClassDescriptors) {
+      Map<Integer, ImmutableSet<String>> outputClassDescriptors,
+      Map<String, String> syntheticToSynthesizingContext) {
     this.referencedResources = referencedResources;
     this.writtenClassDescriptors = writtenClassDescriptors;
     this.outputClassDescriptors = ImmutableMap.copyOf(outputClassDescriptors);
+    this.syntheticToSynthesizingContext = ImmutableMap.copyOf(syntheticToSynthesizingContext);
   }
 
   public Collection<String> getResources() {
@@ -50,5 +59,9 @@ public class D8Output {
 
   public ImmutableSet<String> getClassDescriptors(int outputIndex) {
     return outputClassDescriptors.getOrDefault(outputIndex, ImmutableSet.of());
+  }
+
+  public ImmutableMap<String, String> getSyntheticToSynthesizingContext() {
+    return syntheticToSynthesizingContext;
   }
 }
