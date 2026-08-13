@@ -176,10 +176,22 @@ pub struct TypetagRegistry<T: ?Sized + 'static> {
 }
 
 impl<T: ?Sized + 'static> TypetagRegistry<T> {
+    fn insert_registration(
+        map: &mut HashMap<&'static str, &'static TypetagRegistration<T>>,
+        reg: &'static TypetagRegistration<T>,
+    ) {
+        let tag = (reg.tag)();
+        let previous = map.insert(tag, reg);
+        assert!(
+            previous.is_none(),
+            "duplicate pagable typetag registration for {tag}"
+        );
+    }
+
     pub fn from_inventory(iter: impl Iterator<Item = &'static TypetagRegistration<T>>) -> Self {
         let mut map = HashMap::new();
         for reg in iter {
-            map.insert((reg.tag)(), reg);
+            Self::insert_registration(&mut map, reg);
         }
         TypetagRegistry { map }
     }
