@@ -12,8 +12,8 @@
 //!
 //! Each monomorphization emits a pointer to its registration helper into the
 //! platform's program-constructor section (`.init_array` on ELF,
-//! `__mod_init_func` on Mach-O), so the loader runs every helper when the
-//! image containing it is loaded.
+//! `__mod_init_func` on Mach-O, `.CRT$XCU` on PE/COFF), so the loader or CRT
+//! runs every helper when the image containing it is loaded.
 //!
 //! Constructors are used instead of a walkable named section because
 //! `__start_`/`__stop_`-style encapsulation symbols bind per linked image: a
@@ -71,14 +71,48 @@ macro_rules! __pagable_emit_generic_typetag_registration {
     };
 }
 
-#[cfg(not(all(
-    any(target_os = "linux", target_os = "macos"),
-    target_pointer_width = "64"
+#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pagable_emit_generic_typetag_registration {
+    ($register:path) => {
+        // SAFETY: This assembly emits one pointer-sized `.CRT$XCU` record
+        // that relocates to the monomorphized registration helper; the CRT
+        // calls the helper once during image initialization. No instructions
+        // are emitted at the expansion site.
+        unsafe {
+            core::arch::asm!(
+                concat!(
+                    ".pushsection .CRT$XCU,\"dr\"\n",
+                    ".p2align 3\n",
+                    ".quad {register}\n",
+                    ".popsection",
+                ),
+                register = sym $register,
+                // Windows x86_64 normally uses Intel inline assembly, but
+                // LLVM's Intel inline-asm printer consumes `$$` without
+                // emitting `$`. The CRT initializer subsection needs the
+                // literal `$XCU`, so use AT&T mode for this directive-only
+                // assembly block.
+                options(att_syntax, nostack, preserves_flags),
+            );
+        }
+    };
+}
+
+#[cfg(not(any(
+    all(
+        any(target_os = "linux", target_os = "macos"),
+        target_pointer_width = "64",
+    ),
+    all(target_os = "windows", target_arch = "x86_64"),
 )))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __pagable_emit_generic_typetag_registration {
     ($register:path) => {
-        compile_error!("generic pagable typetag registration supports only 64-bit Linux/macOS");
+        compile_error!(
+            "generic pagable typetag registration supports only 64-bit Linux/macOS and x86_64 Windows"
+        );
     };
 }
