@@ -127,10 +127,6 @@ impl<T: QueryTarget> TargetSet<T> {
         self.targets.get_index(index)
     }
 
-    pub fn get_index_of(&self, item: &T::Key) -> Option<usize> {
-        self.targets.get_index_of(item)
-    }
-
     pub fn last(&self) -> Option<&T> {
         self.targets.last()
     }

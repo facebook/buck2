@@ -134,10 +134,6 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.get_index(index).map(|e| &e.0)
     }
 
-    pub fn get_index_of(&self, value: &T::Key) -> Option<usize> {
-        self.nodes.get_index_of(&LabelIndexer(Hashed::new(value)))
-    }
-
     pub fn last(&self) -> Option<&T> {
         self.nodes.last().map(|e| &e.0)
     }

@@ -90,13 +90,6 @@ impl FileSet {
         self.files.iter().map(|v| &v.0)
     }
 
-    pub fn get_index(&self, index: usize) -> Option<&CellPath> {
-        match self.files.get_index(index) {
-            Some(x) => Some(&x.0),
-            None => None,
-        }
-    }
-
     pub fn len(&self) -> usize {
         self.files.len()
     }
