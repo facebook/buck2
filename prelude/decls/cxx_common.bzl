@@ -59,7 +59,10 @@ def _supported_platforms_regex_arg():
             attrs.regex(),
             default = None,
             doc = """
-    If present, an un-anchored regex (in java.util.regex.Pattern syntax) that matches all platforms
+    Deprecated: do not set this attribute in new code. Instead, use `target_compatible_with` to
+     restrict the platforms a target can be built for.
+
+     If present, an un-anchored regex (in java.util.regex.Pattern syntax) that matches all platforms
      that this library supports. It will not be built for other platforms.
 """,
         ),
