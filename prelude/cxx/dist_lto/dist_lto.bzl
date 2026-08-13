@@ -163,6 +163,7 @@ def cxx_gnu_dist_link(
     normalized_identifier = identifier.replace("[", "_").replace("]", "_").replace(" ", "_") if identifier != None else None
 
     enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
+    enable_cache_upload = opts.allow_cache_upload or enable_late_build_info_stamping
 
     link_action_execution_properties = get_action_execution_attributes(opts.link_execution_preference)
     dwp_action_execution_properties = get_action_execution_attributes(get_dwp_execution_preference(opts))
@@ -795,7 +796,7 @@ def cxx_gnu_dist_link(
             local_only = link_action_execution_properties.local_only,
             weight = opts.link_weight,
             force_full_hybrid_if_capable = link_action_execution_properties.full_hybrid,
-            allow_cache_upload = enable_late_build_info_stamping,
+            allow_cache_upload = enable_cache_upload,
         )
 
     final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
@@ -814,7 +815,7 @@ def cxx_gnu_dist_link(
     )
 
     if enable_bolt:
-        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
+        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available, allow_cache_upload = enable_cache_upload)
         final_output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
     else:
@@ -878,7 +879,7 @@ def cxx_gnu_dist_link(
     unstripped_output = final_output
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
-        final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix, allow_cache_upload = enable_late_build_info_stamping)
+        final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix, allow_cache_upload = enable_cache_upload)
 
     final_output = stamp_build_info(ctx, final_output, links = opts.links) if executable_link else final_output
 
