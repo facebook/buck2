@@ -123,6 +123,12 @@ public interface AndroidDevice {
 
   void rmFiles(String dirPath, Iterable<String> filesToDelete);
 
+  /**
+   * Removes scratch this device left behind while installing {@code packageName}, including whole
+   * payloads orphaned by an install interrupted mid-transfer. Does not touch installed files.
+   */
+  void rmStaleFiles(String packageName) throws Exception;
+
   AutoCloseable createForward() throws Exception;
 
   void installFiles(String filesType, Map<Path, Path> installPaths, String packageName)
@@ -151,7 +157,14 @@ public interface AndroidDevice {
 
   boolean uninstallApkFromDevice(String packageName, boolean keepData) throws Exception;
 
-  default List<String> getDiskSpace() {
+  /**
+   * Size, used and available space on the data partition, or {@code "_"} for each if it cannot be
+   * read.
+   *
+   * @param humanReadable values suffixed for display, e.g. {@code 17G}. Otherwise they are plain
+   *     counts of 1K blocks, which is what arithmetic wants.
+   */
+  default List<String> getDiskSpace(boolean humanReadable) {
     return Arrays.asList("_", "_", "_");
   }
 

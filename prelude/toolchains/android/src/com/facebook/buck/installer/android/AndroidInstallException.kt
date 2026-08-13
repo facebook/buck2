@@ -15,6 +15,16 @@ import com.facebook.buck.installer.InstallError
 
 private const val INSUFFICIENT_STORAGE_ERROR = "INSTALL_FAILED_INSUFFICIENT_STORAGE"
 private const val NO_SPACE_LEFT_ON_DEVICE_ERROR = "No space left on device"
+private const val KILOBYTE = 1024L
+private const val MEGABYTE = 1024L * KILOBYTE
+
+/** At a scale that does not round an amount worth reporting down to zero. */
+private fun describeBytes(bytes: Long): String =
+    when {
+      bytes >= MEGABYTE -> "${bytes / MEGABYTE}MB"
+      bytes >= KILOBYTE -> "${bytes / KILOBYTE}KB"
+      else -> "${bytes}B"
+    }
 
 internal fun isInsufficientStorageFailure(message: String): Boolean =
     message.contains(INSUFFICIENT_STORAGE_ERROR) || message.contains(NO_SPACE_LEFT_ON_DEVICE_ERROR)
@@ -47,6 +57,34 @@ class AndroidInstallException(val installError: InstallError) :
 
     fun deviceAbiUnknown() = AndroidInstallException(
         InstallError("Device ABI is unknown.", AndroidInstallErrorTag.UNKNOWN_DEVICE_ABI),
+    )
+
+    fun insufficientStorage(requiredBytes: Long, availableBytes: Long) = AndroidInstallException(
+        InstallError(
+            "Not enough space on device: the exopackage files for this build need " +
+                "${describeBytes(requiredBytes)} but only ${describeBytes(availableBytes)} is " +
+                "free " +
+                "under /data. Free some space, or run `adb uninstall` on apps you no longer " +
+                "need -- their exopackage files under /data/local/tmp/exopackage are only " +
+                "reclaimed by installing them again.",
+            AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE,
+        ),
+    )
+
+    fun exopackageGarbageCollectionFailed(message: String?) = AndroidInstallException(
+        InstallError(
+            "Failed to delete stale exopackage files, aborting before pushing new ones. " +
+                "Continuing would leak several GB per install and eventually fill the device." +
+                (message?.let { "\n$it" } ?: ""),
+            AndroidInstallErrorTag.EXOPACKAGE_GARBAGE_COLLECTION_FAILED,
+        ),
+    )
+
+    fun artifactMissing(path: String) = AndroidInstallException(
+        InstallError(
+            "Exopackage artifact is missing from the build output: $path",
+            AndroidInstallErrorTag.ERROR_MATERIALIZING_ARTIFACT,
+        ),
     )
 
     fun adbPathNotFound() = AndroidInstallException(

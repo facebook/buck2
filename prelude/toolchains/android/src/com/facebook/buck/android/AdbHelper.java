@@ -335,7 +335,7 @@ public class AdbHelper implements AndroidDevicesHelper {
             String buildFingerprint = device.getProperty("ro.build.fingerprint");
             String dpi = getDeviceDpi(device);
             String sdk = device.getProperty("ro.build.version.sdk");
-            List<String> diskSpace = device.getDiskSpace();
+            List<String> diskSpace = device.getDiskSpace(/* humanReadable= */ true);
             LOG.info(
                 "Device disk size: %s, used: %s, available: %s",
                 diskSpace.get(0), diskSpace.get(1), diskSpace.get(2));

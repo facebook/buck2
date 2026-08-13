@@ -590,6 +590,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     LOG.info("$filesType: Transferred ${installPaths.size} files in ${timeSpent/1000.0} seconds")
   }
 
+  @Throws(Exception::class)
+  override fun rmStaleFiles(packageName: String) {
+    val scratchDir = scratchDirFor(packageName)
+    executeAdbShellCommandCatching("rm -rf $scratchDir", "Failed to remove $scratchDir.")
+  }
+
   /**
    * Where payloads for [packageName] are pushed before being moved into place. Per package, so that
    * reclaiming one app's leftovers cannot destroy a transfer another install has in flight.
@@ -675,9 +681,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  override fun getDiskSpace(): List<String> {
+  override fun getDiskSpace(humanReadable: Boolean): List<String> {
+    // `-k` rather than a bare `df`: POSIX leaves the default block size to the implementation, so
+    // the unit has to be pinned for the numbers to mean anything.
+    val units = if (humanReadable) "-h" else "-k"
     try {
-      val result: String = executeAdbShellCommand("df -h /data | awk '{print \$2, \$3, \$4}'")
+      val result: String = executeAdbShellCommand("df $units /data | awk '{print \$2, \$3, \$4}'")
       val (size, used, available) = result.lines()[1].split(" ", limit = 3)
       return listOf(size, used, available)
     } catch (e: Exception) {

@@ -15,12 +15,14 @@ import com.facebook.buck.android.AndroidInstallPrinter;
 import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
+import com.facebook.buck.installer.android.AndroidInstallException;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.NamedTemporaryFile;
 import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jetbrains.annotations.Nullable;
@@ -62,6 +65,8 @@ public class ExopackageInstaller {
   //    approx available commandline length = 800
   //    max length of a path from the dataRoot for a well known app = 77
   private static final int RM_GROUPING_THRESHOLD = 10;
+
+  private static final long BYTES_PER_BLOCK = 1024L;
 
   public static final Path EXOPACKAGE_INSTALL_ROOT = Paths.get("/data/local/tmp/exopackage/");
 
@@ -128,8 +133,23 @@ public class ExopackageInstaller {
       device.fixRootDir(dataRoot.toString());
       ImmutableSortedSet<Path> presentFiles = device.listDirRecursive(dataRoot);
       timings.recordDeviceSetup(setupStart, System.currentTimeMillis());
-      installMissingExopackageFiles(presentFiles);
-      finishExoFileInstallation(presentFiles);
+      ImmutableList<ResolvedExoPayload> payloads = resolveExoPayloads();
+
+      // Reclaim space before pushing so a device that is already full can free room for the
+      // payload. Best effort on purpose: neither step is needed for the install to be correct.
+      // Scratch is read by nothing, and the unwanted set is disjoint from the push set, so the new
+      // app gets every file it needs either way -- a failure here leaves unreferenced files on the
+      // device and costs disk, not correctness. Whether there is still room to proceed is the
+      // preflight's answer to give, from the space the device actually has.
+      try {
+        device.rmStaleFiles(packageName);
+        deleteUnwantedFiles(presentFiles, wantedPaths(payloads));
+      } catch (Exception e) {
+        LOG.warn(e, "Could not reclaim exopackage space for %s; continuing", packageName);
+      }
+      checkEnoughFreeSpace(presentFiles, payloads);
+
+      installMissingExopackageFiles(presentFiles, payloads);
     }
     if (buck2BuildUuid.isPresent()) {
       device.installBuildUuidFile(
@@ -160,7 +180,8 @@ public class ExopackageInstaller {
               packageName);
       timings.recordApkInstall(installStart, System.currentTimeMillis());
       if (!success) {
-        throw new RuntimeException("Installing Apk failed.");
+        throw AndroidInstallException.Companion.adbCommandFailedException(
+            "Installing Apk failed.", null);
       }
     }
   }
@@ -169,85 +190,134 @@ public class ExopackageInstaller {
     device.stopPackage(packageName);
   }
 
-  private void addPaths(ExoHelper helper, ImmutableSet.Builder<Path> wantedPaths) throws Exception {
-    wantedPaths.addAll(helper.getFilesToInstall().keySet());
-    wantedPaths.addAll(helper.getMetadataToInstall().keySet());
-  }
-
-  /** Finishes exo file installation */
-  public void finishExoFileInstallation(ImmutableSortedSet<Path> presentFiles) throws Exception {
-    ImmutableSet.Builder<Path> wantedPaths = ImmutableSet.builder();
+  /**
+   * The exopackage payloads for this install, with their contents resolved exactly once.
+   *
+   * <p>Resolving a payload parses its metadata file and, for native libs, queries the device for
+   * its ABIs. The delete and push phases both need the same answers, so they share one resolution
+   * rather than recomputing it.
+   */
+  private ImmutableList<ResolvedExoPayload> resolveExoPayloads() throws Exception {
+    ImmutableList.Builder<ResolvedExoPayload> payloads = ImmutableList.builder();
 
     Optional<IsolatedExopackageInfo.IsolatedDexInfo> dexInfo = exoInfo.getDexInfo();
     if (dexInfo.isPresent()) {
-      DexExoHelper helper = new DexExoHelper(rootPath, dexInfo.get());
-      addPaths(helper, wantedPaths);
+      payloads.add(new ResolvedExoPayload(new DexExoHelper(rootPath, dexInfo.get())));
     }
 
     Optional<IsolatedExopackageInfo.IsolatedNativeLibsInfo> nativeLibsInfo =
         exoInfo.getNativeLibsInfo();
     if (nativeLibsInfo.isPresent()) {
-      NativeExoHelper helper =
-          new NativeExoHelper(
-              () -> {
-                try {
-                  return device.getDeviceAbis();
-                } catch (Exception e) {
-                  throw new RuntimeException("Unable to communicate with device", e);
-                }
-              },
-              rootPath,
-              nativeLibsInfo.get());
-      addPaths(helper, wantedPaths);
+      payloads.add(
+          new ResolvedExoPayload(
+              new NativeExoHelper(this::getDeviceAbis, rootPath, nativeLibsInfo.get())));
     }
 
     Optional<IsolatedExopackageInfo.IsolatedResourcesInfo> resourcesInfo =
         exoInfo.getResourcesInfo();
     if (resourcesInfo.isPresent()) {
-      ResourcesExoHelper helper = new ResourcesExoHelper(rootPath, resourcesInfo.get());
-      addPaths(helper, wantedPaths);
+      payloads.add(new ResolvedExoPayload(new ResourcesExoHelper(rootPath, resourcesInfo.get())));
     }
 
-    deleteUnwantedFiles(presentFiles, wantedPaths.build());
+    return payloads.build();
+  }
+
+  private List<String> getDeviceAbis() {
+    try {
+      return device.getDeviceAbis();
+    } catch (Exception e) {
+      throw AndroidInstallException.Companion.adbCommandFailedException(
+          "Unable to communicate with device.", e.getMessage());
+    }
+  }
+
+  /** Every path this install wants on the device; anything else under the data root is stale. */
+  private static ImmutableSet<Path> wantedPaths(ImmutableList<ResolvedExoPayload> payloads) {
+    ImmutableSet.Builder<Path> wantedPaths = ImmutableSet.builder();
+    for (ResolvedExoPayload payload : payloads) {
+      wantedPaths.addAll(payload.filesToInstall.keySet());
+      wantedPaths.addAll(payload.metadataToInstall.keySet());
+    }
+    return wantedPaths.build();
   }
 
   /** Installs missing exo package files */
-  public void installMissingExopackageFiles(ImmutableSortedSet<Path> presentFiles)
+  private void installMissingExopackageFiles(
+      ImmutableSortedSet<Path> presentFiles, ImmutableList<ResolvedExoPayload> payloads)
       throws Exception {
-
     ImmutableMap.Builder<Path, String> metadata = ImmutableMap.builder();
-
-    Optional<IsolatedExopackageInfo.IsolatedDexInfo> dexInfo = exoInfo.getDexInfo();
-    if (dexInfo.isPresent()) {
-      DexExoHelper dexExoHelper = new DexExoHelper(rootPath, dexInfo.get());
-      installMissingFiles(presentFiles, dexExoHelper, metadata);
+    for (ResolvedExoPayload payload : payloads) {
+      installMissingFiles(presentFiles, payload, metadata);
     }
-
-    Optional<IsolatedExopackageInfo.IsolatedNativeLibsInfo> nativeLibsInfo =
-        exoInfo.getNativeLibsInfo();
-    if (nativeLibsInfo.isPresent()) {
-      NativeExoHelper nativeExoHelper =
-          new NativeExoHelper(
-              () -> {
-                try {
-                  return device.getDeviceAbis();
-                } catch (Exception e) {
-                  throw new RuntimeException("Unable to communicate with device", e);
-                }
-              },
-              rootPath,
-              nativeLibsInfo.get());
-      installMissingFiles(presentFiles, nativeExoHelper, metadata);
-    }
-
-    Optional<IsolatedExopackageInfo.IsolatedResourcesInfo> resourcesInfo =
-        exoInfo.getResourcesInfo();
-    if (resourcesInfo.isPresent()) {
-      ResourcesExoHelper resourcesExoHelper = new ResourcesExoHelper(rootPath, resourcesInfo.get());
-      installMissingFiles(presentFiles, resourcesExoHelper, metadata);
-    }
-
+    // Metadata is what the app reads to find these files, so it must not land before them.
     installMetadata(metadata.build());
+  }
+
+  /**
+   * Fails the install if the payload cannot fit, rather than letting the push die partway through
+   * with a bare ENOSPC.
+   */
+  private void checkEnoughFreeSpace(
+      ImmutableSortedSet<Path> presentFiles, ImmutableList<ResolvedExoPayload> payloads) {
+    OptionalLong availableBytes = availableBytesOnDevice();
+    if (availableBytes.isEmpty()) {
+      return;
+    }
+    long requiredBytes = 0L;
+    for (ResolvedExoPayload payload : payloads) {
+      for (Map.Entry<Path, Path> file : payload.filesToInstall.entrySet()) {
+        if (!presentFiles.contains(file.getKey())) {
+          File source = rootPath.resolve(file.getValue()).toFile();
+          if (!source.isFile()) {
+            // Zero is what length() would answer, which would quietly shrink the estimate and let
+            // the check pass. The install cannot succeed without the file either way, so say which
+            // one is missing while there is still somewhere useful to say it.
+            throw AndroidInstallException.Companion.artifactMissing(source.toString());
+          }
+          requiredBytes += source.length();
+        }
+      }
+    }
+    if (requiredBytes > availableBytes.getAsLong()) {
+      throw AndroidInstallException.Companion.insufficientStorage(
+          requiredBytes, availableBytes.getAsLong());
+    }
+  }
+
+  /**
+   * Free space under the data partition, or empty if the device did not give a number for it.
+   *
+   * <p>Unsuffixed, {@link AndroidDevice#getDiskSpace} answers with three entries -- size, used,
+   * available -- each a count of 1K blocks, e.g. {@code ["32911312", "14799512", "17964344"]}. A
+   * device it cannot read reports {@code "_"} in their place.
+   */
+  private OptionalLong availableBytesOnDevice() {
+    List<String> diskSpace = device.getDiskSpace(/* humanReadable= */ false);
+    if (diskSpace.size() < 3) {
+      return OptionalLong.empty();
+    }
+    String availableBlocks = diskSpace.get(2).trim();
+    try {
+      return OptionalLong.of(Long.parseLong(availableBlocks) * BYTES_PER_BLOCK);
+    } catch (NumberFormatException e) {
+      // No number means nothing to check against, so the preflight is skipped rather than guessed
+      // at, and the install goes on to fail at the push if the space really is not there.
+      LOG.info("Could not read available device space from '%s'", availableBlocks);
+      return OptionalLong.empty();
+    }
+  }
+
+  /** One exopackage payload class, with its contents resolved exactly once. */
+  private static final class ResolvedExoPayload {
+    private final String type;
+    private final ImmutableMap<Path, Path> filesToInstall;
+    private final ImmutableMap<Path, String> metadataToInstall;
+
+    ResolvedExoPayload(ExoHelper helper) throws IOException {
+      this.type = helper.getType();
+      this.filesToInstall = helper.getFilesToInstall();
+      this.metadataToInstall = helper.getMetadataToInstall();
+    }
   }
 
   /**
@@ -304,20 +374,20 @@ public class ExopackageInstaller {
 
   private void installMissingFiles(
       ImmutableSortedSet<Path> presentFiles,
-      ExoHelper helper,
+      ResolvedExoPayload payload,
       @Nullable ImmutableMap.Builder<Path, String> metadataToInstall)
       throws Exception {
     ImmutableSortedMap<Path, Path> filesToInstall =
-        helper.getFilesToInstall().entrySet().stream()
+        payload.filesToInstall.entrySet().stream()
             .filter(entry -> !presentFiles.contains(entry.getKey()))
             .collect(
                 ImmutableSortedMap.toImmutableSortedMap(
                     Ordering.natural(), Map.Entry::getKey, Map.Entry::getValue));
 
-    installFiles(helper.getType(), filesToInstall);
+    installFiles(payload.type, filesToInstall);
 
     if (metadataToInstall != null && (!skipMetadataIfNoInstalls || !filesToInstall.isEmpty())) {
-      metadataToInstall.putAll(helper.getMetadataToInstall());
+      metadataToInstall.putAll(payload.metadataToInstall);
     }
   }
 
@@ -340,27 +410,29 @@ public class ExopackageInstaller {
             ? Path::toString
             : path -> path.getFileName().toString();
 
-    filesToDelete.stream()
-        .collect(ImmutableListMultimap.toImmutableListMultimap(toRootDirFn, toFileFn))
-        .asMap()
-        .forEach((dir, files) -> device.rmFiles(dir.toString(), files));
+    try {
+      filesToDelete.stream()
+          .collect(ImmutableListMultimap.toImmutableListMultimap(toRootDirFn, toFileFn))
+          .asMap()
+          .forEach((dir, files) -> device.rmFiles(dir.toString(), files));
+    } catch (Exception e) {
+      // Every failure, not just a tagged one: `rmFiles` also surfaces the IO of writing and
+      // pushing its manifest, and those would otherwise escape without the tag below.
+      throw AndroidInstallException.Companion.exopackageGarbageCollectionFailed(e.getMessage());
+    }
   }
 
   private void installFiles(String filesType, ImmutableMap<Path, Path> filesToInstall)
       throws Exception {
     try (AutoCloseable ignored = device.createForward()) {
       // Make sure all the directories exist.
-      filesToInstall.keySet().stream()
-          .map(p -> dataRoot.resolve(p).getParent())
-          .distinct()
-          .forEach(
-              p -> {
-                try {
-                  device.mkDirP(p.toString());
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-              });
+      for (Path parent :
+          filesToInstall.keySet().stream()
+              .map(p -> dataRoot.resolve(p).getParent())
+              .distinct()
+              .collect(Collectors.toList())) {
+        device.mkDirP(parent.toString());
+      }
       // Plan the installation.
       Map<Path, Path> installPaths =
           filesToInstall.entrySet().stream()

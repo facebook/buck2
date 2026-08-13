@@ -295,9 +295,25 @@ class AndroidDeviceImplTest {
     )
         .thenReturn("Size Used Available\n64G 32G 32G")
 
-    val result = androidDevice.getDiskSpace()
+    val result = androidDevice.getDiskSpace(humanReadable = true)
 
     assertEquals(listOf("64G", "32G", "32G"), result)
+  }
+
+  /** Unsuffixed, the values are 1K blocks and can be used as numbers. */
+  @Test
+  fun testGetDiskSpaceUnsuffixed() {
+    whenever(
+        mockAdbUtils.executeAdbShellCommand(
+            "df -k /data | awk '{print $2, $3, $4}'",
+            serialNumber,
+        ),
+    )
+        .thenReturn("1K-blocks Used Available\n32911312 14799512 17964344")
+
+    val result = androidDevice.getDiskSpace(humanReadable = false)
+
+    assertEquals(listOf("32911312", "14799512", "17964344"), result)
   }
 
   @Test
