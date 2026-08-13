@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
 use std::fs::OpenOptions;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -57,7 +58,6 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::BuckDefaultHasher;
 use buck2_sketches::DependencyGraphSketch;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
@@ -704,7 +704,7 @@ impl<'a> BuildReportCollector<'a> {
     // ============================================================================
 
     pub(crate) fn update_string_cache(&mut self, string: String) -> String {
-        let mut hasher = BuckDefaultHasher::new();
+        let mut hasher = DefaultHasher::new();
         string.hash(&mut hasher);
         let hash = hasher.finish().to_string();
         self.strings.insert(hash.clone(), string);

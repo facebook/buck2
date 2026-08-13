@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -15,7 +16,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckDefaultHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -207,7 +207,7 @@ impl BuckOutScratchPath {
                     path.join(v)
                 } else {
                     // FIXME: Should this be a crypto hasher?
-                    let mut hasher = BuckDefaultHasher::new();
+                    let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
                     let output_hash = format!("{}{:016x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join(ForwardRelativePath::new(&output_hash)?)

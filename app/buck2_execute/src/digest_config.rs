@@ -89,7 +89,7 @@ impl fmt::Display for DigestConfig {
 
 static_interner::interner!(
     DIGEST_CONFIG_INTERNER,
-    buck2_hash::BuckDefaultHasher,
+    buck2_hash::BuckHasher,
     DigestConfigInner
 );
 

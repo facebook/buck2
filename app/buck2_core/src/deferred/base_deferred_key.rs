@@ -10,6 +10,7 @@
 
 use std::any::Any;
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -21,7 +22,6 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckDefaultHasher;
 use buck2_util::size_assert;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
@@ -254,7 +254,7 @@ impl BaseDeferredKey {
                     }
                 };
                 let path_or_hash = if fully_hash_path {
-                    let mut hasher = BuckDefaultHasher::new();
+                    let mut hasher = DefaultHasher::new();
                     path_identifier.hash(&mut hasher);
 
                     format!("{:016x}/", hasher.finish())

@@ -226,14 +226,6 @@ macro_rules! buck_indexset {
     }};
 }
 
-/// The standard library's `DefaultHasher` (SipHash-1-3), wrapped behind a
-/// buck2_hash type alias.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit. Currently this is identical to
-/// `std::collections::hash_map::DefaultHasher`.
-pub type BuckDefaultHasher = std::collections::hash_map::DefaultHasher;
-
 /// A [`DashMap`](dashmap::DashMap) using [`BuckHasherBuilder`].
 ///
 /// The concurrent map for buck2 code. Construct it with `default()`; `DashMap::new()` exists

@@ -15,6 +15,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -126,7 +127,6 @@ use buck2_execute_impl::executors::local::materialize_inputs;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckDefaultHasher;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
@@ -2329,7 +2329,7 @@ async fn resolve_output_root(
             repeat_count,
             ..
         } => {
-            let mut hasher = BuckDefaultHasher::new();
+            let mut hasher = DefaultHasher::new();
             variant.hash(&mut hasher);
             repeat_count.hash(&mut hasher);
             testcases.hash(&mut hasher);

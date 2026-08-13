@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -21,7 +22,6 @@ use buck2_data::Location;
 use buck2_data::StructuredError;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_hash::BuckDefaultHasher;
 use buck2_util::truncate::truncate;
 use fbinit::FacebookInit;
 use prost::Message;
@@ -292,7 +292,7 @@ fn message_key(event: &BuckEvent) -> i64 {
         && let Some(buck2_data::instant_event::Data::ConfigurationCreated(created)) = &instant.data
         && let Some(cfg) = &created.cfg
     {
-        let mut hasher = BuckDefaultHasher::new();
+        let mut hasher = DefaultHasher::new();
         cfg.full_name.hash(&mut hasher);
         return hasher.finish() as i64;
     }

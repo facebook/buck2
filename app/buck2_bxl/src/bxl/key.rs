@@ -9,6 +9,7 @@
  */
 
 use std::any::Any;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -29,7 +30,6 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::BuckDefaultHasher;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -202,7 +202,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = BuckDefaultHasher::new();
+        let mut hasher = DefaultHasher::new();
         Hash::hash(self, &mut hasher);
         hasher.finish()
     }
@@ -226,7 +226,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         let cell_relative_path = label.bxl_path.path().path().as_str();
 
         let output_hash = {
-            let mut hasher = BuckDefaultHasher::new();
+            let mut hasher = DefaultHasher::new();
             self.key.bxl_args.hash(&mut hasher);
             self.key.global_cfg_options.hash(&mut hasher);
             let output_hash = hasher.finish();
@@ -234,7 +234,7 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         };
 
         let exec_platform = {
-            let mut hasher = BuckDefaultHasher::new();
+            let mut hasher = DefaultHasher::new();
             self.execution_resolution
                 .resolved_execution
                 .hash(&mut hasher);

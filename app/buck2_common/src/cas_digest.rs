@@ -268,7 +268,7 @@ impl fmt::Display for CasDigestConfig {
 
 static_interner::interner!(
     CAS_DIGEST_CONFIG_INTERNER,
-    buck2_hash::BuckDefaultHasher,
+    buck2_hash::BuckHasher,
     CasDigestConfigInner
 );
 

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::hash_map::DefaultHasher;
 use std::env;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -17,7 +18,6 @@ use std::str::FromStr;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
-use buck2_hash::BuckDefaultHasher;
 use dupe::Dupe;
 use uuid::Uuid;
 
@@ -109,7 +109,7 @@ impl TraceId {
 
     /// Generate short hash to be used as a message key for a Scribe client.
     pub fn hash(&self) -> i64 {
-        let mut hasher = BuckDefaultHasher::new();
+        let mut hasher = DefaultHasher::new();
         Hash::hash(self, &mut hasher);
         hasher.finish() as i64
     }
