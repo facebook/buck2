@@ -32,7 +32,6 @@ rust_library(
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:test-case",
-        "fbsource//third-party/rust:triomphe",
     ],
     deps = [
         "fbsource//third-party/rust:async-scoped",
@@ -68,6 +67,7 @@ rust_library(
         "fbsource//third-party/rust:toml",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
+        "fbsource//third-party/rust:triomphe",
         # @oss-disable[end= ]: "//blake3:blake3-constants-rust-nothrift",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",

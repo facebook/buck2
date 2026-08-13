@@ -14,7 +14,6 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::marker::PhantomData;
-use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 
@@ -31,6 +30,7 @@ use pagable::Pagable;
 use sha1::Sha1;
 use sha2::Sha256;
 use static_interner::Intern;
+use triomphe::Arc;
 
 /// The number of bytes required by a SHA-1 hash
 pub const SHA1_SIZE: usize = 20;
@@ -730,7 +730,7 @@ struct TrackedCasDigestInner<Kind: CasDigestKind> {
     expires: AtomicI64,
 }
 
-#[derive(Display, Dupe_, Allocative, Pagable)]
+#[derive(Display, Allocative, Pagable)]
 #[allocative(bound = "")]
 #[display("{}", self.data())]
 pub struct TrackedCasDigest<Kind: CasDigestKind> {
@@ -740,10 +740,12 @@ pub struct TrackedCasDigest<Kind: CasDigestKind> {
 impl<Kind: CasDigestKind> Clone for TrackedCasDigest<Kind> {
     fn clone(&self) -> Self {
         Self {
-            inner: self.inner.dupe(),
+            inner: self.inner.clone(),
         }
     }
 }
+
+impl<Kind: CasDigestKind> Dupe for TrackedCasDigest<Kind> {}
 
 impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for TrackedCasDigest<Kind> {
     fn borrow(&self) -> &CasDigest<Kind> {
