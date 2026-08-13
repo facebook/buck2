@@ -21,9 +21,8 @@ use std::hash::Hash;
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
-use pagable::PagableRegisteredFor;
 use pagable::PagableStableName;
-use pagable::pagable_tagged;
+use pagable::pagable_typetag;
 
 use crate::codemap::Span;
 use crate::typing::ParamSpec;
@@ -41,8 +40,12 @@ use crate::typing::error::TypingOrInternalError;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 
 /// Custom function typechecker.
+///
+/// `PagableStableName` is a supertrait so that `TyCustomFunction<F>` can
+/// compose its persisted typetag from `F`'s stable name; any `F` deriving
+/// `Pagable` gets it automatically.
 pub trait TyCustomFunctionImpl:
-    Debug + Eq + Ord + Hash + Allocative + Send + Sync + Pagable + 'static
+    Debug + Eq + Ord + Hash + Allocative + Send + Sync + Pagable + PagableStableName + 'static
 {
     /// Whether this function acts as a type constructor (e.g., for `|` syntax).
     fn is_type(&self) -> bool {
@@ -82,14 +85,10 @@ pub trait TyCustomFunctionImpl:
     self.0.as_callable().params(),
     self.0.as_callable().result(),
 )]
-#[pagable_tagged(TyCustomDyn)]
+#[pagable_typetag(TyCustomDyn)]
 pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 
-impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F>
-where
-    Self: PagableRegisteredFor<dyn TyCustomDyn>,
-    Self: PagableStableName,
-{
+impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F> {
     fn as_name(&self) -> Option<&str> {
         Some("function")
     }
@@ -182,8 +181,6 @@ impl TyFunction {
         &self.callable
     }
 }
-
-pagable::register_typetag!(TyCustomFunction<TyFunction> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for TyFunction {
     fn is_type(&self) -> bool {

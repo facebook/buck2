@@ -36,7 +36,6 @@ use crate::typing::custom::TyCustomDyn;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::util::arc_str::ArcStr;
@@ -62,8 +61,6 @@ impl TypeMatcher for NamespaceMatcher {
     Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Pagable
 )]
 pub(super) struct TyNamespaceFunction;
-
-pagable::register_typetag!(TyCustomFunction<TyNamespaceFunction> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for TyNamespaceFunction {
     fn is_type(&self) -> bool {

@@ -31,9 +31,7 @@ use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
-use crate::typing::custom::TyCustomDyn;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
@@ -46,8 +44,6 @@ use crate::values::structs::value::Struct;
     Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Pagable
 )]
 struct StructType;
-
-pagable::register_typetag!(TyCustomFunction<StructType> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for StructType {
     fn is_type(&self) -> bool {

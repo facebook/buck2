@@ -27,9 +27,7 @@ use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
-use crate::typing::custom::TyCustomDyn;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -42,8 +40,6 @@ use crate::values::typing::StarlarkIter;
     Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Pagable
 )]
 struct ZipType;
-
-pagable::register_typetag!(TyCustomFunction<ZipType> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for ZipType {
     fn as_callable(&self) -> TyCallable {

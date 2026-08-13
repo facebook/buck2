@@ -32,9 +32,7 @@ use crate::typing::TyFunction;
 use crate::typing::TypingOracleCtx;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
-use crate::typing::custom::TyCustomDyn;
 use crate::typing::error::TypingOrInternalError;
-use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::values::Heap;
 use crate::values::Value;
@@ -57,8 +55,6 @@ static LIST: LazyLock<TyFunction> = LazyLock::new(|| {
         Ty::any_list(),
     )
 });
-
-pagable::register_typetag!(TyCustomFunction<ListType> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for ListType {
     fn is_type(&self) -> bool {
