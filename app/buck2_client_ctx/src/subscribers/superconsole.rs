@@ -1225,8 +1225,23 @@ impl StatefulSuperConsoleImpl {
                 }
             }
             SuperConsoleToggle::Help => {
+                // The speed keys' meaning depends on the command's clock (e.g. `log
+                // replay` scales speed, `log snoop` switches invocations), so their
+                // help text comes from it too.
+                let speed_keys = self.state.timekeeper.speed_key_descriptions();
                 let help_message = SuperConsoleToggle::iter()
-                    .map(|t| format!("`{}` = toggle {}", t.key(), t.description()))
+                    .map(|t| {
+                        let action = match t {
+                            SuperConsoleToggle::IncreaseReplaySpeed => {
+                                speed_keys.increase.to_owned()
+                            }
+                            SuperConsoleToggle::DecreaseReplaySpeed => {
+                                speed_keys.decrease.to_owned()
+                            }
+                            _ => format!("toggle {}", t.description()),
+                        };
+                        format!("`{}` = {}", t.key(), action)
+                    })
                     .collect::<Vec<_>>()
                     .join("\n");
                 self.handle_stderr(&format!(
