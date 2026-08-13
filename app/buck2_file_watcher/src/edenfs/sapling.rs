@@ -13,6 +13,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use allocative::Allocative;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
@@ -76,12 +77,32 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         .buck_error_context("Failed to obtain mergebase")?;
 
     if !output.status.success() {
-        buck2_error!(
-            buck2_error::ErrorTag::Sapling,
-            "Failed to obtain mergebase:\n{}",
-            String::from_utf8(output.stderr)
-                .buck_error_context("Failed to stderr reported by get_mergebase.")?
-        );
+        // Consider upgrading to a hard error
+        soft_error!(
+            "sapling_mergebase_failed",
+            buck2_error!(
+                buck2_error::ErrorTag::Sapling,
+                "Failed to obtain mergebase (exit code {}):\n{}",
+                output
+                    .status
+                    .code()
+                    .map_or_else(|| "unknown".to_owned(), |code| code.to_string()),
+                String::from_utf8_lossy(&output.stderr),
+            ),
+            quiet: false
+        )
+        .ok();
+    } else if !output.stderr.is_empty() {
+        soft_error!(
+            "sapling_mergebase_warning",
+            buck2_error!(
+                buck2_error::ErrorTag::Sapling,
+                "Warning while obtaining mergebase:\n{}",
+                String::from_utf8_lossy(&output.stderr),
+            ),
+            quiet: false
+        )
+        .ok();
     }
 
     parse_log_output(output.stdout)
