@@ -40,9 +40,16 @@
 //! platform-agnostic, at the cost of stack footprints of all the types doubling. The public API and
 //! all observable behavior are otherwise unchanged, so the flag can be flipped without source
 //! edits.
+//!
+//! # Nightly Rust
+//!
+//! This crate builds on stable Rust, but on nightly it additionally enables `dropck_eyepatch`,
+//! which relaxes drop-check for [`MiniVec<T>`] the same way `Vec<T>` relaxes it. On stable a
+//! `MiniVec` may not be dropped once borrows held in `T` have expired. Cargo builds detect the
+//! toolchain automatically; other build systems opt in by passing `--cfg rust_nightly`.
 
 #![deny(missing_docs)]
-#![feature(dropck_eyepatch)]
+#![cfg_attr(rust_nightly, feature(dropck_eyepatch))]
 
 mod mini_box_slice;
 mod mini_vec;

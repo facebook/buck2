@@ -5,7 +5,15 @@ oncall("build_infra")
 rust_library(
     name = "mini_vec",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "extra_check_cfgs": ["cfg(rust_nightly)"],
+        },
+    },
     crate_root = "src/lib.rs",
+    rustc_flags = [
+        "--cfg=rust_nightly",
+    ],
     deps = [
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",

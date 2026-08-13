@@ -953,8 +953,25 @@ impl<T> From<Vec<T>> for MiniVec<T> {
 // SAFETY: The `may_dangle` gives us partially conservative handling wrt dropck by rustc. The
 // soundness argument for this is simple: `Vec` has the same thing and we don't do anything more
 // intersting than `Vec` does. Rustonomicon has a bit more details on what this is.
+//
+// `may_dangle` is nightly-only, so without `rust_nightly` we fall back to a plain `Drop` impl and
+// the stricter dropck rules that come with it.
+#[cfg(rust_nightly)]
 unsafe impl<#[may_dangle] T> Drop for MiniVec<T> {
     fn drop(&mut self) {
+        self.drop_impl();
+    }
+}
+
+#[cfg(not(rust_nightly))]
+impl<T> Drop for MiniVec<T> {
+    fn drop(&mut self) {
+        self.drop_impl();
+    }
+}
+
+impl<T> MiniVec<T> {
+    fn drop_impl(&mut self) {
         let unpacked = self.unpack();
         // Use a guard so the allocation is freed even if dropping an
         // element panics.
