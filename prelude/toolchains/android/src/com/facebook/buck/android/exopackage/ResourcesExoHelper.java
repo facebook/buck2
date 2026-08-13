@@ -43,18 +43,29 @@ public class ResourcesExoHelper implements ExoHelper {
   private static ImmutableMap<String, Path> getResourceFilesByHash(
       AbsPath rootPath,
       Stream<IsolatedExopackageInfo.IsolatedExopackagePathAndHash> resourcesPaths) {
-    return resourcesPaths
-        .filter(
-            pathAndHash ->
-                ProjectFilesystemUtils.exists(rootPath, pathAndHash.getHashPath().getPath()))
-        .collect(
-            ImmutableMap.toImmutableMap(
-                pathAndHash ->
-                    ProjectFilesystemUtils.readFileIfItExists(
-                            rootPath, pathAndHash.getHashPath().getPath())
-                        .get()
-                        .stripTrailing(),
-                i -> i.getPath().getPath()));
+    return resourcesPaths.collect(
+        ImmutableMap.toImmutableMap(
+            pathAndHash -> readHash(rootPath, pathAndHash),
+            pathAndHash -> pathAndHash.getFile().getPath()));
+  }
+
+  /**
+   * A resource's hash is what names it on the device, so a resource whose hash cannot be read
+   * cannot be installed. Fail loudly rather than dropping it: this map is used both to decide what
+   * to push and to decide what is still wanted, so a silently missing entry means the previous copy
+   * is collected, the new one is never pushed, and the install reports success anyway.
+   */
+  private static String readHash(
+      AbsPath rootPath, IsolatedExopackageInfo.IsolatedExopackagePathAndHash pathAndHash) {
+    Path hashFile = pathAndHash.getHashFile().getPath();
+    return ProjectFilesystemUtils.readFileIfItExists(rootPath, hashFile)
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    String.format(
+                        "Missing exopackage resource hash file %s for resource %s",
+                        hashFile, pathAndHash.getFile().getPath())))
+        .stripTrailing();
   }
 
   @Override

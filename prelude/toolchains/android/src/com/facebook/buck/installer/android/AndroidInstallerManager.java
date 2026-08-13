@@ -142,6 +142,16 @@ class AndroidInstallerManager implements InstallCommand {
           androidArtifacts.getNativeLibraryExopackageInfoMetadata();
       ImmutableList.Builder<IsolatedExopackageInfo.IsolatedExopackagePathAndHash>
           pathAndHashBuilder = ImmutableList.builder();
+      // Assets are optional for a build, but a resource and its hash always ship together. Without
+      // this, a half-delivered pair is indistinguishable from a build that has no assets at all.
+      Preconditions.checkState(
+          androidArtifacts.getResourcesExopackageInfoAssets().isPresent()
+              == androidArtifacts.getResourcesExopackageInfoAssetsHash().isPresent(),
+          "Exopackage resource assets and their hash must be present together");
+      Preconditions.checkState(
+          androidArtifacts.getResourcesExopackageInfoRes().isPresent()
+              == androidArtifacts.getResourcesExopackageInfoResHash().isPresent(),
+          "Exopackage resources and their hash must be present together");
       androidArtifacts
           .getResourcesExopackageInfoAssets()
           .ifPresent(
