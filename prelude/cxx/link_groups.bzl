@@ -181,7 +181,7 @@ def build_link_group_info(graph: LinkableGraph, groups: list[Group], min_node_co
 
     # Filter out groups which don't meet the node count requirement.
     filtered_groups = {}
-    node_count = value_or(min_node_count, len(linkable_graph_node_map))
+    node_count = max(value_or(min_node_count, 0), len(linkable_graph_node_map))
     for group in groups:
         if group.attrs.enable_if_node_count_exceeds != None and node_count < group.attrs.enable_if_node_count_exceeds:
             continue
