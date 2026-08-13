@@ -69,24 +69,19 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
             "-T",
             "{node}\n{date}\n{get(extras, \"global_rev\")}",
             "-r",
-            format!(
-                "present(ancestor({}, {}))",
-                commit.as_ref(),
-                mergegase_with.as_ref()
-            )
-            .as_str(),
+            format!("ancestor({}, {})", commit.as_ref(), mergegase_with.as_ref()).as_str(),
         ])
         .output()
         .await
         .buck_error_context("Failed to obtain mergebase")?;
 
     if !output.status.success() || !output.stderr.is_empty() {
-        return Err(buck2_error!(
+        buck2_error!(
             buck2_error::ErrorTag::Sapling,
             "Failed to obtain mergebase:\n{}",
             String::from_utf8(output.stderr)
                 .buck_error_context("Failed to stderr reported by get_mergebase.")?
-        ));
+        );
     }
 
     parse_log_output(output.stdout)
