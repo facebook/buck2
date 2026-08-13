@@ -1012,6 +1012,97 @@ mod tests {
         Ok(())
     }
 
+    // --- Generic struct-form tests: `#[pagable_typetag(Trait)]` on a generic
+    // struct whose dyn-trait impl comes from a blanket impl (like starlark's
+    // `impl<T: TyCustomImpl> TyCustomDyn for T`). The trait lives in a
+    // different module to exercise accumulator resolution through the trait.
+
+    mod blanket_dyn {
+        use std::any::Any;
+        use std::fmt::Debug;
+
+        use pagable::PagableTagged;
+
+        use crate as pagable;
+
+        pub(crate) trait ShapeImpl: PagableTagged + Debug + Send + Sync + 'static {
+            fn sides(&self) -> u32;
+        }
+
+        #[crate::pagable_typetag]
+        pub(crate) trait ShapeDyn: PagableTagged + Debug + Send + Sync + 'static {
+            fn sides_dyn(&self) -> u32;
+            fn as_any(&self) -> &dyn Any;
+        }
+
+        impl<T: ShapeImpl> ShapeDyn for T {
+            fn sides_dyn(&self) -> u32 {
+                self.sides()
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
+    }
+
+    mod blanket_wrapper {
+        use std::fmt::Debug;
+
+        use crate as pagable;
+        use crate::Pagable;
+
+        #[derive(Debug, Pagable)]
+        #[crate::pagable_typetag(super::blanket_dyn::ShapeDyn)]
+        pub(crate) struct Polygon<T: Pagable + Debug + Send + Sync + 'static> {
+            pub payload: T,
+            pub sides: u32,
+        }
+
+        impl<T: Pagable + Debug + Send + Sync + 'static> super::blanket_dyn::ShapeImpl for Polygon<T>
+        where
+            Self: pagable::PagableStableName,
+        {
+            fn sides(&self) -> u32 {
+                self.sides
+            }
+        }
+    }
+
+    #[test]
+    fn test_generic_struct_form_typetag_roundtrip() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Box<dyn blanket_dyn::ShapeDyn> = Box::new(blanket_wrapper::Polygon {
+            payload: Cargo { weight: 9 },
+            sides: 5,
+        });
+        assert_eq!(
+            value.pagable_type_tag(),
+            "pagable::typetag::tests::blanket_wrapper::Polygon<pagable::typetag::tests::Cargo>",
+            "struct-form registration should use the same stable name scheme"
+        );
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Box<dyn blanket_dyn::ShapeDyn> =
+            <dyn blanket_dyn::ShapeDyn>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.sides_dyn(), 5);
+        let restored = restored
+            .as_any()
+            .downcast_ref::<blanket_wrapper::Polygon<Cargo>>()
+            .expect("restored shape should be Polygon<Cargo>");
+        assert_eq!(restored.payload.weight, 9);
+
+        Ok(())
+    }
+
     // Pin the exact tag strings: they are persisted, so they must stay
     // source-derived (module path + idents) and never depend on
     // `std::any::type_name` formatting, which can change between compilers.

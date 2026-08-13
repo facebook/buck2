@@ -74,6 +74,15 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
                     )
                 })
             }
+
+            // Registrations for generic impls can live in other modules or
+            // crates, where the accumulator static is not nameable directly;
+            // they reach it through the trait, like `__pagable_wrap_registration`.
+            #[doc(hidden)]
+            #trait_vis fn __pagable_generic_accumulator()
+            -> &'static pagable::typetag::GenericTypetagAccumulator<dyn #trait_name> {
+                &#accumulator_name
+            }
         }
 
         pagable::__internal::inventory::collect!(#registration_struct_name);
@@ -174,7 +183,11 @@ fn typetag_struct(
     }
 }
 
-/// Generate code for a generic impl block with `#[pagable_typetag]`.
+/// Generate code for a generic registration with `#[pagable_typetag]` —
+/// either a generic impl block of the dyn trait, or a generic struct
+/// definition with the dyn trait as the attribute argument (used when the
+/// struct only implements the dyn trait through a blanket impl, so there is
+/// no impl block to annotate).
 ///
 /// Concrete typetag impls register with `inventory::submit!`, but generic impls
 /// cannot submit a registration for `Wrapper<T>` in the abstract: the registry
@@ -195,17 +208,11 @@ fn typetag_struct(
 /// registrations.
 fn typetag_generic_struct(
     item: TokenStream,
-    impl_item: &ItemImpl,
+    generics: &syn::Generics,
     self_ty: &syn::Type,
     trait_path: &syn::Path,
     span: Span,
 ) -> syn::Result<TokenStream> {
-    let trait_name = trait_path
-        .segments
-        .last()
-        .ok_or_else(|| syn::Error::new_spanned(trait_path, "trait path must not be empty"))?
-        .ident
-        .to_string();
     if let syn::Type::Path(type_path) = self_ty {
         type_path.path.segments.last().ok_or_else(|| {
             syn::Error::new_spanned(self_ty, "could not extract type name for pagable_typetag")
@@ -217,14 +224,11 @@ fn typetag_generic_struct(
         ));
     }
 
-    let accumulator_name = format_ident!("__PAGABLE_GENERIC_ACC_{}", trait_name);
-
-    // The caller has already added the `PagableStableName` predicate to the
-    // impl's where clause; reusing these generics propagates it to every
-    // generated item, which all name the monomorphization via its stable name.
-    let (impl_generics, _ty_generics, where_clause) = impl_item.generics.split_for_impl();
-    let generic_args: Vec<_> = impl_item
-        .generics
+    // The caller has already added the `PagableStableName` predicate to
+    // `generics`; reusing them propagates it to every generated item, which
+    // all name the monomorphization via its stable name.
+    let (impl_generics, _ty_generics, where_clause) = generics.split_for_impl();
+    let generic_args: Vec<_> = generics
         .params
         .iter()
         .filter_map(|param| match param {
@@ -270,7 +274,7 @@ fn typetag_generic_struct(
 
             #[doc(hidden)]
             extern "C" fn __pagable_do_register #impl_generics () #where_clause {
-                #accumulator_name.push(pagable::typetag::TypetagRegistration {
+                <dyn #trait_path>::__pagable_generic_accumulator().push(pagable::typetag::TypetagRegistration {
                     tag: <#self_ty as pagable::typetag::PagableStableName>::pagable_stable_name,
                     deserialize: |deserializer| {
                         let value: #self_ty =
@@ -301,8 +305,9 @@ fn typetag_generic_struct(
 ///
 /// Supports three forms:
 /// - `#[pagable_typetag]` on a trait definition
-/// - `#[pagable_typetag]` on an impl block
-/// - `#[pagable_typetag(TraitName)]` on a struct definition or concrete type
+/// - `#[pagable_typetag]` on an impl block (concrete or generic)
+/// - `#[pagable_typetag(TraitName)]` on a struct definition; a generic struct
+///   registers every monomorphization for `dyn TraitName`
 pub fn pagable_typetag_impl(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
@@ -321,6 +326,66 @@ pub fn pagable_typetag_impl(
     if let Some(trait_path) = trait_path {
         if let Ok(struct_item) = syn::parse::<ItemStruct>(item.clone()) {
             let struct_name = &struct_item.ident;
+
+            let has_generics = struct_item
+                .generics
+                .params
+                .iter()
+                .any(|param| matches!(param, GenericParam::Type(_) | GenericParam::Const(_)));
+            if has_generics {
+                // Generic struct: register every monomorphization for the
+                // given dyn trait. This is the struct-level counterpart of
+                // the generic impl form below, for traits the struct only
+                // implements through a blanket impl (so there is no impl
+                // block to annotate).
+                if struct_item
+                    .generics
+                    .params
+                    .iter()
+                    .any(|param| matches!(param, GenericParam::Lifetime(_)))
+                {
+                    return syn::Error::new_spanned(
+                        &struct_item.generics,
+                        "pagable_typetag does not support lifetime parameters",
+                    )
+                    .to_compile_error()
+                    .into();
+                }
+
+                let (_impl_generics, ty_generics, _where_clause) =
+                    struct_item.generics.split_for_impl();
+                let self_ty: syn::Type = syn::parse_quote!(#struct_name #ty_generics);
+
+                // Generics for the generated items only — the struct
+                // definition itself is re-emitted untouched. Defaults are
+                // stripped because they are invalid in impl position.
+                let mut generics = struct_item.generics.clone();
+                for param in &mut generics.params {
+                    match param {
+                        GenericParam::Type(param) => param.default = None,
+                        GenericParam::Const(param) => param.default = None,
+                        GenericParam::Lifetime(_) => {}
+                    }
+                }
+                generics
+                    .make_where_clause()
+                    .predicates
+                    .push(syn::parse_quote! { #self_ty: pagable::typetag::PagableStableName });
+
+                let span = struct_item.span();
+                let item_tokens = quote_spanned! { span => #struct_item };
+                return match typetag_generic_struct(
+                    item_tokens,
+                    &generics,
+                    &self_ty,
+                    &trait_path,
+                    span,
+                ) {
+                    Ok(tokens) => tokens.into(),
+                    Err(err) => err.to_compile_error().into(),
+                };
+            }
+
             let type_tag = struct_name.to_string();
             let self_ty: syn::Type = syn::parse_quote!(#struct_name);
             let item_tokens = quote! { #struct_item };
@@ -381,7 +446,7 @@ pub fn pagable_typetag_impl(
             let item_tokens = quote_spanned! { span => #impl_item };
             return match typetag_generic_struct(
                 item_tokens,
-                &impl_item,
+                &impl_item.generics,
                 &self_ty,
                 &trait_path,
                 span,
