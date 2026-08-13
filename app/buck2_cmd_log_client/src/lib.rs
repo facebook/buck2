@@ -28,6 +28,7 @@ mod replay;
 mod shed;
 mod show_log;
 mod show_user_log;
+mod snoop;
 mod summary;
 mod what_cmd;
 mod what_failed;
@@ -129,6 +130,7 @@ pub enum LogCommand {
     CriticalPath(critical_path::CriticalPathCommand),
     SlowestPath(critical_path::SlowestPathCommand),
     Replay(replay::ReplayCommand),
+    Snoop(snoop::SnoopCommand),
     ShowUser(show_user_log::ShowUserLogCommand),
     Summary(summary::SummaryCommand),
     #[clap(subcommand)]
@@ -158,6 +160,7 @@ impl LogCommand {
             Self::CriticalPath(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::SlowestPath(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Replay(cmd) => ctx.exec(cmd, matches, events_ctx),
+            Self::Snoop(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::ShowUser(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Summary(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Diff(cmd) => cmd.exec(matches, ctx, events_ctx),
@@ -184,6 +187,7 @@ impl LogCommand {
             Self::CriticalPath(cmd) => cmd.logging_name(),
             Self::SlowestPath(cmd) => cmd.logging_name(),
             Self::Replay(cmd) => cmd.logging_name(),
+            Self::Snoop(cmd) => cmd.logging_name(),
             Self::ShowUser(cmd) => cmd.logging_name(),
             Self::Summary(cmd) => cmd.logging_name(),
             Self::Diff(_) => "log-diff",

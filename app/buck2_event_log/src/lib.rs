@@ -23,6 +23,7 @@ use tokio::task::JoinHandle;
 pub mod file_names;
 pub mod read;
 pub mod stream_value;
+pub mod tail;
 pub mod ttl;
 pub mod user_event_types;
 pub mod utils;

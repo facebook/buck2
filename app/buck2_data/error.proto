@@ -103,6 +103,8 @@ enum ErrorTag {
   DAEMON_DISCONNECT = 516;
   // Could not determine the BuckVersion
   BUCK_VERSION_ERROR = 518;
+  // The daemon request stream ended without returning a CommandResult.
+  MISSING_COMMAND_RESULT = 520;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.

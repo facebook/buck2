@@ -17,8 +17,10 @@ buck2_error.workspace = true
 buck2_event_log.workspace = true
 buck2_event_observer.workspace = true
 buck2_events.workspace = true
+buck2_fs.workspace = true
 buck2_hash.workspace = true
 buck2_log_common.workspace = true
+buck2_subscription_proto.workspace = true
 buck2_util.workspace = true
 buck2_wrapper_common.workspace = true
 clap.workspace = true
@@ -38,7 +40,6 @@ tokio.workspace = true
 tokio-stream.workspace = true
 
 [dev-dependencies]
-buck2_fs.workspace = true
 prost.workspace = true
 tempfile.workspace = true
 zstd.workspace = true

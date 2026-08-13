@@ -553,6 +553,7 @@ impl SerializeForLog for OwnedStreamValueForWrite {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_common::argv::Argv;
@@ -564,6 +565,8 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+    use crate::tail::TailOptions;
+    use crate::tail::WriterState;
     use crate::utils::Compression;
 
     impl WriteEventLog {
@@ -727,6 +730,144 @@ mod tests {
             }
             Compression::None => unreachable!(),
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_tail_reads_growing_log() -> buck2_error::Result<()> {
+        if cfg!(windows) {
+            // Do not want to deal with exclusivity issues on Windows.
+            return Ok(());
+        }
+
+        let tmp_dir = TempDir::new()?;
+
+        let log = EventLogPathBuf {
+            path: AbsPathBuf::try_from(tmp_dir.path().join("test_tail_reads_growing_log.pb.zst"))
+                .unwrap(),
+            encoding: Encoding::PROTO_ZSTD,
+        };
+
+        let mut write_event_log = WriteEventLog::new_test(log.clone()).await?;
+
+        let event1 = make_event();
+        write_event_log.log_invocation(event1.trace_id()?).await?;
+        write_event_log
+            .write_ln(&[StreamValueForWrite::Event(event1.event())])
+            .await?;
+        write_event_log.flush_files().await?;
+
+        let (_invocation, mut events) = log
+            .unpack_stream_tailing(TailOptions {
+                poll_interval: Duration::from_millis(10),
+                idle_timeout: Some(Duration::from_secs(10)),
+                writer_state: None,
+            })
+            .await?;
+
+        let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
+            StreamValue::Event(e) => BuckEvent::try_from(e).unwrap(),
+            _ => panic!("expecting event"),
+        };
+        assert_eq!(
+            retrieved_event.timestamp(),
+            event1.timestamp(),
+            "Tailing reader should see the event written before it started"
+        );
+
+        // The reader is at the end of the file now; write more and check it comes through.
+        let event2 = make_event();
+        write_event_log
+            .write_ln(&[StreamValueForWrite::Event(event2.event())])
+            .await?;
+        write_event_log.flush_files().await?;
+
+        let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
+            StreamValue::Event(e) => BuckEvent::try_from(e).unwrap(),
+            _ => panic!("expecting event"),
+        };
+        assert_eq!(
+            retrieved_event.timestamp(),
+            event2.timestamp(),
+            "Tailing reader should see an event written after it caught up"
+        );
+
+        // Closing the log writes the compression footer, which ends the tail without
+        // waiting for the idle timeout.
+        write_event_log.exit().await;
+        assert!(
+            events.try_next().await.unwrap().is_none(),
+            "expecting no more events after the log is closed"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_tail_ends_when_writer_reported_finished() -> buck2_error::Result<()> {
+        if cfg!(windows) {
+            // Do not want to deal with exclusivity issues on Windows.
+            return Ok(());
+        }
+
+        let tmp_dir = TempDir::new()?;
+
+        let log = EventLogPathBuf {
+            path: AbsPathBuf::try_from(
+                tmp_dir
+                    .path()
+                    .join("test_tail_ends_when_writer_reported_finished.pb.zst"),
+            )
+            .unwrap(),
+            encoding: Encoding::PROTO_ZSTD,
+        };
+
+        let mut write_event_log = WriteEventLog::new_test(log.clone()).await?;
+
+        let event = make_event();
+        write_event_log.log_invocation(event.trace_id()?).await?;
+        write_event_log
+            .write_ln(&[StreamValueForWrite::Event(event.event())])
+            .await?;
+        write_event_log.flush_files().await?;
+
+        // A short idle timeout that the running-writer hint must override: a quiet but
+        // known-live writer is not end-of-file.
+        let (writer_state_tx, writer_state_rx) = tokio::sync::watch::channel(WriterState::Running);
+        let (_invocation, mut events) = log
+            .unpack_stream_tailing(TailOptions {
+                poll_interval: Duration::from_millis(10),
+                idle_timeout: Some(Duration::from_millis(50)),
+                writer_state: Some(writer_state_rx),
+            })
+            .await?;
+
+        let retrieved_event = match events.try_next().await?.expect("Failed getting log") {
+            StreamValue::Event(e) => BuckEvent::try_from(e).unwrap(),
+            _ => panic!("expecting event"),
+        };
+        assert_eq!(
+            retrieved_event.timestamp(),
+            event.timestamp(),
+            "Tailing reader should catch up on the already-written event"
+        );
+
+        // The writer never closes the log and the idle timeout has long passed, but the
+        // writer is reported running: the stream must keep waiting rather than end.
+        let quiet = tokio::time::timeout(Duration::from_millis(300), events.try_next()).await;
+        assert!(
+            quiet.is_err(),
+            "a quiet but running writer should not end the stream at the idle timeout"
+        );
+
+        // Reporting the writer finished must end the stream after the grace period
+        // instead of tailing forever.
+        writer_state_tx.send(WriterState::Finished).unwrap();
+        assert!(
+            events.try_next().await.unwrap().is_none(),
+            "expecting the stream to end after the writer is reported finished"
+        );
 
         Ok(())
     }

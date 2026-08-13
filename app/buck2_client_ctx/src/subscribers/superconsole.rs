@@ -412,6 +412,14 @@ pub struct SuperConsoleConfig {
     /// Two lines for root events with single child event.
     pub two_lines: bool,
     pub max_lines: usize,
+    /// Extra line(s) rendered at the very top of the canvas, e.g. `buck2 log snoop`'s
+    /// "Snooping <trace>: <argv>" banner. Part of the canvas so that erasing or
+    /// redrawing the console replaces it too.
+    pub banner: Option<String>,
+    /// Do not emit "File changed:" notifications above the canvas. Used by viewers
+    /// like `buck2 log snoop` where they would pile up as scrollback across
+    /// invocation switches.
+    pub hide_file_watcher_events: bool,
 }
 
 impl Default for SuperConsoleConfig {
@@ -426,6 +434,8 @@ impl Default for SuperConsoleConfig {
             display_platform: false,
             two_lines: false,
             max_lines: 10,
+            banner: None,
+            hide_file_watcher_events: false,
         }
     }
 }
@@ -502,6 +512,11 @@ impl Component for BuckRootComponent<'_> {
         });
 
         let mut draw = DrawVertical::new(dimensions);
+
+        if let Some(banner) = &self.state.config.banner {
+            let lines = Lines(banner.lines().map(Line::sanitized).collect());
+            draw.draw(&StaticLinesAdapter(&lines), mode)?;
+        }
 
         // Render games overlay above normal build output when active.
         if self.games_overlay.active {
@@ -728,6 +743,22 @@ impl StatefulSuperConsole {
 
         res.map_err(Into::into)
     }
+
+    fn erase(&mut self) -> buck2_error::Result<()> {
+        let mut res = Ok(());
+        take_mut::take(self, |this| match this {
+            Self::Running(super_console) => {
+                let (state, err) = super_console.erase();
+                if let Some(err) = err {
+                    res = Err(err);
+                }
+                Self::Finalized(state.simple_console)
+            }
+            v => v,
+        });
+
+        res.map_err(Into::into)
+    }
 }
 
 impl SuperConsoleState {
@@ -888,7 +919,7 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
     ) -> buck2_error::Result<()> {
-        if self.verbosity.print_status() {
+        if self.verbosity.print_status() && !self.state.config.hide_file_watcher_events {
             self.super_console.emit(Lines(
                 display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
             ));
@@ -1473,6 +1504,25 @@ impl StatefulSuperConsoleImpl {
             .err();
         (self.state, err)
     }
+
+    /// Erase the canvas from the terminal instead of leaving a final frame behind,
+    /// for when the display is being replaced rather than concluded.
+    fn erase(
+        mut self,
+    ) -> (
+        SuperConsoleState,
+        Option<superconsole::Error<buck2_error::Error>>,
+    ) {
+        let err = self
+            .super_console
+            .render(&superconsole::components::Blank)
+            .err()
+            .map(|e| match e {
+                superconsole::Error::Draw(infallible) => match infallible {},
+                superconsole::Error::Output(e) => superconsole::Error::Output(e),
+            });
+        (self.state, err)
+    }
 }
 
 #[async_trait]
@@ -1541,6 +1591,10 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
         self.finalize()?;
         Ok(())
+    }
+
+    async fn erase_interactive_output(&mut self) -> buck2_error::Result<()> {
+        self.erase()
     }
 }
 

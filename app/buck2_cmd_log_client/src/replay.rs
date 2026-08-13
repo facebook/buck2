@@ -28,6 +28,7 @@ use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::Timekeeper;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::duration_between_timestamps;
 use buck2_client_ctx::ticker::Tick;
+use buck2_error::ErrorTag;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
@@ -162,8 +163,7 @@ impl BuckSubcommand for ReplayCommand {
                 .await;
 
             if let Err(e) = &res {
-                let msg = "request finished without returning a CommandResult";
-                if e.to_string().contains(msg) {
+                if e.has_tag(ErrorTag::MissingCommandResult) {
                     buck2_client_ctx::eprintln!(
                         "Warning: Incomplete log. Replay may be inaccurate."
                     )?;
@@ -185,8 +185,8 @@ impl BuckSubcommand for ReplayCommand {
     }
 }
 
-struct ReplayResult {
-    errors: Vec<buck2_data::ErrorReport>,
+pub(crate) struct ReplayResult {
+    pub(crate) errors: Vec<buck2_data::ErrorReport>,
 }
 
 impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {

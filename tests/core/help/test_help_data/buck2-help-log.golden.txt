@@ -17,6 +17,7 @@ Commands:
   critical-path      Show the critical path for a selected build
   slowest-path       Show the slowest path for a selected build
   replay             Replay an event log
+  snoop              Watch the progress of in-flight commands from another terminal
   show-user          Converts the event log from a selected invocation into a user event log, in
                      JSONL format
   summary            Outputs high level statistics about the build

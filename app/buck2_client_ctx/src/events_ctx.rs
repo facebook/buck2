@@ -74,7 +74,7 @@ enum BuckdCommunicationError {
     #[buck2(tag = Tier0)]
     EmptyCommandResult,
     #[error("buck daemon request finished without returning a CommandResult")]
-    #[buck2(tag = Tier0)]
+    #[buck2(tag = MissingCommandResult)]
     MissingCommandResult,
     #[error(
         "The Buck2 daemon was shut down while executing your command. This happened because: {0}"
@@ -602,6 +602,14 @@ impl EventsCtx {
             }
         }
         result
+    }
+
+    /// Ask subscribers to remove their interactive display from the terminal; used
+    /// when the display is being replaced rather than concluded (e.g. `buck2 log
+    /// snoop` switching to another invocation).
+    pub async fn erase_interactive_output(&mut self) -> buck2_error::Result<()> {
+        self.try_for_each_subscriber(|s| s.erase_interactive_output())
+            .await
     }
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.

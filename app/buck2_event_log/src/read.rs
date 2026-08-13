@@ -44,6 +44,8 @@ use tokio_stream::wrappers::LinesStream;
 use tokio_util::codec::FramedRead;
 
 use crate::stream_value::StreamValue;
+use crate::tail::TailOptions;
+use crate::tail::TailReader;
 use crate::utils::Compression;
 use crate::utils::Encoding;
 use crate::utils::EventLogErrors;
@@ -229,10 +231,11 @@ impl EventLogPathBuf {
     async fn unpack_stream_json<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
+        tail: Option<TailOptions>,
     ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Json);
 
-        let log_file = self.open(stats).await?;
+        let log_file = self.open(stats, tail).await?;
         let log_file = BufReader::new(log_file);
         let mut log_lines = log_file.lines();
 
@@ -259,10 +262,11 @@ impl EventLogPathBuf {
     async fn unpack_stream_protobuf<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
+        tail: Option<TailOptions>,
     ) -> buck2_error::Result<(Invocation, BoxStream<'a, buck2_error::Result<StreamValue>>)> {
         assert_eq!(self.encoding.mode, LogMode::Protobuf);
 
-        let log_file = self.open(stats).await?;
+        let log_file = self.open(stats, tail).await?;
         let mut stream = FramedRead::new(log_file, ProtobufSplitter);
 
         let invocation = stream
@@ -298,13 +302,14 @@ impl EventLogPathBuf {
     async fn unpack_stream_inner<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
+        tail: Option<TailOptions>,
     ) -> buck2_error::Result<(
         Invocation,
         impl Stream<Item = buck2_error::Result<StreamValue>> + use<'a>,
     )> {
         match self.encoding.mode {
-            LogMode::Json => self.unpack_stream_json(stats).await,
-            LogMode::Protobuf => self.unpack_stream_protobuf(stats).await,
+            LogMode::Json => self.unpack_stream_json(stats, tail).await,
+            LogMode::Protobuf => self.unpack_stream_protobuf(stats, tail).await,
         }
     }
 
@@ -316,7 +321,7 @@ impl EventLogPathBuf {
         Invocation,
         impl Stream<Item = buck2_error::Result<StreamValue>> + use<'a>,
     )> {
-        self.unpack_stream_inner(Some(stats)).await
+        self.unpack_stream_inner(Some(stats), None).await
     }
 
     pub async fn unpack_stream(
@@ -325,12 +330,27 @@ impl EventLogPathBuf {
         Invocation,
         impl Stream<Item = buck2_error::Result<StreamValue>> + 'static + use<>,
     )> {
-        self.unpack_stream_inner(None).await
+        self.unpack_stream_inner(None, None).await
+    }
+
+    /// Like `unpack_stream`, but on reaching the end of a log that is still being written,
+    /// waits for more events instead of ending the stream. The stream ends when the log is
+    /// complete, or when it stops growing for `options.idle_timeout` (e.g. the writing
+    /// command crashed, or deleted the log from under us).
+    pub async fn unpack_stream_tailing(
+        &self,
+        options: TailOptions,
+    ) -> buck2_error::Result<(
+        Invocation,
+        impl Stream<Item = buck2_error::Result<StreamValue>> + 'static + use<>,
+    )> {
+        self.unpack_stream_inner(None, Some(options)).await
     }
 
     async fn open<'a>(
         &self,
         stats: Option<&'a ReaderStats>,
+        tail: Option<TailOptions>,
     ) -> buck2_error::Result<EventLogReader<'a>> {
         tracing::info!(
             "Open {} using encoding {:?}",
@@ -349,6 +369,10 @@ impl EventLogPathBuf {
         let file = async_fs_util::open(&self.path)
             .await
             .categorize_internal()?;
+        let file: Box<dyn AsyncRead + Send + Sync + Unpin> = match tail {
+            Some(tail) => Box::new(TailReader::new(file, tail)),
+            None => Box::new(file),
+        };
         let file = CountingReader::new(file, compressed_bytes);
         let file = match self.encoding.compression {
             Compression::None => {

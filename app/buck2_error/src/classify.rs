@@ -239,6 +239,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuckdLifecycleLock => rank!(tier0),
         ErrorTag::BuckdInfoMissing => rank!(tier0),
         ErrorTag::BuckdInfoParseError => rank!(tier0),
+        ErrorTag::MissingCommandResult => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
         ErrorTag::ReClientCrash => rank!(tier0),

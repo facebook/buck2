@@ -63,6 +63,13 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
 
+    /// Remove any interactive display (e.g. a superconsole canvas) from the terminal
+    /// instead of leaving it behind, for when the display is being replaced rather
+    /// than concluded. Subscribers without an interactive display do nothing.
+    async fn erase_interactive_output(&mut self) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
     /// Return a desired tick rate override. The event loop will adjust its
     /// ticker when this differs from the current rate. Return `None` to keep
     /// the default rate.
