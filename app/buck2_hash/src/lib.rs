@@ -234,19 +234,16 @@ macro_rules! buck_indexset {
 /// `std::collections::hash_map::DefaultHasher`.
 pub type BuckDefaultHasher = std::collections::hash_map::DefaultHasher;
 
-/// A [`DashMap`](dashmap::DashMap) using the default hasher.
+/// A [`DashMap`](dashmap::DashMap) using [`BuckHasherBuilder`].
 ///
-/// This is a type alias for `dashmap::DashMap` that provides concurrent access.
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckDashMap<K, V> = dashmap::DashMap<K, V>;
+/// The concurrent map for buck2 code. Construct it with `default()`; `DashMap::new()` exists
+/// only for the standard library's hasher.
+pub type BuckDashMap<K, V, S = BuckHasherBuilder> = dashmap::DashMap<K, V, S>;
 
-/// A [`DashSet`](dashmap::DashSet) using the default hasher.
+/// A [`DashSet`](dashmap::DashSet) using [`BuckHasherBuilder`].
 ///
-/// This is a type alias for `dashmap::DashSet` that provides concurrent access.
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit.
-pub type BuckDashSet<K> = dashmap::DashSet<K>;
+/// The set counterpart of [`BuckDashMap`].
+pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 
 /// A [`HashMap`](std::collections::HashMap) using the standard library's default hasher.
 ///

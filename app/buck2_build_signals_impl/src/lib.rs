@@ -1511,7 +1511,7 @@ fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignal
 
     let sender = Arc::new(BuildSignalSender {
         sender,
-        pending_page_in_phases: BuckDashMap::new(),
+        pending_page_in_phases: BuckDashMap::default(),
         page_in_reachability: OnceLock::new(),
     });
     let installer = BuildSignalsInstaller {
