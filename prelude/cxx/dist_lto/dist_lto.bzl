@@ -814,16 +814,7 @@ def cxx_gnu_dist_link(
     )
 
     if enable_bolt:
-        bolt_output = bolt(
-            ctx,
-            output,
-            external_debug_info,
-            identifier,
-            dwp_tool_available,
-            link_action_execution_properties,
-            opts.link_weight,
-            allow_cache_upload = enable_late_build_info_stamping,
-        )
+        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
         final_output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
     else:

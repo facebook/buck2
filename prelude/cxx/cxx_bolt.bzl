@@ -14,7 +14,6 @@ load(
     "ArtifactTSet",
     "project_artifacts",
 )
-load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 CxxBoltOutput = record(
@@ -32,8 +31,6 @@ def bolt(
     external_debug_info: ArtifactTSet,
     identifier: [str, None],
     generate_dwp: bool,
-    action_execution_properties: ActionExecutionAttributes,
-    weight: int,
     allow_cache_upload: bool = False,
 ) -> CxxBoltOutput:
     output_name = prebolt_output.short_path.removesuffix("-wrapper")
@@ -76,11 +73,7 @@ def bolt(
         args,
         category = "bolt",
         identifier = identifier,
-        prefer_local = action_execution_properties.prefer_local,
-        prefer_remote = action_execution_properties.prefer_remote,
-        local_only = action_execution_properties.local_only,
-        weight = weight,
-        force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+        local_only = get_cxx_toolchain_info(ctx).linker_info.link_binaries_locally,
         allow_cache_upload = allow_cache_upload and not strip_stapsdt,
     )
 

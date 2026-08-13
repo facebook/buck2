@@ -486,16 +486,7 @@ def cxx_link_into(
 
     use_bolt = is_result_executable and cxx_use_bolt(ctx)
     if use_bolt:
-        bolt_output = bolt(
-            ctx,
-            output,
-            external_debug_info,
-            opts.identifier,
-            dwp_tool_available,
-            action_execution_properties,
-            opts.link_weight,
-            allow_cache_upload = enable_late_build_info_stamping,
-        )
+        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available, allow_cache_upload = enable_late_build_info_stamping)
         output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
 
