@@ -88,7 +88,9 @@ pub(crate) async fn run_subscription_server_command(
                     }
                     _ = ticker.tick().fuse() => {
                         if wants_active_commands {
-                            let snapshot = active_commands_snapshot();
+                            let snapshot = buck2_subscription_proto::ActiveCommandsSnapshot {
+                                active_commands: active_commands::active_commands_snapshot(),
+                            };
                             partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
                                 response: Some(buck2_subscription_proto::SubscriptionResponse {
                                     response: Some(snapshot.into())
@@ -115,26 +117,4 @@ pub(crate) async fn run_subscription_server_command(
         (result, end_event)
     })
     .await
-}
-
-fn active_commands_snapshot() -> buck2_subscription_proto::ActiveCommandsSnapshot {
-    let active_commands = active_commands::active_commands()
-        .iter()
-        .map(|(trace_id, handle)| {
-            let state = handle.state();
-            let spans = state.spans();
-
-            buck2_subscription_proto::ActiveCommand {
-                trace_id: trace_id.to_string(),
-                argv: state.argv.clone(),
-                stats: Some(buck2_subscription_proto::ActiveCommandStats {
-                    open_spans: spans.open,
-                    closed_spans: spans.closed,
-                    pending_spans: spans.pending,
-                }),
-            }
-        })
-        .collect();
-
-    buck2_subscription_proto::ActiveCommandsSnapshot { active_commands }
 }

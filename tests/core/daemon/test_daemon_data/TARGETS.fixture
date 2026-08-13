@@ -1,1 +1,5 @@
+load(":defs.bzl", "long_running")
+
 trivial_build(name = "rule")
+
+long_running(name = "long_running")

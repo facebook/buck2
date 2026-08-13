@@ -40,6 +40,27 @@ pub fn active_commands() -> MutexGuard<'static, StdBuckHashMap<TraceId, ActiveCo
     ACTIVE_COMMANDS.lock()
 }
 
+/// A point-in-time snapshot of every active command's identity and progress.
+pub fn active_commands_snapshot() -> Vec<buck2_subscription_proto::ActiveCommand> {
+    active_commands()
+        .iter()
+        .map(|(trace_id, handle)| {
+            let state = handle.state();
+            let spans = state.spans();
+
+            buck2_subscription_proto::ActiveCommand {
+                trace_id: trace_id.to_string(),
+                argv: state.argv.clone(),
+                stats: Some(buck2_subscription_proto::ActiveCommandStats {
+                    open_spans: spans.open,
+                    closed_spans: spans.closed,
+                    pending_spans: spans.pending,
+                }),
+            }
+        })
+        .collect()
+}
+
 /// Whether `trace_id` is the one and only active command. False if it isn't
 /// registered (e.g. an empty map), so callers must hold their own active-command
 /// guard when relying on this.
@@ -108,7 +129,6 @@ impl Drop for ActiveCommandDropGuard {
 
 /// A handle to the stats for this command. We use this to broadcast state about this command.
 pub struct ActiveCommandState {
-    #[allow(unused)]
     pub argv: Vec<String>,
 
     spans: Mutex<SpansSnapshot>,

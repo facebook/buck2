@@ -83,6 +83,7 @@ message StatusResponse {
   optional string io_provider = 16;
   optional TokioRuntimeMetrics tokio_runtime_metrics = 17;
   optional string allprocs_cgroup_path = 18;
+  repeated buck.subscription.ActiveCommand active_commands = 19;
 }
 
 message TokioRuntimeMetrics {

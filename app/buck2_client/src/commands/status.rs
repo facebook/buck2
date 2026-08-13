@@ -171,6 +171,7 @@ pub(crate) fn process_status(status: StatusResponse) -> buck2_error::Result<serd
         "http2": status.http2,
         "io_provider": status.io_provider,
         "allprocs_cgroup_path": status.allprocs_cgroup_path,
+        "active_commands": serde_json::to_value(status.active_commands)?,
     });
 
     if let Some(tokio_runtime_metrics) = status.tokio_runtime_metrics {

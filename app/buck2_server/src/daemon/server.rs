@@ -1095,6 +1095,7 @@ impl DaemonApi for BuckdServer {
                 valid_working_directory: Some(valid_working_directory),
                 valid_buck_out_mount: Some(valid_buck_out_mount),
                 io_provider: Some(io_provider),
+                active_commands: crate::active_commands::active_commands_snapshot(),
                 allprocs_cgroup_path: {
                     #[cfg(unix)]
                     {

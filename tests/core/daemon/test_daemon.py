@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import asyncio
 import json
 import platform
 import re
@@ -163,6 +164,49 @@ async def test_status_fields(buck: Buck) -> None:
     status = json.loads(status.stdout)
     assert status["valid_working_directory"]
     assert status["valid_buck_out_mount"]
+
+
+@buck_test()
+async def test_status_active_commands(buck: Buck) -> None:
+    await buck.build()  # Start the daemon
+
+    status = json.loads((await buck.status()).stdout)
+    # `status` is a oneshot request, not a registered command, so an idle
+    # daemon reports no active commands.
+    assert status["active_commands"] == []
+
+    async def run_build() -> None:
+        await buck.build(":long_running", "--local-only", "--no-remote-cache")
+
+    build_task = asyncio.create_task(run_build())
+    try:
+        # Generous budget: under heavy CI load, daemon warm-up plus the local
+        # action launch can take a while to register as an active command.
+        for _ in range(600):
+            status = json.loads((await buck.status()).stdout)
+            if status["active_commands"]:
+                break
+            if build_task.done():
+                # Surface the real failure rather than timing out below.
+                await build_task
+                raise AssertionError(
+                    "Build finished without appearing in active_commands"
+                )
+            await asyncio.sleep(0.1)
+        else:
+            raise AssertionError("Build never showed up in active_commands")
+
+        [command] = status["active_commands"]
+        assert command["trace_id"], "Active command should report its trace id"
+        assert any("long_running" in arg for arg in command["argv"]), (
+            f"Build argv should mention the target: {command['argv']}"
+        )
+        assert command["stats"] is not None
+    finally:
+        build_task.cancel()
+        # Consume the task's outcome so an underlying error is not silently
+        # dropped at teardown.
+        await asyncio.gather(build_task, return_exceptions=True)
 
 
 @buck_test()
