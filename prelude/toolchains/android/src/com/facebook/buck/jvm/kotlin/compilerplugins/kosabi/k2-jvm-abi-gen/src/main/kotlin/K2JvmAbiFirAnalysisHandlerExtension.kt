@@ -569,7 +569,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     )
 
     // Phase 3: FIR metadata post-IR cleanup
-    pipeline.firMetadataSanitizer.cleanupFirMetadataSources(irInput.irModuleFragment)
+    val firSession = analysisResults.outputs.last().session
+    pipeline.firMetadataSanitizer.cleanupFirMetadataSources(irInput.irModuleFragment, firSession)
 
     // Phase 4: Code generation
     val result = generateCodeFromIrCompat(irInput, compilerEnvironment)

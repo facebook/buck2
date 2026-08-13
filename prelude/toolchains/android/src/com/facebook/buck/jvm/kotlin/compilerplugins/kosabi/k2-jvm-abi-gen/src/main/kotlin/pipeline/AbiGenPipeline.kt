@@ -25,8 +25,10 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -44,14 +46,17 @@ import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.serialization.providedDeclarationsForMetadataService
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeTypeProjection
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.types.resolvedType
+import org.jetbrains.kotlin.fir.types.type
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -102,7 +107,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
    * 2. Strip ALL annotations with error expressions from FIR metadata sources.
    * 3. Strip PRIVATE supertypes from FIR metadata sources.
    */
-  fun cleanupFirMetadataSources(moduleFragment: IrModuleFragment) {
+  fun cleanupFirMetadataSources(moduleFragment: IrModuleFragment, session: FirSession) {
     val THROWS_FQ_NAME = FqName("kotlin.jvm.Throws")
     val THROWS_KOTLIN_FQ_NAME = FqName("kotlin.Throws")
 
@@ -115,21 +120,26 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           override fun visitClass(declaration: IrClass) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
             stripPrivateSupertypesFromDeclaration(declaration)
+            stripErrorTypedPrivateMembersFromDeclaration(declaration)
             super.visitClass(declaration)
           }
 
           override fun visitSimpleFunction(declaration: IrSimpleFunction) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
+            replaceErrorReturnTypeWithAny(declaration, session)
+            replaceErrorValueParameterTypesWithAny(declaration, session)
             super.visitSimpleFunction(declaration)
           }
 
           override fun visitProperty(declaration: IrProperty) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
+            replaceErrorReturnTypeWithAny(declaration, session)
             super.visitProperty(declaration)
           }
 
           override fun visitConstructor(declaration: IrConstructor) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
+            replaceErrorValueParameterTypesWithAny(declaration, session)
             super.visitConstructor(declaration)
           }
 
@@ -142,6 +152,101 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
 
             stripThrowsFromFirDeclaration(firMetadataSource.fir)
             stripAnnotationsWithErrorsFromFirDeclaration(firMetadataSource.fir)
+          }
+
+          // Degrade error-typed NON-API (private/local) members of a class to `Any?` on the FIR
+          // metadata source. In source-only ABI, a private member with an inferred type that
+          // depends on an unresolvable dependency symbol (e.g.
+          // `private val x = Dep.getInstance()` or `private val y = setOf(Dep.CONST)`) gets an
+          // error return type, which FirElementSerializer.propertyProto cannot serialize into
+          // @Metadata ("Cannot serialize error type").
+          //
+          // The metadata serializer iterates the class member SYMBOLS
+          // (firClass.symbol.declarationSymbols), which can still include members that earlier IR
+          // stripping removed from firClass.declarations, so the return type has to be replaced on
+          // the symbols' FIR — not just on the declarations list.
+          //
+          // API members are deliberately left alone: they are part of the ABI, so degrading their
+          // type would produce an ABI that lies to consumers (metadata says `Any?` while the
+          // bytecode descriptor still says `error/NonExistentClass`), turning a loud build failure
+          // into a silent one. Those targets must fix the missing dependency / add an explicit
+          // type instead.
+          @OptIn(SymbolInternals::class)
+          private fun stripErrorTypedPrivateMembersFromDeclaration(declaration: IrClass) {
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
+            val firClass = firMetadataSource.fir as? FirRegularClass ?: return
+
+            firClass.symbol.declarationSymbols.forEach { symbol ->
+              val decl = (symbol as? FirCallableSymbol<*>)?.fir ?: return@forEach
+              if (!isNonApiVisibility(decl)) return@forEach
+              if (hasErrorReturnType(decl)) {
+                runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+              }
+              // The metadata serializer collects functions/constructors from the class member
+              // SCOPE, which references these same symbols' FIR. An error-typed value parameter
+              // (e.g. a parameter typed by a nested enum of a stubbed dependency such as
+              // `CdsNavigationBar.Action`) crashes FirElementSerializer.valueParameterProto the
+              // same
+              // way an error return type does, so degrade those to `Any?` here as well. The
+              // IR-visitor pass only reaches parameters via firClass.declarations, which can be
+              // missing members that are served only from the member scope.
+              if (decl is FirFunction) {
+                decl.valueParameters.forEach { param ->
+                  if (hasErrorReturnType(param)) {
+                    runCatching {
+                      param.replaceReturnTypeRef(session.builtinTypes.nullableAnyType)
+                    }
+                  }
+                }
+              }
+            }
+
+            // Belt-and-suspenders: also cover anything present only in firClass.declarations.
+            firClass.declarations.forEach { decl ->
+              if (
+                  decl is FirCallableDeclaration &&
+                      isNonApiVisibility(decl) &&
+                      hasErrorReturnType(decl)
+              ) {
+                runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+              }
+            }
+          }
+
+          // Same degradation as stripErrorTypedPrivateMembersFromDeclaration, for non-API members
+          // the class-scoped pass does not reach: top-level (file-facade) and companion members.
+          private fun replaceErrorReturnTypeWithAny(
+              declaration: IrDeclarationBase,
+              session: FirSession,
+          ) {
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
+            val fir = firMetadataSource.fir as? FirCallableDeclaration ?: return
+            if (!isNonApiVisibility(fir)) return
+            if (!hasErrorReturnType(fir)) return
+            runCatching { fir.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+          }
+
+          // For a non-API function/constructor with a value parameter whose type resolved to an
+          // error type in source-only ABI, replace that parameter type with `Any?` so
+          // FirElementSerializer can serialize it instead of crashing in valueParameterProto with
+          // "Cannot serialize error type". In source-only ABI a parameter typed by a symbol absent
+          // from a stubbed dependency (e.g. a nested enum like `CdsNavigationBar.Action`) resolves
+          // to an error type. Mirrors replaceErrorReturnTypeWithAny for parameters.
+          private fun replaceErrorValueParameterTypesWithAny(
+              declaration: IrDeclarationBase,
+              session: FirSession,
+          ) {
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
+            val fir = firMetadataSource.fir as? FirFunction ?: return
+            if (!isNonApiVisibility(fir)) return
+            fir.valueParameters.forEach { param ->
+              if (hasErrorReturnType(param)) {
+                runCatching { param.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+              }
+            }
           }
 
           // --- @Throws stripping helpers ---
@@ -601,6 +706,32 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
 
   // --- FIR tree sanitizing visitor for cleanupFirTree ---
 
+  // A type ref left in an unresolved/inconsistent state after failed inference can throw on
+  // coneType access; treat that as an error too.
+  private fun hasErrorReturnType(decl: FirCallableDeclaration): Boolean = runCatching {
+    decl.returnTypeRef.coneType.containsErrorType()
+  }
+      .getOrDefault(true)
+
+  // Detect error types anywhere in a type, including nested type arguments. Inference failures
+  // often leave the outer type resolved but a type argument as an error type
+  // (e.g. `private val x = AtomicReference(Dep.UNRESOLVED)` -> `AtomicReference<ERROR>`), which
+  // FirElementSerializer still cannot serialize.
+  private fun ConeKotlinType.containsErrorType(): Boolean {
+    if (this is ConeErrorType) return true
+    return typeArguments.any { projection -> projection.type?.containsErrorType() == true }
+  }
+
+  // Only non-API members may have an unserializable error type degraded to `Any?`: they are
+  // stripped from the ABI bytecode anyway, so metadata and bytecode stay consistent. Degrading an
+  // API member would make the ABI lie to consumers.
+  private fun isNonApiVisibility(decl: FirCallableDeclaration): Boolean {
+    val visibility = decl.status.visibility
+    return visibility == Visibilities.Private ||
+        visibility == Visibilities.PrivateToThis ||
+        visibility == Visibilities.Local
+  }
+
   /**
    * Single-pass visitor that sanitizes FIR tree:
    * 1. Strips ALL annotations that have error expressions in their arguments.
@@ -626,6 +757,43 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
         }
       }
       super.visitProperty(property)
+    }
+
+    override fun visitRegularClass(regularClass: FirRegularClass) {
+      degradeErrorTypedNonApiMemberReturnTypes(regularClass)
+      super.visitRegularClass(regularClass)
+    }
+
+    // Degrade non-API (private/local) members whose (inferred) type resolved to an error type to
+    // `Any?`. Under source-only ABI, an inferred private member whose type flows through a stubbed
+    // dependency member can get a ConeErrorType (e.g. `private val x = Dep.factory(...)`,
+    // `private val y = AtomicReference(Dep.COMPANION_FIELD)`, or a SAM like
+    // `private val z = Dep.Listener { ... }` where the nested type is absent from the stub). Such a
+    // member is still serialized into JVM @Metadata (private members are kept when
+    // produceHeaderKlib=false), and FirElementSerializer crashes on the error type ("Cannot
+    // serialize error type ...").
+    //
+    // The metadata serializer collects non-static members from the class's UNSUBSTITUTED MEMBER
+    // SCOPE (FirElementSerializer.memberDeclarations -> processAllProperties/processAllFunctions),
+    // NOT from firClass.declarations. That scope is built during the frontend and references the
+    // same FirProperty/FirFunction instances that back firClass.declarations. Merely removing a
+    // member from firClass.declarations here does NOT remove it from the already-built scope, so
+    // the serializer still sees it (with its error type) and crashes. Instead we DEGRADE the return
+    // type on the shared FIR instance to `Any?`; because the scope references the same instance,
+    // the
+    // serializer then serializes `Any?` and succeeds. This is non-lossy: the member is
+    // private/local
+    // (not part of the ABI) and is stripped from IR/bytecode by the IR sanitizer and from @Metadata
+    // by PrivateMetadataStripper.
+    private fun degradeErrorTypedNonApiMemberReturnTypes(firClass: FirRegularClass) {
+      val session = firClass.moduleData.session
+      firClass.declarations.forEach { decl ->
+        if (
+            decl is FirCallableDeclaration && isNonApiVisibility(decl) && hasErrorReturnType(decl)
+        ) {
+          runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+        }
+      }
     }
 
     private fun findFieldInHierarchy(
