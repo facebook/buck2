@@ -18,7 +18,6 @@
 
 import argparse
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -75,32 +74,6 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def expand_response_files(args: list[str]) -> list[str]:
-    """Inline the contents of any `@file` argument.
-
-    When the argv would exceed the OS command-line limit (which a Rust link
-    line always does on Windows), rustc re-invokes the linker with all
-    arguments in a single `@file`: one argument per line, backslashes and
-    spaces escaped with a backslash. That is the gcc-flavored form of rustc's
-    fallback; msvc-flavored linkers get UTF-16 instead, which we reject.
-    """
-    expanded = []
-    for arg in args:
-        if not arg.startswith("@"):
-            expanded.append(arg)
-            continue
-        data = Path(arg[1:]).read_bytes()
-        if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
-            eprint(
-                f"extract_link_action.py: {arg} is UTF-16; msvc-flavored response files are unsupported"
-            )
-            sys.exit(1)
-        for line in data.decode("utf-8").splitlines():
-            if line:
-                expanded.append(re.sub(r"\\(.)", r"\1", line))
-    return expanded
-
-
 def process_link_args(
     args: list[str], out_artifacts: Path, collect_objects: bool
 ) -> tuple[list[str], list[str]]:
@@ -142,10 +115,7 @@ def process_link_args(
             if path.parent.is_absolute():
                 temp_dirs.add(str(path.parent))
             handled.add(arg)
-
-            # Forward slashes regardless of host: the argsfile is consumed as
-            # a gnu-style response file, where backslashes are escapes.
-            new_path = shutil.copy(path, out_artifacts).replace(os.sep, "/")
+            new_path = shutil.copy(path, out_artifacts)
             if collect_objects:
                 objects.append(new_path)
             else:
@@ -181,15 +151,6 @@ def process_link_args(
         eprint("Teach process_link_args() about them.")
         sys.exit(1)
 
-    # rustc always passes at least the crate's own codegen-unit objects, so
-    # extracting nothing means the argv was misparsed. This also backstops the
-    # check above, which is blind when no extraction established `temp_dirs`.
-    if not objects and not new_args:
-        eprint(
-            "extract_link_action.py: extracted no objects from rustc's link line; teach process_link_args() about whatever form it took"
-        )
-        sys.exit(1)
-
     return new_args, objects
 
 
@@ -213,7 +174,7 @@ def main() -> int:
     archiving = archiver_argsfile is not None and out_archive is not None
 
     filtered_args, objects = process_link_args(
-        expand_response_files(args.linker[1:]),
+        args.linker[1:],
         out_artifacts=args.out_artifacts,
         collect_objects=archiving,
     )

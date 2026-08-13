@@ -1970,16 +1970,12 @@ def deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit
     if not compile_ctx.toolchain_info.advanced_unstable_linking or emit != Emit("link"):
         return False
 
-    # The extraction preserves only rustc's synthesized objects and drops the
-    # rest of its linker argv, which is sound only when everything dropped is
-    # redundant with what the toolchain and dependency graph provide. That has
-    # been validated for gcc-style argv only. Windows-style argv (`/OUT:`) is
-    # also unparsed — AUL windows-msvc configs exist solely in the rustc
-    # bootstrap toolchain — and for wasm the dropped flags (`--export`,
-    # `--no-entry`, ...) are load-bearing, and wasm AUL binaries exist
-    # (fbcode/cards).
+    # The extraction wrapper does not handle windows-style paths and flags
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
     if linker_type != LinkerType("gnu") and linker_type != LinkerType("darwin"):
+        return False
+
+    if compile_ctx.exec_is_windows:
         return False
 
     # TODO: support cdylib deferred link
