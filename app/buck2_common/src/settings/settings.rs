@@ -220,13 +220,28 @@ mod tests {
     #[test]
     fn test_all_settings_are_registered() {
         // Remove once buck_settings! macro generates both BuckSettingsData and registry
-        let fields: BTreeSet<String> = serde_json::to_value(BuckSettingsData::default())
-            .expect("`BuckSettingsData` should serialize")
-            .as_object()
-            .expect("`BuckSettingsData` should serialize to a JSON object")
-            .keys()
-            .cloned()
-            .collect();
+        fn collect_fields(prefix: Option<&str>, value: &serde_json::Value) -> BTreeSet<String> {
+            value
+                .as_object()
+                .expect("settings data should serialize to a JSON object")
+                .iter()
+                .flat_map(|(name, value)| {
+                    let path = match prefix {
+                        Some(prefix) => format!("{prefix}.{name}"),
+                        None => name.to_owned(),
+                    };
+                    if value.is_object() {
+                        collect_fields(Some(&path), value)
+                    } else {
+                        BTreeSet::from([path])
+                    }
+                })
+                .collect()
+        }
+
+        let serialized = serde_json::to_value(BuckSettingsData::default())
+            .expect("`BuckSettingsData` should serialize");
+        let fields = collect_fields(None, &serialized);
         let registered: BTreeSet<String> = ALL_SETTING_METADATA
             .iter()
             .map(|metadata| match metadata.key.section {
