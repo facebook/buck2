@@ -134,8 +134,11 @@ example:
 - `buck2 kill` only kills the daemon associated with the specified isolation
   directory
 
-There are exceptions, such as `buck2 killall`, which affects all Buck2 processes
-regardless of their isolation directories.
+There are exceptions, such as `buck2 killall`, which by default affects all
+Buck2 processes regardless of their isolation directories. Passing
+`--in-isolation-dir` to `buck2 killall` restricts it to processes using that
+isolation directory, and `buck2 killall --repo` restricts it to processes
+running in the current repository.
 
 ## Example Use Cases
 

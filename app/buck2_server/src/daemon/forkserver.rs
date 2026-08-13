@@ -11,6 +11,7 @@
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 
 #[cfg(unix)]
@@ -18,6 +19,7 @@ pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
     forkserver_state_dir: &AbsNormPath,
     cgroup_tree: Option<&BuckCgroupTree>,
+    isolation_dir: &FileNameBuf,
 ) -> buck2_error::Result<ForkserverAccess> {
     use buck2_common::legacy_configs::key::BuckconfigKeyRef;
     use buck2_core::rollout_percentage::RolloutPercentage;
@@ -38,7 +40,9 @@ pub async fn maybe_launch_forkserver(
     Ok(ForkserverAccess::Client(
         buck2_forkserver::launch::launch_forkserver(
             exe,
-            &["forkserver"],
+            // `--isolation-dir` is not read by the forkserver itself; it is carried on the
+            // command line so that `buck2 killall --isolation-dir` can attribute the process.
+            &["forkserver", "--isolation-dir", isolation_dir.as_str()],
             forkserver_state_dir,
             cgroup_tree,
         )
@@ -51,6 +55,7 @@ pub async fn maybe_launch_forkserver(
     _root_config: &LegacyBuckConfig,
     _forkserver_state_dir: &AbsNormPath,
     _cgroup_tree: Option<&BuckCgroupTree>,
+    _isolation_dir: &FileNameBuf,
 ) -> buck2_error::Result<ForkserverAccess> {
     Ok(ForkserverAccess::None)
 }

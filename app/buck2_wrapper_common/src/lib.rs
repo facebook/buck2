@@ -15,6 +15,7 @@
 
 #![feature(once_cell_try)]
 
+use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -49,15 +50,64 @@ struct ProcessInfo {
     pid: Pid,
     name: String,
     isolation_dir: Option<String>,
+    cwd: Option<PathBuf>,
+}
+
+/// Restricts which buck2 processes [`killall`] targets. The default value matches every process.
+///
+/// Both criteria are best-effort: they rely on information read from each candidate process
+/// (command line and working directory). Processes for which that information is unavailable
+/// are skipped and reported, not killed.
+#[derive(Default)]
+pub struct KillallFilter {
+    /// Only kill processes whose command line carries this `--isolation-dir` value.
+    ///
+    /// Daemons always qualify because the client spawns them with the flag; client processes
+    /// launched without an explicit `--isolation-dir` argument have an unknown isolation dir.
+    pub isolation_dir: Option<String>,
+    /// Only kill processes whose working directory is inside this project root.
+    ///
+    /// The path is compared against `/proc`-style fully-resolved working directories, so it
+    /// should be canonicalized by the caller.
+    pub project_root: Option<PathBuf>,
+}
+
+enum FilterResult {
+    Kill,
+    Exclude,
+    /// The process cannot be attributed for the given reason, e.g. its command line does not
+    /// carry an isolation dir.
+    Unknown(&'static str),
+}
+
+impl KillallFilter {
+    fn classify(&self, process: &ProcessInfo) -> FilterResult {
+        if let Some(want) = &self.isolation_dir {
+            match &process.isolation_dir {
+                Some(dir) if dir == want => {}
+                Some(_) => return FilterResult::Exclude,
+                None => return FilterResult::Unknown("unknown isolation dir"),
+            }
+        }
+        if let Some(root) = &self.project_root {
+            match &process.cwd {
+                Some(cwd) if cwd.starts_with(root) => {}
+                Some(_) => return FilterResult::Exclude,
+                None => return FilterResult::Unknown("unknown working directory"),
+            }
+        }
+        FilterResult::Kill
+    }
 }
 
 /// Extract the isolation dir from a buck2 process's command line.
 ///
-/// buck2 daemons and clients are launched with the global `--isolation-dir <name>`
-/// flag (see `buck2_client_ctx::daemon::client::connect`), accepting both the
-/// `--isolation-dir <name>` and `--isolation-dir=<name>` forms. Returns `None` when
-/// the flag is absent (e.g. the isolation dir was supplied via the
-/// `BUCK_ISOLATION_DIR` env var, which does not appear in argv).
+/// buck2 daemons, forkservers and clients are launched with the global
+/// `--isolation-dir <name>` flag (see `buck2_client_ctx::daemon::client::connect`),
+/// accepting both the `--isolation-dir <name>` and `--isolation-dir=<name>` forms.
+/// Returns `None` when the flag is absent (e.g. the isolation dir was supplied via
+/// the `BUCK_ISOLATION_DIR` env var, which does not appear in argv, or the process
+/// predates the flag being added to forkserver spawns).
 fn parse_isolation_dir(cmd: &[String]) -> Option<String> {
     let mut args = cmd.iter();
     while let Some(arg) = args.next() {
@@ -108,7 +158,10 @@ fn get_all_tgids_linux() -> Option<BuckMutSet<sysinfo::Pid>> {
 }
 
 /// Find all buck2 processes in the system.
-fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
+///
+/// Working directories are only collected when `collect_cwd` is set, as sysinfo has to read
+/// them per-process.
+fn find_buck2_processes(who_is_asking: WhoIsAsking, collect_cwd: bool) -> Vec<ProcessInfo> {
     let mut system = System::new();
     let linux_tgids =
         get_all_tgids_linux().map(|pids| pids.into_iter().collect::<Vec<sysinfo::Pid>>());
@@ -148,6 +201,7 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
                     pid,
                     name: process.name().to_string_lossy().into_owned(),
                     isolation_dir: None,
+                    cwd: None,
                 },
             ));
         }
@@ -158,10 +212,14 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
         .map(|(pid, _)| *pid)
         .collect::<Vec<_>>();
     if !matched_pids.is_empty() {
+        let mut refresh_kind = ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always);
+        if collect_cwd {
+            refresh_kind = refresh_kind.with_cwd(UpdateKind::Always);
+        }
         system.refresh_processes_specifics(
             ProcessesToUpdate::Some(&matched_pids),
             true,
-            ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always),
+            refresh_kind,
         );
     }
 
@@ -175,19 +233,40 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
                     .map(|s| s.to_string_lossy().into_owned())
                     .collect::<Vec<_>>();
                 process_info.isolation_dir = parse_isolation_dir(&cmd);
+                process_info.cwd = process.cwd().map(|cwd| cwd.to_path_buf());
             }
             process_info
         })
         .collect()
 }
 
-/// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
+/// Kills all running Buck2 processes matching `filter`, except this process's hierarchy.
+/// Processes the filter cannot attribute are reported and left alone. Returns whether it
 /// succeeded without errors.
-pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
-    let buck2_processes = find_buck2_processes(who_is_asking);
+pub fn killall(who_is_asking: WhoIsAsking, filter: &KillallFilter, write: impl Fn(String)) -> bool {
+    let found = find_buck2_processes(who_is_asking, filter.project_root.is_some());
+    let found_any = !found.is_empty();
+
+    let mut buck2_processes = Vec::new();
+    for process in found {
+        match filter.classify(&process) {
+            FilterResult::Kill => buck2_processes.push(process),
+            FilterResult::Exclude => {}
+            FilterResult::Unknown(reason) => {
+                write(format!(
+                    "Skipped {} ({}): {reason}",
+                    process.name, process.pid
+                ));
+            }
+        }
+    }
 
     if buck2_processes.is_empty() {
-        write("No buck2 processes found".to_owned());
+        if found_any {
+            write("No buck2 processes matched the requested filter".to_owned());
+        } else {
+            write("No buck2 processes found".to_owned());
+        }
         return true;
     }
 
@@ -299,6 +378,78 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_killall_filter_classify() {
+        let process = |isolation_dir: Option<&str>, cwd: Option<&str>| ProcessInfo {
+            pid: Pid::from_u32(1).expect("1 should be a valid pid"),
+            name: "buck2".to_owned(),
+            isolation_dir: isolation_dir.map(str::to_owned),
+            cwd: cwd.map(PathBuf::from),
+        };
+        let filter = |isolation_dir: Option<&str>, project_root: Option<&str>| KillallFilter {
+            isolation_dir: isolation_dir.map(str::to_owned),
+            project_root: project_root.map(PathBuf::from),
+        };
+
+        for (filter, process, expected) in [
+            // Empty filter kills everything, attributed or not.
+            (filter(None, None), process(None, None), "kill"),
+            // Isolation dir filter.
+            (filter(Some("v2"), None), process(Some("v2"), None), "kill"),
+            (
+                filter(Some("v2"), None),
+                process(Some("other"), None),
+                "exclude",
+            ),
+            (filter(Some("v2"), None), process(None, None), "unknown"),
+            // Project root filter, including a process in a subdirectory of the root.
+            (
+                filter(None, Some("/repo")),
+                process(None, Some("/repo")),
+                "kill",
+            ),
+            (
+                filter(None, Some("/repo")),
+                process(None, Some("/repo/sub/dir")),
+                "kill",
+            ),
+            // Component-wise comparison: `/repo2` is not inside `/repo`.
+            (
+                filter(None, Some("/repo")),
+                process(None, Some("/repo2")),
+                "exclude",
+            ),
+            (filter(None, Some("/repo")), process(None, None), "unknown"),
+            // Both criteria must pass.
+            (
+                filter(Some("v2"), Some("/repo")),
+                process(Some("v2"), Some("/repo")),
+                "kill",
+            ),
+            (
+                filter(Some("v2"), Some("/repo")),
+                process(Some("v2"), Some("/elsewhere")),
+                "exclude",
+            ),
+            (
+                filter(Some("v2"), Some("/repo")),
+                process(Some("other"), Some("/repo")),
+                "exclude",
+            ),
+        ] {
+            let actual = match filter.classify(&process) {
+                FilterResult::Kill => "kill",
+                FilterResult::Exclude => "exclude",
+                FilterResult::Unknown(_) => "unknown",
+            };
+            assert_eq!(
+                expected, actual,
+                "filter ({:?}, {:?}) applied to process ({:?}, {:?})",
+                filter.isolation_dir, filter.project_root, process.isolation_dir, process.cwd,
+            );
+        }
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn test_find_buck2_processes() {
@@ -361,7 +512,7 @@ mod tests {
         let child_pid = child.id();
         let _guard = ChildGuard { child, temp_dir };
 
-        let processes = find_buck2_processes(WhoIsAsking::Buck2);
+        let processes = find_buck2_processes(WhoIsAsking::Buck2, true);
         let child_process = processes
             .iter()
             .find(|process| process.pid.to_u32() == child_pid)
@@ -369,6 +520,10 @@ mod tests {
         assert_eq!(
             Some("process-scan-test"),
             child_process.isolation_dir.as_deref(),
+        );
+        assert!(
+            child_process.cwd.is_some(),
+            "scan should collect the child's working directory when asked to",
         );
 
         let current_pid = std::process::id();

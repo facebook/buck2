@@ -2,9 +2,23 @@
 
 Kill all buck2 processes on the machine
 
+By default this kills every buck2 process regardless of repository or isolation dir.
+Passing `--in-isolation-dir` narrows the kill to processes using that isolation dir, and
+`--repo` narrows it to processes running in the current repository. Processes that
+cannot be checked against the requested filter are skipped and reported.
+
 Usage: buck2 killall [OPTIONS]
 
 Options:
+      --in-isolation-dir <ISOLATION_DIR>
+          Only kill buck2 processes using this isolation dir.
+
+          Unlike the global `--isolation-dir` flag, this does not default to `v2`; when omitted,
+          processes of every isolation dir are killed.
+
+      --repo
+          Only kill buck2 processes running in the current repository (project root)
+
   -h, --help
           Print help (see a summary with '-h')
 
