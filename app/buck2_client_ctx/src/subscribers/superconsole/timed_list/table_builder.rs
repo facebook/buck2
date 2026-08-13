@@ -142,7 +142,7 @@ impl SummaryRow {
             "{}/{} running tasks shown",
             self.visible_roots, self.total_roots
         );
-        Line::from_iter([Span::new_styled_lossy(summary.dark_grey().italic())])
+        Line::from_iter([Span::new_styled_lossy(summary.italic())])
     }
 }
 
@@ -233,7 +233,7 @@ impl TimedRow {
         };
 
         let primary = Line::from_iter(primary);
-        let time = Line::from_iter([Span::new_styled(style(time).dark_grey())?]);
+        let time = Line::from_iter([Span::new_styled(style(time))?]);
         Ok(Self {
             primary,
             detail,
@@ -260,7 +260,7 @@ impl DetailCell {
         } = self;
         let mut spans = Vec::new();
         let Some(category) = category else {
-            spans.push(Span::new_styled(style(" · ".to_owned()).dark_grey())?);
+            spans.push(Span::new_styled(style(" · ".to_owned()))?);
             spans.push(Span::new_styled(styled_for_delay(
                 style(text),
                 age,
@@ -273,7 +273,7 @@ impl DetailCell {
             .strip_prefix(&category)
             .filter(|rest| rest.is_empty() || rest.starts_with(' '));
         let Some(rest) = rest else {
-            spans.push(Span::new_styled(style(" · ".to_owned()).dark_grey())?);
+            spans.push(Span::new_styled(style(" · ".to_owned()))?);
             spans.push(Span::new_styled(styled_for_delay(
                 style(text),
                 age,
@@ -282,7 +282,7 @@ impl DetailCell {
             return Ok(Line::from_iter(spans));
         };
 
-        spans.push(Span::new_styled(style(" [".to_owned()).dark_grey())?);
+        spans.push(Span::new_styled(style(" [".to_owned()))?);
         spans.push(Span::new_styled(styled_for_delay(
             style(category),
             age,
@@ -299,7 +299,7 @@ impl DetailCell {
                 cutoffs,
             ))?);
         }
-        spans.push(Span::new_styled(style("]".to_owned()).dark_grey())?);
+        spans.push(Span::new_styled(style("]".to_owned()))?);
 
         let detail_width = spans.iter().map(|span| span.len()).sum::<usize>();
         if has_aux && detail_width < ACTION_DETAIL_MIN_WIDTH {
@@ -323,7 +323,7 @@ impl AuxCell {
             None => text,
         };
         Ok(Line::from_iter([Span::new_styled(styled_for_delay(
-            style(text).dark_grey(),
+            style(text),
             age,
             cutoffs,
         ))?]))
@@ -404,8 +404,8 @@ mod tests {
         let output = output.fmt_for_test().to_string();
         let expected = concat!(
             "root//third-party/rust:tikv-jemalloc-sys-0.6-buildscript ",
-            "<span fg=dark_grey>loca...</span> ",
-            "<span fg=dark_grey>1:47.6s</span>\n",
+            "loca... ",
+            "1:47.6s\n",
         );
 
         pretty_assertions::assert_eq!(output, expected);
@@ -435,10 +435,7 @@ mod tests {
             superconsole::DrawMode::Normal,
         )?;
         let output = output.fmt_for_test().to_string();
-        let expected = concat!(
-            "root//third-party/rust:ti... ",
-            "<span fg=dark_grey>1:47.6s</span>\n",
-        );
+        let expected = concat!("root//third-party/rust:ti... ", "1:47.6s\n",);
 
         pretty_assertions::assert_eq!(output, expected);
 
@@ -470,8 +467,8 @@ mod tests {
         let output = output.fmt_for_test().to_string();
         let expected = concat!(
             "root//third-party/rust:short-target ",
-            "<span fg=dark_grey>local_exe...</span> ",
-            "<span fg=dark_grey>1:47.6s</span>\n",
+            "local_exe... ",
+            "1:47.6s\n",
         );
 
         pretty_assertions::assert_eq!(output, expected);
@@ -503,9 +500,9 @@ mod tests {
         let output = output.fmt_for_test().to_string();
         let expected = concat!(
             "root//third-party/rust:zerocopy",
-            "<span fg=dark_grey> [</span>download_file crate<span fg=dark_grey>]</span>",
+            " [download_file crate]",
             "                      ",
-            "<span fg=dark_grey>12.0s</span>\n",
+            "12.0s\n",
         );
 
         pretty_assertions::assert_eq!(output, expected);
@@ -537,10 +534,10 @@ mod tests {
         let output = output.fmt_for_test().to_string();
         let expected = concat!(
             "root//third-party/rust:serde_bytes-0.11",
-            "<span fg=dark_grey> [</span>deps  0<span fg=dark_grey>]</span> ",
+            " [deps  0] ",
             "<span fg=dark_red>local_execute   0.1s</span>",
             "                                             ",
-            "<span fg=dark_grey>12.6s</span>\n",
+            "12.6s\n",
         );
 
         pretty_assertions::assert_eq!(output, expected);

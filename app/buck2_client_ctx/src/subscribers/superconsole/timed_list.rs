@@ -373,11 +373,13 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-
             "────────────────────────────────────────",
-            "test<span fg=dark_grey> · </span>speak of the devil           <span fg=dark_grey>3.0s</span>",
-            "foo<span fg=dark_grey> · </span>speak of the devil            <span fg=dark_grey>1.0s</span>",
-        ].iter().map(|l| format!("{l}\n")).join("");
+            "test · speak of the devil           3.0s",
+            "foo · speak of the devil            1.0s",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
@@ -458,8 +460,8 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────",
-            "e1<span fg=dark_grey> · </span>speak of the devil             <span fg=dark_grey>1.0s</span>",
-            "<span fg=dark_grey italic>1/3 running tasks shown</span>",
+            "e1 · speak of the devil             1.0s",
+            "<span italic>1/3 running tasks shown</span>",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
@@ -509,8 +511,11 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
-            ].iter().map(|l| format!("{l}\n")).join("");
+                "pkg:target [category identifier]                       10.0s",
+            ]
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
         }
@@ -528,7 +533,7 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
+                "pkg:target [category identifier]                       10.0s",
             ]
             .iter()
             .map(|l| format!("{l}\n"))
@@ -600,7 +605,7 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s</span>                      <span fg=dark_grey>10.0s</span>",
+            "pkg:target [category identifier] prepare         5.0s                      10.0s",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
@@ -652,7 +657,7 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s + 1</span>                  <span fg=dark_grey>10.0s</span>",
+            "pkg:target [category identifier] prepare         5.0s + 1                  10.0s",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
