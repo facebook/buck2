@@ -1883,11 +1883,13 @@ def can_emit_rlib_from_link(compile_ctx: CompileContext) -> bool:
     # The extraction preserves rustc's synthesized objects — plus wasm-ld's
     # `--export`/entry args, the wasm analogue of `symbols.o` — and drops the
     # rest of its linker argv, which is sound only when everything dropped is
-    # redundant with what the toolchain and dependency graph provide. Flags
-    # injected via `-Clink-arg` would be silently lost, which the check in
-    # `rust_compile` turns into an analysis failure, and a synthesized link
-    # input the extraction does not recognize fails it loudly.
-    return True
+    # redundant with what the toolchain and dependency graph provide. That has
+    # been validated for gcc-style and wasm-ld argv; flags injected via
+    # `-Clink-arg` would be silently lost, which the check in `rust_compile`
+    # turns into an analysis failure. Windows-style argv (`/OUT:`, UTF-16
+    # response files, raw-dylib import libraries) is unparsed; AUL
+    # windows-msvc configs exist solely in the rustc bootstrap toolchain.
+    return compile_ctx.cxx_toolchain_info.linker_info.type != LinkerType("windows")
 
 def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> bool:
     if not getattr(ctx.attrs, "enable_distributed_thinlto", False):
