@@ -18,10 +18,11 @@ use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::quote_spanned;
+use syn::Data;
+use syn::DeriveInput;
 use syn::GenericParam;
 use syn::Ident;
 use syn::ItemImpl;
-use syn::ItemStruct;
 use syn::ItemTrait;
 use syn::Path;
 use syn::spanned::Spanned;
@@ -143,15 +144,19 @@ fn typetag_struct(
     item: TokenStream,
     self_ty: &syn::Type,
     trait_path: &syn::Path,
-    type_tag: &str,
+    type_ident: &str,
 ) -> TokenStream {
     quote! {
         #item
 
-        // Implement PagableTypeTag for the concrete type
+        // Implement PagableTypeTag for the concrete type. The tag matches
+        // the `PagableStableName` scheme (`module_path` + identifier;
+        // `module_path!` expands at the definition site), so a persisted tag
+        // never depends on which registration form a type uses and never
+        // collides between same-named types in different modules.
         impl pagable::typetag::PagableTypeTag for #self_ty {
             fn pagable_type_tag_static() -> &'static str {
-                #type_tag
+                concat!(module_path!(), "::", #type_ident)
             }
         }
 
@@ -322,82 +327,78 @@ pub fn pagable_typetag_impl(
         }
     };
 
-    // If we have a trait path try to parse as a struct
+    // If we have a trait path try to parse as a type definition
     if let Some(trait_path) = trait_path {
-        if let Ok(struct_item) = syn::parse::<ItemStruct>(item.clone()) {
-            let struct_name = &struct_item.ident;
+        let type_item = match syn::parse::<DeriveInput>(item) {
+            Ok(input) if !matches!(input.data, Data::Union(_)) => input,
+            _ => {
+                return syn::Error::new(
+                    Span::call_site(),
+                    "pagable_typetag with a trait argument can only be applied to struct or enum definitions",
+                )
+                .to_compile_error()
+                .into();
+            }
+        };
+        let type_name = &type_item.ident;
 
-            let has_generics = struct_item
+        let has_generics = type_item
+            .generics
+            .params
+            .iter()
+            .any(|param| matches!(param, GenericParam::Type(_) | GenericParam::Const(_)));
+        if has_generics {
+            // Generic type: register every monomorphization for the
+            // given dyn trait. This is the type-level counterpart of
+            // the generic impl form below, for traits the type only
+            // implements through a blanket impl (so there is no impl
+            // block to annotate).
+            if type_item
                 .generics
                 .params
                 .iter()
-                .any(|param| matches!(param, GenericParam::Type(_) | GenericParam::Const(_)));
-            if has_generics {
-                // Generic struct: register every monomorphization for the
-                // given dyn trait. This is the struct-level counterpart of
-                // the generic impl form below, for traits the struct only
-                // implements through a blanket impl (so there is no impl
-                // block to annotate).
-                if struct_item
-                    .generics
-                    .params
-                    .iter()
-                    .any(|param| matches!(param, GenericParam::Lifetime(_)))
-                {
-                    return syn::Error::new_spanned(
-                        &struct_item.generics,
-                        "pagable_typetag does not support lifetime parameters",
-                    )
-                    .to_compile_error()
-                    .into();
-                }
-
-                let (_impl_generics, ty_generics, _where_clause) =
-                    struct_item.generics.split_for_impl();
-                let self_ty: syn::Type = syn::parse_quote!(#struct_name #ty_generics);
-
-                // Generics for the generated items only — the struct
-                // definition itself is re-emitted untouched. Defaults are
-                // stripped because they are invalid in impl position.
-                let mut generics = struct_item.generics.clone();
-                for param in &mut generics.params {
-                    match param {
-                        GenericParam::Type(param) => param.default = None,
-                        GenericParam::Const(param) => param.default = None,
-                        GenericParam::Lifetime(_) => {}
-                    }
-                }
-                generics
-                    .make_where_clause()
-                    .predicates
-                    .push(syn::parse_quote! { #self_ty: pagable::typetag::PagableStableName });
-
-                let span = struct_item.span();
-                let item_tokens = quote_spanned! { span => #struct_item };
-                return match typetag_generic_struct(
-                    item_tokens,
-                    &generics,
-                    &self_ty,
-                    &trait_path,
-                    span,
-                ) {
-                    Ok(tokens) => tokens.into(),
-                    Err(err) => err.to_compile_error().into(),
-                };
+                .any(|param| matches!(param, GenericParam::Lifetime(_)))
+            {
+                return syn::Error::new_spanned(
+                    &type_item.generics,
+                    "pagable_typetag does not support lifetime parameters",
+                )
+                .to_compile_error()
+                .into();
             }
 
-            let type_tag = struct_name.to_string();
-            let self_ty: syn::Type = syn::parse_quote!(#struct_name);
-            let item_tokens = quote! { #struct_item };
-            return typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag).into();
-        } else {
-            return syn::Error::new(
-                Span::call_site(),
-                "pagable_typetag with a trait argument can only be applied to struct definitions",
-            )
-            .to_compile_error()
-            .into();
+            let (_impl_generics, ty_generics, _where_clause) = type_item.generics.split_for_impl();
+            let self_ty: syn::Type = syn::parse_quote!(#type_name #ty_generics);
+
+            // Generics for the generated items only — the type
+            // definition itself is re-emitted untouched. Defaults are
+            // stripped because they are invalid in impl position.
+            let mut generics = type_item.generics.clone();
+            for param in &mut generics.params {
+                match param {
+                    GenericParam::Type(param) => param.default = None,
+                    GenericParam::Const(param) => param.default = None,
+                    GenericParam::Lifetime(_) => {}
+                }
+            }
+            generics
+                .make_where_clause()
+                .predicates
+                .push(syn::parse_quote! { #self_ty: pagable::typetag::PagableStableName });
+
+            let span = type_item.span();
+            let item_tokens = quote_spanned! { span => #type_item };
+            return match typetag_generic_struct(item_tokens, &generics, &self_ty, &trait_path, span)
+            {
+                Ok(tokens) => tokens.into(),
+                Err(err) => err.to_compile_error().into(),
+            };
         }
+
+        let type_ident = type_name.to_string();
+        let self_ty: syn::Type = syn::parse_quote!(#type_name);
+        let item_tokens = quote! { #type_item };
+        return typetag_struct(item_tokens, &self_ty, &trait_path, &type_ident).into();
     }
 
     // Try to parse as a trait or impl block
@@ -456,7 +457,7 @@ pub fn pagable_typetag_impl(
             };
         }
 
-        let type_tag = if let syn::Type::Path(type_path) = &self_ty {
+        let type_ident = if let syn::Type::Path(type_path) = &self_ty {
             match type_path.path.segments.last() {
                 Some(seg) => seg.ident.to_string(),
                 None => {
@@ -477,7 +478,7 @@ pub fn pagable_typetag_impl(
             .into();
         };
         let item_tokens = quote! { #impl_item };
-        typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag).into()
+        typetag_struct(item_tokens, &self_ty, &trait_path, &type_ident).into()
     } else {
         syn::Error::new(
             Span::call_site(),

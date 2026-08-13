@@ -574,7 +574,11 @@ mod tests {
             name: Arc::new("test".to_owned()),
         });
 
-        assert_eq!(value.pagable_type_tag(), "Key");
+        assert_eq!(
+            value.pagable_type_tag(),
+            "pagable::typetag::tests::Key",
+            "concrete typetag forms should compose the same stable names as generic forms"
+        );
 
         let mut serializer = TestingSerializer::new();
         value.serialize_tagged(&mut serializer)?;
