@@ -17,48 +17,70 @@
 // The macros below expand to a `const _` item, so they can be invoked at module level. Do not wrap
 // the expansion in a block `{ ... }` - that turns it into a block expression that is only valid in
 // statement position.
+//
+// Each macro is spelled as a `__`-prefixed `macro_rules!` definition plus a re-export under its
+// real name: `#[macro_export]` can only put a macro at the crate root, and the re-export is what
+// makes it reachable as `size_assert::<name>`.
 
 /// Assert that the provided type has size equal to the specified number of pointers.
-#[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_type($ty:ty, $w:literal) {
-    const _: () = {
-        const ACTUAL_BYTES: usize = ::core::mem::size_of::<$ty>();
-        const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+pub use crate::__words_of_type as words_of_type;
 
-        let _ = <$ty as $crate::size_assert::__macro_refs::TypeHasExpectedWordSize<
-            ACTUAL_BYTES,
-            { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
-            EXPECTED_BYTES,
-            $w,
-        >>::ASSERT;
+#[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_type {
+    ($ty:ty, $w:literal) => {
+        const _: () = {
+            const ACTUAL_BYTES: usize = ::core::mem::size_of::<$ty>();
+            const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+
+            let _ = <$ty as $crate::size_assert::__macro_refs::TypeHasExpectedWordSize<
+                ACTUAL_BYTES,
+                { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
+                EXPECTED_BYTES,
+                $w,
+            >>::ASSERT;
+        };
     };
 }
 
 // Note that it's very intentional that the `cfg` is outside the macro, not inside it. That way it
 // only needs to be set when building this crate, not whichever crate uses this one.
 
-/// Does nothing in this configuration
 #[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
-pub macro words_of_type($($t:tt)*) {}
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_type {
+    ($($t:tt)*) => {};
+}
 
 /// Assert that the two provided types have equal size.
 ///
 /// Prefer [`words_of_type`] when asserting against a fixed number of pointers; reach for this when
 /// the point is that one type is layout-compatible with another (e.g. a newtype around `Arc<str>`).
+pub use crate::__same_size as same_size;
+
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro same_size($a:ty, $b:ty) {
-    const _: () = {
-        let _ = <$a as $crate::size_assert::__macro_refs::SameSizeAs<
-            $b,
-            { ::core::mem::size_of::<$a>() },
-            { ::core::mem::size_of::<$b>() },
-        >>::ASSERT;
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __same_size {
+    ($a:ty, $b:ty) => {
+        const _: () = {
+            let _ = <$a as $crate::size_assert::__macro_refs::SameSizeAs<
+                $b,
+                { ::core::mem::size_of::<$a>() },
+                { ::core::mem::size_of::<$b>() },
+            >>::ASSERT;
+        };
     };
 }
 
-/// Does nothing in this configuration
 #[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
-pub macro same_size($($t:tt)*) {}
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __same_size {
+    ($($t:tt)*) => {};
+}
 
 /// Assert that the future returned by the given async fn has size equal to the specified number of
 /// pointers.
@@ -79,8 +101,12 @@ pub macro same_size($($t:tt)*) {}
 ///
 /// Like the `_` placeholders, explicit arguments are only ever type-checked, never run, so they may
 /// themselves be (or contain) `panic!()`.
+pub use crate::__words_of_async_fn_future as words_of_async_fn_future;
+
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_async_fn_future {
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_async_fn_future {
     ($f:path, ($($arg:tt)*), $w:literal) => {
         const _: () = {
             // The body is only ever type-checked, never run: the placeholders construct a value of
@@ -93,7 +119,7 @@ pub macro words_of_async_fn_future {
                 );
             }
         };
-    },
+    };
     ($f:path, ($($arg:tt)*), ~ $w:literal) => {
         const _: () = {
             #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
@@ -103,12 +129,15 @@ pub macro words_of_async_fn_future {
                 );
             }
         };
-    },
+    };
 }
 
-/// Does nothing in this configuration
 #[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
-pub macro words_of_async_fn_future($($t:tt)*) {}
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_async_fn_future {
+    ($($t:tt)*) => {};
+}
 
 /// Assert that the value of the given expression has size equal to the specified number of
 /// pointers.
@@ -122,8 +151,12 @@ pub macro words_of_async_fn_future($($t:tt)*) {}
 /// ```
 ///
 /// Supports the same approximate `~N` size spelling as [`words_of_async_fn_future`].
+pub use crate::__words_of_expr as words_of_expr;
+
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_expr {
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_expr {
     ($e:expr, $w:literal) => {
         const _: () = {
             #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
@@ -140,7 +173,7 @@ pub macro words_of_expr {
                 >::assert_size(|| $e);
             }
         };
-    },
+    };
     ($e:expr, ~ $w:literal) => {
         const _: () = {
             #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
@@ -161,12 +194,15 @@ pub macro words_of_expr {
                 >::assert_size(|| $e);
             }
         };
-    },
+    };
 }
 
-/// Does nothing in this configuration
 #[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
-pub macro words_of_expr($($t:tt)*) {}
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __words_of_expr {
+    ($($t:tt)*) => {};
+}
 
 #[allow(missing_docs)]
 #[doc(hidden)]
@@ -336,7 +372,11 @@ pub mod __macro_refs {
     /// `expr` (ruling out `$(:expr),*`), while explicit arguments may be multi-token expressions
     /// (ruling out `$(:tt),*`). The size spec (`N` or `~ N`) rides along unchanged and selects
     /// which assertion is emitted at the end.
-    pub macro assert_async_fn_future_size {
+    pub use crate::__assert_async_fn_future_size as assert_async_fn_future_size;
+
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __assert_async_fn_future_size {
         // All arguments consumed: emit the exact assertion.
         (($f:path) ($w:literal) ($($arg:expr,)*)) => {
             const ACTUAL_BYTES: usize = $crate::size_assert::__macro_refs::size_of_return(
@@ -350,7 +390,7 @@ pub mod __macro_refs {
                 EXPECTED_BYTES,
                 $w,
             >::assert_size(|| $f($($arg),*));
-        },
+        };
         // All arguments consumed: emit the approximate assertion.
         (($f:path) (~ $w:literal) ($($arg:expr,)*)) => {
             const ACTUAL_BYTES: usize = $crate::size_assert::__macro_refs::size_of_return(
@@ -368,19 +408,19 @@ pub mod __macro_refs {
                 { BOUNDS.1 },
                 { BOUNDS.0 <= ACTUAL_WORDS && ACTUAL_WORDS <= BOUNDS.1 },
             >::assert_size(|| $f($($arg),*));
-        },
+        };
         // `_` placeholder (optionally followed by a comma and more arguments).
         (($f:path) ($($size:tt)+) ($($arg:expr,)*) _ $(, $($rest:tt)*)?) => {
             $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
                 ($f) ($($size)+) ($($arg,)* ::std::panic!(),) $($($rest)*)?
             );
-        },
+        };
         // Explicit expression argument (optionally followed by a comma and more arguments).
         (($f:path) ($($size:tt)+) ($($arg:expr,)*) $next:expr $(, $($rest:tt)*)?) => {
             $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
                 ($f) ($($size)+) ($($arg,)* $next,) $($($rest)*)?
             );
-        },
+        };
     }
 }
 
