@@ -75,7 +75,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         .await
         .buck_error_context("Failed to obtain mergebase")?;
 
-    if !output.status.success() || !output.stderr.is_empty() {
+    if !output.status.success() {
         buck2_error!(
             buck2_error::ErrorTag::Sapling,
             "Failed to obtain mergebase:\n{}",
