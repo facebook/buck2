@@ -352,7 +352,7 @@ mod tests {
 
     const TEST_FLAG_METADATA: SettingKeyMetadata = SettingKeyMetadata {
         key: SettingKeyRef {
-            section: None,
+            section: Some("test_section"),
             name: "test_flag",
         },
         overridable_in: &[OverrideSource::CommandLine],
@@ -361,7 +361,7 @@ mod tests {
     const TEST_SETTINGS_METADATA: &[SettingKeyMetadata] = &[
         SettingKeyMetadata {
             key: SettingKeyRef {
-                section: None,
+                section: Some("test_section"),
                 name: "test_flag",
             },
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -436,7 +436,7 @@ mod tests {
         fs.write_file(".bucksettings.toml", "");
         assert_eq!(parse_table(&path)?, Some(toml::Table::new()));
 
-        let sectioned = "test_value = \"x\"\n[test_section]\ntest_flag = true";
+        let sectioned = "[test_section]\ntest_flag = true\ntest_value = \"x\"";
         fs.write_file(".bucksettings.toml", sectioned);
         assert_eq!(parse_table(&path)?, Some(table(sectioned)));
 
@@ -458,8 +458,11 @@ mod tests {
     #[test]
     fn test_layer_sources_and_winning_origins() -> buck2_error::Result<()> {
         let repo = ProjectRootTemp::new()?;
-        repo.write_file(".bucksettings.toml", "test_flag = true");
-        repo.write_file(".bucksettings.local.toml", "test_flag = false");
+        repo.write_file(".bucksettings.toml", "[test_section]\ntest_flag = true");
+        repo.write_file(
+            ".bucksettings.local.toml",
+            "[test_section]\ntest_flag = false",
+        );
         let home = ProjectRootTemp::new()?;
         home.write_file(
             ".bucksettings.local.toml",
@@ -493,12 +496,14 @@ mod tests {
                     .join(".bucksettings.local.toml")
             )
         );
-        layers.push(SettingsLayer::setting_flag(table("test_flag = true")));
+        layers.push(SettingsLayer::setting_flag(table(
+            "[test_section]\ntest_flag = true",
+        )));
 
         let merged = merge_layers(layers);
         assert_eq!(
             merged.provenance(SettingKeyRef {
-                section: None,
+                section: Some("test_section"),
                 name: "test_flag",
             }),
             Some(&Provenance::CommandLine)
@@ -506,7 +511,7 @@ mod tests {
         assert_eq!(
             merged
                 .provenance(SettingKeyRef {
-                    section: None,
+                    section: Some("test_section"),
                     name: "test_flag",
                 })
                 .map(Provenance::setting_source),
@@ -547,7 +552,7 @@ mod tests {
         let error = resolve_with_metadata::<TestBuckSettingsData>(
             vec![SettingsLayer::new(
                 Provenance::LocalSettings(path.clone()),
-                table("test_flag = true"),
+                table("[test_section]\ntest_flag = true"),
             )],
             &[TEST_FLAG_METADATA],
         )
@@ -555,7 +560,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "Buck setting `test_flag` cannot be overridden from local settings file `{}`",
+                "Buck setting `test_section.test_flag` cannot be overridden from local settings file `{}`",
                 path.display()
             )
         );
@@ -564,7 +569,9 @@ mod tests {
     #[test]
     fn test_rejects_disallowed_command_line_override() {
         let error = resolve_with_metadata::<TestBuckSettingsData>(
-            vec![SettingsLayer::setting_flag(table("test_flag = true"))],
+            vec![SettingsLayer::setting_flag(table(
+                "[test_section]\ntest_flag = true",
+            ))],
             &[SettingKeyMetadata {
                 key: TEST_FLAG_METADATA.key,
                 overridable_in: &[],
@@ -573,7 +580,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             error.to_string(),
-            "Buck setting `test_flag` cannot be overridden from `--setting`"
+            "Buck setting `test_section.test_flag` cannot be overridden from `--setting`"
         );
     }
 
@@ -612,11 +619,11 @@ mod tests {
         let base = resolve_with_metadata::<TestBuckSettingsData>(
             vec![SettingsLayer::new(
                 Provenance::Base(repo.path().root().as_abs_path().join(".bucksettings.toml")),
-                table("test_flag = true"),
+                table("[test_section]\ntest_flag = true"),
             )],
             &[TEST_FLAG_METADATA],
         )?;
-        assert_eq!(base.test_flag, Some(true));
+        assert_eq!(base.test_section.unwrap().test_flag, Some(true));
 
         Ok(())
     }
@@ -634,13 +641,13 @@ mod tests {
                             .as_abs_path()
                             .join(".bucksettings.local.toml"),
                     ),
-                    table("test_flag = false"),
+                    table("[test_section]\ntest_flag = false"),
                 ),
-                SettingsLayer::setting_flag(table("test_flag = true")),
+                SettingsLayer::setting_flag(table("[test_section]\ntest_flag = true")),
             ],
             &[TEST_FLAG_METADATA],
         )?;
-        assert_eq!(shadowed.test_flag, Some(true));
+        assert_eq!(shadowed.test_section.unwrap().test_flag, Some(true));
         Ok(())
     }
 
@@ -648,12 +655,12 @@ mod tests {
     fn test_overridden_invalid_type_is_ignored() -> buck2_error::Result<()> {
         let resolved = resolve_with_metadata::<TestBuckSettingsData>(
             vec![
-                SettingsLayer::setting_flag(table("test_flag = \"invalid\"")),
-                SettingsLayer::setting_flag(table("test_flag = true")),
+                SettingsLayer::setting_flag(table("[test_section]\ntest_flag = \"invalid\"")),
+                SettingsLayer::setting_flag(table("[test_section]\ntest_flag = true")),
             ],
             &[TEST_FLAG_METADATA],
         )?;
-        assert_eq!(resolved.test_flag, Some(true));
+        assert_eq!(resolved.test_section.unwrap().test_flag, Some(true));
         Ok(())
     }
 
@@ -668,16 +675,19 @@ mod tests {
         let resolved = resolve_from_files_and_args(
             &[(
                 ".bucksettings.toml",
-                "test_flag = true\n[test_section]\ntest_value = \"repo\"",
+                "[test_section]\ntest_flag = true\ntest_value = \"repo\"",
             )],
-            &[(".bucksettings.local.toml", "test_flag = false")],
+            &[(
+                ".bucksettings.local.toml",
+                "[test_section]\ntest_flag = false",
+            )],
             &[],
         )?;
         assert_eq!(
             resolved,
             TestBuckSettingsData {
-                test_flag: Some(false),
                 test_section: Some(TestSection {
+                    test_flag: Some(false),
                     test_value: Some("repo".to_owned()),
                 }),
             }
@@ -689,10 +699,10 @@ mod tests {
     fn test_repo_local_overrides_home_local_and_repo_root() -> buck2_error::Result<()> {
         let resolved = resolve_from_files_and_args(
             &[
-                (".bucksettings.toml", "test_flag = true"),
+                (".bucksettings.toml", "[test_section]\ntest_flag = true"),
                 (
                     ".bucksettings.local.toml",
-                    "test_flag = false\n[test_section]\ntest_value = \"repo_local\"",
+                    "[test_section]\ntest_flag = false\ntest_value = \"repo_local\"",
                 ),
             ],
             &[(
@@ -704,8 +714,8 @@ mod tests {
         assert_eq!(
             resolved,
             TestBuckSettingsData {
-                test_flag: Some(false),
                 test_section: Some(TestSection {
+                    test_flag: Some(false),
                     test_value: Some("repo_local".to_owned()),
                 }),
             }
@@ -735,6 +745,7 @@ mod tests {
         assert_eq!(
             resolved.test_section,
             Some(TestSection {
+                test_flag: None,
                 test_value: Some("command_line".to_owned()),
             })
         );
@@ -743,10 +754,21 @@ mod tests {
 
     #[test]
     fn test_settings_args_ordering() -> buck2_error::Result<()> {
-        let resolved =
-            resolve_from_files_and_args(&[], &[], &["test_flag=false", "test_flag=true"])?;
-        assert_eq!(resolved.test_flag, Some(true));
-        assert!(resolved.test_section.is_none());
+        let resolved = resolve_from_files_and_args(
+            &[],
+            &[],
+            &[
+                "test_section.test_flag=false",
+                "test_section.test_flag=true",
+            ],
+        )?;
+        assert_eq!(
+            resolved.test_section,
+            Some(TestSection {
+                test_flag: Some(true),
+                test_value: None,
+            })
+        );
         Ok(())
     }
 }

@@ -181,13 +181,13 @@ pub(crate) mod testing {
     #[derive(Debug, Deserialize, PartialEq)]
     #[serde(deny_unknown_fields)]
     pub struct TestBuckSettingsData {
-        pub test_flag: Option<bool>,
         pub test_section: Option<TestSection>,
     }
 
     #[derive(Debug, Deserialize, PartialEq)]
     #[serde(deny_unknown_fields)]
     pub struct TestSection {
+        pub test_flag: Option<bool>,
         pub test_value: Option<String>,
     }
 }
