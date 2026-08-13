@@ -13,7 +13,7 @@ use std::sync::Arc;
 use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use derivative::Derivative;
 use derive_more::From;
 use dupe::Dupe;
@@ -142,7 +142,7 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
 pub struct Roots<T: SpanTrackable> {
     roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
     boring_roots: LinkedHashMap<<T as SpanTrackable>::Id, RootData>,
-    dice_counts: StdBuckHashMap<&'static str, u64>,
+    dice_counts: BuckMutMap<&'static str, u64>,
 }
 
 #[derive(Clone)]
@@ -242,7 +242,7 @@ impl<T: SpanTrackable> Roots<T> {
         }
     }
 
-    pub fn dice_counts(&self) -> &StdBuckHashMap<&'static str, u64> {
+    pub fn dice_counts(&self) -> &BuckMutMap<&'static str, u64> {
         &self.dice_counts
     }
 }
@@ -288,7 +288,7 @@ impl<T> ExactSizeIterator for ExactSizeIteratorWrapper<T> where T: Iterator {}
 #[derive(Clone)]
 pub struct SpanTracker<T: SpanTrackable> {
     roots: Roots<T>,
-    all: StdBuckHashMap<<T as SpanTrackable>::Id, Span<T>>,
+    all: BuckMutMap<<T as SpanTrackable>::Id, Span<T>>,
     roots_completed: usize,
 }
 

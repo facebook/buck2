@@ -900,7 +900,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_error::ErrorTag;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
 
     use crate::error::IoResultExt;
     use crate::fs_util::IoError;
@@ -1516,7 +1516,7 @@ mod tests {
         use std::io::ErrorKind;
 
         let tempdir = tempfile::tempdir().unwrap();
-        let mut test_cases = StdBuckHashMap::default();
+        let mut test_cases = BuckMutMap::default();
         // The behavior of these test cases varies by platform
         let should_succeed = cfg!(target_os = "macos");
         let expected_attempts = if should_succeed { MAX_IO_ATTEMPTS } else { 1 };

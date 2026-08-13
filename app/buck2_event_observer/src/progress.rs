@@ -25,7 +25,7 @@ use buck2_data::span_end_event;
 use buck2_data::span_start_event;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 
 use crate::last_command_execution_kind::get_last_command_execution_time;
 use crate::unpack_event::UnpackedBuckEvent;
@@ -40,7 +40,7 @@ enum State {
 
 #[derive(Debug, Default)]
 pub struct SpanMap<T> {
-    map: StdBuckHashMap<SpanId, (State, T)>,
+    map: BuckMutMap<SpanId, (State, T)>,
     running: u64,
     finished: u64,
     cancelled: u64,

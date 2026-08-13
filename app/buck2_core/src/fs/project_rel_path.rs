@@ -743,7 +743,7 @@ impl<'a> IntoFileNameBufIterator for &'a ProjectRelativePathBuf {
 #[cfg(test)]
 mod tests {
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
 
     use crate::fs::project_rel_path::ProjectRelativePath;
     use crate::fs::project_rel_path::ProjectRelativePathBuf;
@@ -805,7 +805,7 @@ mod tests {
 
     #[test]
     fn wrapped_paths_work_in_maps() -> buck2_error::Result<()> {
-        let mut map = StdBuckHashMap::default();
+        let mut map = BuckMutMap::default();
 
         let p1 = ForwardRelativePath::new("foo")?;
         let p2 = ProjectRelativePath::new("bar")?;

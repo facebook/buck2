@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]
@@ -69,7 +69,7 @@ pub enum VerbosityItem {
 }
 
 impl VerbosityLevel {
-    fn items(self) -> StdBuckHashSet<VerbosityItem> {
+    fn items(self) -> BuckMutSet<VerbosityItem> {
         let items = match self {
             Self::Quiet => vec![],
             Self::Default => vec![VerbosityItem::Status, VerbosityItem::Success],
@@ -84,8 +84,8 @@ impl VerbosityLevel {
         self.add_to_previous(items)
     }
 
-    fn add_to_previous(self, items: Vec<VerbosityItem>) -> StdBuckHashSet<VerbosityItem> {
-        let mut items: StdBuckHashSet<_> = items.into_iter().collect();
+    fn add_to_previous(self, items: Vec<VerbosityItem>) -> BuckMutSet<VerbosityItem> {
+        let mut items: BuckMutSet<_> = items.into_iter().collect();
         if let Some(level) = self.previous() {
             items.extend(level.items());
         }
@@ -133,7 +133,7 @@ impl Verbosity {
     pub fn try_from_cli(value: &str) -> buck2_error::Result<Verbosity> {
         let split: Vec<&str> = value.split(',').collect();
         let mut levels: Vec<VerbosityLevel> = Vec::new();
-        let mut items: StdBuckHashSet<VerbosityItem> = StdBuckHashSet::default();
+        let mut items: BuckMutSet<VerbosityItem> = BuckMutSet::default();
 
         for &value in &split {
             if let Ok(value) = value.parse::<i64>() {
@@ -154,7 +154,7 @@ impl Verbosity {
         Ok(Self::from_items(items))
     }
 
-    fn from_items(items: StdBuckHashSet<VerbosityItem>) -> Self {
+    fn from_items(items: BuckMutSet<VerbosityItem>) -> Self {
         let mut array = [None; VERBOSITY_ITEM_VARIANTS];
         let vec: Vec<_> = items.into_iter().map(Some).collect();
         for (i, opt_item) in vec.into_iter().enumerate() {
