@@ -171,8 +171,8 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
 
 starlark::methods_static!(FILE_SET_METHODS = register_file_set);
 
-/// A set of `file_node`s. Supports the operations such as set addition/subtraction, length,
-/// iteration, equality and indexing.
+/// A set of `file_node`s. Supports union (`|`), intersection (`&`), difference (`-`), length,
+/// iteration and equality.
 #[starlark_module]
 pub(crate) fn register_file_set(globals: &mut MethodsBuilder) {}
 
