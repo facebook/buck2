@@ -366,6 +366,7 @@ macro_rules! register_typetag {
 
 #[cfg(test)]
 mod tests {
+    use std::any::Any;
     use std::fmt::Debug;
     use std::sync::Arc;
 
@@ -677,6 +678,432 @@ mod tests {
         let mut deserializer = TestingDeserializer::new(&bytes);
         let restored = AnimalHolderBox::pagable_deserialize(&mut deserializer)?;
         assert_eq!(restored.animal.species(), "wrapped");
+
+        Ok(())
+    }
+
+    // --- Generic #[pagable_typetag] tests (link-section chaining) ---
+
+    #[crate::pagable_typetag]
+    pub trait Vehicle: PagableTagged + Send + Sync + Debug {
+        fn wheels(&self) -> u32;
+        fn as_any(&self) -> &dyn Any;
+    }
+
+    #[derive(Debug, Pagable)]
+    pub struct GenericVehicle<T: Pagable + Send + Sync + Debug + 'static> {
+        pub payload: T,
+        pub wheel_count: u32,
+    }
+
+    #[derive(Debug, Pagable)]
+    pub struct ConstGenericVehicle<const N: usize> {
+        pub wheel_count: u32,
+    }
+
+    #[derive(Debug, Pagable)]
+    pub struct TypeAndConstGenericVehicle<
+        T: Pagable + Send + Sync + Debug + 'static,
+        const N: usize,
+    > {
+        pub payload: T,
+        pub wheel_count: u32,
+    }
+
+    #[crate::pagable_typetag]
+    impl<T: Pagable + Send + Sync + Debug + 'static> Vehicle for GenericVehicle<T> {
+        fn wheels(&self) -> u32 {
+            self.wheel_count
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[crate::pagable_typetag]
+    impl<const N: usize> Vehicle for ConstGenericVehicle<N> {
+        fn wheels(&self) -> u32 {
+            self.wheel_count
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[crate::pagable_typetag]
+    impl<T: Pagable + Send + Sync + Debug + 'static, const N: usize> Vehicle
+        for TypeAndConstGenericVehicle<T, N>
+    {
+        fn wheels(&self) -> u32 {
+            self.wheel_count
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[derive(Debug, Pagable, Eq, PartialEq)]
+    pub struct Cargo {
+        pub weight: u32,
+    }
+
+    #[derive(Debug, Pagable, Eq, PartialEq)]
+    pub struct Passenger {
+        pub name: String,
+    }
+
+    #[test]
+    fn test_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Arc<dyn Vehicle> = Arc::new(GenericVehicle {
+            payload: Cargo { weight: 1000 },
+            wheel_count: 4,
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.wheels(), 4);
+        let restored = restored
+            .as_any()
+            .downcast_ref::<GenericVehicle<Cargo>>()
+            .expect("restored vehicle should be GenericVehicle<Cargo>");
+        assert_eq!(restored.payload.weight, 1000);
+
+        let value2: Arc<dyn Vehicle> = Arc::new(GenericVehicle {
+            payload: Passenger {
+                name: "Alice".to_owned(),
+            },
+            wheel_count: 2,
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value2.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored2: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored2.wheels(), 2);
+        let restored2 = restored2
+            .as_any()
+            .downcast_ref::<GenericVehicle<Passenger>>()
+            .expect("restored vehicle should be GenericVehicle<Passenger>");
+        assert_eq!(restored2.payload.name, "Alice");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_const_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Arc<dyn Vehicle> = Arc::new(ConstGenericVehicle::<7> { wheel_count: 8 });
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.wheels(), 8);
+        restored
+            .as_any()
+            .downcast_ref::<ConstGenericVehicle<7>>()
+            .expect("restored vehicle should be ConstGenericVehicle<7>");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_type_and_const_generic_pagable_typetag_roundtrip() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Arc<dyn Vehicle> = Arc::new(TypeAndConstGenericVehicle::<Cargo, 3> {
+            payload: Cargo { weight: 250 },
+            wheel_count: 6,
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.wheels(), 6);
+        let restored = restored
+            .as_any()
+            .downcast_ref::<TypeAndConstGenericVehicle<Cargo, 3>>()
+            .expect("restored vehicle should be TypeAndConstGenericVehicle<Cargo, 3>");
+        assert_eq!(restored.payload.weight, 250);
+
+        Ok(())
+    }
+
+    // `Arc<dyn Trait>` fields route through `serialize_tagged_arc_payload` /
+    // `deserialize_arc_payload`, which generic impls provide manually instead
+    // of via the `PagableTypeTag` blanket impl.
+    #[derive(Debug, Pagable)]
+    pub struct VehicleHolder {
+        pub vehicle: Arc<dyn Vehicle>,
+    }
+
+    #[test]
+    fn test_generic_pagable_typetag_arc_field_roundtrip() -> crate::Result<()> {
+        use crate::PagableDeserialize;
+        use crate::PagableSerialize;
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+
+        let value = VehicleHolder {
+            vehicle: Arc::new(GenericVehicle {
+                payload: Cargo { weight: 500 },
+                wheel_count: 6,
+            }),
+        };
+
+        let mut serializer = TestingSerializer::new();
+        value.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored = VehicleHolder::pagable_deserialize(&mut deserializer)?;
+
+        assert_eq!(restored.vehicle.wheels(), 6);
+        let restored_vehicle = restored
+            .vehicle
+            .as_any()
+            .downcast_ref::<GenericVehicle<Cargo>>()
+            .expect("restored vehicle should be GenericVehicle<Cargo>");
+        assert_eq!(restored_vehicle.payload.weight, 500);
+
+        Ok(())
+    }
+
+    mod same_type_name_one {
+        use std::fmt::Debug;
+
+        use crate as pagable;
+        use crate::Pagable;
+
+        #[derive(Debug, Pagable)]
+        pub struct Wrapper<T: Pagable + Send + Sync + Debug + 'static> {
+            pub payload: T,
+            pub wheel_count: u32,
+        }
+    }
+
+    mod same_type_name_two {
+        use std::fmt::Debug;
+
+        use crate as pagable;
+        use crate::Pagable;
+
+        #[derive(Debug, Pagable)]
+        pub struct Wrapper<T: Pagable + Send + Sync + Debug + 'static> {
+            pub payload: T,
+            pub wheel_count: u32,
+        }
+    }
+
+    #[crate::pagable_typetag]
+    impl<T: Pagable + Send + Sync + Debug + 'static> Vehicle for same_type_name_one::Wrapper<T> {
+        fn wheels(&self) -> u32 {
+            self.wheel_count
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[crate::pagable_typetag]
+    impl<T: Pagable + Send + Sync + Debug + 'static> Vehicle for same_type_name_two::Wrapper<T> {
+        fn wheels(&self) -> u32 {
+            self.wheel_count
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    #[test]
+    fn test_same_type_name_generic_registrations_do_not_collide() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value_one: Arc<dyn Vehicle> = Arc::new(same_type_name_one::Wrapper {
+            payload: Cargo { weight: 100 },
+            wheel_count: 2,
+        });
+        let value_two: Arc<dyn Vehicle> = Arc::new(same_type_name_two::Wrapper {
+            payload: Passenger {
+                name: "Bob".to_owned(),
+            },
+            wheel_count: 3,
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value_one.serialize_tagged(&mut serializer)?;
+        let bytes_one = serializer.finish();
+
+        let mut serializer = TestingSerializer::new();
+        value_two.serialize_tagged(&mut serializer)?;
+        let bytes_two = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes_one);
+        let restored_one: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+        assert_eq!(restored_one.wheels(), 2);
+        let restored_one = restored_one
+            .as_any()
+            .downcast_ref::<same_type_name_one::Wrapper<Cargo>>()
+            .expect("restored vehicle should be same_type_name_one::Wrapper<Cargo>");
+        assert_eq!(restored_one.payload.weight, 100);
+
+        let mut deserializer = TestingDeserializer::new(&bytes_two);
+        let restored_two: Box<dyn Vehicle> = <dyn Vehicle>::deserialize_box(&mut deserializer)?;
+        assert_eq!(restored_two.wheels(), 3);
+        let restored_two = restored_two
+            .as_any()
+            .downcast_ref::<same_type_name_two::Wrapper<Passenger>>()
+            .expect("restored vehicle should be same_type_name_two::Wrapper<Passenger>");
+        assert_eq!(restored_two.payload.name, "Bob");
+
+        Ok(())
+    }
+
+    mod collision_one {
+        use std::any::Any;
+        use std::fmt::Debug;
+
+        use pagable::PagableTagged;
+
+        use crate as pagable;
+        use crate::Pagable;
+
+        #[crate::pagable_typetag]
+        pub trait Collision: PagableTagged + Send + Sync + Debug {
+            fn label(&self) -> &'static str;
+            fn as_any(&self) -> &dyn Any;
+        }
+
+        #[derive(Debug, Pagable)]
+        pub struct Wrapper<T: Pagable + Send + Sync + Debug + 'static> {
+            pub payload: T,
+        }
+
+        #[crate::pagable_typetag]
+        impl<T: Pagable + Send + Sync + Debug + 'static> Collision for Wrapper<T> {
+            fn label(&self) -> &'static str {
+                "one"
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
+
+        #[derive(Debug, Pagable, Eq, PartialEq)]
+        pub struct PayloadOne {
+            pub value: u32,
+        }
+    }
+
+    mod collision_two {
+        use std::any::Any;
+        use std::fmt::Debug;
+
+        use pagable::PagableTagged;
+
+        use crate as pagable;
+        use crate::Pagable;
+
+        #[crate::pagable_typetag]
+        pub trait Collision: PagableTagged + Send + Sync + Debug {
+            fn label(&self) -> &'static str;
+            fn as_any(&self) -> &dyn Any;
+        }
+
+        #[derive(Debug, Pagable)]
+        pub struct Wrapper<T: Pagable + Send + Sync + Debug + 'static> {
+            pub payload: T,
+        }
+
+        #[crate::pagable_typetag]
+        impl<T: Pagable + Send + Sync + Debug + 'static> Collision for Wrapper<T> {
+            fn label(&self) -> &'static str {
+                "two"
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+        }
+
+        #[derive(Debug, Pagable, Eq, PartialEq)]
+        pub struct PayloadTwo {
+            pub value: u32,
+        }
+    }
+
+    #[test]
+    fn test_same_short_trait_name_generic_registrations_do_not_collide() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value_one: Arc<dyn collision_one::Collision> = Arc::new(collision_one::Wrapper {
+            payload: collision_one::PayloadOne { value: 1 },
+        });
+        let value_two: Arc<dyn collision_two::Collision> = Arc::new(collision_two::Wrapper {
+            payload: collision_two::PayloadTwo { value: 2 },
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value_one.serialize_tagged(&mut serializer)?;
+        let bytes_one = serializer.finish();
+
+        let mut serializer = TestingSerializer::new();
+        value_two.serialize_tagged(&mut serializer)?;
+        let bytes_two = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes_one);
+        let restored_one: Box<dyn collision_one::Collision> =
+            <dyn collision_one::Collision>::deserialize_box(&mut deserializer)?;
+        assert_eq!(restored_one.label(), "one");
+        let restored_one = restored_one
+            .as_any()
+            .downcast_ref::<collision_one::Wrapper<collision_one::PayloadOne>>()
+            .expect("restored value should be collision_one::Wrapper<PayloadOne>");
+        assert_eq!(restored_one.payload.value, 1);
+
+        let mut deserializer = TestingDeserializer::new(&bytes_two);
+        let restored_two: Box<dyn collision_two::Collision> =
+            <dyn collision_two::Collision>::deserialize_box(&mut deserializer)?;
+        assert_eq!(restored_two.label(), "two");
+        let restored_two = restored_two
+            .as_any()
+            .downcast_ref::<collision_two::Wrapper<collision_two::PayloadTwo>>()
+            .expect("restored value should be collision_two::Wrapper<PayloadTwo>");
+        assert_eq!(restored_two.payload.value, 2);
 
         Ok(())
     }

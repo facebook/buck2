@@ -17,11 +17,14 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
+use quote::quote_spanned;
+use syn::GenericParam;
 use syn::Ident;
 use syn::ItemImpl;
 use syn::ItemStruct;
 use syn::ItemTrait;
 use syn::Path;
+use syn::spanned::Spanned;
 
 /// Generate code for a trait definition with `#[pagable_typetag]`.
 ///
@@ -171,6 +174,126 @@ fn typetag_struct(
     }
 }
 
+/// Generate code for a generic impl block with `#[pagable_typetag]`.
+///
+/// Concrete typetag impls register with `inventory::submit!`, but generic impls
+/// cannot submit a registration for `Wrapper<T>` in the abstract: the registry
+/// needs one entry for each concrete monomorphized type that is actually used,
+/// such as `Wrapper<Foo>` or `Wrapper<Bar>`. This generator therefore emits a
+/// two-part registration path for generic impls:
+///
+/// - A normal generic helper function builds a `TypetagRegistration` for the
+///   concrete `Self` and pushes it into the trait's `GenericTypetagAccumulator`.
+/// - A retained generic anchor emits a pointer to that helper into the
+///   global linker section for each monomorphized instantiation.
+///
+/// On first dyn deserialization, the trait macro calls a runtime helper that
+/// iterates the global function-pointer section once and calls every emitted
+/// helper. That populates every trait accumulator with exactly the generic
+/// instantiations that were monomorphized into the binary. The registry then
+/// drains its trait's entries and merges them with the non-generic inventory
+/// registrations.
+fn typetag_generic_struct(
+    item: TokenStream,
+    impl_item: &ItemImpl,
+    self_ty: &syn::Type,
+    trait_path: &syn::Path,
+    span: Span,
+) -> syn::Result<TokenStream> {
+    let trait_name = trait_path
+        .segments
+        .last()
+        .ok_or_else(|| syn::Error::new_spanned(trait_path, "trait path must not be empty"))?
+        .ident
+        .to_string();
+    if let syn::Type::Path(type_path) = self_ty {
+        type_path.path.segments.last().ok_or_else(|| {
+            syn::Error::new_spanned(self_ty, "could not extract type name for pagable_typetag")
+        })?;
+    } else {
+        return Err(syn::Error::new_spanned(
+            self_ty,
+            "pagable_typetag requires a simple type path",
+        ));
+    }
+
+    let accumulator_name = format_ident!("__PAGABLE_GENERIC_ACC_{}", trait_name);
+
+    let (impl_generics, _ty_generics, where_clause) = impl_item.generics.split_for_impl();
+    let generic_args: Vec<_> = impl_item
+        .generics
+        .params
+        .iter()
+        .filter_map(|param| match param {
+            GenericParam::Type(param) => Some(&param.ident),
+            GenericParam::Const(param) => Some(&param.ident),
+            GenericParam::Lifetime(_) => None,
+        })
+        .collect();
+
+    Ok(quote_spanned! { span =>
+        #item
+
+        const _: () = {
+            impl #impl_generics pagable::typetag::PagableTagged for #self_ty #where_clause {
+                fn pagable_type_tag(&self) -> &'static str {
+                    // Keep the monomorphized anchor and its emitted section
+                    // record linked until `#[used(linker)]` is stable in the
+                    // supported toolchains.
+                    core::hint::black_box(
+                        __pagable_registration_anchor::<#(#generic_args),*>
+                            as extern "C" fn(),
+                    );
+                    ::std::any::type_name::<Self>()
+                }
+                fn pagable_serialize_body(
+                    &self,
+                    serializer: &mut dyn pagable::PagableSerializer,
+                ) -> pagable::Result<()> {
+                    <Self as pagable::PagableSerialize>::pagable_serialize(self, serializer)
+                }
+
+                // Mirrors the blanket impl for `PagableTypeTag` types, which
+                // this manual impl bypasses.
+                fn serialize_tagged_arc_payload(
+                    self: std::sync::Arc<Self>,
+                    serializer: &mut dyn pagable::PagableSerializer,
+                ) -> pagable::Result<()> {
+                    let tag = pagable::typetag::PagableTagged::pagable_type_tag(&*self);
+                    pagable::__internal::serde::Serialize::serialize(&tag, serializer.serde())?;
+                    serializer.serialize_arc(&self)
+                }
+            }
+
+            #[doc(hidden)]
+            extern "C" fn __pagable_do_register #impl_generics () #where_clause {
+                #accumulator_name.push(pagable::typetag::TypetagRegistration {
+                    tag: ::std::any::type_name::<#self_ty>,
+                    deserialize: |deserializer| {
+                        let value: #self_ty =
+                            pagable::PagableDeserialize::pagable_deserialize(deserializer)?;
+                        Ok(Box::new(value) as Box<dyn #trait_path>)
+                    },
+                    deserialize_arc_payload: |deserializer| {
+                        let value: std::sync::Arc<#self_ty> =
+                            pagable::PagableDeserialize::pagable_deserialize(deserializer)?;
+                        let value: std::sync::Arc<dyn #trait_path> = value;
+                        Ok(value)
+                    },
+                });
+            }
+
+            #[doc(hidden)]
+            #[inline(never)]
+            extern "C" fn __pagable_registration_anchor #impl_generics () #where_clause {
+                pagable::__pagable_emit_generic_typetag_registration!(
+                    __pagable_do_register::<#(#generic_args),*>
+                );
+            }
+        };
+    })
+}
+
 /// Main entry point for the `#[pagable_typetag]` attribute macro.
 ///
 /// Supports three forms:
@@ -228,6 +351,33 @@ pub fn pagable_typetag_impl(
                 .into();
             }
         };
+
+        let has_generics = impl_item
+            .generics
+            .params
+            .iter()
+            .any(|param| matches!(param, GenericParam::Type(_) | GenericParam::Const(_)));
+
+        if has_generics {
+            // See `typetag_generic_struct` for the full link-section
+            // registration design used for generic impls.
+            // Generic impl: emit a helper plus a link-section entry. The
+            // trait-level registry builder runs those entries to collect the
+            // monomorphized concrete registrations.
+            let span = impl_item.span();
+            let item_tokens = quote_spanned! { span => #impl_item };
+            return match typetag_generic_struct(
+                item_tokens,
+                &impl_item,
+                &self_ty,
+                &trait_path,
+                span,
+            ) {
+                Ok(tokens) => tokens.into(),
+                Err(err) => err.to_compile_error().into(),
+            };
+        }
+
         let type_tag = if let syn::Type::Path(type_path) = &self_ty {
             match type_path.path.segments.last() {
                 Some(seg) => seg.ident.to_string(),
