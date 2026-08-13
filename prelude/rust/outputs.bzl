@@ -35,7 +35,7 @@ RustcLinkOutput = record(
 )
 
 RustcOutput = record(
-    # For `Emit("rlib-from-link")` compiles this is the `out_manifest` of
+    # For `Emit("rlib-from-link")` compiles this is the `out_argsfile` of
     # `link_extraction` — the list of extracted objects — since rustc produces
     # no linked artifact; the executable is produced by `rust_link_binary`.
     output = Artifact,

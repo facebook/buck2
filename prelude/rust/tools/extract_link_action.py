@@ -33,7 +33,6 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 class Args(NamedTuple):
     out_argsfile: IO[str]
     out_artifacts: Path
-    out_manifest: IO[str]
     out_archive: Path | None
     archiver_argsfile: Path | None
     linker: list[str]
@@ -51,14 +50,8 @@ def arg_parse() -> Args:
         type=Path,
         required=True,
     )
-    parser.add_argument(
-        "--out_manifest",
-        type=argparse.FileType("w"),
-        required=True,
-        help="Receives the basenames of the extracted objects, one per line",
-    )
     # When --out_archive and archiver_argsfile are set, the rustc objects are
-    # additionally collected into an archive. Distributed ThinLTO needs
+    # collected into an archive rather than in the argsfile. Distributed ThinLTO needs
     # the objects to arrive as an `ArchiveLinkable` so it can plan a per-object
     # opt action for each linkable.
     parser.add_argument(
@@ -109,10 +102,10 @@ def expand_response_files(args: list[str]) -> list[str]:
 
 
 def process_link_args(
-    args: list[str], out_artifacts: Path
+    args: list[str], out_artifacts: Path, collect_objects: bool
 ) -> tuple[list[str], list[str]]:
     """Extract rustc's synthesized objects from its linker argv, returning
-    (retained args, objects).
+    (args, objects).
 
     The objects are the only thing extracted:
      - the codegen unit objects of the crate itself, which includes the
@@ -128,8 +121,12 @@ def process_link_args(
     not something to pass through: it would be a dangling path by the time
     the link action runs. Version scripts are one known such case, so dylib
     and cdylib crates cannot currently be linked through this.
+
+    With `collect_objects`, the objects are returned separately and left out
+    of the returned args, for the caller to archive instead. Otherwise they
+    are listed in the args and no objects are returned.
     """
-    retained_args = []
+    new_args = []
     objects = []
     # Original argv entries we handled, and the directories rustc placed
     # synthesized files in, used to detect files we don't know about.
@@ -146,7 +143,13 @@ def process_link_args(
                 temp_dirs.add(str(path.parent))
             handled.add(arg)
 
-            objects.append(shutil.copy(path, out_artifacts))
+            # Forward slashes regardless of host: the argsfile is consumed as
+            # a gnu-style response file, where backslashes are escapes.
+            new_path = shutil.copy(path, out_artifacts).replace(os.sep, "/")
+            if collect_objects:
+                objects.append(new_path)
+            else:
+                new_args.append(new_path)
             i += 1
             continue
 
@@ -181,13 +184,13 @@ def process_link_args(
     # rustc always passes at least the crate's own codegen-unit objects, so
     # extracting nothing means the argv was misparsed. This also backstops the
     # check above, which is blind when no extraction established `temp_dirs`.
-    if not objects:
+    if not objects and not new_args:
         eprint(
             "extract_link_action.py: extracted no objects from rustc's link line; teach process_link_args() about whatever form it took"
         )
         sys.exit(1)
 
-    return retained_args, objects
+    return new_args, objects
 
 
 def archive_objects(
@@ -209,20 +212,15 @@ def main() -> int:
     out_archive = args.out_archive
     archiving = archiver_argsfile is not None and out_archive is not None
 
-    retained_args, objects = process_link_args(
+    filtered_args, objects = process_link_args(
         expand_response_files(args.linker[1:]),
         out_artifacts=args.out_artifacts,
+        collect_objects=archiving,
     )
-    args.out_argsfile.write("\n".join(retained_args))
+    args.out_argsfile.write("\n".join(filtered_args))
     args.out_argsfile.close()
 
-    # The manifest carries only basenames: the consumer knows the artifacts
-    # directory as an artifact and resolves members against it, so the
-    # execution-time path of the directory never appears in any output.
-    args.out_manifest.write("\n".join(os.path.basename(o) for o in objects))
-    args.out_manifest.close()
-
-    if archiving:
+    if objects and archiver_argsfile is not None and out_archive is not None:
         archive_objects(archiver_argsfile, out_archive, objects)
 
     return 0

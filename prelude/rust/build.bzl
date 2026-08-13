@@ -467,13 +467,11 @@ def generate_rustdoc_test(
 LinkExtraction = record(
     # cmd_script set via `-Clinker=`.
     linker_wrapper = field(typing.Any),
-    # The retained linker args. Contains no paths, only flags, and so is safe
-    # to pass along verbatim even under content-based paths.
+    # The rustc-synthesized objects, listed as an argsfile. Empty when they
+    # are archived instead.
     out_argsfile = field(Artifact),
     # Extracted link inputs directory.
     out_artifacts_dir = field(Artifact),
-    # Basenames of the extracted objects, one per line, in link order.
-    out_manifest = field(Artifact),
     # Archive of the rustc-produced objects. Only built when used by
     # distributed thinlto.
     out_archive = field(Artifact | None),
@@ -510,12 +508,10 @@ def _archiver_command(ctx: AnalysisContext, compile_ctx: CompileContext, subdir:
 def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, emit_cbp: bool, archive_objects: bool) -> LinkExtraction:
     out_argsfile = ctx.actions.declare_output(subdir + "/extracted-link-args.args", has_content_based_path = emit_cbp)
     out_artifacts_dir = ctx.actions.declare_output(subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = emit_cbp)
-    out_manifest = ctx.actions.declare_output(subdir + "/extracted-link-manifest.txt", has_content_based_path = emit_cbp)
     linker_cmd = cmd_args(
         compile_ctx.internal_tools_info.extract_link_action,
         cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
         cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
-        cmd_args(out_manifest.as_output(), format = "--out_manifest={}"),
     )
 
     out_archive = None
@@ -537,7 +533,6 @@ def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, su
         linker_wrapper = linker_wrapper,
         out_argsfile = out_argsfile,
         out_artifacts_dir = out_artifacts_dir,
-        out_manifest = out_manifest,
         out_archive = out_archive,
     )
 
@@ -599,7 +594,12 @@ def rust_compile(
             fail("`rlib-from-link` produces no linked output; the caller owns the linked artifact and must produce it via `rust_link_binary`")
 
     use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
-    emit_cbp = use_cbp if predeclared_output == None else False
+
+    # The extraction argsfile embeds the path of its sibling artifacts
+    # directory, but a content-based artifact is only assigned its final path
+    # after the action that produces it runs, so the extraction outputs must
+    # stay config-based.
+    emit_cbp = use_cbp if predeclared_output == None and not extracts_objects else False
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -812,9 +812,9 @@ def rust_compile(
     )
 
     if extracts_objects:
-        # There is no linked artifact; stand in with the manifest of extracted
-        # objects, which is the closest thing this compile produced.
-        filtered_output = link_extraction.out_manifest
+        # There is no linked artifact; stand in with the list of objects,
+        # which is the closest thing this compile produced.
+        filtered_output = link_extraction.out_argsfile
     elif infallible_diagnostics and emit != Emit("clippy"):
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
@@ -1988,36 +1988,9 @@ def rust_link_binary(
     `rust_compile` extracted, plus the link args of the dependency graph."""
     dist_thinlto = extraction.out_archive != None
 
-    retained_flags = cmd_args(extraction.out_argsfile, format = "@{}")
+    rust_argsfile = cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)
     if not dist_thinlto:
-        # Which objects rustc produced is only known once it has run, so the
-        # argsfile listing them is written by a dynamic action after the
-        # manifest is available. Resolving the manifest's names against the
-        # artifacts directory here — rather than having the extraction write
-        # paths into a file itself — keeps the paths buck-rendered, which is
-        # what makes them correct under content-based paths.
-        objects_argsfile = ctx.actions.declare_output(output.short_path + ".rust_objects.args", has_content_based_path = False)
-
-        def write_objects_argsfile(ctx: AnalysisContext, artifacts, outputs):
-            names = artifacts[extraction.out_manifest].read_string().splitlines()
-            ctx.actions.write(
-                outputs[objects_argsfile],
-                cmd_args([extraction.out_artifacts_dir.project(name) for name in names]),
-            )
-
-        ctx.actions.dynamic_output(
-            dynamic = [extraction.out_manifest],
-            inputs = [],
-            outputs = [objects_argsfile.as_output()],
-            f = write_objects_argsfile,
-        )
-
-        rust_objects = LinkArgs(
-            flags = [
-                retained_flags,
-                cmd_args(objects_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir),
-            ]
-        )
+        rust_objects = LinkArgs(flags = [rust_argsfile])
     else:
         rust_objects = LinkArgs(
             infos = [
@@ -2028,7 +2001,7 @@ def rust_link_binary(
                     # relocation model rustc's own codegen used: PIC for every
                     # strategy but `static` (see `_get_reloc_model`).
                     dist_thin_lto_codegen_flags = (compile_ctx.toolchain_info.dist_thin_lto_codegen_flags if dep_link_strategy != LinkStrategy("static") else []),
-                    pre_flags = [retained_flags],
+                    pre_flags = [rust_argsfile],
                     linkables = [
                         ArchiveLinkable(
                             archive = Archive(artifact = extraction.out_archive),
