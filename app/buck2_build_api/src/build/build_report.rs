@@ -97,13 +97,16 @@ enum BuildOutcome {
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
+///
+/// Serialization of the report must be deterministic, so any map reachable from here has to
+/// iterate in a deterministic order - `BTreeMap`, not `HashMap`.
 #[derive(Debug, Serialize)]
 pub struct BuildReport {
     trace_id: TraceId,
     success: bool,
-    results: HashMap<EntryLabel, BuildReportEntry>,
+    results: BTreeMap<EntryLabel, BuildReportEntry>,
     /// filled only when fill-out-failures is passed for Buck1 backcompat only
-    failures: HashMap<EntryLabel, String>,
+    failures: BTreeMap<EntryLabel, String>,
     project_root: AbsNormPathBuf,
     truncated: bool,
     strings: BTreeMap<String, String>,
@@ -125,13 +128,13 @@ struct MaybeConfiguredBuildReportEntry {
     success: BuildOutcome,
     /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
     /// the default exposed output of the subtarget
-    outputs: HashMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
+    outputs: BTreeMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
     /// a map of each subtarget of the current target (outputted as a `|` delimited list) to
     /// the hidden, implicitly built outputs of the subtarget. There are multiple outputs
     /// per subtarget
     ///
     /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`
-    other_outputs: HashMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
+    other_outputs: BTreeMap<Arc<str>, SmallSet<ProjectRelativePathBuf>>,
     /// The size of the graph for this target, if it was produced
     ///
     /// FIXME(JakobDegen): This should be in `ConfiguredBuildReportEntry`
@@ -144,8 +147,8 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// A list of errors that occurred while building this target
     errors: Vec<BuildReportError>,
     /// Remote artifact information, including hashes, etc.
-    #[serde(skip_serializing_if = "HashMap::is_empty")]
-    artifact_info: HashMap<Arc<str>, ArtifactInfo>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    artifact_info: BTreeMap<Arc<str>, ArtifactInfo>,
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
     /// The serialized graph sketch for this target, if it was produced.
@@ -247,7 +250,7 @@ struct BuildReportEntry {
     compatible: Option<MaybeConfiguredBuildReportEntry>,
 
     /// the configured entry
-    configured: HashMap<ConfigurationData, ConfiguredBuildReportEntry>,
+    configured: BTreeMap<ConfigurationData, ConfiguredBuildReportEntry>,
 
     /// Errors that could not be associated with a particular configured version of the target,
     /// typically because they happened before configuration.
@@ -273,7 +276,7 @@ struct BuildReportError {
     error_category: String,
 }
 
-#[derive(Derivative, Serialize, Eq, PartialEq, Hash, Clone)]
+#[derive(Derivative, Serialize, Eq, PartialEq, Ord, PartialOrd, Hash, Clone)]
 #[derivative(Debug)]
 #[serde(untagged)]
 enum EntryLabel {
@@ -303,7 +306,7 @@ pub struct BuildReportCollector<'a> {
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
-    failures: HashMap<EntryLabel, String>,
+    failures: BTreeMap<EntryLabel, String>,
     include_failures: bool,
     include_package_project_relative_paths: bool,
     include_artifact_hash_information: bool,
@@ -351,7 +354,7 @@ impl<'a> BuildReportCollector<'a> {
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
-            failures: HashMap::default(),
+            failures: BTreeMap::default(),
             include_failures,
             include_package_project_relative_paths,
             include_artifact_hash_information,
@@ -398,7 +401,7 @@ impl<'a> BuildReportCollector<'a> {
             truncate_error_content,
             graph_properties_opts,
         );
-        let mut entries = HashMap::new();
+        let mut entries = BTreeMap::new();
 
         if other_errors.values().flatten().next().is_some() {
             // Do this check ahead of time. We don't check for errors that aren't associated
@@ -586,7 +589,7 @@ impl<'a> BuildReportCollector<'a> {
             truncate_error_content,
             graph_properties_opts,
         );
-        let mut entries = HashMap::new();
+        let mut entries = BTreeMap::new();
         let all_error_reports: Vec<ErrorReport> = errors.iter().map(ErrorReport::from).collect();
 
         if !errors.is_empty() {
@@ -599,7 +602,7 @@ impl<'a> BuildReportCollector<'a> {
 
         let entry = BuildReportEntry {
             compatible: None,
-            configured: HashMap::new(),
+            configured: BTreeMap::new(),
             errors,
             package_project_relative_path: None, // Package doesn't apply to BXL
         };
@@ -620,7 +623,7 @@ impl<'a> BuildReportCollector<'a> {
         self,
         trace_id: &TraceId,
         project_root: &ProjectRoot,
-        entries: HashMap<EntryLabel, BuildReportEntry>,
+        entries: BTreeMap<EntryLabel, BuildReportEntry>,
         all_error_reports: Vec<ErrorReport>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
     ) -> Result<BuildReport, BuildReportGenerationError> {
@@ -742,7 +745,7 @@ impl<'a> BuildReportCollector<'a> {
         } else {
             None
         };
-        let mut configured_reports = HashMap::new();
+        let mut configured_reports = BTreeMap::new();
 
         for (label, results) in &results
             .into_iter()
@@ -1062,7 +1065,7 @@ impl<'a> BuildReportCollector<'a> {
 }
 
 fn update_artifact_info(
-    artifact_info: &mut HashMap<Arc<str>, ArtifactInfo>,
+    artifact_info: &mut BTreeMap<Arc<str>, ArtifactInfo>,
     provider_name: Arc<str>,
     entry: &ActionDirectoryEntry<ActionSharedDirectory>,
 ) {
