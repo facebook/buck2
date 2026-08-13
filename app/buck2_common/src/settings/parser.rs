@@ -25,6 +25,7 @@ use crate::settings::path::DEFAULT_SETTINGS_SOURCES;
 use crate::settings::path::DOT_BUCKSETTINGS;
 use crate::settings::path::SettingsSource as SettingsPathSource;
 use crate::settings::settings::ALL_SETTING_METADATA;
+use crate::settings::settings::BuckSettingsData;
 use crate::settings::settings::OverrideSource;
 use crate::settings::settings::SettingKeyMetadata;
 use crate::settings::settings::SettingKeyRef;
@@ -260,7 +261,8 @@ fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
         .collect();
     let merged = merge_layers(layers);
     merged.validate(ALL_SETTING_METADATA)?;
-    Ok(BuckSettings(Arc::new(merged.deserialize()?)))
+    let data: BuckSettingsData = merged.deserialize()?;
+    Ok(data.into())
 }
 
 #[cfg(test)]
@@ -594,13 +596,13 @@ mod tests {
     #[test]
     fn test_migrate_legacy_log_download_keys_before_merging_layers() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table("log_use_manifold = false")])?;
-        assert_eq!(settings.log_use_manifold(), Some(false));
+        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
 
         let settings = resolve_setting_flags(vec![
             table("[log_download]\nlog_use_manifold = true"),
             table("log_use_manifold = false"),
         ])?;
-        assert_eq!(settings.log_use_manifold(), Some(false));
+        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
         Ok(())
     }
 

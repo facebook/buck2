@@ -108,7 +108,7 @@ pub(crate) fn find_setting_metadata<'a>(
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
-struct LogDownloadSection {
+struct LogDownloadSectionData {
     log_use_manifold: Option<bool>,
     log_url: Option<String>,
 }
@@ -117,27 +117,60 @@ struct LogDownloadSection {
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
-    log_download: LogDownloadSection,
+    log_download: LogDownloadSectionData,
 }
 
-#[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
-pub struct BuckSettings(pub(crate) Arc<BuckSettingsData>);
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(transparent)]
+pub struct LogDownloadSection(Arc<LogDownloadSectionData>);
 
-impl BuckSettings {
-    pub fn empty() -> Self {
-        Self(Arc::new(BuckSettingsData::default()))
-    }
-
+impl LogDownloadSection {
     pub fn log_use_manifold(&self) -> Option<bool> {
-        LOG_USE_MANIFOLD.resolve(self.0.log_download.log_use_manifold)
+        LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
     }
 
     pub fn log_url(&self) -> Option<&str> {
         self.0
-            .log_download
             .log_url
             .as_deref()
             .or_else(|| LOG_URL.default_value())
+    }
+}
+
+#[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
+pub struct BuckSettings {
+    #[serde(default)]
+    pub log_download: LogDownloadSection,
+}
+
+impl From<BuckSettingsData> for BuckSettings {
+    fn from(data: BuckSettingsData) -> Self {
+        Self {
+            log_download: LogDownloadSection(Arc::new(data.log_download)),
+        }
+    }
+}
+
+impl Default for BuckSettings {
+    fn default() -> Self {
+        BuckSettingsData::default().into()
+    }
+}
+
+impl BuckSettings {
+    pub fn empty() -> Self {
+        Self::default()
     }
 }
 
@@ -174,14 +207,17 @@ mod tests {
         } else {
             Some(false)
         };
-        assert_eq!(BuckSettings::empty().log_use_manifold(), expected);
+        assert_eq!(
+            BuckSettings::empty().log_download.log_use_manifold(),
+            expected
+        );
     }
 
     #[test]
     fn test_log_use_manifold() -> buck2_error::Result<()> {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_use_manifold = false")])?;
-        assert_eq!(settings.log_use_manifold(), Some(false));
+        assert_eq!(settings.log_download.log_use_manifold(), Some(false));
         Ok(())
     }
 
@@ -189,7 +225,7 @@ mod tests {
     fn test_log_url() -> buck2_error::Result<()> {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
-        assert_eq!(settings.log_url(), Some("test.com"));
+        assert_eq!(settings.log_download.log_url(), Some("test.com"));
         Ok(())
     }
 

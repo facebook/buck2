@@ -632,6 +632,7 @@ impl DaemonStartupConfig {
             // Determine the log download method to use. Only default to
             // manifold in fbcode contexts, or when specifically asked.
             let use_manifold = settings
+                .log_download
                 .log_use_manifold()
                 .map(Ok::<_, buck2_error::Error>)
                 .unwrap_or_else(|| {
@@ -646,7 +647,7 @@ impl DaemonStartupConfig {
             if use_manifold {
                 Ok(LogDownloadMethod::Manifold)
             } else {
-                let log_url = settings.log_url().or_else(|| {
+                let log_url = settings.log_download.log_url().or_else(|| {
                     config.get(BuckconfigKeyRef {
                         section: "buck2",
                         property: "log_url",
