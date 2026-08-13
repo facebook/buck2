@@ -286,7 +286,6 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
     Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name
     Emit("link"): (None, None),  # crate type and reloc model dependent
-    Emit("rlib-from-link"): (None, None),  # only used for auxiliary-dir naming; no output artifact
     Emit("dep-info"): ("", ".d"),
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),

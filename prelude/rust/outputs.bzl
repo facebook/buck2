@@ -35,19 +35,12 @@ RustcLinkOutput = record(
 )
 
 RustcOutput = record(
-    # For `Emit("rlib-from-link")` compiles this is the `out_argsfile` of
-    # `link_extraction` — the list of extracted objects — since rustc produces
-    # no linked artifact; the executable is produced by `rust_link_binary`.
     output = Artifact,
     singleton_tset = TransitiveDeps,
     compile_output = RustcCompileOutput,
-    # Only available when the combination of params requires linking and rustc
-    # itself performs the link (i.e. not for `Emit("rlib-from-link")`).
+    # As expected, only available when the combination of params actually
+    # requires linking.
     link_output = RustcLinkOutput | None,
-    # A `LinkExtraction`, set exactly when this was an `Emit("rlib-from-link")`
-    # compile: rustc compiled and its synthesized link inputs were extracted
-    # for the caller to link via `rust_link_binary`.
-    link_extraction = typing.Any,
 )
 
 def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, Artifact]:
