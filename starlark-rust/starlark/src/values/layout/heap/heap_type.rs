@@ -32,6 +32,7 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ptr;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::Weak;
 
@@ -395,8 +396,17 @@ struct FrozenFrozenHeap {
     #[allocative(skip)] // We don't really expect it to be big
     name: Option<FrozenHeapName>,
     peak_allocated_bytes: Option<usize>,
+    /// Live serialization states this heap is registered with. Production
+    /// paging creates at most one `StarlarkSerState` per process, so at most
+    /// one live entry exists there; multiple live entries occur only under
+    /// in-process test runners (plain `cargo test` runs every test of a
+    /// binary in one process, each test with its own state). Not a
+    /// `OnceLock<Weak<StarlarkSerState>>` because a dead `Weak` could never
+    /// be replaced: a heap that outlives a state (e.g. a static heap) could
+    /// then never register with a later state. `register_ser_state` prunes
+    /// dead entries for the same reason.
     #[allocative(skip)]
-    ser_state: OnceLock<Weak<StarlarkSerState>>,
+    ser_states: Mutex<Vec<Weak<StarlarkSerState>>>,
     #[allocative(skip)]
     deser_state: OnceLock<Arc<HeapDeserializationState>>,
 }
@@ -432,13 +442,16 @@ unsafe impl Send for FrozenFrozenHeap {}
 
 impl FrozenFrozenHeap {
     fn register_ser_state(&self, state: &Arc<StarlarkSerState>) -> pagable::Result<()> {
+        let mut registered = self.ser_states.lock().expect("ser states lock poisoned");
+        registered.retain(|existing| existing.strong_count() != 0);
         let state = Arc::downgrade(state);
-        let registered = self.ser_state.get_or_init(|| state.dupe());
-        if Weak::ptr_eq(registered, &state) {
-            Ok(())
-        } else {
-            Err(PagableError::HeapRegisteredWithDifferentSerState.into())
+        if !registered
+            .iter()
+            .any(|existing| Weak::ptr_eq(existing, &state))
+        {
+            registered.push(state);
         }
+        Ok(())
     }
 
     /// Serialization format:
@@ -654,7 +667,7 @@ impl FrozenFrozenHeap {
             refs,
             name: Some(name),
             peak_allocated_bytes: None,
-            ser_state: OnceLock::new(),
+            ser_states: Mutex::new(Vec::new()),
             deser_state: OnceLock::new(),
         });
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
@@ -685,13 +698,17 @@ impl Drop for FrozenFrozenHeap {
             state.unregister_heap(FrozenHeapPtr(self as *const Self as usize));
         }
 
-        let Some(state) = self.ser_state.get().and_then(Weak::upgrade) else {
-            return;
-        };
-        state.unregister_heap(
-            FrozenHeapPtr(self as *const Self as usize),
-            self.arena.allocated_chunk_bases(),
-        );
+        let heap_ptr = FrozenHeapPtr(self as *const Self as usize);
+        let chunk_bases = self.arena.allocated_chunk_bases();
+        for state in self
+            .ser_states
+            .get_mut()
+            .expect("ser states lock poisoned")
+            .iter()
+            .filter_map(Weak::upgrade)
+        {
+            state.unregister_heap(heap_ptr, chunk_bases.iter().copied());
+        }
     }
 }
 
@@ -1027,7 +1044,7 @@ impl FrozenHeap {
                 refs: refs.into_iter().collect(),
                 name,
                 peak_allocated_bytes,
-                ser_state: OnceLock::new(),
+                ser_states: Mutex::new(Vec::new()),
                 deser_state: OnceLock::new(),
             });
             FrozenHeapRef(Some(heap))

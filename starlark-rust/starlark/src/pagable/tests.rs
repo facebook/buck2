@@ -792,7 +792,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
 }
 
 #[test]
-fn test_heap_registration_rejects_different_ser_state() {
+fn test_heap_registration_supports_different_ser_states() {
     let heap = FrozenHeap::new();
     heap.alloc_simple(SimpleData {
         flag: true,
@@ -809,13 +809,9 @@ fn test_heap_registration_rejects_different_ser_state() {
         .expect("repeat registration in the same state");
 
     let second_state = Arc::new(StarlarkSerState::new());
-    let error = second_state
+    second_state
         .ensure_chunk_index_registered(&heap_ref)
-        .expect_err("registration in a different state should fail");
-    assert!(matches!(
-        error.downcast_ref::<PagableError>(),
-        Some(PagableError::HeapRegisteredWithDifferentSerState),
-    ));
+        .expect("register heap in a different state");
 }
 
 #[test]

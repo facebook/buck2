@@ -103,10 +103,6 @@ pub enum PagableError {
         cause: Arc<str>,
     },
 
-    /// A frozen heap was registered with more than one serialization state.
-    #[error("Frozen heap is already registered with a different StarlarkSerState")]
-    HeapRegisteredWithDifferentSerState,
-
     /// A `FrozenValue` being serialized points into a heap whose chunk index
     /// was never registered, so its `value_index` cannot be resolved.
     #[error(
