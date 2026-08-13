@@ -32,7 +32,7 @@ pub(super) enum SettingSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SettingKeyRef<'a> {
-    pub(crate) section: Option<&'a str>,
+    pub(crate) section: &'a str,
     pub(crate) name: &'a str,
 }
 
@@ -74,7 +74,7 @@ impl<T: Clone> SettingKey<T> {
 const LOG_URL: SettingKey<&'static str> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
-            section: Some("log_download"),
+            section: "log_download",
             name: "log_url",
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -86,7 +86,7 @@ const LOG_URL: SettingKey<&'static str> = SettingKey {
 const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
-            section: Some("log_download"),
+            section: "log_download",
             name: "log_use_manifold",
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -235,7 +235,7 @@ mod tests {
             find_setting_metadata(
                 ALL_SETTING_METADATA,
                 SettingKeyRef {
-                    section: Some("log_download"),
+                    section: "log_download",
                     name: "log_use_manifold",
                 },
             ),
@@ -245,7 +245,7 @@ mod tests {
             find_setting_metadata(
                 ALL_SETTING_METADATA,
                 SettingKeyRef {
-                    section: Some("log_download"),
+                    section: "log_download",
                     name: "log_use_maniflod",
                 },
             ),
@@ -255,7 +255,7 @@ mod tests {
             find_setting_metadata(
                 ALL_SETTING_METADATA,
                 SettingKeyRef {
-                    section: Some("buck2"),
+                    section: "buck2",
                     name: "log_url",
                 },
             ),
@@ -290,10 +290,7 @@ mod tests {
         let fields = collect_fields(None, &serialized);
         let registered: BTreeSet<String> = ALL_SETTING_METADATA
             .iter()
-            .map(|metadata| match metadata.key.section {
-                Some(section) => format!("{section}.{}", metadata.key.name),
-                None => metadata.key.name.to_owned(),
-            })
+            .map(|metadata| format!("{}.{}", metadata.key.section, metadata.key.name))
             .collect();
         assert_eq!(
             fields, registered,

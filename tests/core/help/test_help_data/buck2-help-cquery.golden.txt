@@ -324,8 +324,8 @@ Universal Options:
           form `key=value`, where `key` is a snake_case identifier, and will be sent to backend
           datasets
 
-      --setting <KEY=VALUE>
-          Override a Buck setting using `key=value` or `section.key=value`
+      --setting <SECTION.KEY=VALUE>
+          Override a Buck setting using `section.key=value`
 
       --agent-context <AGENT_CONTEXT>
           Agent context key=value pairs for telemetry. Used by AI agents to pass structured

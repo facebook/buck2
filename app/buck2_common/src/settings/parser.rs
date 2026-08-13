@@ -147,9 +147,13 @@ impl MergedSettings {
                 }
                 SourcedValue::Leaf { provenance, .. } => {
                     let (name, section) = path.split_last().expect("a setting always has a name");
-                    let section = (!section.is_empty()).then(|| section.join("."));
+                    if section.is_empty() {
+                        path.pop();
+                        continue;
+                    }
+                    let section = section.join(".");
                     let key = SettingKeyRef {
-                        section: section.as_deref(),
+                        section: &section,
                         name,
                     };
                     let Some(metadata) = find_setting_metadata(metadata, key) else {
@@ -336,12 +340,9 @@ mod tests {
 
     impl MergedSettings {
         fn provenance(&self, key: SettingKeyRef<'_>) -> Option<&Provenance> {
-            let value = match key.section {
-                Some(section) => match self.0.get(section)? {
-                    SourcedValue::Section(section) => section.0.get(key.name)?,
-                    SourcedValue::Leaf { .. } => return None,
-                },
-                None => self.0.get(key.name)?,
+            let value = match self.0.get(key.section)? {
+                SourcedValue::Section(section) => section.0.get(key.name)?,
+                SourcedValue::Leaf { .. } => return None,
             };
             match value {
                 SourcedValue::Leaf { provenance, .. } => Some(provenance),
@@ -352,7 +353,7 @@ mod tests {
 
     const TEST_FLAG_METADATA: SettingKeyMetadata = SettingKeyMetadata {
         key: SettingKeyRef {
-            section: Some("test_section"),
+            section: "test_section",
             name: "test_flag",
         },
         overridable_in: &[OverrideSource::CommandLine],
@@ -361,14 +362,14 @@ mod tests {
     const TEST_SETTINGS_METADATA: &[SettingKeyMetadata] = &[
         SettingKeyMetadata {
             key: SettingKeyRef {
-                section: Some("test_section"),
+                section: "test_section",
                 name: "test_flag",
             },
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
         },
         SettingKeyMetadata {
             key: SettingKeyRef {
-                section: Some("test_section"),
+                section: "test_section",
                 name: "test_value",
             },
             overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -503,7 +504,7 @@ mod tests {
         let merged = merge_layers(layers);
         assert_eq!(
             merged.provenance(SettingKeyRef {
-                section: Some("test_section"),
+                section: "test_section",
                 name: "test_flag",
             }),
             Some(&Provenance::CommandLine)
@@ -511,7 +512,7 @@ mod tests {
         assert_eq!(
             merged
                 .provenance(SettingKeyRef {
-                    section: Some("test_section"),
+                    section: "test_section",
                     name: "test_flag",
                 })
                 .map(Provenance::setting_source),
@@ -520,7 +521,7 @@ mod tests {
         assert_eq!(
             merged
                 .provenance(SettingKeyRef {
-                    section: Some("test_section"),
+                    section: "test_section",
                     name: "test_value",
                 })
                 .map(Provenance::setting_source),
@@ -528,7 +529,7 @@ mod tests {
         );
         assert_eq!(
             merged.provenance(SettingKeyRef {
-                section: Some("test_section"),
+                section: "test_section",
                 name: "test_value",
             }),
             Some(&Provenance::LocalSettings(

@@ -134,10 +134,10 @@ struct BeforeSubcommandOptions {
     #[clap(long, global = true, value_parser = buck_error_clap_parser(parse_client_metadata))]
     client_metadata: Vec<ClientMetadata>,
 
-    /// Override a Buck setting using `key=value` or `section.key=value`.
+    /// Override a Buck setting using `section.key=value`.
     #[clap(
         long = "setting",
-        value_name = "KEY=VALUE",
+        value_name = "SECTION.KEY=VALUE",
         global = true,
         num_args = 1,
         value_parser = buck_error_clap_parser(parse_setting_flag_arg)

@@ -303,12 +303,14 @@ mod tests {
         // Ensure early cell initialization does not discard setting args.
         context.resolve_cell_path("", "")?;
 
-        let mut setting_arg_layer = toml::Table::new();
-        setting_arg_layer.insert("log_use_manifold".to_owned(), toml::Value::Boolean(false));
-        setting_arg_layer.insert(
+        let mut log_download = toml::Table::new();
+        log_download.insert("log_use_manifold".to_owned(), toml::Value::Boolean(false));
+        log_download.insert(
             "log_url".to_owned(),
             toml::Value::String("setting_arg".to_owned()),
         );
+        let mut setting_arg_layer = toml::Table::new();
+        setting_arg_layer.insert("log_download".to_owned(), toml::Value::Table(log_download));
 
         context.set_setting_arg_layers(vec![setting_arg_layer])?;
         assert_eq!(
