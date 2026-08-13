@@ -27,7 +27,7 @@ use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::LazyActionDirectoryBuilder;
-use buck2_hash::BuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -73,7 +73,7 @@ use crate::deferred::calculation::OwnedDeferredHolder;
 /// failed analysis or dynamic nodes).
 pub fn compute_action_graph_sketch<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>,
+    state: &buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>,
 ) -> buck2_error::Result<(bool, MergeableGraphSketch<ActionKey, ActionGraphSketch>)> {
     let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
     let complete = compute_action_graph_sketch_impl(root_artifacts, state, &mut sketcher)?;
@@ -83,7 +83,7 @@ pub fn compute_action_graph_sketch<'a>(
 /// Private implementation that accepts any Sketcher for testing.
 fn compute_action_graph_sketch_impl<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>,
+    state: &buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>,
     sketcher: &mut impl Sketcher<ActionKey>,
 ) -> buck2_error::Result<bool> {
     let (complete, actions) =
@@ -122,7 +122,7 @@ fn compute_configured_graph_sketch_impl<'a>(
     sketcher: &mut impl Sketcher<ConfiguredTargetLabel>,
 ) -> usize {
     let mut queue = vec![node];
-    let mut visited: BuckHashSet<_> = BuckHashSet::default();
+    let mut visited: BuckMutSet<_> = BuckMutSet::default();
     visited.insert(node);
 
     while let Some(item) = queue.pop() {
@@ -329,9 +329,9 @@ pub(crate) struct LoadGraphPropertiesKey {
     pub label: ConfiguredTargetLabel,
 }
 
-fn collect_transitive_packages(root: &ConfiguredTargetNode) -> BuckHashSet<PackageLabel> {
-    let mut packages = BuckHashSet::default();
-    let mut visited = BuckHashSet::default();
+fn collect_transitive_packages(root: &ConfiguredTargetNode) -> BuckMutSet<PackageLabel> {
+    let mut packages = BuckMutSet::default();
+    let mut visited = BuckMutSet::default();
     visited.insert(root);
     let mut queue = vec![root];
     while let Some(node) = queue.pop() {
@@ -372,7 +372,7 @@ impl Key for LoadGraphPropertiesKey {
             })
             .await?;
 
-        let mut imports = BuckHashSet::default();
+        let mut imports = BuckMutSet::default();
         for (pkg, eval_result) in &pkg_results {
             let peak_bytes = eval_result.starlark_peak_allocated_bytes;
             if peak_bytes > 0 {
@@ -390,7 +390,7 @@ impl Key for LoadGraphPropertiesKey {
             })
             .await?;
 
-        let mut visited: BuckHashSet<&FrozenHeapRef> = BuckHashSet::default();
+        let mut visited: BuckMutSet<&FrozenHeapRef> = BuckMutSet::default();
         let mut queue: Vec<&FrozenHeapRef> = Vec::new();
         for heap in &loaded_modules {
             if visited.insert(heap) {
@@ -439,7 +439,7 @@ fn gather_heap_graph_sketch(
     let mut retained_sketcher = compute_retained.then(|| DEFAULT_SKETCH_VERSION.create_sketcher());
     let mut peak_sketcher = compute_peak.then(|| DEFAULT_SKETCH_VERSION.create_sketcher());
 
-    let mut visited = BuckHashSet::default();
+    let mut visited = BuckMutSet::default();
     visited.insert(root);
     let mut queue = vec![root];
 
@@ -498,9 +498,9 @@ mod tests {
     use buck2_execute::directory::insert_artifact;
     use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-    use buck2_hash::BuckHashMap;
-    use buck2_hash::BuckHashSet;
     use buck2_hash::BuckIndexSet;
+    use buck2_hash::BuckMutMap;
+    use buck2_hash::BuckMutSet;
     use dupe::Dupe;
     use pagable::Pagable;
     use pagable::pagable_typetag;
@@ -645,7 +645,7 @@ mod tests {
 
     #[test]
     fn test_action_graph_sketch_impl_empty() {
-        let state = BuckHashMap::default();
+        let state = BuckMutMap::default();
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
 
         let complete = super::compute_action_graph_sketch_impl(
@@ -669,7 +669,7 @@ mod tests {
         let artifact_group = ArtifactGroup::Artifact(output.into());
 
         // Empty state - the action is not registered
-        let state = BuckHashMap::default();
+        let state = BuckMutMap::default();
 
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
         let complete =
@@ -722,7 +722,7 @@ mod tests {
             None,
         ));
 
-        let mut state = BuckHashMap::default();
+        let mut state = BuckMutMap::default();
         state.insert(holder_key, holder);
 
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
@@ -733,7 +733,7 @@ mod tests {
         assert!(complete);
         // Diamond has 4 unique actions - action0 should only be sketched once
         assert_eq!(mock_sketcher.items.len(), 4);
-        let sketched: BuckHashSet<_> = mock_sketcher.items.into_iter().collect();
+        let sketched: BuckMutSet<_> = mock_sketcher.items.into_iter().collect();
         assert!(sketched.contains(&action_key0));
         assert!(sketched.contains(&action_key1));
         assert!(sketched.contains(&action_key2));
@@ -785,22 +785,22 @@ mod tests {
         compute_artifact_path_sketches_impl(&builder, Some(&mut size_mock), Some(&mut count_mock));
 
         // Walk order isn't stable, so compare as maps.
-        let expected_counts: BuckHashMap<_, _> = [p_first, p_other, p_shared]
+        let expected_counts: BuckMutMap<_, _> = [p_first, p_other, p_shared]
             .into_iter()
             .map(|p| (p, 1usize))
             .collect();
-        let expected_sizes: BuckHashMap<_, _> =
+        let expected_sizes: BuckMutMap<_, _> =
             expected_counts.keys().map(|p| (p.clone(), 0u64)).collect();
 
-        let count_seen: BuckHashMap<_, usize> =
+        let count_seen: BuckMutMap<_, usize> =
             count_mock
                 .items
                 .iter()
-                .fold(BuckHashMap::default(), |mut m, p| {
+                .fold(BuckMutMap::default(), |mut m, p| {
                     *m.entry(p.clone()).or_default() += 1;
                     m
                 });
-        let size_seen: BuckHashMap<_, _> = size_mock.weighted_items.into_iter().collect();
+        let size_seen: BuckMutMap<_, _> = size_mock.weighted_items.into_iter().collect();
 
         assert_eq!(count_seen, expected_counts);
         assert_eq!(size_seen, expected_sizes);

@@ -15,8 +15,8 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_hash::BuckHashMap;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
@@ -126,14 +126,14 @@ pub trait ArtifactPathMapper {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash>;
 }
 
-impl ArtifactPathMapper for BuckHashMap<&Artifact, ContentBasedPathHash> {
+impl ArtifactPathMapper for BuckMutMap<&Artifact, ContentBasedPathHash> {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
         self.get(artifact)
     }
 }
 
 pub struct ArtifactPathMapperImpl<'a> {
-    pub map: BuckHashMap<&'a Artifact, ContentBasedPathHash>,
+    pub map: BuckMutMap<&'a Artifact, ContentBasedPathHash>,
 }
 
 impl<'a> From<&'a Vec<(ArtifactGroup, ArtifactGroupValues)>> for ArtifactPathMapperImpl<'a> {

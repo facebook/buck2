@@ -20,7 +20,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::BuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::regex::register_buck_regex;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
@@ -49,7 +49,7 @@ fn get_command_line(value: Value) -> buck2_error::Result<Vec<String>> {
     let fs = artifact_fs();
     let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
     let mut cli = Vec::<String>::new();
-    let artifact_path_mapping = BuckHashMap::default();
+    let artifact_path_mapping = BuckMutMap::default();
     let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
 
     match ValueAsCommandLineLike::unpack_value(value)? {
@@ -71,7 +71,7 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
         let fs = artifact_fs();
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
-        let artifact_path_mapping = BuckHashMap::default();
+        let artifact_path_mapping = BuckMutMap::default();
         let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
         ValueAsCommandLineLike::unpack_value_err(value)?
             .0

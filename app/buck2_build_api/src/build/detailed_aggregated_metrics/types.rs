@@ -52,7 +52,7 @@ pub struct TopLevelTargetSpec {
 
 #[derive(Default)]
 pub struct PerBuildEvents {
-    pub executed_actions: buck2_hash::BuckHashSet<ActionKey>,
+    pub executed_actions: buck2_hash::BuckMutSet<ActionKey>,
     pub top_level_targets: Vec<TopLevelTargetSpec>,
 }
 

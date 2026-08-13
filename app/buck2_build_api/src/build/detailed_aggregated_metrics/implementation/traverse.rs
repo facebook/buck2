@@ -80,7 +80,7 @@ impl Node {
     }
 }
 
-struct Graph<'a>(&'a buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>);
+struct Graph<'a>(&'a buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>);
 
 impl<'a> Graph<'a> {
     pub(crate) fn lookup_deferred(
@@ -236,14 +236,14 @@ impl<'a> Graph<'a> {
 }
 
 struct TraversalState {
-    visited: buck2_hash::BuckHashSet<Key>,
+    visited: buck2_hash::BuckMutSet<Key>,
     queue: Vec<Key>,
 }
 
 impl TraversalState {
     fn new() -> Self {
         Self {
-            visited: buck2_hash::BuckHashSet::default(),
+            visited: buck2_hash::BuckMutSet::default(),
             queue: Vec::new(),
         }
     }
@@ -262,9 +262,9 @@ impl TraversalState {
 
 pub fn traverse_partial_action_graph<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>,
-) -> buck2_error::Result<(bool, buck2_hash::BuckHashSet<ActionKey>)> {
-    let mut actions = buck2_hash::BuckHashSet::default();
+    state: &buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>,
+) -> buck2_error::Result<(bool, buck2_hash::BuckMutSet<ActionKey>)> {
+    let mut actions = buck2_hash::BuckMutSet::default();
 
     let graph = Graph(state);
     let roots = graph.root_keys(root_artifacts)?;
@@ -286,7 +286,7 @@ pub fn traverse_target_graph(
     root: &ConfiguredTargetNode,
     mut visitor: impl FnMut(&ConfiguredTargetLabel),
 ) {
-    let mut visited = buck2_hash::BuckHashSet::default();
+    let mut visited = buck2_hash::BuckMutSet::default();
     let mut queue = Vec::new();
     visited.insert(root.label());
     queue.push(root);

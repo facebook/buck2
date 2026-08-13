@@ -65,9 +65,9 @@ use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_hash::BuckHashMap;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
 use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
 use derivative::Derivative;
@@ -433,7 +433,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
     fn artifact_path_mapping(
         &self,
         filter: Option<BuckIndexSet<ArtifactGroup>>,
-    ) -> BuckHashMap<&Artifact, ContentBasedPathHash> {
+    ) -> BuckMutMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {

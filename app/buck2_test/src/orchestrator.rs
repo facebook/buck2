@@ -127,9 +127,9 @@ use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckDefaultHasher;
-use buck2_hash::BuckHashMap;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_hash::buck_indexset;
@@ -1935,7 +1935,7 @@ impl BuckTestOrchestrator<'_> {
             .await?;
 
         let info = provider.as_ref().value().as_ref();
-        let artifact_path_mapping: BuckHashMap<_, _> = inputs
+        let artifact_path_mapping: BuckMutMap<_, _> = inputs
             .iter()
             .flat_map(|v| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))

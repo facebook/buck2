@@ -16,7 +16,7 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_hash::BuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -277,7 +277,7 @@ fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
 }
 
 pub fn validate_json(x: JsonUnpack) -> buck2_error::Result<()> {
-    write_json(x, None, &mut sink(), false, false, &BuckHashMap::default())
+    write_json(x, None, &mut sink(), false, false, &BuckMutMap::default())
 }
 
 pub fn write_json(

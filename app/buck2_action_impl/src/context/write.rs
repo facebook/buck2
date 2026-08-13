@@ -28,7 +28,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::request::OutputType;
-use buck2_hash::BuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_hash::buck_indexset;
 use dupe::Dupe;
 use either::Either;
@@ -247,7 +247,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
             let mut counter = WriteToFileMacrosCounter { count: 0 };
             // At this point the mapping doesn't matter because we're only doing a count
-            cli.visit_write_to_file_macros(&mut counter, &BuckHashMap::default())?;
+            cli.visit_write_to_file_macros(&mut counter, &BuckMutMap::default())?;
             Ok(counter.count)
         }
 

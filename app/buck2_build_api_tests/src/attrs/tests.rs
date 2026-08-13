@@ -27,7 +27,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::BuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
@@ -999,7 +999,7 @@ fn test_user_placeholders() -> buck2_error::Result<()> {
                     let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
                     let mut cli = Vec::<String>::new();
-                    let artifact_path_mapping = BuckHashMap::default();
+                    let artifact_path_mapping = BuckMutMap::default();
                     let mut fmt =
                         CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
                     ValueAsCommandLineLike::unpack_value_err(v)

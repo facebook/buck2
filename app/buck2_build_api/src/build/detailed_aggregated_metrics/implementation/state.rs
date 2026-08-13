@@ -16,7 +16,7 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
-use buck2_hash::BuckHashSet;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 
 use crate::build::detailed_aggregated_metrics::FxMultiMap;
@@ -46,8 +46,8 @@ use crate::deferred::calculation::OwnedDeferredHolder;
 /// build it occurred in. We expect the user to track which executions are relevant to the current build,
 /// and use that later to compute metrics both over the whole graph and just specific to the current build.
 pub struct DetailedAggregatedMetricsStateTracker {
-    observed_executions: buck2_hash::BuckHashMap<ActionKey, ActionExecutionMetrics>,
-    analysis_nodes: Arc<buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>>,
+    observed_executions: buck2_hash::BuckMutMap<ActionKey, ActionExecutionMetrics>,
+    analysis_nodes: Arc<buck2_hash::BuckMutMap<DeferredHolderKey, OwnedDeferredHolder>>,
 }
 
 impl DetailedAggregatedMetricsStateTracker {
@@ -71,8 +71,8 @@ impl DetailedAggregatedMetricsStateTracker {
 
     fn new() -> Self {
         Self {
-            analysis_nodes: Arc::new(buck2_hash::BuckHashMap::default()),
-            observed_executions: buck2_hash::BuckHashMap::default(),
+            analysis_nodes: Arc::new(buck2_hash::BuckMutMap::default()),
+            observed_executions: buck2_hash::BuckMutMap::default(),
         }
     }
 
@@ -112,7 +112,7 @@ impl DetailedAggregatedMetricsStateTracker {
                 let analysis_nodes = self.analysis_nodes.dupe();
                 let rule_type_name = spec.target.rule_type().name().to_owned();
                 tokio::task::spawn_blocking(move || {
-                    let mut target_graph = BuckHashSet::default();
+                    let mut target_graph = BuckMutSet::default();
                     traverse_target_graph(&spec.target, |target| {
                         target_graph.insert(target.dupe());
                     });

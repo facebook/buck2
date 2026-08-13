@@ -46,7 +46,7 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::BuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_hash::buck_indexset;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
@@ -177,7 +177,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         );
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
-        let artifact_path_mapping = BuckHashMap::default();
+        let artifact_path_mapping = BuckMutMap::default();
         let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
         artifact
             .0

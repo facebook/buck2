@@ -19,13 +19,13 @@
 //! # Usage
 //!
 //! ```
-//! use buck2_hash::BuckHashMap;
-//! use buck2_hash::BuckHashSet;
+//! use buck2_hash::BuckMutMap;
+//! use buck2_hash::BuckMutSet;
 //!
-//! let mut map: BuckHashMap<String, i32> = BuckHashMap::default();
+//! let mut map: BuckMutMap<String, i32> = BuckMutMap::default();
 //! map.insert("key".to_string(), 42);
 //!
-//! let mut set: BuckHashSet<i32> = BuckHashSet::default();
+//! let mut set: BuckMutSet<i32> = BuckMutSet::default();
 //! set.insert(42);
 //! ```
 //!
@@ -138,24 +138,22 @@ impl BuildHasher for BuckHasherBuilder {
     }
 }
 
-/// A [`HashMap`](std::collections::HashMap) using [`BuckHasher`].
+/// A [`HashMap`](std::collections::HashMap) using [`BuckHasherBuilder`].
 ///
-/// This is a type alias for `std::collections::HashMap` with [`BuckHasherBuilder`]
-/// as the hasher, providing better performance than the default hasher for
-/// internal use cases where security is not a concern.
-pub type BuckHashMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
+/// The default map for buck2 code: mutable, with no guarantee about iteration order. The
+/// hasher is faster than the standard library's, which is optimized against hash flooding -
+/// not a concern for buck2's internal maps.
+pub type BuckMutMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
 
-/// A [`HashSet`](std::collections::HashSet) using [`BuckHasher`].
+/// A [`HashSet`](std::collections::HashSet) using [`BuckHasherBuilder`].
 ///
-/// This is a type alias for `std::collections::HashSet` with [`BuckHasherBuilder`]
-/// as the hasher, providing better performance than the default hasher for
-/// internal use cases where security is not a concern.
-pub type BuckHashSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
+/// The set counterpart of [`BuckMutMap`], and the default set for buck2 code.
+pub type BuckMutSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
 
 /// An [`IndexMap`](indexmap::IndexMap) using the default hasher.
 ///
 /// This is a type alias for `indexmap::IndexMap` that preserves insertion order.
-/// Unlike [`BuckHashMap`], iteration order is guaranteed to match insertion order.
+/// Unlike [`BuckMutMap`], iteration order is guaranteed to match insertion order.
 ///
 /// This abstraction allows the hasher implementation to be changed centrally
 /// in a future commit.
@@ -164,7 +162,7 @@ pub type BuckIndexMap<K, V> = indexmap::IndexMap<K, V>;
 /// An [`IndexSet`](indexmap::IndexSet) using the default hasher.
 ///
 /// This is a type alias for `indexmap::IndexSet` that preserves insertion order.
-/// Unlike [`BuckHashSet`], iteration order is guaranteed to match insertion order.
+/// Unlike [`BuckMutSet`], iteration order is guaranteed to match insertion order.
 ///
 /// This abstraction allows the hasher implementation to be changed centrally
 /// in a future commit.
@@ -253,7 +251,7 @@ pub type BuckDashSet<K> = dashmap::DashSet<K>;
 /// A [`HashMap`](std::collections::HashMap) using the standard library's default hasher.
 ///
 /// This is a type alias for `std::collections::HashMap` with the default `RandomState`
-/// hasher. Unlike [`BuckHashMap`] which uses `FxHasher`, this type preserves the
+/// hasher. Unlike [`BuckMutMap`] which uses `FxHasher`, this type preserves the
 /// standard library's secure hashing behavior.
 ///
 /// This abstraction allows the hasher implementation to be changed centrally
@@ -264,7 +262,7 @@ pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 /// A [`HashSet`](std::collections::HashSet) using the standard library's default hasher.
 ///
 /// This is a type alias for `std::collections::HashSet` with the default `RandomState`
-/// hasher. Unlike [`BuckHashSet`] which uses `FxHasher`, this type preserves the
+/// hasher. Unlike [`BuckMutSet`] which uses `FxHasher`, this type preserves the
 /// standard library's secure hashing behavior.
 ///
 /// This abstraction allows the hasher implementation to be changed centrally
@@ -277,7 +275,7 @@ pub type StdBuckHashSet<K> = std::collections::HashSet<K>;
 ///
 /// Use this at API boundaries where the concrete type `HashMap<K, V>` is required —
 /// for example, protobuf-generated struct fields, third-party crate APIs, or rusqlite
-/// result collection. In all other cases, prefer [`BuckHashMap`].
+/// result collection. In all other cases, prefer [`BuckMutMap`].
 pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 
 /// A [`HashSet`](std::collections::HashSet) that intentionally uses the standard library's
@@ -285,7 +283,7 @@ pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
 ///
 /// Use this at API boundaries where the concrete type `HashSet<K>` is required —
 /// for example, starlark's `ast.lint()` API which expects `&HashSet<String>`.
-/// In all other cases, prefer [`BuckHashSet`].
+/// In all other cases, prefer [`BuckMutSet`].
 pub type IntentionallyStdHashSet<K> = std::collections::HashSet<K>;
 
 #[cfg(test)]
@@ -316,8 +314,8 @@ mod tests {
     }
 
     #[test]
-    fn test_buck_hash_map() {
-        let mut map: BuckHashMap<String, i32> = BuckHashMap::default();
+    fn test_buck_mut_map() {
+        let mut map: BuckMutMap<String, i32> = BuckMutMap::default();
         map.insert("key1".to_owned(), 1);
         map.insert("key2".to_owned(), 2);
 
@@ -327,8 +325,8 @@ mod tests {
     }
 
     #[test]
-    fn test_buck_hash_set() {
-        let mut set: BuckHashSet<i32> = BuckHashSet::default();
+    fn test_buck_mut_set() {
+        let mut set: BuckMutSet<i32> = BuckMutSet::default();
         set.insert(1);
         set.insert(2);
         set.insert(1);
