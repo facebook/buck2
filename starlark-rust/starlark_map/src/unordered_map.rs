@@ -320,10 +320,12 @@ impl<K: Eq + Hash, V> FromIterator<(K, V)> for UnorderedMap<K, V> {
 }
 
 #[cfg(feature = "pagable_dep")]
-impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize for UnorderedMap<K, V> {
+impl<K: PagableSerialize + Ord, V: PagableSerialize> PagableSerialize for UnorderedMap<K, V> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        // Sorted, because paged out values are deduplicated by their bytes, and the iteration
+        // order of this map depends on insertion order. Same as the `HashMap` impl in `pagable`.
         usize::serialize(&self.len(), serializer.serde())?;
-        for (k, v) in self.entries_unordered() {
+        for (k, v) in self.entries_sorted() {
             k.pagable_serialize(serializer)?;
             v.pagable_serialize(serializer)?;
         }
@@ -582,6 +584,36 @@ mod tests {
         map.insert(5, 6);
         map.insert(3, 4);
         assert_eq!(map.entries_sorted(), vec![(&1, &2), (&3, &4), (&5, &6)]);
+    }
+
+    #[cfg(feature = "pagable_dep")]
+    #[test]
+    fn test_pagable_bytes_do_not_depend_on_insertion_order() {
+        use std::collections::BTreeMap;
+
+        use pagable::PagableSerialize;
+        use pagable::testing::TestingSerializer;
+
+        fn bytes(value: &impl PagableSerialize) -> Vec<u8> {
+            let mut serializer = TestingSerializer::new();
+            value
+                .pagable_serialize(&mut serializer)
+                .expect("in-memory serialization should not fail");
+            serializer.finish()
+        }
+
+        let entries: Vec<(String, u32)> = (0..100).map(|i| (format!("key{i}"), i)).collect();
+
+        let forwards: UnorderedMap<String, u32> = entries.iter().cloned().collect();
+        let mut backwards = UnorderedMap::with_capacity(4 * entries.len());
+        for (k, v) in entries.iter().rev() {
+            backwards.insert(k.clone(), *v);
+        }
+
+        // `BTreeMap` has the same pagable encoding, with the entries in key order.
+        let expected = bytes(&BTreeMap::from_iter(entries));
+        assert_eq!(bytes(&forwards), expected);
+        assert_eq!(bytes(&backwards), expected);
     }
 
     #[test]
