@@ -121,15 +121,13 @@ def process_link_args(
        `#[used]` symbols of every linked crate so that the corresponding
        archive members survive the link.
 
-    The only args retained are wasm-ld `--export` args, which carry the same
-    per-program symbol metadata that `symbols.o` does on ELF (see the comment
-    at the branch). All other flags and libraries rustc puts on its link line
-    are deliberately dropped: the toolchain and the dependency graph are the
-    sole owners of the flags and libraries on the cxx-driven link. A
-    rustc-synthesized file we don't recognize is an error, not something to
-    pass through: it would be a dangling path by the time the link action
-    runs. Version scripts are one known such case, so dylib and cdylib crates
-    cannot currently be linked through this.
+    Nothing else is taken. In particular, the flags and libraries rustc puts
+    on its link line are deliberately dropped: the toolchain and the
+    dependency graph are the sole owners of the flags and libraries on the
+    cxx-driven link. A rustc-synthesized file we don't recognize is an error,
+    not something to pass through: it would be a dangling path by the time
+    the link action runs. Version scripts are one known such case, so dylib
+    and cdylib crates cannot currently be linked through this.
     """
     retained_args = []
     objects = []
@@ -149,44 +147,6 @@ def process_link_args(
             handled.add(arg)
 
             objects.append(shutil.copy(path, out_artifacts))
-            i += 1
-            continue
-
-        # wasm has no `symbols.o`: rustc communicates the crate graph's
-        # exported/kept-alive symbols to wasm-ld as `--export` arguments
-        # instead. Retaining these is acceptable for the same reason
-        # extracting `symbols.o` is — they are per-program symbol metadata,
-        # the analogue of what C compilers embed in object files as wasm
-        # export flags — NOT a precedent for preserving arbitrary flags.
-        elif arg in ("--export", "--export-if-defined"):
-            retained_args.append(arg)
-            if i + 1 < size:
-                handled.add(args[i + 1])
-                retained_args.append(args[i + 1])
-            i += 2
-            continue
-        elif arg.startswith("--export=") or arg.startswith("--export-if-defined="):
-            retained_args.append(arg)
-            i += 1
-            continue
-
-        # Entry-point metadata is the same category: rustc knows whether the
-        # program's entry is a `_start`-style symbol or an exported `main`
-        # with no native entry (`--no-entry`). In C that information is
-        # carried by whether an object defines the entry symbol.
-        elif arg == "--no-entry":
-            retained_args.append(arg)
-            i += 1
-            continue
-        elif arg == "--entry":
-            retained_args.append(arg)
-            if i + 1 < size:
-                handled.add(args[i + 1])
-                retained_args.append(args[i + 1])
-            i += 2
-            continue
-        elif arg.startswith("--entry="):
-            retained_args.append(arg)
             i += 1
             continue
 
