@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use allocative::Allocative;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use pagable::typetag::PagableStableName;
 use pagable::typetag::PagableTagged;
 use starlark_derive::type_matcher;
 
@@ -66,7 +67,10 @@ impl<T> TypeMatcherBase for T where T: Allocative + Debug + Clone + Sized + Send
 
 /// Runtime type matcher. E.g. when `isinstance(1, int)` is called,
 /// implementation of `TypeMatcher` for `int` is used.
-pub trait TypeMatcher: TypeMatcherBase + Pagable + PagableTagged {
+/// `PagableStableName` is a supertrait so generic matcher wrappers can
+/// compose their persisted typetags from their argument matchers' stable
+/// names; any matcher deriving `Pagable` gets it automatically.
+pub trait TypeMatcher: TypeMatcherBase + Pagable + PagableTagged + PagableStableName {
     /// Check if the value matches the type.
     fn matches(&self, value: Value) -> bool;
     /// True if this matcher matches any value.
@@ -186,8 +190,8 @@ mod tests {
 
     #[test]
     fn test_round_trip_generic_1_inner() {
-        // Generic wrapper with 1 inner (registered via
-        // `register_type_matcher!(IsListOf, IsStr)`).
+        // Generic wrapper with 1 inner; the monomorphization registers
+        // itself at image load.
         let b = TypeMatcherBox::new(IsListOf(IsStr));
         let restored = round_trip(&b);
         // `list[str]` matches an empty list (vacuously).
@@ -199,8 +203,8 @@ mod tests {
 
     #[test]
     fn test_round_trip_generic_2_inner() {
-        // 2-generic wrapper with DISTINCT inners (registered via
-        // `register_type_matcher!(IsAnyOfTwo, IsNone, IsStr)`).
+        // 2-generic wrapper with DISTINCT inners; the monomorphization
+        // registers itself at image load.
         let b = TypeMatcherBox::new(IsAnyOfTwo(IsNone, IsStr));
         let restored = round_trip(&b);
         assert!(restored.0.matches_dyn(Value::new_none()));

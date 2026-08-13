@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-use pagable::typetag::PagableRegisteredFor;
-use pagable::typetag::PagableStableName;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::typing::Ty;
@@ -25,7 +23,6 @@ use crate::typing::custom::TyCustom;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
-use crate::values::typing::type_compiled::matcher::TypeMatcherDyn;
 use crate::values::typing::type_compiled::matchers::IsAny;
 use crate::values::typing::type_compiled::matchers::IsAnyOf;
 use crate::values::typing::type_compiled::matchers::IsAnyOfTwo;
@@ -135,8 +132,6 @@ pub trait TypeMatcherAlloc: Sized {
     where
         M0: TypeMatcher,
         M1: TypeMatcher,
-        IsAnyOfTwo<M0, M1>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsAnyOfTwo<M0, M1>: PagableStableName,
     {
         if m0.is_wildcard() {
             self.alloc(m1)
@@ -216,8 +211,6 @@ pub trait TypeMatcherAlloc: Sized {
     fn list_of_matcher<I>(self, item: I) -> Self::Result
     where
         I: TypeMatcher,
-        IsListOf<I>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsListOf<I>: PagableStableName,
     {
         if item.is_wildcard() {
             self.list()
@@ -267,12 +260,6 @@ pub trait TypeMatcherAlloc: Sized {
     where
         K: TypeMatcher,
         V: TypeMatcher,
-        IsDictOf<K, V>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsDictOf<K, V>: PagableStableName,
-        IsDictOf<K, IsAny>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsDictOf<K, IsAny>: PagableStableName,
-        IsDictOf<IsAny, V>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsDictOf<IsAny, V>: PagableStableName,
     {
         match (k.is_wildcard(), v.is_wildcard()) {
             (true, true) => self.dict(),
@@ -315,8 +302,6 @@ pub trait TypeMatcherAlloc: Sized {
     fn set_of_matcher<I>(self, item: I) -> Self::Result
     where
         I: TypeMatcher,
-        IsSetOf<I>: PagableRegisteredFor<dyn TypeMatcherDyn>,
-        IsSetOf<I>: PagableStableName,
     {
         if item.is_wildcard() {
             self.set()

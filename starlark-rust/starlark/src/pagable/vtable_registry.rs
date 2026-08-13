@@ -27,6 +27,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::LazyLock;
+use std::sync::Mutex;
 
 use crate::pagable::error::PagableError;
 use crate::values::layout::vtable::AValueVTable;
@@ -112,6 +113,44 @@ pub struct VTableRegistryEntry {
 
 inventory::collect!(VTableRegistryEntry);
 
+/// Accumulator for vtable entries of generic matcher monomorphizations,
+/// discovered at image-load time.
+///
+/// Concrete types register vtables with `inventory::submit!`, but a generic
+/// `TypeCompiledImplAsStarlarkValue<W<X>>` has no single source site to
+/// submit from. Instead, each monomorphization emits a program constructor
+/// (see `TypeCompiled::alloc`) that pushes its entry here when the image
+/// loads; [`VTABLE_REGISTRY`] drains the accumulator when it is first built,
+/// strictly after constructors have run.
+pub(crate) struct GenericVtableAccumulator {
+    // Pushes happen in program constructors and the drain happens later
+    // inside the `LazyLock` build, so contention is not expected; the mutex
+    // makes the static safe to touch from safe code regardless.
+    entries: Mutex<Vec<VTableRegistryEntry>>,
+}
+
+pub(crate) static GENERIC_VTABLE_ACCUMULATOR: GenericVtableAccumulator = GenericVtableAccumulator {
+    entries: Mutex::new(Vec::new()),
+};
+
+impl GenericVtableAccumulator {
+    pub(crate) fn push(&self, entry: VTableRegistryEntry) {
+        self.entries
+            .lock()
+            .expect("generic vtable accumulator mutex should not be poisoned")
+            .push(entry);
+    }
+
+    fn drain(&self) -> Vec<VTableRegistryEntry> {
+        std::mem::take(
+            &mut *self
+                .entries
+                .lock()
+                .expect("generic vtable accumulator mutex should not be poisoned"),
+        )
+    }
+}
+
 /// Bidirectional registry of all `inventory`-collected vtable entries, built
 /// once on first use.
 ///
@@ -132,9 +171,18 @@ struct VtableRegistry {
 static VTABLE_REGISTRY: LazyLock<VtableRegistry> = LazyLock::new(|| {
     // Deduplicate by type id first so a type submitted more than once still
     // gets a single index (matching the previous `HashMap`-based registry).
+    // Generic monomorphizations are pushed by load-time constructors, one
+    // per codegen unit that instantiated them, so duplicates are expected
+    // there as well.
     let by_type: HashMap<DeserTypeId, &'static AValueVTable> =
         inventory::iter::<VTableRegistryEntry>()
             .map(|e| (e.deser_type_id, e.vtable))
+            .chain(
+                GENERIC_VTABLE_ACCUMULATOR
+                    .drain()
+                    .into_iter()
+                    .map(|e| (e.deser_type_id, e.vtable)),
+            )
             .collect();
 
     // Sort by type name so each type's index depends only on the set of
@@ -412,8 +460,9 @@ mod tests {
 
     #[test]
     fn test_type_compiled_generic_matcher_is_registered() {
-        // IsListOf is a generic TypeMatcher (IsListOf<I>). Specific instantiations
-        // are registered via register_type_matcher! (e.g., IsListOf<TypeMatcherBox>).
+        // IsListOf is a generic TypeMatcher (IsListOf<I>). Each instantiation
+        // in the binary registers its vtable through a load-time constructor,
+        // so this lookup succeeding proves the constructor path ran.
         use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
         use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
         use crate::values::typing::type_compiled::matchers::IsListOf;

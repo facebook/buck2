@@ -139,8 +139,9 @@ pub struct TypeCompiledImplAsStarlarkValue<T: 'static> {
     ty: Ty,
 }
 
-// SAFETY: TypeMatcherRegistered is only implemented for types that are registered
-// via #[type_matcher] or register_type_matcher!, which ensures vtable registration.
+// SAFETY: TypeMatcherRegistered is only implemented via #[type_matcher], which
+// registers concrete matcher vtables by inventory and relies on the load-time
+// constructors emitted by `TypeCompiled::alloc` for generic monomorphizations.
 unsafe impl<T: crate::values::typing::type_compiled::matcher::TypeMatcherRegistered>
     crate::pagable::vtable_register::VtableRegistered for TypeCompiledImplAsStarlarkValue<T>
 {
@@ -430,14 +431,48 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     }
 }
 
+/// Registers the AValue vtable of `TypeCompiledImplAsStarlarkValue<T>` for
+/// deserialization, once per monomorphization per image, when the image
+/// loads. This is the vtable counterpart of the generic typetag registration
+/// in `#[pagable_typetag]`: `__vtable_registration_anchor` emits one program
+/// constructor record per monomorphization, so a matcher instantiation that
+/// exists in the binary can page in without any hand-written
+/// per-instantiation registration.
+#[cfg(feature = "pagable")]
+extern "C" fn __vtable_do_register<T: TypeMatcher>() {
+    use crate::pagable::vtable_registry::GENERIC_VTABLE_ACCUMULATOR;
+    use crate::pagable::vtable_registry::VTableRegistryEntry;
+    GENERIC_VTABLE_ACCUMULATOR.push(VTableRegistryEntry {
+        deser_type_id: crate::pagable::vtable_registry::DeserTypeId::of::<
+            TypeCompiledImplAsStarlarkValue<T>,
+        >(),
+        vtable: crate::values::layout::vtable::AValueVTable::new::<
+            crate::values::layout::avalues::simple::AValueSimple<
+                TypeCompiledImplAsStarlarkValue<T>,
+            >,
+        >(),
+    });
+}
+
+#[cfg(feature = "pagable")]
+#[inline(never)]
+extern "C" fn __vtable_registration_anchor<T: TypeMatcher>() {
+    pagable::__pagable_emit_generic_typetag_registration!(__vtable_do_register::<T>);
+}
+
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
 impl<'v> TypeCompiled<Value<'v>> {
-    pub(crate) fn alloc(
-        type_compiled_impl: impl TypeMatcher,
+    pub(crate) fn alloc<M: TypeMatcher>(
+        type_compiled_impl: M,
         ty: Ty,
         heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
+        // Keep the monomorphized anchor and its emitted constructor record
+        // linked until `#[used(linker)]` is stable in the supported
+        // toolchains.
+        #[cfg(feature = "pagable")]
+        core::hint::black_box(__vtable_registration_anchor::<M> as extern "C" fn());
         TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
             type_compiled_impl,
             ty,
