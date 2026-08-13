@@ -74,7 +74,7 @@ impl<T: Clone> SettingKey<T> {
 const LOG_URL: SettingKey<&'static str> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
-            section: None,
+            section: Some("log_download"),
             name: "log_url",
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -86,7 +86,7 @@ const LOG_URL: SettingKey<&'static str> = SettingKey {
 const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
     metadata: SettingKeyMetadata {
         key: SettingKeyRef {
-            section: None,
+            section: Some("log_download"),
             name: "log_use_manifold",
         },
         overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
@@ -108,9 +108,16 @@ pub(crate) fn find_setting_metadata<'a>(
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct BuckSettingsData {
+struct LogDownloadSection {
     log_use_manifold: Option<bool>,
     log_url: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BuckSettingsData {
+    #[serde(default)]
+    log_download: LogDownloadSection,
 }
 
 #[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
@@ -122,11 +129,12 @@ impl BuckSettings {
     }
 
     pub fn log_use_manifold(&self) -> Option<bool> {
-        LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
+        LOG_USE_MANIFOLD.resolve(self.0.log_download.log_use_manifold)
     }
 
     pub fn log_url(&self) -> Option<&str> {
         self.0
+            .log_download
             .log_url
             .as_deref()
             .or_else(|| LOG_URL.default_value())
@@ -171,14 +179,16 @@ mod tests {
 
     #[test]
     fn test_log_use_manifold() -> buck2_error::Result<()> {
-        let settings = resolve_setting_flags(vec![table("log_use_manifold = false")])?;
+        let settings =
+            resolve_setting_flags(vec![table("[log_download]\nlog_use_manifold = false")])?;
         assert_eq!(settings.log_use_manifold(), Some(false));
         Ok(())
     }
 
     #[test]
     fn test_log_url() -> buck2_error::Result<()> {
-        let settings = resolve_setting_flags(vec![table("log_url = \"test.com\"")])?;
+        let settings =
+            resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
         assert_eq!(settings.log_url(), Some("test.com"));
         Ok(())
     }
@@ -189,7 +199,7 @@ mod tests {
             find_setting_metadata(
                 ALL_SETTING_METADATA,
                 SettingKeyRef {
-                    section: None,
+                    section: Some("log_download"),
                     name: "log_use_manifold",
                 },
             ),
@@ -199,7 +209,7 @@ mod tests {
             find_setting_metadata(
                 ALL_SETTING_METADATA,
                 SettingKeyRef {
-                    section: None,
+                    section: Some("log_download"),
                     name: "log_use_maniflod",
                 },
             ),
