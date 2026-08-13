@@ -50,11 +50,15 @@
 //! - `inventory::submit!` to register the type with its tag
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::Pagable;
 use crate::PagableDeserializer;
 use crate::PagableSerializer;
+
+mod platform;
 
 /// Static type tag used to register a concrete type for trait-object deserialization.
 pub trait PagableTypeTag: Sized {
@@ -165,23 +169,47 @@ pub struct TypetagRegistration<T: ?Sized + 'static> {
     pub deserialize_arc_payload: fn(&mut dyn PagableDeserializer<'_>) -> crate::Result<Arc<T>>,
 }
 
-// SAFETY: TypetagRegistration only contains function pointers (fn types),
-// which are inherently Send + Sync.
-unsafe impl<T: ?Sized> Send for TypetagRegistration<T> {}
-unsafe impl<T: ?Sized> Sync for TypetagRegistration<T> {}
+// Manual impls: derives would wrongly require `T: Clone`/`T: Copy`, but the
+// fields are only fn pointers regardless of `T`.
+impl<T: ?Sized> Clone for TypetagRegistration<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: ?Sized> Copy for TypetagRegistration<T> {}
+
+// Registrations are shared through statics — `inventory` records and the
+// per-trait generic accumulators — so they must be `Send + Sync` for every
+// `T`. The fn-pointer fields satisfy that unconditionally; this
+// definition-site check rejects a future field that loses the auto traits,
+// instead of erroring at every macro expansion site.
+const _: () = {
+    #[expect(
+        dead_code,
+        reason = "compile-time proof; the body only needs to typecheck"
+    )]
+    fn registration_is_send_sync<T: ?Sized + 'static>(
+        reg: TypetagRegistration<T>,
+    ) -> impl Send + Sync {
+        reg
+    }
+};
 
 /// A registry built from `TypetagRegistration` entries collected via `inventory`.
 pub struct TypetagRegistry<T: ?Sized + 'static> {
-    map: HashMap<&'static str, &'static TypetagRegistration<T>>,
+    // Stored by value: generic registrations are drained out of a runtime
+    // accumulator, so there is no `'static` allocation to borrow.
+    map: HashMap<&'static str, TypetagRegistration<T>>,
 }
 
 impl<T: ?Sized + 'static> TypetagRegistry<T> {
     fn insert_registration(
-        map: &mut HashMap<&'static str, &'static TypetagRegistration<T>>,
-        reg: &'static TypetagRegistration<T>,
+        map: &mut HashMap<&'static str, TypetagRegistration<T>>,
+        reg: &TypetagRegistration<T>,
     ) {
         let tag = (reg.tag)();
-        let previous = map.insert(tag, reg);
+        let previous = map.insert(tag, *reg);
         assert!(
             previous.is_none(),
             "duplicate pagable typetag registration for {tag}"
@@ -222,6 +250,78 @@ impl<T: ?Sized + 'static> TypetagRegistry<T> {
             .get(tag.as_str())
             .ok_or_else(|| crate::__internal::anyhow::anyhow!("Unknown type tag: {}", tag))?;
         (registration.deserialize_arc_payload)(deserializer)
+    }
+}
+
+/// Accumulator for generic typetag registrations discovered at runtime.
+///
+/// Concrete `#[pagable_typetag]` implementations can register themselves with
+/// `inventory::submit!`, but generic impls cannot: there is no single concrete
+/// type to submit until Rust monomorphizes a used instantiation such as
+/// `GenericVehicle<Cargo>`. To bridge that gap, the proc macro emits a
+/// program constructor for each generic impl instantiation that pushes the
+/// monomorphized registration into the trait's accumulator when the image
+/// containing it is loaded.
+///
+/// Registries are built lazily at first use — strictly after program
+/// constructors have run — so the registry builder just drains this trait's
+/// accumulator and merges the generic registrations with the ordinary
+/// inventory registrations.
+pub struct GenericTypetagAccumulator<T: ?Sized + 'static> {
+    // Pushes happen in program constructors and the drain happens later
+    // inside `OnceLock::get_or_init`, so contention is not expected. Keep the
+    // mutex because this type and its methods are safe public API over a
+    // static accumulator; without interior locking, safe callers could race
+    // `push` and `drain`.
+    entries: Mutex<Vec<TypetagRegistration<T>>>,
+}
+
+impl<T: ?Sized + 'static> GenericTypetagAccumulator<T> {
+    pub const fn new() -> Self {
+        Self {
+            entries: Mutex::new(Vec::new()),
+        }
+    }
+
+    pub fn push(&self, reg: TypetagRegistration<T>) {
+        self.entries
+            .lock()
+            .expect("generic typetag accumulator mutex should not be poisoned")
+            .push(reg);
+    }
+
+    pub fn drain(&self) -> Vec<TypetagRegistration<T>> {
+        std::mem::take(
+            &mut *self
+                .entries
+                .lock()
+                .expect("generic typetag accumulator mutex should not be poisoned"),
+        )
+    }
+}
+
+impl<T: ?Sized + 'static> TypetagRegistry<T> {
+    pub fn from_inventory_and_generic(
+        iter: impl Iterator<Item = &'static TypetagRegistration<T>>,
+        generic_entries: Vec<TypetagRegistration<T>>,
+    ) -> Self {
+        let mut map = HashMap::new();
+        for reg in iter {
+            Self::insert_registration(&mut map, reg);
+        }
+        // A monomorphization can be instantiated in several codegen units,
+        // each of which emits its own registration constructor, so repeated
+        // generic tags are expected and equivalent (a stable name uniquely
+        // identifies the type). Only a generic tag colliding with an
+        // inventory registration indicates a real conflict.
+        let mut generic_tags = HashSet::new();
+        for reg in &generic_entries {
+            let tag = (reg.tag)();
+            if generic_tags.insert(tag) {
+                Self::insert_registration(&mut map, reg);
+            }
+        }
+        TypetagRegistry { map }
     }
 }
 

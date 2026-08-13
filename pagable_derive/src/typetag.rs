@@ -15,6 +15,7 @@
 
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
+use quote::format_ident;
 use quote::quote;
 use syn::Ident;
 use syn::ItemImpl;
@@ -36,6 +37,8 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
         &format!("__PagableRegistration_{}", trait_name),
         Span::call_site(),
     );
+    let accumulator_name = format_ident!("__PAGABLE_GENERIC_ACC_{}", trait_name);
+
     Ok(quote! {
         #item
 
@@ -45,11 +48,6 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
         #trait_vis struct #registration_struct_name(
             pub pagable::typetag::TypetagRegistration<dyn #trait_name>
         );
-
-        // SAFETY: The inner TypetagRegistration only contains function pointers,
-        // which are inherently Send + Sync.
-        unsafe impl Send for #registration_struct_name {}
-        unsafe impl Sync for #registration_struct_name {}
 
         impl dyn #trait_name {
             #[doc(hidden)]
@@ -64,16 +62,25 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
                     pagable::typetag::TypetagRegistry<dyn #trait_name>
                 > = std::sync::OnceLock::new();
                 REGISTRY.get_or_init(|| {
-                    pagable::typetag::TypetagRegistry::from_inventory(
+                    let generic_entries = #accumulator_name.drain();
+                    pagable::typetag::TypetagRegistry::from_inventory_and_generic(
                         pagable::__internal::inventory::iter::<#registration_struct_name>
                             .into_iter()
-                            .map(|r| &r.0)
+                            .map(|r| &r.0),
+                        generic_entries,
                     )
                 })
             }
         }
 
         pagable::__internal::inventory::collect!(#registration_struct_name);
+
+        // --- Generic typetag section infrastructure ---
+
+        #[doc(hidden)]
+        #[expect(non_upper_case_globals, reason = "generated from the trait name")]
+        #trait_vis static #accumulator_name: pagable::typetag::GenericTypetagAccumulator<dyn #trait_name> =
+            pagable::typetag::GenericTypetagAccumulator::new();
 
         impl<'de> pagable::PagableBoxDeserialize<'de> for dyn #trait_name {
             fn deserialize_box<D: pagable::PagableDeserializer<'de> + ?Sized>(

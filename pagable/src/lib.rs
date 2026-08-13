@@ -30,6 +30,7 @@ pub use pagable_derive::pagable_tagged;
 pub use pagable_derive::pagable_typetag;
 pub use partial_pagable_arc::PartialPagableArc;
 pub use partial_pagable_arc::PartialPagableWeak;
+pub use typetag::GenericTypetagAccumulator;
 pub use typetag::PagableRegisteredFor;
 pub use typetag::PagableTagged;
 pub use typetag::PagableTypeTag;
