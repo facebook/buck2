@@ -16,6 +16,7 @@
  */
 
 use pagable::typetag::PagableRegisteredFor;
+use pagable::typetag::PagableStableName;
 use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::typing::Ty;
@@ -135,6 +136,7 @@ pub trait TypeMatcherAlloc: Sized {
         M0: TypeMatcher,
         M1: TypeMatcher,
         IsAnyOfTwo<M0, M1>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsAnyOfTwo<M0, M1>: PagableStableName,
     {
         if m0.is_wildcard() {
             self.alloc(m1)
@@ -215,6 +217,7 @@ pub trait TypeMatcherAlloc: Sized {
     where
         I: TypeMatcher,
         IsListOf<I>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsListOf<I>: PagableStableName,
     {
         if item.is_wildcard() {
             self.list()
@@ -265,8 +268,11 @@ pub trait TypeMatcherAlloc: Sized {
         K: TypeMatcher,
         V: TypeMatcher,
         IsDictOf<K, V>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsDictOf<K, V>: PagableStableName,
         IsDictOf<K, IsAny>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsDictOf<K, IsAny>: PagableStableName,
         IsDictOf<IsAny, V>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsDictOf<IsAny, V>: PagableStableName,
     {
         match (k.is_wildcard(), v.is_wildcard()) {
             (true, true) => self.dict(),
@@ -310,6 +316,7 @@ pub trait TypeMatcherAlloc: Sized {
     where
         I: TypeMatcher,
         IsSetOf<I>: PagableRegisteredFor<dyn TypeMatcherDyn>,
+        IsSetOf<I>: PagableStableName,
     {
         if item.is_wildcard() {
             self.set()

@@ -29,6 +29,10 @@ pub fn pagable_tagged_impl(attr: TokenStream, item: TokenStream) -> TokenStream 
             syn::parse_quote! { Self: pagable::typetag::PagableRegisteredFor<dyn #trait_path> },
         );
     }
+    generics
+        .make_where_clause()
+        .predicates
+        .push(syn::parse_quote! { Self: pagable::typetag::PagableStableName });
     let where_clause = &generics.where_clause;
 
     let expanded = quote! {
@@ -36,7 +40,7 @@ pub fn pagable_tagged_impl(attr: TokenStream, item: TokenStream) -> TokenStream 
 
         impl #impl_generics pagable::typetag::PagableTypeTag for #name #ty_generics #where_clause {
             fn pagable_type_tag_static() -> &'static str {
-                ::std::any::type_name::<Self>()
+                <Self as pagable::typetag::PagableStableName>::pagable_stable_name()
             }
         }
     };

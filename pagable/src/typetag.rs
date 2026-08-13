@@ -49,10 +49,15 @@
 //! - `PagableTypeTag` impl for the concrete type (using the type name as the tag)
 //! - `inventory::submit!` to register the type with its tag
 
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::hash::BuildHasherDefault;
+use std::hash::Hasher;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
+use std::sync::RwLock;
 
 use crate::Pagable;
 use crate::PagableDeserializer;
@@ -63,6 +68,115 @@ mod platform;
 /// Static type tag used to register a concrete type for trait-object deserialization.
 pub trait PagableTypeTag: Sized {
     fn pagable_type_tag_static() -> &'static str;
+}
+
+/// Stable, compiler-independent type name used to compose pagable typetags.
+///
+/// `std::any::type_name` makes no stability guarantee across compiler
+/// releases, so tags built from it could invalidate previously serialized
+/// data on a toolchain upgrade. Implementations of this trait compose the
+/// name from `module_path!()` and source identifiers instead; the result
+/// changes only when the type is renamed or moved.
+///
+/// `#[derive(Pagable)]` and `#[derive(PagableSerialize)]` provide an
+/// implementation automatically. For generic types the derived
+/// implementation requires every type parameter to implement
+/// `PagableStableName` itself.
+pub trait PagableStableName {
+    fn pagable_stable_name() -> &'static str;
+}
+
+macro_rules! impl_stable_name {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl PagableStableName for $ty {
+                fn pagable_stable_name() -> &'static str {
+                    stringify!($ty)
+                }
+            }
+        )*
+    };
+}
+
+impl_stable_name!(
+    bool, char, f32, f64, i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, String,
+);
+
+macro_rules! impl_stable_name_wrapper {
+    ($($ty:ident),* $(,)?) => {
+        $(
+            impl<T: PagableStableName + 'static> PagableStableName for $ty<T> {
+                fn pagable_stable_name() -> &'static str {
+                    memoized_stable_name::<Self>(|| {
+                        format!(concat!(stringify!($ty), "<{}>"), T::pagable_stable_name())
+                    })
+                }
+            }
+        )*
+    };
+}
+
+impl_stable_name_wrapper!(Arc, Box, Option, Vec);
+
+/// Passes the already-uniform `TypeId` bits through instead of re-hashing
+/// them with SipHash on every lookup of the stable-name map.
+#[derive(Default)]
+struct TypeIdHasher(u64);
+
+impl Hasher for TypeIdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    // Fallback for `Hash` impls that feed raw bytes; `TypeId`'s bits are
+    // hash-derived already, so byte folding is enough.
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 = self.0.rotate_left(8) ^ u64::from(byte);
+        }
+    }
+
+    fn write_u64(&mut self, n: u64) {
+        self.0 = n;
+    }
+
+    fn write_u128(&mut self, n: u128) {
+        self.0 = n as u64;
+    }
+}
+
+/// Build (once per monomorphization per process) and cache the composed
+/// stable name for `T`. Each distinct `T` leaks exactly one `String`.
+///
+/// The cache exists because generic monomorphizations cannot hold the name in
+/// a per-instantiation static (statics in generic items are shared across all
+/// instantiations), and rebuilding the `String` on every serialization would
+/// leak unboundedly.
+pub fn memoized_stable_name<T: 'static>(build: impl FnOnce() -> String) -> &'static str {
+    // This sits on the serialization path of every generic pagable value, and
+    // after the one-time insert per instantiation the map is read-only, so
+    // the hit case takes only the shared read lock and concurrent serializers
+    // do not contend.
+    type Names = HashMap<TypeId, &'static str, BuildHasherDefault<TypeIdHasher>>;
+    static NAMES: OnceLock<RwLock<Names>> = OnceLock::new();
+    let names = NAMES.get_or_init(|| RwLock::new(Names::default()));
+    if let Some(name) = names
+        .read()
+        .expect("stable name map lock should not be poisoned")
+        .get(&TypeId::of::<T>())
+    {
+        return name;
+    }
+    // Build without holding the lock: for nested generics `build()` re-enters
+    // this function for the type arguments, and the lock is not reentrant.
+    // A racing thread may build the same name concurrently; the loser's
+    // `String` is dropped, so at most one copy per instantiation is leaked.
+    let name = build();
+    names
+        .write()
+        .expect("stable name map lock should not be poisoned")
+        .entry(TypeId::of::<T>())
+        .or_insert_with(|| String::leak(name))
 }
 
 /// Object-safe serialization trait for tagged types.
@@ -519,6 +633,7 @@ mod tests {
     impl<T: Pagable + Send + Sync + Debug + 'static> Animal for Wrapper<T>
     where
         Self: PagableRegisteredFor<dyn Animal>,
+        Self: pagable::PagableStableName,
     {
         fn species(&self) -> &str {
             "wrapped"
@@ -565,6 +680,7 @@ mod tests {
         Animal for Pair<A, B>
     where
         Self: PagableRegisteredFor<dyn Animal>,
+        Self: pagable::PagableStableName,
     {
         fn species(&self) -> &str {
             "paired"
@@ -894,6 +1010,45 @@ mod tests {
         assert_eq!(restored_vehicle.payload.weight, 500);
 
         Ok(())
+    }
+
+    // Pin the exact tag strings: they are persisted, so they must stay
+    // source-derived (module path + idents) and never depend on
+    // `std::any::type_name` formatting, which can change between compilers.
+    #[test]
+    fn test_typetag_tags_are_stable_names() {
+        let generic = GenericVehicle {
+            payload: Cargo { weight: 1 },
+            wheel_count: 4,
+        };
+        assert_eq!(
+            PagableTagged::pagable_type_tag(&generic),
+            "pagable::typetag::tests::GenericVehicle<pagable::typetag::tests::Cargo>",
+            "generic typetag should compose module paths of the wrapper and its arguments"
+        );
+
+        let const_generic = ConstGenericVehicle::<7> { wheel_count: 8 };
+        assert_eq!(
+            PagableTagged::pagable_type_tag(&const_generic),
+            "pagable::typetag::tests::ConstGenericVehicle<7>",
+            "const generic arguments should be Display-formatted"
+        );
+
+        let wrapper = Wrapper(Cat);
+        assert_eq!(
+            PagableTagged::pagable_type_tag(&wrapper),
+            "pagable::typetag::tests::Wrapper<pagable::typetag::tests::Cat>",
+            "pagable_tagged wrappers should use the same stable name scheme"
+        );
+
+        // Nested generics: composing the outer name re-enters
+        // `memoized_stable_name` for the inner type, which must not deadlock
+        // on the memoization lock.
+        assert_eq!(
+            <Vec<Vec<i32>> as crate::PagableStableName>::pagable_stable_name(),
+            "Vec<Vec<i32>>",
+            "nested generic names should compose recursively"
+        );
     }
 
     mod same_type_name_one {

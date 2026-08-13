@@ -25,6 +25,7 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
 use pagable::PagableRegisteredFor;
+use pagable::PagableStableName;
 use starlark_derive::Trace;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::Span;
@@ -432,6 +433,7 @@ impl Ty {
     where
         F: TyCustomFunctionImpl,
         TyCustomFunction<F>: PagableRegisteredFor<dyn TyCustomDyn>,
+        TyCustomFunction<F>: PagableStableName,
     {
         Ty::custom(TyCustomFunction(f))
     }

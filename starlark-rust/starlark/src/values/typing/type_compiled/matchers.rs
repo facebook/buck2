@@ -21,6 +21,7 @@ use pagable::Pagable;
 use pagable::pagable_tagged;
 use pagable::pagable_typetag;
 use pagable::typetag::PagableRegisteredFor;
+use pagable::typetag::PagableStableName;
 use starlark_derive::type_matcher;
 
 use crate as starlark;
@@ -102,6 +103,7 @@ register_type_matcher!(IsListOf<TypeMatcherBox>);
 impl<I: TypeMatcher> TypeMatcher for IsListOf<I>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match ListRef::from_value(value) {
@@ -122,6 +124,7 @@ register_type_matcher!(IsTupleOf<TypeMatcherBox>);
 impl<A: TypeMatcher> TypeMatcher for IsTupleOf<A>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value) {
@@ -171,6 +174,7 @@ register_type_matcher!(IsTupleElems1<TypeMatcherBox>);
 impl<A: TypeMatcher> TypeMatcher for IsTupleElems1<A>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value).map(|t| t.content()) {
@@ -191,6 +195,7 @@ register_type_matcher!(IsTupleElems2<TypeMatcherBox, TypeMatcherBox>);
 impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsTupleElems2<A, B>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value).map(|t| t.content()) {
@@ -227,6 +232,7 @@ register_type_matcher!(IsDictOf<StarlarkTypeIdMatcher, IsAny>);
 impl<K: TypeMatcher, V: TypeMatcher> TypeMatcher for IsDictOf<K, V>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match DictRef::from_value(value) {
@@ -261,6 +267,7 @@ register_type_matcher!(IsSetOf<TypeMatcherBox>);
 impl<I: TypeMatcher> TypeMatcher for IsSetOf<I>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         match SetRef::unpack_value_opt(value) {
@@ -285,6 +292,7 @@ register_type_matcher!(IsAnyOfTwo<TypeMatcherBox, TypeMatcherBox>);
 impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsAnyOfTwo<A, B>
 where
     Self: PagableRegisteredFor<dyn TypeMatcherDyn>,
+    Self: PagableStableName,
 {
     fn matches(&self, value: Value) -> bool {
         self.0.matches(value) || self.1.matches(value)

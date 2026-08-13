@@ -219,6 +219,9 @@ fn typetag_generic_struct(
 
     let accumulator_name = format_ident!("__PAGABLE_GENERIC_ACC_{}", trait_name);
 
+    // The caller has already added the `PagableStableName` predicate to the
+    // impl's where clause; reusing these generics propagates it to every
+    // generated item, which all name the monomorphization via its stable name.
     let (impl_generics, _ty_generics, where_clause) = impl_item.generics.split_for_impl();
     let generic_args: Vec<_> = impl_item
         .generics
@@ -244,7 +247,7 @@ fn typetag_generic_struct(
                         __pagable_registration_anchor::<#(#generic_args),*>
                             as extern "C" fn(),
                     );
-                    ::std::any::type_name::<Self>()
+                    <Self as pagable::typetag::PagableStableName>::pagable_stable_name()
                 }
                 fn pagable_serialize_body(
                     &self,
@@ -268,7 +271,7 @@ fn typetag_generic_struct(
             #[doc(hidden)]
             extern "C" fn __pagable_do_register #impl_generics () #where_clause {
                 #accumulator_name.push(pagable::typetag::TypetagRegistration {
-                    tag: ::std::any::type_name::<#self_ty>,
+                    tag: <#self_ty as pagable::typetag::PagableStableName>::pagable_stable_name,
                     deserialize: |deserializer| {
                         let value: #self_ty =
                             pagable::PagableDeserialize::pagable_deserialize(deserializer)?;
@@ -364,7 +367,17 @@ pub fn pagable_typetag_impl(
             // Generic impl: emit a helper plus a link-section entry. The
             // trait-level registry builder runs those entries to collect the
             // monomorphized concrete registrations.
+            //
+            // The trait's `PagableTagged` supertrait obligation now includes
+            // the stable-name requirement, so add it to the user's impl
+            // rather than making every caller spell it out.
             let span = impl_item.span();
+            let mut impl_item = impl_item;
+            impl_item
+                .generics
+                .make_where_clause()
+                .predicates
+                .push(syn::parse_quote! { #self_ty: pagable::typetag::PagableStableName });
             let item_tokens = quote_spanned! { span => #impl_item };
             return match typetag_generic_struct(
                 item_tokens,

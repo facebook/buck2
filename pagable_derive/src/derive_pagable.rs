@@ -329,9 +329,86 @@ fn derive_pagable_impl(
         }
     };
 
+    let stable_name_impl = if generate_serialize {
+        stable_name_impl(&input, &name_str)?
+    } else {
+        quote! {}
+    };
+
     Ok(quote! {
         #serialize_body
         #deserialize_body
+        #stable_name_impl
+    })
+}
+
+/// Generate a `PagableStableName` impl composing the name from
+/// `module_path!()`, the type's identifier, and (for generics) the stable
+/// names of type arguments plus `Display`-formatted const arguments.
+///
+/// Emitted only from the serialize side so that deriving `PagableSerialize`
+/// and `PagableDeserialize` separately does not produce duplicate impls.
+/// Types with lifetime parameters get no impl: composed names are cached by
+/// `TypeId`, which requires `Self: 'static`.
+fn stable_name_impl(input: &DeriveInput, name_str: &str) -> syn::Result<proc_macro2::TokenStream> {
+    if input
+        .generics
+        .params
+        .iter()
+        .any(|p| matches!(p, GenericParam::Lifetime(_)))
+    {
+        return Ok(quote! {});
+    }
+
+    let name = &input.ident;
+    let (_impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+
+    if input.generics.params.is_empty() {
+        return Ok(quote! {
+            impl pagable::typetag::PagableStableName for #name {
+                fn pagable_stable_name() -> &'static str {
+                    concat!(module_path!(), "::", #name_str)
+                }
+            }
+        });
+    }
+
+    let mut params = Vec::new();
+    let mut arg_names = Vec::new();
+    for p in &input.generics.params {
+        match p {
+            GenericParam::Type(tp) => {
+                let mut tp = tp.clone();
+                tp.bounds
+                    .push(syn::parse2(quote! { pagable::typetag::PagableStableName })?);
+                tp.bounds.push(syn::parse2(quote! { 'static })?);
+                tp.default = None;
+                let ident = tp.ident.clone();
+                params.push(tp.to_token_stream());
+                arg_names.push(quote! {
+                    <#ident as pagable::typetag::PagableStableName>::pagable_stable_name().to_owned()
+                });
+            }
+            GenericParam::Const(c) => {
+                let mut c = c.clone();
+                c.default = None;
+                let ident = c.ident.clone();
+                params.push(c.to_token_stream());
+                arg_names.push(quote! { #ident.to_string() });
+            }
+            GenericParam::Lifetime(_) => unreachable!("returned early above"),
+        }
+    }
+
+    Ok(quote! {
+        impl<#(#params),*> pagable::typetag::PagableStableName for #name #type_generics #where_clause {
+            fn pagable_stable_name() -> &'static str {
+                pagable::typetag::memoized_stable_name::<Self>(|| {
+                    let __args: Vec<String> = vec![#(#arg_names),*];
+                    format!("{}::{}<{}>", module_path!(), #name_str, __args.join(", "))
+                })
+            }
+        }
     })
 }
 

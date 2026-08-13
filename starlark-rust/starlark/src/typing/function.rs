@@ -22,6 +22,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::PagableRegisteredFor;
+use pagable::PagableStableName;
 use pagable::pagable_tagged;
 
 use crate::codemap::Span;
@@ -87,6 +88,7 @@ pub struct TyCustomFunction<F: TyCustomFunctionImpl>(pub F);
 impl<F: TyCustomFunctionImpl> TyCustomImpl for TyCustomFunction<F>
 where
     Self: PagableRegisteredFor<dyn TyCustomDyn>,
+    Self: PagableStableName,
 {
     fn as_name(&self) -> Option<&str> {
         Some("function")
