@@ -51,6 +51,16 @@ impl SettingKeyMetadata {
     }
 }
 
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Consumed by follow-up rollout integration")
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SectionMetadata {
+    pub(crate) section_name: &'static str,
+    pub(crate) section_version: u32,
+}
+
 struct SettingKey<T> {
     metadata: SettingKeyMetadata,
     internal_default: Option<T>,
@@ -98,6 +108,11 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
 
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] =
     &[LOG_USE_MANIFOLD.metadata, LOG_URL.metadata];
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "Consumed by follow-up rollout integration")
+)]
+pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[LogDownloadSection::METADATA];
 
 pub(crate) fn find_setting_metadata<'a>(
     metadata: &'a [SettingKeyMetadata],
@@ -135,6 +150,12 @@ pub(crate) struct BuckSettingsData {
 pub struct LogDownloadSection(Arc<LogDownloadSectionData>);
 
 impl LogDownloadSection {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "log_download",
+        section_version: 0,
+    };
+
     pub fn log_use_manifold(&self) -> Option<bool> {
         LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
     }
@@ -295,6 +316,39 @@ mod tests {
         assert_eq!(
             fields, registered,
             "Every `BuckSettingsData` field must be registered in `ALL_SETTING_METADATA`, and vice versa"
+        );
+    }
+
+    #[test]
+    fn test_all_sections_are_registered() {
+        // Remove once buck_settings! macro generates both BuckSettingsData and sections registry
+        let serialized = serde_json::to_value(BuckSettingsData::default())
+            .expect("`BuckSettingsData` should serialize");
+        let sections: BTreeSet<_> = serialized
+            .as_object()
+            .expect("settings data should serialize to a JSON object")
+            .iter()
+            .map(|(name, value)| {
+                assert!(
+                    value.is_object(),
+                    "Every top-level `BuckSettingsData` field must be a settings section"
+                );
+                name.as_str()
+            })
+            .collect();
+        let registered: BTreeSet<_> = ALL_SECTION_METADATA
+            .iter()
+            .map(|metadata| metadata.section_name)
+            .collect();
+
+        assert_eq!(
+            ALL_SECTION_METADATA.len(),
+            registered.len(),
+            "Section metadata names must be unique"
+        );
+        assert_eq!(
+            sections, registered,
+            "Every `BuckSettingsData` section must be registered in `ALL_SECTION_METADATA`, and vice versa"
         );
     }
 }
