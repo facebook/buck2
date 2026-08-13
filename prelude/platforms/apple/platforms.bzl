@@ -17,13 +17,14 @@ load(
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
+    "IOS",
     "appletv_platforms",
     "ios_platforms",
     "mac_catalyst_platforms",
     "mac_platforms",
     "watch_platforms",
 )
-load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP")
+load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_PLATFORMS_MAP", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
 load("@prelude//utils:buckconfig.bzl", "read")
 
 _SUPPORTED_IOS_PLATFORMS = [
@@ -227,7 +228,7 @@ def _get_generated_name(base_name, platform, build_mode) -> str:
 
 def _get_default_platform() -> str:
     platform = read("cxx", "default_platform")
-    return platform if platform != None else ios_platforms.IPHONESIMULATOR_X86_64
+    return platform if platform != None else APPLE_SDK_DEFAULT_PLATFORM_MAP.get(IOS)
 
 def _define_platform(base_name, platform, build_mode, constraint_values, visibility, deps, platform_rule) -> None:
     platform_rule(
