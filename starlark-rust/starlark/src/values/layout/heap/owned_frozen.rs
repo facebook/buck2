@@ -425,13 +425,10 @@ mod tests {
 
     #[test]
     fn test_owned_frozen_ref() {
-        let heap = crate::values::FrozenHeap::new();
-        let v = heap.alloc("contents");
-        let heap_ref = heap.into_ref_named(
+        let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
             crate::values::layout::heap::heap_type::StarlarkTestHeapName::frozen_heap_name(),
+            |heap| heap.alloc("contents").to_value(),
         );
-        let owned: OwnedFrozen<Value<'static>> =
-            unsafe { OwnedFrozen::unchecked_new(heap_ref, v.to_value()) };
 
         let r = owned.as_ref();
         assert_eq!(r.value().unpack_str(), Some("contents"));

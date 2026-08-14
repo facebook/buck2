@@ -1626,6 +1626,39 @@ where
         }
     }
 
+    /// Build a value in a fresh [`FrozenHeap`] and return it kept alive by that heap.
+    ///
+    /// The heap is private to `f`, which can only get data out of it by returning it, so the
+    /// result is paired with its owner by construction. Use this instead of allocating into a
+    /// heap of your own and reaching for [`unchecked_new`](OwnedFrozen::unchecked_new).
+    ///
+    /// The brand of the result is independent of the borrow of the heap that `f` is handed, so no
+    /// part of the result can be a borrow of the heap. `f` gets data out solely by allocating into
+    /// the heap and injecting the resulting [`FrozenValue`]s at the brand.
+    ///
+    /// The `name` identifies the heap; see [`FrozenHeapRef::name`].
+    pub fn build<F>(name: FrozenHeapName, f: F) -> Self
+    where
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
+        // `'fv` (the brand of the result) and `'h` (the borrow of the heap) are quantified
+        // separately on purpose; the safety argument below rests on it.
+        for<'fv, 'h> F: FnOncish<&'h FrozenHeap, T::Reinfect<'fv>>,
+    {
+        let heap = FrozenHeap::new();
+        let v = f(&heap);
+        let heap_ref = heap.into_ref_named(name);
+        // SAFETY: Nothing is alive at `'fv`: it appears nowhere in `f`'s arguments, and being
+        // universally quantified it cannot be named by `f`'s captures either. Nor can `'h`-tied
+        // borrows of `heap` reach the result, since `'h` does not appear in the return type. So
+        // everything branded `'fv` in `v` was injected from unbranded frozen data, which is either
+        // an allocation into `heap` — whose arena the move into `heap_ref` preserves, it moves
+        // only bookkeeping — or a foreign `FrozenValue`, the global brand hole described in the
+        // `branding` module. Either way `heap_ref` keeps `'fv` alive exactly as well as any other
+        // brand is kept alive.
+        unsafe { Self::unchecked_new(heap_ref, v) }
+    }
+
     /// Get the underlying frozen heap
     pub fn owner(&self) -> &FrozenHeapRef {
         &self.heap_ref
