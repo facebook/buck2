@@ -25,7 +25,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -87,7 +87,7 @@ pub struct FrozenPackageFileExtra {
 
 /// Resolve `FrozenPackageFileExtra.cfg_constructor` to a `CfgConstructorImpl`.
 pub static MAKE_CFG_CONSTRUCTOR: LateBinding<
-    fn(OwnedFrozenValue) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>>,
+    fn(OwnedFrozen<Value<'static>>) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>>,
 > = LateBinding::new("MAKE_CFG_CONSTRUCTOR");
 
 // TODO(nga): this does not need to be fully starlark_value,

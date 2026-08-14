@@ -63,7 +63,8 @@ impl PackageFileEvalCtx {
         let cfg_constructor = unsafe {
             // SAFETY: field belongs to the same heap.
             OwnedFrozenValue::new(extra.owner().dupe(), cfg_constructor)
-        };
+        }
+        .into();
         let make_cfg_constructor = MAKE_CFG_CONSTRUCTOR.get()?;
         Ok(Some(make_cfg_constructor(cfg_constructor)?))
     }

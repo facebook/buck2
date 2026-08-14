@@ -45,7 +45,7 @@ use dice_futures::cancellation::CancellationContext;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozen;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -64,11 +64,11 @@ enum CfgConstructorError {
 
 #[derive(Allocative, Debug, Pagable)]
 pub(crate) struct CfgConstructor {
-    pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
-    pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
+    pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozen<Value<'static>>,
+    pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozen<Value<'static>>,
     pub(crate) key: MetadataKey,
-    pub(crate) aliases: Option<OwnedFrozenValue>,
-    pub(crate) extra_data: Option<OwnedFrozenValue>,
+    pub(crate) aliases: Option<OwnedFrozen<Value<'static>>>,
+    pub(crate) extra_data: Option<OwnedFrozen<Value<'static>>>,
 }
 
 async fn eval_pre_constraint_analysis<'v, 'a>(
@@ -230,20 +230,13 @@ async fn eval_underlying(
     BuckStarlarkModule::with_profiling_async(async move |module| {
         let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
-        let cfg_constructor_pre_constraint_analysis = module
-            .heap()
-            .access_owned_frozen_value(&cfg_constructor.cfg_constructor_pre_constraint_analysis);
-        let cfg_constructor_post_constraint_analysis = module
-            .heap()
-            .access_owned_frozen_value(&cfg_constructor.cfg_constructor_post_constraint_analysis);
-        let aliases = cfg_constructor
-            .aliases
-            .as_ref()
-            .map(|v| module.heap().access_owned_frozen_value(v));
-        let extra_data = cfg_constructor
-            .extra_data
-            .as_ref()
-            .map(|v| module.heap().access_owned_frozen_value(v));
+        let to_heap = |v: &OwnedFrozen<Value<'static>>| v.as_ref().add_to_heap(module.heap());
+        let cfg_constructor_pre_constraint_analysis =
+            to_heap(&cfg_constructor.cfg_constructor_pre_constraint_analysis);
+        let cfg_constructor_post_constraint_analysis =
+            to_heap(&cfg_constructor.cfg_constructor_post_constraint_analysis);
+        let aliases = cfg_constructor.aliases.as_ref().map(to_heap);
+        let extra_data = cfg_constructor.extra_data.as_ref().map(to_heap);
 
         // Pre constraint-analysis
         let (refs, params) = eval_pre_constraint_analysis(
