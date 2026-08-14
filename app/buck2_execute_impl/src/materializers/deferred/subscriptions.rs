@@ -19,8 +19,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -39,14 +39,14 @@ use crate::materializers::deferred::MaterializerSender;
 /// notifications when those paths are materialized.
 pub(super) struct MaterializerSubscriptions {
     index: SubscriptionIndex,
-    active: StdBuckHashMap<SubscriptionIndex, SubscriptionData>,
+    active: BuckMutMap<SubscriptionIndex, SubscriptionData>,
 }
 
 impl MaterializerSubscriptions {
     pub fn new() -> Self {
         Self {
             index: SubscriptionIndex(0),
-            active: StdBuckHashMap::default(),
+            active: BuckMutMap::default(),
         }
     }
 
@@ -84,7 +84,7 @@ impl MaterializerSubscriptions {
     }
 
     pub(super) fn list_subscribed_paths(&self) -> impl Iterator<Item = &ProjectRelativePath> {
-        let mut seen = StdBuckHashSet::default();
+        let mut seen = BuckMutSet::default();
 
         self.active
             .values()
@@ -95,14 +95,14 @@ impl MaterializerSubscriptions {
 }
 
 struct SubscriptionData {
-    paths: StdBuckHashSet<ProjectRelativePathBuf>,
+    paths: BuckMutSet<ProjectRelativePathBuf>,
     sender: UnboundedSender<ProjectRelativePathBuf>,
 }
 
 impl SubscriptionData {
     fn new(sender: UnboundedSender<ProjectRelativePathBuf>) -> Self {
         Self {
-            paths: StdBuckHashSet::default(),
+            paths: BuckMutSet::default(),
             sender,
         }
     }

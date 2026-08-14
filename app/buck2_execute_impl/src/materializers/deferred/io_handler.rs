@@ -50,8 +50,8 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::ReadDir;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_http::HttpClient;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -619,7 +619,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
     static TOMBSTONE_DIGEST: LazyLock<FileDigest> =
         LazyLock::new(|| FileDigest::new_sha1([0; 20], 1));
 
-    fn convert_digests(val: &str) -> buck2_error::Result<StdBuckHashSet<FileDigest>> {
+    fn convert_digests(val: &str) -> buck2_error::Result<BuckMutSet<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
@@ -635,7 +635,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
 
     let tombstoned_digests = buck2_env!(
         "BUCK2_TEST_TOMBSTONED_DIGESTS",
-        type=StdBuckHashSet<FileDigest>,
+        type=BuckMutSet<FileDigest>,
         converter=convert_digests,
         applicability=testing,
     )?;
@@ -655,7 +655,7 @@ pub(super) fn create_ttl_refresh(
     min_ttl: SignedDuration,
     digest_config: DigestConfig,
 ) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
-    let mut digests_to_refresh = StdBuckHashMap::<_, StdBuckHashSet<_>>::new();
+    let mut digests_to_refresh = BuckMutMap::<_, BuckMutSet<_>>::default();
 
     let ttl_deadline = Timestamp::now()
         .checked_add(min_ttl)

@@ -1789,7 +1789,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
@@ -1844,7 +1844,7 @@ mod tests {
             .exec(
                 interpreter,
                 ["-c", "echo $PWD; pwd"],
-                &StdBuckHashMap::<String, String>::default(),
+                &BuckMutMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 None,
                 None,
@@ -1887,7 +1887,7 @@ mod tests {
             .exec(
                 interpreter,
                 ["-c", command],
-                &StdBuckHashMap::<String, String>::default(),
+                &BuckMutMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 Some(Duration::from_secs(1)),
                 None,
@@ -1914,7 +1914,7 @@ mod tests {
             .exec(
                 "sh",
                 ["-c", "echo $USER"],
-                &StdBuckHashMap::<String, String>::default(),
+                &BuckMutMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 None,
                 Some(&EnvironmentInheritance::empty()),

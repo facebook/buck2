@@ -39,7 +39,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
@@ -356,8 +356,8 @@ async fn spawn_worker(
 type WorkerFuture = Shared<BoxFuture<'static, Result<Arc<WorkerHandle>, Arc<WorkerInitError>>>>;
 
 pub struct WorkerPool {
-    workers: Arc<parking_lot::Mutex<StdBuckHashMap<WorkerId, WorkerFuture>>>,
-    brokers: Arc<parking_lot::Mutex<StdBuckHashMap<WorkerId, Arc<HostSharingBroker>>>>,
+    workers: Arc<parking_lot::Mutex<BuckMutMap<WorkerId, WorkerFuture>>>,
+    brokers: Arc<parking_lot::Mutex<BuckMutMap<WorkerId, Arc<HostSharingBroker>>>>,
     graceful_shutdown_timeout_s: Option<u32>,
 }
 
@@ -365,8 +365,8 @@ impl WorkerPool {
     pub fn new(graceful_shutdown_timeout_s: Option<u32>) -> WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
-            workers: Arc::new(parking_lot::Mutex::new(StdBuckHashMap::default())),
-            brokers: Arc::new(parking_lot::Mutex::new(StdBuckHashMap::default())),
+            workers: Arc::new(parking_lot::Mutex::new(BuckMutMap::default())),
+            brokers: Arc::new(parking_lot::Mutex::new(BuckMutMap::default())),
             graceful_shutdown_timeout_s,
         }
     }

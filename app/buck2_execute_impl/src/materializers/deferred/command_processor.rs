@@ -37,7 +37,7 @@ use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_util::threads::check_stack_overflow;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dice_futures::cancellation::CancellationContext;
@@ -124,7 +124,7 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     ttl_refresh_instance: Option<oneshot::Receiver<(Timestamp, buck2_error::Result<()>)>>,
     pub(super) cancellations: &'static CancellationContext,
     pub(super) stats: Arc<DeferredMaterializerStats>,
-    access_times_buffer: Option<StdBuckHashSet<ProjectRelativePathBuf>>,
+    access_times_buffer: Option<BuckMutSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
     daemon_dispatcher: EventDispatcher,
     disable_eager_write_dispatch: bool,
@@ -415,7 +415,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tree: ArtifactTree,
         cancellations: &'static CancellationContext,
         stats: Arc<DeferredMaterializerStats>,
-        access_times_buffer: Option<StdBuckHashSet<ProjectRelativePathBuf>>,
+        access_times_buffer: Option<BuckMutSet<ProjectRelativePathBuf>>,
         verbose_materializer_log: bool,
         daemon_dispatcher: EventDispatcher,
         disable_eager_write_dispatch: bool,
@@ -1002,7 +1002,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
     fn promote_final_output_closure(&mut self, paths: &[ProjectRelativePathBuf]) {
         let mut pending = paths.to_vec();
-        let mut visited: StdBuckHashSet<ProjectRelativePathBuf> = StdBuckHashSet::default();
+        let mut visited: BuckMutSet<ProjectRelativePathBuf> = BuckMutSet::default();
         let mut materialized_roots = Vec::new();
 
         // Traverse all artifacts and deps transitively

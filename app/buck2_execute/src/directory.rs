@@ -50,8 +50,8 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -345,7 +345,7 @@ pub fn re_tree_to_directory(
     /// but the pointers are hashes, so we need to first see a hash before we can work out what
     /// hashing mechanism to use here.
     struct DirMap<'a> {
-        by_kind: SmallMap<DigestAlgorithm, StdBuckHashMap<FileDigest, &'a RE::Directory>>,
+        by_kind: SmallMap<DigestAlgorithm, BuckMutMap<FileDigest, &'a RE::Directory>>,
         directories: &'a [RE::Directory],
     }
 
@@ -723,7 +723,7 @@ pub fn expand_selector_for_dependencies(
     // thing.
     let mut paths_to_visit = paths_to_take.clone();
 
-    let mut all_known_symlinks = StdBuckHashSet::default();
+    let mut all_known_symlinks = BuckMutSet::default();
 
     while !paths_to_visit.is_empty() {
         let mut next_paths_to_visit = DirectorySelector::empty();

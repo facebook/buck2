@@ -33,9 +33,9 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_hash::IntentionallyStdHashMap;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
@@ -89,7 +89,7 @@ impl Uploader {
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<(
         Vec<InlinedBlobWithDigest>,
-        StdBuckHashSet<&'a TrackedCasDigest<FileDigestKind>>,
+        BuckMutSet<&'a TrackedCasDigest<FileDigestKind>>,
     )> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
         let now = Timestamp::now();
@@ -101,7 +101,7 @@ impl Uploader {
         let ttl_deadline = now + SignedDuration::from_secs(ttl_wanted);
 
         // See if anything needs uploading
-        let mut input_digests = blobs.keys().collect::<StdBuckHashSet<_>>();
+        let mut input_digests = blobs.keys().collect::<BuckMutSet<_>>();
         {
             // Collect the digests we need to upload
             for entry in input_dir.unordered_walk().without_paths() {
@@ -123,7 +123,7 @@ impl Uploader {
         };
 
         let mut upload_blobs = Vec::new();
-        let mut missing_digests = StdBuckHashSet::default();
+        let mut missing_digests = BuckMutSet::default();
         add_injected_missing_digests(&input_digests, &mut missing_digests)?;
 
         let digests_and_ttls_iterator = if deduplicate_get_digests_ttl_calls {
@@ -152,7 +152,7 @@ impl Uploader {
             let input_digests_ttls = fut.await?;
 
             struct DigestsWithTtlIterator<I> {
-                ttls: StdBuckHashMap<TrackedFileDigest, i64>,
+                ttls: BuckMutMap<TrackedFileDigest, i64>,
                 inner: I,
             }
 
@@ -524,8 +524,8 @@ fn error_for_missing_file(
 /// This is used for tests. We allow an environment variable to be set to report that some digests
 /// are _always_ missing if they are required. This lets us test our upload paths more easily.
 fn add_injected_missing_digests<'a>(
-    input_digests: &StdBuckHashSet<&'a TrackedFileDigest>,
-    missing_digests: &mut StdBuckHashSet<&'a TrackedFileDigest>,
+    input_digests: &BuckMutSet<&'a TrackedFileDigest>,
+    missing_digests: &mut BuckMutSet<&'a TrackedFileDigest>,
 ) -> buck2_error::Result<()> {
     fn convert_digests(val: &str) -> buck2_error::Result<Vec<FileDigest>> {
         val.split(' ')
@@ -585,11 +585,11 @@ struct GetDigestsTtlDeduper<'s> {
     /// Maps a given digest to a request that will produce this digest (and
     /// possibly / likely others). The request is referenced as an ID that
     /// can be used to lookup in `queries`.
-    digests: StdBuckHashMap<TrackedFileDigest, RequestId>,
+    digests: BuckMutMap<TrackedFileDigest, RequestId>,
     /// Maps a request to the actual future that will contain its results.
-    queries: StdBuckHashMap<
+    queries: BuckMutMap<
         RequestId,
-        Shared<BoxFuture<'s, buck2_error::Result<StdBuckHashMap<TrackedFileDigest, i64>>>>,
+        Shared<BoxFuture<'s, buck2_error::Result<BuckMutMap<TrackedFileDigest, i64>>>>,
     >,
 }
 
@@ -604,13 +604,13 @@ impl<'s> GetDigestsTtlDeduper<'s> {
         digest_config: DigestConfig,
         digests: impl IntoIterator<Item = &'a TrackedFileDigest>,
     ) -> (
-        impl Future<Output = buck2_error::Result<StdBuckHashMap<TrackedFileDigest, i64>>> + 's,
+        impl Future<Output = buck2_error::Result<BuckMutMap<TrackedFileDigest, i64>>> + 's,
         usize,
         usize,
     ) {
         let mut guard = deduper.lock().expect("Poisoned lock");
 
-        let mut reqs = StdBuckHashSet::default();
+        let mut reqs = BuckMutSet::default();
 
         let mut to_schedule = Vec::new();
 
@@ -675,7 +675,7 @@ fn query_digest_ttls<'s>(
     identity: Option<&ReActionIdentity<'_>>,
     digest_config: DigestConfig,
     input_digests: Vec<TrackedFileDigest>,
-) -> BoxFuture<'s, buck2_error::Result<StdBuckHashMap<TrackedFileDigest, i64>>> {
+) -> BoxFuture<'s, buck2_error::Result<BuckMutMap<TrackedFileDigest, i64>>> {
     let client = client.dupe();
     let metadata = use_case.metadata(identity);
     let digests = input_digests.iter().map(|d| d.to_re()).collect();

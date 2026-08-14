@@ -201,7 +201,7 @@ mod tests {
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::new_symlink;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
     use itertools::Itertools;
     use parking_lot::Mutex;
     use rusqlite::Connection;
@@ -324,7 +324,7 @@ mod tests {
                 classification: ArtifactClassification::IntermediateOnly,
             },
         ];
-        let mut artifacts: StdBuckHashMap<_, _> =
+        let mut artifacts: BuckMutMap<_, _> =
             artifacts.into_iter().map(|x| (x.path.clone(), x)).collect();
 
         for (path, entry) in artifacts.iter() {
@@ -338,15 +338,13 @@ mod tests {
                 .unwrap();
         }
 
-        let check_materializer_state_expected = |state: &MaterializerState,
-                                                 artifacts: &StdBuckHashMap<
-            ProjectRelativePathBuf,
-            MaterializerStateEntry,
-        >| {
-            let expected_values = artifacts.values().sorted_by_key(|x| x.path.as_str());
-            let result_values = state.iter().sorted_by_key(|x| x.path.as_str());
-            assert!(expected_values.eq(result_values));
-        };
+        let check_materializer_state_expected =
+            |state: &MaterializerState,
+             artifacts: &BuckMutMap<ProjectRelativePathBuf, MaterializerStateEntry>| {
+                let expected_values = artifacts.values().sorted_by_key(|x| x.path.as_str());
+                let result_values = state.iter().sorted_by_key(|x| x.path.as_str());
+                assert!(expected_values.eq(result_values));
+            };
 
         let state = table.read_materializer_state(digest_config).unwrap();
         check_materializer_state_expected(&state, &artifacts);

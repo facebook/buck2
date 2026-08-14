@@ -29,7 +29,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 
@@ -83,8 +83,8 @@ impl DepFileStateSqliteDb {
     /// Returns the connected db.
     pub async fn initialize(
         dep_file_state_dir: AbsNormPathBuf,
-        versions: StdBuckHashMap<String, String>,
-        current_instance_metadata: StdBuckHashMap<String, String>,
+        versions: IntentionallyStdHashMap<String, String>,
+        current_instance_metadata: IntentionallyStdHashMap<String, String>,
         io_executor: Arc<dyn BlockingExecutor>,
         reject_identity: Option<&SqliteIdentity>,
         // Bound the db at startup: drop entries older than `prune_cutoff` (unix seconds) and, if
@@ -109,8 +109,8 @@ impl DepFileStateSqliteDb {
 
     fn initialize_dep_file_sqlite_db(
         dep_file_state_dir: AbsNormPathBuf,
-        versions: StdBuckHashMap<String, String>,
-        current_instance_metadata: StdBuckHashMap<String, String>,
+        versions: IntentionallyStdHashMap<String, String>,
+        current_instance_metadata: IntentionallyStdHashMap<String, String>,
         reject_identity: Option<&SqliteIdentity>,
         prune_cutoff: Option<i64>,
         max_entries: Option<usize>,

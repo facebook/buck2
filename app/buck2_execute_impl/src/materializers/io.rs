@@ -22,7 +22,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 
 pub struct MaterializeTreeStructure {
     pub path: ProjectRelativePathBuf,
@@ -121,7 +121,7 @@ where
 /// `file_dest`. It's then removed from `srcs`.
 fn _materialize_files_from_map<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
-    srcs: &mut StdBuckHashMap<AbsNormPathBuf, AbsNormPathBuf>,
+    srcs: &mut BuckMutMap<AbsNormPathBuf, AbsNormPathBuf>,
     dest: P,
 ) -> buck2_error::Result<()>
 where

@@ -57,7 +57,7 @@ use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_util::time_span::TimeSpan;
 use buck2_util::time_span::TimeSpanBuilder;
 use dice_futures::cancellation::CancellationContext;
@@ -229,7 +229,7 @@ async fn materialize_failed_build_outputs(
         return Ok(paths);
     }
 
-    let materialize_select_outputs: StdBuckHashSet<&BuildArtifactPath> =
+    let materialize_select_outputs: BuckMutSet<&BuildArtifactPath> =
         request.outputs_for_error_handler().iter().collect();
 
     for output in request.outputs() {

@@ -36,7 +36,7 @@ use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -631,7 +631,7 @@ fn trace_action_digest(
 // After we execute an action once, we no longer want to pretend that we got cache misses on it if
 // we execute it again (say, on a subsequent build); the `AtomicBool` in the value deals with that,
 // it's true after the first time we execute the action
-static INDUCED_CACHE_MISSES: LazyLock<Option<StdBuckHashMap<String, AtomicBool>>> =
+static INDUCED_CACHE_MISSES: LazyLock<Option<BuckMutMap<String, AtomicBool>>> =
     LazyLock::new(|| {
         if let Ok(p) = std::env::var("BUCK2_INDUCED_CACHE_MISSES") {
             let c = fs_util::read_to_string(AbsNormPath::new(&p).unwrap())

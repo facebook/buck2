@@ -68,7 +68,7 @@ use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_http::HttpClient;
 use buck2_util::threads::thread_spawn;
 use derivative::Derivative;
@@ -749,7 +749,7 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
         };
         let access_times_buffer =
             (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
-                .then(StdBuckHashSet::new);
+                .then(BuckMutSet::default);
 
         let tree = ArtifactTree::initialize(sqlite_state);
 

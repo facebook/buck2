@@ -34,7 +34,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use jiff::Timestamp;
@@ -320,8 +320,7 @@ fn convert_sqlite_entries_to_materializer_state(
         children: Vec<SqliteEntry<'a>>,
     }
 
-    let mut directories: StdBuckHashMap<ProjectRelativePathBuf, DirectoryData> =
-        StdBuckHashMap::default();
+    let mut directories: BuckMutMap<ProjectRelativePathBuf, DirectoryData> = BuckMutMap::default();
 
     let mut results = Vec::new();
 

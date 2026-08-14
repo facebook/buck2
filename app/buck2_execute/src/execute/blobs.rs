@@ -9,7 +9,7 @@
  */
 
 use buck2_common::file_ops::metadata::TrackedFileDigest;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use remote_execution::InlinedBlobWithDigest;
 
@@ -20,13 +20,13 @@ use crate::execute::request::ActionMetadataBlobMessage;
 
 /// Contains small blobs referenced from action messages (does not include any file contents blobs).
 #[derive(Clone)]
-pub struct ActionBlobs(StdBuckHashMap<TrackedFileDigest, ActionMetadataBlobData>);
+pub struct ActionBlobs(BuckMutMap<TrackedFileDigest, ActionMetadataBlobData>);
 
 impl ActionBlobs {
     pub fn new(digest_config: DigestConfig) -> Self {
         // We add empty files to the input that don't exist in disk; so add
         // the empty digest to blobs, as going to disk would fail.
-        let mut blobs = StdBuckHashMap::default();
+        let mut blobs = BuckMutMap::default();
         blobs.insert(
             TrackedFileDigest::empty(digest_config.cas_digest_config()),
             ActionMetadataBlobData(Vec::new()),
