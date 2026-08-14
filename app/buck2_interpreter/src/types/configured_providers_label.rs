@@ -74,6 +74,14 @@ pub struct StarlarkConfiguredProvidersLabel {
 
 starlark_simple_value!(StarlarkConfiguredProvidersLabel);
 
+impl FreezeBranded for StarlarkConfiguredProvidersLabel {
+    type Frozen<'fv> = StarlarkConfiguredProvidersLabel;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(self)
+    }
+}
+
 impl Serialize for StarlarkConfiguredProvidersLabel {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

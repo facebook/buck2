@@ -374,7 +374,7 @@ async fn collect_install_request_data(
             match install_info {
                 Some(owned_install_info) => {
                     let install_info = owned_install_info.as_ref().value().as_ref();
-                    let installer_label = install_info.get_installer()?;
+                    let installer_label = install_info.get_installer();
                     let install_files = install_info.get_files()?;
                     installer_to_files_map
                         .entry(installer_label)

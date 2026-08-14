@@ -24,6 +24,7 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 
@@ -36,8 +37,6 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueIsInpu
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum InstallInfoProviderErrors {
-    #[error("expected a label, got `{0}` (type `{1}`)")]
-    ExpectedLabel(String, String),
     #[error("Expected a dictionary of artifacts but key `{key}` contained `{got}`")]
     ExpectedArtifact { key: String, got: String },
     #[error("Expected a dictionary with string keys, but got key `{0}`")]
@@ -60,23 +59,14 @@ enum InstallInfoProviderErrors {
 #[freeze_branded(validator = validate_install_info)]
 pub struct InstallInfo<'v> {
     // Label for the installer
-    installer: ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>,
+    installer: ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
     // list of files that need to be installed
     files: ValueOfUnchecked<'v, DictType<String, ValueIsInputArtifactAnnotation>>,
 }
 
 impl<'v> InstallInfo<'v> {
-    pub fn get_installer(&self) -> buck2_error::Result<ConfiguredProvidersLabel> {
-        let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.get())
-            .ok_or_else(|| {
-                InstallInfoProviderErrors::ExpectedLabel(
-                    self.installer.get().to_repr(),
-                    self.installer.get().get_type().to_owned(),
-                )
-            })?
-            .label()
-            .to_owned();
-        Ok(label)
+    pub fn get_installer(&self) -> ConfiguredProvidersLabel {
+        self.installer.label().to_owned()
     }
 
     fn get_files_dict(&self) -> DictRef<'v> {
@@ -120,11 +110,11 @@ impl<'v> InstallInfo<'v> {
 #[starlark_module]
 fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
-        installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
+        installer: ValueTyped<'v, StarlarkConfiguredProvidersLabel>,
         files: ValueOf<'v, DictType<&'v str, ValueIsInputArtifactAnnotation>>,
     ) -> starlark::Result<InstallInfo<'v>> {
         let info = InstallInfo {
-            installer: installer.as_unchecked().cast(),
+            installer,
             files: files.as_unchecked().cast(),
         };
         validate_install_info(&info)?;
