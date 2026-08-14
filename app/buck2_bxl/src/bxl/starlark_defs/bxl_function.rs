@@ -293,35 +293,29 @@ starlark::__starlark_pagable_only! {
     mod tests {
         use pagable::PagableDeserialize;
         use pagable::PagableSerialize;
-        use starlark::values::FrozenHeap;
         use starlark::values::FrozenHeapName;
 
         use super::*;
 
         #[test]
         fn frozen_bxl_function_round_trips() -> pagable::Result<()> {
-            let heap = FrozenHeap::new();
             let expected_label = BxlFunctionLabel {
                 bxl_path: BxlFilePath::testing_new("cell", "dir/test.bxl"),
                 name: "main".to_owned(),
             };
-            let root = heap
-                .alloc_simple_typed(FrozenBxlFunction {
-                    implementation: heap.alloc("implementation").to_value(),
-                    cli_args: SmallMap::new(),
-                    bxl_id: Arc::new(expected_label.clone()),
-                    docs: Some("test docs".to_owned()),
-                })
-                .to_frozen_value();
-            let heap_ref =
-                heap.into_ref_named(FrozenHeapName::user("frozen_bxl_function_round_trips"));
-            // SAFETY: `heap_ref` owns the arena containing `root`.
-            let owned: OwnedBxlFunction = unsafe {
-                OwnedFrozen::unchecked_new(
-                    heap_ref,
-                    ValueTyped::new(root.to_value()).expect("just allocated"),
-                )
-            };
+            let owned: OwnedBxlFunction = OwnedFrozen::build(
+                FrozenHeapName::user("frozen_bxl_function_round_trips"),
+                |heap| {
+                    let f = heap.alloc_simple_typed(FrozenBxlFunction {
+                        implementation: heap.alloc("implementation").to_value(),
+                        cli_args: SmallMap::new(),
+                        bxl_id: Arc::new(expected_label.clone()),
+                        docs: Some("test docs".to_owned()),
+                    });
+                    ValueTyped::new(f.to_frozen_value().to_value())
+                        .expect("value was just allocated as this type")
+                },
+            );
 
             let mut serializer = pagable::testing::TestingSerializer::new();
             owned.pagable_serialize(&mut serializer)?;

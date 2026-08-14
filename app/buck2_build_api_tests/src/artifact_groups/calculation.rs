@@ -89,7 +89,7 @@ fn mock_analysis_for_tsets(
             ResultMaybeCompatible::Compatible(AnalysisResult::new(
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
-                    tsets.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                    tsets,
                     RecordedActions::new(0),
                 ),
                 None,

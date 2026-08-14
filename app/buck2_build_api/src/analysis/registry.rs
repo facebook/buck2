@@ -53,13 +53,10 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenHeap;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenRef;
-use starlark::values::OwnedFrozenValue;
-use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
@@ -92,7 +89,6 @@ use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::Starlar
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 
@@ -707,50 +703,46 @@ impl RecordedAnalysisValues {
 
     pub fn testing_new(
         self_key: DeferredHolderKey,
-        transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+        transitive_sets: Vec<(
+            TransitiveSetKey,
+            OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>,
+        )>,
         actions: RecordedActions,
     ) -> Self {
-        let heap = FrozenHeap::new();
-        let mut alloced_tsets = Vec::new();
-        for (_key, tset) in transitive_sets
-            .iter()
-            .sorted_by_key(|(key, _)| key.index().0)
-        {
-            heap.add_reference(tset.owner());
-            let tset = tset.owned_frozen_value_typed(&heap);
-            alloced_tsets.push(tset);
-        }
+        let analysis_storage: OwnedFrozenAnalysisValueStorage =
+            OwnedFrozen::build(Buck2TestHeapName::frozen_heap_name(), |heap| {
+                let alloced_tsets: Vec<_> = transitive_sets
+                    .iter()
+                    .sorted_by_key(|(key, _)| key.index().0)
+                    .map(|(_key, tset)| {
+                        let tset = tset.as_ref().add_to_frozen_heap(heap);
+                        FrozenValueTyped::new(
+                            tset.to_value()
+                                .unpack_frozen()
+                                .expect("value is in a frozen heap"),
+                        )
+                        .expect("value is a `TransitiveSet`")
+                    })
+                    .collect();
 
-        let providers = FrozenProviderCollection::testing_new_default(&heap);
-
-        let value = heap.alloc_simple(StarlarkAnyComplex {
-            value: FrozenAnalysisValueStorage {
-                self_key: self_key.dupe(),
-                action_data: SmallMap::new(),
-                transitive_sets: alloced_tsets.into_iter().collect(),
-                lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
-                    .get()
-                    .unwrap()
-                    .new_frozen_dynamic_lambda_params_storage(),
-                result_value: Some(
-                    FrozenValueTyped::<FrozenProviderCollection>::new(heap.alloc(providers))
-                        .unwrap(),
-                ),
-            },
-        });
+                let storage = heap.alloc_simple_typed(StarlarkAnyComplex {
+                    value: FrozenAnalysisValueStorage {
+                        self_key: self_key.dupe(),
+                        action_data: SmallMap::new(),
+                        transitive_sets: alloced_tsets.into_iter().collect(),
+                        lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
+                            .get()
+                            .unwrap()
+                            .new_frozen_dynamic_lambda_params_storage(),
+                        result_value: Some(FrozenProviderCollection::testing_new_default(heap)),
+                    },
+                });
+                ValueTyped::new(storage.to_frozen_value().to_value())
+                    .expect("value was just allocated as this type")
+            });
         Self {
             self_key,
-            analysis_storage: Some(
-                unsafe {
-                    OwnedFrozenValue::new(
-                        heap.into_ref_named(Buck2TestHeapName::frozen_heap_name()),
-                        value,
-                    )
-                }
-                .downcast::<StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>()
-                .unwrap()
-                .into(),
-            ),
+            analysis_storage: Some(analysis_storage),
             actions,
         }
     }

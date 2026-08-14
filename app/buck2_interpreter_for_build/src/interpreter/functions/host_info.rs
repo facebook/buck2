@@ -22,97 +22,92 @@ use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapName;
 use starlark::values::FrozenValue;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozen;
+use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
 
 use crate::interpreter::build_context::BuildContext;
 
+fn new_struct<'fv, V: AllocFrozenValue<'fv> + Copy>(
+    heap: &'fv FrozenHeap,
+    values: &[(&str, V)],
+) -> FrozenValue {
+    heap.alloc(AllocStruct(values.iter().copied()))
+}
+
 fn new_host_info(
     host_platform: InterpreterHostPlatform,
     host_architecture: InterpreterHostArchitecture,
     xcode_info: Option<&XcodeVersionInfo>,
-) -> OwnedFrozenValue {
-    let heap = FrozenHeap::new();
+) -> OwnedFrozen<Value<'static>> {
+    OwnedFrozen::build(FrozenHeapName::Singleton(singleton_heap_name!()), |heap| {
+        let platform = |name, x| (name, host_platform == x);
+        let os = new_struct(
+            heap,
+            &[
+                platform("is_linux", InterpreterHostPlatform::Linux),
+                platform("is_macos", InterpreterHostPlatform::MacOS),
+                platform("is_windows", InterpreterHostPlatform::Windows),
+                platform("is_freebsd", InterpreterHostPlatform::FreeBsd),
+                platform("is_unknown", InterpreterHostPlatform::Unknown),
+            ],
+        );
 
-    fn new_struct<'fv, V: AllocFrozenValue<'fv> + Copy>(
-        heap: &'fv FrozenHeap,
-        values: &[(&str, V)],
-    ) -> FrozenValue {
-        heap.alloc(AllocStruct(values.iter().copied()))
-    }
+        let host = |name, x| (name, host_architecture == x);
+        let arch = new_struct(
+            heap,
+            &[
+                host("is_x86_64", InterpreterHostArchitecture::X86_64),
+                host("is_aarch64", InterpreterHostArchitecture::AArch64),
+                host("is_arm", InterpreterHostArchitecture::Arm),
+                host("is_riscv64", InterpreterHostArchitecture::Riscv64),
+                ("is_armeb", false),
+                host("is_i386", InterpreterHostArchitecture::X86),
+                host("is_mips", InterpreterHostArchitecture::Mips),
+                host("is_mips64", InterpreterHostArchitecture::Mips64),
+                ("is_mipsel", false),
+                ("is_mipsel64", false),
+                host("is_powerpc", InterpreterHostArchitecture::PowerPc),
+                host("is_ppc64", InterpreterHostArchitecture::PowerPc64),
+                host("is_unknown", InterpreterHostArchitecture::Unknown),
+            ],
+        );
 
-    let platform = |name, x| (name, host_platform == x);
-    let os = new_struct(
-        &heap,
-        &[
-            platform("is_linux", InterpreterHostPlatform::Linux),
-            platform("is_macos", InterpreterHostPlatform::MacOS),
-            platform("is_windows", InterpreterHostPlatform::Windows),
-            platform("is_freebsd", InterpreterHostPlatform::FreeBsd),
-            platform("is_unknown", InterpreterHostPlatform::Unknown),
-        ],
-    );
+        let xcode = {
+            let mk_value = |sel: fn(&XcodeVersionInfo) -> &String| match xcode_info {
+                Some(i) => heap.alloc(sel(i).as_str()),
+                None => FrozenValue::new_none(),
+            };
 
-    let host = |name, x| (name, host_architecture == x);
-    let arch = new_struct(
-        &heap,
-        &[
-            host("is_x86_64", InterpreterHostArchitecture::X86_64),
-            host("is_aarch64", InterpreterHostArchitecture::AArch64),
-            host("is_arm", InterpreterHostArchitecture::Arm),
-            host("is_riscv64", InterpreterHostArchitecture::Riscv64),
-            ("is_armeb", false),
-            host("is_i386", InterpreterHostArchitecture::X86),
-            host("is_mips", InterpreterHostArchitecture::Mips),
-            host("is_mips64", InterpreterHostArchitecture::Mips64),
-            ("is_mipsel", false),
-            ("is_mipsel64", false),
-            host("is_powerpc", InterpreterHostArchitecture::PowerPc),
-            host("is_ppc64", InterpreterHostArchitecture::PowerPc64),
-            host("is_unknown", InterpreterHostArchitecture::Unknown),
-        ],
-    );
-
-    let xcode = {
-        let mk_value = |sel: fn(&XcodeVersionInfo) -> &String| match xcode_info {
-            Some(i) => heap.alloc(sel(i).as_str()),
-            None => FrozenValue::new_none(),
+            new_struct(
+                heap,
+                &[
+                    ("version_string", mk_value(|x| &x.version_string)),
+                    ("major_version", mk_value(|x| &x.major_version)),
+                    ("minor_version", mk_value(|x| &x.minor_version)),
+                    ("patch_version", mk_value(|x| &x.patch_version)),
+                    ("build_number", mk_value(|x| &x.build_number)),
+                ],
+            )
         };
 
-        new_struct(
-            &heap,
+        let info = new_struct(
+            heap,
             &[
-                ("version_string", mk_value(|x| &x.version_string)),
-                ("major_version", mk_value(|x| &x.major_version)),
-                ("minor_version", mk_value(|x| &x.minor_version)),
-                ("patch_version", mk_value(|x| &x.patch_version)),
-                ("build_number", mk_value(|x| &x.build_number)),
+                ("os", os),
+                ("arch", arch),
+                // TODO(cjhopman): Remove in favour of version_info() in Buck v1 and v2
+                // We want to be able to determine if we are on Buck v2 or not, this mechanism
+                // is quick, cheap and Buck v1 compatible.
+                ("buck2", FrozenValue::new_bool(true)),
+                ("xcode", xcode),
             ],
-        )
-    };
+        );
 
-    let info = new_struct(
-        &heap,
-        &[
-            ("os", os),
-            ("arch", arch),
-            // TODO(cjhopman): Remove in favour of version_info() in Buck v1 and v2
-            // We want to be able to determine if we are on Buck v2 or not, this mechanism
-            // is quick, cheap and Buck v1 compatible.
-            ("buck2", FrozenValue::new_bool(true)),
-            ("xcode", xcode),
-        ],
-    );
-
-    // Safe because the value info was allocated into the heap
-    unsafe {
-        OwnedFrozenValue::new(
-            heap.into_ref_named(FrozenHeapName::Singleton(singleton_heap_name!())),
-            info,
-        )
-    }
+        info.to_value()
+    })
 }
 
 #[starlark_module]
@@ -153,7 +148,7 @@ pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
         // that might reuse each other's output.
         let host_info = &BuildContext::from_context(eval)?.host_info;
         Ok(ValueOfUnchecked::new(
-            eval.heap().access_owned_frozen_value(&host_info.value),
+            host_info.value.as_ref().add_to_heap(eval.heap()),
         ))
     }
 }
@@ -167,7 +162,7 @@ pub struct HostInfo {
     xcode: Option<XcodeVersionInfo>,
     // The actual value which we ignore for equality, which is OK because of above
     #[derivative(PartialEq = "ignore")]
-    value: OwnedFrozenValue,
+    value: OwnedFrozen<Value<'static>>,
 }
 
 impl HostInfo {

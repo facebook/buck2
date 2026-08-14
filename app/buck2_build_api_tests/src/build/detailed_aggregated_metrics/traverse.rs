@@ -26,7 +26,7 @@ mod tests {
     use buck2_build_api::build::detailed_aggregated_metrics::testing::traverse_partial_action_graph;
     use buck2_build_api::deferred::calculation::OwnedDeferredHolder;
     use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
-    use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
+    use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
     use buck2_core::category::Category;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
@@ -42,7 +42,8 @@ mod tests {
     use buck2_hash::buck_indexset;
     use dupe::Dupe;
     use dupe::IterDupedExt;
-    use starlark::values::OwnedFrozenValueTyped;
+    use starlark::values::OwnedFrozen;
+    use starlark::values::ValueTyped;
 
     use crate::actions::testings::SimpleAction;
 
@@ -56,7 +57,10 @@ mod tests {
         holder_key: DeferredHolderKey,
         action_count: u32,
         actions: Vec<(ActionKey, ActionState)>,
-        tsets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
+        tsets: Vec<(
+            TransitiveSetKey,
+            OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>,
+        )>,
         dynamics: Vec<()>,
     }
 
