@@ -24,10 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::Freeze;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
-use starlark::values::FrozenValue;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -58,7 +55,9 @@ enum RegisterCfgConstructorError {
     Trace,
     NoSerialize,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable,
+    FreezeBranded
 )]
 #[display("{:?}", self)]
 struct StarlarkCfgConstructor<'v> {
@@ -69,60 +68,20 @@ struct StarlarkCfgConstructor<'v> {
     extra_data: Option<Value<'v>>,
 }
 
-#[derive(
-    Debug,
-    derive_more::Display,
-    NoSerialize,
-    ProvidesStaticType,
-    Allocative,
-    StarlarkPagable
-)]
-#[display("{:?}", self)]
-struct FrozenStarlarkCfgConstructor {
-    stage0: FrozenValue,
-    stage1: FrozenValue,
-    key: String,
-    aliases: Option<FrozenValue>,
-    extra_data: Option<FrozenValue>,
-}
+starlark::register_simple_vtable_entry!(StarlarkCfgConstructor<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for StarlarkCfgConstructor<'v> {}
 
 #[starlark_value(type = "StarlarkCfgConstructor")]
 impl<'v> StarlarkValue<'v> for StarlarkCfgConstructor<'v> {}
-
-#[starlark_value(type = "StarlarkCfgConstructor")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkCfgConstructor {
-    type Canonical = StarlarkCfgConstructor<'v>;
-}
-
-impl Freeze for StarlarkCfgConstructor<'_> {
-    type Frozen = FrozenStarlarkCfgConstructor;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let StarlarkCfgConstructor {
-            stage0,
-            stage1,
-            key,
-            aliases,
-            extra_data,
-        } = self;
-        let (stage0, stage1, aliases, extra_data) =
-            (stage0, stage1, aliases, extra_data).freeze(freezer)?;
-        Ok(FrozenStarlarkCfgConstructor {
-            stage0,
-            stage1,
-            key,
-            aliases,
-            extra_data,
-        })
-    }
-}
 
 fn make_cfg_constructor(
     cfg_constructor: OwnedFrozen<Value<'static>>,
 ) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>> {
     cfg_constructor.by_ref_with_reconstructor(|value, reconstructor| {
-        let starlark = value.downcast_ref_err::<FrozenStarlarkCfgConstructor>()?;
-        let field = |v: FrozenValue| reconstructor.reconstruct::<Value<'static>>(v.to_value());
+        let starlark = value.downcast_ref_err::<StarlarkCfgConstructor>()?;
+        let field = |v| reconstructor.reconstruct::<Value<'static>>(v);
         let cfg_constructor: Arc<dyn CfgConstructorImpl> = Arc::new(CfgConstructor {
             cfg_constructor_pre_constraint_analysis: field(starlark.stage0),
             cfg_constructor_post_constraint_analysis: field(starlark.stage1),
@@ -181,7 +140,7 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
             );
         }
         package_file_extra.cfg_constructor.get_or_init(|| {
-            eval.heap().alloc_complex(StarlarkCfgConstructor {
+            eval.heap().alloc_complex_branded(StarlarkCfgConstructor {
                 stage0,
                 stage1,
                 key: key.to_owned(),
