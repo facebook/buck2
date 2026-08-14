@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import asyncio
 import re
 import shutil
 import time
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
 def modify_acess_times_updates(buck: Buck, new_status: str) -> None:
@@ -34,6 +36,32 @@ def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> 
     file_content = file_content.replace(old, new)
     with open(file, "w", encoding=encoding) as f:
         f.write(file_content)
+
+
+def configure_active_unmaterialization(buck: Buck, enabled: bool) -> None:
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(
+            f"""
+[buck2]
+ttl_refresh_enabled = true
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 8
+clean_stale_start_offset_hours = 0.001
+clean_stale_period_hours = 0.0001
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_adaptive_enabled = true
+clean_stale_low_disk_adaptive_min_ttl_hours = 24
+clean_stale_low_disk_adaptive_unmaterialize_active = {str(enabled).lower()}
+        """
+        )
+
+
+async def audit_entry(buck: Buck, artifact_name: str) -> str:
+    entries = (await buck.audit("deferred-materializer", "list")).stdout.splitlines()
+    entry = next(entry for entry in entries if artifact_name in entry)
+    assert entry is not None, f"no entry for {artifact_name}: {entries}"
+    return entry
 
 
 @buck_test()
@@ -391,3 +419,68 @@ async def test_clean_stale_cli_adaptive_min_ttl_protects_recent(buck: Buck) -> N
         "--adaptive-min-ttl=24h",
     )
     assert output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_unmaterializes_active_remote_intermediate(
+    buck: Buck,
+) -> None:
+    configure_active_unmaterialization(buck, enabled=True)
+    result = await buck.build(
+        "root//:consume_remote", "--local-only", "--no-remote-cache"
+    )
+    output = result.get_build_report().output_for_target("root//:consume_remote")
+    assert output.exists()
+    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+
+    await asyncio.sleep(30)
+    assert "\tdeclared: http download" in await audit_entry(
+        buck, "__download_deferred__"
+    )
+
+    remote = await buck.build("root//:download_deferred")
+    await expect_exec_count(buck, 0)
+    assert (
+        remote.get_build_report().output_for_target("root//:download_deferred").exists()
+    )
+    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_does_not_unmaterialize_active_local_intermediate(
+    buck: Buck,
+) -> None:
+    configure_active_unmaterialization(buck, enabled=True)
+    result = await buck.build(
+        "root//:consume_local", "--local-only", "--no-remote-cache"
+    )
+    assert result.get_build_report().output_for_target("root//:consume_local").exists()
+    assert "\tmaterialized" in await audit_entry(buck, "__write__")
+
+    await asyncio.sleep(30)
+    assert "\tmaterialized" in await audit_entry(buck, "__write__")
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -> None:
+    configure_active_unmaterialization(buck, enabled=True)
+    result = await buck.build("root//:download_deferred")
+    assert (
+        result.get_build_report().output_for_target("root//:download_deferred").exists()
+    )
+
+    await asyncio.sleep(30)
+    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_does_not_unmaterialize_when_disabled(buck: Buck) -> None:
+    configure_active_unmaterialization(buck, enabled=False)
+    result = await buck.build(
+        "root//:consume_remote", "--local-only", "--no-remote-cache"
+    )
+    assert result.get_build_report().output_for_target("root//:consume_remote").exists()
+    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+
+    await asyncio.sleep(30)
+    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")

@@ -93,6 +93,17 @@ cas_artifact = rule(
     },
 )
 
+def _consume_impl(ctx: AnalysisContext):
+    out = ctx.actions.copy_file("consumed", ctx.attrs.src)
+    return [DefaultInfo(default_output = out)]
+
+consume = rule(
+    impl = _consume_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
+
 def symlink_files_impl(ctx):
     srcs = {src.short_path: src for src in ctx.attrs.srcs}
     srcs.update({"subdir/{}.suffix".format(src.short_path): src for src in ctx.attrs.srcs})

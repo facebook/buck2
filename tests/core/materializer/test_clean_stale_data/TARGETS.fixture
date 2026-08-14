@@ -1,4 +1,4 @@
-load(":defs.bzl", "copy", "copy_to_dir", "download", "symlink_files", "write_json", "write_string")
+load(":defs.bzl", "consume", "copy", "copy_to_dir", "download", "symlink_files", "write_json", "write_string")
 
 copy(name = "copy", src = "src")
 copy(name = "copy_2", src = "src")
@@ -10,6 +10,8 @@ copy(name = "copy_dep", src = "src", dep = ":write")
 
 download(name = "download_deferred", deferrable = True)
 download(name = "download_immediate", deferrable = False)
+consume(name = "consume_remote", src = ":download_deferred")
+consume(name = "consume_local", src = ":write")
 
 symlink_files(
     name = "out",
