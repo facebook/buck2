@@ -392,7 +392,7 @@ impl<'v> ArtifactDeclaration<'v> {
 /// Store `Value<'v>` values for actions registered in an implementation function
 ///
 /// These values eventually are written into the mutable `Module`, and a wrapper is
-/// made available to get the `OwnedFrozenValue` back out after that `Module` is frozen.
+/// made available to get them back out as `OwnedFrozen`s after that `Module` is frozen.
 ///
 /// Note that this object has internal mutation and is only expected to live for the duration
 /// of impl function execution.
@@ -540,7 +540,7 @@ impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
 /// Simple fetcher that fetches the values written in `AnalysisValueStorage::write_to_module`
 ///
 /// These values are pulled from the `FrozenModule` that results from `env.freeze()`.
-/// This is used by the action registry to make an `OwnedFrozenValue` available to
+/// This is used by the action registry to make an `OwnedFrozen` available to
 /// Actions' register function.
 pub struct AnalysisValueFetcher {
     self_key: DeferredHolderKey,

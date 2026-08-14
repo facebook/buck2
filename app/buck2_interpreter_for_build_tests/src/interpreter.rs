@@ -47,11 +47,28 @@ fn test_eval_import() {
         )
         .unwrap();
 
-    assert_eq!(1, loaded.env().get("one").unwrap().unpack_i32().unwrap());
+    assert_eq!(
+        1,
+        loaded
+            .env()
+            .get_owned("one")
+            .unwrap()
+            .as_ref()
+            .value()
+            .unpack_i32()
+            .unwrap()
+    );
 
     assert_eq!(
         "world",
-        loaded.env().get("hello").unwrap().unpack_str().unwrap()
+        loaded
+            .env()
+            .get_owned("hello")
+            .unwrap()
+            .as_ref()
+            .value()
+            .unpack_str()
+            .unwrap()
     );
 }
 
@@ -90,8 +107,10 @@ fn test_load() {
         "hello world!",
         parse_result
             .env()
-            .get("message")
+            .get_owned("message")
             .unwrap()
+            .as_ref()
+            .value()
             .unpack_str()
             .unwrap()
     );

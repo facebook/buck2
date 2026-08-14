@@ -104,7 +104,13 @@ async fn test_eval_import() {
         .unwrap();
     assert_eq!(
         "hello world!",
-        env.env().get("message").unwrap().unpack_str().unwrap()
+        env.env()
+            .get_owned("message")
+            .unwrap()
+            .as_ref()
+            .value()
+            .unpack_str()
+            .unwrap()
     );
 }
 
@@ -143,7 +149,13 @@ async fn test_eval_import_with_load() {
         .unwrap();
     assert_eq!(
         "hello world!",
-        env.env().get("message").unwrap().unpack_str().unwrap()
+        env.env()
+            .get_owned("message")
+            .unwrap()
+            .as_ref()
+            .value()
+            .unpack_str()
+            .unwrap()
     );
 }
 
