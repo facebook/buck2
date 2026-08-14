@@ -220,6 +220,21 @@ def process_link_args(
             i += 1
             continue
 
+        # rustc translates `-Cstrip` into these linker arguments on the links
+        # it drives. The strip level is requested through rustc's own flags,
+        # so as with the objects above, the information can only reach the
+        # real link through here — it is not knowable by the toolchain or the
+        # dependency graph.
+        elif arg in (
+            "-Wl,--strip-debug",
+            "-Wl,--strip-all",
+            "--strip-debug",
+            "--strip-all",
+        ):
+            retained_args.append(arg)
+            i += 1
+            continue
+
         # `-o`'s value is a temporary output location that rustc would copy to
         # the `--emit=link={}` path; the link action provides its own output
         # path instead. `-L` carries only search paths (the dummy sysroot and
