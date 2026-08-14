@@ -64,6 +64,7 @@ use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -335,6 +336,11 @@ impl FrozenModule {
     pub fn owned_extra_value(&self) -> Option<OwnedFrozenValue> {
         self.extra_value
             .map(|v| unsafe { OwnedFrozenValue::new(self.heap.dupe(), v) })
+    }
+
+    /// `extra_value` field from `Module`, frozen, kept alive by this module's heap.
+    pub fn extra_value_owned(&self) -> Option<OwnedFrozen<Value<'static>>> {
+        self.owned_extra_value().map(OwnedFrozen::from)
     }
 }
 
