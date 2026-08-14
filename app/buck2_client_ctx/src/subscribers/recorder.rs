@@ -59,9 +59,9 @@ use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_hash::IntentionallyStdHashMap;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
@@ -180,7 +180,7 @@ pub struct InvocationRecorder {
     initial_sink_dropped_count: Option<u64>,
     initial_sink_bytes_written: Option<u64>,
     sink_max_buffer_depth: u64,
-    soft_error_categories: StdBuckHashSet<SoftError>,
+    soft_error_categories: BuckMutSet<SoftError>,
     concurrent_command_blocking_duration: Option<Duration>,
     metadata: IntentionallyStdHashMap<String, String>,
     analysis_count: u64,
@@ -216,7 +216,7 @@ pub struct InvocationRecorder {
     initial_hedwig_download_bytes: Option<u64>,
     initial_hedwig_upload_queries: Option<u64>,
     initial_hedwig_upload_bytes: Option<u64>,
-    concurrent_command_ids: StdBuckHashSet<String>,
+    concurrent_command_ids: BuckMutSet<String>,
     daemon_connection_failure: bool,
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
@@ -239,7 +239,7 @@ pub struct InvocationRecorder {
     peak_used_disk_space_bytes: Option<u64>,
     peak_normalized_system_load1: Option<f64>,
     peak_normalized_system_load5: Option<f64>,
-    active_networks_kinds: StdBuckHashSet<i32>,
+    active_networks_kinds: BuckMutSet<i32>,
     target_cfg: Option<TargetCfg>,
     hg_revision: Option<String>,
     git_revision: Option<String>,
@@ -254,7 +254,7 @@ pub struct InvocationRecorder {
     previous_uuid_with_mismatched_config: Option<String>,
     file_watcher: Option<String>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
-    health_check_tags: StdBuckHashSet<String>,
+    health_check_tags: BuckMutSet<String>,
     exec_time_ms: u64,
     initial_local_cache_hits_files_from_memory_cache: Option<i64>,
     initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
@@ -274,7 +274,7 @@ pub struct InvocationRecorder {
     // action-concurrency distribution emitted on the InvocationRecord.
     action_intervals: Vec<ActionInterval>,
     // Track executor stage types by span ID to know which counter to decrement on end
-    executor_stages_by_span: StdBuckHashMap<u64, ExecutorStageType>,
+    executor_stages_by_span: BuckMutMap<u64, ExecutorStageType>,
     // Track maximum buck2 daemon anon memory usage
     memory_max_anon_allprocs: Option<u64>,
     // Track maximum buck2 forkserver anon memory usage
@@ -399,7 +399,7 @@ impl InvocationRecorder {
             initial_sink_dropped_count: None,
             initial_sink_bytes_written: None,
             sink_max_buffer_depth: 0,
-            soft_error_categories: StdBuckHashSet::default(),
+            soft_error_categories: BuckMutSet::default(),
             concurrent_command_blocking_duration: None,
             // Use a null daemon_id here initially - if we later get metadata back from the daemon,
             // we'll overwrite this then
@@ -437,7 +437,7 @@ impl InvocationRecorder {
             initial_hedwig_download_bytes: None,
             initial_hedwig_upload_queries: None,
             initial_hedwig_upload_bytes: None,
-            concurrent_command_ids: StdBuckHashSet::default(),
+            concurrent_command_ids: BuckMutSet::default(),
             daemon_connection_failure: false,
             daemon_was_started: None,
             should_restart: false,
@@ -466,7 +466,7 @@ impl InvocationRecorder {
             peak_used_disk_space_bytes: None,
             peak_normalized_system_load1: None,
             peak_normalized_system_load5: None,
-            active_networks_kinds: StdBuckHashSet::default(),
+            active_networks_kinds: BuckMutSet::default(),
             target_cfg: None,
             hg_revision: None,
             git_revision: None,
@@ -481,7 +481,7 @@ impl InvocationRecorder {
             previous_uuid_with_mismatched_config: None,
             file_watcher: None,
             health_check_tags_receiver: None,
-            health_check_tags: StdBuckHashSet::default(),
+            health_check_tags: BuckMutSet::default(),
             exec_time_ms: 0,
             initial_local_cache_hits_files_from_memory_cache: None,
             initial_local_cache_hits_files_from_filesystem_cache: None,
@@ -498,7 +498,7 @@ impl InvocationRecorder {
             max_in_progress_remote_actions: 0,
             current_in_progress_remote_uploads: 0,
             max_in_progress_remote_uploads: 0,
-            executor_stages_by_span: StdBuckHashMap::default(),
+            executor_stages_by_span: BuckMutMap::default(),
             memory_max_anon_allprocs: None,
             memory_max_anon_forkserver_actions: None,
             memory_max_total_allprocs: None,

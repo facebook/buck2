@@ -27,8 +27,8 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DiceTransaction;
@@ -124,9 +124,9 @@ pub(crate) async fn targets_resolve_aliases(
     let packages = parsed_target_patterns
         .iter()
         .map(|(package, _name)| package.dupe())
-        .collect::<StdBuckHashSet<_>>();
+        .collect::<BuckMutSet<_>>();
 
-    let packages: StdBuckHashMap<_, _> = dice
+    let packages: BuckMutMap<_, _> = dice
         .ctx()
         .compute_join(packages, async |ctx: &mut _, package| {
             (

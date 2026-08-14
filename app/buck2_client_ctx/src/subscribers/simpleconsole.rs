@@ -33,7 +33,7 @@ use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_health_check::interface::HealthCheckType;
 use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -58,8 +58,8 @@ use crate::ticker::Tick;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-static ELAPSED_HEALTH_CHECK_MAP: LazyLock<Mutex<StdBuckHashMap<HealthCheckType, (Instant, u64)>>> =
-    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
+static ELAPSED_HEALTH_CHECK_MAP: LazyLock<Mutex<BuckMutMap<HealthCheckType, (Instant, u64)>>> =
+    LazyLock::new(|| Mutex::new(BuckMutMap::default()));
 
 fn now_display() -> impl Display {
     // Millisecond precision with a numeric offset, like the rfc3339 formatting this had

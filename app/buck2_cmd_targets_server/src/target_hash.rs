@@ -25,8 +25,8 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
@@ -98,7 +98,7 @@ impl BuckTargetHasher for Blake3Adapter {
 
 pub enum TargetHashesFileMode {
     /// The following files have changed in some way (don't do any IO)
-    PathsOnly(StdBuckHashSet<CellPath>),
+    PathsOnly(BuckMutSet<CellPath>),
     /// Use IO operations to find the paths and their contents
     PathsAndContents,
     /// Don't hash any files
@@ -112,7 +112,7 @@ trait FileHasher: Send + Sync {
 }
 
 struct PathsOnlyFileHasher {
-    pseudo_changed_paths: StdBuckHashSet<CellPath>,
+    pseudo_changed_paths: BuckMutSet<CellPath>,
 }
 
 #[async_trait]
@@ -255,7 +255,7 @@ impl TargetHashingTargetNode for TargetNode {
 }
 pub struct TargetHashes {
     // key is an unconfigured target label, but the hash is generated from the configured target label.
-    target_mapping: StdBuckHashMap<TargetLabel, buck2_error::Result<BuckTargetHash>>,
+    target_mapping: BuckMutMap<TargetLabel, buck2_error::Result<BuckTargetHash>>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -282,10 +282,10 @@ impl TargetHashes {
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
-        let mut hashes: StdBuckHashMap<
+        let mut hashes: BuckMutMap<
             T::Key,
             Shared<DropcancelJoinHandle<buck2_error::Result<BuckTargetHash>>>,
-        > = StdBuckHashMap::default();
+        > = BuckMutMap::default();
 
         let visit = |target: T| {
             // this is postorder, so guaranteed that all deps have futures already.
@@ -361,8 +361,8 @@ impl TargetHashes {
             .map(|(target, fut)| async move { (target, fut.await) })
             .collect();
 
-        let mut target_mapping: StdBuckHashMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
-            StdBuckHashMap::default();
+        let mut target_mapping: BuckMutMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
+            BuckMutMap::default();
 
         // TODO(cjhopman): FuturesOrdered/Unordered interacts poorly with tokio cooperative scheduling
         // (see https://github.com/rust-lang/futures-rs/issues/2053). Clean this up once a good
@@ -423,7 +423,7 @@ impl TargetHashes {
             })
             .collect();
 
-        let target_mapping: StdBuckHashMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
+        let target_mapping: BuckMutMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
             buck2_util::future::join_all(hashing_futures)
                 .await
                 .into_iter()

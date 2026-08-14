@@ -19,14 +19,14 @@ use buck2_core::cells::name::CellName;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 
 use super::path_sanitizer::SanitizedPath;
 
 pub(crate) struct CompletionResults<'a> {
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
-    buildfiles: StdBuckHashMap<CellName, Vec<FileNameBuf>>,
+    buildfiles: BuckMutMap<CellName, Vec<FileNameBuf>>,
     results: BTreeSet<String>,
 }
 
@@ -35,7 +35,7 @@ impl<'a> CompletionResults<'a> {
         Self {
             roots,
             cell_configs,
-            buildfiles: StdBuckHashMap::default(),
+            buildfiles: BuckMutMap::default(),
             results: BTreeSet::<String>::new(),
         }
     }

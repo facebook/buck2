@@ -42,7 +42,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
 
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
     use buck2_util::os::win::os_str::os_str_to_wide_null_term;
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Foundation::FALSE;
@@ -136,7 +136,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
         if extra_env_vars.is_empty() {
             Ok((ptr::null_mut(), Box::new([])))
         } else {
-            let mut env: StdBuckHashMap<_, _> = std::env::vars_os().collect();
+            let mut env: BuckMutMap<_, _> = std::env::vars_os().collect();
             for (key, val) in extra_env_vars.iter() {
                 env.insert(OsString::from(key), OsString::from(val));
             }

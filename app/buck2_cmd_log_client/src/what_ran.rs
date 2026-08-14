@@ -33,7 +33,7 @@ use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use futures::TryStreamExt;
 use futures::stream::Stream;
 
@@ -205,7 +205,7 @@ impl WhatRanEntry {
 #[derive(Default)]
 pub struct WhatRanCommandState {
     /// Maps action spans to their details.
-    known_actions: StdBuckHashMap<SpanId, WhatRanEntry>,
+    known_actions: BuckMutMap<SpanId, WhatRanEntry>,
 }
 
 impl WhatRanState for WhatRanCommandState {

@@ -24,7 +24,7 @@ use std::fmt::Display;
 use std::io::Write;
 use std::sync::LazyLock;
 
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use regex::Regex;
 use starlark_map::small_map::SmallMap;
 
@@ -144,7 +144,7 @@ impl DotCompact {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;
-        let mut lookup_numeric_id: StdBuckHashMap<String, u32> = StdBuckHashMap::default();
+        let mut lookup_numeric_id: BuckMutMap<String, u32> = BuckMutMap::default();
 
         let mut name_to_number = |node_name: &str| -> u32 {
             match lookup_numeric_id.entry(node_name.to_owned()) {

@@ -20,8 +20,8 @@ use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashSet;
-use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -43,14 +43,14 @@ use crate::util::paths::starlark_files;
 /// The cache of names for a path, keyed by its CellName and its path type.
 struct Cache<'a> {
     dice: &'a DiceTransaction,
-    cached: StdBuckHashMap<(CellName, StarlarkFileType), Arc<IntentionallyStdHashSet<String>>>,
+    cached: BuckMutMap<(CellName, StarlarkFileType), Arc<IntentionallyStdHashSet<String>>>,
 }
 
 impl<'a> Cache<'a> {
     pub(crate) fn new(dice: &'a DiceTransaction) -> Cache<'a> {
         Self {
             dice,
-            cached: StdBuckHashMap::default(),
+            cached: BuckMutMap::default(),
         }
     }
 

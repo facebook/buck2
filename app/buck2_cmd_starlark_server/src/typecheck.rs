@@ -21,7 +21,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -49,8 +50,8 @@ struct Cache<'a> {
     stdout: &'a mut (dyn Write + Send + Sync),
     stderr: &'a mut (dyn Write + Send + Sync),
     // Our accumulated state
-    oracle: StdBuckHashMap<(CellName, StarlarkFileType), Globals>,
-    cache: StdBuckHashMap<OwnedStarlarkModulePath, Interface>,
+    oracle: BuckMutMap<(CellName, StarlarkFileType), Globals>,
+    cache: BuckMutMap<OwnedStarlarkModulePath, Interface>,
 }
 
 impl Cache<'_> {
@@ -107,7 +108,7 @@ impl Cache<'_> {
             .await?;
 
         let ParseData(ast, _) = interp.prepare_eval_with_content(path_ref, src)??;
-        let mut loads = StdBuckHashMap::default();
+        let mut loads = IntentionallyStdHashMap::default();
         for x in ast.loads() {
             let y = interp.resolve_load(path_ref, x.module_id).await?;
             let interface = self.get(y).await?;
@@ -172,8 +173,8 @@ impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
                     cell_resolver,
                     stdout: &mut stdout,
                     stderr: &mut stderr,
-                    oracle: StdBuckHashMap::default(),
-                    cache: StdBuckHashMap::default(),
+                    oracle: BuckMutMap::default(),
+                    cache: BuckMutMap::default(),
                 };
                 for file in files {
                     cache.typecheck(file).await?;
