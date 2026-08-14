@@ -51,7 +51,15 @@ pub struct StoredDepFileState {
 /// Enough to reject a candidate that cannot match the live action, which is the common case.
 #[derive(Clone, Debug)]
 pub struct StoredDepFileDigests {
-    /// Identifies which configuration's entry this is; pass it back to `DepFileStore::get_entry`.
+    /// Row handle for this entry; pass it back to `DepFileStore::get_entry` to fetch the rest.
+    ///
+    /// Valid only until the entry is next written or removed, so it must not outlive the
+    /// probe that produced it: persisting an entry replaces its row and issues a new id, and the
+    /// database reuses the ids of deleted rows, so a stale id can name a *different* entry.
+    pub id: i64,
+    /// Which configuration's entry this is. Distinct from `id` because eviction and the
+    /// malformed-row path remove entries with `DepFileStore::delete`, which is keyed by
+    /// `(logical_key, config_key)` -- see the note on that method.
     pub config_key: Vec<u8>,
     /// Raw bytes of the expanded command line digest.
     pub cli_digest: Vec<u8>,
@@ -97,16 +105,22 @@ pub trait DepFileStore: Send + Sync + 'static {
     /// Persist (or replace) the entry for `(logical_key, config_key)`. Keys are opaque digests
     /// (stored as `BLOB`), not decoded.
     fn insert(&self, logical_key: Vec<u8>, config_key: Vec<u8>, state: StoredDepFileState);
-    /// Remove the entry for `(logical_key, config_key)`, if present.
+    /// Remove the entry for `(logical_key, config_key)`, if present. Removes that one
+    /// configuration, never its siblings under the same logical key.
+    ///
+    /// Keyed by the pair rather than by `StoredDepFileDigests::id` because its callers hold the
+    /// action's identity and no row handle: eviction mirrors a removal from the in-memory cache,
+    /// which is keyed the same way, so the two stay one-for-one.
     fn delete(&self, logical_key: Vec<u8>, config_key: Vec<u8>);
     /// The digests of every persisted entry for `logical_key`, one per configuration it was built
     /// under (empty on a miss or on any database error). Reads only the scalar table, so a candidate
     /// that cannot match costs nothing more than this. The in-memory cache calls this on demand for a
     /// logical action it has no live entry for, rather than loading the whole database at startup.
     fn get_digests(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests>;
-    /// The complete entry for one configuration, including its outputs and declared dep files.
-    /// Call only once `get_digests` reported a match: this is the expensive half of a lookup.
-    fn get_entry(&self, logical_key: &[u8], config_key: &[u8]) -> Option<StoredDepFileState>;
+    /// The complete entry for `id`, including its outputs and declared dep files, or `None` if that
+    /// row is gone. Call only once `get_digests` reported a match: this is the expensive half of a
+    /// lookup. Pass an `id` from that same probe -- see `StoredDepFileDigests::id`.
+    fn get_entry(&self, id: i64) -> Option<StoredDepFileState>;
     /// Remove all entries. May block for as long as `flush` does.
     fn clear(&self);
     /// Writes accepted but not yet applied to the database. Reported per snapshot: the queue is

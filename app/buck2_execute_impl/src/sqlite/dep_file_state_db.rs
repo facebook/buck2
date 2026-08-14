@@ -40,7 +40,7 @@ use crate::sqlite::tables::dep_file_state_table::DepFileStateSqliteTable;
 ///
 /// If you forget to bump this version, you can fix forward by bumping the
 /// `buck2.sqlite_dep_file_state_version` buckconfig in the project root's .buckconfig.
-pub const DEP_FILE_DB_SCHEMA_VERSION: u64 = 1;
+pub const DEP_FILE_DB_SCHEMA_VERSION: u64 = 2;
 
 impl SqliteTable for DepFileStateSqliteTable {
     fn create_table(&self) -> buck2_error::Result<()> {
@@ -331,11 +331,11 @@ impl DepFileStore for PersistedDepFileStore {
         }
     }
 
-    fn get_entry(&self, logical_key: &[u8], config_key: &[u8]) -> Option<StoredDepFileState> {
+    fn get_entry(&self, id: i64) -> Option<StoredDepFileState> {
         match self
             .db
             .dep_file_state_table()
-            .read_entry(logical_key, config_key, self.digest_config)
+            .read_entry(id, self.digest_config)
         {
             Ok(state) => state,
             Err(e) => {

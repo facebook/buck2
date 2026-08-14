@@ -1261,10 +1261,11 @@ pub(crate) async fn match_if_identical_action(
         // never have been served -- but reading it costs two more queries and the deserialization of
         // every output row, on a path taken once per run action by a freshly started daemon.
         //
-        // The probe is advisory in both directions. Writes are applied asynchronously, so a write
-        // can land between the two reads and the fetched entry can differ from the row probed;
-        // `check_action` re-validates the entry that is actually served, so a stale probe costs at
-        // most a wasted fetch.
+        // The probe is advisory. Writes are applied asynchronously, so one can land between the two
+        // reads, and the row handle does not pin what it addresses: rewriting an entry deletes and
+        // re-inserts its row, and sqlite recycles the id, so the fetch can return the replacement or
+        // even an unrelated entry that inherited the id. `check_action` re-validates whatever is
+        // served, so a stale probe costs at most a wasted fetch.
         // A row that cannot be decoded never will be, so drop it instead of skipping it: leaving it
         // would re-read and re-fail on every lookup of this action until its TTL expires. Reported
         // rather than logged: `DEP_FILE_DB_SCHEMA_VERSION` recreates the db whenever the encoding
@@ -1297,7 +1298,7 @@ pub(crate) async fn match_if_identical_action(
             ) {
                 continue;
             }
-            let Some(stored) = store.get_entry(&logical_key, &digests.config_key) else {
+            let Some(stored) = store.get_entry(digests.id) else {
                 continue;
             };
             let loaded = match LoadedEntry::from_stored(stored) {

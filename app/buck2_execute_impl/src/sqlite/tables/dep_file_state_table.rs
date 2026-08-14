@@ -206,19 +206,23 @@ fn delete_key_in_tx(
     logical_key: &[u8],
     config_key: &[u8],
 ) -> buck2_error::Result<()> {
+    static OUTPUTS_SQL: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "DELETE FROM {OUTPUTS_TABLE_NAME} WHERE entry_id = (SELECT id FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2)"
+        )
+    });
+    static DECLARED_SQL: LazyLock<String> = LazyLock::new(|| {
+        format!(
+            "DELETE FROM {DECLARED_TABLE_NAME} WHERE entry_id = (SELECT id FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2)"
+        )
+    });
     static STATE_SQL: LazyLock<String> = LazyLock::new(|| {
         format!("DELETE FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
     });
-    static OUTPUTS_SQL: LazyLock<String> = LazyLock::new(|| {
-        format!("DELETE FROM {OUTPUTS_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
-    });
-    static DECLARED_SQL: LazyLock<String> = LazyLock::new(|| {
-        format!("DELETE FROM {DECLARED_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2")
-    });
     for (table, sql) in [
-        (STATE_TABLE_NAME, &STATE_SQL),
         (OUTPUTS_TABLE_NAME, &OUTPUTS_SQL),
         (DECLARED_TABLE_NAME, &DECLARED_SQL),
+        (STATE_TABLE_NAME, &STATE_SQL),
     ] {
         tx.prepare_cached(sql)?
             .execute(rusqlite::params![logical_key, config_key])
@@ -241,6 +245,7 @@ impl DepFileStateSqliteTable {
         for sql in [
             format!(
                 "CREATE TABLE {STATE_TABLE_NAME} (
+                    id                      INTEGER PRIMARY KEY,
                     logical_key             BLOB NOT NULL,
                     config_key              BLOB NOT NULL,
                     cli_digest              BLOB NOT NULL,
@@ -251,14 +256,13 @@ impl DepFileStateSqliteTable {
                     local_worker_hash       BLOB NULL DEFAULT NULL,
                     local_worker_hash_kind  INTEGER NULL DEFAULT NULL,
                     was_produced_locally    INTEGER NOT NULL,
-                    last_write_time        INTEGER NOT NULL,
-                    PRIMARY KEY             (logical_key, config_key)
+                    last_write_time         INTEGER NOT NULL,
+                    UNIQUE                  (logical_key, config_key)
                 )"
             ),
             format!(
                 "CREATE TABLE {OUTPUTS_TABLE_NAME} (
-                    logical_key             BLOB NOT NULL,
-                    config_key              BLOB NOT NULL,
+                    entry_id                INTEGER NOT NULL,
                     output_path             TEXT NOT NULL,
                     artifact_type           TEXT NOT NULL,
                     entry_size              INTEGER NULL DEFAULT NULL,
@@ -267,32 +271,21 @@ impl DepFileStateSqliteTable {
                     file_is_executable      INTEGER NULL DEFAULT NULL,
                     symlink_target          TEXT NULL DEFAULT NULL,
                     symlink_remaining_path  TEXT NULL DEFAULT NULL,
-                    last_write_time         INTEGER NOT NULL,
-                    PRIMARY KEY             (logical_key, config_key, output_path)
-                )"
+                    PRIMARY KEY             (entry_id, output_path)
+                ) WITHOUT ROWID"
             ),
             format!(
                 "CREATE TABLE {DECLARED_TABLE_NAME} (
-                    logical_key             BLOB NOT NULL,
-                    config_key              BLOB NOT NULL,
+                    entry_id                INTEGER NOT NULL,
                     label                   TEXT NOT NULL,
                     path                    TEXT NOT NULL,
                     projected               TEXT NOT NULL,
                     is_content_based        INTEGER NOT NULL,
-                    last_write_time         INTEGER NOT NULL,
-                    PRIMARY KEY             (logical_key, config_key, label, path, projected)
-                )"
+                    PRIMARY KEY             (entry_id, label, path, projected)
+                ) WITHOUT ROWID"
             ),
-            // Index `last_write_time` on every table so `prune` can range-delete by age (and resolve
-            // the `max_entries` boundary) without scanning, on each table independently.
             format!(
                 "CREATE INDEX idx_{STATE_TABLE_NAME}_last_write_time ON {STATE_TABLE_NAME} (last_write_time)"
-            ),
-            format!(
-                "CREATE INDEX idx_{OUTPUTS_TABLE_NAME}_last_write_time ON {OUTPUTS_TABLE_NAME} (last_write_time)"
-            ),
-            format!(
-                "CREATE INDEX idx_{DECLARED_TABLE_NAME}_last_write_time ON {DECLARED_TABLE_NAME} (last_write_time)"
             ),
         ] {
             conn.execute(&sql, [])
@@ -314,12 +307,12 @@ impl DepFileStateSqliteTable {
         });
         static OUTPUT_SQL: LazyLock<String> = LazyLock::new(|| {
             format!(
-                "INSERT INTO {OUTPUTS_TABLE_NAME} (logical_key, config_key, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"
+                "INSERT INTO {OUTPUTS_TABLE_NAME} (entry_id, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
             )
         });
         static DECLARED_SQL: LazyLock<String> = LazyLock::new(|| {
             format!(
-                "INSERT INTO {DECLARED_TABLE_NAME} (logical_key, config_key, label, path, projected, is_content_based, last_write_time) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+                "INSERT INTO {DECLARED_TABLE_NAME} (entry_id, label, path, projected, is_content_based) VALUES (?1, ?2, ?3, ?4, ?5)"
             )
         });
 
@@ -359,6 +352,7 @@ impl DepFileStateSqliteTable {
                 last_write_time,
             ])
             .with_buck_error_context(|| format!("inserting into {STATE_TABLE_NAME}"))?;
+        let entry_id = tx.last_insert_rowid();
 
         for output in &state.outputs {
             let path = &output.path;
@@ -444,8 +438,7 @@ impl DepFileStateSqliteTable {
             };
             tx.prepare_cached(&OUTPUT_SQL)?
                 .execute(rusqlite::params![
-                    logical_key,
-                    config_key,
+                    entry_id,
                     path.as_str(),
                     artifact_type,
                     entry_size,
@@ -454,7 +447,6 @@ impl DepFileStateSqliteTable {
                     is_executable,
                     symlink_target,
                     symlink_remaining_path,
-                    last_write_time,
                 ])
                 .with_buck_error_context(|| format!("inserting into {OUTPUTS_TABLE_NAME}"))?;
         }
@@ -462,13 +454,11 @@ impl DepFileStateSqliteTable {
         for identity in &state.declared {
             tx.prepare_cached(&DECLARED_SQL)?
                 .execute(rusqlite::params![
-                    logical_key,
-                    config_key,
+                    entry_id,
                     identity.label,
                     identity.path,
                     identity.projected,
                     identity.is_content_based,
-                    last_write_time,
                 ])
                 .with_buck_error_context(|| format!("inserting into {DECLARED_TABLE_NAME}"))?;
         }
@@ -502,9 +492,9 @@ impl DepFileStateSqliteTable {
     /// before `cutoff` (age-based TTL, unix seconds) and -- if `max_entries` is set and exceeded --
     /// the oldest entries beyond that count. Both bounds reduce to "drop everything written at or
     /// before some timestamp", so their union is a single threshold (the more recent of the two) and
-    /// the whole prune is one range delete per table -- no keys or sort in memory. Every table carries
-    /// `last_write_time` (written together in `insert`), so each is deleted independently by its own
-    /// indexed timestamp. Intended to run once at startup. Returns the number of entries pruned.
+    /// the whole prune is a single indexed range. Only the parent carries `last_write_time`, so the
+    /// children are deleted through the ids it selects -- and before it, or they would be orphaned.
+    /// Intended to run once at startup. Returns the number of entries pruned.
     pub(crate) fn prune(
         &self,
         cutoff: Option<i64>,
@@ -536,18 +526,21 @@ impl DepFileStateSqliteTable {
             return Ok(0);
         };
 
-        let mut pruned = 0;
-        for table in [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
-            let deleted = tx
-                .execute(
-                    &format!("DELETE FROM {table} WHERE last_write_time <= ?1"),
-                    rusqlite::params![cutoff],
-                )
-                .with_buck_error_context(|| format!("pruning {table}"))?;
-            if table == STATE_TABLE_NAME {
-                pruned = deleted;
-            }
+        for table in [OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
+            tx.execute(
+                &format!(
+                    "DELETE FROM {table} WHERE entry_id IN (SELECT id FROM {STATE_TABLE_NAME} WHERE last_write_time <= ?1)"
+                ),
+                rusqlite::params![cutoff],
+            )
+            .with_buck_error_context(|| format!("pruning {table}"))?;
         }
+        let pruned = tx
+            .execute(
+                &format!("DELETE FROM {STATE_TABLE_NAME} WHERE last_write_time <= ?1"),
+                rusqlite::params![cutoff],
+            )
+            .with_buck_error_context(|| format!("pruning {STATE_TABLE_NAME}"))?;
         tx.commit()?;
         Ok(pruned)
     }
@@ -564,20 +557,22 @@ impl DepFileStateSqliteTable {
             let conn = self.connection.lock();
             static SQL: LazyLock<String> = LazyLock::new(|| {
                 format!(
-                    "SELECT config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind FROM {STATE_TABLE_NAME} WHERE logical_key = ?1"
+                    "SELECT id, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind FROM {STATE_TABLE_NAME} WHERE logical_key = ?1"
                 )
             });
             let mut stmt = conn.prepare_cached(&SQL)?;
             stmt.query_map(rusqlite::params![logical_key], |row| {
-                let config_key: Vec<u8> = row.get(0)?;
-                let cli_digest: Vec<u8> = row.get(1)?;
-                let directory_size: u64 = row.get(2)?;
-                let directory_hash: Vec<u8> = row.get(3)?;
-                let directory_hash_kind: u8 = row.get(4)?;
-                let local_worker_size: Option<u64> = row.get(5)?;
-                let local_worker_hash: Option<Vec<u8>> = row.get(6)?;
-                let local_worker_hash_kind: Option<u8> = row.get(7)?;
+                let id: i64 = row.get(0)?;
+                let config_key: Vec<u8> = row.get(1)?;
+                let cli_digest: Vec<u8> = row.get(2)?;
+                let directory_size: u64 = row.get(3)?;
+                let directory_hash: Vec<u8> = row.get(4)?;
+                let directory_hash_kind: u8 = row.get(5)?;
+                let local_worker_size: Option<u64> = row.get(6)?;
+                let local_worker_hash: Option<Vec<u8>> = row.get(7)?;
+                let local_worker_hash_kind: Option<u8> = row.get(8)?;
                 Ok((
+                    id,
                     config_key,
                     cli_digest,
                     directory_size,
@@ -595,6 +590,7 @@ impl DepFileStateSqliteTable {
         rows.into_iter()
             .map(
                 |(
+                    id,
                     config_key,
                     cli_digest,
                     directory_size,
@@ -605,6 +601,7 @@ impl DepFileStateSqliteTable {
                     local_worker_hash_kind,
                 )| {
                     Ok(StoredDepFileDigests {
+                        id,
                         config_key,
                         cli_digest,
                         directory_digest: rebuild_file_digest(
@@ -629,12 +626,12 @@ impl DepFileStateSqliteTable {
             .collect()
     }
 
-    /// The complete entry for one `(logical_key, config_key)`, or `None` if it is not present.
-    /// Reads the scalar row plus that entry's output and declared rows, then reassembles them.
+    /// The complete entry for the row `id` reported by `read_digests_by_logical`, or `None` if that
+    /// row is gone. Reads the scalar row plus that entry's output and declared rows, then
+    /// reassembles them.
     pub(crate) fn read_entry(
         &self,
-        logical_key: &[u8],
-        config_key: &[u8],
+        id: i64,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Option<StoredDepFileState>> {
         let conn = self.connection.lock();
@@ -643,12 +640,12 @@ impl DepFileStateSqliteTable {
         {
             static SQL: LazyLock<String> = LazyLock::new(|| {
                 format!(
-                    "SELECT output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path FROM {OUTPUTS_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                    "SELECT output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path FROM {OUTPUTS_TABLE_NAME} WHERE entry_id = ?1"
                 )
             });
             let mut stmt = conn.prepare_cached(&SQL)?;
             let rows = stmt
-                .query_map(rusqlite::params![logical_key, config_key], |row| {
+                .query_map(rusqlite::params![id], |row| {
                     Ok(OutputRow {
                         output_path: row.get(0)?,
                         artifact_type: row.get(1)?,
@@ -669,12 +666,12 @@ impl DepFileStateSqliteTable {
         {
             static SQL: LazyLock<String> = LazyLock::new(|| {
                 format!(
-                    "SELECT label, path, projected, is_content_based FROM {DECLARED_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                    "SELECT label, path, projected, is_content_based FROM {DECLARED_TABLE_NAME} WHERE entry_id = ?1"
                 )
             });
             let mut stmt = conn.prepare_cached(&SQL)?;
             let rows = stmt
-                .query_map(rusqlite::params![logical_key, config_key], |row| {
+                .query_map(rusqlite::params![id], |row| {
                     Ok(StoredDepFileIdentity {
                         label: row.get(0)?,
                         path: row.get(1)?,
@@ -690,11 +687,11 @@ impl DepFileStateSqliteTable {
         let scalar_row = {
             static SQL: LazyLock<String> = LazyLock::new(|| {
                 format!(
-                    "SELECT cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
+                    "SELECT cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME} WHERE id = ?1"
                 )
             });
             let mut stmt = conn.prepare_cached(&SQL)?;
-            stmt.query_row(rusqlite::params![logical_key, config_key], |row| {
+            stmt.query_row(rusqlite::params![id], |row| {
                 let cli_digest: Vec<u8> = row.get(0)?;
                 let directory_size: u64 = row.get(1)?;
                 let directory_hash: Vec<u8> = row.get(2)?;
@@ -804,32 +801,55 @@ mod tests {
     }
 
     fn set_write_time(table: &DepFileStateSqliteTable, logical: &[u8], config: &[u8], t: i64) {
-        // Mirror production, where every write stamps the same `last_write_time` into all three
-        // tables; `prune` now deletes each table by its own timestamp.
-        let conn = table.connection.lock();
-        for name in [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
-            conn.execute(
+        table
+            .connection
+            .lock()
+            .execute(
                 &format!(
-                    "UPDATE {name} SET last_write_time = ?1 WHERE logical_key = ?2 AND config_key = ?3"
+                    "UPDATE {STATE_TABLE_NAME} SET last_write_time = ?1 WHERE logical_key = ?2 AND config_key = ?3"
                 ),
                 rusqlite::params![t, logical, config],
             )
             .unwrap();
-        }
     }
 
-    fn output_row_count(table: &DepFileStateSqliteTable, logical: &[u8], config: &[u8]) -> i64 {
-        table
-            .connection
-            .lock()
-            .query_row(
-                &format!(
-                    "SELECT COUNT(*) FROM {OUTPUTS_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"
-                ),
-                rusqlite::params![logical, config],
-                |r| r.get(0),
-            )
-            .unwrap()
+    /// For testing only: Probe for `(logical, config)` the way production does, then fetch by the
+    /// row handle the probe reports. Returns `None` when no row exists for that configuration.
+    fn probe_then_read(
+        table: &DepFileStateSqliteTable,
+        logical: &[u8],
+        config: &[u8],
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<Option<StoredDepFileState>> {
+        let Some(digests) = table
+            .read_digests_by_logical(logical, digest_config)?
+            .into_iter()
+            .find(|d| d.config_key == config)
+        else {
+            return Ok(None);
+        };
+        table.read_entry(digests.id, digest_config)
+    }
+
+    /// Child rows whose parent is gone. Deleting a child now depends on reaching it through its
+    /// parent, so if the parent is removed first the child becomes unreachable forever -- this is
+    /// the assertion that catches that, and a per-key count could not: once the parent row is gone,
+    /// any query joining through it reports zero whether or not the child rows are still there.
+    fn orphan_row_count(table: &DepFileStateSqliteTable) -> i64 {
+        let conn = table.connection.lock();
+        [OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME]
+            .iter()
+            .map(|child| {
+                conn.query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM {child} WHERE entry_id NOT IN (SELECT id FROM {STATE_TABLE_NAME})"
+                    ),
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap()
+            })
+            .sum()
     }
 
     /// Rows across all three tables. Reads by key can only speak for the keys a test knows about;
@@ -872,16 +892,16 @@ mod tests {
 
         // TTL: drop entries with last_write_time < 150 -> only "a".
         assert_eq!(table.prune(Some(150), None)?, 1);
-        assert!(table.read_entry(b"a", b"cfg", digest_config)?.is_none());
-        assert!(table.read_entry(b"b", b"cfg", digest_config)?.is_some());
-        assert!(table.read_entry(b"c", b"cfg", digest_config)?.is_some());
-        // The pruned entry's child rows are gone too (no orphans).
-        assert_eq!(output_row_count(&table, b"a", b"cfg"), 0);
+        assert!(probe_then_read(&table, b"a", b"cfg", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"b", b"cfg", digest_config)?.is_some());
+        assert!(probe_then_read(&table, b"c", b"cfg", digest_config)?.is_some());
+        // Prune reaches children through the parent, so it must not leave any behind.
+        assert_eq!(orphan_row_count(&table), 0);
 
         // max_entries: keep only the most-recently-written ("c").
         assert_eq!(table.prune(None, Some(1))?, 1);
-        assert!(table.read_entry(b"b", b"cfg", digest_config)?.is_none());
-        assert!(table.read_entry(b"c", b"cfg", digest_config)?.is_some());
+        assert!(probe_then_read(&table, b"b", b"cfg", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"c", b"cfg", digest_config)?.is_some());
         Ok(())
     }
 
@@ -920,7 +940,7 @@ mod tests {
         };
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
+        let read = probe_then_read(&table, b"k", b"c", digest_config)?.unwrap();
         assert_eq!(read.outputs.len(), 2);
 
         let value_at = |p: &str| {
@@ -967,9 +987,7 @@ mod tests {
 
         table.insert(b"logical".to_vec(), b"cfg".to_vec(), stored)?;
 
-        let read = table
-            .read_entry(b"logical", b"cfg", digest_config)?
-            .unwrap();
+        let read = probe_then_read(&table, b"logical", b"cfg", digest_config)?.unwrap();
         assert_eq!(read.cli_digest, vec![7u8; 32]);
         assert_eq!(read.directory_digest, directory_digest);
         assert!(read.local_worker_directory_digest.is_none());
@@ -1017,7 +1035,7 @@ mod tests {
 
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
+        let read = probe_then_read(&table, b"k", b"c", digest_config)?.unwrap();
         assert_eq!(read.outputs.len(), 1);
         assert_eq!(read.outputs[0].path.as_str(), "out/dir");
         match &read.outputs[0].value {
@@ -1045,20 +1063,20 @@ mod tests {
         };
         table.insert(b"a".to_vec(), b"c1".to_vec(), make())?;
         table.insert(b"b".to_vec(), b"c1".to_vec(), make())?;
-        assert!(table.read_entry(b"a", b"c1", digest_config)?.is_some());
-        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_some());
+        assert!(probe_then_read(&table, b"a", b"c1", digest_config)?.is_some());
+        assert!(probe_then_read(&table, b"b", b"c1", digest_config)?.is_some());
 
         table.delete(b"a", b"c1")?;
-        assert!(table.read_entry(b"a", b"c1", digest_config)?.is_none());
-        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_some());
-        // The deleted entry's child rows go with it (no orphans).
-        assert_eq!(output_row_count(&table, b"a", b"c1"), 0);
+        assert!(probe_then_read(&table, b"a", b"c1", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"b", b"c1", digest_config)?.is_some());
+        // Delete reaches children through the parent, so it must not leave any behind.
+        assert_eq!(orphan_row_count(&table), 0);
 
         // Rows survive the delete, so the count below is answering a real question.
         assert_ne!(total_row_count(&table), 0);
 
         table.clear()?;
-        assert!(table.read_entry(b"b", b"c1", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"b", b"c1", digest_config)?.is_none());
         // `clear` empties the whole db, not just the keys this test inserted.
         assert_eq!(total_row_count(&table), 0);
         Ok(())
@@ -1093,7 +1111,7 @@ mod tests {
         // Second insert of the same key with different content and a different output path.
         table.insert(b"k".to_vec(), b"c".to_vec(), make(b"v2", "b.o"))?;
 
-        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
+        let read = probe_then_read(&table, b"k", b"c", digest_config)?.unwrap();
         assert_eq!(
             read.directory_digest,
             dir(b"v2"),
@@ -1154,7 +1172,7 @@ mod tests {
         };
         table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
 
-        let read = table.read_entry(b"k", b"c", digest_config)?.unwrap();
+        let read = probe_then_read(&table, b"k", b"c", digest_config)?.unwrap();
         match &read.outputs[0].value {
             StoredOutputValue::Leaf(v) => {
                 // The symlink itself round-trips ...
@@ -1204,21 +1222,131 @@ mod tests {
         assert_eq!(digests[1].directory_digest, dir(b"v2"));
 
         // Fetching an entry returns only that configuration's outputs, not the sibling's.
-        let entry = table
-            .read_entry(b"k", b"cfg2", digest_config)?
-            .expect("cfg2 was inserted");
+        let entry =
+            probe_then_read(&table, b"k", b"cfg2", digest_config)?.expect("cfg2 was inserted");
         assert_eq!(entry.directory_digest, dir(b"v2"));
         assert_eq!(entry.outputs.len(), 1);
         assert_eq!(entry.outputs[0].path.as_str(), "b.o");
 
         // Absent keys are a miss, not an error.
-        assert!(table.read_entry(b"k", b"cfg3", digest_config)?.is_none());
-        assert!(table.read_entry(b"nope", b"cfg1", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"k", b"cfg3", digest_config)?.is_none());
+        assert!(probe_then_read(&table, b"nope", b"cfg1", digest_config)?.is_none());
         assert!(
             table
                 .read_digests_by_logical(b"nope", digest_config)?
                 .is_empty()
         );
         Ok(())
+    }
+    /// A row handle must not outlive the probe that produced it. Rewriting an entry deletes and
+    /// re-inserts its row, and sqlite recycles the id of a deleted row, so an old handle can resolve
+    /// to the replacement -- or, once recycled by a different key, to an unrelated entry entirely.
+    /// Nothing in the schema prevents that; `check_action` re-validating whatever is served is what
+    /// makes it safe. Pinned here so the rule stays visible if the handle ever starts being cached.
+    #[test]
+    fn test_row_handle_must_not_outlive_the_probe() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+        let table = table();
+        let dir = |b: &[u8]| {
+            TrackedFileDigest::from_content(b, digest_config.cas_digest_config())
+                .data()
+                .dupe()
+        };
+        let make = |v: &[u8]| StoredDepFileState {
+            cli_digest: vec![1u8; 32],
+            directory_digest: dir(v),
+            local_worker_directory_digest: None,
+            was_produced_locally: true,
+            declared: vec![],
+            outputs: vec![leaf_output("o", file_value(digest_config, v, false))],
+        };
+
+        table.insert(b"k".to_vec(), b"c".to_vec(), make(b"v1"))?;
+        let handle = table.read_digests_by_logical(b"k", digest_config)?[0].id;
+
+        // Rewriting the same key recycles the id, so the old handle now serves the NEW content.
+        table.insert(b"k".to_vec(), b"c".to_vec(), make(b"v2"))?;
+        let served = table
+            .read_entry(handle, digest_config)?
+            .expect("the recycled handle still resolves");
+        assert_eq!(
+            served.directory_digest,
+            dir(b"v2"),
+            "a stale handle must never serve the content it was probed for"
+        );
+
+        // Recycled across keys, it resolves to a different action's entry entirely.
+        table.delete(b"k", b"c")?;
+        table.insert(b"other".to_vec(), b"c".to_vec(), make(b"v3"))?;
+        let other = table.read_digests_by_logical(b"other", digest_config)?[0].id;
+        assert_eq!(other, handle, "sqlite recycled the deleted row's id");
+        assert_eq!(
+            table
+                .read_entry(handle, digest_config)?
+                .expect("resolves to the unrelated entry")
+                .directory_digest,
+            dir(b"v3")
+        );
+        Ok(())
+    }
+    /// Every statement on a production path must reach its rows through an index. Asserted on the
+    /// real schema so a future column or index change that silently turns a lookup into a table walk
+    /// fails here rather than in a profile.
+    ///
+    /// Deliberately not "must not contain SCAN": `prune` resolving its max-entries cutoff is a
+    /// covering-index scan, which is the optimal plan for `ORDER BY ... LIMIT 1 OFFSET ?` and builds
+    /// no temp B-tree. What actually matters is that an index is used and nothing is sorted.
+    #[test]
+    fn test_production_statements_are_indexed() {
+        let table = table();
+        let conn = table.connection.lock();
+        let plan = |sql: &str| -> String {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+            // The plan does not depend on the bound values (no `ANALYZE`, so no statistics), but the
+            // placeholder count still has to match.
+            let binds = vec![rusqlite::types::Value::Null; stmt.parameter_count()];
+            let rows: Vec<String> = stmt
+                .query_map(rusqlite::params_from_iter(binds), |r| r.get::<_, String>(3))
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect();
+            rows.join(" | ")
+        };
+        for sql in [
+            // probe
+            &format!(
+                "SELECT id, config_key, cli_digest FROM {STATE_TABLE_NAME} WHERE logical_key = ?1"
+            ) as &str,
+            // fetch
+            &format!("SELECT cli_digest FROM {STATE_TABLE_NAME} WHERE id = ?1"),
+            &format!("SELECT output_path FROM {OUTPUTS_TABLE_NAME} WHERE entry_id = ?1"),
+            &format!("SELECT label FROM {DECLARED_TABLE_NAME} WHERE entry_id = ?1"),
+            // delete, children through the parent
+            &format!(
+                "DELETE FROM {OUTPUTS_TABLE_NAME} WHERE entry_id = (SELECT id FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2)"
+            ),
+            &format!("DELETE FROM {STATE_TABLE_NAME} WHERE logical_key = ?1 AND config_key = ?2"),
+            // prune
+            &format!(
+                "SELECT last_write_time FROM {STATE_TABLE_NAME} ORDER BY last_write_time DESC LIMIT 1 OFFSET ?1"
+            ),
+            &format!(
+                "DELETE FROM {OUTPUTS_TABLE_NAME} WHERE entry_id IN (SELECT id FROM {STATE_TABLE_NAME} WHERE last_write_time <= ?1)"
+            ),
+            &format!("DELETE FROM {STATE_TABLE_NAME} WHERE last_write_time <= ?1"),
+        ] {
+            let plan = plan(sql);
+            assert!(
+                plan.contains("USING INDEX")
+                    || plan.contains("USING PRIMARY KEY")
+                    || plan.contains("USING INTEGER PRIMARY KEY")
+                    || plan.contains("USING COVERING INDEX"),
+                "no index used\n  sql:  {sql}\n  plan: {plan}"
+            );
+            assert!(
+                !plan.contains("TEMP B-TREE"),
+                "statement sorts\n  sql:  {sql}\n  plan: {plan}"
+            );
+        }
     }
 }
