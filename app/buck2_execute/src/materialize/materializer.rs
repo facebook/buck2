@@ -802,4 +802,5 @@ pub struct CleanStaleArtifactsArgs {
     pub tracked_only: bool,
     pub adaptive_low_disk_threshold: Option<f64>,
     pub adaptive_min_ttl: Option<std::time::Duration>,
+    pub adaptive_unmaterialize_active: bool,
 }

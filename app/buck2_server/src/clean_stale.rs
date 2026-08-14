@@ -74,6 +74,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                         tracked_only: self.req.tracked_only,
                         adaptive_low_disk_threshold: self.req.adaptive_low_disk_threshold,
                         adaptive_min_ttl,
+                        adaptive_unmaterialize_active: self.req.adaptive_unmaterialize_active,
                     })
                     .await
                     .buck_error_context("Failed to clean stale artifacts.")

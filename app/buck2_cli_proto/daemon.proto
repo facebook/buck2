@@ -949,6 +949,9 @@ message CleanStaleRequest {
   // are protected even under disk pressure. Ignored unless
   // adaptive_low_disk_threshold is set.
   optional int64 adaptive_min_ttl_seconds = 6;
+  // Allow active remote-backed intermediate artifacts to be unmaterialized
+  // after the earlier adaptive cleanup passes are insufficient.
+  bool adaptive_unmaterialize_active = 7;
 }
 
 message CleanStaleResponse {

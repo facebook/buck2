@@ -1577,6 +1577,7 @@ mod state_machine {
                     tracked_only: false,
                     adaptive_low_disk_threshold: None,
                     adaptive_min_ttl: None,
+                    adaptive_unmaterialize_active: false,
                 })
                 .await?;
 
@@ -1630,6 +1631,7 @@ mod state_machine {
                 tracked_only: false,
                 adaptive_low_disk_threshold: None,
                 adaptive_min_ttl: None,
+                adaptive_unmaterialize_active: false,
             });
             thread::spawn(move || {
                 // Wait until a read_dir request is about to execute
@@ -1673,6 +1675,7 @@ mod state_machine {
                 tracked_only: false,
                 adaptive_low_disk_threshold: None,
                 adaptive_min_ttl: None,
+                adaptive_unmaterialize_active: false,
             });
             thread::spawn(move || {
                 // Wait until a single clean request is about to execute

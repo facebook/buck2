@@ -44,6 +44,7 @@ pub struct CleanStaleCommand {
     pub adaptive_low_disk_threshold: Option<f64>,
     /// Adaptive min-TTL floor. None means use the daemon-side default (12h).
     pub adaptive_min_ttl: Option<std::time::Duration>,
+    pub adaptive_unmaterialize_active: bool,
 }
 
 /// Specifies the maximum age of artifacts to keep
@@ -93,6 +94,15 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
             "{} bytes cleaned ({})\n",
             stats.cleaned_bytes,
             bytesize::ByteSize::b(stats.cleaned_bytes).display().iec(),
+        );
+    }
+    if stats.unmaterialized_only_artifact_count > 0 || stats.unmaterialized_only_bytes > 0 {
+        output += &format!(
+            "Unmaterialized {} artifacts ({})\n",
+            stats.unmaterialized_only_artifact_count,
+            bytesize::ByteSize::b(stats.unmaterialized_only_bytes)
+                .display()
+                .iec(),
         );
     }
     output
@@ -158,6 +168,7 @@ impl StreamingCommand for CleanStaleCommand {
                     tracked_only: self.tracked_only,
                     adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
                     adaptive_min_ttl_seconds: self.adaptive_min_ttl.map(|d| d.as_secs() as i64),
+                    adaptive_unmaterialize_active: self.adaptive_unmaterialize_active,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

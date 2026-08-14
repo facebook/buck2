@@ -467,7 +467,7 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
                     .checked_sub(min_ttl)
                     .unwrap_or(Timestamp::MIN),
                 delete_intermediate_within_min_ttl: true,
-                unmaterialize_active: false,
+                unmaterialize_active: args.adaptive_unmaterialize_active,
             }
         });
         let (sender, recv) = oneshot::channel();

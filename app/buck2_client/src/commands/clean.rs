@@ -101,6 +101,14 @@ the specified duration, without killing the daemon",
     )]
     adaptive_min_ttl: humantime::Duration,
 
+    /// Allow adaptive cleaning to unmaterialize active remote-backed
+    /// intermediate artifacts as a final escalation step.
+    #[clap(
+        long = "adaptive-unmaterialize-active",
+        requires = "adaptive_low_disk_threshold"
+    )]
+    adaptive_unmaterialize_active: bool,
+
     #[clap(
         long = "background",
         help = "Run the clean operation in the background"
@@ -137,6 +145,7 @@ impl CleanCommand {
                 tracked_only: self.tracked_only,
                 adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
                 adaptive_min_ttl: Some(self.adaptive_min_ttl.into()),
+                adaptive_unmaterialize_active: self.adaptive_unmaterialize_active,
             };
             ctx.exec(cmd, matches, events_ctx)
         } else {

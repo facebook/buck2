@@ -33,6 +33,10 @@ Options:
 
           [default: 12h]
 
+      --adaptive-unmaterialize-active
+          Allow adaptive cleaning to unmaterialize active remote-backed intermediate artifacts as a
+          final escalation step
+
       --background
           Run the clean operation in the background
 
