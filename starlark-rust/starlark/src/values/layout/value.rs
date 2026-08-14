@@ -241,7 +241,7 @@ impl Equivalent<Value<'_>> for FrozenValue {
 /// A [`FrozenValue`] exists on a [`FrozenHeap`](crate::values::FrozenHeap), which in turn can be kept
 /// alive by a [`FrozenHeapRef`](crate::values::FrozenHeapRef). If the frozen heap gets dropped
 /// while a [`FrozenValue`] from it still exists, the program will probably segfault, so be careful
-/// when working directly with [`FrozenValue`]s. See the type [`OwnedFrozenValue`](crate::values::OwnedFrozenValue)
+/// when working directly with [`FrozenValue`]s. See the type [`OwnedFrozen`](crate::values::OwnedFrozen)
 /// for a little bit more safety.
 #[derive(Clone, Copy, Dupe, ProvidesStaticType, Allocative)]
 #[derive(pagable::PagablePanic)]
@@ -280,11 +280,6 @@ impl<'v> Value<'v> {
         unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
     }
 
-    #[inline]
-    pub(crate) unsafe fn cast_lifetime<'w>(self) -> Value<'w> {
-        unsafe { Value(self.0.cast_lifetime()) }
-    }
-
     /// Create a new `None` value.
     #[inline]
     pub fn new_none() -> Self {
@@ -321,7 +316,7 @@ impl<'v> Value<'v> {
     }
 
     /// Turn a [`FrozenValue`] into a [`Value`]. See the safety warnings on
-    /// [`OwnedFrozenValue`](crate::values::OwnedFrozenValue).
+    /// [`FrozenValue`].
     #[inline]
     pub fn new_frozen(x: FrozenValue) -> Self {
         // Safe if every FrozenValue must have had a reference added to its heap first.
@@ -1323,8 +1318,7 @@ impl StarlarkTypeRepr for FrozenValue {
 /// Abstract over [`Value`] and [`FrozenValue`].
 ///
 /// The methods on this trait are those required to implement containers,
-/// allowing implementations of [`ComplexValue`](crate::values::ComplexValue)
-/// to be agnostic of their contained type.
+/// allowing container implementations to be agnostic of their contained type.
 /// For details about each function, see the documentation for [`Value`],
 /// which provides the same functions (and more).
 pub trait ValueLike<'v>:
@@ -1602,7 +1596,7 @@ mod tests {
         let value = assert::pass("{'a': 10}");
         assert_eq!(
             serde_json::json!({"a": 10}),
-            value.value().to_json_value().unwrap()
+            value.by_ref(|v| v.to_json_value()).unwrap()
         );
     }
 
@@ -1636,15 +1630,15 @@ mod tests {
     #[test]
     fn test_function_name_def() {
         let module = assert::pass_module("def my_func(x, y): return x + y");
-        let f = module.get("my_func").unwrap();
-        assert_eq!(Some("my_func"), f.value().function_name());
+        let f = module.get_owned("my_func").unwrap();
+        assert_eq!(Some("my_func"), f.as_ref().value().function_name());
     }
 
     #[test]
     fn test_function_name_lambda() {
         let module = assert::pass_module("f = lambda x: x");
-        let f = module.get("f").unwrap();
-        assert_eq!(Some("lambda"), f.value().function_name());
+        let f = module.get_owned("f").unwrap();
+        assert_eq!(Some("lambda"), f.as_ref().value().function_name());
     }
 
     #[test]

@@ -96,6 +96,7 @@ mod tests {
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
     use crate::values::FrozenValue;
+    use crate::values::ValueLike;
 
     #[test]
     fn test_documentation() -> anyhow::Result<()> {
@@ -156,9 +157,16 @@ mod tests {
             let a = Assert::new();
             let f = a
                 .pass_module(&format!("def f({sig}): pass"))
-                .get("f")
+                .get_owned("f")
                 .unwrap();
-            assert_eq!(sig, &f.value().parameters_spec().unwrap().parameters_str());
+            assert_eq!(
+                sig,
+                &f.as_ref()
+                    .value()
+                    .parameters_spec()
+                    .unwrap()
+                    .parameters_str()
+            );
         }
 
         test("");
@@ -180,7 +188,8 @@ mod tests {
         fn test(sig: &str, pos: usize, names: &[&str], expected: bool) {
             let a = Assert::new();
             let module = a.pass_module(&format!("def f({sig}): pass"));
-            let f = module.get("f").unwrap().downcast::<FrozenDef>().unwrap();
+            let f = module.get_owned("f").unwrap();
+            let f = f.as_ref().value().downcast_ref::<FrozenDef>().unwrap();
             let parameters_spec = &f.parameters;
             assert_eq!(expected, parameters_spec.can_fill_with_args(pos, names));
         }

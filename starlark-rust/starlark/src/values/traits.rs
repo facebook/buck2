@@ -53,160 +53,27 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::starlark_value::HasTyVTable;
-use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
-use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::demand::Demand;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
 
-/// A trait for values which are more complex - because they are either mutable
-/// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.
-///
-/// For values that contain nested [`Value`] types (mutable or not) there are a bunch of helpers
-/// and macros.
-///
-/// ## Types containing [`Value`]
-///
-/// A Starlark type containing values will need to exist in two states: one containing [`Value`]
-/// and one containing [`FrozenValue`](crate::values::FrozenValue). To deal with that, if we are defining the type
-/// containing a single value, let's call it `One`, we'd define `OneGen`
-/// (for the general version), and then have the
-/// [`starlark_complex_value!`](crate::starlark_complex_value!) macro
-/// generate `One` and `FrozenOne` aliases.
-///
-/// ```
-/// use allocative::Allocative;
-/// use derive_more::Display;
-/// use starlark::starlark_complex_value;
-/// use starlark::values::Coerce;
-/// use starlark::values::ComplexValue;
-/// use starlark::values::Freeze;
-/// use starlark::values::FreezeResult;
-/// use starlark::values::Freezer;
-/// use starlark::values::FrozenValue;
-/// use starlark::values::NoSerialize;
-/// use starlark::values::ProvidesStaticType;
-/// use starlark::values::StarlarkPagable;
-/// use starlark::values::StarlarkValue;
-/// use starlark::values::Trace;
-/// use starlark::values::Tracer;
-/// use starlark::values::Value;
-/// use starlark::values::ValueLike;
-/// use starlark_derive::starlark_value;
-///
-/// #[derive(
-///     Debug,
-///     Trace,
-///     Coerce,
-///     Display,
-///     ProvidesStaticType,
-///     NoSerialize,
-///     StarlarkPagable,
-///     Allocative
-/// )]
-/// #[repr(C)]
-/// struct OneGen<V>(V);
-/// starlark_complex_value!(One);
-///
-/// #[starlark_value(type = "one")]
-/// impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for OneGen<V>
-/// where
-///     Self: ProvidesStaticType<'v>,
-/// {
-///     // To implement methods which work for both `One` and `FrozenOne`,
-///     // use the `ValueLike` trait.
-/// }
-///
-/// impl<'v> Freeze for One<'v> {
-///     type Frozen = FrozenOne;
-///     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-///         Ok(OneGen(self.0.freeze(freezer)?))
-///     }
-/// }
-/// ```
-///
-/// The [`starlark_complex_value!`](crate::starlark_complex_value!) requires that
-/// the type have an instance for `Coerce`, then the macro defines two type aliases.
-/// ```
-/// # use crate::starlark::values::*;
-/// # #[derive(Debug, Trace)]
-/// # struct OneGen<V>(V);
-/// type One<'v> = OneGen<Value<'v>>;
-/// type FrozenOne = OneGen<FrozenValue>;
-/// ```
-///
-/// To make these aliases public (or public to the crate) pass a visibility
-/// to the macro, e.g. `starlark_complex_value!(pub One)`.
-///
-/// The macro also defines instances of [`ProvidesStaticType`] for both,
-/// [`AllocValue`](crate::values::AllocValue) for both,
-/// [`AllocFrozenValue`](crate::values::AllocFrozenValue) for the frozen one, and
-/// [`UnpackValue`](crate::values::UnpackValue) for the non-frozen one.
-/// It also defines the methods:
-/// ```
-/// # use crate::starlark::values::*;
-/// # use std::cell::RefMut;
-/// # struct OneGen<V>(V);
-/// # type One<'v> = OneGen<Value<'v>>;
-/// impl<'v> One<'v> {
-///     // Obtain a reference to `One` from a `Value`, regardless
-///     // of whether the underlying `Value` is a `One` or `FrozenOne`.
-///     pub fn from_value(x: Value<'v>) -> Option<&'v Self> {
-/// # unimplemented!(
-/// # r#"
-///         ...
-/// # "#);
-///     }
-/// }
-/// ```
-///
-/// ## Different types
-///
-/// If the types are different between the frozen and non-frozen values you can define your own
-/// type specialisations as `type One<'v> = OneGen<Value<'v>>` and `type FrozenOne = OneGen<String>`
-/// and use [`starlark_complex_values!`](crate::starlark_complex_values!) which will provide similar facilities to
-/// [`starlark_complex_value!`](crate::starlark_simple_value!).
-///
-/// ## Other types
-///
-/// The macro [`starlark_complex_value!`](crate::starlark_complex_value!) is applicable
-/// when there is a single base type, `FooGen<V>`, with specialisations
-/// `FooGen<Value<'v>>` and `FooGen<FrozenValue>`.
-/// If you have a type where the difference between frozen and non-frozen does not follow this
-/// pattern then you will have to write instances of the traits you need manually.
-/// Examples of cases where the macro doesn't work include:
-///
-/// * If your type doesn't contain any [`Value`] types, but instead implements this trait for mutability.
-/// * If the difference between frozen and non-frozen is more complex, e.g. a [`Cell`](std::cell::Cell)
-///   when non-frozen and a direct value when frozen.
-pub trait ComplexValue<'v>: StarlarkValue<'v> + Trace<'v> + Freeze
-where
-    <Self as Freeze>::Frozen: StarlarkValue<'static>,
-{
-}
-
-impl<'v, V> ComplexValue<'v> for V
-where
-    V: StarlarkValue<'v> + Trace<'v> + Freeze,
-    <V as Freeze>::Frozen: StarlarkValue<'static>,
-{
-}
-
 /// How to put a Rust values into [`Value`]s.
 ///
 /// Every Rust value stored in a [`Value`] must implement this trait.
-/// You _must_ also implement [`ComplexValue`] if:
 ///
-/// * A type is not [`Send`] and [`Sync`], typically because it contains
-///   interior mutability such as a [`RefCell`](std::cell::RefCell).
-/// * A type contains nested Starlark [`Value`]s.
+/// A type that contains nested Starlark [`Value`]s, or that is not [`Send`] and [`Sync`] because
+/// it has interior mutability such as a [`RefCell`](std::cell::RefCell), additionally needs
+/// [`Trace`](crate::values::Trace) and [`FreezeBranded`](crate::values::FreezeBranded), and is
+/// allocated with [`alloc_complex_branded`](Heap::alloc_complex_branded) — see
+/// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!), which writes the
+/// boilerplate for the common shape.
 ///
 /// There are only two required members of [`StarlarkValue`], namely
 /// [`TYPE`](StarlarkValue::TYPE)

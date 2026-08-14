@@ -69,33 +69,34 @@ Following are some places where heap references are added by Starlark:
 - When freezing a module, the `FrozenHeap`, in the `Module`, is moved to the
   `FrozenModule`, preserving the references that were added.
 
-## `OwnedFrozenValue`
+## `OwnedFrozen`
 
-When you get a value from a `FrozenModule`, it will be a `OwnedFrozenValue`.
-This structure is a pair of a `FrozenHeapRef` and a `FrozenValue`, where the ref
-keeps the value alive. You can move that `OwnedFrozenValue` into the value of a
-module with code such as:
+When you get a value from a `FrozenModule`, it will be an
+`OwnedFrozen<Value<'static>>`. This structure is a pair of a `FrozenHeapRef` and
+a value, where the ref keeps the value alive. You can move that `OwnedFrozen`
+into the value of a module with code such as:
 
 ```rust
-fn move<'v>(from: &FrozenModule, to: &'v Module) {
-    let x : OwnedFrozenValue = from.get("value").unwrap();
-    let v : Value<'v> = x.owned_value(&to);
+fn move<'v>(from: &FrozenModule, to: &Module<'v>) {
+    let x: OwnedFrozen<Value<'static>> = from.get_owned("value").unwrap();
+    let v: Value<'v> = x.add_to_heap(to.heap());
     to.set("value", v);
 }
 ```
 
-In general, you can use the `OwnedFrozenValue` in one of three ways:
+The `'static` in the type is a placeholder, not a claim that the value lives
+forever: the accessors hand the value back at whatever lifetime is being used to
+brand the heap you are working with, and never at `'static`. See the `branding`
+module for what that lifetime means.
 
-- **Operate on it directly** - with methods like `unpack_i32` or `to_str`.
-- **Extract it safely** - using methods like `owned_frozen_value`, which takes a
-  `FrozenHeap` to which the heap reference is added and returns a naked
-  `FrozenValue`. After that, it is then safe for the `FrozenHeap` you passed in
-  to use the `FrozenValue`.
-  - With `owned_value`, there is lifetime checking that the right heap is
-    passed, but with `FrozenValue`, there isn't.
-  - Be careful to pass the right heap, although given most programs only have
-    one active heap at a time, it should mostly work out.
-- **Extract it unsafely** - using methods `unchecked_frozen_value`, which gives
-  you the underlying `FrozenValue` without adding any references.
-  - Be careful to make sure there is a good reason the `FrozenValue` remains
-    valid.
+In general, you use an `OwnedFrozen` in one of three ways:
+
+- **Move it into a heap** - `add_to_heap` (or `add_to_frozen_heap`) adds the
+  owning heap as a reference of the heap you pass, and hands the value back
+  branded for that heap. This is what you want nearly all of the time.
+- **Look at it in place** - `by_ref` runs a closure on the value at an
+  unnameable brand, so nothing derived from it can escape the closure.
+- **Borrow the owner instead of sharing it** - `as_ref` produces an
+  `OwnedFrozenRef`, which uses the borrow of the `OwnedFrozen` as the brand
+  rather than duping the heap `Arc`. `FrozenModule` offers `get_option_ref` for
+  the same reason.

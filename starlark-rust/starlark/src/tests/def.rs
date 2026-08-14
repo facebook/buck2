@@ -169,11 +169,11 @@ def function(x):
 value = {"test": "hello"}
 "#,
     );
-    let f = m.get("function").unwrap();
-    let x = m.get("value").unwrap();
+    let f = m.get_owned("function").unwrap();
+    let x = m.get_owned("value").unwrap();
     Module::with_temp_heap(|module| {
-        let f = module.heap().access_owned_frozen_value(&f);
-        let x = module.heap().access_owned_frozen_value(&x);
+        let f = f.add_to_heap(module.heap());
+        let x = x.add_to_heap(module.heap());
         let mut eval = Evaluator::new(&module);
         let res = eval.eval_function(f, &[x], &[]).unwrap();
         assert_eq!(res.to_str(), "hello");

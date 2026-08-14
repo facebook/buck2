@@ -276,7 +276,7 @@ impl<'v> StarlarkPromise<'v> {
     }
 }
 
-// We can't use starlark_complex_value! because there is no frozen form of a promise
+// We can't use `starlark_complex_value_branded!` because there is no frozen form of a promise
 
 impl<'v> AllocValue<'v> for StarlarkPromise<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {

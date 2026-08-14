@@ -261,7 +261,7 @@ mod tests {
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::environment::Module;
-    use crate::values::Freeze;
+    use crate::values::FreezeBranded;
     use crate::values::Freezer;
     use crate::values::NoSerialize;
     use crate::values::StarlarkPagable;
@@ -303,10 +303,10 @@ mod tests {
         type Canonical = ReentrantTupleFreeze<'v>;
     }
 
-    impl<'v> Freeze for ReentrantTupleFreeze<'v> {
-        type Frozen = FrozenReentrantTupleFreeze;
+    impl<'v> FreezeBranded for ReentrantTupleFreeze<'v> {
+        type Frozen<'fv> = FrozenReentrantTupleFreeze;
 
-        fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             let owner = self
                 .0
                 .into_inner()
@@ -346,10 +346,10 @@ mod tests {
         type Canonical = ReentrantListFreeze<'v>;
     }
 
-    impl<'v> Freeze for ReentrantListFreeze<'v> {
-        type Frozen = FrozenReentrantListFreeze;
+    impl<'v> FreezeBranded for ReentrantListFreeze<'v> {
+        type Frozen<'fv> = FrozenReentrantListFreeze;
 
-        fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             let owner = self
                 .0
                 .into_inner()
@@ -383,7 +383,7 @@ mod tests {
         Module::with_temp_heap(|module| {
             let reentrant = module
                 .heap()
-                .alloc_complex(ReentrantTupleFreeze(RefCell::new(None)));
+                .alloc_complex_branded(ReentrantTupleFreeze(RefCell::new(None)));
             let tuple = module.heap().alloc_tuple(&[reentrant]);
             reentrant
                 .downcast_ref::<ReentrantTupleFreeze>()
@@ -402,7 +402,7 @@ mod tests {
         Module::with_temp_heap(|module| {
             let reentrant = module
                 .heap()
-                .alloc_complex(ReentrantListFreeze(RefCell::new(None)));
+                .alloc_complex_branded(ReentrantListFreeze(RefCell::new(None)));
             let list = module.heap().alloc_list(&[reentrant]);
             reentrant
                 .downcast_ref::<ReentrantListFreeze>()

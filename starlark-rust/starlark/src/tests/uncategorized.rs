@@ -39,7 +39,7 @@ use crate::starlark_simple_value;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::tests::util::trim_rust_backtrace;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -794,9 +794,9 @@ fn test_label_assign() {
         type Canonical = Wrapper<'v>;
     }
 
-    impl<'v> Freeze for Wrapper<'v> {
-        type Frozen = FrozenWrapper;
-        fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    impl<'v> FreezeBranded for Wrapper<'v> {
+        type Frozen<'fv> = FrozenWrapper;
+        fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             Ok(FrozenWrapper)
         }
     }
@@ -804,7 +804,7 @@ fn test_label_assign() {
     #[starlark_module]
     fn module(builder: &mut GlobalsBuilder) {
         fn wrapper<'v>(heap: Heap<'v>) -> anyhow::Result<Value<'v>> {
-            Ok(heap.alloc_complex(Wrapper(RefCell::new(SmallMap::new()))))
+            Ok(heap.alloc_complex_branded(Wrapper(RefCell::new(SmallMap::new()))))
         }
     }
 

@@ -317,10 +317,10 @@ G_F_PTR = g([])
     let mut a = Assert::new();
     a.globals_add(natives);
     let module = a.pass_module(program);
-    let one = usize::unpack_value(module.get("F_PTR").unwrap().value())
+    let one = usize::unpack_value(module.get_owned("F_PTR").unwrap().as_ref().value())
         .unwrap()
         .unwrap();
-    let two = usize::unpack_value(module.get("G_F_PTR").unwrap().value())
+    let two = usize::unpack_value(module.get_owned("G_F_PTR").unwrap().as_ref().value())
         .unwrap()
         .unwrap();
     assert!(

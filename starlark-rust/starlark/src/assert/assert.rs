@@ -42,7 +42,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::AllocValue;
 use crate::values::Heap;
-use crate::values::OwnedFrozenValue;
+use crate::values::OwnedFrozen;
 use crate::values::Value;
 use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
 use crate::values::none::NoneType;
@@ -61,8 +61,7 @@ static ASSERTS_STAR: LazyLock<FrozenModule> = LazyLock::new(|| {
         .with_namespace("asserts", asserts_star)
         .build();
     Module::with_temp_heap(move |m| {
-        let asserts = g.get_owned("asserts").unwrap();
-        let asserts = m.heap().access_owned_frozen_value(&asserts);
+        let asserts = g.get_owned("asserts").unwrap().add_to_heap(m.heap());
         m.set("asserts", asserts);
         m.set(
             "freeze",
@@ -500,14 +499,14 @@ impl<'a> Assert<'a> {
     /// # use starlark::assert::Assert;
     /// Assert::new().pass("assert_eq(1, 1)");
     /// ```
-    pub fn pass(&self, program: &str) -> OwnedFrozenValue {
+    pub fn pass(&self, program: &str) -> OwnedFrozen<Value<'static>> {
         self.with_gc(|gc| {
             Module::with_temp_heap(|env| {
                 let res = self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
                 env.set("_", res);
                 env.freeze_named(StarlarkTestHeapName::frozen_heap_name())
                     .expect("error freezing module")
-                    .get("_")
+                    .get_owned("_")
                     .unwrap()
             })
         })
@@ -667,7 +666,7 @@ pub fn all_true(expressions: &str) {
 }
 
 /// See [`Assert::pass`].
-pub fn pass(program: &str) -> OwnedFrozenValue {
+pub fn pass(program: &str) -> OwnedFrozen<Value<'static>> {
     Assert::new().pass(program)
 }
 

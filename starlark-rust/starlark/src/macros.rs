@@ -15,7 +15,17 @@
  * limitations under the License.
  */
 
-/// New version of `starlark_complex_value!` macro avoiding generics for frozen values.
+/// Reduce boilerplate when defining a Starlark value that contains other values.
+///
+/// The type is written once, as `X<'v>`, and freezes to `X<'fv>` — see
+/// [`FreezeBranded`](crate::values::FreezeBranded). The macro defines a `FrozenX` alias for
+/// `X<'static>` and instances of [`AllocValue`](crate::values::AllocValue),
+/// [`AllocFrozenValue`](crate::values::AllocFrozenValue),
+/// [`StarlarkTypeRepr`](crate::values::type_repr::StarlarkTypeRepr) and
+/// [`UnpackValue`](crate::values::UnpackValue) for `&'v X<'v>`, plus a
+/// `X::from_value` downcast that matches frozen and unfrozen instances alike.
+///
+/// Hand-expand it when a piece needs customizing.
 #[macro_export]
 macro_rules! starlark_complex_value_branded {
     ($v:vis $x:ident) => {
@@ -68,117 +78,6 @@ macro_rules! starlark_complex_value_branded {
                 #[inline]
                 fn unpack_value_impl(x: $crate::values::Value<'v>) -> Result<Option<&'v $x<'v>>, Self::Error> {
                     Ok($x::from_value(x))
-                }
-            }
-        }
-    };
-}
-
-/// Reduce boilerplate when making types instances of [`ComplexValue`](crate::values::ComplexValue)
-/// - see the [`ComplexValue`](crate::values::ComplexValue) docs for an example.
-#[macro_export]
-macro_rules! starlark_complex_value {
-    // Common part of macro variants.
-    (impl $x:ident) => {
-        $crate::__macro_refs::item! {
-            impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
-                #[inline]
-                fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
-                    heap.alloc_complex(self)
-                }
-            }
-
-            impl<'fv> $crate::values::AllocFrozenValue<'fv> for [< Frozen $x >] {
-                #[inline]
-                fn alloc_frozen_value(self, heap: &$crate::values::FrozenHeap) -> $crate::values::FrozenValue {
-                    heap.alloc_simple(self)
-                }
-            }
-
-            impl<'v> $x<'v> {
-                /// Downcast the value.
-                #[inline]
-                pub fn from_value(x: $crate::values::Value<'v>) -> Option<&'v Self> {
-                    if let Some(x) = x.unpack_frozen() {
-                        $crate::values::ValueLike::downcast_ref::< [< Frozen $x >] >(x).map($crate::__macro_refs::coerce)
-                    } else {
-                        $crate::values::ValueLike::downcast_ref::< $x<'v> >(x)
-                    }
-                }
-            }
-
-            impl<'v> $crate::values::type_repr::StarlarkTypeRepr for &'v $x<'v> {
-                type Canonical = $x<'v>;
-
-                #[inline]
-                fn starlark_type_repr() -> $crate::typing::Ty {
-                    <$x as $crate::values::StarlarkValue>::get_type_starlark_repr()
-                }
-            }
-
-            impl<'v> $crate::values::UnpackValue<'v> for &'v $x<'v> {
-                type Error = std::convert::Infallible;
-
-                #[inline]
-                fn unpack_value_impl(x: $crate::values::Value<'v>) -> Result<Option<&'v $x<'v>>, Self::Error> {
-                    Ok($x::from_value(x))
-                }
-            }
-        }
-    };
-    ($v:vis $x:ident) => {
-        $crate::__macro_refs::item! {
-            /// Type of value.
-            $v type $x<'v> = [< $x Gen >]<$crate::values::Value<'v>>;
-            /// Type of frozen value.
-            $v type [< Frozen $x >] = [< $x Gen >]<$crate::values::FrozenValue>;
-
-            starlark_complex_value!(impl $x);
-        }
-    };
-    ($v:vis $x:ident <'v>) => {
-        $crate::__macro_refs::item! {
-            /// Type of unfrozen value.
-            $v type $x<'v> = [< $x Gen >]<'v, $crate::values::Value<'v>>;
-            /// Type of frozen value.
-            $v type [< Frozen $x >] = [< $x Gen >]<'static, $crate::values::FrozenValue>;
-
-            starlark_complex_value!(impl $x);
-        }
-    };
-}
-
-/// Reduce boilerplate when making types instances of [`ComplexValue`](crate::values::ComplexValue)
-/// - see the [`ComplexValue`](crate::values::ComplexValue) docs for an example.
-#[macro_export]
-macro_rules! starlark_complex_values {
-    ($x:ident) => {
-        $crate::__macro_refs::item! {
-            impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
-                #[inline]
-                fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
-                    heap.alloc_complex(self)
-                }
-            }
-
-            impl<'fv> $crate::values::AllocFrozenValue<'fv> for [< Frozen $x >] {
-                #[inline]
-                fn alloc_frozen_value(self, heap: &$crate::values::FrozenHeap) -> $crate::values::FrozenValue {
-                    heap.alloc_simple(self)
-                }
-            }
-
-            impl<'v> $x<'v> {
-                #[allow(dead_code)]
-                #[inline]
-                pub(crate) fn from_value(
-                    x: $crate::values::Value<'v>,
-                ) -> Option<$crate::__macro_refs::Either<&'v Self, &'v [< Frozen $x >]>> {
-                    if let Some(x) = x.unpack_frozen() {
-                        $crate::values::ValueLike::downcast_ref(x).map($crate::__macro_refs::Either::Right)
-                    } else {
-                        $crate::values::ValueLike::downcast_ref(x).map($crate::__macro_refs::Either::Left)
-                    }
                 }
             }
         }

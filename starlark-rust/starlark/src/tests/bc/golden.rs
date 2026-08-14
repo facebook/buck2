@@ -31,9 +31,9 @@ fn test_function_bytecode(program: &str) -> String {
     a.dialect(&Dialect::AllOptionsInternal);
     let def = a
         .module("instrs.star", program)
-        .get("test")
+        .get_owned("test")
         .unwrap()
-        .downcast::<FrozenDef>()
+        .downcast_starlark::<FrozenDef>()
         .unwrap();
 
     let mut golden = String::new();
@@ -41,7 +41,12 @@ fn test_function_bytecode(program: &str) -> String {
     writeln!(golden).unwrap();
     writeln!(golden, "# Bytecode:").unwrap();
     writeln!(golden).unwrap();
-    writeln!(golden, "{}", def.bc().dump_debug().trim()).unwrap();
+    writeln!(
+        golden,
+        "{}",
+        def.by_ref(|d| d.as_ref().bc().dump_debug()).trim()
+    )
+    .unwrap();
     golden
 }
 

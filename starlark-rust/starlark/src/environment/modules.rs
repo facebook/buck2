@@ -66,7 +66,6 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenRef;
-use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -114,7 +113,7 @@ impl PagableSerialize for FrozenModule {
         // Force-register chunk indices for the heap and its transitive deps. The
         // pagable arc may not run heap serialization yet, but we need the
         // chunk indices now so the upcoming starlark serializer can resolve
-        // FrozenValue pointers. Same trick as `OwnedFrozenValue`.
+        // FrozenValue pointers. Same trick as `OwnedFrozen`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_chunk_index_registered(&self.heap)?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
@@ -232,19 +231,8 @@ impl FrozenModule {
         Some((self.module.slots.get_slot(slot)?, vis))
     }
 
-    fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
-        self.get_slot_any_visibility(name).map(|(x, vis)| {
-            // This code is safe because we know the frozen module ref keeps the values alive
-            (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)
-        })
-    }
-
-    /// Get value, exported or private by name.
-    // TODO(nga): separate private visibility into private (`_foo`) and imported (`load('foo')`).
-    //   Users might want to access private variables, but not imported.
-    #[doc(hidden)]
-    pub fn get_any_visibility(&self, name: &str) -> anyhow::Result<(OwnedFrozenValue, Visibility)> {
-        self.get_any_visibility_option(name).ok_or_else(|| {
+    fn get_slot_any_visibility_err(&self, name: &str) -> anyhow::Result<(FrozenValue, Visibility)> {
+        self.get_slot_any_visibility(name).ok_or_else(|| {
             match did_you_mean(name, self.names().map(|s| s.as_str())) {
                 Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
                     name.to_owned(),
@@ -256,37 +244,41 @@ impl FrozenModule {
         })
     }
 
+    /// Pair a value belonging to this module with the heap that keeps it alive.
+    fn own_value(&self, value: FrozenValue) -> OwnedFrozen<Value<'static>> {
+        // SAFETY: The value is one of this module's own, so this module's heap keeps it alive —
+        // directly, or through its heap references for values that arrived via `load()`.
+        unsafe { OwnedFrozen::unchecked_new(self.heap.dupe(), value.to_value()) }
+    }
+
     /// Get value, exported or private by name, kept alive by this module's heap.
+    // TODO(nga): separate private visibility into private (`_foo`) and imported (`load('foo')`).
+    //   Users might want to access private variables, but not imported.
     #[doc(hidden)]
     pub fn get_any_visibility_owned(
         &self,
         name: &str,
     ) -> anyhow::Result<(OwnedFrozen<Value<'static>>, Visibility)> {
-        let (value, vis) = self.get_any_visibility(name)?;
-        Ok((value.into(), vis))
+        let (value, vis) = self.get_slot_any_visibility_err(name)?;
+        Ok((self.own_value(value), vis))
     }
 
-    /// Get the value of the exported variable `name`.
+    /// Get the value of the exported variable `name`, kept alive by this module's heap.
     ///
     /// # Returns
     /// * `None` if symbol is not found
     /// * error if symbol is private
-    pub fn get_option(&self, name: &str) -> anyhow::Result<Option<OwnedFrozenValue>> {
-        match self.get_any_visibility_option(name) {
-            None => Ok(None),
-            Some((_, Visibility::Private)) => {
-                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
-            }
-            Some((value, Visibility::Public)) => Ok(Some(value)),
-        }
-    }
-
-    /// Like [`get_option`](FrozenModule::get_option), but kept alive by this module's heap.
     pub fn get_option_owned(
         &self,
         name: &str,
     ) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
-        Ok(self.get_option(name)?.map(OwnedFrozen::from))
+        match self.get_slot_any_visibility(name) {
+            None => Ok(None),
+            Some((_, Visibility::Private)) => {
+                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+            }
+            Some((value, Visibility::Public)) => Ok(Some(self.own_value(value))),
+        }
     }
 
     /// Like [`get_option_owned`](FrozenModule::get_option_owned), but borrowing this module
@@ -309,21 +301,15 @@ impl FrozenModule {
         }
     }
 
-    /// Get the value of the exported variable `name`.
+    /// Get the value of the exported variable `name`, kept alive by this module's heap.
     /// Returns an error if the variable isn't defined in the module or it is private.
-    pub fn get(&self, name: &str) -> anyhow::Result<OwnedFrozenValue> {
-        self.get_any_visibility(name)
-            .and_then(|(value, vis)| match vis {
-                Visibility::Private => {
-                    Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
-                }
-                Visibility::Public => Ok(value),
-            })
-    }
-
-    /// Like [`get`](FrozenModule::get), but kept alive by this module's heap.
     pub fn get_owned(&self, name: &str) -> anyhow::Result<OwnedFrozen<Value<'static>>> {
-        Ok(self.get(name)?.into())
+        match self.get_slot_any_visibility_err(name)? {
+            (_, Visibility::Private) => {
+                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+            }
+            (value, Visibility::Public) => Ok(self.own_value(value)),
+        }
     }
 
     /// Iterate through all the names defined in this module.
@@ -354,7 +340,7 @@ impl FrozenModule {
             .all_items()
             .filter(|n| {
                 // We only want to show public symbols in the documentation
-                self.get_any_visibility_option(n.0.as_str())
+                self.get_slot_any_visibility(n.0.as_str())
                     .is_some_and(|(_, vis)| vis == Visibility::Public)
             })
             .map(|(k, v)| (k.as_str().to_owned(), v.to_value().documentation()))
@@ -379,15 +365,9 @@ impl FrozenModule {
         self.extra_value
     }
 
-    /// `extra_value` field from `Module`, frozen.
-    pub fn owned_extra_value(&self) -> Option<OwnedFrozenValue> {
-        self.extra_value
-            .map(|v| unsafe { OwnedFrozenValue::new(self.heap.dupe(), v) })
-    }
-
     /// `extra_value` field from `Module`, frozen, kept alive by this module's heap.
     pub fn extra_value_owned(&self) -> Option<OwnedFrozen<Value<'static>>> {
-        self.owned_extra_value().map(OwnedFrozen::from)
+        self.extra_value.map(|v| self.own_value(v))
     }
 }
 
@@ -672,8 +652,12 @@ impl<'v> Module<'v> {
                 EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()),
             ));
         }
-        match module.get_any_visibility(symbol)? {
-            (v, Visibility::Public) => Ok(self.heap().access_owned_frozen_value(&v)),
+        match module.get_slot_any_visibility_err(symbol)? {
+            (v, Visibility::Public) => {
+                self.heap().add_reference(&module.heap);
+                // The heap reference we just added keeps the value alive for `'v`.
+                Ok(Value::new_frozen(v))
+            }
             (_, Visibility::Private) => Err(crate::Error::new_other(
                 EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
             )),
@@ -794,10 +778,13 @@ x = f(1)
         let globals = globals.build();
 
         let module = FrozenModule::from_globals(&globals).unwrap();
-        assert_eq!("function", module.get("foo").unwrap().value().get_type());
+        assert_eq!(
+            "function",
+            module.get_owned("foo").unwrap().as_ref().value().get_type()
+        );
         assert_eq!(
             0,
-            ListRef::from_value(module.get("BAR").unwrap().value())
+            ListRef::from_value(module.get_owned("BAR").unwrap().as_ref().value())
                 .unwrap()
                 .len()
         );

@@ -44,7 +44,8 @@ mod t {
     use crate::eval::ReturnFileLoader;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
-    use crate::values::OwnedFrozenValue;
+    use crate::values::OwnedFrozen;
+    use crate::values::Value;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::wasm::is_wasm;
 
@@ -168,7 +169,7 @@ mod t {
     fn eval_with_hook(
         ast: AstModule,
         hook: Box<dyn DapAdapterEvalHook>,
-    ) -> crate::Result<OwnedFrozenValue> {
+    ) -> crate::Result<OwnedFrozen<Value<'static>>> {
         let modules = HashMap::new();
         let loader = ReturnFileLoader { modules: &modules };
         let globals = GlobalsBuilder::extended().with(test_functions).build();
@@ -184,7 +185,7 @@ mod t {
             Ok(env
                 .freeze_named(StarlarkTestHeapName::frozen_heap_name())
                 .expect("error freezing module")
-                .get("_")
+                .get_owned("_")
                 .unwrap())
         })
     }

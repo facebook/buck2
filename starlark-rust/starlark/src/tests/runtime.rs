@@ -125,7 +125,7 @@ for i in range(1001):
 v1 + " " + v100 + " " + v1000
 "#,
     );
-    let s = s.unpack_str().unwrap();
+    let s = s.by_ref(|v| v.unpack_str().unwrap().to_owned());
     let words = s
         .split(' ')
         .map(|x| x.parse::<isize>().unwrap())
@@ -196,7 +196,7 @@ def expensive(n):
     code.push_str("assert_eq(success[0], True)\nis_gc_disabled()");
     // I expect to run with GC disabled some of the time, but not on the last run
     // so make sure at least once GC was enabled
-    assert!(!a.pass(&code).unpack_bool().unwrap());
+    assert!(!a.pass(&code).by_ref(|v| v.unpack_bool().unwrap()));
 }
 
 #[test]

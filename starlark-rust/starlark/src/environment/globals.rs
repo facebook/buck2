@@ -50,9 +50,10 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
-use crate::values::OwnedFrozenValue;
+use crate::values::OwnedFrozen;
 use crate::values::StarlarkPagable;
 use crate::values::StringValueLike;
+use crate::values::Value;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
 use crate::values::function::SpecialBuiltinFunction;
@@ -89,8 +90,7 @@ impl PagableSerialize for GlobalsData {
         // Force-register chunk indices for the heap and its transitive deps. The
         // pagable arc may not run heap serialization yet, but we need the
         // chunk indices now so the upcoming starlark serializer can resolve
-        // FrozenValue pointers. Same trick as `OwnedFrozenValue` and
-        // `FrozenModule`.
+        // FrozenValue pointers. Same trick as `OwnedFrozen` and `FrozenModule`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_chunk_index_registered(&self.heap)?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
@@ -197,7 +197,7 @@ impl Globals {
     /// This function is only safe if you first call `heap` and keep a reference to it.
     /// Therefore, don't expose it on the public API.
     #[cfg(test)]
-    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<crate::values::Value<'v>> {
+    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
         self.get_frozen(name).map(FrozenValue::to_value)
     }
 
@@ -207,10 +207,10 @@ impl Globals {
         self.0.variables.get_str(name).map(|x| x.value)
     }
 
-    pub(crate) fn get_owned(&self, name: &str) -> Option<OwnedFrozenValue> {
+    pub(crate) fn get_owned(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
         let v = self.get_frozen(name)?;
         // SAFETY: We know the heap this is allocated in
-        unsafe { Some(OwnedFrozenValue::new(self.heap().dupe(), v)) }
+        unsafe { Some(OwnedFrozen::unchecked_new(self.heap().dupe(), v.to_value())) }
     }
 
     /// Get all the names defined in this environment.

@@ -416,19 +416,46 @@ mod tests {
     fn test_escape_characters() {
         // Test cases from the Starlark spec
         assert_eq!(
-            assert::pass(r#"'\a\b\f\n\r\t\v'"#).unpack_str().unwrap(),
+            assert::pass(r#"'\a\b\f\n\r\t\v'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
             "\x07\x08\x0C\x0A\x0D\x09\x0B"
         );
-        assert_eq!(assert::pass(r#"'\0'"#).unpack_str().unwrap(), "\x00");
-        assert_eq!(assert::pass(r#"'\12'"#).unpack_str().unwrap(), "\n");
-        assert_eq!(assert::pass(r#"'\101-\132'"#).unpack_str().unwrap(), "A-Z");
+        assert_eq!(
+            assert::pass(r#"'\0'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "\x00"
+        );
+        assert_eq!(
+            assert::pass(r#"'\12'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "\n"
+        );
+        assert_eq!(
+            assert::pass(r#"'\101-\132'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "A-Z"
+        );
         // 9 is not an octal digit, so it terminates early
-        assert_eq!(assert::pass(r#"'\119'"#).unpack_str().unwrap(), "\t9");
-        assert_eq!(assert::pass(r#"'\117'"#).unpack_str().unwrap(), "O");
-        assert_eq!(assert::pass(r#"'\u0041'"#).unpack_str().unwrap(), "A");
-        assert_eq!(assert::pass(r#"'\u0414'"#).unpack_str().unwrap(), "Д");
-        assert_eq!(assert::pass(r#"'\u754c'"#).unpack_str().unwrap(), "界");
-        assert_eq!(assert::pass(r#"'\U0001F600'"#).unpack_str().unwrap(), "😀");
+        assert_eq!(
+            assert::pass(r#"'\119'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "\t9"
+        );
+        assert_eq!(
+            assert::pass(r#"'\117'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "O"
+        );
+        assert_eq!(
+            assert::pass(r#"'\u0041'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "A"
+        );
+        assert_eq!(
+            assert::pass(r#"'\u0414'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "Д"
+        );
+        assert_eq!(
+            assert::pass(r#"'\u754c'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "界"
+        );
+        assert_eq!(
+            assert::pass(r#"'\U0001F600'"#).by_ref(|v| v.unpack_str().unwrap().to_owned()),
+            "😀"
+        );
     }
 
     const EXAMPLES: &[&str] = &[

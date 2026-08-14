@@ -94,7 +94,7 @@ where
 }
 
 impl<'v> Heap<'v> {
-    /// Allocate a [`ComplexValue`] on the [`Heap`].
+    /// Allocate a value which can be traced (garbage collected) and frozen on the [`Heap`].
     pub fn alloc_complex_branded<T>(self, x: T) -> Value<'v>
     where
         T: StarlarkValue<'v> + HeapSendable<'v> + Trace<'v> + FreezeBranded,

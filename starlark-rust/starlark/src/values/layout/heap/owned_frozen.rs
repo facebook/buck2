@@ -25,16 +25,16 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
 use crate::any::IsStaticType;
-use crate::cast::transmute;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
-use crate::values::FrozenValueTyped;
+use crate::values::FrozenHeapRef;
+use crate::values::FrozenValue;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenRef;
-use crate::values::OwnedFrozenValue;
-use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueTyped;
@@ -196,103 +196,56 @@ where
     }
 }
 
-impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozenValueTyped<T>>
-    for OwnedFrozen<ValueTyped<'static, T>>
-where
-    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-    // If the bounds on `ProvidesStaticType::StaticType` were better and the compiler were a little
-    // bit smarter, it would be able to infer this from just `T::Reinfect<'fv>: ...` instead of
-    // having to bound on `ValueTyped<...>`. Alas...
-    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
-{
-    fn from(value: OwnedFrozenValueTyped<T>) -> Self {
-        // SAFETY: We're going to keep the heap alive below
-        let vt: ValueTyped<'static, T> = unsafe { value.value_typed().to_value_typed() };
-        // SAFETY: Similar story to the safety for `unchecked_new`, the safety contract on
-        // `ProvidesStaticType` requires that these are the same type
-        let vt: ValueTyped<'static, T::Reinfect<'static>> = unsafe {
-            transmute!(
-                ValueTyped<'static, T>,
-                ValueTyped<'static, T::Reinfect<'static>>,
-                vt
-            )
-        };
-        // SAFETY: As per above, the owner of this value is this heap
-        unsafe { Self::unchecked_new(value.owner().dupe(), vt) }
-    }
+/// The wire format for every `OwnedFrozen` is the owner heap ref followed by the frozen value.
+///
+/// It is shared by the `Value` and `ValueTyped` forms so the two can be swapped at a field
+/// without a format change.
+fn serialize_owned_frozen(
+    owner: &FrozenHeapRef,
+    value: FrozenValue,
+    serializer: &mut dyn PagableSerializer,
+) -> pagable::Result<()> {
+    // Serialize the owner heap ref (via pagable arc mechanism).
+    owner.pagable_serialize(serializer)?;
+
+    // Ensure offset maps are registered for the owner heap and its transitive dependencies.
+    // `serialize_arc` for `Arc<FrozenFrozenHeap>` can defer the actual heap serialization, so
+    // the offset maps may not exist yet when we need to serialize the `FrozenValue`.
+    let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+    state.ensure_chunk_index_registered(owner)?;
+
+    let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+    ctx.serialize_frozen_value(value)
+        .map_err(|e| e.into_anyhow())?;
+
+    Ok(())
 }
 
-impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozen<ValueTyped<'static, T>>>
-    for OwnedFrozenValueTyped<T>
-where
-    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
-{
-    fn from(value: OwnedFrozen<ValueTyped<'static, T>>) -> Self {
-        value.by_ref(|v| {
-            let v = FrozenValueTyped::new(
-                v.to_value()
-                    .unpack_frozen()
-                    .expect("value in a frozen heap is frozen"),
-            )
-            .expect("the `ValueTyped` already witnesses the type");
-            // SAFETY: `value.owner()` is the heap that keeps `v` alive, and it is passed in as
-            // the owner.
-            unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
-        })
-    }
+/// See [`serialize_owned_frozen`].
+fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
+    deserializer: &mut D,
+) -> pagable::Result<(FrozenHeapRef, FrozenValue)> {
+    // Deserialize the owner heap ref.
+    let owner = FrozenHeapRef::pagable_deserialize(deserializer)?;
+
+    // Recover the page-in scope registered by the preceding owner heap so cross-heap pointer
+    // resolution can find it.
+    let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
+        .map_err(|e: crate::Error| e.into_anyhow())?;
+
+    let value = ctx
+        .deserialize_frozen_value()
+        .map_err(|e| e.into_anyhow())?;
+
+    Ok((owner, value))
 }
 
-impl<T: IsStaticType + StarlarkValue<'static>> From<OwnedFrozen<FrozenValueTyped<'static, T>>>
-    for OwnedFrozenValueTyped<T>
-where
-    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-{
-    fn from(value: OwnedFrozen<FrozenValueTyped<'static, T>>) -> Self {
-        value.by_ref(|v| {
-            // SAFETY: `FrozenValueTyped` lifetimes don't brand (the type
-            // predates branding); the owner keeps the value alive either way.
-            let v = unsafe {
-                transmute!(
-                    FrozenValueTyped<'_, T::Reinfect<'_>>,
-                    FrozenValueTyped<'static, T>,
-                    *v
-                )
-            };
-            // SAFETY: The owner of this value is this heap
-            unsafe { OwnedFrozenValueTyped::new(value.owner().dupe(), v) }
-        })
-    }
-}
-
-impl From<OwnedFrozenValue> for OwnedFrozen<Value<'static>> {
-    fn from(value: OwnedFrozenValue) -> Self {
-        // SAFETY: The owner keeps the value alive, which is `OwnedFrozenValue`'s own invariant
-        let v = unsafe { value.unchecked_frozen_value() }.to_value();
-        // SAFETY: As per above, the owner of this value is this heap
-        unsafe { Self::unchecked_new(value.owner().dupe(), v) }
-    }
-}
-
-/// Wire-compatible with `OwnedFrozenValue`.
 impl PagableSerialize for OwnedFrozen<Value<'static>> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // Serialize the owner heap ref (via pagable arc mechanism).
-        self.owner().pagable_serialize(serializer)?;
-
-        // Ensure offset maps are registered for the owner heap and its
-        // transitive dependencies; see `OwnedFrozenValue`'s impl.
-        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(self.owner())?;
-
-        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
-        // The value lives in a frozen heap, so it is frozen even though the
-        // branded API hands it out as a `Value`.
-        let fv = self.by_ref(|v| v.unpack_frozen().unwrap());
-        ctx.serialize_frozen_value(fv)
-            .map_err(|e| e.into_anyhow())?;
-
-        Ok(())
+        // The value lives in a frozen heap, so it is frozen even though the branded API hands it
+        // out as a `Value`.
+        let fv = self.by_ref(|v| v.unpack_frozen().expect("value in a frozen heap is frozen"));
+        serialize_owned_frozen(self.owner(), fv, serializer)
     }
 }
 
@@ -300,36 +253,24 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        Ok(OwnedFrozenValue::pagable_deserialize(deserializer)?.into())
+        let (owner, value) = deserialize_owned_frozen(deserializer)?;
+        // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
+        Ok(unsafe { Self::unchecked_new(owner, value.to_value()) })
     }
 }
 
-/// Wire-compatible with `OwnedFrozenValue` and `OwnedFrozenValueTyped`.
 impl<T: IsStaticType + StarlarkValue<'static>> PagableSerialize
     for OwnedFrozen<ValueTyped<'static, T>>
 where
     for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // Serialize the owner heap ref (via pagable arc mechanism).
-        self.owner().pagable_serialize(serializer)?;
-
-        // Ensure offset maps are registered for the owner heap and its
-        // transitive dependencies; see `OwnedFrozenValue`'s impl.
-        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(self.owner())?;
-
-        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
-        // The branded API hands the value out as a `Value`, but it lives in a frozen heap.
         let fv = self.by_ref(|v| {
             v.to_value()
                 .unpack_frozen()
                 .expect("value in a frozen heap is frozen")
         });
-        ctx.serialize_frozen_value(fv)
-            .map_err(|e| e.into_anyhow())?;
-
-        Ok(())
+        serialize_owned_frozen(self.owner(), fv, serializer)
     }
 }
 
@@ -342,15 +283,13 @@ where
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let owned = OwnedFrozenValue::pagable_deserialize(deserializer)?;
-        match owned.downcast::<T>() {
-            Ok(typed) => Ok(typed.into()),
-            Err(owned) => Err(anyhow::anyhow!(
-                "OwnedFrozen deserialization: expected type `{}`, got `{}`",
-                T::TYPE,
-                owned.value().to_string_for_type_error()
-            )),
-        }
+        let (owner, value) = deserialize_owned_frozen(deserializer)?;
+        // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
+        let owned: OwnedFrozen<Value<'static>> =
+            unsafe { OwnedFrozen::unchecked_new(owner, value.to_value()) };
+        owned
+            .downcast_starlark::<T>()
+            .map_err(|e| anyhow::anyhow!("OwnedFrozen deserialization: {e}"))
     }
 }
 
@@ -367,7 +306,6 @@ mod tests {
     use crate::any::ProvidesStaticType;
     use crate::starlark_complex_value_branded;
     use crate::values::OwnedFrozen;
-    use crate::values::OwnedFrozenValueTyped;
     use crate::values::StarlarkValue;
     use crate::values::Value;
     use crate::values::ValueTyped;
@@ -418,9 +356,10 @@ mod tests {
     #[starlark_value(type = "MyComplex")]
     impl<'v> StarlarkValue<'v> for MyComplex<'v> {}
 
-    fn _check_owned_frozen_value_typed_conversion_actually_usable() {
-        let v: OwnedFrozenValueTyped<MyComplex<'static>> = construct_any();
-        let _v: OwnedFrozen<ValueTyped<'static, MyComplex<'static>>> = v.into();
+    fn _check_downcast_starlark_actually_usable() {
+        let v: OwnedFrozen<Value<'static>> = construct_any();
+        let _v: OwnedFrozen<ValueTyped<'static, MyComplex<'static>>> =
+            v.downcast_starlark::<MyComplex<'static>>().unwrap();
     }
 
     #[test]

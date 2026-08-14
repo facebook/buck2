@@ -136,7 +136,7 @@ impl StarlarkSerState {
     /// and all of its transitive dependencies.
     ///
     /// This is needed when serializing `FrozenValue` pointers outside the
-    /// heap serialization flow (e.g. in `OwnedFrozenValue`), where the
+    /// heap serialization flow (e.g. in `OwnedFrozen`), where the
     /// pagable arc mechanism defers heap serialization but we need the
     /// value-index maps immediately to resolve pointers.
     pub(crate) fn ensure_chunk_index_registered(

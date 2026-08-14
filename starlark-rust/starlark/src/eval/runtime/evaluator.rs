@@ -564,8 +564,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// The frozen heap. It's possible to allocate [`FrozenValue`](crate::values::FrozenValue)s here,
     /// but often not a great idea, as they will remain allocated as long
     /// as the results of this execution are required.
-    /// Suitable for use with [`add_reference`](FrozenHeap::add_reference)
-    /// and [`OwnedFrozenValue::owned_frozen_value`](crate::values::OwnedFrozenValue::owned_frozen_value).
+    /// Suitable for use with [`add_reference`](FrozenHeap::add_reference).
     pub fn frozen_heap(&self) -> &'a FrozenHeap {
         self.module_env.frozen_heap()
     }

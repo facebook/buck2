@@ -90,12 +90,12 @@
 //! like this:
 //!
 //! ```rust,ignore
-//! impl<'v> Heap<'v> {
-//!     pub fn access_owned_frozen_value(self, v: OwnedFrozenValue) -> Value<'v>;
+//! impl<T: IsStaticType> OwnedFrozen<T> {
+//!     pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v>;
 //! }
 //! ```
 //!
-//! `access_owned_frozen_value` adds the heap the frozen value is associated with as a dependency of
-//! the current heap, and then returns a `Value<'v>`; the `'v` lifetime in the return value
-//! essentially acts as a proof/endorsement that the given value is sound to use "within the context
-//! of the current heap."
+//! `add_to_heap` adds the heap the frozen value is associated with as a dependency of the passed
+//! heap, and then hands the value back at `'v`; the `'v` lifetime in the return value essentially
+//! acts as a proof/endorsement that the given value is sound to use "within the context of that
+//! heap."

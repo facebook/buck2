@@ -229,7 +229,7 @@ pub(crate) fn registered_type_ids() -> Vec<DeserTypeId> {
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
-    use starlark_derive::Freeze;
+    use starlark_derive::FreezeBranded;
     use starlark_derive::NoSerialize;
     use starlark_derive::StarlarkPagable;
     use starlark_derive::Trace;
@@ -238,13 +238,11 @@ mod tests {
     use super::*;
     // Alias crate as starlark so proc macro generated paths work
     use crate as starlark;
-    use crate::starlark_complex_value;
+    use crate::starlark_complex_value_branded;
     use crate::starlark_simple_value;
-    use crate::values::Coerce;
     use crate::values::ProvidesStaticType;
     use crate::values::StarlarkValue;
-    use crate::values::ValueLifetimeless;
-    use crate::values::ValueLike;
+    use crate::values::Value;
 
     /// A simple test type to verify vtable registration works for simple values.
     #[derive(
@@ -263,7 +261,7 @@ mod tests {
     #[starlark_value(type = "TestSimpleType")]
     impl<'v> StarlarkValue<'v> for TestSimpleType {}
 
-    /// A simple complex type to verify vtable registration works for complex values.
+    /// A complex type to verify vtable registration works for complex values.
     #[derive(
         Debug,
         Display,
@@ -272,21 +270,18 @@ mod tests {
         Allocative,
         Clone,
         Trace,
-        Freeze,
-        Coerce,
+        FreezeBranded,
         StarlarkPagable
     )]
     #[display("TestComplex")]
-    #[repr(C)]
-    struct TestComplexGen<V: ValueLifetimeless> {
-        _value: V,
+    struct TestComplex<'v> {
+        _value: Value<'v>,
     }
 
-    starlark_complex_value!(TestComplex);
+    starlark_complex_value_branded!(TestComplex);
 
     #[starlark_value(type = "TestComplex")]
-    impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexGen<V> where Self: ProvidesStaticType<'v>
-    {}
+    impl<'v> StarlarkValue<'v> for TestComplex<'v> {}
 
     #[test]
     fn test_type_id_index_round_trips_through_registry() {

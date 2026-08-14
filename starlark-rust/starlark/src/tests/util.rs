@@ -18,7 +18,6 @@
 #![cfg(test)]
 
 use allocative::Allocative;
-use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -28,6 +27,10 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
+use crate::values::Freeze;
+use crate::values::FreezeBranded;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -38,7 +41,6 @@ use crate::values::ValueLike;
 
 #[derive(
     Trace,
-    Freeze,
     Debug,
     derive_more::Display,
     Allocative,
@@ -55,9 +57,17 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexValue<V> where
 {
 }
 
+impl<'v> FreezeBranded for TestComplexValue<Value<'v>> {
+    type Frozen<'fv> = TestComplexValue<FrozenValue>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(TestComplexValue(Freeze::freeze(self.0, freezer)?))
+    }
+}
+
 impl<'v> AllocValue<'v> for TestComplexValue<Value<'v>> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 

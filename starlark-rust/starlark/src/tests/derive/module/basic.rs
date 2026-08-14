@@ -42,7 +42,7 @@ fn test_starlark_module() {
     a.globals_add(global);
     let v = a.pass("cc_binary(name='star', srcs=['a.cc', 'b.cc'])");
     assert_eq!(
-        v.value().unpack_str().unwrap(),
+        v.by_ref(|v| v.unpack_str().unwrap().to_owned()),
         r#""star" ["a.cc", "b.cc"]"#
     );
 }
