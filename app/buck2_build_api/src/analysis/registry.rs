@@ -49,7 +49,6 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -66,7 +65,6 @@ use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
-use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark_map::small_map::SmallMap;
 
@@ -418,7 +416,7 @@ pub struct AnalysisValueStorage<'v> {
 pub struct FrozenAnalysisValueStorage<'fv> {
     #[starlark_pagable(pagable)]
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionIndex, (Option<Value<'fv>>, Option<FrozenStarlarkCallable>)>,
+    action_data: SmallMap<ActionIndex, (Option<Value<'fv>>, Option<StarlarkCallable<'fv>>)>,
     #[starlark_pagable(
         serialize_with = "serialize_transitive_sets",
         deserialize_with = "deserialize_transitive_sets"
@@ -513,7 +511,7 @@ impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
                 k,
                 (
                     FreezeBranded::freeze(data, freezer)?,
-                    Freeze::freeze(error_handler, freezer)?,
+                    FreezeBranded::freeze(error_handler, freezer)?,
                 ),
             );
         }
@@ -661,7 +659,7 @@ impl AnalysisValueFetcher {
         let starlark_data =
             storage.maybe_map::<Value<'static>, _>(|v| v.as_ref().value.action_data.get(&index)?.0);
         let error_handler = storage.maybe_map::<Value<'static>, _>(|v| {
-            Some(v.as_ref().value.action_data.get(&index)?.1?.to_callable().0)
+            Some(v.as_ref().value.action_data.get(&index)?.1?.0)
         });
         Ok((
             starlark_data.map(|v| v.to_owned()),
