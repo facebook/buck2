@@ -12,20 +12,16 @@ rust_library(
                     "blake3": {
                         "version": "1.8",
                     },
-                    "fbinit": {
-                        "path": None,
-                        "version": "0.2",
-                    },
-                    "watchman_client": {
-                        "path": None,
-                        "version": "0.9.0",
-                    },
                 },
             },
             "extra_buck_dependencies": {
                 "dependencies": [
                     (None, "//common/rust/shed/detect_eden:detect_eden"),
+                    (None, "//common/rust/shed/fbinit:fbinit"),
                     (None, "//eden/fs/service:thrift-rust"),
+                    (None, "//watchman/rust/watchman_client:watchman_client"),
+                    "fbsource//third-party/rust:fbinit",
+                    "fbsource//third-party/rust:watchman_client",
                 ],
             },
         },

@@ -9,17 +9,11 @@ rust_library(
     ),
     autocargo = {
         "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "fbinit": {
-                        "path": None,
-                        "version": "0.2",
-                    },
-                },
-            },
             "extra_buck_dependencies": {
                 "dependencies": [
+                    (None, "//common/rust/shed/fbinit:fbinit"),
                     (None, "//common/rust/shed/hostcaps:hostcaps"),
+                    "fbsource//third-party/rust:fbinit",
                 ],
             },
         },

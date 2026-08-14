@@ -17,10 +17,17 @@ rust_library(
                         "dependencies": {
                             "tikv-jemallocator": {
                                 "features": ["stats", "unprefixed_malloc_on_supported_platforms"],
-                                "path": None,
-                                "version": "0.6.1",
                             },
                         },
+                    },
+                },
+            },
+            "extra_buck_dependencies": {
+                "target": {
+                    '\'cfg(any(target_os = "linux", target_os = "macos"))\'': {
+                        "dependencies": [
+                            "fbsource//third-party/rust:jemallocator",
+                        ],
                     },
                 },
             },

@@ -9,18 +9,12 @@ rust_library(
     ),
     autocargo = {
         "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "watchman_client": {
-                        "path": None,
-                        "version": "0.9.0",
-                    },
-                },
-            },
             "extra_buck_dependencies": {
                 "dependencies": [
                     (None, "//eden/fs/service:thrift-rust-clients"),
                     (None, "//thrift/lib/rust:fbthrift"),
+                    (None, "//watchman/rust/watchman_client:watchman_client"),
+                    "fbsource//third-party/rust:watchman_client",
                 ],
             },
         },

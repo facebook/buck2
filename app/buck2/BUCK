@@ -19,15 +19,11 @@ rust_library(
     # rely on fbcode.default_allocator instead.
     autocargo = {
         "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "fbinit": {
-                        "path": None,
-                        "version": "0.2",
-                    },
-                },
-            },
             "extra_buck_dependencies": {
+                "dependencies": [
+                    (None, "//common/rust/shed/fbinit:fbinit"),
+                    "fbsource//third-party/rust:fbinit",
+                ],
                 "target": {
                     '\'cfg(any(target_os = "linux", target_os = "macos"))\'': {
                         "dependencies": [

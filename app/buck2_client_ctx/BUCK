@@ -12,15 +12,13 @@ rust_library(
                     "blake3": {
                         "version": "1.8",
                     },
-                    "fbinit": {
-                        "path": None,
-                        "version": "0.2",
-                    },
                 },
             },
             "extra_buck_dependencies": {
                 "dependencies": [
                     (None, "//common/rust/shed/detect_eden:detect_eden"),
+                    (None, "//common/rust/shed/fbinit:fbinit"),
+                    "fbsource//third-party/rust:fbinit",
                 ],
             },
         },
