@@ -61,10 +61,7 @@ pub(crate) fn register_module_natives(globals: &mut GlobalsBuilder) {
         let internals = ModuleInternals::from_context(eval, "implicit_package_symbol")?;
         match internals.get_package_implicit(name) {
             None => Ok(default.unwrap_or_else(Value::new_none)),
-            Some(v) => {
-                // FIXME(ndmitchell): Document why this is safe
-                Ok(unsafe { v.unchecked_frozen_value().to_value() })
-            }
+            Some(v) => Ok(v.add_to_heap(eval.heap())),
         }
     }
 }

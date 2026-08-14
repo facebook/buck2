@@ -31,7 +31,8 @@ use buck2_node::package::Package;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use starlark::environment::FrozenModule;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozen;
+use starlark::values::Value;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
 use crate::interpreter::globspec::GlobSpec;
@@ -105,9 +106,9 @@ impl PackageImplicits {
         Self { import_spec, env }
     }
 
-    fn lookup(&self, name: &str) -> Option<OwnedFrozenValue> {
+    fn lookup(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
         self.env
-            .get_option(self.import_spec.lookup_alias(name))
+            .get_option_owned(self.import_spec.lookup_alias(name))
             .ok()
             .flatten()
     }
@@ -230,7 +231,7 @@ impl ModuleInternals {
         self.recording_targets().package.dupe()
     }
 
-    pub(crate) fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozenValue> {
+    pub(crate) fn get_package_implicit(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
         self.package_implicits
             .as_ref()
             .and_then(|implicits| implicits.lookup(name))
