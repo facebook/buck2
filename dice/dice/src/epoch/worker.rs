@@ -337,13 +337,18 @@ impl DiceTaskWorker {
             match result.value.into_valid_value() {
                 Ok(value) => {
                     let v = self.eval.epoch_state.get_version();
-                    // If the dependencies still match, restore the paged-out old value so
-                    // `update_computed` can compare it with the newly computed value. If they
-                    // differ, the old graph entry is not reusable and no comparison is needed.
+                    // If the dependencies still match and equality can reuse the old value,
+                    // restore it so `update_computed` can compare it with the recomputed value.
                     if !old_value_hydration_failed
                         && let Some(CheckDepsCandidate::PagedOut(mismatch)) =
                             check_deps_candidate.as_ref()
                         && result.deps == **mismatch.deps_to_validate
+                        && !self
+                            .eval
+                            .dice
+                            .key_index
+                            .get(self.k)
+                            .equality_is_always_unequal()
                     {
                         if let Err(e) = self
                             .hydrate_and_rehydrate(

@@ -39,6 +39,12 @@ pub enum EqualityBehavior<T> {
     AlwaysUnequal,
 }
 
+impl<T> EqualityBehavior<T> {
+    pub(crate) fn is_always_unequal(&self) -> bool {
+        matches!(self, Self::AlwaysUnequal)
+    }
+}
+
 /// The computation Key that maps to a value. The key will be used as an index
 /// for caching the computed values.
 ///

@@ -93,6 +93,13 @@ impl DiceKeyErased {
         }
     }
 
+    pub(crate) fn equality_is_always_unequal(&self) -> bool {
+        match self {
+            DiceKeyErased::Key(k) => k.equality_is_always_unequal(),
+            DiceKeyErased::Projection(k) => k.proj.equality_is_always_unequal(),
+        }
+    }
+
     pub(crate) fn hash(&self) -> u64 {
         match self {
             DiceKeyErased::Key(k) => k.hash(),
@@ -319,6 +326,8 @@ pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'stat
 
     fn storage_type(&self) -> StorageType;
 
+    fn equality_is_always_unequal(&self) -> bool;
+
     fn provide<'a>(&'a self, demand: &mut Demand<'a>);
 
     /// Serializes a value associated with this key via the key's `ValueSerialize`.
@@ -373,6 +382,10 @@ where
         K::storage_type()
     }
 
+    fn equality_is_always_unequal(&self) -> bool {
+        K::equality_behavior().is_always_unequal()
+    }
+
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
         K::provide(self, demand)
     }
@@ -416,6 +429,8 @@ pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged 
     fn key_type_name(&self) -> &'static str;
 
     fn storage_type(&self) -> StorageType;
+
+    fn equality_is_always_unequal(&self) -> bool;
 
     /// See [`DiceKeyDyn::pagable_serialize_value`].
     fn pagable_serialize_value(
@@ -471,6 +486,10 @@ where
 
     fn storage_type(&self) -> StorageType {
         K::storage_type()
+    }
+
+    fn equality_is_always_unequal(&self) -> bool {
+        K::equality_behavior().is_always_unequal()
     }
 
     fn pagable_serialize_value(

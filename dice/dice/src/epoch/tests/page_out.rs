@@ -247,6 +247,38 @@ impl Key for DeferredPagableKey {
     }
 }
 
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct AlwaysUnequalPagableKey;
+
+#[async_trait]
+impl Key for AlwaysUnequalPagableKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        if let Ok(counter) = ctx.per_transaction_data().data.get::<ComputeCounter>() {
+            counter.0.fetch_add(1, Ordering::SeqCst);
+        }
+
+        ctx.compute(&DeferredInput(0))
+            .await
+            .expect("injected modulo input should compute")
+            % 2
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::AlwaysUnequal
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
 fn make_dice(storage: DiceStorage) -> Arc<Dice> {
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
@@ -265,9 +297,9 @@ fn user_data_with_deferred_counts(counts: &DeferredComputeCounts) -> UserComputa
     data
 }
 
-fn deferred_page_in_count(dice: &Dice) -> u64 {
+fn page_in_count<K: Key>(dice: &Dice) -> u64 {
     dice.page_in_metrics()
-        .get(<DeferredPagableKey as Key>::key_type_name())
+        .get(K::key_type_name())
         .map_or(0, |metrics| metrics.count)
 }
 
@@ -379,7 +411,7 @@ async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Resu
     assert_eq!(*tx.compute(&DeferredPagableKey(0)).await?, 1);
 
     assert_eq!(counts.count(0), 1, "the paged-out parent should be reused");
-    assert_eq!(deferred_page_in_count(&dice), 1);
+    assert_eq!(page_in_count::<DeferredPagableKey>(&dice), 1);
 
     Ok(())
 }
@@ -413,7 +445,7 @@ async fn check_deps_paged_out_skips_page_in_when_deps_change() -> anyhow::Result
 
     assert_eq!(counts.count(2), 2, "the parent should be recomputed");
     assert_eq!(
-        deferred_page_in_count(&dice),
+        page_in_count::<DeferredPagableKey>(&dice),
         0,
         "the old value is not needed when the dependency structure changes"
     );
@@ -450,7 +482,52 @@ async fn check_deps_paged_out_hydrates_to_compare_equal_recompute() -> anyhow::R
         1,
         "the observer should reuse the equality-verified parent"
     );
-    assert_eq!(deferred_page_in_count(&dice), 1);
+    assert_eq!(page_in_count::<DeferredPagableKey>(&dice), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn always_unequal_recompute_skips_old_value_page_in() -> anyhow::Result<()> {
+    let counter = ComputeCounter::new();
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+
+    let mut updater = dice.updater_with_data(user_data_with_counter(&counter));
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&AlwaysUnequalPagableKey).await?, 1);
+    drop(tx);
+
+    // Exercise the resident equality path separately from the paged-out path below.
+    let mut updater = dice.updater_with_data(user_data_with_counter(&counter));
+    updater.changed_to([(DeferredInput(0), 2)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&AlwaysUnequalPagableKey).await?, 0);
+    drop(tx);
+    assert_eq!(
+        counter.count(),
+        2,
+        "the key should recompute after invalidation"
+    );
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(user_data_with_counter(&counter));
+    updater.changed_to([(DeferredInput(0), 5)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&AlwaysUnequalPagableKey).await?, 1);
+
+    assert_eq!(counter.count(), 3, "the paged-out key should recompute");
+    assert_eq!(
+        page_in_count::<AlwaysUnequalPagableKey>(&dice),
+        0,
+        "the old value cannot be reused and should stay paged out"
+    );
 
     Ok(())
 }
