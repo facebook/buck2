@@ -19,6 +19,8 @@ use std::convert::Infallible;
 
 use dupe::Dupe;
 
+use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::typing::Ty;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -35,7 +37,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 ///
 /// Struct implementation (for example, memory layout) may change,
 /// this type provides implementation agnostics API to it.
-#[derive(Debug, Clone, Copy, Dupe)]
+#[derive(Debug, Clone, Copy, Dupe, ProvidesStaticType)]
 pub struct StructRef<'v>(&'v Struct<'v>);
 
 impl<'v> StructRef<'v> {

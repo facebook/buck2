@@ -65,6 +65,7 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenRef;
 use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -226,13 +227,16 @@ impl FrozenModule {
         })
     }
 
+    fn get_slot_any_visibility(&self, name: &str) -> Option<(FrozenValue, Visibility)> {
+        let (slot, vis) = self.module.names.get_name(name)?;
+        Some((self.module.slots.get_slot(slot)?, vis))
+    }
+
     fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
-        self.module.names.get_name(name).and_then(|(slot, vis)|
-        // This code is safe because we know the frozen module ref keeps the values alive
-        self.module
-            .slots
-            .get_slot(slot)
-            .map(|x| (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)))
+        self.get_slot_any_visibility(name).map(|(x, vis)| {
+            // This code is safe because we know the frozen module ref keeps the values alive
+            (unsafe { OwnedFrozenValue::new(self.heap.dupe(), x) }, vis)
+        })
     }
 
     /// Get value, exported or private by name.
@@ -283,6 +287,26 @@ impl FrozenModule {
         name: &str,
     ) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
         Ok(self.get_option(name)?.map(OwnedFrozen::from))
+    }
+
+    /// Like [`get_option_owned`](FrozenModule::get_option_owned), but borrowing this module
+    /// instead of sharing ownership of its heap.
+    pub fn get_option_ref(
+        &self,
+        name: &str,
+    ) -> anyhow::Result<Option<OwnedFrozenRef<'_, Value<'static>>>> {
+        match self.get_slot_any_visibility(name) {
+            None => Ok(None),
+            Some((_, Visibility::Private)) => {
+                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+            }
+            // SAFETY: The value came out of a slot of this module, so the heap we are borrowing
+            // keeps it alive — directly, or through its heap references for slot values that
+            // arrived via `load()`.
+            Some((value, Visibility::Public)) => Ok(Some(unsafe {
+                OwnedFrozenRef::unchecked_new(&self.heap, value.to_value())
+            })),
+        }
     }
 
     /// Get the value of the exported variable `name`.
