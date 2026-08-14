@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use buck2_core::cells::cell_path::CellPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
@@ -79,7 +79,7 @@ impl ExpandedArgv {
         }
     }
 
-    fn redacted(self, to_redact: &StdBuckHashSet<&String>) -> ExpandedArgv {
+    fn redacted(self, to_redact: &BuckMutSet<&String>) -> ExpandedArgv {
         Self {
             args: self
                 .args
@@ -312,7 +312,7 @@ impl Argv {
         }
     }
 
-    pub fn redacted(self, to_redact: StdBuckHashSet<&String>) -> SanitizedArgv {
+    pub fn redacted(self, to_redact: BuckMutSet<&String>) -> SanitizedArgv {
         SanitizedArgv {
             argv: self
                 .argv

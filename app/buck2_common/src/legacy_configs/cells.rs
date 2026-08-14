@@ -28,7 +28,7 @@ use buck2_error::BuckErrorContext;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use dice::DiceComputations;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -193,7 +193,7 @@ impl ExternalBuckconfigData {
 pub struct BuckConfigBasedCells {
     pub cell_resolver: CellResolver,
     pub root_config: LegacyBuckConfig,
-    pub config_paths: StdBuckHashSet<ConfigPath>,
+    pub config_paths: BuckMutSet<ConfigPath>,
     pub external_data: ExternalBuckconfigData,
 }
 
@@ -289,7 +289,7 @@ impl BuckConfigBasedCells {
         // Tracing file ops to record config file accesses on command invocation.
         struct TracingFileOps<'a> {
             inner: &'a mut dyn ConfigParserFileOps,
-            trace: StdBuckHashSet<ConfigPath>,
+            trace: BuckMutSet<ConfigPath>,
         }
 
         #[async_trait::async_trait]

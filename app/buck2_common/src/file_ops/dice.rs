@@ -18,7 +18,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -168,12 +168,12 @@ pub(crate) enum CheckIgnores {
 
 #[derive(Allocative)]
 pub struct FileChangeTracker {
-    files_to_dirty: StdBuckHashSet<ReadFileKey>,
-    dirs_to_dirty: StdBuckHashSet<ReadDirKey>,
-    paths_to_dirty: StdBuckHashSet<PathMetadataKey>,
-    exists_matching_exact_case_to_dirty: StdBuckHashSet<ExistsMatchingExactCaseKey>,
+    files_to_dirty: BuckMutSet<ReadFileKey>,
+    dirs_to_dirty: BuckMutSet<ReadDirKey>,
+    paths_to_dirty: BuckMutSet<PathMetadataKey>,
+    exists_matching_exact_case_to_dirty: BuckMutSet<ExistsMatchingExactCaseKey>,
 
-    maybe_modified_dirs: StdBuckHashSet<CellPath>,
+    maybe_modified_dirs: BuckMutSet<CellPath>,
 }
 
 impl FileChangeTracker {

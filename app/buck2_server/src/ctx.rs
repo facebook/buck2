@@ -97,8 +97,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
+use buck2_hash::BuckMutSet;
 use buck2_hash::IntentionallyStdHashMap;
-use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -590,7 +590,7 @@ impl ServerCommandContext<'_> {
                 Ok(BuckConfigBasedCells {
                     cell_resolver: new_configs.cell_resolver,
                     root_config: new_configs.root_config,
-                    config_paths: StdBuckHashSet::default(),
+                    config_paths: BuckMutSet::default(),
                     external_data: (*dice_ctx.get_injected_external_buckconfig_data().await?)
                         .clone(),
                 })
@@ -609,7 +609,7 @@ impl ServerCommandContext<'_> {
 
     fn report_traced_config_paths(
         &self,
-        paths: &StdBuckHashSet<ConfigPath>,
+        paths: &BuckMutSet<ConfigPath>,
     ) -> buck2_error::Result<()> {
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             for config_path in paths {

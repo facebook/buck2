@@ -17,7 +17,7 @@ use allocative::Allocative;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::sorted_map::SortedMap;
@@ -364,12 +364,12 @@ pub mod testing {
     }
 
     pub struct TestConfigParserFileOps {
-        data: StdBuckHashMap<ProjectRelativePathBuf, String>,
+        data: BuckMutMap<ProjectRelativePathBuf, String>,
     }
 
     impl TestConfigParserFileOps {
         pub fn new(data: &[(&str, &str)]) -> buck2_error::Result<Self> {
-            let mut holder_data = StdBuckHashMap::default();
+            let mut holder_data = BuckMutMap::default();
             for (file, content) in data {
                 holder_data.insert(
                     ProjectRelativePath::new(*file)?.to_owned(),

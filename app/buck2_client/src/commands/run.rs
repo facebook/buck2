@@ -38,8 +38,8 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
@@ -268,7 +268,7 @@ impl StreamingCommand for RunCommand {
     }
 
     fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
-        let to_redact: StdBuckHashSet<_> = self.extra_run_args.iter().collect();
+        let to_redact: BuckMutSet<_> = self.extra_run_args.iter().collect();
         argv.redacted(to_redact)
     }
 }
@@ -277,7 +277,7 @@ impl StreamingCommand for RunCommand {
 struct CommandArgsFile {
     path: String,
     argv: Vec<String>,
-    envp: StdBuckHashMap<String, String>,
+    envp: BuckMutMap<String, String>,
     // Not used. For buck_v1 back compatibility only.
     is_fix_script: bool,
     // Not used. For buck_v1 back compatibility only.

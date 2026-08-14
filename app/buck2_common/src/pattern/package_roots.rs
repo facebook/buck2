@@ -12,7 +12,7 @@ use std::sync::LazyLock;
 
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use dice::DiceTransaction;
 use dice_futures::drop::DropTogether;
 use dice_futures::spawn::spawn_dropcancel;
@@ -90,7 +90,7 @@ pub async fn collect_package_roots<E>(
     let semaphore = &SEMAPHORE;
 
     let mut queue = FuturesUnordered::new();
-    let mut seen = StdBuckHashSet::default();
+    let mut seen = BuckMutSet::default();
 
     let list_dir = |path: CellPath| async move {
         let _permit = semaphore.acquire().await.unwrap();
