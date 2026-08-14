@@ -16,12 +16,12 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 
 use crate::dynamic::attrs::DynamicAttrValues;
@@ -29,7 +29,7 @@ use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallab
 
 #[derive(Debug, Trace, Allocative)]
 pub(crate) struct StarlarkDynamicActionsData<'v> {
-    pub(crate) callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
+    pub(crate) callable: ValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
     pub(crate) attr_values: DynamicAttrValues<'v>,
 }
 

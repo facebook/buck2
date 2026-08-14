@@ -299,7 +299,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let lambda_params = DynamicLambdaParams {
             attributes: None,
             plugins: None,
-            lambda: callable.implementation.erase().to_callable(),
+            lambda: callable.implementation.erase(),
             attr_values: Some((attr_values, callable)),
             outputs,
             static_fields: DynamicLambdaStaticFields {

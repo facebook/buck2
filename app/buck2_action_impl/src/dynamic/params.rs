@@ -18,10 +18,8 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use starlark::StarlarkPagable;
 use starlark::any::ProvidesStaticType;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
@@ -50,7 +48,7 @@ pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) attr_values: Option<(
         DynamicAttrValues<'v>,
-        FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
+        ValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
     )>,
     pub(crate) outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
@@ -63,7 +61,7 @@ pub struct FrozenDynamicLambdaParams<'fv> {
     lambda: StarlarkCallable<'fv>,
     pub attr_values: Option<(
         DynamicAttrValues<'fv>,
-        FrozenValueTyped<'fv, FrozenStarlarkDynamicActionsCallable>,
+        ValueTyped<'fv, FrozenStarlarkDynamicActionsCallable<'fv>>,
     )>,
     pub(crate) outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
@@ -87,19 +85,11 @@ impl<'v> FreezeBranded for DynamicLambdaParams<'v> {
     type Frozen<'fv> = FrozenDynamicLambdaParams<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let attr_values = match self.attr_values {
-            None => None,
-            Some((attr_values, callable)) => Some((
-                attr_values.freeze(freezer)?,
-                FrozenValueTyped::new_err(callable.to_frozen_value())
-                    .map_err(|e| FreezeError::new(e.to_string()))?,
-            )),
-        };
         Ok(FrozenDynamicLambdaParams {
             attributes: self.attributes.freeze(freezer)?,
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
-            attr_values,
+            attr_values: self.attr_values.freeze(freezer)?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,
             // which can cause over-allocations in frozen containers.
             outputs: {

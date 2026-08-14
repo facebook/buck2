@@ -93,7 +93,7 @@ pub fn new_dynamic_actions_callable<'v>(
 #[starlark_module]
 #[starlark_types(
     StarlarkDynamicActions<'_> as DynamicActions,
-    FrozenStarlarkDynamicActionsCallable as DynamicActionsCallable
+    FrozenStarlarkDynamicActionsCallable<'_> as DynamicActionsCallable
 )]
 pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new dynamic action callable. Returned object will be callable,

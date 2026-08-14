@@ -701,7 +701,7 @@ fn new_attr_value<'v>(
 
 fn new_attr_values<'v>(
     values: &DynamicAttrValues<'v>,
-    callable: &FrozenStarlarkDynamicActionsCallable,
+    callable: &FrozenStarlarkDynamicActionsCallable<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,

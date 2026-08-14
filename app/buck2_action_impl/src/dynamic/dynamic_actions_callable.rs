@@ -16,7 +16,6 @@ use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -31,22 +30,21 @@ use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::util::ArcStr;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::values::list::ListType;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark_map::small_map::SmallMap;
@@ -127,21 +125,29 @@ pub struct DynamicActionsCallable<'v> {
     StarlarkPagable
 )]
 #[display("DynamicActionsCallable[{}]", name)]
-pub struct FrozenStarlarkDynamicActionsCallable {
+pub struct FrozenStarlarkDynamicActionsCallable<'v> {
     #[starlark_pagable(pagable)]
     pub(crate) self_ty: Ty,
     pub(crate) implementation:
-        FrozenStarlarkCallable<DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
+        StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
     pub(crate) attrs: SmallMap<String, DynamicAttrType>,
     name: String,
     signature: ParametersSpec<FrozenValue>,
+}
+
+starlark::register_simple_vtable_entry!(FrozenStarlarkDynamicActionsCallable<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered
+    for FrozenStarlarkDynamicActionsCallable<'v>
+{
 }
 
 starlark::methods_static!(DYNAMIC_ACTION_CALLABLE_METHODS = dynamic_action_callable_methods);
 
 #[starlark_value(type = "DynamicActionCallable")]
 impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
-    type Canonical = FrozenStarlarkDynamicActionsCallable;
+    type Canonical = FrozenStarlarkDynamicActionsCallable<'v>;
 
     fn export_as(
         &self,
@@ -173,7 +179,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
 }
 
 #[starlark_value(type = "DynamicActionCallable")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
+impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
     type Canonical = Self;
 
     fn invoke(
@@ -182,10 +188,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let me = me
-            .unpack_frozen()
-            .ok_or_else(|| internal_error!("me must be frozen"))?;
-        let me = FrozenValueTyped::new_err(me)?;
+        let me = ValueTyped::new_err(me)?;
         let attr_values: DynamicAttrValues<'v> =
             self.signature.parser(args, eval, |parser, _eval| {
                 let mut attr_values = Vec::with_capacity(self.attrs.len());
@@ -214,14 +217,14 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
 
 impl<'v> AllocValue<'v> for DynamicActionsCallable<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
-impl<'v> Freeze for DynamicActionsCallable<'v> {
-    type Frozen = FrozenStarlarkDynamicActionsCallable;
+impl<'v> FreezeBranded for DynamicActionsCallable<'v> {
+    type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let DynamicActionsCallable {
             self_ty,
             implementation,
@@ -246,6 +249,27 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
             implementation: implementation.freeze(freezer)?,
             name,
             attrs,
+            signature,
+        })
+    }
+}
+
+impl<'v> FreezeBranded for FrozenStarlarkDynamicActionsCallable<'v> {
+    type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let FrozenStarlarkDynamicActionsCallable {
+            self_ty,
+            implementation,
+            attrs,
+            name,
+            signature,
+        } = self;
+        Ok(FrozenStarlarkDynamicActionsCallable {
+            self_ty,
+            implementation: implementation.freeze(freezer)?,
+            attrs,
+            name,
             signature,
         })
     }
