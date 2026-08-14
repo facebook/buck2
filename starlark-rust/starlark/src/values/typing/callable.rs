@@ -44,6 +44,7 @@ use crate::typing::callable::TyCallable;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -157,7 +158,7 @@ impl<'v> StarlarkValue<'v> for TypingCallableAt2 {
 
 /// Marker for a callable value. Can be used in function signatures
 /// for better documentation and type checking.
-#[derive(Allocative)]
+#[derive(Allocative, StarlarkPagable)]
 #[allocative(bound = "")]
 pub struct StarlarkCallable<
     'v,
@@ -321,6 +322,18 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Freeze for StarlarkC
         Ok(FrozenStarlarkCallable::unchecked_new(
             self.0.freeze(freezer)?,
         ))
+    }
+}
+
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded
+    for StarlarkCallable<'v, P, R>
+{
+    type Frozen<'fv> = StarlarkCallable<'fv, P, R>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(StarlarkCallable::unchecked_new(FreezeBranded::freeze(
+            self.0, freezer,
+        )?))
     }
 }
 
