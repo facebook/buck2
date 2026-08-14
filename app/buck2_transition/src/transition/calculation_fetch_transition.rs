@@ -123,7 +123,7 @@ impl FetchTransition for DiceComputations<'_> {
                     .await?
                     .builtin_provider_value::<FrozenTransitionInfo>()
                     .ok_or_else(|| FetchTransitionError::MissingTransitionInfo(label.clone()))?;
-                Ok(TransitionData::Target(transition_info.into()))
+                Ok(TransitionData::Target(transition_info))
             }
         }
     }

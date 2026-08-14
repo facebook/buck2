@@ -630,7 +630,6 @@ async fn build_configured_label_inner(
             .await?
             .require_compatible()?
             .builtin_provider_value::<FrozenRunInfo>()
-            .map(Into::into)
     } else {
         None
     };

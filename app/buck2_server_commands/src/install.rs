@@ -372,7 +372,8 @@ async fn collect_install_request_data(
                 .require_compatible()?
                 .builtin_provider_value::<FrozenInstallInfo>();
             match install_info {
-                Some(install_info) => {
+                Some(owned_install_info) => {
+                    let install_info = owned_install_info.as_ref().value().as_ref();
                     let installer_label = install_info.get_installer()?;
                     let install_files = install_info.get_files()?;
                     installer_to_files_map
@@ -900,9 +901,8 @@ async fn build_launch_installer(
         .require_compatible()?;
 
     // Held across awaits, so this needs the owned form; the branded view is derived at each use.
-    let installer_run_info: Option<OwnedRunInfo> = frozen_providers
-        .builtin_provider_value::<FrozenRunInfo>()
-        .map(Into::into);
+    let installer_run_info: Option<OwnedRunInfo> =
+        frozen_providers.builtin_provider_value::<FrozenRunInfo>();
     if let Some(installer_run_info) = installer_run_info {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let inputs = {

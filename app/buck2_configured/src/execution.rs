@@ -16,7 +16,6 @@ use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -423,23 +422,18 @@ async fn compute_execution_platforms(
         ))
         .await?;
 
-    // Values of branded provider types must not be held across the awaits below; rustc
-    // mishandles them in the auto trait checks on this future (a rust-lang/rust#102211-like
-    // "implementation of `Sync` is not general enough" error). So look the provider up again
-    // whenever we need it instead of keeping it around.
-    let registration_info = |providers: &FrozenProviderCollectionValue| {
-        providers
-            .builtin_provider_value::<FrozenExecutionPlatformRegistrationInfo>()
-            .ok_or_else(|| {
-                buck2_error::Error::from(
-                    ExecutionPlatformComputationError::MissingExecutionPlatformRegistrationInfo(
-                        execution_platforms_target.dupe(),
-                    ),
-                )
-            })
-    };
+    let registration_info = providers
+        .builtin_provider_value::<FrozenExecutionPlatformRegistrationInfo>()
+        .ok_or_else(|| {
+            ExecutionPlatformComputationError::MissingExecutionPlatformRegistrationInfo(
+                execution_platforms_target.dupe(),
+            )
+        })?;
 
-    let marker_str = registration_info(&providers)?
+    let marker_str = registration_info
+        .as_ref()
+        .value()
+        .as_ref()
         .exec_marker_constraint()
         .map(str::to_owned);
 
@@ -464,15 +458,15 @@ async fn compute_execution_platforms(
         None
     };
 
-    let result = registration_info(&providers)?;
+    let registration_info = registration_info.as_ref().value().as_ref();
     let mut platforms = Vec::new();
-    for platform in result.platforms()? {
+    for platform in registration_info.platforms()? {
         platforms.push(platform.to_execution_platform_with_marker(marker_constraint.as_ref())?);
     }
     Ok(Some(Arc::new(ExecutionPlatformsData::new(
         execution_platforms_target,
         platforms,
-        result.fallback()?,
+        registration_info.fallback()?,
     ))))
 }
 

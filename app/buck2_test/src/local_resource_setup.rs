@@ -87,5 +87,5 @@ async fn get_local_resource_info<'v>(
         .ok_or_else(|| {
             internal_error!("Target `{target}` expected to contain `LocalResourceInfo` provider")
         })?;
-    Ok((target.target(), local_resource_info.into()))
+    Ok((target.target(), local_resource_info))
 }

@@ -1544,9 +1544,8 @@ async fn test_target<'a, 'e>(
     // Check for InternalRunnerTestInfo first — run in-process.
     // Gated by [test].use_internal_runner (default true, comma-separated framework types,
     // or false to force TPX fallback).
-    let internal_provider: Option<OwnedInternalRunnerTestInfo> = providers
-        .builtin_provider_value::<FrozenInternalRunnerTestInfo>()
-        .map(Into::into);
+    let internal_provider: Option<OwnedInternalRunnerTestInfo> =
+        providers.builtin_provider_value::<FrozenInternalRunnerTestInfo>();
     if let Some(internal_provider) = internal_provider {
         // `'v`-branded views of the provider must not be held across awaits (only the
         // `OwnedFrozen` may be), so views are derived in scopes that end before the next await.

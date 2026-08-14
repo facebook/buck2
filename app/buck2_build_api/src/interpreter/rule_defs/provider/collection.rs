@@ -47,9 +47,10 @@ use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
+use starlark::values::HeapSendable;
+use starlark::values::HeapSyncable;
 use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenRef;
-use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
@@ -585,22 +586,16 @@ impl FrozenProviderCollectionValue {
     /// Get a provider from the collection, keeping it alive by its owner heap.
     pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
         &self,
-    ) -> Option<OwnedFrozenValueTyped<T>>
+    ) -> Option<OwnedFrozen<ValueTyped<'static, T>>>
     where
         for<'x> T::Reinfect<'x>: StarlarkValue<'x> + Sized,
+        for<'x> ValueTyped<'x, T::Reinfect<'x>>: HeapSendable<'x> + HeapSyncable<'x>,
     {
         let v = self
+            .value
             .as_ref()
-            .inner
-            .maybe_map::<FrozenValueTyped<'static, T>, _>(|v| {
-                // This wrapper type's constructors only accept collections stored in frozen
-                // heaps, so the providers in them are frozen too.
-                v.as_ref().builtin_provider::<T>().map(|p| {
-                    p.unpack_frozen()
-                        .expect("wrapper holds a frozen collection")
-                })
-            })?;
-        Some(v.to_owned().into())
+            .maybe_map::<ValueTyped<'static, T>, _>(|v| v.as_ref().builtin_provider::<T>())?;
+        Some(v.to_owned())
     }
 }
 
