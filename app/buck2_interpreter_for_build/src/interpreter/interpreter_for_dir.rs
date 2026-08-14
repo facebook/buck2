@@ -333,8 +333,10 @@ impl InterpreterForDir {
                 })?;
             env.import_public_symbols(prelude_env.env());
             if let StarlarkPath::BuildFile(_) = starlark_path {
-                for (name, value) in prelude_env.extra_globals_from_prelude_for_buck_files()? {
-                    env.set(name, value.to_value());
+                if let Some(native) = prelude_env.native_globals_for_buck_files()? {
+                    for (name, value) in native.add_to_heap(env.heap()).iter() {
+                        env.set(name.as_str(), value);
+                    }
                 }
             }
         }

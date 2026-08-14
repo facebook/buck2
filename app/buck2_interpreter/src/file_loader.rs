@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -16,12 +15,11 @@ use buck2_core::bzl::ImportPath;
 use buck2_error::conversion::from_any_with_tag;
 use derivative::Derivative;
 use dupe::Dupe;
-use either::Either;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
-use starlark::values::FrozenValue;
-use starlark::values::structs::FrozenStructRef;
+use starlark::values::OwnedFrozenRef;
+use starlark::values::structs::StructRef;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::paths::module::OwnedStarlarkModulePath;
@@ -112,25 +110,27 @@ impl LoadedModule {
         &self.0.env
     }
 
-    /// Returned `FrozenValue` is owned by `self.0.env`.
-    pub fn extra_globals_from_prelude_for_buck_files(
+    /// The prelude's `native` struct, whose members are exposed as extra globals when evaluating
+    /// `BUCK` files.
+    ///
+    /// The result borrows this module; use [`OwnedFrozenRef::add_to_heap`] to read the members on
+    /// another heap.
+    pub fn native_globals_for_buck_files(
         &self,
-    ) -> buck2_error::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
-        if let Some(native) = self
+    ) -> buck2_error::Result<Option<OwnedFrozenRef<'_, StructRef<'static>>>> {
+        let Some(native) = self
             .0
             .env
-            .get_option("native")
+            .get_option_ref("native")
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
-        {
-            unsafe {
-                match FrozenStructRef::<'static>::from_value(native.unchecked_frozen_value()) {
-                    Some(native) => Ok(Either::Left(native.iter().map(|(n, v)| (n.as_str(), v)))),
-                    None => Err(FileLoaderError::NativeMustBeStruct.into()),
-                }
-            }
-        } else {
-            Ok(Either::Right(iter::empty()))
-        }
+        else {
+            return Ok(None);
+        };
+        let native = native.try_map(|v| {
+            StructRef::from_value(v)
+                .ok_or_else(|| buck2_error::Error::from(FileLoaderError::NativeMustBeStruct))
+        })?;
+        Ok(Some(native))
     }
 }
 

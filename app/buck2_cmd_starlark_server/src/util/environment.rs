@@ -89,8 +89,10 @@ impl Environment {
                 names.insert(x.as_str().to_owned());
             }
             if path_type == StarlarkFileType::Buck {
-                for (name, _value) in m.extra_globals_from_prelude_for_buck_files()? {
-                    names.insert(name.to_owned());
+                if let Some(native) = m.native_globals_for_buck_files()? {
+                    for (name, _value) in native.value().iter() {
+                        names.insert(name.as_str().to_owned());
+                    }
                 }
             }
         }

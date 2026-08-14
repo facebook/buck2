@@ -178,11 +178,14 @@ async fn get_prelude_docs(
     let mut module_docs = frozen_module.documentation();
 
     // For the prelude, we want to promote `native` symbol up one level
-    for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
-        if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-            let doc = value.to_value().documentation();
+    if let Some(native) = module.native_globals_for_buck_files()? {
+        for (name, value) in native.value().iter() {
+            let name = name.as_str();
+            if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
+                let doc = value.documentation();
 
-            module_docs.members.insert(name.to_owned(), doc);
+                module_docs.members.insert(name.to_owned(), doc);
+            }
         }
     }
 
