@@ -19,7 +19,7 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
@@ -37,7 +37,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
         &'v mut DiceComputations,
         InputArtifactsMaterialized,
         &'v BuckIndexMap<&Artifact, &ArtifactValue>,
-        StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
+        BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
         DigestConfig,
         CancellationObserver,
     ) -> Pin<
@@ -52,7 +52,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'v BuckIndexMap<&Artifact, &ArtifactValue>,
-    resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
+    resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> buck2_error::Result<RecordedAnalysisValues> {

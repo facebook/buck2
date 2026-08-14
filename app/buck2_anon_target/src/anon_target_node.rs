@@ -41,6 +41,7 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
+use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -205,7 +206,7 @@ impl AnonTargetDyn for AnonTarget {
         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: env,
             dep_analysis_results,
-            query_results: StdBuckHashMap::default(),
+            query_results: BuckMutMap::default(),
             execution_platform_resolution: exec_resolution,
         };
 

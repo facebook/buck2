@@ -87,8 +87,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_hash::BuckDashMap;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -1432,7 +1432,7 @@ fn remap_live_outputs(
     declared_outputs: &[BuildArtifact],
     cached: &ActionOutputs,
 ) -> buck2_error::Result<ActionOutputs> {
-    let by_short_path: StdBuckHashMap<&ForwardRelativePath, &ArtifactValue> = cached
+    let by_short_path: BuckMutMap<&ForwardRelativePath, &ArtifactValue> = cached
         .iter()
         .map(|(path, value)| (path.path(), value))
         .collect();
@@ -1464,7 +1464,7 @@ async fn resolve_loaded_outputs(
     outputs: &[StoredOutput],
 ) -> buck2_error::Result<Option<ActionOutputs>> {
     let fs = ctx.fs();
-    let by_short_path: StdBuckHashMap<&ForwardRelativePath, &StoredOutputValue> = outputs
+    let by_short_path: BuckMutMap<&ForwardRelativePath, &StoredOutputValue> = outputs
         .iter()
         .map(|o| (o.path.as_ref(), &o.value))
         .collect();
@@ -1523,8 +1523,8 @@ async fn resolve_loaded_outputs(
             Plan::Ready(_) => None,
         })
         .collect();
-    let mut fetched: StdBuckHashMap<ProjectRelativePathBuf, _> = if dir_paths.is_empty() {
-        StdBuckHashMap::default()
+    let mut fetched: BuckMutMap<ProjectRelativePathBuf, _> = if dir_paths.is_empty() {
+        BuckMutMap::default()
     } else {
         ctx.materializer()
             .get_artifact_entries_for_materialized_paths(dir_paths, false)
@@ -1842,7 +1842,7 @@ fn outputs_are_reusable(
 ) -> bool {
     // Match by configuration-independent output path so an identical action built under a different
     // configuration (or reloaded from disk) is still recognized as reusable.
-    let cached: StdBuckHashSet<&ForwardRelativePath> = candidate.short_paths().collect();
+    let cached: BuckMutSet<&ForwardRelativePath> = candidate.short_paths().collect();
     declared_outputs.iter().all(|out| {
         let path = out.get_path();
         cached.contains(&(path.path()))
@@ -2314,7 +2314,7 @@ impl DeclaredDepFiles {
         result: &ActionOutputs,
     ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
         let mut contents =
-            StdBuckHashMap::with_capacity_and_hasher(self.tagged.len(), Default::default());
+            BuckMutMap::with_capacity_and_hasher(self.tagged.len(), Default::default());
 
         for declared_dep_file in self.tagged.values() {
             let content_hash = if declared_dep_file
@@ -2375,7 +2375,7 @@ impl DeclaredDepFiles {
     /// cached state is looked up by a key that already fixes the (unconfigured) target, comparing
     /// these identities is sufficient to reuse dep files (or the whole action) from a previous
     /// invocation, possibly under a different configuration or from a previous daemon session.
-    fn identities(&self) -> buck2_error::Result<StdBuckHashSet<DeclaredDepFileIdentity>> {
+    fn identities(&self) -> buck2_error::Result<BuckMutSet<DeclaredDepFileIdentity>> {
         self.tagged
             .values()
             .map(DeclaredDepFile::identity)
@@ -2400,7 +2400,7 @@ enum MaterializeDepFilesError {
 /// content of the corresponding dep file.
 #[derive(Clone)]
 pub(crate) struct ConcreteDepFiles {
-    contents: StdBuckHashMap<Arc<str>, String>,
+    contents: BuckMutMap<Arc<str>, String>,
 }
 
 impl ConcreteDepFiles {

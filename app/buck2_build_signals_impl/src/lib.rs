@@ -57,7 +57,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckDashSet;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -817,7 +817,7 @@ struct BuildSignalReceiver<T> {
     // Maps a PackageLabel to the first PackageLabel that had an edge to it. When that PackageLabel
     // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
     // is how we discovered its existence.
-    first_edge_to_load: StdBuckHashMap<PackageLabel, PackageLabel>,
+    first_edge_to_load: BuckMutMap<PackageLabel, PackageLabel>,
     // Maps an anon target NodeKey to the analysis Part 1 NodeKey that discovered it
     // (the one whose Part 1 finished earliest). Used to add discovery edges in finish().
     first_analysis_for_anon_target: HashMap<NodeKey, (NodeKey, Instant)>,
@@ -833,7 +833,7 @@ struct BuildSignalReceiver<T> {
 
     // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
     // DICE keys instead.
-    test_listing_keys: StdBuckHashMap<String, NodeKey>,
+    test_listing_keys: BuckMutMap<String, NodeKey>,
 }
 
 impl<T> BuildSignalReceiver<T>
@@ -844,11 +844,11 @@ where
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
-            first_edge_to_load: StdBuckHashMap::default(),
+            first_edge_to_load: BuckMutMap::default(),
             first_analysis_for_anon_target: HashMap::new(),
             split_analysis_finish_keys: HashMap::new(),
             pending_page_ins: HashMap::new(),
-            test_listing_keys: StdBuckHashMap::default(),
+            test_listing_keys: BuckMutMap::default(),
         }
     }
 

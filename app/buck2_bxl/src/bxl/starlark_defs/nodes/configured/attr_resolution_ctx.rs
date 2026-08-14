@@ -26,7 +26,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderColle
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use futures::FutureExt;
 use starlark::environment::Module;
@@ -38,8 +38,8 @@ use crate::bxl::starlark_defs::context::BxlContext;
 #[derive(Allocative)]
 pub(crate) struct LazyAttrResolutionCache {
     pub(super) dep_analysis_results:
-        Option<StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
-    pub(super) query_results: Option<StdBuckHashMap<String, Arc<AnalysisQueryResult>>>,
+        Option<BuckMutMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>,
+    pub(super) query_results: Option<BuckMutMap<String, Arc<AnalysisQueryResult>>>,
 }
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
@@ -68,7 +68,7 @@ impl LazyAttrResolutionCache {
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<&StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>
+    ) -> buck2_error::Result<&BuckMutMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>
     {
         get_or_try_init(&mut self.dep_analysis_results, || {
             get_deps_from_analysis_results(ctx.via_dice(eval, |ctx| {
@@ -84,7 +84,7 @@ impl LazyAttrResolutionCache {
         ctx: &'v BxlContext<'v>,
         configured_node: &'v ConfiguredTargetNode,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<&StdBuckHashMap<String, Arc<AnalysisQueryResult>>> {
+    ) -> buck2_error::Result<&BuckMutMap<String, Arc<AnalysisQueryResult>>> {
         get_or_try_init(&mut self.query_results, || {
             ctx.via_dice(eval, |ctx| {
                 ctx.via(|dice_ctx| {

@@ -46,6 +46,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
@@ -62,13 +63,13 @@ fn mock_analysis_for_tsets(
     mut dice_builder: DiceBuilder,
     tsets: Vec<OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>>,
 ) -> DiceBuilder {
-    let mut by_target: StdBuckHashMap<
+    let mut by_target: BuckMutMap<
         ConfiguredTargetLabel,
         Vec<(
             TransitiveSetKey,
             OwnedFrozen<ValueTyped<'static, TransitiveSet<'static>>>,
         )>,
-    > = StdBuckHashMap::default();
+    > = BuckMutMap::default();
 
     for value in tsets {
         let key = value.by_ref(|s| s.key().dupe());

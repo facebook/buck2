@@ -37,8 +37,8 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::abs_path::AbsPath;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::attr_type::arg::StringWithMacros;
 use buck2_node::attrs::attr_type::dict::DictLiteral;
@@ -128,7 +128,7 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
             CoercedAttr::Dep(dep.label.unconfigured())
         }
         ConfiguredAttr::SplitTransitionDep(dep) => {
-            let deps: StdBuckHashSet<_> = dep.deps.values().map(|l| l.unconfigured()).collect();
+            let deps: BuckMutSet<_> = dep.deps.values().map(|l| l.unconfigured()).collect();
             if deps.len() != 1 {
                 return Err(buck2_error::internal_error!(
                     "ConfiguredSplitTransitionDep should have exactly one dep, but found {}",
@@ -980,7 +980,7 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
                         .configured_target_node
                         .0
                         .special_attrs()
-                        .collect::<StdBuckHashMap<_, _>>();
+                        .collect::<BuckMutMap<_, _>>();
                     let attr = special_attrs.get(attr);
                     match attr {
                         None => NoneOr::None,
@@ -1090,7 +1090,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
                         .configured_node
                         .0
                         .special_attrs()
-                        .collect::<StdBuckHashMap<_, _>>();
+                        .collect::<BuckMutMap<_, _>>();
                     let attr = special_attrs.get(attr);
                     match attr {
                         None => NoneOr::None,

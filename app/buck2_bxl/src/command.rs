@@ -44,7 +44,7 @@ use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
@@ -594,13 +594,13 @@ pub(crate) fn parse_bxl_label_from_cli(
 
 #[derive(Debug)]
 struct PendingStreaming {
-    indexes: StdBuckHashMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>>,
+    indexes: BuckMutMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>>,
 }
 
 impl PendingStreaming {
     fn new(pending_streaming_outputs: impl Iterator<Item = PendingStreamingOutput>) -> Self {
-        let mut indexes: StdBuckHashMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>> =
-            StdBuckHashMap::default();
+        let mut indexes: BuckMutMap<ArtifactGroup, Vec<Arc<Mutex<PendingStreamingOutput>>>> =
+            BuckMutMap::default();
 
         let pending_streaming_outputs = pending_streaming_outputs
             .into_iter()

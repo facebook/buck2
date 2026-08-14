@@ -40,7 +40,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -73,7 +73,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'v BuckIndexMap<&'v Artifact, &'v ArtifactValue>,
-    resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
+    resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
@@ -158,7 +158,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     digest_config: DigestConfig,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'f BuckIndexMap<&'f Artifact, &'f ArtifactValue>,
-    resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
+    resolved_dynamic_values: BuckMutMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: ArtifactFs,
     print: EventDispatcherPrintHandler,
 }

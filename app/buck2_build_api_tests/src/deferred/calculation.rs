@@ -37,7 +37,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
 use buck2_hash::BuckIndexSet;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -113,7 +113,7 @@ async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
                 deferred_result,
                 analysis_values,
                 None,
-                StdBuckHashMap::default(),
+                BuckMutMap::default(),
                 0,
                 0,
             ))),
@@ -220,7 +220,7 @@ async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
                 deferred_result,
                 analysis_values,
                 None,
-                StdBuckHashMap::default(),
+                BuckMutMap::default(),
                 0,
                 0,
             ))),

@@ -15,6 +15,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
@@ -56,7 +57,7 @@ pub trait AnonTargetDyn: Send + Sync + Display {
 // Container for analysis results of the anon target dependents.
 pub struct AnonTargetDependentAnalysisResults<'v> {
     pub dep_analysis_results: Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>,
-    pub promised_artifacts: StdBuckHashMap<&'v PromiseArtifactAttr, Artifact>,
+    pub promised_artifacts: BuckMutMap<&'v PromiseArtifactAttr, Artifact>,
 }
 
 impl<'v> AnonTargetDependentAnalysisResults<'v> {
