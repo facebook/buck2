@@ -367,32 +367,26 @@ impl CacheUploader {
                         ..Default::default()
                     });
 
-                    let fut = async move {
-                        // We use the content-based path so we don't have to
-                        // hold a lock for the placeholder path used by
-                        // execution.
-                        let name = self
+                    // We use the content-based path so we don't have to
+                    // hold a lock for the placeholder path used by
+                    // execution.
+                    let named_digest = NamedDigest {
+                        name: self
                             .artifact_fs
                             .fs()
                             .resolve(&content_path)
                             .as_maybe_relativized_str()?
-                            .to_owned();
-
-                        self.re_client
-                            .upload_files_and_directories(
-                                vec![NamedDigest {
-                                    name,
-                                    digest: f.digest.to_re(),
-                                    ..Default::default()
-                                }],
-                                vec![],
-                                vec![],
-                            )
-                            .await
+                            .to_owned(),
+                        digest: f.digest.to_re(),
+                        ..Default::default()
                     };
 
                     file_digests.push(f.digest.dupe());
-                    upload_futs.push(fut.boxed());
+                    upload_futs.push(
+                        self.re_client
+                            .upload_files_and_directories(vec![named_digest], vec![], vec![])
+                            .boxed(),
+                    );
                 }
                 DirectoryEntry::Dir(d) => {
                     let tree = directory_to_re_tree(d);
