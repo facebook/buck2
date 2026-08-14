@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 
@@ -38,7 +39,6 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
@@ -277,7 +277,7 @@ impl StreamingCommand for RunCommand {
 struct CommandArgsFile {
     path: String,
     argv: Vec<String>,
-    envp: BuckMutMap<String, String>,
+    envp: BTreeMap<String, String>,
     // Not used. For buck_v1 back compatibility only.
     is_fix_script: bool,
     // Not used. For buck_v1 back compatibility only.
