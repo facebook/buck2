@@ -32,6 +32,7 @@ use starlark_derive::starlark_value;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -81,11 +82,14 @@ impl<'v> ValueCaptured<'v> {
     }
 }
 
-impl<'v> Freeze for ValueCaptured<'v> {
-    type Frozen = FrozenValueCaptured;
+/// `Frozen` ignores the brand: `value_captured_get` reads the payload out of the frozen and the
+/// unfrozen capture alike, at the reader's lifetime, so the frozen capture keeps storing a
+/// `FrozenValue`. Branding that storage waits for `FrozenValue` to be branded.
+impl<'v> FreezeBranded for ValueCaptured<'v> {
+    type Frozen<'fv> = FrozenValueCaptured;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValueCaptured> {
-        Ok(FrozenValueCaptured(self.0.get().freeze(freezer)?))
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured> {
+        Ok(FrozenValueCaptured(Freeze::freeze(self.0.get(), freezer)?))
     }
 }
 
