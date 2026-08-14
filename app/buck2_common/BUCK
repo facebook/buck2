@@ -9,13 +9,6 @@ rust_library(
     ),
     autocargo = {
         "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "blake3": {
-                        "version": "1.8",
-                    },
-                },
-            },
             "extra_buck_dependencies": {
                 "dependencies": [
                     (None, "//common/rust/shed/fbinit:fbinit"),

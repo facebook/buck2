@@ -9,17 +9,6 @@ rust_library(
         ["src/**/*.rs"],
     )
     + ["src/pattern/target_pattern.md"],
-    autocargo = {
-        "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "blake3": {
-                        "version": "1.8",
-                    },
-                },
-            },
-        },
-    },
     doc_deps = [
         "fbsource//third-party/rust:maplit",
     ],

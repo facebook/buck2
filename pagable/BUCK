@@ -8,15 +8,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     autocargo = {
-        "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "blake3": {
-                        "version": "1.8",
-                    },
-                },
-            },
-        },
         # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
         "edge_features": [
             "tokio",

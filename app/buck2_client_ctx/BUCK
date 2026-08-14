@@ -7,13 +7,6 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     autocargo = {
         "cargo_toml_config": {
-            "dependencies_override": {
-                "dependencies": {
-                    "blake3": {
-                        "version": "1.8",
-                    },
-                },
-            },
             "extra_buck_dependencies": {
                 "dependencies": [
                     (None, "//common/rust/shed/detect_eden:detect_eden"),
