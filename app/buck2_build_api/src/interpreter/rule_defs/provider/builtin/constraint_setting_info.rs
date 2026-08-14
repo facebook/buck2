@@ -30,8 +30,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
-use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::none::NoneOr;
@@ -52,14 +50,14 @@ use crate as buck2_build_api;
 )]
 #[repr(C)]
 pub(crate) struct ConstraintSettingInfo<'v> {
-    label: ValueOfUnchecked<'v, StarlarkTargetLabel>,
+    label: ValueTyped<'v, StarlarkTargetLabel>,
     // TODO(nero): Remove NoneOr when we migrate to unified constraint
     default: ValueOfUnchecked<'v, NoneOr<StarlarkProvidersLabel>>,
 }
 
 impl<'v> ConstraintSettingInfo<'v> {
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkTargetLabel> {
-        ValueTyped::new_err(self.label.get()).expect("validated at construction")
+        self.label
     }
 
     pub(crate) fn default(&self) -> Option<ValueTyped<'v, StarlarkProvidersLabel>> {
@@ -80,8 +78,8 @@ impl<'v> ConstraintSettingInfo<'v> {
     }
 
     pub(crate) fn new(
-        label: ValueOf<'v, &'v StarlarkTargetLabel>,
-        default: NoneOr<ValueOf<'v, &'v StarlarkProvidersLabel>>,
+        label: ValueTyped<'v, StarlarkTargetLabel>,
+        default: NoneOr<ValueTyped<'v, StarlarkProvidersLabel>>,
     ) -> ConstraintSettingInfo<'v> {
         let default_value = match default {
             NoneOr::None => ValueOfUnchecked::new(Value::new_none()),
@@ -89,7 +87,7 @@ impl<'v> ConstraintSettingInfo<'v> {
         };
 
         ConstraintSettingInfo {
-            label: label.as_unchecked().cast(),
+            label,
             default: default_value,
         }
     }
@@ -99,9 +97,9 @@ impl<'v> ConstraintSettingInfo<'v> {
 fn constraint_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConstraintSettingInfo)]
     fn ConstraintSettingInfo<'v>(
-        #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
+        #[starlark(require = named)] label: ValueTyped<'v, StarlarkTargetLabel>,
         #[starlark(require = named, default = NoneOr::None)] default: NoneOr<
-            ValueOf<'v, &'v StarlarkProvidersLabel>,
+            ValueTyped<'v, StarlarkProvidersLabel>,
         >,
     ) -> starlark::Result<ConstraintSettingInfo<'v>> {
         Ok(ConstraintSettingInfo::new(label, default))

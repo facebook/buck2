@@ -116,12 +116,11 @@ impl<'v> ConfigurationInfo<'v> {
     pub fn from_configuration_data(conf: &ConfigurationDataData, heap: Heap<'v>) -> Self {
         let mut constraints = SmallMap::new();
         for (k, v) in &conf.constraints {
-            let constraint_setting_label =
-                heap.alloc_value_of(StarlarkTargetLabel::new(k.key.dupe()));
+            let constraint_setting_label = heap.alloc_typed(StarlarkTargetLabel::new(k.key.dupe()));
             let default_value = k
                 .default
                 .as_ref()
-                .map(|v| heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe())));
+                .map(|v| heap.alloc_typed(StarlarkProvidersLabel::new(v.0.dupe())));
             let constraint_value_label =
                 heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe()));
             let constraint_setting = heap.alloc_value_of(ConstraintSettingInfo::new(
@@ -132,6 +131,7 @@ impl<'v> ConfigurationInfo<'v> {
                 ConstraintValueInfo::new(constraint_setting, constraint_value_label);
             let prev = constraints.insert_hashed(
                 constraint_setting_label
+                    .to_value()
                     .get_hashed()
                     .expect("StarlarkTargetLabel is hashable"),
                 heap.alloc(constraint_value),

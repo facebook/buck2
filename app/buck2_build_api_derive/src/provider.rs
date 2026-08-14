@@ -48,6 +48,18 @@ impl syn::parse::Parse for InternalProviderArgs {
     }
 }
 
+/// The wrapper a provider field is declared with.
+///
+/// `ValueTyped<'v, T>` is preferred: the value is checked once, where the provider is
+/// constructed, and reads are plain field accesses. It is only available when the starlark type
+/// is exactly one `StarlarkValue` implementation; unions, containers and other type-repr-only
+/// markers must use `ValueOfUnchecked<'v, T>` and re-check on read.
+#[derive(Copy, Clone)]
+enum FieldKind {
+    Unchecked,
+    Typed,
+}
+
 /// Provider field information.
 /// This does not include the `id` field.
 struct Field {
@@ -55,8 +67,11 @@ struct Field {
     name: syn::Ident,
     /// The docstring for the field, if present
     docstring: syn::Expr,
-    /// Field type as specified in the `#[provider(field_type = SomeType)]` attribute.
+    /// The field type as declared.
+    ty: syn::Type,
+    /// The type argument of the wrapper, which carries the starlark type.
     field_type: syn::Type,
+    kind: FieldKind,
 }
 
 impl Field {
@@ -65,6 +80,19 @@ impl Field {
         let field_type = &self.field_type;
         syn::parse_quote_spanned! { self.name.span() =>
             <#field_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+        }
+    }
+
+    /// Expression which produces the field's `Value`, given an expression for the provider.
+    fn value(&self, this: &syn::Expr) -> syn::Expr {
+        let name = &self.name;
+        match self.kind {
+            FieldKind::Unchecked => syn::parse_quote_spanned! { name.span() =>
+                #this.#name.get()
+            },
+            FieldKind::Typed => syn::parse_quote_spanned! { name.span() =>
+                #this.#name.to_value()
+            },
         }
     }
 }
@@ -135,6 +163,11 @@ impl ProviderCodegen {
         Ok(self.fields()?.into_map(|f| f.name))
     }
 
+    /// Expressions producing each field's `Value`, given an expression for the provider.
+    fn field_values(&self, this: syn::Expr) -> syn::Result<Vec<syn::Expr>> {
+        Ok(self.fields()?.into_map(|f| f.value(&this)))
+    }
+
     /// Parse the "doc" attribute and return a tokenstream that is either None if "doc" is not
     /// present, or the result of DocString::parse_docstring if present.
     fn get_docstring_impl(&self, attrs: &Vec<syn::Attribute>) -> syn::Expr {
@@ -177,7 +210,8 @@ impl ProviderCodegen {
             ));
         }
 
-        let error = "Field type must be `ValueOfUnchecked<'v, SomeType>`";
+        let error =
+            "Field type must be `ValueOfUnchecked<'v, SomeType>` or `ValueTyped<'v, SomeType>`";
 
         let syn::Type::Path(ty) = &field.ty else {
             return Err(syn::Error::new_spanned(field, error));
@@ -203,9 +237,13 @@ impl ProviderCodegen {
         else {
             return Err(syn::Error::new_spanned(field, error));
         };
-        if ident != "ValueOfUnchecked" {
+        let kind = if ident == "ValueOfUnchecked" {
+            FieldKind::Unchecked
+        } else if ident == "ValueTyped" {
+            FieldKind::Typed
+        } else {
             return Err(syn::Error::new_spanned(field, error));
-        }
+        };
         let [
             syn::GenericArgument::Lifetime(_),
             syn::GenericArgument::Type(field_type),
@@ -221,7 +259,9 @@ impl ProviderCodegen {
         Ok(Field {
             name,
             docstring,
+            ty: field.ty.clone(),
             field_type: field_type.clone(),
+            kind,
         })
     }
 
@@ -330,6 +370,7 @@ impl ProviderCodegen {
         let name = self.name()?;
         let name_str = self.name_str()?;
         let field_names = self.field_names()?;
+        let field_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
         Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v> std::fmt::Display for #name<'v> {
                 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -339,7 +380,7 @@ impl ProviderCodegen {
                         ")",
                         "=",
                         [
-                            #((stringify!(#field_names), &self.#field_names.get())),*
+                            #((stringify!(#field_names), &#field_values)),*
                         ]
                     )
                 }
@@ -361,7 +402,8 @@ impl ProviderCodegen {
             "{}_PROVIDER_STATICS",
             provider_methods_func_name.to_string().to_uppercase()
         );
-        let field_names = self.field_names()?;
+        let self_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
+        let other_values = self.field_values(syn::parse_quote_spanned! { self.span=> other })?;
         let starlark_value_attr: syn::Attribute = syn::parse_quote_spanned! { self.span=>
             #[starlark::values::starlark_value(type = #name_str)]
         };
@@ -391,7 +433,7 @@ impl ProviderCodegen {
                         };
 
                         #(
-                            if !self.#field_names.get().equals(other.#field_names.get())? {
+                            if !#self_values.equals(#other_values)? {
                                 return Ok(false);
                             }
                         )*
@@ -409,6 +451,7 @@ impl ProviderCodegen {
     fn impl_serializable_value(&self) -> syn::Result<syn::Item> {
         let name = self.name()?;
         let field_names = self.field_names()?;
+        let field_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
         let field_len = field_names.len();
         Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v> buck2_build_api::__derive_refs::serde::Serialize for #name<'v> {
@@ -419,7 +462,7 @@ impl ProviderCodegen {
                     #(
                         s.serialize_entry(
                             stringify!(#field_names),
-                            &self.#field_names.get()
+                            &#field_values
                         )?;
                     )*
                     s.end()
@@ -431,6 +474,7 @@ impl ProviderCodegen {
     fn impl_provider_like(&self) -> syn::Result<syn::Item> {
         let name = self.name()?;
         let field_names = self.field_names()?;
+        let field_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
             impl<'v> buck2_build_api::interpreter::rule_defs::provider::ProviderLike<'v> for #name<'v> {
@@ -440,7 +484,7 @@ impl ProviderCodegen {
 
                 fn items(&self) -> Vec<(&str, starlark::values::Value<'v>)> {
                     vec![
-                        #((stringify!(#field_names), self.#field_names.get())),*
+                        #((stringify!(#field_names), #field_values)),*
                     ]
                 }
             }
@@ -604,21 +648,17 @@ impl ProviderCodegen {
         // Only generate default provider_methods if no custom methods_func was provided
         if self.args.methods_func.is_none() {
             let provider_methods_func_name = self.provider_methods_func_name()?;
-            let (field_names, field_types): (Vec<_>, Vec<_>) = self
-                .fields()?
-                .into_iter()
-                .map(|f| (f.name, f.field_type))
-                .unzip();
+            let (field_names, field_tys): (Vec<_>, Vec<_>) =
+                self.fields()?.into_iter().map(|f| (f.name, f.ty)).unzip();
 
             items.push(syn::parse_quote_spanned! { self.span=>
                 #[starlark::starlark_module]
                 fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
-                        fn #field_names<'v>(this: &#name<'v>)
-                                -> starlark::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
+                        fn #field_names<'v>(this: &#name<'v>) -> starlark::Result<#field_tys>
                         {
-                            Ok(this.#field_names.to_value())
+                            Ok(this.#field_names)
                         }
                     )*
                 }
