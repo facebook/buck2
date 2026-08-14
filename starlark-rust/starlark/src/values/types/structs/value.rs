@@ -24,7 +24,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::Trace;
 use starlark_derive::starlark_value;
 use starlark_map::Hashed;
@@ -33,24 +33,17 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
-use crate::coerce::coerce;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
-use crate::pagable::SmallMapKeyDeserialize;
-use crate::pagable::StarlarkPagable;
-use crate::starlark_complex_value;
+use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
 use crate::typing::TyStruct;
 use crate::util::arc_str::ArcStr;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
-use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
@@ -58,23 +51,23 @@ use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
 
-impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
+impl<'v> Struct<'v> {
     /// The result of calling `type()` on a struct.
     pub(crate) const TYPE: &'static str = "struct";
 
     /// Create a new [`Struct`].
-    pub(crate) fn new(fields: SmallMap<V::String, V>) -> Self {
+    pub(crate) fn new(fields: SmallMap<StringValue<'v>, Value<'v>>) -> Self {
         Self { fields }
     }
 
     /// Iterate over the elements in the struct.
-    pub(crate) fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (StringValue<'v>, V)> + 'a
+    pub(crate) fn iter<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (StringValue<'v>, Value<'v>)> + 'a
     where
         'v: 'a,
     {
-        self.fields
-            .iter()
-            .map(|(name, value)| (name.to_string_value(), *value))
+        self.fields.iter().map(|(name, value)| (*name, *value))
     }
 
     fn self_ty(&self) -> Ty {
@@ -89,39 +82,26 @@ impl<'v, V: ValueLike<'v>> StructGen<'v, V> {
     }
 }
 
-impl StructGen<'static, FrozenValue> {
-    pub(crate) fn iter_frozen(
-        &self,
-    ) -> impl ExactSizeIterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
-        self.fields.iter().map(|(name, value)| (*name, *value))
-    }
-}
-
-starlark_complex_value!(pub(crate) Struct<'v>);
-
 /// The result of calling `struct()`.
 #[derive(
     Clone,
     Default,
     Debug,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[starlark_pagable(
-    bound = "V: StarlarkPagable, V::String: StarlarkPagable + SmallMapKeyDeserialize"
-)]
 #[repr(C)]
-pub(crate) struct StructGen<'v, V: ValueLike<'v>> {
+pub(crate) struct Struct<'v> {
     /// The fields in a struct.
-    pub(crate) fields: SmallMap<V::String, V>,
+    pub(crate) fields: SmallMap<StringValue<'v>, Value<'v>>,
 }
 
-unsafe impl<'v> Coerce<StructGen<'v, Value<'v>>> for StructGen<'static, FrozenValue> {}
+starlark_complex_value_branded!(pub(crate) Struct);
 
-impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
+impl<'v> Display for Struct<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_keyed_container(
             f,
@@ -134,10 +114,7 @@ impl<'v, V: ValueLike<'v>> Display for StructGen<'v, V> {
 }
 
 #[starlark_value(type = Struct::TYPE)]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StructGen<'v, V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for Struct<'v> {
     fn collect_repr_cycle(&self, collector: &mut String) {
         collector.push_str("struct(...)");
     }
@@ -145,9 +122,7 @@ where
     fn equals(&self, other: Value<'v>) -> crate::Result<bool> {
         match Struct::from_value(other) {
             None => Ok(false),
-            Some(other) => {
-                equals_small_map(coerce(&self.fields), &other.fields, |x, y| x.equals(*y))
-            }
+            Some(other) => equals_small_map(&self.fields, &other.fields, |x, y| x.equals(*y)),
         }
     }
 
@@ -155,7 +130,7 @@ where
         match Struct::from_value(other) {
             None => ValueError::unsupported_with(self, "cmp()", other),
             Some(other) => compare_small_map(
-                coerce(&self.fields),
+                &self.fields,
                 &other.fields,
                 |k| k.as_str(),
                 |x, y| x.compare(*y),
@@ -168,7 +143,7 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: Heap<'v>) -> Option<Value<'v>> {
-        coerce(&self.fields).get_hashed(attribute).copied()
+        self.fields.get_hashed(attribute).copied()
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
@@ -212,7 +187,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for StructGen<'v, V> {
+impl<'v> Serialize for Struct<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

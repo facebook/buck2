@@ -118,7 +118,7 @@ use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::string::str_type::StarlarkStr;
-use crate::values::structs::value::FrozenStruct;
+use crate::values::structs::value::Struct;
 use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int::inline_int::InlineInt;
@@ -1224,7 +1224,7 @@ impl FrozenValue {
             || FrozenValueTyped::<Range>::new(self).is_some()
             || FrozenValueTyped::<FrozenDef>::new(self).is_some()
             || FrozenValueTyped::<NativeFunction>::new(self).is_some()
-            || FrozenValueTyped::<FrozenStruct>::new(self).is_some()
+            || FrozenValueTyped::<Struct>::new(self).is_some()
     }
 
     /// Can `invoke` be called on this object speculatively?

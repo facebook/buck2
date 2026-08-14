@@ -25,11 +25,11 @@ use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::StringValueLike;
 use crate::values::Value;
 use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::structs::StructRef;
-use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -99,11 +99,11 @@ where
         let iter = self.0.into_iter();
         let mut fields = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {
-            let k = k.alloc_frozen_string_value(heap);
-            let v = v.alloc_frozen_value(heap);
+            let k = k.alloc_frozen_string_value(heap).to_string_value();
+            let v = v.alloc_frozen_value(heap).to_value();
             let prev = fields.insert(k, v);
             assert!(prev.is_none(), "non-unique key: {k}");
         }
-        heap.alloc(FrozenStruct::new(fields))
+        heap.alloc(Struct::new(fields))
     }
 }
