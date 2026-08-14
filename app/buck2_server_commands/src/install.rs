@@ -209,9 +209,9 @@ impl ServerCommandTemplate for InstallServerCommand {
     }
 }
 
-struct InstallRequestData<'a> {
+struct InstallRequestData {
     installer_label: ConfiguredProvidersLabel,
-    installed_targets: Vec<(ConfiguredTargetLabel, SmallMap<&'a str, Artifact>)>,
+    installed_targets: Vec<(ConfiguredTargetLabel, SmallMap<String, Artifact>)>,
 }
 
 fn install_id(installed_target: &ConfiguredTargetLabel) -> String {
@@ -289,11 +289,11 @@ async fn install(
     })
 }
 
-async fn collect_install_request_data<'a>(
+async fn collect_install_request_data(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: &mut DiceTransaction,
     request: &InstallRequest,
-) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData<'a>> + use<'a>> {
+) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData>> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(
@@ -444,7 +444,7 @@ struct InstallResult {
 struct ConnectedInstaller<'a> {
     client: InstallerClient<Channel>,
     artifact_fs: &'a ArtifactFs,
-    install_request_data: &'a InstallRequestData<'a>,
+    install_request_data: &'a InstallRequestData,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
     installer_ready: Instant,
     timeout: Duration,
@@ -455,7 +455,7 @@ impl<'a> ConnectedInstaller<'a> {
     async fn connect(
         tcp_port: u16,
         artifact_fs: &'a ArtifactFs,
-        install_request_data: &'a InstallRequestData<'a>,
+        install_request_data: &'a InstallRequestData,
         installer_run_args: &[String],
         installer_child: &mut tokio::process::Child,
     ) -> buck2_error::Result<Self> {
@@ -545,10 +545,7 @@ impl<'a> ConnectedInstaller<'a> {
 
     async fn send_install_info(&mut self) -> buck2_error::Result<()> {
         for (installed_target, install_files) in &self.install_request_data.installed_targets {
-            let file_names: Vec<String> = install_files
-                .keys()
-                .map(|name| (*name).to_owned())
-                .collect();
+            let file_names: Vec<String> = install_files.keys().cloned().collect();
 
             let install_id = install_id(installed_target);
             let install_info_request = tonic::Request::new(InstallInfoRequest {
@@ -757,7 +754,7 @@ impl<'a> ConnectedInstaller<'a> {
 async fn handle_install_request(
     ctx: &mut DiceComputations<'_>,
     install_log_dir: &AbsNormPathBuf,
-    install_request_data: &InstallRequestData<'_>,
+    install_request_data: &InstallRequestData,
     initial_installer_run_args: &[String],
     installer_debug: bool,
 ) -> buck2_error::Result<()> {
@@ -1026,7 +1023,7 @@ pub(crate) struct FileResult {
 
 async fn build_files(
     ctx: &mut DiceComputations<'_>,
-    install_files_slice: &[(ConfiguredTargetLabel, SmallMap<&str, Artifact>)],
+    install_files_slice: &[(ConfiguredTargetLabel, SmallMap<String, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
 ) -> buck2_error::Result<()> {
     let mut file_outputs = Vec::with_capacity(install_files_slice.len());
@@ -1068,7 +1065,7 @@ async fn build_files(
                 let install_id = install_id(installed_target);
                 let file_result = FileResult {
                     install_id,
-                    name: (*name).to_owned(),
+                    name: name.clone(),
                     artifact: artifact.to_owned(),
                     artifact_value: artifact_value.to_owned(),
                 };

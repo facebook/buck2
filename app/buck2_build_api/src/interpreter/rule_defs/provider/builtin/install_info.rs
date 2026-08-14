@@ -103,12 +103,12 @@ impl<'v> InstallInfo<'v> {
         })
     }
 
-    pub fn get_files(&self) -> buck2_error::Result<SmallMap<&'v str, Artifact>> {
+    pub fn get_files(&self) -> buck2_error::Result<SmallMap<String, Artifact>> {
         Self::get_files_iter(&self.get_files_dict())
             .map(|x| {
                 let (k, v) = x?;
                 Ok((
-                    k,
+                    k.to_owned(),
                     v.0.get_bound_artifact()
                         .with_buck_error_context(|| format!("For key `{k}`"))?,
                 ))
