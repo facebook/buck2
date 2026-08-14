@@ -26,19 +26,19 @@ use starlark::collections::SmallSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::starlark_simple_value;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
@@ -152,7 +152,7 @@ impl<'v> Display for BxlFunction<'v> {
 
 impl<'v> AllocValue<'v> for BxlFunction<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
@@ -171,10 +171,10 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
     }
 }
 
-impl<'v> Freeze for BxlFunction<'v> {
-    type Frozen = FrozenBxlFunction;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let frozen_impl = self.implementation.freeze(freezer)?;
+impl<'v> FreezeBranded for BxlFunction<'v> {
+    type Frozen<'fv> = FrozenBxlFunction<'fv>;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let frozen_impl = self.implementation.freeze_branded(freezer)?;
         let docs = self.docs;
         let id = match self.id.into_inner() {
             Some(x) => x,
@@ -204,28 +204,53 @@ impl<'v> Freeze for BxlFunction<'v> {
     StarlarkPagable
 )]
 #[display("{}()", bxl_id.name)]
-pub(crate) struct FrozenBxlFunction {
-    implementation: FrozenValue,
+pub(crate) struct FrozenBxlFunction<'v> {
+    implementation: Value<'v>,
     cli_args: SmallMap<String, CliArgs>,
     #[starlark_pagable(pagable)]
     bxl_id: Arc<BxlFunctionLabel>,
     docs: Option<String>,
 }
-starlark_simple_value!(FrozenBxlFunction);
+
+starlark::register_simple_vtable_entry!(FrozenBxlFunction<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenBxlFunction<'v> {}
+
+/// A bxl function kept alive by its owning frozen heap; usable across threads and awaits.
+pub(crate) type OwnedBxlFunction = OwnedFrozen<ValueTyped<'static, FrozenBxlFunction<'static>>>;
 
 #[starlark_value(type = "bxl")]
-impl<'v> StarlarkValue<'v> for FrozenBxlFunction {
+impl<'v> StarlarkValue<'v> for FrozenBxlFunction<'v> {
     type Canonical = BxlFunction<'v>;
 }
 
-impl FrozenBxlFunction {
-    pub(crate) fn implementation(&self) -> FrozenValue {
+impl<'v> FrozenBxlFunction<'v> {
+    pub(crate) fn implementation(&self) -> Value<'v> {
         self.implementation
     }
 
+    pub(crate) fn cli_spec(&self) -> BxlCliSpec<'_> {
+        BxlCliSpec {
+            cli_args: &self.cli_args,
+            docs: self.docs.as_deref(),
+        }
+    }
+}
+
+/// The command line interface declared by a bxl function: its `cli_args` and its docstring.
+///
+/// Split out from the function because resolving cli args is async, and this holds no
+/// heap-branded values, so unlike a borrow of the function itself it can cross an await.
+pub(crate) struct BxlCliSpec<'a> {
+    cli_args: &'a SmallMap<String, CliArgs>,
+    docs: Option<&'a str>,
+}
+
+impl<'a> BxlCliSpec<'a> {
     pub(crate) fn to_clap(&self, mut clap: clap::Command) -> clap::Command {
-        if let Some(docs) = self.docs.as_ref() {
-            clap = clap.about(docs.clone())
+        if let Some(docs) = self.docs {
+            clap = clap.about(docs.to_owned())
         }
 
         for (arg, def) in self.cli_args.iter() {
@@ -237,10 +262,10 @@ impl FrozenBxlFunction {
 
     /// Parses the cli args as defined by this bxl function. Automatically changes the CLI args
     /// to snakecase when accessed from the bxl context.
-    pub(crate) async fn parse_clap<'a>(
+    pub(crate) async fn parse_clap(
         &self,
         clap: clap::ArgMatches,
-        ctx: &CliResolutionCtx<'a>,
+        ctx: &CliResolutionCtx<'_>,
     ) -> buck2_error::Result<OrderedMap<String, CliArgValue>> {
         let mut res = OrderedMap::with_capacity(self.cli_args.len());
 
@@ -270,47 +295,47 @@ starlark::__starlark_pagable_only! {
         use pagable::PagableSerialize;
         use starlark::values::FrozenHeap;
         use starlark::values::FrozenHeapName;
-        use starlark::values::OwnedFrozenValue;
-        use starlark::values::ValueLike;
 
         use super::*;
 
         #[test]
         fn frozen_bxl_function_round_trips() -> pagable::Result<()> {
             let heap = FrozenHeap::new();
-            let implementation = heap.alloc("implementation");
             let expected_label = BxlFunctionLabel {
                 bxl_path: BxlFilePath::testing_new("cell", "dir/test.bxl"),
                 name: "main".to_owned(),
             };
-            let root = heap.alloc_simple(FrozenBxlFunction {
-                implementation,
-                cli_args: SmallMap::new(),
-                bxl_id: Arc::new(expected_label.clone()),
-                docs: Some("test docs".to_owned()),
-            });
+            let root = heap
+                .alloc_simple_typed(FrozenBxlFunction {
+                    implementation: heap.alloc("implementation").to_value(),
+                    cli_args: SmallMap::new(),
+                    bxl_id: Arc::new(expected_label.clone()),
+                    docs: Some("test docs".to_owned()),
+                })
+                .to_frozen_value();
             let heap_ref =
                 heap.into_ref_named(FrozenHeapName::user("frozen_bxl_function_round_trips"));
             // SAFETY: `heap_ref` owns the arena containing `root`.
-            let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
+            let owned: OwnedBxlFunction = unsafe {
+                OwnedFrozen::unchecked_new(
+                    heap_ref,
+                    ValueTyped::new(root.to_value()).expect("just allocated"),
+                )
+            };
 
             let mut serializer = pagable::testing::TestingSerializer::new();
             owned.pagable_serialize(&mut serializer)?;
             let bytes = serializer.finish();
             let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
-            let restored = OwnedFrozenValue::pagable_deserialize(&mut deserializer)?;
-            let restored = restored
-                .value()
-                .downcast_ref::<FrozenBxlFunction>()
-                .expect("round-tripped value should remain a FrozenBxlFunction");
+            let restored = OwnedBxlFunction::pagable_deserialize(&mut deserializer)?;
 
-            assert_eq!(
-                restored.implementation.to_value().unpack_str(),
-                Some("implementation")
-            );
-            assert!(restored.cli_args.is_empty());
-            assert_eq!(restored.bxl_id.as_ref(), &expected_label);
-            assert_eq!(restored.docs.as_deref(), Some("test docs"));
+            restored.by_ref(|f| {
+                let f = f.as_ref();
+                assert_eq!(f.implementation.unpack_str(), Some("implementation"));
+                assert!(f.cli_args.is_empty());
+                assert_eq!(f.bxl_id.as_ref(), &expected_label);
+                assert_eq!(f.docs.as_deref(), Some("test docs"));
+            });
             Ok(())
         }
     }

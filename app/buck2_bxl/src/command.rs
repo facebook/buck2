@@ -256,7 +256,7 @@ impl BxlServerCommand {
             &ctx.bxl_label,
             &cli_ctx,
             &self.req.bxl_args,
-            &frozen_callable,
+            frozen_callable.as_ref(),
         )
         .await
     }
@@ -532,7 +532,7 @@ pub(crate) async fn get_bxl_cli_args(
         global_cfg_options: global_cfg_options.dupe(),
     };
 
-    resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
+    resolve_cli_args(bxl_label, &cli_ctx, bxl_args, frozen_callable.as_ref()).await
 }
 
 #[derive(Debug, buck2_error::Error)]

@@ -49,7 +49,7 @@ use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use itertools::Itertools;
 use starlark::eval::Evaluator;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozenRef;
 use starlark::values::UnpackValue;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
@@ -60,6 +60,7 @@ use tokio::sync::Semaphore;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
+use crate::bxl::starlark_defs::bxl_function::OwnedBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -324,15 +325,16 @@ async fn eval_bxl_inner(
 
 fn eval_bxl<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
-    frozen_callable: OwnedFrozenValueTyped<FrozenBxlFunction>,
+    frozen_callable: OwnedBxlFunction,
     ctx: ValueTyped<'v, BxlContext<'v>>,
     force_print_stacktrace: bool,
 ) -> buck2_error::Result<()> {
-    let frozen_callable = eval
-        .heap()
-        .access_owned_frozen_value_typed(&frozen_callable);
-    let bxl_impl = frozen_callable.implementation();
-    let result = eval.eval_function(bxl_impl.to_value(), &[ctx.to_value()], &[]);
+    let bxl_impl = frozen_callable
+        .as_ref()
+        .add_to_heap(eval.heap())
+        .as_ref()
+        .implementation();
+    let result = eval.eval_function(bxl_impl, &[ctx.to_value()], &[]);
 
     let e = match result {
         Ok(v) => {
@@ -373,14 +375,16 @@ fn eval_bxl<'v>(
 pub(crate) fn get_bxl_callable(
     spec: &BxlFunctionLabel,
     bxl_module: &LoadedModule,
-) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
+) -> buck2_error::Result<OwnedBxlFunction> {
     let callable = bxl_module
         .env()
         .get_any_visibility(&spec.name)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
         .0;
 
-    Ok(callable.downcast_starlark::<FrozenBxlFunction>()?)
+    Ok(callable
+        .downcast_starlark::<FrozenBxlFunction<'static>>()?
+        .into())
 }
 
 pub(crate) struct CliResolutionCtx<'d> {
@@ -401,20 +405,21 @@ pub(crate) async fn resolve_cli_args<'a>(
     spec: &BxlFunctionLabel,
     cli_ctx: &CliResolutionCtx<'a>,
     bxl_args: &Vec<String>,
-    frozen_callable: &'a FrozenBxlFunction,
+    frozen_callable: OwnedFrozenRef<'a, ValueTyped<'static, FrozenBxlFunction<'static>>>,
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
-    match frozen_callable
+    let cli_spec = frozen_callable.value().as_ref().cli_spec();
+    match cli_spec
         .to_clap(clap::Command::new(&spec.name).no_binary_name(true)) // patternlint-disable-line buck2-no-command-new
         .try_get_matches_from(bxl_args)
     {
         Ok(args) => Ok(BxlResolvedCliArgs::Resolved(
-            frozen_callable.parse_clap(args, cli_ctx).await?,
+            cli_spec.parse_clap(args, cli_ctx).await?,
         )),
         Err(e) => match e.kind() {
             ErrorKind::DisplayHelp => {
                 let mut help_out = Vec::new();
 
-                frozen_callable
+                cli_spec
                     .to_clap(clap::Command::new(&spec.name).no_binary_name(true)) // patternlint-disable-line buck2-no-command-new
                     .write_long_help(&mut help_out)
                     .unwrap();
