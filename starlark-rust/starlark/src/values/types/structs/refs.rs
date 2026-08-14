@@ -22,8 +22,6 @@ use dupe::Dupe;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::typing::Ty;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -68,21 +66,5 @@ impl<'v> UnpackValue<'v> for StructRef<'v> {
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(StructRef::from_value(value))
-    }
-}
-
-/// Reference to a struct in a frozen heap.
-#[derive(Debug)]
-pub struct FrozenStructRef<'f>(pub(crate) &'f Struct<'f>);
-
-impl<'f> FrozenStructRef<'f> {
-    /// Iterate over struct fields.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (StringValue<'f>, Value<'f>)> + use<'f> {
-        self.0.iter()
-    }
-
-    /// Downcast a value to a struct reference.
-    pub fn from_value(value: FrozenValue) -> Option<FrozenStructRef<'f>> {
-        FrozenValueTyped::<Struct>::new(value).map(|f| FrozenStructRef(f.as_ref()))
     }
 }
