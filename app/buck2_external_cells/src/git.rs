@@ -49,7 +49,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_util::process::background_command;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
@@ -250,7 +250,7 @@ async fn download_and_materialize(
 
     // A map of commit hashes to semaphores that are actually condvars which protect access to the
     // directory associated with that commit
-    static DIRECTORY_LICENSES: OnceLock<Mutex<StdBuckHashMap<Arc<str>, Arc<Semaphore>>>> =
+    static DIRECTORY_LICENSES: OnceLock<Mutex<BuckMutMap<Arc<str>, Arc<Semaphore>>>> =
         OnceLock::new();
 
     // We have to write this in a slightly funny way to convince the compiler that there's no

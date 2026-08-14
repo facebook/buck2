@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use buck2_error::internal_error;
 use buck2_hash::BuckIndexSet;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
@@ -130,7 +130,7 @@ impl QueryTarget for TestTarget {
 }
 
 struct TestEnv {
-    graph: StdBuckHashMap<TestTargetId, TestTarget>,
+    graph: BuckMutMap<TestTargetId, TestTarget>,
 }
 
 impl NodeLookup<TestTarget> for TestEnv {
@@ -245,7 +245,7 @@ impl TestEnv {
 
 #[derive(Default)]
 pub struct TestEnvBuilder {
-    graph: StdBuckHashMap<u64, BuckIndexSet<u64>>,
+    graph: BuckMutMap<u64, BuckIndexSet<u64>>,
 }
 
 impl TestEnvBuilder {

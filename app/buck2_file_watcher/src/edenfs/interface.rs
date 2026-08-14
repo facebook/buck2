@@ -34,8 +34,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutSet;
 use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
 use dice::DiceTransactionUpdater;
 use edenfs::ChangeNotification;
 use edenfs::ChangesSinceV2Params;
@@ -185,7 +185,7 @@ impl EdenFsFileWatcher {
         // This can happen as we receive file changes from a commit transitions and from an explicit notification.
         // Also eden will report duplicates if there were another changes between changes on the same file.
         // We want to ignore duplicates, so we store unique changes in the set
-        let mut processed_changes: StdBuckHashSet<EdenFsEvent> = StdBuckHashSet::default();
+        let mut processed_changes: BuckMutSet<EdenFsEvent> = BuckMutSet::default();
         for change in result.changes {
             // Once a large or unknown change is detected, we need to invalidate DICE. Therefore,
             // skip processing the rest of the changes and continue to propagate true.
@@ -226,7 +226,7 @@ impl EdenFsFileWatcher {
         change: &ChangeNotification,
         tracker: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         let large_or_unknown_change = match change {
             ChangeNotification::smallChange(small_change) => match small_change {
@@ -446,7 +446,7 @@ impl EdenFsFileWatcher {
         kind: Kind,
         event: Type,
         path: &[u8],
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<()> {
         let eden_rel_path = PathBuf::from(str::from_utf8(path)?);
 
@@ -536,7 +536,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // `sl status` only reports added/removed/modified files, not directories.
         // we use `sl debugdiffdirs` to get changes for directories
@@ -565,7 +565,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // limit results to MAX_SAPLING_STATUS_CHANGES
         match get_status(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
@@ -624,7 +624,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: Option<&str>,
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         // limit results to MAX_SAPLING_STATUS_CHANGES
         match get_dir_diff(&self.eden_root, &from, to, MAX_SAPLING_STATUS_CHANGES)
@@ -687,7 +687,7 @@ impl EdenFsFileWatcher {
         stats: &mut FileWatcherStats,
         from: &str,
         to: &str,
-        processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
+        processed_changes: &mut BuckMutSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         let mergebase_changed = self
             .update_mergebase(to)
@@ -753,7 +753,7 @@ impl EdenFsFileWatcher {
         if let Some(mergebase) = mergebase_info.map(|m| m.mergebase) {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
-            let mut processed_changes: StdBuckHashSet<EdenFsEvent> = StdBuckHashSet::default();
+            let mut processed_changes: BuckMutSet<EdenFsEvent> = BuckMutSet::default();
             self.process_source_control_changes(
                 &mut tracker,
                 &mut stats,

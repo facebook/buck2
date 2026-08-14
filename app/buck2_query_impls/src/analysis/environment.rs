@@ -33,7 +33,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
@@ -391,7 +391,7 @@ pub(crate) async fn get_from_template_placeholder_info(
     // for all the tset nodes that we encounter during our traversal of those top-level nodes. We don't need to track artifacts because
     // we just extract the targetlabel and put that in the output set and that can dedupe them (and we don't need to further
     // traverse artifacts).
-    let mut seen = StdBuckHashSet::default();
+    let mut seen = BuckMutSet::default();
 
     while let Some((target, artifact)) = artifacts.pop_front() {
         let handle_artifact =

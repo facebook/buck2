@@ -15,7 +15,7 @@ use std::time::Instant;
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
 use buck2_events::daemon_id::DaemonId;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use dupe::Dupe;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -404,7 +404,7 @@ impl Scheduler {
     pub(crate) fn update(
         &mut self,
         memory_reading: MemoryReading,
-        scene_readings: StdBuckHashMap<SceneIdRef, SceneResourceReading>,
+        scene_readings: BuckMutMap<SceneIdRef, SceneResourceReading>,
         now: Instant,
     ) {
         self.allprocs_memory_current
@@ -735,11 +735,11 @@ mod tests {
 
     use super::*;
 
-    struct UpdateBuilder(StdBuckHashMap<SceneIdRef, SceneResourceReading>);
+    struct UpdateBuilder(BuckMutMap<SceneIdRef, SceneResourceReading>);
 
     impl UpdateBuilder {
         fn new() -> Self {
-            Self(StdBuckHashMap::default())
+            Self(BuckMutMap::default())
         }
 
         fn add(self, scene_id: SceneIdRef, memory_current: u64) -> Self {
@@ -762,7 +762,7 @@ mod tests {
             self
         }
 
-        fn build(self) -> StdBuckHashMap<SceneIdRef, SceneResourceReading> {
+        fn build(self) -> BuckMutMap<SceneIdRef, SceneResourceReading> {
             self.0
         }
     }

@@ -17,7 +17,7 @@ use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use futures::StreamExt as _;
@@ -65,7 +65,7 @@ pub struct MemoryTrackerSharedState {
     /// The memory tracker regularly updates the scheduler with information about the memory state
     /// of the scenes. This map stores the current pairing of scenes to the actions they're
     /// associated with, and is used by the memory tracker to update the scheduler.
-    pub(crate) scene_action_mapping: tokio::sync::Mutex<StdBuckHashMap<SceneIdRef, ActionScene>>,
+    pub(crate) scene_action_mapping: tokio::sync::Mutex<BuckMutMap<SceneIdRef, ActionScene>>,
 }
 
 pub struct MemoryReporter {
@@ -141,7 +141,7 @@ pub async fn create_memory_tracker(
         cgroup_tree,
         action_cgroups: std::sync::Mutex::new(action_cgroups),
         pool: tokio::sync::Mutex::new(cgroup_pool),
-        scene_action_mapping: tokio::sync::Mutex::new(StdBuckHashMap::default()),
+        scene_action_mapping: tokio::sync::Mutex::new(BuckMutMap::default()),
     };
     let handle = Arc::new(handle);
     let memory_tracker = MemoryTracker {
@@ -229,7 +229,7 @@ impl MemoryTracker {
 
     async fn collect_scene_readings(
         handle: &MemoryTrackerHandle,
-    ) -> StdBuckHashMap<SceneIdRef, SceneResourceReading> {
+    ) -> BuckMutMap<SceneIdRef, SceneResourceReading> {
         let mut scenes = handle.scene_action_mapping.lock().await;
         scenes
             .iter_mut()

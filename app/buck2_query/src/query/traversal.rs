@@ -242,7 +242,7 @@ mod tests {
 
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::cell_path::CellPath;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::BuckMutMap;
     use derive_more::Display;
     use dupe::Dupe;
     use dupe::IterDupedExt;
@@ -368,7 +368,7 @@ mod tests {
         }
     }
 
-    struct Graph(StdBuckHashMap<Ref, Node>);
+    struct Graph(BuckMutMap<Ref, Node>);
 
     impl Graph {
         fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + use<'a> {
@@ -416,7 +416,7 @@ mod tests {
     }
 
     fn make_graph(nodes: &[(i64, &[i64])]) -> buck2_error::Result<Graph> {
-        let mut map = StdBuckHashMap::default();
+        let mut map = BuckMutMap::default();
         for (n, deps) in nodes {
             map.insert(Ref(*n), Node(Ref(*n), deps.map(|v| Ref(*v))));
         }

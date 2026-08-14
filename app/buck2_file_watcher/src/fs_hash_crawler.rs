@@ -36,6 +36,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use compact_str::CompactString;
 use dice::DiceTransactionUpdater;
@@ -138,11 +139,11 @@ impl EntryInfo {
 }
 
 #[derive(Allocative)]
-struct FsSnapshot(StdBuckHashMap<CellPath, EntryInfo>);
+struct FsSnapshot(BuckMutMap<CellPath, EntryInfo>);
 
 impl FsSnapshot {
     fn build(root: &ProjectRoot, cells: &CellResolver) -> buck2_error::Result<Self> {
-        let mut snapshot = FsSnapshot(StdBuckHashMap::default());
+        let mut snapshot = FsSnapshot(BuckMutMap::default());
         snapshot.build_fs_snapshot(root, cells, root.root())?;
         Ok(snapshot)
     }

@@ -174,8 +174,8 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use buck2_hash::StdBuckHashMap;
-    use buck2_hash::StdBuckHashSet;
+    use buck2_hash::BuckMutMap;
+    use buck2_hash::BuckMutSet;
     use buck2_query::query::traversal::ChildVisitor;
     use dupe::Dupe;
     use gazebo::prelude::VecExt;
@@ -204,8 +204,8 @@ mod tests {
 
     #[derive(Default)]
     struct TestGraph {
-        successors: StdBuckHashMap<u32, Vec<u32>>,
-        errors: StdBuckHashSet<u32>,
+        successors: BuckMutMap<u32, Vec<u32>>,
+        errors: BuckMutSet<u32>,
     }
 
     impl TestGraph {
