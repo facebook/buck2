@@ -23,14 +23,25 @@ impl Blake3StrongHasher {
     }
 }
 
-// This `Hasher` impl only provides `write` and `finish` (not the full set of
-// `write_*` forwarding methods). That is acceptable here because blake3 is a
-// streaming hash that processes all data uniformly through `update`. See the
-// comment on `StarlarkHasherSmallPromote` in
+// Other than for `usize`/`isize`, this `Hasher` impl only provides `write`
+// and `finish` (not the full set of `write_*` forwarding methods). That is
+// acceptable here because blake3 is a streaming hash that processes all data
+// uniformly through `update`. See the comment on
+// `StarlarkHasherSmallPromote` in
 // `buck2_build_api/.../provider/callable.rs` for when full forwarding is needed.
 impl Hasher for Blake3StrongHasher {
     fn write(&mut self, bytes: &[u8]) {
         self.0.update(bytes);
+    }
+
+    // The default implementations hash these at their native width, which
+    // would make the hash platform dependent.
+    fn write_usize(&mut self, i: usize) {
+        self.write_u64(i as u64)
+    }
+
+    fn write_isize(&mut self, i: isize) {
+        self.write_i64(i as i64)
     }
 
     fn finish(&self) -> u64 {
