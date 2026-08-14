@@ -81,11 +81,11 @@ pub(crate) fn new_transitive_set(
             .freeze_error_context("Freeze failed")
             .map_err(from_freeze_error)?;
 
-        let make = frozen.get("make").expect("`make` was not found");
+        let make = frozen.get_owned("make").expect("`make` was not found");
 
         Module::with_temp_heap(|env2| {
             let ret = Evaluator::new(&env2).eval_function(
-                env2.heap().access_owned_frozen_value(&make),
+                make.as_ref().add_to_heap(env2.heap()),
                 &[],
                 &[],
             )?;
@@ -96,12 +96,11 @@ pub(crate) fn new_transitive_set(
                 .freeze_named(Buck2TestHeapName::frozen_heap_name())
                 .map_err(from_freeze_error)?;
 
-            Ok(frozen
-                .owned_extra_value()
+            frozen
+                .extra_value_owned()
                 .ok_or_else(|| internal_error!("Frozen value must be in extra value"))?
                 .downcast_starlark::<TransitiveSet<'static>>()
-                .map_err(buck2_error::Error::from)?
-                .into())
+                .map_err(buck2_error::Error::from)
         })
     })
 }

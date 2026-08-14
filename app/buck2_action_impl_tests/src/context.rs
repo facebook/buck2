@@ -61,13 +61,13 @@ fn run_ctx_test(
         let frozen_func_mod = func_mod
             .freeze_named(Buck2TestHeapName::frozen_heap_name())
             .map_err(from_freeze_error)?;
-        let test_function = frozen_func_mod.get("test").unwrap();
+        let test_function = frozen_func_mod.get_owned("test").unwrap();
 
         let modules = hashmap!["func_mod" => &frozen_func_mod];
 
         Module::with_temp_heap(|env| {
             let file_loader = ReturnFileLoader { modules: &modules };
-            let test_function = env.heap().access_owned_frozen_value(&test_function);
+            let test_function = test_function.as_ref().add_to_heap(env.heap());
             let mut eval = Evaluator::new(&env);
             eval.set_loader(&file_loader);
             let label = TargetLabel::testing_parse("root//foo/bar:some_name")
