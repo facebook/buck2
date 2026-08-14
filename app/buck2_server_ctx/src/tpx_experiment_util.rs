@@ -10,7 +10,7 @@
 
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use dice::DiceTransaction;
 
 use crate::experiment_util::get_experiment_tags;
@@ -22,14 +22,14 @@ use crate::experiment_util::get_experiment_tags;
 pub async fn get_tpx_experiments(
     ctx: DiceTransaction,
     project_root: &ProjectRoot,
-) -> buck2_error::Result<StdBuckHashSet<String>> {
+) -> buck2_error::Result<BuckMutSet<String>> {
     // Get all experiments from buckconfig
     if !ctx
         .ctx()
         .is_injected_external_buckconfig_data_key_set()
         .await?
     {
-        return Ok(StdBuckHashSet::default());
+        return Ok(BuckMutSet::default());
     }
 
     let external_configs = ctx.ctx().get_injected_external_buckconfig_data().await?;
@@ -42,7 +42,7 @@ pub async fn get_tpx_experiments(
         .into_iter()
         .filter(|tag| tag.starts_with("experiments.tpx_"))
         .map(|tag| tag.replace("experiments.tpx_", ""))
-        .collect::<StdBuckHashSet<String>>();
+        .collect::<BuckMutSet<String>>();
 
     Ok(tpx_experiments)
 }

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -80,7 +79,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::BuckIndexSet;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -242,7 +241,7 @@ struct DeadlineExpired;
 pub(crate) enum InternalRunnerConfig {
     All,
     None,
-    Frameworks(HashSet<String>),
+    Frameworks(BuckMutSet<String>),
 }
 
 impl InternalRunnerConfig {
@@ -251,7 +250,7 @@ impl InternalRunnerConfig {
             None | Some("true") => Self::All,
             Some("false") => Self::None,
             Some(list) => {
-                let frameworks: HashSet<String> = list
+                let frameworks: BuckMutSet<String> = list
                     .split(',')
                     .map(|s| s.trim().to_owned())
                     .filter(|s| !s.is_empty())
@@ -655,7 +654,7 @@ async fn test_targets(
     ignore_tests_attribute: bool,
     build_default_info: bool,
     build_run_info: bool,
-    tpx_experiments: StdBuckHashSet<String>,
+    tpx_experiments: BuckMutSet<String>,
 ) -> buck2_error::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -976,8 +975,8 @@ struct TestDriverState<'a, 'e> {
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
     work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
-    labels_configured: StdBuckHashSet<(ProvidersLabelWithModifiers, bool)>,
-    labels_tested: StdBuckHashSet<ConfiguredProvidersLabel>,
+    labels_configured: BuckMutSet<(ProvidersLabelWithModifiers, bool)>,
+    labels_tested: BuckMutSet<ConfiguredProvidersLabel>,
     error_events: Vec<BuildEvent>,
     build_target_result: BuildTargetResult,
 }
@@ -987,8 +986,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         Self {
             state,
             work: FuturesUnordered::new(),
-            labels_configured: StdBuckHashSet::default(),
-            labels_tested: StdBuckHashSet::default(),
+            labels_configured: BuckMutSet::default(),
+            labels_tested: BuckMutSet::default(),
             error_events: Vec::new(),
             build_target_result: BuildTargetResult::new(),
         }

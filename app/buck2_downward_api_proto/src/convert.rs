@@ -9,22 +9,22 @@
  */
 
 use buck2_error::BuckErrorContext;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use tracing::Level;
 
 use crate::proto;
 
-impl TryInto<StdBuckHashMap<String, String>> for proto::Event {
+impl TryInto<BuckMutMap<String, String>> for proto::Event {
     type Error = buck2_error::Error;
 
-    fn try_into(self) -> Result<StdBuckHashMap<String, String>, Self::Error> {
+    fn try_into(self) -> Result<BuckMutMap<String, String>, Self::Error> {
         use std::collections::hash_map::Entry;
 
         use proto::event::Item;
 
         let proto::Event { items } = self;
 
-        let mut ret = StdBuckHashMap::default();
+        let mut ret = BuckMutMap::default();
         for Item { key, value } in items {
             match ret.entry(key) {
                 Entry::Vacant(e) => {

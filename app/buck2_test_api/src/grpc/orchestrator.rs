@@ -26,7 +26,7 @@ use buck2_grpc::ServerHandle;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_test_proto::AttachInfoMessageRequest;
 use buck2_test_proto::Empty;
 use buck2_test_proto::EndOfTestResultsRequest;
@@ -125,7 +125,7 @@ impl DownwardApi for TestOrchestratorClient {
         Ok(())
     }
 
-    async fn external(&self, data: StdBuckHashMap<String, String>) -> buck2_error::Result<()> {
+    async fn external(&self, data: BuckMutMap<String, String>) -> buck2_error::Result<()> {
         let event = data.into();
 
         self.downward_api_client

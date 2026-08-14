@@ -24,7 +24,7 @@ use buck2_error::BuckErrorContext as _;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_test_api::grpc::TestExecutorClient;
 use buck2_test_api::grpc::spawn_orchestrator_server;
 use buck2_test_api::protocol::TestExecutor;
@@ -40,8 +40,8 @@ use tokio::process::Child;
 use crate::downward_api::BuckTestDownwardApi;
 use crate::orchestrator::BuckTestOrchestrator;
 
-static TEST_EXECUTOR_CLIENTS: LazyLock<Mutex<StdBuckHashMap<u16, Arc<dyn TestExecutor>>>> =
-    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
+static TEST_EXECUTOR_CLIENTS: LazyLock<Mutex<BuckMutMap<u16, Arc<dyn TestExecutor>>>> =
+    LazyLock::new(|| Mutex::new(BuckMutMap::default()));
 
 pub struct TestExecutorClientWrapper(u16);
 impl TestExecutorClientWrapper {

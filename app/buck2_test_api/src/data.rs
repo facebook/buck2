@@ -25,7 +25,7 @@ use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 pub use buck2_test_proto::CasDigest;
 pub use buck2_test_proto::ExecutionDetails;
 use derivative::Derivative;
@@ -209,7 +209,7 @@ pub struct ExternalRunnerSpec {
     pub command: Vec<ExternalRunnerSpecValue>,
     /// Environment variables a specified by the rule. A mapping from keys to
     /// verbatim values or opaque handles for more complex values.
-    pub env: StdBuckHashMap<String, ExternalRunnerSpecValue>,
+    pub env: BuckMutMap<String, ExternalRunnerSpecValue>,
     /// Labels defined on the rule.
     pub labels: Vec<String>,
     /// Contacts defined on the rule.
@@ -460,7 +460,7 @@ pub struct ExecutionResult2 {
     pub status: ExecutionStatus,
     pub stdout: ExecutionStream,
     pub stderr: ExecutionStream,
-    pub outputs: StdBuckHashMap<OutputName, Output>,
+    pub outputs: BuckMutMap<OutputName, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
     pub max_memory_used_bytes: Option<u64>,

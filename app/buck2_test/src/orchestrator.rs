@@ -14,7 +14,6 @@
 //! Implementation of the `TestOrchestrator` from `buck2_test_api`.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::ffi::OsStr;
 use std::fmt::Display;
@@ -130,8 +129,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutSet;
 use buck2_hash::buck_indexset;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -242,7 +240,7 @@ impl OwnedTestInfo {
         }
     }
 
-    fn env_args<'v>(&'v self) -> StdBuckHashMap<&'v str, &'v dyn CommandLineArgLike<'v>> {
+    fn env_args<'v>(&'v self) -> BuckMutMap<&'v str, &'v dyn CommandLineArgLike<'v>> {
         match self {
             Self::External(info) => info.as_ref().value().as_ref().env().collect(),
             Self::Internal(info) => info.as_ref().value().as_ref().env().collect(),
@@ -486,7 +484,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
-        let mut output_map = StdBuckHashMap::default();
+        let mut output_map = BuckMutMap::default();
         let mut paths_to_materialize = vec![];
 
         let remote_storage_config_update_futures = FuturesUnordered::new();
@@ -625,7 +623,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 agv.iter()
                     .filter_map(|(artifact, _)| artifact.action_key().map(|k| k.dupe()))
             })
-            .collect::<StdBuckHashSet<_>>() // dedupe
+            .collect::<BuckMutSet<_>>() // dedupe
             .into_iter()
             .collect();
 
@@ -637,7 +635,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             let setup_local_resources_executor = Self::get_local_executor(dice, fs).await?;
             let simple_stage = stage.as_ref().into();
 
-            let available_resources: HashMap<_, _> =
+            let available_resources: BuckMutMap<_, _> =
                 test_info.local_resources().into_iter().collect();
             let rule_required_names =
                 test_info.required_local_resource_names_for_stage(&simple_stage);
@@ -1030,7 +1028,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         // We leave that decision to actual local execution runner that requests local execution preparation.
         let setup_local_resources_executor =
             Self::get_local_executor(&mut self.dice.dupe().ctx(), fs).await?;
-        let available_resources: HashMap<_, _> = test_info.local_resources().into_iter().collect();
+        let available_resources: BuckMutMap<_, _> =
+            test_info.local_resources().into_iter().collect();
         let rule_required_names = test_info.execution_required_local_resource_names();
         let providers = {
             required_providers(
@@ -2092,7 +2091,7 @@ struct Execute2RequestExpander<'a> {
 
 fn make_visit_arg_artifacts<'v>(
     cli_args_for_interpolation: Vec<&'v dyn CommandLineArgLike<'v>>,
-    env_for_interpolation: StdBuckHashMap<&'v str, &'v dyn CommandLineArgLike<'v>>,
+    env_for_interpolation: BuckMutMap<&'v str, &'v dyn CommandLineArgLike<'v>>,
 ) -> impl for<'a> Fn(&'a mut dyn CommandLineArtifactVisitor<'v>, &'a ArgValue) -> buck2_error::Result<()>
 {
     move |artifact_visitor: &mut dyn CommandLineArtifactVisitor<'_>, value: &ArgValue| {
@@ -2152,7 +2151,7 @@ impl<'a> Execute2RequestExpander<'a> {
         declared_outputs: &mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
         value: &'v ArgValue,
         cli_args_for_interpolation: &[&dyn CommandLineArgLike<'v>],
-        env_for_interpolation: &StdBuckHashMap<&str, &dyn CommandLineArgLike<'v>>,
+        env_for_interpolation: &BuckMutMap<&str, &dyn CommandLineArgLike<'v>>,
         output_root: &ForwardRelativePath,
         fs: &ExecutorFs<'_>,
     ) -> buck2_error::Result<()> {

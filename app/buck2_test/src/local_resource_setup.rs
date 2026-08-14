@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::OwnedLocalResourceInfo;
@@ -18,6 +16,7 @@ use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::ErrorTag;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutMap;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
 use dice::DiceComputations;
@@ -39,7 +38,7 @@ impl From<&TestStage> for TestStageSimple {
 
 pub(crate) async fn required_providers<'v>(
     dice: &mut DiceComputations<'_>,
-    available_resources: HashMap<&'v str, Option<&'v ConfiguredProvidersLabel>>,
+    available_resources: BuckMutMap<&'v str, Option<&'v ConfiguredProvidersLabel>>,
     rule_required_resource_names: Vec<&'v str>,
     required_local_resources: &'v RequiredLocalResources,
 ) -> buck2_error::Result<Vec<(&'v ConfiguredTargetLabel, OwnedLocalResourceInfo)>> {
