@@ -41,14 +41,14 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_simple_value;
-use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapName;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
-use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozen;
 use starlark::values::ProvidesStaticType;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
+use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use tempfile::tempdir;
@@ -201,14 +201,14 @@ impl<'v> StarlarkValue<'v> for ScopeRootData {
 }
 
 #[derive(Clone, Dupe, Allocative)]
-struct ScopeHeapValue(#[allocative(skip)] Arc<Mutex<Option<OwnedFrozenValue>>>);
+struct ScopeHeapValue(#[allocative(skip)] Arc<Mutex<Option<OwnedFrozen<Value<'static>>>>>);
 
 impl ScopeHeapValue {
-    fn new(value: OwnedFrozenValue) -> Self {
+    fn new(value: OwnedFrozen<Value<'static>>) -> Self {
         Self(Arc::new(Mutex::new(Some(value))))
     }
 
-    fn clone_owned(&self) -> OwnedFrozenValue {
+    fn clone_owned(&self) -> OwnedFrozen<Value<'static>> {
         self.0
             .lock()
             .expect("scope heap value poisoned")
@@ -217,7 +217,7 @@ impl ScopeHeapValue {
             .dupe()
     }
 
-    fn take_owned(&self) -> OwnedFrozenValue {
+    fn take_owned(&self) -> OwnedFrozen<Value<'static>> {
         self.0
             .lock()
             .expect("scope heap value poisoned")
@@ -249,9 +249,9 @@ impl ValueSerialize for ScopeHeapValueSerialize {
         &self,
         deserializer: &mut D,
     ) -> pagable::Result<Self::Value> {
-        Ok(ScopeHeapValue::new(OwnedFrozenValue::pagable_deserialize(
-            deserializer,
-        )?))
+        Ok(ScopeHeapValue::new(
+            OwnedFrozen::<Value<'static>>::pagable_deserialize(deserializer)?,
+        ))
     }
 }
 
@@ -288,21 +288,23 @@ impl Key for ScopeHeapKey {
             .compute(&ScopeGenerationInput(self.0))
             .await
             .expect("injected heap generation should compute");
-        let heap = FrozenHeap::new();
-        let value = match generation {
-            0 => heap.alloc_simple(ScopeLeafData {
-                flag: true,
-                count: 111,
-            }),
-            1 => heap.alloc_simple(ScopeLeafData {
-                flag: false,
-                count: 222,
-            }),
-            _ => unreachable!("unexpected heap generation {generation}"),
-        };
-        let owner = heap.into_ref_named(FrozenHeapName::user("dice_scope_dependency"));
-        // SAFETY: `owner` owns the heap containing `value`.
-        ScopeHeapValue::new(unsafe { OwnedFrozenValue::new(owner, value) })
+        ScopeHeapValue::new(OwnedFrozen::build(
+            FrozenHeapName::user("dice_scope_dependency"),
+            |heap| {
+                match generation {
+                    0 => heap.alloc_simple(ScopeLeafData {
+                        flag: true,
+                        count: 111,
+                    }),
+                    1 => heap.alloc_simple(ScopeLeafData {
+                        flag: false,
+                        count: 222,
+                    }),
+                    _ => unreachable!("unexpected heap generation {generation}"),
+                }
+                .to_value()
+            },
+        ))
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -320,7 +322,7 @@ struct ScopeRootKey(u8);
 
 #[async_trait]
 impl Key for ScopeRootKey {
-    type Value = OwnedFrozenValue;
+    type Value = OwnedFrozen<Value<'static>>;
 
     async fn compute(
         &self,
@@ -339,22 +341,28 @@ impl Key for ScopeRootKey {
     }
 }
 
-fn make_root(dependency: &OwnedFrozenValue, root_id: u8) -> OwnedFrozenValue {
-    let heap = FrozenHeap::new();
-    // SAFETY: this adds the dependency's owner to `heap` before returning its value.
-    let target = unsafe { dependency.owned_frozen_value(&heap) };
-    let value = heap.alloc_simple(ScopeRootData {
-        label: if root_id == 0 { 10 } else { 20 },
-        gate: PageInGateMarker(root_id == 0),
-        target,
-    });
-    let owner = heap.into_ref_named(FrozenHeapName::user(format!("dice_scope_root_{root_id}")));
-    // SAFETY: `owner` owns `value` and retains its dependency heap.
-    unsafe { OwnedFrozenValue::new(owner, value) }
+fn make_root(dependency: &OwnedFrozen<Value<'static>>, root_id: u8) -> OwnedFrozen<Value<'static>> {
+    OwnedFrozen::build(
+        FrozenHeapName::user(format!("dice_scope_root_{root_id}")),
+        |heap| {
+            let target = dependency
+                .as_ref()
+                .add_to_frozen_heap(heap)
+                .unpack_frozen()
+                .expect("value is in a frozen heap");
+            heap.alloc_simple(ScopeRootData {
+                label: if root_id == 0 { 10 } else { 20 },
+                gate: PageInGateMarker(root_id == 0),
+                target,
+            })
+            .to_value()
+        },
+    )
 }
 
-fn root_data(value: &OwnedFrozenValue) -> &ScopeRootData {
+fn root_data<'a>(value: &'a OwnedFrozen<Value<'static>>) -> &'a ScopeRootData {
     value
+        .as_ref()
         .value()
         .downcast_ref::<ScopeRootData>()
         .expect("root should contain ScopeRootData")
