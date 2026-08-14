@@ -87,7 +87,7 @@ use crate::artifact_groups::promise::PromiseArtifactId;
 use crate::deferred::calculation::ActionLookup;
 use crate::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
 use crate::dynamic::storage::DynamicLambdaParamsStorage;
-use crate::dynamic::storage::FrozenDynamicLambdaParamsStorage;
+use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageBox;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
@@ -424,10 +424,27 @@ pub struct FrozenAnalysisValueStorage<'fv> {
         deserialize_with = "deserialize_transitive_sets"
     )]
     transitive_sets: MiniBoxSlice<FrozenValueTyped<'fv, TransitiveSet<'fv>>>,
-    // `Box<dyn FrozenDynamicLambdaParamsStorage>` round-trips via pagable typetag
-    #[starlark_pagable(pagable)]
-    pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
+    #[starlark_pagable(
+        serialize_with = "serialize_lambda_params",
+        deserialize_with = "deserialize_lambda_params"
+    )]
+    pub lambda_params: FrozenDynamicLambdaParamsStorageBox<'fv>,
     result_value: Option<FrozenValueTyped<'fv, ProviderCollection<'fv>>>,
+}
+
+fn serialize_lambda_params(
+    field: &FrozenDynamicLambdaParamsStorageBox<'_>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    StarlarkSerialize::starlark_serialize(&***field, ctx)
+}
+
+fn deserialize_lambda_params<'fv>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<FrozenDynamicLambdaParamsStorageBox<'fv>> {
+    DYNAMIC_LAMBDA_PARAMS_STORAGES
+        .get()?
+        .deserialize_frozen_dynamic_lambda_params_storage(ctx)
 }
 
 fn serialize_transitive_sets<'v>(
@@ -801,7 +818,7 @@ impl RecordedAnalysisValues {
                 .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value)
                 .value()
                 .lambda_params
-                .iter_dynamic_lambda_outputs()
+                .dynamic_lambda_outputs()
         })
     }
 

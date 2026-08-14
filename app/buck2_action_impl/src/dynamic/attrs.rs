@@ -22,19 +22,15 @@ use buck2_util::size_assert;
 use dupe::Dupe;
 use starlark::StarlarkPagable;
 use starlark::collections::SmallSet;
-use starlark::pagable::SmallMapKeyDeserialize;
-use starlark::pagable::StarlarkPagable;
 use starlark::typing::Ty;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
-use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLifetimeless;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
@@ -75,36 +71,39 @@ pub(crate) enum DynamicAttrType {
     Dict(Box<(TypeCompiled<FrozenValue>, DynamicAttrType)>),
 }
 
+/// A value passed to a dynamic action, in whichever heap holds it.
+///
+/// Unlike most starlark data there is no frozen variant: the `Output` values are output artifacts
+/// in either form (`StarlarkOutputArtifact` before the freeze, `FrozenStarlarkOutputArtifact`
+/// after), which is why the field is a `ValueOfUnchecked` rather than a `ValueTyped`.
 #[derive(Debug, Trace, Allocative, StarlarkPagable)]
-#[trace(bound = "V: Trace<'v>")]
-#[starlark_pagable(bound = "V: StarlarkPagable + SmallMapKeyDeserialize")]
-pub(crate) enum DynamicAttrValue<
-    // Starlark value passed as is from dynamic actions creation site to impl.
-    V: ValueLifetimeless,
-> {
-    Output(ValueOfUncheckedGeneric<V, FrozenStarlarkOutputArtifact<'static>>),
+pub(crate) enum DynamicAttrValue<'v> {
+    Output(ValueOfUnchecked<'v, FrozenStarlarkOutputArtifact<'v>>),
     ArtifactValue(Artifact),
     DynamicValue(DynamicValue),
-    Value(V),
-    List(Box<[DynamicAttrValue<V>]>),
-    Tuple(Box<[DynamicAttrValue<V>]>),
-    Dict(Box<SmallMap<V, DynamicAttrValue<V>>>),
-    Option(Option<Box<DynamicAttrValue<V>>>),
+    Value(Value<'v>),
+    List(Box<[DynamicAttrValue<'v>]>),
+    Tuple(Box<[DynamicAttrValue<'v>]>),
+    Dict(Box<SmallMap<Value<'v>, DynamicAttrValue<'v>>>),
+    Option(Option<Box<DynamicAttrValue<'v>>>),
 }
 
 // This isn't *super* sensitive, but it's not nothing either
-size_assert::words_of_type!(DynamicAttrValue<FrozenValue>, 4);
+size_assert::words_of_type!(DynamicAttrValue<'static>, 4);
 
-// We implement `Freeze` manually because starlark `derive(Freeze)` does not support custom bounds.
-impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {
-    type Frozen = DynamicAttrValue<V::Frozen>;
+impl<'v> FreezeBranded for DynamicAttrValue<'v> {
+    type Frozen<'fv> = DynamicAttrValue<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         match self {
-            DynamicAttrValue::Output(o) => Ok(DynamicAttrValue::Output(o.freeze(freezer)?)),
+            DynamicAttrValue::Output(o) => Ok(DynamicAttrValue::Output(ValueOfUnchecked::new(
+                FreezeBranded::freeze(o.get(), freezer)?,
+            ))),
             DynamicAttrValue::ArtifactValue(a) => Ok(DynamicAttrValue::ArtifactValue(a)),
             DynamicAttrValue::DynamicValue(d) => Ok(DynamicAttrValue::DynamicValue(d)),
-            DynamicAttrValue::Value(v) => Ok(DynamicAttrValue::Value(v.freeze(freezer)?)),
+            DynamicAttrValue::Value(v) => {
+                Ok(DynamicAttrValue::Value(FreezeBranded::freeze(v, freezer)?))
+            }
             DynamicAttrValue::List(l) => Ok(DynamicAttrValue::List(l.freeze(freezer)?)),
             DynamicAttrValue::Dict(d) => Ok(DynamicAttrValue::Dict(d.freeze(freezer)?)),
             DynamicAttrValue::Tuple(t) => Ok(DynamicAttrValue::Tuple(t.freeze(freezer)?)),
@@ -113,31 +112,13 @@ impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {
     }
 }
 
-#[derive(Debug, Allocative, StarlarkPagable)]
-#[starlark_pagable(bound = "V: StarlarkPagable + SmallMapKeyDeserialize")]
-pub struct DynamicAttrValues<V: ValueLifetimeless> {
+#[derive(Debug, Trace, Allocative, StarlarkPagable, FreezeBranded)]
+pub struct DynamicAttrValues<'v> {
     /// Indexed by attrs definitions in `DynamicActionCallable`.
-    pub(crate) values: Box<[DynamicAttrValue<V>]>,
+    pub(crate) values: Box<[DynamicAttrValue<'v>]>,
 }
 
-unsafe impl<'v, V: ValueLifetimeless + Trace<'v>> Trace<'v> for DynamicAttrValues<V> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        let DynamicAttrValues { values } = self;
-        values.trace(tracer);
-    }
-}
-
-impl<V: ValueLifetimeless> Freeze for DynamicAttrValues<V> {
-    type Frozen = DynamicAttrValues<V::Frozen>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(DynamicAttrValues {
-            values: self.values.freeze(freezer)?,
-        })
-    }
-}
-
-impl<'v> DynamicAttrValue<Value<'v>> {
+impl<'v> DynamicAttrValue<'v> {
     fn for_each_node(&self, f: &mut impl FnMut(&Self)) {
         f(self);
         match self {
@@ -169,7 +150,7 @@ impl<'v> DynamicAttrValue<Value<'v>> {
     }
 }
 
-impl<'v> DynamicAttrValue<Value<'v>> {
+impl<'v> DynamicAttrValue<'v> {
     fn bind(&self, bind: &mut DynamicActionsOutputArtifactBinder) -> buck2_error::Result<()> {
         match self {
             DynamicAttrValue::Output(output) => {
@@ -213,8 +194,8 @@ pub fn dedupe_output_artifacts<'v>(
     outputs.into_iter().collect()
 }
 
-impl<'v> DynamicAttrValues<Value<'v>> {
-    fn for_each_node(&self, f: &mut impl FnMut(&DynamicAttrValue<Value<'v>>)) {
+impl<'v> DynamicAttrValues<'v> {
+    fn for_each_node(&self, f: &mut impl FnMut(&DynamicAttrValue<'v>)) {
         for value in &self.values {
             value.for_each_node(f);
         }
@@ -254,7 +235,7 @@ impl<'v> DynamicAttrValues<Value<'v>> {
     }
 }
 
-impl<'v> DynamicAttrValues<Value<'v>> {
+impl<'v> DynamicAttrValues<'v> {
     pub(crate) fn bind(&self, key: &DynamicLambdaResultsKey) -> buck2_error::Result<()> {
         let mut bind = DynamicActionsOutputArtifactBinder::new(key);
         self.values.iter().try_for_each(|v| v.bind(&mut bind))
@@ -300,14 +281,11 @@ impl DynamicAttrType {
         }
     }
 
-    pub(crate) fn coerce<'v>(
-        &self,
-        value: Value<'v>,
-    ) -> buck2_error::Result<DynamicAttrValue<Value<'v>>> {
+    pub(crate) fn coerce<'v>(&self, value: Value<'v>) -> buck2_error::Result<DynamicAttrValue<'v>> {
         match self {
             DynamicAttrType::Output => {
                 let artifact = ValueTyped::<StarlarkOutputArtifact<'v>>::unpack_value_err(value)?;
-                Ok(DynamicAttrValue::Output(ValueOfUncheckedGeneric::new(
+                Ok(DynamicAttrValue::Output(ValueOfUnchecked::new(
                     artifact.to_value(),
                 )))
             }

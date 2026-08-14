@@ -14,25 +14,19 @@ use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
-use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_error::internal_error;
-use gazebo::prelude::OptionExt;
 use starlark::StarlarkPagable;
 use starlark::any::ProvidesStaticType;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
-use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::structs::StructRef;
-use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 
 use crate::dynamic::attrs::DynamicAttrValues;
@@ -55,7 +49,7 @@ pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) plugins: Option<ValueTyped<'v, AnalysisPlugins<'v>>>,
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) attr_values: Option<(
-        DynamicAttrValues<Value<'v>>,
+        DynamicAttrValues<'v>,
         FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
     )>,
     pub(crate) outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
@@ -63,67 +57,47 @@ pub(crate) struct DynamicLambdaParams<'v> {
 }
 
 #[derive(Allocative, Debug, ProvidesStaticType, StarlarkPagable)]
-pub struct FrozenDynamicLambdaParams {
-    pub(crate) attributes: Option<FrozenValueOfUnchecked<'static, StructRef<'static>>>,
-    pub(crate) plugins: Option<FrozenValueTyped<'static, FrozenAnalysisPlugins>>,
-    pub(crate) lambda: FrozenStarlarkCallable,
+pub struct FrozenDynamicLambdaParams<'fv> {
+    attributes: Option<ValueOfUnchecked<'fv, StructRef<'static>>>,
+    plugins: Option<ValueTyped<'fv, AnalysisPlugins<'fv>>>,
+    lambda: StarlarkCallable<'fv>,
     pub attr_values: Option<(
-        DynamicAttrValues<FrozenValue>,
-        FrozenValueTyped<'static, FrozenStarlarkDynamicActionsCallable>,
+        DynamicAttrValues<'fv>,
+        FrozenValueTyped<'fv, FrozenStarlarkDynamicActionsCallable>,
     )>,
-    pub(crate) outputs: Box<[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>]>,
+    pub(crate) outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
 }
 
-impl FrozenDynamicLambdaParams {
-    pub(crate) fn attributes<'v>(
-        &'v self,
-    ) -> buck2_error::Result<Option<ValueOfUnchecked<'v, StructRef<'static>>>> {
-        let Some(attributes) = self.attributes else {
-            return Ok(None);
-        };
-        Ok(Some(attributes.to_value().cast()))
+impl<'fv> FrozenDynamicLambdaParams<'fv> {
+    pub(crate) fn attributes(&self) -> Option<ValueOfUnchecked<'fv, StructRef<'static>>> {
+        self.attributes
     }
 
-    pub(crate) fn plugins<'v>(
-        &'v self,
-    ) -> buck2_error::Result<Option<ValueTyped<'v, AnalysisPlugins<'v>>>> {
-        let Some(plugins) = self.plugins else {
-            return Ok(None);
-        };
-        Ok(Some(ValueTyped::new(plugins.to_value()).ok_or_else(
-            || internal_error!("plugins must be AnalysisPlugins"),
-        )?))
+    pub(crate) fn plugins(&self) -> Option<ValueTyped<'fv, AnalysisPlugins<'fv>>> {
+        self.plugins
     }
 
-    pub fn lambda<'v>(&'v self) -> Value<'v> {
-        self.lambda.0.to_value()
+    pub fn lambda(&self) -> Value<'fv> {
+        self.lambda.0
     }
 }
 
-impl<'v> Freeze for DynamicLambdaParams<'v> {
-    type Frozen = FrozenDynamicLambdaParams;
+impl<'v> FreezeBranded for DynamicLambdaParams<'v> {
+    type Frozen<'fv> = FrozenDynamicLambdaParams<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let attr_values = match self.attr_values {
             None => None,
             Some((attr_values, callable)) => Some((
                 attr_values.freeze(freezer)?,
-                // Change lifetime.
                 FrozenValueTyped::new_err(callable.to_frozen_value())
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             )),
         };
         Ok(FrozenDynamicLambdaParams {
-            attributes: self.attributes.try_map(|a| Ok(a.freeze(freezer)?.cast()))?,
-            plugins: self
-                .plugins
-                .map(|v| {
-                    v.to_value().freeze(freezer).and_then(|v| {
-                        FrozenValueTyped::new_err(v).map_err(|e| FreezeError::new(e.to_string()))
-                    })
-                })
-                .transpose()?,
+            attributes: self.attributes.freeze(freezer)?,
+            plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values,
             // N.B. collect::<Result<_>> sets the lower bound to zero,

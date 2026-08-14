@@ -33,7 +33,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
     for<'v> fn(
         &'v BaseDeferredKeyBxl,
         DynamicLambdaResultsKey,
-        OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams>,
+        OwnedFrozenRef<'v, &'static FrozenDynamicLambdaParams<'static>>,
         &'v mut DiceComputations,
         InputArtifactsMaterialized,
         &'v BuckIndexMap<&Artifact, &ArtifactValue>,
@@ -48,7 +48,7 @@ pub static EVAL_BXL_FOR_DYNAMIC_OUTPUT: LateBinding<
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     base_deferred_key: &'v BaseDeferredKeyBxl,
     self_key: DynamicLambdaResultsKey,
-    dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
+    dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &'v BuckIndexMap<&Artifact, &ArtifactValue>,

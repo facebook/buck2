@@ -30,7 +30,7 @@ use crate::dynamic::dynamic_actions_callable::FrozenStarlarkDynamicActionsCallab
 #[derive(Debug, Trace, Allocative)]
 pub(crate) struct StarlarkDynamicActionsData<'v> {
     pub(crate) callable: FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable>,
-    pub(crate) attr_values: DynamicAttrValues<Value<'v>>,
+    pub(crate) attr_values: DynamicAttrValues<'v>,
 }
 
 #[derive(

@@ -69,7 +69,6 @@ use smallvec::SmallVec;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::UnpackValue;
@@ -94,10 +93,7 @@ pub enum DynamicLambdaArgs<'v> {
     OldPositional {
         ctx: Value<'v>,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
-        outputs: ValueOfUnchecked<
-            'v,
-            DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
-        >,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
     },
     DynamicActionsNamed {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
@@ -175,7 +171,7 @@ fn execute_lambda_inner<'v>(
     env: &BuckStarlarkModule<'v>,
     eval_provider: StarlarkEvaluatorProvider,
     liveness: CancellationObserver,
-    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
+    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     self_key: &DynamicLambdaResultsKey,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
@@ -200,9 +196,9 @@ fn execute_lambda_inner<'v>(
         )?;
         let ctx = AnalysisContext::prepare(
             heap,
-            dynamic_lambda_ctx_data.lambda.attributes()?,
+            dynamic_lambda_ctx_data.lambda.attributes(),
             self_key.owner().configured_label(),
-            dynamic_lambda_ctx_data.lambda.plugins()?,
+            dynamic_lambda_ctx_data.lambda.plugins(),
             dynamic_lambda_ctx_data.registry,
             dynamic_lambda_ctx_data.digest_config,
         );
@@ -256,7 +252,7 @@ fn execute_lambda_inner<'v>(
 }
 
 async fn execute_lambda(
-    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
+    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -361,7 +357,7 @@ async fn execute_lambda(
 pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
-    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
+    lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     self_holder_key: DynamicLambdaResultsKey,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     let mut waiting_data = WaitingData::new();
@@ -509,10 +505,7 @@ async fn resolve_dynamic_values(
 
 pub enum DynamicLambdaCtxDataSpec<'v> {
     Old {
-        outputs: ValueOfUnchecked<
-            'v,
-            DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
-        >,
+        outputs: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
         artifact_values: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
     },
     New {
@@ -522,7 +515,7 @@ pub enum DynamicLambdaCtxDataSpec<'v> {
 
 /// Data used to construct an `AnalysisContext` or `BxlContext` for the dynamic lambda.
 pub struct DynamicLambdaCtxData<'v> {
-    pub lambda: &'v FrozenDynamicLambdaParams,
+    pub lambda: &'v FrozenDynamicLambdaParams<'v>,
     pub spec: DynamicLambdaCtxDataSpec<'v>,
     pub digest_config: DigestConfig,
     pub registry: AnalysisRegistry<'v>,
@@ -560,34 +553,24 @@ fn artifact_values<'v>(
 
 /// Prepare dict of output artifacts for dynamic actions.
 fn outputs<'v>(
-    outputs: &[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact<'static>>],
+    outputs: &[ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>],
     registry: &mut AnalysisRegistry<'v>,
     heap: Heap<'v>,
 ) -> buck2_error::Result<
-    ValueOfUnchecked<
-        'v,
-        DictType<FrozenValueTyped<'static, StarlarkArtifact>, StarlarkDeclaredArtifact<'v>>,
-    >,
+    ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact<'v>>>,
 > {
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
-        let declared = registry.declare_dynamic_output(x.as_build_artifact(), heap)?;
+        let declared = registry.declare_dynamic_output(x.as_ref().as_build_artifact(), heap)?;
         let v = StarlarkDeclaredArtifact::new(None, declared, AssociatedArtifacts::new());
-        // Interim re-type until dynamic-lambda params are branded (see the
-        // roadmap): allocating a key from the `'static`-erased params into
-        // this unrelated heap goes through `FrozenValueTyped`'s brand-generic
-        // alloc, which needs the frozen witness back.
-        let artifact = x.inner().unpack_frozen().ok_or_else(|| {
-            internal_error!("Frozen output artifact does not hold a frozen inner artifact")
-        })?;
-        outputs_dict.push((artifact, v));
+        outputs_dict.push((x.as_ref().inner(), v));
     }
 
     Ok(heap.alloc_typed_unchecked(AllocDict(outputs_dict)).cast())
 }
 
 fn new_attr_value<'v>(
-    value: &DynamicAttrValue<FrozenValue>,
+    value: &DynamicAttrValue<'v>,
     _input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
@@ -597,12 +580,11 @@ fn new_attr_value<'v>(
 ) -> buck2_error::Result<Value<'v>> {
     match value {
         DynamicAttrValue::Output(artifact) => {
-            let artifact =
-                FrozenValueTyped::<'static, FrozenStarlarkOutputArtifact>::unpack_value_err(
-                    artifact.get().to_value(),
-                )
-                .expect("Checked at construction time");
-            let artifact = artifact.as_build_artifact();
+            let artifact = ValueTyped::<'v, FrozenStarlarkOutputArtifact<'v>>::unpack_value_err(
+                artifact.get(),
+            )
+            .expect("Checked at construction time");
+            let artifact = artifact.as_ref().as_build_artifact();
             let declared = registry.declare_dynamic_output(artifact, env.heap())?;
             let artifact = env.heap().alloc_typed(StarlarkDeclaredArtifact::new(
                 None,
@@ -643,7 +625,7 @@ fn new_attr_value<'v>(
                 value: v.add_heap_ref_static(env.heap()),
             }))
         }
-        DynamicAttrValue::Value(v) => Ok(v.to_value()),
+        DynamicAttrValue::Value(v) => Ok(*v),
         DynamicAttrValue::List(xs) => {
             let xs = xs
                 .iter()
@@ -665,7 +647,7 @@ fn new_attr_value<'v>(
             let mut r = SmallMap::with_capacity(xs.len());
             for (k, v) in &**xs {
                 let prev = r.insert_hashed(
-                    k.to_value().get_hashed()?,
+                    k.get_hashed()?,
                     new_attr_value(
                         v,
                         _input_artifacts_materialized,
@@ -718,7 +700,7 @@ fn new_attr_value<'v>(
 }
 
 fn new_attr_values<'v>(
-    values: &DynamicAttrValues<FrozenValue>,
+    values: &DynamicAttrValues<'v>,
     callable: &FrozenStarlarkDynamicActionsCallable,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
@@ -753,7 +735,7 @@ fn new_attr_values<'v>(
 
 /// Sets up the data needed to create the dynamic lambda ctx and evaluate the lambda.
 pub fn dynamic_lambda_ctx_data<'v>(
-    dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams>,
+    dynamic_lambda: OwnedFrozenRef<'_, &'static FrozenDynamicLambdaParams<'static>>,
     self_key: DynamicLambdaResultsKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,

@@ -186,7 +186,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
             .unpack_frozen()
             .ok_or_else(|| internal_error!("me must be frozen"))?;
         let me = FrozenValueTyped::new_err(me)?;
-        let attr_values: DynamicAttrValues<Value<'v>> =
+        let attr_values: DynamicAttrValues<'v> =
             self.signature.parser(args, eval, |parser, _eval| {
                 let mut attr_values = Vec::with_capacity(self.attrs.len());
                 for (name, attr_ty) in &self.attrs {
