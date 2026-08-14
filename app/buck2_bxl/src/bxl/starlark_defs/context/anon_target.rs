@@ -163,12 +163,8 @@ impl AnonImpl {
         attrs: ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>,
     ) -> buck2_error::Result<Value<'v>> {
         let anon_impl = get_rule_impl(eval, &self.module, &self.name)?;
-        eval.eval_function(
-            anon_impl.to_value(),
-            &[bxl_ctx.to_value(), attrs.get()],
-            &[],
-        )
-        .map_err(|e| e.into())
+        eval.eval_function(anon_impl, &[bxl_ctx.to_value(), attrs.get()], &[])
+            .map_err(|e| e.into())
     }
 
     fn promise_artifact_mappings<'v>(

@@ -32,10 +32,10 @@ use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
-use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -60,7 +60,7 @@ struct StarlarkAnonTarget<'v> {
     // Promise created by the anon rule
     promise: ValueTyped<'v, StarlarkPromise<'v>>,
     // Promised artifacts of the anon rule
-    artifacts: SmallMap<FrozenStringValue, PromiseArtifact>,
+    artifacts: SmallMap<StringValue<'v>, PromiseArtifact>,
     // Where the anon target was declared
     declaration_location: Option<FileSpan>,
 }
@@ -69,7 +69,7 @@ impl<'v> StarlarkAnonTarget<'v> {
     fn new(
         declaration_location: Option<FileSpan>,
         anon_target_promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings>,
+        frozen_artifact_mappings: &Option<FrozenArtifactPromiseMappings<'v>>,
         key: AnonTargetKey,
         registry: &mut AnonTargetsRegistry<'v>,
     ) -> buck2_error::Result<StarlarkAnonTarget<'v>> {
@@ -254,7 +254,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     fn anon_target<'v>(
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
-        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attrs: UnpackDictEntries<&'v str, Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAnonTarget<'v>> {
@@ -279,7 +279,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         // TODO(nga): this should be either positional or named, not both.
         rules: UnpackListOrTuple<(
-            ValueTyped<'v, FrozenStarlarkRuleCallable>,
+            ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
             UnpackDictEntries<&'v str, Value<'v>>,
         )>,
         eval: &mut Evaluator<'v, '_, '_>,

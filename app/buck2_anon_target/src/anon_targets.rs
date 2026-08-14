@@ -235,7 +235,7 @@ impl AnonTargetKey {
 
     fn prepare_anon_target_data<'v>(
         execution_platform: &ExecutionPlatformResolution,
-        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
     ) -> buck2_error::Result<(
         Arc<StarlarkRuleType>,
@@ -296,7 +296,7 @@ impl AnonTargetKey {
 
     pub(crate) fn new<'v>(
         execution_platform: &ExecutionPlatformResolution,
-        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<Self> {
@@ -696,7 +696,7 @@ impl<'v> AnonTargetsRegistry<'v> {
 
     pub(crate) fn anon_target_key(
         &self,
-        rule: ValueTyped<'v, FrozenStarlarkRuleCallable>,
+        rule: ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
         owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<AnonTargetKey> {

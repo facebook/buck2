@@ -46,17 +46,14 @@ use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::starlark_module;
-use starlark::starlark_simple_value;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -65,12 +62,12 @@ use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
+use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
-use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark_map::small_map::SmallMap;
@@ -131,9 +128,9 @@ struct ArtifactPromiseMappings<'v> {
 }
 
 /// Mappings of frozen promise artifact name to the frozen starlark function that will produce it, for anon targets.
-#[derive(Debug, ProvidesStaticType, Trace, Allocative, StarlarkPagable)]
-pub struct FrozenArtifactPromiseMappings {
-    pub mappings: SmallMap<FrozenStringValue, FrozenValue>,
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
+pub struct FrozenArtifactPromiseMappings<'v> {
+    pub mappings: SmallMap<StringValue<'v>, Value<'v>>,
 }
 
 impl<'v> Display for StarlarkRuleCallable<'v> {
@@ -169,7 +166,7 @@ enum RuleError {
 
 impl<'v> AllocValue<'v> for StarlarkRuleCallable<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
@@ -397,13 +394,13 @@ impl<'v> StarlarkValue<'v> for StarlarkRuleCallable<'v> {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, Clone, Dupe, StarlarkPagable)]
-enum FrozenRuleImpl {
-    BuildRule(FrozenStarlarkCallable<(FrozenValue,), ListType<FrozenValue>>),
-    BxlAnon(FrozenStarlarkCallable<(FrozenValue, FrozenValue), ListType<FrozenValue>>),
+enum FrozenRuleImpl<'v> {
+    BuildRule(StarlarkCallable<'v, (FrozenValue,), ListType<FrozenValue>>),
+    BxlAnon(StarlarkCallable<'v, (FrozenValue, FrozenValue), ListType<FrozenValue>>),
 }
 
-impl FrozenRuleImpl {
-    fn into_frozen_value(self) -> FrozenValue {
+impl<'v> FrozenRuleImpl<'v> {
+    fn into_value(self) -> Value<'v> {
         match self {
             FrozenRuleImpl::BuildRule(callable) => callable.0,
             FrozenRuleImpl::BxlAnon(callable) => callable.0,
@@ -411,10 +408,10 @@ impl FrozenRuleImpl {
     }
 }
 
-impl<'v> Freeze for RuleImpl<'v> {
-    type Frozen = FrozenRuleImpl;
+impl<'v> FreezeBranded for RuleImpl<'v> {
+    type Frozen<'fv> = FrozenRuleImpl<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         match self {
             RuleImpl::BuildRule(impl_) => Ok(FrozenRuleImpl::BuildRule(impl_.freeze(freezer)?)),
             RuleImpl::BxlAnon(impl_) => Ok(FrozenRuleImpl::BxlAnon(impl_.freeze(freezer)?)),
@@ -422,9 +419,9 @@ impl<'v> Freeze for RuleImpl<'v> {
     }
 }
 
-impl<'v> Freeze for StarlarkRuleCallable<'v> {
-    type Frozen = FrozenStarlarkRuleCallable;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+impl<'v> FreezeBranded for StarlarkRuleCallable<'v> {
+    type Frozen<'fv> = FrozenStarlarkRuleCallable<'fv>;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {
@@ -447,7 +444,10 @@ impl<'v> Freeze for StarlarkRuleCallable<'v> {
             Some(artifacts) => {
                 let mut mappings = SmallMap::new();
                 for (name, implementation) in artifacts.mappings {
-                    mappings.insert(name.freeze(freezer)?, implementation.freeze(freezer)?);
+                    mappings.insert(
+                        name.freeze_branded(freezer)?,
+                        implementation.freeze_branded(freezer)?,
+                    );
                 }
                 Some(FrozenArtifactPromiseMappings { mappings })
             }
@@ -482,13 +482,13 @@ impl<'v> Freeze for StarlarkRuleCallable<'v> {
     StarlarkPagable
 )]
 #[display("{}()", rule.rule_type.name())]
-pub struct FrozenStarlarkRuleCallable {
+pub struct FrozenStarlarkRuleCallable<'v> {
     #[starlark_pagable(pagable)]
     rule: Arc<Rule>,
     /// Identical to `rule.rule_type` but more specific type.
     #[starlark_pagable(pagable)]
     rule_type: Arc<StarlarkRuleType>,
-    implementation: FrozenRuleImpl,
+    implementation: FrozenRuleImpl<'v>,
     /// We don't need rely on `signature` to get the default value here, instead we get the default
     /// value from `Rule.attributes`. So use in the ParametersSpecNoDefaults for more clarity
     signature: ParametersSpec<FrozenValue>,
@@ -497,20 +497,24 @@ pub struct FrozenStarlarkRuleCallable {
     #[starlark_pagable(pagable)]
     ty: Ty,
     ignore_attrs_for_profiling: bool,
-    artifact_promise_mappings: Option<FrozenArtifactPromiseMappings>,
+    artifact_promise_mappings: Option<FrozenArtifactPromiseMappings<'v>>,
 }
-starlark_simple_value!(FrozenStarlarkRuleCallable);
 
-fn unpack_frozen_rule(
-    rule: FrozenValue,
-) -> buck2_error::Result<FrozenValueTyped<'static, FrozenStarlarkRuleCallable>> {
-    FrozenValueTyped::new(rule).ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
+starlark::register_simple_vtable_entry!(FrozenStarlarkRuleCallable<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkRuleCallable<'v> {}
+
+fn unpack_frozen_rule<'v>(
+    rule: Value<'v>,
+) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
+    ValueTyped::new(rule).ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
 }
 
 pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
         let rule = unpack_frozen_rule(rule)?;
-        Ok(rule.implementation.dupe().into_frozen_value())
+        Ok(rule.as_ref().implementation.dupe().into_value())
     })
 }
 
@@ -518,13 +522,14 @@ pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
     FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.init(|rule| {
         let rule = unpack_frozen_rule(rule)?;
         Ok(rule
+            .as_ref()
             .artifact_promise_mappings
             .as_ref()
             .map_or_else(SmallMap::new, |m| m.mappings.clone()))
     })
 }
 
-impl FrozenStarlarkRuleCallable {
+impl<'v> FrozenStarlarkRuleCallable<'v> {
     pub fn rule_type(&self) -> &Arc<StarlarkRuleType> {
         &self.rule_type
     }
@@ -533,13 +538,13 @@ impl FrozenStarlarkRuleCallable {
         &self.rule.attributes
     }
 
-    pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings> {
+    pub fn artifact_promise_mappings(&self) -> &Option<FrozenArtifactPromiseMappings<'v>> {
         &self.artifact_promise_mappings
     }
 }
 
 #[starlark_value(type = "Rule")]
-impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable {
+impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
     type Canonical = StarlarkRuleCallable<'v>;
 
     fn invoke(

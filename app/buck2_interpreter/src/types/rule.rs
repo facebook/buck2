@@ -9,14 +9,15 @@
  */
 
 use buck2_util::late_binding::LateBinding;
-use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValue;
+use starlark::values::StringValue;
+use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
 /// `rule()`, `anon_rule()`, `bxl.anon_rule()` value `impl` field.
-pub static FROZEN_RULE_GET_IMPL: LateBinding<fn(FrozenValue) -> buck2_error::Result<FrozenValue>> =
-    LateBinding::new("FROZEN_RULE_GET_IMPL");
+pub static FROZEN_RULE_GET_IMPL: LateBinding<
+    for<'v> fn(Value<'v>) -> buck2_error::Result<Value<'v>>,
+> = LateBinding::new("FROZEN_RULE_GET_IMPL");
 
 pub static FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL: LateBinding<
-    fn(FrozenValue) -> buck2_error::Result<SmallMap<FrozenStringValue, FrozenValue>>,
+    for<'v> fn(Value<'v>) -> buck2_error::Result<SmallMap<StringValue<'v>, Value<'v>>>,
 > = LateBinding::new("FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL");

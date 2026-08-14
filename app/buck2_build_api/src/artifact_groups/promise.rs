@@ -23,6 +23,7 @@ use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark::codemap::FileSpan;
+use starlark::values::Trace;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -74,7 +75,7 @@ fn maybe_declared_at(location: &Option<FileSpan>) -> String {
 /// that declares the promise is running, the promise may not yet be resolved. In that case, operations that require
 /// the underlying artifact will fail. Once that analysis is complete, all promises will be resolved and this will
 /// have a reference to the fully resolved artifact.
-#[derive(Clone, Debug, Dupe, Allocative, Pagable)]
+#[derive(Clone, Debug, Dupe, Allocative, Pagable, Trace)]
 pub struct PromiseArtifact {
     artifact: Arc<PromiseArtifactLock>,
     pub id: PromiseArtifactId,

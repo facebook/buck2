@@ -30,7 +30,6 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_hash::StdBuckHashMap;
@@ -50,7 +49,6 @@ use futures::Future;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -378,28 +376,25 @@ pub fn transitive_validations(
     }
 }
 
-fn get_rule_callable(
-    eval: &mut Evaluator<'_, '_, '_>,
+fn get_rule_callable<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
     module: &FrozenModule,
     name: &str,
-) -> buck2_error::Result<FrozenValue> {
+) -> buck2_error::Result<Value<'v>> {
     let rule_callable = module
         .get_any_visibility(name)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .with_buck_error_context(|| format!("Couldn't find rule `{name}`"))?
         .0;
-    let rule_callable = rule_callable.owned_value(eval.frozen_heap());
-    let rule_callable = rule_callable
-        .unpack_frozen()
-        .ok_or_else(|| internal_error!("Must be frozen"))?;
-    Ok(rule_callable)
+    let edge = eval.frozen_heap_edge();
+    Ok(edge.rebrand(rule_callable.owned_value(eval.frozen_heap())))
 }
 
-pub fn get_rule_impl(
-    eval: &mut Evaluator<'_, '_, '_>,
+pub fn get_rule_impl<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
     module: &FrozenModule,
     name: &str,
-) -> buck2_error::Result<FrozenValue> {
+) -> buck2_error::Result<Value<'v>> {
     let rule_callable = get_rule_callable(eval, module, name)?;
     let rule_impl = (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?;
     Ok(rule_impl)
@@ -411,12 +406,12 @@ pub fn promise_artifact_mappings<'v>(
     name: &str,
 ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
     let rule_callable = get_rule_callable(eval, module, name)?;
-    let frozen_promise_artifact_mappings =
+    let promise_artifact_mappings =
         (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?;
 
-    Ok(frozen_promise_artifact_mappings
+    Ok(promise_artifact_mappings
         .iter()
-        .map(|(frozen_string, frozen_func)| (frozen_string.to_string(), frozen_func.to_value()))
+        .map(|(name, func)| (name.to_string(), *func))
         .collect::<SmallMap<_, _>>())
 }
 
@@ -436,7 +431,7 @@ pub fn get_user_defined_rule_spec(
             ctx: ValueTyped<'v, AnalysisContext<'v>>,
         ) -> buck2_error::Result<Value<'v>> {
             let rule_impl = get_rule_impl(eval, &self.module, &self.name)?;
-            Ok(eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])?)
+            Ok(eval.eval_function(rule_impl, &[ctx.to_value()], &[])?)
         }
 
         fn promise_artifact_mappings<'v>(
