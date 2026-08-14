@@ -107,16 +107,14 @@ impl FetchTransition for DiceComputations<'_> {
                 let transition = module
                     .env()
                     // This is a hashmap lookup, so we are not caching the result in DICE.
-                    .get_any_visibility(name)
+                    .get_any_visibility_owned(name)
                     .map_err(|_| {
                         buck2_error::Error::from(FetchTransitionError::NotFound(id.clone()))
                     })?
                     .0;
 
                 Ok(TransitionData::MagicObject(
-                    transition
-                        .downcast_starlark::<FrozenTransition<'static>>()?
-                        .into(),
+                    transition.downcast_starlark::<FrozenTransition<'static>>()?,
                 ))
             }
             TransitionId::Target(label) => {

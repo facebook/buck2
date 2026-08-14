@@ -378,13 +378,11 @@ pub(crate) fn get_bxl_callable(
 ) -> buck2_error::Result<OwnedBxlFunction> {
     let callable = bxl_module
         .env()
-        .get_any_visibility(&spec.name)
+        .get_any_visibility_owned(&spec.name)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
         .0;
 
-    Ok(callable
-        .downcast_starlark::<FrozenBxlFunction<'static>>()?
-        .into())
+    Ok(callable.downcast_starlark::<FrozenBxlFunction<'static>>()?)
 }
 
 pub(crate) struct CliResolutionCtx<'d> {
