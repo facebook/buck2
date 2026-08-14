@@ -87,9 +87,18 @@ def expand_response_files(args: list[str]) -> list[str]:
 
     When the argv would exceed the OS command-line limit (which a Rust link
     line always does on Windows), rustc re-invokes the linker with all
-    arguments in a single `@file`: one argument per line, backslashes and
-    spaces escaped with a backslash. That is the gcc-flavored form of rustc's
-    fallback; msvc-flavored linkers get UTF-16 instead, which we reject.
+    arguments in a single `@file`, one argument per line. Three formats are
+    seen in the wild:
+     - UTF-16 with each argument quoted and embedded quotes doubled, for
+       msvc-flavored linkers;
+     - UTF-8 with the same quoting, for direct (non-cc-driver) linkers
+       invoked on a Windows host, e.g. wasm-ld;
+     - UTF-8 with backslashes and spaces escaped by a backslash, for
+       gcc-flavored linkers.
+    The quoted forms leave backslashes raw, so quoting is detected per line
+    before falling back to backslash-unescaping. A backslash-escaped line
+    can never begin with a bare quote (it would be written as `\\"`), so the
+    detection is unambiguous.
     """
     expanded = []
     for arg in args:
@@ -97,13 +106,16 @@ def expand_response_files(args: list[str]) -> list[str]:
             expanded.append(arg)
             continue
         data = Path(arg[1:]).read_bytes()
-        if data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff"):
-            eprint(
-                f"extract_link_action.py: {arg} is UTF-16; msvc-flavored response files are unsupported"
-            )
-            sys.exit(1)
-        for line in data.decode("utf-8").splitlines():
-            if line:
+        utf16 = data.startswith(b"\xff\xfe") or data.startswith(b"\xfe\xff")
+        text = data.decode("utf-16") if utf16 else data.decode("utf-8-sig")
+        for line in text.splitlines():
+            if not line:
+                continue
+            if len(line) >= 2 and line.startswith('"') and line.endswith('"'):
+                expanded.append(line[1:-1].replace('""', '"'))
+            elif utf16:
+                expanded.append(line)
+            else:
                 expanded.append(re.sub(r"\\(.)", r"\1", line))
     return expanded
 
@@ -121,13 +133,15 @@ def process_link_args(
        `#[used]` symbols of every linked crate so that the corresponding
        archive members survive the link.
 
-    Nothing else is taken. In particular, the flags and libraries rustc puts
-    on its link line are deliberately dropped: the toolchain and the
-    dependency graph are the sole owners of the flags and libraries on the
-    cxx-driven link. A rustc-synthesized file we don't recognize is an error,
-    not something to pass through: it would be a dangling path by the time
-    the link action runs. Version scripts are one known such case, so dylib
-    and cdylib crates cannot currently be linked through this.
+    The only args retained are wasm-ld `--export` args, which carry the same
+    per-program symbol metadata that `symbols.o` does on ELF (see the comment
+    at the branch). All other flags and libraries rustc puts on its link line
+    are deliberately dropped: the toolchain and the dependency graph are the
+    sole owners of the flags and libraries on the cxx-driven link. A
+    rustc-synthesized file we don't recognize is an error, not something to
+    pass through: it would be a dangling path by the time the link action
+    runs. Version scripts are one known such case, so dylib and cdylib crates
+    cannot currently be linked through this.
     """
     retained_args = []
     objects = []
@@ -147,6 +161,62 @@ def process_link_args(
             handled.add(arg)
 
             objects.append(shutil.copy(path, out_artifacts))
+            i += 1
+            continue
+
+        # wasm has no `symbols.o`: rustc communicates the crate graph's
+        # exported/kept-alive symbols to wasm-ld as `--export` arguments
+        # instead. Retaining these is acceptable for the same reason
+        # extracting `symbols.o` is — they are per-program symbol metadata,
+        # the analogue of what C compilers embed in object files as wasm
+        # export flags — NOT a precedent for preserving arbitrary flags.
+        elif arg in ("--export", "--export-if-defined"):
+            retained_args.append(arg)
+            if i + 1 < size:
+                handled.add(args[i + 1])
+                retained_args.append(args[i + 1])
+            i += 2
+            continue
+        elif arg.startswith("--export=") or arg.startswith("--export-if-defined="):
+            retained_args.append(arg)
+            i += 1
+            continue
+
+        # Entry-point metadata is the same category: rustc knows whether the
+        # program's entry is a `_start`-style symbol or an exported `main`
+        # with no native entry (`--no-entry`). In C that information is
+        # carried by whether an object defines the entry symbol.
+        elif arg == "--no-entry":
+            retained_args.append(arg)
+            i += 1
+            continue
+        elif arg == "--entry":
+            retained_args.append(arg)
+            if i + 1 < size:
+                handled.add(args[i + 1])
+                retained_args.append(args[i + 1])
+            i += 2
+            continue
+        elif arg.startswith("--entry="):
+            retained_args.append(arg)
+            i += 1
+            continue
+
+        # Debugger-visualizer files (crate-graph natvis, embedded into the
+        # PDB by the linker). Deliberately dropped rather than extracted: the
+        # natvis set is declarable in the dependency graph — the attribute
+        # names an ordinary source file — and C++ treats visualizers as
+        # build/debugger configuration, not compiler output. Marked handled
+        # so the temp-file check stays quiet.
+        elif arg.startswith("/NATVIS:"):
+            handled.add(arg)
+            i += 1
+            continue
+
+        # The msvc-style spelling of `-o` below; the temporary output path
+        # is embedded in the token, so mark it handled.
+        elif arg.startswith("/OUT:"):
+            handled.add(arg)
             i += 1
             continue
 
@@ -183,8 +253,10 @@ def process_link_args(
     # check above, which is blind when no extraction established `temp_dirs`.
     if not objects:
         eprint(
-            "extract_link_action.py: extracted no objects from rustc's link line; teach process_link_args() about whatever form it took"
+            "extract_link_action.py: extracted no objects from rustc's link line; teach process_link_args() about whatever form it took:"
         )
+        for a in args:
+            eprint(f"  {a!r}")
         sys.exit(1)
 
     return retained_args, objects

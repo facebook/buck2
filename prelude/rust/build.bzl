@@ -1076,11 +1076,17 @@ def _rustc_flags(flags: list[str | ResolvedStringWithMacros | Artifact], toolcha
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
     for i, flag in enumerate(flags):
-        if str(flag) == '"-g"':
+        flag = str(flag).strip('"')
+        if flag == "-g":
             flags[i] = "-Cdebuginfo=2"
         if toolchain_info.advanced_unstable_linking:
-            if "-Clink-arg" in str(flag):
-                fail("-Clink-arg is not supported with advanced_unstable_linking, use the " + "target's or toolchain's `linker_flags` instead")
+            # The extraction drops rustc's linker argv apart from its synthesized
+            # inputs, so flags injected via `-Clink-arg` would be silently lost.
+            # `uses_restricted_rustc_flags` does not exempt this: unlike the flags
+            # that attribute normally guards, these would not merely be
+            # unsupported, they would silently not happen.
+            if "-Clink-arg" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("link-arg")):
+                fail("flags passed via `-Clink-arg` are dropped when linking through cxx; use the target's or toolchain's `linker_flags` instead")
 
     return flags
 
@@ -1872,16 +1878,14 @@ def can_emit_rlib_from_link(compile_ctx: CompileContext) -> bool:
         # cxx to link.
         return False
 
-    # The extraction preserves only rustc's synthesized objects and drops the
+    # The extraction preserves rustc's synthesized objects — plus wasm-ld's
+    # `--export`/entry args, the wasm analogue of `symbols.o` — and drops the
     # rest of its linker argv, which is sound only when everything dropped is
-    # redundant with what the toolchain and dependency graph provide. That has
-    # been validated for gcc-style argv only. Windows-style argv (`/OUT:`) is
-    # also unparsed — AUL windows-msvc configs exist solely in the rustc
-    # bootstrap toolchain — and for wasm the dropped flags (`--export`,
-    # `--no-entry`, ...) are load-bearing, and wasm AUL binaries exist
-    # (fbcode/cards).
-    linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
-    return linker_type == LinkerType("gnu") or linker_type == LinkerType("darwin")
+    # redundant with what the toolchain and dependency graph provide. Flags
+    # injected via `-Clink-arg` would be silently lost, which the check in
+    # `rust_compile` turns into an analysis failure, and a synthesized link
+    # input the extraction does not recognize fails it loudly.
+    return True
 
 def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> bool:
     if not getattr(ctx.attrs, "enable_distributed_thinlto", False):
@@ -1939,7 +1943,12 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
         transformation_spec_context = None,
     )
     link_args = [
-        LinkArgs(flags = compile_ctx.linker_pre_args),
+        LinkArgs(
+            flags = cmd_args(
+                compile_ctx.toolchain_info.linker_flags,
+                ctx.attrs.linker_flags,
+            )
+        ),
         # Need link whole because otherwise the linker doesn't include anything at all (normally
         # you'd be passing in `.o`s but that's not really an option)
         #
@@ -2064,7 +2073,15 @@ def rust_link_binary(
     )
 
     links = [
-        LinkArgs(flags = compile_ctx.linker_pre_args),
+        # The flags this link needs beyond what `cxx_link` applies on its own;
+        # `binary_linker_flags` mirrors `cxx_executable`'s use of them.
+        LinkArgs(
+            flags = cmd_args(
+                compile_ctx.cxx_toolchain_info.linker_info.binary_linker_flags,
+                compile_ctx.toolchain_info.linker_flags,
+                ctx.attrs.linker_flags,
+            )
+        ),
         LinkArgs(flags = extra_link_args),
     ]
 
