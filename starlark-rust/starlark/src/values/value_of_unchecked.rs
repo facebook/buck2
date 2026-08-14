@@ -34,7 +34,6 @@ use crate::pagable::StarlarkPagable;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -142,15 +141,6 @@ where
 {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.0.trace(tracer)
-    }
-}
-
-impl<V: ValueLifetimeless + Freeze, T: StarlarkTypeRepr> Freeze for ValueOfUncheckedGeneric<V, T> {
-    type Frozen = ValueOfUncheckedGeneric<FrozenValue, T>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let frozen = self.0.freeze(freezer)?;
-        Ok(ValueOfUncheckedGeneric::new(frozen))
     }
 }
 

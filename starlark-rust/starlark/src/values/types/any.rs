@@ -88,7 +88,7 @@ use crate::any::ProvidesStaticType;
 use crate::pagable::vtable_register::VtableRegistered;
 use crate::typing::starlark_value::TyStarlarkValueVTable;
 use crate::values::AllocValue;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -358,10 +358,10 @@ unsafe impl<'v, T: StarlarkAnyRegistered> Trace<'v> for FrozenAnyValue<T> {
     fn trace(&mut self, _: &Tracer<'v>) {}
 }
 
-impl<T: StarlarkAnyRegistered> Freeze for FrozenAnyValue<T> {
-    type Frozen = Self;
+impl<T: StarlarkAnyRegistered> FreezeBranded for FrozenAnyValue<T> {
+    type Frozen<'fv> = Self;
 
-    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(self)
     }
 }
