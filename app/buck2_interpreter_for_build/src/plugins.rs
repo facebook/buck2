@@ -16,7 +16,6 @@ use buck2_core::plugins::PluginKind;
 use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
-use either::Either;
 use pagable::Pagable;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -24,7 +23,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -36,7 +35,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueTypedComplex;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -71,7 +69,7 @@ enum InnerStarlarkPluginKind {
 #[display("{}", RefCell::borrow(_0))]
 pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
-#[starlark_value(type = "PluginKind", skip_vtable)]
+#[starlark_value(type = "PluginKind", skip_vtable, StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
     type Canonical = FrozenStarlarkPluginKind;
 
@@ -112,7 +110,7 @@ impl StarlarkPluginKind {
 
 impl<'v> AllocValue<'v> for StarlarkPluginKind {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
@@ -133,29 +131,37 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
     type Canonical = FrozenStarlarkPluginKind;
 }
 
-impl Freeze for StarlarkPluginKind {
-    type Frozen = FrozenStarlarkPluginKind;
-    fn freeze(self, _: &Freezer) -> FreezeResult<Self::Frozen> {
+impl FreezeBranded for StarlarkPluginKind {
+    type Frozen<'fv> = FrozenStarlarkPluginKind;
+    fn freeze<'fv>(self, _: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         self.expect_bound()
             .map(FrozenStarlarkPluginKind)
             .map_err(|e| FreezeError::new(e.to_string()))
     }
 }
 
-fn plugin_kind_from_value_typed<'v>(
-    v: ValueTypedComplex<'v, StarlarkPluginKind>,
-) -> buck2_error::Result<PluginKind> {
-    match v.unpack() {
-        Either::Left(unfrozen) => unfrozen.expect_bound(),
-        Either::Right(frozen) => Ok(frozen.0.dupe()),
+/// A plugin kind in either of its reprs: the kind is bound to a name by `export_as`, and the
+/// binding is required by the time the defining module freezes.
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum StarlarkPluginKindUnpack<'v> {
+    Unfrozen(&'v StarlarkPluginKind),
+    Frozen(&'v FrozenStarlarkPluginKind),
+}
+
+impl StarlarkPluginKindUnpack<'_> {
+    fn expect_bound(&self) -> buck2_error::Result<PluginKind> {
+        match self {
+            StarlarkPluginKindUnpack::Unfrozen(v) => v.expect_bound(),
+            StarlarkPluginKindUnpack::Frozen(v) => Ok(v.0.dupe()),
+        }
     }
 }
 
 fn plugin_kind_from_value<'v>(v: Value<'v>) -> buck2_error::Result<PluginKind> {
-    let Some(v) = ValueTypedComplex::new(v) else {
+    let Some(kind) = StarlarkPluginKindUnpack::unpack_value_opt(v) else {
         return Err(PluginKindError::NotAPluginKind(v.to_repr()).into());
     };
-    plugin_kind_from_value_typed(v)
+    kind.expect_bound()
 }
 
 pub(crate) struct PluginKindArg {
@@ -174,13 +180,12 @@ impl<'v> UnpackValue<'v> for PluginKindArg {
     type Error = starlark::Error;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
-        let Some(v) = ValueTypedComplex::new(value) else {
+        let Some(kind) = StarlarkPluginKindUnpack::unpack_value_opt(value) else {
             return Ok(None);
         };
-        Ok(
-            plugin_kind_from_value_typed(v)
-                .map(|kind| Some(PluginKindArg { plugin_kind: kind }))?,
-        )
+        Ok(Some(PluginKindArg {
+            plugin_kind: kind.expect_bound()?,
+        }))
     }
 }
 
