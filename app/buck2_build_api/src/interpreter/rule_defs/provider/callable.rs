@@ -48,7 +48,7 @@ use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -411,13 +411,13 @@ impl ProviderCallableLike for UserProviderCallable {
 
 impl<'v> AllocValue<'v> for UserProviderCallable {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
-impl Freeze for UserProviderCallable {
-    type Frozen = FrozenUserProviderCallable;
-    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+impl FreezeBranded for UserProviderCallable {
+    type Frozen<'fv> = FrozenUserProviderCallable;
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let callable = self.callable.into_inner();
         let callable = match callable {
             Some(x) => x,
