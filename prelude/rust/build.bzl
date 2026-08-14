@@ -1088,6 +1088,11 @@ def _rustc_flags(flags: list[str | ResolvedStringWithMacros | Artifact], toolcha
             if "-Clink-arg" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("link-arg")):
                 fail("flags passed via `-Clink-arg` are dropped when linking through cxx; use the target's or toolchain's `linker_flags` instead")
 
+            # Same story for `-Cstrip`: rustc implements it by passing strip
+            # flags to the linker it drives.
+            if "-Cstrip" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("strip")):
+                fail("`-Cstrip` has no effect when linking through cxx; use the `symbols` strip_mode, or `-Wl,--strip-all`/`-Wl,-S` in `linker_flags`, instead")
+
     return flags
 
 # Differently parameterized build outputs need to be assigned nonoverlapping
