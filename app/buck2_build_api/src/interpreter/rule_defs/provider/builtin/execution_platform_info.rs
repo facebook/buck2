@@ -24,22 +24,11 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
-use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
-use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum ExecutionPlatformProviderErrors {
-    #[error("expected a ConfigurationInfo, got `{0}` (type `{1}`)")]
-    ExpectedConfigurationInfo(String, String),
-    #[error("expected a CommandExecutorConfig, got `{0}` (type `{1}`)")]
-    ExpectedCommandExecutorConfig(String, String),
-}
 
 /// Provider that signals that a target represents an execution platform.
 #[internal_provider(info_creator)]
@@ -55,11 +44,11 @@ enum ExecutionPlatformProviderErrors {
 #[repr(C)]
 pub struct ExecutionPlatformInfo<'v> {
     /// label of the defining rule, used in informative messages
-    label: ValueOfUnchecked<'v, StarlarkTargetLabel>,
+    label: ValueTyped<'v, StarlarkTargetLabel>,
     /// The configuration of the execution platform
-    configuration: ValueOfUnchecked<'v, FrozenConfigurationInfo>,
+    configuration: ValueTyped<'v, ConfigurationInfo<'v>>,
     /// The executor config
-    executor_config: ValueOfUnchecked<'v, StarlarkCommandExecutorConfig>,
+    executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
 }
 
 impl<'v> ExecutionPlatformInfo<'v> {
@@ -72,15 +61,8 @@ impl<'v> ExecutionPlatformInfo<'v> {
         &self,
         marker_constraint: Option<&(ConstraintKey, ConstraintValue)>,
     ) -> buck2_error::Result<ExecutionPlatform> {
-        let target = self.label.cast::<&StarlarkTargetLabel>().unpack()?.label();
-        let mut cfg = ConfigurationInfo::from_value(self.configuration.get())
-            .ok_or_else(|| {
-                ExecutionPlatformProviderErrors::ExpectedConfigurationInfo(
-                    self.configuration.get().to_repr(),
-                    self.configuration.get().get_type().to_owned(),
-                )
-            })?
-            .to_configuration_data()?;
+        let target = self.label.label();
+        let mut cfg = self.configuration.to_configuration_data()?;
 
         // Add the marker constraint if provided
         if let Some((key, value)) = marker_constraint {
@@ -92,19 +74,10 @@ impl<'v> ExecutionPlatformInfo<'v> {
             cfg,
             marker_constraint.is_some(),
         )?;
-        let executor_config = StarlarkCommandExecutorConfig::from_value(self.executor_config.get())
-            .ok_or_else(|| {
-                ExecutionPlatformProviderErrors::ExpectedCommandExecutorConfig(
-                    self.executor_config.get().to_repr(),
-                    self.executor_config.get().get_type().to_owned(),
-                )
-            })?
-            .0
-            .dupe();
         Ok(ExecutionPlatform::platform(
             target.dupe(),
             cfg,
-            executor_config,
+            self.executor_config.0.dupe(),
         ))
     }
 }
@@ -117,11 +90,12 @@ fn info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
     ) -> starlark::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {
-            label: label.to_value_of_unchecked(),
-            configuration: ValueOfUnchecked::new(configuration.to_value()),
-            executor_config: executor_config.to_value_of_unchecked(),
+            label,
+            configuration,
+            executor_config,
         };
-        // This checks that the values are valid.
+        // Surface a configuration that cannot be turned into an `ExecutionPlatform` here rather
+        // than wherever the provider is eventually used.
         info.to_execution_platform()?;
         Ok(info)
     }
