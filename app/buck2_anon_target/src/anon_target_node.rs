@@ -342,6 +342,10 @@ impl BaseDeferredKeyDyn for AnonTarget {
         Some(self.configured_label())
     }
 
+    fn rule_type_name(&self) -> Option<&str> {
+        Some(self.rule_type.name.as_str())
+    }
+
     fn to_proto(&self) -> BaseDeferredKeyProto {
         BaseDeferredKeyProto::AnonTarget(self.as_proto())
     }

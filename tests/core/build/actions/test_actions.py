@@ -596,3 +596,23 @@ async def test_target_rule_type_name(buck: Buck) -> None:
 
     assert len(target_rule_type_name) == 1
     assert "run_odd_exit_code" in target_rule_type_name
+
+
+@buck_test(data_dir="actions")
+async def test_anon_target_rule_type_name(buck: Buck) -> None:
+    await buck.build("//anon:build")
+
+    actions = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+    )
+    anon_actions = [
+        action for action in actions if "AnonTarget" in action["key"]["owner"]
+    ]
+
+    assert anon_actions, actions
+    assert {action["target_rule_type_name"] for action in anon_actions} == {"_builder"}

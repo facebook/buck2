@@ -56,6 +56,8 @@ pub trait BaseDeferredKeyDyn:
     ) -> buck2_error::Result<ProjectRelativePathBuf>;
     /// Fake label for anon targets, `None` for BXL.
     fn configured_label(&self) -> Option<ConfiguredTargetLabel>;
+    /// Short rule type name for anon targets, `None` for BXL.
+    fn rule_type_name(&self) -> Option<&str>;
     fn to_proto(&self) -> BaseDeferredKeyProto;
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
     /// bxl anon target or bxl dynamic action node or bxl itself will return cfg else None

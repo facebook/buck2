@@ -176,7 +176,8 @@ async fn build_action_no_redirect(
         BaseDeferredKey::TargetLabel(target_label) => {
             Some(get_target_rule_type_name(ctx, target_label).await?)
         }
-        _ => None,
+        BaseDeferredKey::AnonTarget(anon_target) => anon_target.rule_type_name().map(str::to_owned),
+        BaseDeferredKey::BxlLabel(_) => None,
     };
 
     let fut = build_action_inner(

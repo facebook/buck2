@@ -292,6 +292,10 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
         None
     }
 
+    fn rule_type_name(&self) -> Option<&str> {
+        None
+    }
+
     fn to_proto(&self) -> BaseDeferredKeyProto {
         BaseDeferredKeyProto::BxlKey(self.key.as_proto())
     }
