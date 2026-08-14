@@ -49,7 +49,6 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenRef;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -540,17 +539,9 @@ impl Serialize for FrozenProviderCollectionValue {
 }
 
 impl FrozenProviderCollectionValue {
-    pub fn from_value(value: OwnedFrozenValueTyped<FrozenProviderCollection>) -> Self {
-        Self {
-            value: value.into(),
-        }
-    }
-
-    pub fn try_from_value(value: OwnedFrozenValue) -> buck2_error::Result<Self> {
+    pub fn try_from_value(value: OwnedFrozen<Value<'static>>) -> buck2_error::Result<Self> {
         Ok(Self {
-            value: value
-                .downcast_starlark::<FrozenProviderCollection>()?
-                .into(),
+            value: value.downcast_starlark::<FrozenProviderCollection>()?,
         })
     }
 

@@ -36,7 +36,8 @@ use starlark::environment::Globals;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::values::FrozenValueTyped;
-use starlark::values::dict::FrozenDictRef;
+use starlark::values::Value;
+use starlark::values::dict::DictRef;
 use starlark_map::small_map::SmallMap;
 use starlark_map::smallmap;
 
@@ -135,14 +136,12 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 provider_env.freeze_named(Buck2TestHeapName::frozen_heap_name())
             })
             .expect("provider should freeze successfully");
-            let foo_info = frozen_provider_env.get("FooInfo").unwrap();
-            let bar_info = frozen_provider_env.get("BarInfo").unwrap();
+            let foo_info = frozen_provider_env.get_owned("FooInfo").unwrap();
+            let bar_info = frozen_provider_env.get_owned("BarInfo").unwrap();
 
             let frozen = Module::with_temp_heap(|env| {
-                env.frozen_heap()
-                    .add_reference(frozen_provider_env.frozen_heap());
-                env.set("FooInfo", env.heap().access_owned_frozen_value(&foo_info));
-                env.set("BarInfo", env.heap().access_owned_frozen_value(&bar_info));
+                env.set("FooInfo", foo_info.as_ref().add_to_heap(env.heap()));
+                env.set("BarInfo", bar_info.as_ref().add_to_heap(env.heap()));
                 Self::eval(&env, &globals);
                 env.freeze_named(Buck2TestHeapName::frozen_heap_name())
             })
@@ -153,12 +152,12 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                     .unwrap()
                     .configure(ConfigurationData::testing_new());
                 let val = FrozenProviderCollectionValue::try_from_value(
-                    frozen.get("ret").unwrap().map(|x| {
-                        FrozenDictRef::from_frozen_value(x)
-                            .unwrap()
-                            .get_str(var_name)
-                            .unwrap()
-                    }),
+                    frozen
+                        .get_owned("ret")
+                        .unwrap()
+                        .map::<Value<'static>, _>(|x| {
+                            DictRef::from_value(x).unwrap().get_str(var_name).unwrap()
+                        }),
                 )
                 .unwrap();
                 (configured_label, val)
@@ -194,6 +193,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
 
             let provider_ids = ProviderIdSet::from(vec![
                 foo_info
+                    .as_ref()
                     .value()
                     .as_provider_callable()
                     .unwrap()
@@ -201,6 +201,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                     .unwrap()
                     .dupe(),
                 bar_info
+                    .as_ref()
                     .value()
                     .as_provider_callable()
                     .unwrap()
