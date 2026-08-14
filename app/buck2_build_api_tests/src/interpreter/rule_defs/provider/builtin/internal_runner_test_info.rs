@@ -535,7 +535,7 @@ mod tests {
                 )
             "#
             ),
-            "`default_executor`",
+            "Expected type `CommandExecutorConfig | None` but got `str`",
         );
         Ok(())
     }

@@ -46,7 +46,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
-use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use crate::interpreter::rule_defs::required_test_local_resource::StarlarkRequiredTestLocalResource;
 use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
@@ -95,7 +94,7 @@ pub struct ExternalRunnerTestInfo<'v> {
 
     /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
-    default_executor: ValueOfUnchecked<'v, StarlarkCommandExecutorConfig>,
+    default_executor: Option<ValueTyped<'v, StarlarkCommandExecutorConfig>>,
 
     /// Executors that Tpx can use to override the default executor.
     executor_overrides: ValueOfUnchecked<'v, DictType<String, StarlarkCommandExecutorConfig>>,
@@ -113,7 +112,7 @@ pub struct ExternalRunnerTestInfo<'v> {
 
     /// Configuration needed to spawn a new worker. This worker will be used to run every single
     /// command related to test execution, including listing.
-    worker: ValueOfUnchecked<'v, FrozenWorkerInfo>,
+    worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
 
     /// Whether test execution results can be read from the remote action cache.
     supports_test_execution_caching: ValueOfUnchecked<'v, bool>,
@@ -163,7 +162,7 @@ impl<'v> ExternalRunnerTestInfo<'v> {
     }
 
     pub fn default_executor(&self) -> Option<&'v StarlarkCommandExecutorConfig> {
-        unpack_opt_executor(self.default_executor.get()).unwrap()
+        self.default_executor.map(|v| v.as_ref())
     }
 
     pub fn has_executor_overrides(&self) -> bool {
@@ -200,7 +199,7 @@ impl<'v> ExternalRunnerTestInfo<'v> {
     }
 
     pub fn worker(&self) -> Option<&'v WorkerInfo<'v>> {
-        unpack_opt_worker(self.worker.get()).unwrap()
+        self.worker.map(|v| v.as_ref())
     }
 
     pub fn supports_test_execution_caching(&self) -> bool {
@@ -430,32 +429,6 @@ pub(super) fn iter_local_resources<'v>(
     }))
 }
 
-pub(super) fn unpack_opt_executor<'v>(
-    executor: Value<'v>,
-) -> buck2_error::Result<Option<&'v StarlarkCommandExecutorConfig>> {
-    if executor.is_none() {
-        return Ok(None);
-    }
-
-    let executor = StarlarkCommandExecutorConfig::from_value(executor)
-        .ok_or_else(|| internal_error!("Value is not an executor config: `{executor}`"))?;
-
-    Ok(Some(executor))
-}
-
-pub(super) fn unpack_opt_worker<'v>(
-    worker: Value<'v>,
-) -> buck2_error::Result<Option<&'v WorkerInfo<'v>>> {
-    if worker.is_none() {
-        return Ok(None);
-    }
-
-    let worker = WorkerInfo::from_value(worker)
-        .ok_or_else(|| internal_error!("Value is not a worker: `{worker}`"))?;
-
-    Ok(Some(worker))
-}
-
 pub(super) fn check_all<I, T>(it: I) -> buck2_error::Result<()>
 where
     I: IntoIterator<Item = buck2_error::Result<T>>,
@@ -507,9 +480,6 @@ fn validate_external_runner_test_info<'v>(
     })?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.get())?
         .ok_or_else(|| internal_error!("`run_from_project_root` must be a bool if provided"))?;
-    unpack_opt_executor(info.default_executor.get())
-        .buck_error_context("Invalid `default_executor`")?;
-    unpack_opt_worker(info.worker.get()).buck_error_context("Invalid `worker`")?;
     NoneOr::<bool>::unpack_value(info.supports_test_execution_caching.get())?.ok_or_else(|| {
         internal_error!("`supports_test_execution_caching` must be a bool if provided")
     })?;
@@ -532,11 +502,15 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneType)] contacts: Value<'v>,
         #[starlark(require = named, default = NoneType)] use_project_relative_paths: Value<'v>,
         #[starlark(require = named, default = NoneType)] run_from_project_root: Value<'v>,
-        #[starlark(require = named, default = NoneType)] default_executor: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] default_executor: NoneOr<
+            ValueTyped<'v, StarlarkCommandExecutorConfig>,
+        >,
         #[starlark(require = named, default = NoneType)] executor_overrides: Value<'v>,
         #[starlark(require = named, default = NoneType)] local_resources: Value<'v>,
         #[starlark(require = named, default = NoneType)] required_local_resources: Value<'v>,
-        #[starlark(require = named, default = NoneType)] worker: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] worker: NoneOr<
+            ValueTyped<'v, WorkerInfo<'v>>,
+        >,
         #[starlark(require = named, default = NoneType)] supports_test_execution_caching: Value<'v>,
     ) -> starlark::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
@@ -547,11 +521,11 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             contacts: ValueOfUnchecked::new(contacts),
             use_project_relative_paths: ValueOfUnchecked::new(use_project_relative_paths),
             run_from_project_root: ValueOfUnchecked::new(run_from_project_root),
-            default_executor: ValueOfUnchecked::new(default_executor),
+            default_executor: default_executor.into_option(),
             executor_overrides: ValueOfUnchecked::new(executor_overrides),
             local_resources: ValueOfUnchecked::new(local_resources),
             required_local_resources: ValueOfUnchecked::new(required_local_resources),
-            worker: ValueOfUnchecked::new(worker),
+            worker: worker.into_option(),
             supports_test_execution_caching: ValueOfUnchecked::new(supports_test_execution_caching),
         };
         validate_external_runner_test_info(&res)?;

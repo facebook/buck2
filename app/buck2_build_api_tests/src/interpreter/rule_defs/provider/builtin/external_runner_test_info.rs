@@ -175,7 +175,7 @@ fn test_validation() -> buck2_error::Result<()> {
             ExternalRunnerTestInfo(type = "foo", default_executor = "foo")
         "#
         ),
-        "`default_executor`",
+        "Expected type `CommandExecutorConfig | None` but got `str`",
     );
 
     tester.run_starlark_bzl_test_expecting_error(

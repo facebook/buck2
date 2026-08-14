@@ -60,10 +60,7 @@ use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info:
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_test_command;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_test_env;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::iter_value;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::unpack_opt_executor;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::unpack_opt_worker;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::unwrap_all;
-use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use crate::interpreter::rule_defs::required_test_local_resource::StarlarkRequiredTestLocalResource;
 
@@ -117,7 +114,7 @@ pub struct InternalRunnerTestInfo<'v> {
 
     /// Default executor to use to run tests. If none is
     /// passed we will default to the execution platform.
-    default_executor: ValueOfUnchecked<'v, StarlarkCommandExecutorConfig>,
+    default_executor: Option<ValueTyped<'v, StarlarkCommandExecutorConfig>>,
 
     /// Executors that can be used to override the default executor.
     executor_overrides: ValueOfUnchecked<'v, DictType<String, StarlarkCommandExecutorConfig>>,
@@ -135,7 +132,7 @@ pub struct InternalRunnerTestInfo<'v> {
 
     /// Configuration needed to spawn a new worker. This worker will be used to run every single
     /// command related to test execution, including listing.
-    worker: ValueOfUnchecked<'v, FrozenWorkerInfo>,
+    worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
 
     /// A Starlark callable that parses test listing output into structured test
     /// entries. The callback signature is:
@@ -219,7 +216,7 @@ impl<'v> InternalRunnerTestInfo<'v> {
     }
 
     pub fn default_executor(&self) -> Option<&'v StarlarkCommandExecutorConfig> {
-        unpack_opt_executor(self.default_executor.get()).unwrap()
+        self.default_executor.map(|v| v.as_ref())
     }
 
     pub fn has_executor_overrides(&self) -> bool {
@@ -256,7 +253,7 @@ impl<'v> InternalRunnerTestInfo<'v> {
     }
 
     pub fn worker(&self) -> Option<&'v WorkerInfo<'v>> {
-        unpack_opt_worker(self.worker.get()).unwrap()
+        self.worker.map(|v| v.as_ref())
     }
 
     /// Panics when called on an unfrozen instance.
@@ -551,9 +548,6 @@ fn validate_internal_runner_test_info<'v>(
     })?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.get())?
         .ok_or_else(|| internal_error!("`run_from_project_root` must be a bool if provided"))?;
-    unpack_opt_executor(info.default_executor.get())
-        .buck_error_context("Invalid `default_executor`")?;
-    unpack_opt_worker(info.worker.get()).buck_error_context("Invalid `worker`")?;
 
     // Both parse_test_listing and parse_test_result are required callables.
     let ptl = info.parse_test_listing.get();
@@ -597,11 +591,13 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] contacts: Value<'v>,
         #[starlark(default = NoneType)] use_project_relative_paths: Value<'v>,
         #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
-        #[starlark(default = NoneType)] default_executor: Value<'v>,
+        #[starlark(default = NoneOr::None)] default_executor: NoneOr<
+            ValueTyped<'v, StarlarkCommandExecutorConfig>,
+        >,
         #[starlark(default = NoneType)] executor_overrides: Value<'v>,
         #[starlark(default = NoneType)] local_resources: Value<'v>,
         #[starlark(default = NoneType)] required_local_resources: Value<'v>,
-        #[starlark(default = NoneType)] worker: Value<'v>,
+        #[starlark(default = NoneOr::None)] worker: NoneOr<ValueTyped<'v, WorkerInfo<'v>>>,
     ) -> starlark::Result<InternalRunnerTestInfo<'v>> {
         let res = InternalRunnerTestInfo {
             test_type: ValueOfUnchecked::new(r#type),
@@ -612,11 +608,11 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             contacts: ValueOfUnchecked::new(contacts),
             use_project_relative_paths: ValueOfUnchecked::new(use_project_relative_paths),
             run_from_project_root: ValueOfUnchecked::new(run_from_project_root),
-            default_executor: ValueOfUnchecked::new(default_executor),
+            default_executor: default_executor.into_option(),
             executor_overrides: ValueOfUnchecked::new(executor_overrides),
             local_resources: ValueOfUnchecked::new(local_resources),
             required_local_resources: ValueOfUnchecked::new(required_local_resources),
-            worker: ValueOfUnchecked::new(worker),
+            worker: worker.into_option(),
             parse_test_listing: ValueOfUnchecked::new(parse_test_listing),
             parse_test_result: ValueOfUnchecked::new(parse_test_result),
         };

@@ -54,10 +54,16 @@ impl syn::parse::Parse for InternalProviderArgs {
 /// constructed, and reads are plain field accesses. It is only available when the starlark type
 /// is exactly one `StarlarkValue` implementation; unions, containers and other type-repr-only
 /// markers must use `ValueOfUnchecked<'v, T>` and re-check on read.
+///
+/// A field that may legitimately be absent is declared `Option<ValueTyped<'v, T>>`, which is the
+/// only spelling that documents itself honestly - the other two describe a field that is always a
+/// `T`, so an absent value has to be smuggled through as a `None` the starlark type does not
+/// mention.
 #[derive(Copy, Clone)]
 enum FieldKind {
     Unchecked,
     Typed,
+    OptionTyped,
 }
 
 /// Provider field information.
@@ -67,8 +73,8 @@ struct Field {
     name: syn::Ident,
     /// The docstring for the field, if present
     docstring: syn::Expr,
-    /// The field type as declared.
-    ty: syn::Type,
+    /// The wrapper type, with any `Option` stripped.
+    value_ty: syn::Type,
     /// The type argument of the wrapper, which carries the starlark type.
     field_type: syn::Type,
     kind: FieldKind,
@@ -78,8 +84,14 @@ impl Field {
     /// Expression which produces `Ty` for the field.
     fn field_type_ty(&self) -> syn::Expr {
         let field_type = &self.field_type;
+        let ty: syn::Type = match self.kind {
+            FieldKind::Unchecked | FieldKind::Typed => field_type.clone(),
+            FieldKind::OptionTyped => syn::parse_quote_spanned! { self.name.span() =>
+                starlark::values::none::NoneOr<#field_type>
+            },
+        };
         syn::parse_quote_spanned! { self.name.span() =>
-            <#field_type as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
+            <#ty as starlark::values::type_repr::StarlarkTypeRepr>::starlark_type_repr()
         }
     }
 
@@ -93,8 +105,60 @@ impl Field {
             FieldKind::Typed => syn::parse_quote_spanned! { name.span() =>
                 #this.#name.to_value()
             },
+            FieldKind::OptionTyped => syn::parse_quote_spanned! { name.span() =>
+                #this.#name.map_or_else(starlark::values::Value::new_none, |v| v.to_value())
+            },
         }
     }
+
+    /// The type the generated starlark attribute returns.
+    fn attr_ty(&self) -> syn::Type {
+        let value_ty = &self.value_ty;
+        match self.kind {
+            FieldKind::Unchecked | FieldKind::Typed => value_ty.clone(),
+            FieldKind::OptionTyped => syn::parse_quote_spanned! { self.name.span() =>
+                starlark::values::none::NoneOr<#value_ty>
+            },
+        }
+    }
+
+    /// Expression which produces the starlark attribute's value, given `this`.
+    fn attr_value(&self, this: &syn::Expr) -> syn::Expr {
+        let name = &self.name;
+        match self.kind {
+            FieldKind::Unchecked | FieldKind::Typed => syn::parse_quote_spanned! { name.span() =>
+                #this.#name
+            },
+            FieldKind::OptionTyped => syn::parse_quote_spanned! { name.span() =>
+                starlark::values::none::NoneOr::from_option(#this.#name)
+            },
+        }
+    }
+}
+
+/// Split `Wrapper<..>` into the wrapper's name and its generic arguments.
+fn generic_segment(ty: &syn::Type) -> Option<(&syn::Ident, &syn::AngleBracketedGenericArguments)> {
+    let syn::Type::Path(syn::TypePath {
+        attrs: _,
+        qself: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments,
+        },
+    }) = ty
+    else {
+        return None;
+    };
+    let [
+        syn::PathSegment {
+            ident,
+            arguments: syn::PathArguments::AngleBracketed(args),
+        },
+    ] = Vec::from_iter(segments).as_slice()
+    else {
+        return None;
+    };
+    Some((ident, args))
 }
 
 struct ProviderCodegen {
@@ -210,46 +274,40 @@ impl ProviderCodegen {
             ));
         }
 
-        let error =
-            "Field type must be `ValueOfUnchecked<'v, SomeType>` or `ValueTyped<'v, SomeType>`";
+        let error = "Field type must be `ValueOfUnchecked<'v, SomeType>`, \
+             `ValueTyped<'v, SomeType>` or `Option<ValueTyped<'v, SomeType>>`";
+        let err = || syn::Error::new_spanned(field, error);
 
-        let syn::Type::Path(ty) = &field.ty else {
-            return Err(syn::Error::new_spanned(field, error));
-        };
-        let syn::TypePath {
-            attrs: _,
-            qself: None,
-            path:
-                syn::Path {
-                    leading_colon: None,
-                    segments,
-                },
-        } = ty
-        else {
-            return Err(syn::Error::new_spanned(field, error));
-        };
-        let [
-            syn::PathSegment {
-                ident,
-                arguments: syn::PathArguments::AngleBracketed(args),
-            },
-        ] = Vec::from_iter(segments).as_slice()
-        else {
-            return Err(syn::Error::new_spanned(field, error));
-        };
-        let kind = if ident == "ValueOfUnchecked" {
-            FieldKind::Unchecked
-        } else if ident == "ValueTyped" {
-            FieldKind::Typed
+        let (ident, args) = generic_segment(&field.ty).ok_or_else(err)?;
+        // `Option<..>` marks the field optional; everything inside it is parsed as usual.
+        let (optional, value_ty, ident, args) = if ident == "Option" {
+            let [syn::GenericArgument::Type(value_ty)] = Vec::from_iter(&args.args).as_slice()
+            else {
+                return Err(err());
+            };
+            let (ident, args) = generic_segment(value_ty).ok_or_else(err)?;
+            (true, value_ty, ident, args)
         } else {
-            return Err(syn::Error::new_spanned(field, error));
+            (false, &field.ty, ident, args)
+        };
+
+        let kind = if ident == "ValueTyped" {
+            if optional {
+                FieldKind::OptionTyped
+            } else {
+                FieldKind::Typed
+            }
+        } else if ident == "ValueOfUnchecked" && !optional {
+            FieldKind::Unchecked
+        } else {
+            return Err(err());
         };
         let [
             syn::GenericArgument::Lifetime(_),
             syn::GenericArgument::Type(field_type),
         ] = Vec::from_iter(&args.args).as_slice()
         else {
-            return Err(syn::Error::new_spanned(field, error));
+            return Err(err());
         };
 
         let name = field.ident.as_ref().unwrap().to_owned();
@@ -259,7 +317,7 @@ impl ProviderCodegen {
         Ok(Field {
             name,
             docstring,
-            ty: field.ty.clone(),
+            value_ty: value_ty.clone(),
             field_type: field_type.clone(),
             kind,
         })
@@ -648,8 +706,11 @@ impl ProviderCodegen {
         // Only generate default provider_methods if no custom methods_func was provided
         if self.args.methods_func.is_none() {
             let provider_methods_func_name = self.provider_methods_func_name()?;
-            let (field_names, field_tys): (Vec<_>, Vec<_>) =
-                self.fields()?.into_iter().map(|f| (f.name, f.ty)).unzip();
+            let this: syn::Expr = syn::parse_quote_spanned! { self.span=> this };
+            let fields = self.fields()?;
+            let field_names = fields.map(|f| f.name.clone());
+            let field_tys = fields.map(|f| f.attr_ty());
+            let field_values = fields.map(|f| f.attr_value(&this));
 
             items.push(syn::parse_quote_spanned! { self.span=>
                 #[starlark::starlark_module]
@@ -658,7 +719,7 @@ impl ProviderCodegen {
                         #[starlark(attribute)]
                         fn #field_names<'v>(this: &#name<'v>) -> starlark::Result<#field_tys>
                         {
-                            Ok(this.#field_names)
+                            Ok(#field_values)
                         }
                     )*
                 }
