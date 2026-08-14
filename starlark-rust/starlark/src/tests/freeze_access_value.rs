@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::list::ListRef;
@@ -28,14 +27,14 @@ struct Test<V> {
     field: V,
 }
 
-impl<'v> Freeze for Test<Value<'v>> {
-    type Frozen = Test<FrozenValue>;
+impl<'v> FreezeBranded for Test<Value<'v>> {
+    type Frozen<'fv> = Test<Value<'fv>>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let test = Test {
-            field: self.field.freeze(freezer)?,
+            field: self.field.freeze_branded(freezer)?,
         };
-        let members = ListRef::from_value(test.field.to_value()).unwrap();
+        let members = ListRef::from_value(test.field).unwrap();
         assert_eq!(members[0].unpack_num().unwrap().as_int().unwrap(), 1);
         assert_eq!(members[1].unpack_num().unwrap().as_int().unwrap(), 2);
         Ok(test)

@@ -16,13 +16,16 @@
  */
 
 use crate as starlark;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeError;
 
 trait Bound<'x> {}
 
-#[derive(Freeze)]
-#[freeze(validator = check_type, bounds = "<V as Freeze>::Frozen: Bound<'freeze>")]
+#[derive(FreezeBranded)]
+#[freeze_branded(
+    validator = check_type,
+    bounds = "for<'fv> <V as FreezeBranded>::Frozen<'fv>: Bound<'fv>"
+)]
 struct Test<V> {
     field: V,
 }
@@ -36,9 +39,9 @@ where
 
 #[test]
 fn assert_impl() {
-    #[derive(Freeze)]
+    #[derive(FreezeBranded)]
     struct Impl {}
     impl<'x> Bound<'x> for Impl {}
-    fn check(_: impl Freeze) {}
+    fn check(_: impl FreezeBranded) {}
     check(Test { field: Impl {} });
 }

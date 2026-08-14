@@ -16,13 +16,13 @@
  */
 
 use crate as starlark;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeError;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 
-#[derive(Freeze)]
-#[freeze(validator = check_true)]
+#[derive(FreezeBranded)]
+#[freeze_branded(validator = check_true)]
 struct Test {
     field: bool,
 }
