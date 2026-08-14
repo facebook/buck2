@@ -27,7 +27,6 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
@@ -57,7 +56,6 @@ impl StarlarkConfiguredProvidersLabel {
     Debug,
     Display,
     Trace,
-    Freeze,
     FreezeBranded,
     ProvidesStaticType,
     Allocative,
@@ -66,7 +64,6 @@ impl StarlarkConfiguredProvidersLabel {
 #[display("{}", label)]
 #[repr(C)]
 pub struct StarlarkConfiguredProvidersLabel {
-    #[freeze(identity)]
     #[freeze_branded(identity)]
     #[starlark_pagable(pagable)]
     label: ConfiguredProvidersLabel,
@@ -222,7 +219,6 @@ impl StarlarkProvidersLabel {
     Debug,
     Display,
     Trace,
-    Freeze,
     FreezeBranded,
     ProvidesStaticType,
     Allocative,
@@ -234,7 +230,6 @@ impl StarlarkProvidersLabel {
 #[repr(C)]
 #[serde(transparent)]
 pub struct StarlarkProvidersLabel {
-    #[freeze(identity)]
     #[freeze_branded(identity)]
     #[starlark_pagable(pagable)]
     label: ProvidersLabel,

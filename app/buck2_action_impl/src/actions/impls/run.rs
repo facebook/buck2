@@ -108,7 +108,6 @@ use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::collections::SmallSet;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -390,8 +389,8 @@ impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
             env: FreezeBranded::freeze(env, freezer)?,
             worker: FreezeBranded::freeze(worker, freezer)?,
             remote_worker: FreezeBranded::freeze(remote_worker, freezer)?,
-            category: Freeze::freeze(category, freezer)?,
-            identifier: Freeze::freeze(identifier, freezer)?,
+            category: category.freeze(freezer)?,
+            identifier: identifier.map(|i| i.freeze(freezer)).transpose()?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,
             // which can cause over-allocations in frozen containers.
             outputs_for_error_handler: {

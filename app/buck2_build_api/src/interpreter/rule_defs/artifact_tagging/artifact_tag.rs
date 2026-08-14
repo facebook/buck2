@@ -25,7 +25,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -52,7 +52,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Eq,
     Hash,
     Dupe,
-    Freeze,
+    FreezeBranded,
     Trace,
     ProvidesStaticType,
     NoSerialize,

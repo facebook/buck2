@@ -31,7 +31,7 @@ use starlark::starlark_module;
 use starlark::typing::HasTyVTable;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -86,10 +86,13 @@ impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {
     }
 }
 
-impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
-    type Frozen = StarlarkTargetSet<Node>;
+impl<Node: QueryTarget> FreezeBranded for StarlarkTargetSet<Node> {
+    type Frozen<'fv> = StarlarkTargetSet<Node>;
 
-    fn freeze(self, _freezer: &starlark::values::Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(
+        self,
+        _freezer: &starlark::values::Freezer<'fv>,
+    ) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(self)
     }
 }

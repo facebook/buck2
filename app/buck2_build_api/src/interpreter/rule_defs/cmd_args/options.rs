@@ -33,7 +33,6 @@ use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -58,7 +57,7 @@ use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
     Copy,
     Dupe,
     Trace,
-    Freeze,
+    FreezeBranded,
     Serialize,
     Allocative,
     Pagable,

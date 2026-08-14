@@ -31,7 +31,7 @@ use starlark::values::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
-/// Wrapper around `PluginKind` to impl `Trace` and `Freeze`
+/// Wrapper around `PluginKind` to impl `Trace` and `FreezeBranded`
 #[derive(
     Clone,
     Dupe,

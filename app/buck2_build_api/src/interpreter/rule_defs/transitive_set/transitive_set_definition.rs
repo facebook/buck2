@@ -32,7 +32,6 @@ use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
 use starlark::values::AllocValue;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -71,7 +70,7 @@ enum TransitiveSetDefinitionError {
     Dupe,
     Copy,
     Trace,
-    Freeze,
+    FreezeBranded,
     PartialEq,
     Allocative,
     Pagable,
