@@ -47,7 +47,6 @@ use crate::typing::Ty;
 use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::Demand;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -284,7 +283,6 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
 #[derive(
     Debug,
     Allocative,
-    Freeze,
     FreezeBranded,
     Trace,
     Clone,

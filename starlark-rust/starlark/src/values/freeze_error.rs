@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//! Error type for `Freeze` implementations. Freeze errors should only contain error messages
+//! Error type for `FreezeBranded` implementations. Freeze errors should only contain error messages
 //! and error contexts as strings and no metadatas.
 //! Conversion from anyhow is disallowed by design in order to enforce the above.
 

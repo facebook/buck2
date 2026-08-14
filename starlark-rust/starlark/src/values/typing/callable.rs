@@ -43,7 +43,6 @@ use crate::typing::TyBasic;
 use crate::typing::callable::TyCallable;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -313,15 +312,6 @@ impl<'fv, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue<'f
 {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
         self.0
-    }
-}
-
-impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Freeze for StarlarkCallable<'v, P, R> {
-    type Frozen = FrozenStarlarkCallable<P, R>;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(FrozenStarlarkCallable::unchecked_new(
-            self.0.freeze(freezer)?,
-        ))
     }
 }
 

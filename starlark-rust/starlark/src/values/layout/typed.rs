@@ -43,7 +43,6 @@ use crate::register_starlark_any;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -95,14 +94,6 @@ unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<Value<'v>> for FrozenValueTyped<
 
 unsafe impl<'v, 'f, T: StarlarkValue<'f>> Trace<'v> for FrozenValueTyped<'f, T> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
-}
-
-impl<T: StarlarkValue<'static>> Freeze for FrozenValueTyped<'static, T> {
-    type Frozen = Self;
-
-    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(self)
-    }
 }
 
 impl<'v, T: StarlarkValue<'v>> Debug for ValueTyped<'v, T> {
@@ -407,20 +398,6 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
 impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0
-    }
-}
-
-impl<'v, T> Freeze for ValueTyped<'v, T>
-where
-    T: StarlarkValue<'v>,
-    T: Freeze,
-    <T as Freeze>::Frozen: StarlarkValue<'static>,
-{
-    type Frozen = FrozenValueTyped<'static, <T as Freeze>::Frozen>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(FrozenValueTyped::new_err(self.0.freeze(freezer)?)
-            .expect("Freezing a value is known to be well-behaved"))
     }
 }
 

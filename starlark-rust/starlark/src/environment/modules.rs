@@ -56,7 +56,6 @@ use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializerImpl;
 use crate::register_starlark_any;
 use crate::singleton_heap_name;
-use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -569,7 +568,10 @@ impl<'v> Module<'v> {
             frozen_heap.add_reference(&r);
         }
         let slots = slots.freeze(&freezer)?;
-        let extra_value = extra_value.into_inner().freeze(&freezer)?;
+        let extra_value = extra_value
+            .into_inner()
+            .map(|v| freezer.freeze(v))
+            .transpose()?;
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
             // TODO(nga): retained heap profile does not store information about data
             //   allocated in frozen heap before freeze starts.

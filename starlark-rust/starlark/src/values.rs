@@ -32,7 +32,6 @@
 
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;
-pub use starlark_derive::Freeze;
 pub use starlark_derive::FreezeBranded;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkPagable;
@@ -50,7 +49,6 @@ pub use crate::values::alloc_value::AllocFrozenValue;
 pub use crate::values::alloc_value::AllocValue;
 pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
-pub use crate::values::freeze::Freeze;
 pub use crate::values::freeze_branded::FreezeBranded;
 pub use crate::values::freeze_error::FreezeError;
 pub use crate::values::freeze_error::FreezeErrorContext;
@@ -123,7 +121,6 @@ mod alloc_value;
 mod comparison;
 pub(crate) mod demand;
 pub(crate) mod error;
-mod freeze;
 mod freeze_branded;
 mod freeze_error;
 mod index;

@@ -149,16 +149,10 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     trace::derive_trace(input)
 }
 
-/// Derive the `Freeze` trait.
-#[proc_macro_derive(Freeze, attributes(freeze))]
-pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    freeze::derive_freeze(input, false)
-}
-
 /// Derive the `FreezeBranded` trait
 #[proc_macro_derive(FreezeBranded, attributes(freeze_branded))]
 pub fn derive_freeze_branded(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    freeze::derive_freeze(input, true)
+    freeze::derive_freeze(input)
 }
 
 /// Derive the `NoSerialize` trait for serde.

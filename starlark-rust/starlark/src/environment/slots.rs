@@ -23,9 +23,9 @@ use dupe::Dupe;
 use pagable::Pagable;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::StarlarkPagableViaPagable;
+use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
-use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -103,7 +103,10 @@ impl<'v> MutableSlots<'v> {
     }
 
     pub(crate) fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenSlots> {
-        let slots = self.0.into_inner().freeze(freezer)?;
+        let slots = self
+            .0
+            .into_inner()
+            .into_try_map(|slot| slot.map(|v| freezer.freeze(v)).transpose())?;
         Ok(FrozenSlots(slots))
     }
 }

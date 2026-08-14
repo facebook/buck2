@@ -30,7 +30,6 @@ use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
-use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -151,7 +150,6 @@ impl<'v> StringValue<'v> {
 /// Common type for [`StringValue`] and [`FrozenStringValue`].
 pub trait StringValueLike<'v>:
     Trace<'v>
-    + Freeze<Frozen = FrozenStringValue>
     + CoerceKey<StringValue<'v>>
     + Borrow<str>
     + Display

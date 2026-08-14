@@ -800,9 +800,9 @@ pub trait StarlarkValue<'v>:
     /// When freezing, this function is called on the value first and can return a `FrozenValue`
     /// directly to bypass the freeze impl.
     ///
-    /// Most types, when being frozen, want to implement their `Freeze` by converting themselves to
-    /// a value of a new type that is then allocated in the frozen heap. In this case, the `Freeze`
-    /// trait should just be used.
+    /// Most types, when being frozen, want to implement their `FreezeBranded` by converting
+    /// themselves to a value of a new type that is then allocated in the frozen heap. In this case,
+    /// the `FreezeBranded` trait should just be used.
     ///
     /// This function is needed in the rare case when that is not appropriate - most typically, when
     /// freezing some values, it may be possible to return a statically allocated value instead of
@@ -811,7 +811,7 @@ pub trait StarlarkValue<'v>:
     /// FIXME(JakobDegen):
     ///   1. This behavior really belongs on the freeze trait, not here
     ///   2. We need to verify that the returned `FrozenValue`'s underlying type agrees with the
-    ///      type on the `Freeze` implementation
+    ///      type on the `FreezeBranded` implementation
     ///   3. We may want to make it possible to *only* implement this, thereby not allowing by-value
     ///      freezes of the type.
     fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {

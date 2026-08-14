@@ -44,7 +44,6 @@ use crate::collections::aligned_padded_str::AlignedPaddedStr;
 use crate::environment::Methods;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -80,22 +79,6 @@ pub(crate) struct StarlarkStrN<const N: usize> {
 #[repr(C)]
 pub struct StarlarkStr {
     str: StarlarkStrN<0>,
-}
-
-impl<const N: usize> Freeze for StarlarkStrN<N> {
-    type Frozen = StarlarkStrN<N>;
-
-    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(self)
-    }
-}
-
-impl Freeze for StarlarkStr {
-    type Frozen = StarlarkStr;
-
-    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        Ok(self)
-    }
 }
 
 impl FreezeBranded for StarlarkStr {

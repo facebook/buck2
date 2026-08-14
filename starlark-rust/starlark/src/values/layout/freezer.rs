@@ -30,7 +30,8 @@ use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 
-/// Used to `freeze` values by [`Freeze::freeze`](crate::values::Freeze::freeze).
+/// Used to `freeze` values by
+/// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
 pub struct Freezer<'fv> {
     /// Freezing into this heap.
     pub(crate) heap: &'fv FrozenHeap,

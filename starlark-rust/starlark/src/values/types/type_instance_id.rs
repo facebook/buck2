@@ -22,7 +22,6 @@ use std::sync::atomic::AtomicU64;
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
-use starlark_derive::Freeze;
 use starlark_derive::FreezeBranded;
 use starlark_derive::StarlarkPagableViaPagable;
 use starlark_syntax::internal_error;
@@ -54,7 +53,6 @@ use crate::pagable::heap_ref_id::Blake3StrongHasher;
     Ord,
     PartialOrd,
     Allocative,
-    Freeze,
     FreezeBranded,
     Pagable,
     StarlarkPagableViaPagable,

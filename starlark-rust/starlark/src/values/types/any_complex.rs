@@ -85,7 +85,8 @@ where
     }
 }
 
-// Proper `Debug` is hard to require from users because of `Freeze` and `ProvidesStaticType`.
+// Proper `Debug` is hard to require from users because of `FreezeBranded` and
+// `ProvidesStaticType`.
 impl<T> Debug for StarlarkAnyComplex<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct(any::type_name::<T>())
