@@ -82,7 +82,17 @@ impl Exhaustiveness {
 /// requires two coexisting marking-variants of the *same* tree (in practice a handful exist
 /// per tree, ever) to collide, and the consequence is bounded to applying the wrong deletion
 /// boundary — never wrong content. We accept those odds.
-#[derive(Copy, Clone, Dupe, PartialEq, Eq, Hash, Allocative, Pagable)]
+#[derive(
+    Copy,
+    Clone,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    Pagable,
+    strong_hash::StrongHash
+)]
 pub struct ExhaustivenessHash(u64);
 
 impl ExhaustivenessHash {

@@ -24,6 +24,7 @@ mini_vec.workspace = true
 pagable.workspace = true
 sorted_vector_map.workspace = true
 starlark_map.workspace = true
+strong_hash.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

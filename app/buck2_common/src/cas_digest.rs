@@ -30,6 +30,7 @@ use pagable::Pagable;
 use sha1::Sha1;
 use sha2::Sha256;
 use static_interner::Intern;
+use strong_hash::StrongHash;
 use triomphe::Arc;
 
 /// The number of bytes required by a SHA-1 hash
@@ -782,6 +783,19 @@ impl<Kind: CasDigestKind> Eq for TrackedCasDigest<Kind> {}
 impl<Kind: CasDigestKind> Hash for TrackedCasDigest<Kind> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data().hash(state)
+    }
+}
+
+impl<Kind: CasDigestKind> StrongHash for CasDigest<Kind> {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.raw_digest().as_bytes().strong_hash(state);
+        self.size().strong_hash(state);
+    }
+}
+
+impl<Kind: CasDigestKind> StrongHash for TrackedCasDigest<Kind> {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.data().strong_hash(state)
     }
 }
 

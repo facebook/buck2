@@ -54,6 +54,17 @@ macro_rules! impl_fingerprinted_directory {
         }
 
         impl<L, H> Eq for $this<L, H> where H: DirectoryDigest {}
+
+        /// Hashes what `PartialEq` above compares.
+        impl<L, H> strong_hash::StrongHash for $this<L, H>
+        where
+            H: DirectoryDigest + strong_hash::StrongHash,
+        {
+            fn strong_hash<S: ::std::hash::Hasher>(&self, state: &mut S) {
+                self.fingerprint().strong_hash(state);
+                self.exhaustiveness_hash().strong_hash(state);
+            }
+        }
     };
 }
 

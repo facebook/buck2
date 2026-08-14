@@ -75,7 +75,17 @@ impl SharedDirectoryInternable<TrackedFileDigest> for ActionDirectoryMember {
     }
 }
 
-#[derive(Clone, Debug, Dupe, PartialEq, Eq, Display, Allocative, Pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    PartialEq,
+    Eq,
+    Display,
+    Allocative,
+    Pagable,
+    strong_hash::StrongHash
+)]
 pub enum ActionDirectoryMember {
     File(FileMetadata),
     Symlink(Arc<Symlink>),

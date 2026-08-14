@@ -223,7 +223,18 @@ impl FileDigest {
 
 /// Stores the relevant metadata for a file.
 // New fields should be added as needed, and unused fields removed.
-#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Display, Allocative, Pagable)]
+#[derive(
+    Debug,
+    Dupe,
+    Hash,
+    PartialEq,
+    Eq,
+    Clone,
+    Display,
+    Allocative,
+    Pagable,
+    strong_hash::StrongHash
+)]
 #[display("File(digest={}, is_executable={})", digest, is_executable)]
 pub struct FileMetadata {
     pub digest: TrackedFileDigest,
@@ -263,6 +274,9 @@ pub enum RawPathMetadata<T = Arc<CellPath>> {
 /// Represents a relative symlink, and stores the symlink's target path.
 #[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
 pub struct Symlink(RelativePathBuf);
+
+// `Hash` hashes the target string's content, so it is already strong.
+strong_hash::impl_strong_hash_for_impl_hash!(Symlink);
 
 impl Symlink {
     pub fn new(target: RelativePathBuf) -> Self {

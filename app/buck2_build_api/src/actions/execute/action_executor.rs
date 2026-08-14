@@ -70,7 +70,7 @@ use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
-use derivative::Derivative;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
@@ -78,6 +78,7 @@ use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
 use remote_execution::TActionResult2;
+use strong_hash::StrongHash;
 
 use crate::actions::ActionExecutionCtx;
 use crate::actions::RegisteredAction;
@@ -113,11 +114,34 @@ impl OutputSize for ActionOutputs {
     }
 }
 
-#[derive(Derivative, Debug, Allocative, pagable::Pagable)]
-#[derivative(PartialEq, Eq)]
+#[derive(Debug, Allocative, pagable::Pagable)]
 struct ActionOutputsData {
     outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>,
+    /// Strong hash of `outputs`, computed at construction; see `PartialEq`
+    /// below.
+    // This is OK to skip because the hash is stored inline.
+    #[allocative(skip)]
+    fingerprint: blake3::Hash,
 }
+
+/// Equality compares the fingerprint, making it O(1). That matters because
+/// DICE compares `BuildKey` values on its serialized core state thread, and
+/// these values can be both huge and widely shared: an action can have tens
+/// of thousands of outputs (dist-ThinLTO index actions), and every artifact
+/// re-bound through a `dynamic_output` gets an action key whose dice value is
+/// the producing action's entire `ActionOutputs`.
+///
+/// The fingerprint hashes entries in iteration order, so two maps that are
+/// equal as unordered maps may compare unequal here. `Key::equality` permits
+/// that direction (it only costs extra invalidation); the opposite direction
+/// rests on blake3 collision resistance.
+impl PartialEq for ActionOutputsData {
+    fn eq(&self, other: &Self) -> bool {
+        self.fingerprint == other.fingerprint
+    }
+}
+
+impl Eq for ActionOutputsData {}
 
 /// Metadata associated with the execution of this action.
 #[derive(Debug)]
@@ -236,7 +260,17 @@ impl ActionExecutionKind {
 
 impl ActionOutputs {
     pub fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
-        Self(Arc::new(ActionOutputsData { outputs }))
+        let mut hasher = Blake3StrongHasher::new();
+        outputs.len().strong_hash(&mut hasher);
+        for (path, value) in &outputs {
+            path.strong_hash(&mut hasher);
+            value.strong_hash(&mut hasher);
+        }
+        let fingerprint = hasher.finalize();
+        Self(Arc::new(ActionOutputsData {
+            outputs,
+            fingerprint,
+        }))
     }
 
     pub fn from_single(artifact: BuildArtifactPath, value: ArtifactValue) -> Self {

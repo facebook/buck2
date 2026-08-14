@@ -32,7 +32,8 @@ enum ContentBasedPathHashError {
     derive_more::Display,
     Ord,
     PartialOrd,
-    Pagable
+    Pagable,
+    strong_hash::StrongHash
 )]
 pub enum ContentBasedPathHash {
     Specified(String),

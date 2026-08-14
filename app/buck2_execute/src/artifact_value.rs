@@ -25,7 +25,16 @@ use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
 
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, Pagable)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    PartialEq,
+    Eq,
+    Allocative,
+    Pagable,
+    strong_hash::StrongHash
+)]
 pub enum UnderlyingContentBasedPathHash {
     Inferred,
     Explicit(Arc<ContentBasedPathHash>),
@@ -41,7 +50,16 @@ pub enum UnderlyingContentBasedPathHash {
 /// to available. Therefore, when this represents a symlink, or a directory
 /// with symlinks pointing outside such directory, we must also store the value
 /// of the artifacts pointed to by those symlinks. That's the `deps` attribute.
-#[derive(Clone, Debug, Dupe, PartialEq, Eq, Allocative, Pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    PartialEq,
+    Eq,
+    Allocative,
+    Pagable,
+    strong_hash::StrongHash
+)]
 pub struct ArtifactValue {
     /// The information about the artifact i.e. digest + is_executable if this
     /// is a file, the file tree if this is a directory, and so on.

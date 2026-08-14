@@ -36,6 +36,9 @@ pub struct ExternalSymlink {
     remaining_path: ForwardRelativePathBuf,
 }
 
+// `Hash` hashes both paths' string content, so it is already strong.
+strong_hash::impl_strong_hash_for_impl_hash!(ExternalSymlink);
+
 impl fmt::Display for ExternalSymlink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_path_buf().display())

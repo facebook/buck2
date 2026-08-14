@@ -28,7 +28,8 @@ use crate::directory::directory::Directory;
     Hash,
     UnpackVariants,
     Allocative,
-    Pagable
+    Pagable,
+    strong_hash::StrongHash
 )]
 #[display(bound(D: ::std::fmt::Display, L: ::std::fmt::Display))]
 pub enum DirectoryEntry<D, L> {

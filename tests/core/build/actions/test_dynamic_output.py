@@ -81,12 +81,9 @@ async def test_many_rebound_outputs_incremental_rebuild(buck: Buck) -> None:
         await buck.kill()
     second = time.monotonic() - start
 
-    # Asserts the *presence* of the quadratic behavior so that this diff is
-    # green on its own; the next diff fixes it and inverts this assertion.
-    assert timed_out or second >= threshold, (
+    assert not timed_out and second < threshold, (
         f"incremental rebuild took {second:.1f}s vs {first:.1f}s for the "
-        "initial build; expected deep ActionOutputs comparisons in dice to "
-        "make it dramatically slower"
+        "initial build; dice is likely doing deep ActionOutputs comparisons"
     )
 
 
