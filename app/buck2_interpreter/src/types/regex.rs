@@ -22,8 +22,6 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
@@ -32,6 +30,7 @@ use starlark::values::starlark_value;
 #[derive(
     ProvidesStaticType,
     Debug,
+    FreezeBranded,
     NoSerialize,
     Allocative,
     starlark::StarlarkPagable
@@ -41,11 +40,13 @@ pub enum StarlarkBuckRegex {
     //   And this is important because regex can have a lot of cache.
     Regular(
         #[allocative(skip)]
+        #[freeze_branded(identity)]
         #[starlark_pagable(pagable)]
         regex::Regex,
     ),
     Fancy(
         #[allocative(skip)]
+        #[freeze_branded(identity)]
         #[starlark_pagable(pagable)]
         fancy_regex::Regex,
     ),
@@ -91,14 +92,6 @@ impl Display for StarlarkBuckRegex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // TODO(nga): should use starlark string repr.
         write!(f, "regex({:?})", self.as_str())
-    }
-}
-
-impl FreezeBranded for StarlarkBuckRegex {
-    type Frozen<'fv> = StarlarkBuckRegex;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(self)
     }
 }
 

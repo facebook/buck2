@@ -29,8 +29,6 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -60,6 +58,7 @@ impl StarlarkConfiguredProvidersLabel {
     Display,
     Trace,
     Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
@@ -68,19 +67,12 @@ impl StarlarkConfiguredProvidersLabel {
 #[repr(C)]
 pub struct StarlarkConfiguredProvidersLabel {
     #[freeze(identity)]
+    #[freeze_branded(identity)]
     #[starlark_pagable(pagable)]
     label: ConfiguredProvidersLabel,
 }
 
 starlark_simple_value!(StarlarkConfiguredProvidersLabel);
-
-impl FreezeBranded for StarlarkConfiguredProvidersLabel {
-    type Frozen<'fv> = StarlarkConfiguredProvidersLabel;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(self)
-    }
-}
 
 impl Serialize for StarlarkConfiguredProvidersLabel {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -231,6 +223,7 @@ impl StarlarkProvidersLabel {
     Display,
     Trace,
     Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     Serialize,
@@ -242,19 +235,12 @@ impl StarlarkProvidersLabel {
 #[serde(transparent)]
 pub struct StarlarkProvidersLabel {
     #[freeze(identity)]
+    #[freeze_branded(identity)]
     #[starlark_pagable(pagable)]
     label: ProvidersLabel,
 }
 
 starlark_simple_value!(StarlarkProvidersLabel);
-
-impl FreezeBranded for StarlarkProvidersLabel {
-    type Frozen<'fv> = StarlarkProvidersLabel;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(self)
-    }
-}
 
 impl StarlarkProvidersLabel {
     pub fn new(label: ProvidersLabel) -> Self {

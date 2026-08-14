@@ -42,8 +42,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeResult;
-use starlark::values::Freezer;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -89,6 +87,7 @@ enum CommandExecutorConfigErrors {
 #[derive(
     Debug,
     Display,
+    FreezeBranded,
     NoSerialize,
     ProvidesStaticType,
     Allocative,
@@ -96,18 +95,12 @@ enum CommandExecutorConfigErrors {
 )]
 #[display("{:?}", _0)]
 pub struct StarlarkCommandExecutorConfig(
-    #[starlark_pagable(pagable)] pub Arc<CommandExecutorConfig>,
+    #[freeze_branded(identity)]
+    #[starlark_pagable(pagable)]
+    pub Arc<CommandExecutorConfig>,
 );
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
-
-impl FreezeBranded for StarlarkCommandExecutorConfig {
-    type Frozen<'fv> = StarlarkCommandExecutorConfig;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(self)
-    }
-}
 
 #[starlark_value(type = "CommandExecutorConfig")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
