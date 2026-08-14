@@ -237,27 +237,15 @@ pub type BuckDashMap<K, V, S = BuckHasherBuilder> = dashmap::DashMap<K, V, S>;
 /// The set counterpart of [`BuckDashMap`].
 pub type BuckDashSet<K, S = BuckHasherBuilder> = dashmap::DashSet<K, S>;
 
-/// A [`HashMap`](std::collections::HashMap) using the standard library's default hasher.
+/// Do not use in new code. A [`HashMap`](std::collections::HashMap) with the standard
+/// library's `RandomState` hasher.
 ///
-/// This is a type alias for `std::collections::HashMap` with the default `RandomState`
-/// hasher. Unlike [`BuckMutMap`] which uses `FxHasher`, this type preserves the
-/// standard library's secure hashing behavior.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit, enabling runtime selection between the original hasher
-/// and a faster alternative.
+/// What is left of this alias marks the retained maps - dice values, daemon state, the
+/// materializer tree - that are waiting on the immutable map type from the retained-maps
+/// plan. Once those are converted this alias goes away. Anywhere else, the map is either
+/// transient, and wants [`BuckMutMap`], or forced to be a concrete `HashMap` by something
+/// outside buck2, and wants [`IntentionallyStdHashMap`].
 pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
-
-/// A [`HashSet`](std::collections::HashSet) using the standard library's default hasher.
-///
-/// This is a type alias for `std::collections::HashSet` with the default `RandomState`
-/// hasher. Unlike [`BuckMutSet`] which uses `FxHasher`, this type preserves the
-/// standard library's secure hashing behavior.
-///
-/// This abstraction allows the hasher implementation to be changed centrally
-/// in a future commit, enabling runtime selection between the original hasher
-/// and a faster alternative.
-pub type StdBuckHashSet<K> = std::collections::HashSet<K>;
 
 /// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's
 /// default `RandomState` hasher rather than buck2's performance-optimized hasher.
