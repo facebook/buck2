@@ -29,7 +29,6 @@ use starlark::environment::MethodsBuilder;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::Freeze;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -94,17 +93,6 @@ impl<'v> FreezeBranded for StarlarkOutputArtifact<'v> {
         Ok(FrozenStarlarkOutputArtifact {
             artifact: FreezeBranded::freeze(self.declared_artifact, freezer)?,
         })
-    }
-}
-
-// The last plain-`Freeze` impl on a branded type: the dynamic-lambda-params
-// storage still freezes these through `derive(Freeze)` containers. Dies when
-// that storage is branded; see `freeze_via_branded`.
-impl<'v> Freeze for StarlarkOutputArtifact<'v> {
-    type Frozen = FrozenStarlarkOutputArtifact<'static>;
-
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        starlark::values::freeze_via_branded(self, freezer)
     }
 }
 
