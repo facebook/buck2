@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -35,6 +33,8 @@ use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::SliceExt;
@@ -253,7 +253,8 @@ impl<'v> ActionsRegistry<'v> {
         Ok(move |analysis_value_fetcher: &AnalysisValueFetcher| {
             // Buck2 has an invariant that pairs of categories and identifiers are unique throughout a build. That
             // invariant is enforced here, using observed_names to keep track of the categories and identifiers that we've seen.
-            let mut observed_names: HashMap<Category, HashSet<String>> = HashMap::new();
+            let mut observed_names: BuckMutMap<Category, BuckMutSet<String>> =
+                BuckMutMap::default();
             for a in self.pending.into_iter() {
                 let key = a.key().dupe();
                 let (starlark_data, error_handler) =
@@ -274,7 +275,7 @@ impl<'v> ActionsRegistry<'v> {
                     }
                     (category, None) => {
                         if observed_names
-                            .insert(category.to_owned(), HashSet::new())
+                            .insert(category.to_owned(), BuckMutSet::default())
                             .is_some()
                         {
                             return Err(ActionErrors::ActionCategoryDuplicateSingleton(

@@ -9,7 +9,6 @@
  */
 
 //! Rule analysis related Dice calculations
-use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -20,6 +19,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
@@ -37,7 +37,7 @@ pub static EVAL_ANALYSIS_QUERY: LateBinding<
     for<'a> fn(
         &'a mut DiceComputations,
         &'a str,
-        HashMap<String, ConfiguredTargetNode>,
+        BuckMutMap<String, ConfiguredTargetNode>,
     ) -> Pin<
         Box<
             dyn Future<Output = buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>>> + Send + 'a,

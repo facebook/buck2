@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -97,6 +96,7 @@ use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute_impl::materializers::deferred::NoDiskDeferredMaterializer;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_hash::buck_indexset;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -161,7 +161,7 @@ fn mock_analysis_for_action_resolution(
                 actions,
             ),
             None,
-            HashMap::new(),
+            StdBuckHashMap::default(),
             0,
             0,
             None,

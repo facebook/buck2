@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::future::Future;
 use std::hash::Hash;
@@ -32,6 +31,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutSet;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
@@ -446,13 +446,13 @@ pub fn iter_action_inputs<'a>(
     deps: &'a [ActionInput],
 ) -> impl Iterator<Item = &'a ActionQueryNodeRef> + Send + 'a {
     struct Iter<'a> {
-        visited: HashSet<&'a SetProjectionInputs>,
+        visited: BuckMutSet<&'a SetProjectionInputs>,
         queue: VecDeque<&'a SetProjectionInputs>,
     }
 
     impl<'a> Iter<'a> {
         fn new<From: Iterator<Item = &'a SetProjectionInputs>>(iter: From) -> Self {
-            let mut visited = HashSet::new();
+            let mut visited = BuckMutSet::default();
             let mut queue = VecDeque::new();
             for it in iter {
                 if visited.insert(it) {

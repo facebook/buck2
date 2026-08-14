@@ -10,7 +10,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::future::Future;
@@ -29,6 +28,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
@@ -210,11 +210,11 @@ impl AsyncBuildTargetResultBuilder {
 }
 
 pub struct BuildTargetResultBuilder {
-    res: HashMap<
+    res: BuckMutMap<
         ConfiguredProvidersLabel,
         Option<ConfiguredBuildTargetResultGen<(usize, buck2_error::Result<ProviderArtifacts>)>>,
     >,
-    configured_to_pattern_modifiers: HashMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
+    configured_to_pattern_modifiers: BuckMutMap<ConfiguredProvidersLabel, Vec<Modifiers>>,
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
@@ -228,8 +228,8 @@ impl BuildTargetResultBuilder {
         build_start: Instant,
     ) -> Self {
         Self {
-            res: HashMap::new(),
-            configured_to_pattern_modifiers: HashMap::new(),
+            res: BuckMutMap::default(),
+            configured_to_pattern_modifiers: BuckMutMap::default(),
             other_errors: BTreeMap::new(),
             incompatible_targets: SmallSet::new(),
             build_failed: false,
@@ -366,7 +366,7 @@ impl BuildTargetResultBuilder {
         }
 
         // Sort our outputs within each individual BuildTargetResult, then return those.
-        // Also, turn our HashMap into a BTreeMap.
+        // Also, turn our BuckMutMap into a BTreeMap.
         let res = self
             .res
             .iter()
@@ -440,7 +440,7 @@ impl BuildTargetResultBuilder {
 
 pub struct BuildTargetResult {
     pub configured: BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-    pub configured_to_pattern_modifiers: HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+    pub configured_to_pattern_modifiers: BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     /// Errors that could not be associated with a specific configured target. These errors may be
     /// associated with a providers label, or might not be associated with any target at all.
     pub other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
@@ -451,7 +451,7 @@ impl BuildTargetResult {
     pub fn new() -> Self {
         Self {
             configured: BTreeMap::new(),
-            configured_to_pattern_modifiers: HashMap::new(),
+            configured_to_pattern_modifiers: BuckMutMap::default(),
             other_errors: BTreeMap::new(),
             build_failed: false,
         }

@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -17,6 +15,8 @@ use std::sync::Weak;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::materialize::materializer::EagerMaterializationGuard;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 
 use crate::materializers::deferred::MaterializerCommand;
@@ -54,15 +54,15 @@ impl<T: 'static> fmt::Debug for EagerPathLease<T> {
 }
 
 pub(super) struct EagerMaterializations<T: 'static> {
-    active: HashMap<ProjectRelativePathBuf, Weak<EagerPathLease<T>>>,
-    bridged_declares: HashMap<ProjectRelativePathBuf, HashSet<ProjectRelativePathBuf>>,
+    active: BuckMutMap<ProjectRelativePathBuf, Weak<EagerPathLease<T>>>,
+    bridged_declares: BuckMutMap<ProjectRelativePathBuf, BuckMutSet<ProjectRelativePathBuf>>,
 }
 
 impl<T: 'static> EagerMaterializations<T> {
     pub(super) fn new() -> Self {
         Self {
-            active: HashMap::new(),
-            bridged_declares: HashMap::default(),
+            active: BuckMutMap::default(),
+            bridged_declares: BuckMutMap::default(),
         }
     }
 

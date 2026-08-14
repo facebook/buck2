@@ -8,14 +8,13 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::error::CriticalPathError;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
+use buck2_hash::BuckMutMap;
 use smallvec::SmallVec;
 
 use crate::BuildInfo;
@@ -41,7 +40,7 @@ pub(crate) trait BuildListenerBackend {
 
     fn finish(
         self,
-        anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+        anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError>;
 
     fn name() -> CriticalPathBackendName;

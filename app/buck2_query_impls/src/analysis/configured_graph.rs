@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -17,6 +16,7 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -51,7 +51,7 @@ impl AnalysisDiceQueryDelegate<'_, '_> {
 
 pub(crate) struct AnalysisConfiguredGraphQueryDelegate<'a, 'd> {
     pub(crate) dice_query_delegate: Arc<AnalysisDiceQueryDelegate<'a, 'd>>,
-    pub(crate) resolved_literals: HashMap<String, ConfiguredTargetNode>,
+    pub(crate) resolved_literals: BuckMutMap<String, ConfiguredTargetNode>,
 }
 
 #[async_trait]

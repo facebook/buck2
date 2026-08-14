@@ -12,8 +12,6 @@
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::OpenOptions;
 use std::hash::Hash;
@@ -58,6 +56,8 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_sketches::DependencyGraphSketch;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
@@ -99,7 +99,7 @@ enum BuildOutcome {
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
 ///
 /// Serialization of the report must be deterministic, so any map reachable from here has to
-/// iterate in a deterministic order - `BTreeMap`, not `HashMap`.
+/// iterate in a deterministic order - `BTreeMap`, not `BuckMutMap`.
 #[derive(Debug, Serialize)]
 pub struct BuildReport {
     trace_id: TraceId,
@@ -303,7 +303,7 @@ pub struct BuildReportCollector<'a> {
     cell_resolver: &'a CellResolver,
     overall_success: bool,
     include_unconfigured_section: bool,
-    error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
+    error_cause_cache: BuckMutMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
     failures: BTreeMap<EntryLabel, String>,
@@ -351,7 +351,7 @@ impl<'a> BuildReportCollector<'a> {
             cell_resolver,
             overall_success: true,
             include_unconfigured_section,
-            error_cause_cache: HashMap::default(),
+            error_cause_cache: BuckMutMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
             failures: BTreeMap::default(),
@@ -383,7 +383,7 @@ impl<'a> BuildReportCollector<'a> {
         exclude_action_error_diagnostics: bool,
         truncate_error_content: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-        configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+        configured_to_pattern_modifiers: &BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         action_graph_sketch_result: Option<ActionGraphSketchResult>,
@@ -409,18 +409,26 @@ impl<'a> BuildReportCollector<'a> {
             this.overall_success = false;
         }
 
-        let mut metrics_by_configured: HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>> =
-            HashMap::new();
-        let mut action_graph_sketches_by_configured: HashMap<ConfiguredProvidersLabel, String> =
-            HashMap::new();
-        let mut artifact_count_sketches_by_configured: HashMap<ConfiguredProvidersLabel, String> =
-            HashMap::new();
-        let mut artifact_size_sketches_by_configured: HashMap<ConfiguredProvidersLabel, String> =
-            HashMap::new();
-        let mut artifact_count_cardinalities_by_configured: HashMap<ConfiguredProvidersLabel, f64> =
-            HashMap::new();
-        let mut artifact_size_cardinalities_by_configured: HashMap<ConfiguredProvidersLabel, f64> =
-            HashMap::new();
+        let mut metrics_by_configured: BuckMutMap<
+            ConfiguredProvidersLabel,
+            Arc<TargetBuildMetrics>,
+        > = BuckMutMap::default();
+        let mut action_graph_sketches_by_configured: BuckMutMap<ConfiguredProvidersLabel, String> =
+            BuckMutMap::default();
+        let mut artifact_count_sketches_by_configured: BuckMutMap<
+            ConfiguredProvidersLabel,
+            String,
+        > = BuckMutMap::default();
+        let mut artifact_size_sketches_by_configured: BuckMutMap<ConfiguredProvidersLabel, String> =
+            BuckMutMap::default();
+        let mut artifact_count_cardinalities_by_configured: BuckMutMap<
+            ConfiguredProvidersLabel,
+            f64,
+        > = BuckMutMap::default();
+        let mut artifact_size_cardinalities_by_configured: BuckMutMap<
+            ConfiguredProvidersLabel,
+            f64,
+        > = BuckMutMap::default();
         if let Some(detailed_metrics) = detailed_metrics.as_ref() {
             for top_level_metrics in &detailed_metrics.top_level_target_metrics {
                 metrics_by_configured.insert(
@@ -722,12 +730,12 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         errors: &[buck2_error::Error],
-        metrics: &mut HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
-        action_graph_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_count_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_size_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_count_cardinalities: &HashMap<ConfiguredProvidersLabel, f64>,
-        artifact_size_cardinalities: &HashMap<ConfiguredProvidersLabel, f64>,
+        metrics: &mut BuckMutMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        action_graph_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_count_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_size_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_count_cardinalities: &BuckMutMap<ConfiguredProvidersLabel, f64>,
+        artifact_size_cardinalities: &BuckMutMap<ConfiguredProvidersLabel, f64>,
         all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<BuildReportEntry> {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
@@ -818,12 +826,12 @@ impl<'a> BuildReportCollector<'a> {
                 &'b ConfiguredBuildTargetResult,
             ),
         >,
-        metrics: &mut HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
-        action_graph_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_count_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_size_sketches: &HashMap<ConfiguredProvidersLabel, String>,
-        artifact_count_cardinalities: &HashMap<ConfiguredProvidersLabel, f64>,
-        artifact_size_cardinalities: &HashMap<ConfiguredProvidersLabel, f64>,
+        metrics: &mut BuckMutMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        action_graph_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_count_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_size_sketches: &BuckMutMap<ConfiguredProvidersLabel, String>,
+        artifact_count_cardinalities: &BuckMutMap<ConfiguredProvidersLabel, f64>,
+        artifact_size_cardinalities: &BuckMutMap<ConfiguredProvidersLabel, f64>,
         all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<ConfiguredBuildReportEntry> {
         let mut configured_report = ConfiguredBuildReportEntry::default();
@@ -1011,7 +1019,7 @@ impl<'a> BuildReportCollector<'a> {
         // are all top level artifacts that get their own `BuildEvent`, if they all fail, they
         // all get their own error in the build report. Completing the migration to artifact
         // groups would likely let us get rid of this.
-        let mut found_roots = HashSet::new();
+        let mut found_roots = BuckMutSet::default();
         temp.retain(|info| found_roots.insert(info.root));
 
         let mut out = Vec::with_capacity(temp.len());
@@ -1193,7 +1201,7 @@ pub fn write_build_report(
     cwd: &ProjectRelativePath,
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+    configured_to_pattern_modifiers: &BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     action_graph_sketch_result: Option<ActionGraphSketchResult>,
@@ -1275,7 +1283,7 @@ pub fn stream_build_report(
     cwd: &ProjectRelativePath,
     trace_id: &TraceId,
     configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
-    configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
+    configured_to_pattern_modifiers: &BuckMutMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     action_graph_sketch_result: Option<ActionGraphSketchResult>,

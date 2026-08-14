@@ -9,7 +9,6 @@
  */
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -820,15 +819,15 @@ struct BuildSignalReceiver<T> {
     first_edge_to_load: BuckMutMap<PackageLabel, PackageLabel>,
     // Maps an anon target NodeKey to the analysis Part 1 NodeKey that discovered it
     // (the one whose Part 1 finished earliest). Used to add discovery edges in finish().
-    first_analysis_for_anon_target: HashMap<NodeKey, (NodeKey, Instant)>,
+    first_analysis_for_anon_target: BuckMutMap<NodeKey, (NodeKey, Instant)>,
     // Maps a Part 1 key (e.g. AnalysisKey) to its finish key (Part 2) for split analyses.
     // When a node depends on a split analysis, the dep should point to the finish key
     // (representing full completion) rather than the Part 1 key.
-    split_analysis_finish_keys: HashMap<NodeKey, NodeKey>,
+    split_analysis_finish_keys: BuckMutMap<NodeKey, NodeKey>,
     // Non-match page-ins are reported before `key_activated` supplies their dependencies and
     // evaluation data. Hold each timed signal until that associated evaluation arrives so the
     // page-in can be placed on the correct side of the evaluation work.
-    pending_page_ins: HashMap<NodeKey, PageInSignal>,
+    pending_page_ins: BuckMutMap<NodeKey, PageInSignal>,
     backend: T,
 
     // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
@@ -845,9 +844,9 @@ where
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
             first_edge_to_load: BuckMutMap::default(),
-            first_analysis_for_anon_target: HashMap::new(),
-            split_analysis_finish_keys: HashMap::new(),
-            pending_page_ins: HashMap::new(),
+            first_analysis_for_anon_target: BuckMutMap::default(),
+            split_analysis_finish_keys: BuckMutMap::default(),
+            pending_page_ins: BuckMutMap::default(),
             test_listing_keys: BuckMutMap::default(),
         }
     }
@@ -1541,7 +1540,7 @@ mod tests {
 
     #[derive(Default)]
     struct RecordingBackend {
-        deps: HashMap<NodeKey, Vec<NodeKey>>,
+        deps: BuckMutMap<NodeKey, Vec<NodeKey>>,
     }
 
     impl BuildListenerBackend for RecordingBackend {
@@ -1566,7 +1565,7 @@ mod tests {
 
         fn finish(
             self,
-            _anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+            _anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
         ) -> Result<BuildInfo, CriticalPathError> {
             unreachable!("topology tests do not finish the backend")
         }

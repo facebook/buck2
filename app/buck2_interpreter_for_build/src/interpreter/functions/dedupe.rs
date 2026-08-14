@@ -8,8 +8,7 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
-
+use buck2_hash::BuckMutSet;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::Heap;
@@ -24,7 +23,7 @@ pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] val: Value<'v>,
         heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
-        let mut seen = HashSet::new();
+        let mut seen = BuckMutSet::default();
         let mut res = Vec::new();
         for v in val.iterate(heap)? {
             if seen.insert(v.identity()) {

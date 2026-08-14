@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
@@ -223,7 +221,7 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
     ctx: &mut DiceComputations<'_>,
     outputs: &[(ArtifactGroup, BuildProviderType)],
     artifact_fs: &ArtifactFs,
-    providers_to_skip: &HashSet<BuildProviderType>,
+    providers_to_skip: &BuckMutSet<BuildProviderType>,
     sketch_size: bool,
     sketch_count: bool,
 ) -> buck2_error::Result<ArtifactPathSketches> {
@@ -471,7 +469,6 @@ fn gather_heap_graph_sketch(
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     use allocative::Allocative;
@@ -501,6 +498,7 @@ mod tests {
     use buck2_hash::BuckIndexSet;
     use buck2_hash::BuckMutMap;
     use buck2_hash::BuckMutSet;
+    use buck2_hash::StdBuckHashMap;
     use dupe::Dupe;
     use pagable::Pagable;
     use pagable::pagable_typetag;
@@ -716,7 +714,7 @@ mod tests {
         let holder = OwnedDeferredHolder::Analysis(AnalysisResult::new(
             analysis_values,
             None,
-            HashMap::new(),
+            StdBuckHashMap::default(),
             0,
             0,
             None,

@@ -8,13 +8,14 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetNameRef;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckMutMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -75,7 +76,7 @@ pub trait AttributeSpecExt {
     fn ty_function(&self) -> TyFunction;
 
     fn starlark_types(&self) -> Vec<Ty>;
-    fn docstrings(&self) -> HashMap<String, Option<DocString>>;
+    fn docstrings(&self) -> IntentionallyStdHashMap<String, Option<DocString>>;
 }
 
 impl AttributeSpecExt for AttributeSpec {
@@ -119,7 +120,7 @@ impl AttributeSpecExt for AttributeSpec {
 
         let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name);
 
-        let mut default_allowed_deps = HashMap::new();
+        let mut default_allowed_deps = BuckMutMap::default();
 
         for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);
@@ -263,7 +264,7 @@ impl AttributeSpecExt for AttributeSpec {
             .collect()
     }
 
-    fn docstrings(&self) -> HashMap<String, Option<DocString>> {
+    fn docstrings(&self) -> IntentionallyStdHashMap<String, Option<DocString>> {
         self.attr_specs()
             .map(|(name, _idx, attr)| (name.to_owned(), attr.docstring()))
             .collect()

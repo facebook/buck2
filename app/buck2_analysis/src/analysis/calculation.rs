@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -172,8 +171,10 @@ async fn resolve_queries_impl(
                 String,
                 ResolvedQueryLiterals<ConfiguredProvidersLabel>,
             )| {
-                let mut resolved_literals =
-                    HashMap::with_capacity(resolved_literals_labels.0.len());
+                let mut resolved_literals = BuckMutMap::with_capacity_and_hasher(
+                    resolved_literals_labels.0.len(),
+                    Default::default(),
+                );
                 for ((offset, len), label) in resolved_literals_labels.0 {
                     let literal = &query[offset..offset + len];
                     let node = deps.get(label.target()).ok_or_else(|| {

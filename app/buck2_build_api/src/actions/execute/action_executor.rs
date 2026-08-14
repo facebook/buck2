@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -68,6 +67,7 @@ use buck2_file_watcher::mergebase::Mergebase;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
 use derivative::Derivative;
@@ -764,7 +764,7 @@ impl<'d> BuckActionExecutor<'d> {
             ) -> bool {
                 // Ignore ordering as outputs in original action might be ordered differently from
                 // output paths in action result (they are sorted there).
-                let result_output_paths: HashSet<&BuildArtifactPath> =
+                let result_output_paths: BuckMutSet<&BuildArtifactPath> =
                     result_outputs.into_iter().collect();
                 let mut outputs_count = 0;
                 for output in outputs.iter() {

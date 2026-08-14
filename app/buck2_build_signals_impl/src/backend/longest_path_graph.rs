@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::time::Duration;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
@@ -32,6 +30,8 @@ use buck2_critical_path::VertexKeys;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_error::internal_error;
 use buck2_events::span::SpanId;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 use itertools::Itertools;
 use smallvec::SmallVec;
@@ -120,7 +120,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
     fn finish(
         self,
-        anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+        anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError> {
         let (graph, keys, data) = {
             let (graph, keys, data) = self.builder?.finish();
@@ -361,7 +361,7 @@ fn compute_slowest_paths(
         }
     }
 
-    let mut visited: HashSet<VertexId> = HashSet::new();
+    let mut visited: BuckMutSet<VertexId> = BuckMutSet::default();
     let mut slowest_path = Vec::new();
     let mut node = last.unzip().1;
     while let Some(curr) = node {

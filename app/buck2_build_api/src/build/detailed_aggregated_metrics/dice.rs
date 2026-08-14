@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::future::Future;
 
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
@@ -20,6 +19,7 @@ use buck2_data::ComputeDetailedAggregatedMetricsEnd;
 use buck2_data::ComputeDetailedAggregatedMetricsStart;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
+use buck2_hash::BuckMutSet;
 use dice::DiceComputations;
 use dice::DiceDataBuilder;
 use dice::UserComputationData;
@@ -66,8 +66,8 @@ pub trait HasDetailedAggregatedMetrics {
         &mut self,
         events: &PerBuildEvents,
         artifact_fs: &ArtifactFs,
-        providers_to_skip: HashSet<BuildProviderType>,
-        skip_targets: &HashSet<ConfiguredProvidersLabel>,
+        providers_to_skip: BuckMutSet<BuildProviderType>,
+        skip_targets: &BuckMutSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
         sketch_size: bool,
     ) -> impl Future<Output = buck2_error::Result<ArtifactPathSketchResult>> + Send;
@@ -139,8 +139,8 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         &mut self,
         events: &PerBuildEvents,
         artifact_fs: &ArtifactFs,
-        providers_to_skip: HashSet<BuildProviderType>,
-        skip_targets: &HashSet<ConfiguredProvidersLabel>,
+        providers_to_skip: BuckMutSet<BuildProviderType>,
+        skip_targets: &BuckMutSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
         sketch_size: bool,
     ) -> buck2_error::Result<ArtifactPathSketchResult> {

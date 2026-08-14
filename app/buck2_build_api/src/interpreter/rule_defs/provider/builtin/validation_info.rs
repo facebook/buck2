@@ -8,11 +8,11 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_hash::BuckMutSet;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
@@ -107,7 +107,7 @@ fn validate_validation_info<'v>(info: &ValidationInfo<'v>) -> buck2_error::Resul
             ValidationInfoError::ValidationsAreNotListOfSpecs,
         ))?
         .iter();
-    let mut spec_names = HashSet::new();
+    let mut spec_names = BuckMutSet::default();
     for value in values {
         let wrong_type_error = || ValidationInfoError::WrongSpecType(format!("{value}"));
         let name = value

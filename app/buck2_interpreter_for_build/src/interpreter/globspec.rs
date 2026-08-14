@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 
@@ -17,6 +16,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckMutSet;
 use derivative::Derivative;
 
 #[derive(Debug, buck2_error::Error)]
@@ -79,7 +79,7 @@ impl GlobPattern {
 #[derivative(Debug)]
 pub(crate) struct GlobSpec {
     common_prefix: String,
-    exact_matches: HashSet<String>,
+    exact_matches: BuckMutSet<String>,
     patterns: Vec<GlobPattern>,
     excludes: Vec<GlobPattern>,
 }
@@ -123,7 +123,7 @@ impl GlobSpec {
     ) -> buck2_error::Result<Self> {
         let mut glob_patterns = Vec::new();
         let mut glob_excludes = Vec::new();
-        let mut exact_matches = HashSet::new();
+        let mut exact_matches = BuckMutSet::default();
         for pattern in patterns {
             let pattern = pattern.as_ref();
             if pattern.contains('*') {

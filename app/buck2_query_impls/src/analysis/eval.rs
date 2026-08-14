@@ -8,10 +8,10 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_build_api::analysis::calculation::EVAL_ANALYSIS_QUERY;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
@@ -32,7 +32,7 @@ pub(crate) fn init_eval_analysis_query() {
 async fn eval_analysis_query(
     ctx: &mut DiceComputations<'_>,
     query: &str,
-    resolved_literals: HashMap<String, ConfiguredTargetNode>,
+    resolved_literals: BuckMutMap<String, ConfiguredTargetNode>,
 ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
     ctx.with_linear_recompute(|ctx| {
         async move {

@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
@@ -18,6 +16,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::QuickUnstableE2eData;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
+use buck2_hash::BuckMutMap;
 use serde::Deserialize;
 use serde::Serialize;
 use smallvec::SmallVec;
@@ -92,7 +91,7 @@ impl BuildListenerBackend for LoggingBackend {
 
     fn finish(
         self,
-        _anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+        _anon_target_discovery_edges: BuckMutMap<NodeKey, NodeKey>,
     ) -> Result<BuildInfo, CriticalPathError> {
         Ok(BuildInfo {
             critical_path: DetailedCriticalPath::empty(),

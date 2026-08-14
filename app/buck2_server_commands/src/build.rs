@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -66,6 +65,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
+use buck2_hash::BuckMutSet;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -369,7 +369,7 @@ async fn build(
         log_sketch_cardinalities: want_log_sketch_cardinalities,
     };
 
-    let providers_to_skip_in_artifact_path_sketch: HashSet<BuildProviderType> = ctx
+    let providers_to_skip_in_artifact_path_sketch: BuckMutSet<BuildProviderType> = ctx
         .ctx()
         .parse_legacy_config_list_property::<SkipProvider>(
             cell_resolver.root_cell(),
@@ -480,7 +480,7 @@ async fn build(
             // target that hit the `--overall-timeout` deadline that would re-demand (and, via
             // DICE, restart) an action the deadline just cancelled, hanging the command past its
             // timeout. Those targets never finished building, so skip sketching them.
-            let timed_out_targets: HashSet<ConfiguredProvidersLabel> = build_result
+            let timed_out_targets: BuckMutSet<ConfiguredProvidersLabel> = build_result
                 .configured
                 .iter()
                 .filter_map(|(label, result)| {

@@ -9,8 +9,6 @@
  */
 
 use std::cell::OnceCell;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -30,6 +28,8 @@ use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -99,8 +99,8 @@ pub struct AnalysisRegistry<'v> {
     pub actions: ActionsRegistry<'v>,
     pub anon_targets: Box<DynStarlark<'v, dyn AnonTargetsRegistryDyn<'v>>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
-    pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
-    pub content_based_path_assertions: HashSet<PromiseArtifactId>,
+    pub short_path_assertions: BuckMutMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    pub content_based_path_assertions: BuckMutSet<PromiseArtifactId>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -130,8 +130,8 @@ impl<'v> AnalysisRegistry<'v> {
             actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
-            short_path_assertions: HashMap::new(),
-            content_based_path_assertions: HashSet::new(),
+            short_path_assertions: BuckMutMap::default(),
+            content_based_path_assertions: BuckMutSet::default(),
         })
     }
 

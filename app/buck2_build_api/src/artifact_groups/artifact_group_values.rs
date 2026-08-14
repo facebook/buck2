@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -25,6 +24,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::LazyActionDirectoryBuilder;
 use buck2_execute::directory::insert_artifact_lazy;
+use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 use pagable::Pagable;
 use smallvec::SmallVec;
@@ -186,7 +186,7 @@ trait TransitiveSetContainer: Sized {
 struct TransitiveSetIterator<'a, C, V, I> {
     values: &'a [V],
     queue: Vec<&'a C>,
-    seen: HashSet<I>,
+    seen: BuckMutSet<I>,
 }
 
 impl<'a, C>
@@ -203,7 +203,7 @@ where
         let mut ret = Self {
             values: container.values(),
             queue: Vec::new(),
-            seen: HashSet::new(),
+            seen: BuckMutSet::default(),
         };
         ret.enqueue_children(container.children());
         ret
@@ -213,7 +213,7 @@ where
         let mut ret = Self {
             values: &[],
             queue: Vec::new(),
-            seen: HashSet::new(),
+            seen: BuckMutSet::default(),
         };
         ret.enqueue_roots(containers);
         ret

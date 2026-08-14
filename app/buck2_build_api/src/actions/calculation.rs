@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::future::Future;
 use std::iter::zip;
 use std::sync::Arc;
@@ -40,6 +39,7 @@ use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
 use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -240,9 +240,9 @@ async fn collect_eager_paths(
     inputs: &[ArtifactGroup],
     artifact_fs: &ArtifactFs,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
-    let mut eager_paths = HashSet::new();
+    let mut eager_paths = BuckMutSet::default();
     let mut queue: Vec<ArtifactGroup> = inputs.to_vec();
-    let mut visited = HashSet::new();
+    let mut visited = BuckMutSet::default();
 
     while let Some(input) = queue.pop() {
         if !visited.insert(input.dupe()) {
