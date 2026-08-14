@@ -1,3 +1,4 @@
+load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:clippy_configuration.bzl", "clippy_configuration")
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
@@ -40,6 +41,7 @@ pagable_transition_alias(
             ci.skip_test(),
         ),
     ),
+    modifiers = buck2_modifiers(),
 )
 
 buck2_bundle(
@@ -47,6 +49,7 @@ buck2_bundle(
     buck2 = "//buck2:buck2",
     buck2_client = "//buck2/app/buck2:buck2_client-bin",
     buck2_health_check = "//buck2/buck2_health_check_cli:buck2_health_check_cli",
+    modifiers = buck2_modifiers(),
     tpx = "//buck2/buck2_tpx_cli:buck2_tpx_cli",
     visibility = ["PUBLIC"],
 )

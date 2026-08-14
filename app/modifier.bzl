@@ -125,6 +125,3 @@ def buck2_modifiers():
             }),
         }),
     ]
-
-def disable_buck2_modifiers():
-    return ["ovr_config//build_mode/default_opt_cxx:disabled"]
