@@ -121,9 +121,8 @@ impl<'v> ConfigurationInfo<'v> {
                 .default
                 .as_ref()
                 .map(|v| heap.alloc_typed(StarlarkProvidersLabel::new(v.0.dupe())));
-            let constraint_value_label =
-                heap.alloc_value_of(StarlarkProvidersLabel::new(v.0.dupe()));
-            let constraint_setting = heap.alloc_value_of(ConstraintSettingInfo::new(
+            let constraint_value_label = heap.alloc_typed(StarlarkProvidersLabel::new(v.0.dupe()));
+            let constraint_setting = heap.alloc_typed(ConstraintSettingInfo::new(
                 constraint_setting_label,
                 NoneOr::from_option(default_value),
             ));
@@ -169,8 +168,7 @@ fn build_constraints_map_from_dict<'v>(
             .value
             .get_hashed()
             .expect("should be hashable, we picked it from dict");
-        let constraint_setting_from_constraint_value =
-            constraint_value.typed.setting().typed.label();
+        let constraint_setting_from_constraint_value = constraint_value.typed.setting().label();
         if *constraint_setting.typed != *constraint_setting_from_constraint_value {
             return Err(buck2_error::Error::from(
                 ConfigurationInfoError::ConstraintsKeyValueMismatch(
@@ -262,13 +260,13 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn get<'v>(
         this: &ConfigurationInfo<'v>,
-        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        #[starlark(require = pos)] key: ValueTyped<'v, ConstraintSettingInfo<'v>>,
         heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
         let constraints =
             DictRef::from_value(this.constraints.get()).expect("type checked on construction");
 
-        let label = key.typed.label();
+        let label = key.label();
         match constraints.get(label.to_value())? {
             Some(v) => {
                 let v = ValueTyped::new_err(v).expect("type checked on construction");
@@ -308,7 +306,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
         let constraint_value = value.typed;
         let setting_info = constraint_value.setting();
-        let label = setting_info.typed.label();
+        let label = setting_info.label();
 
         let mut constraints = DictMut::from_value(this.constraints.get())?;
 
@@ -357,10 +355,10 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn pop<'v>(
         this: &ConfigurationInfo<'v>,
-        #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        #[starlark(require = pos)] key: ValueTyped<'v, ConstraintSettingInfo<'v>>,
         heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>>> {
-        let label = key.typed.label();
+        let label = key.label();
         let mut constraints = DictMut::from_value(this.constraints.get())?;
 
         // Remove and return the value
@@ -429,7 +427,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 /// Helper function to get the default constraint value from a constraint setting.
 /// Returns the default constraint value if one exists, otherwise returns None.
 fn get_default_constraint_value<'v>(
-    key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+    key: ValueTyped<'v, ConstraintSettingInfo<'v>>,
     heap: Heap<'v>,
 ) -> NoneOr<ValueTyped<'v, ConstraintValueInfo<'v>>> {
     NoneOr::from_option(

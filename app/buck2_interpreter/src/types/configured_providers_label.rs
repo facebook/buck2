@@ -28,6 +28,9 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
+use starlark::values::FreezeResult;
+use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -236,6 +239,14 @@ pub struct StarlarkProvidersLabel {
 }
 
 starlark_simple_value!(StarlarkProvidersLabel);
+
+impl FreezeBranded for StarlarkProvidersLabel {
+    type Frozen<'fv> = StarlarkProvidersLabel;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(self)
+    }
+}
 
 impl StarlarkProvidersLabel {
     pub fn new(label: ProvidersLabel) -> Self {

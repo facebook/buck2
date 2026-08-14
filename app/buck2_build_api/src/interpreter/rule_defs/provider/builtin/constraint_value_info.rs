@@ -25,14 +25,10 @@ use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
-use starlark::values::ValueOf;
-use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
-use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::FrozenConstraintSettingInfo;
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_value()` target.
@@ -48,17 +44,17 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::F
 )]
 #[repr(C)]
 pub struct ConstraintValueInfo<'v> {
-    setting: ValueOfUnchecked<'v, FrozenConstraintSettingInfo>,
-    label: ValueOfUnchecked<'v, StarlarkProvidersLabel>,
+    setting: ValueTyped<'v, ConstraintSettingInfo<'v>>,
+    label: ValueTyped<'v, StarlarkProvidersLabel>,
 }
 
 impl<'v> ConstraintValueInfo<'v> {
-    pub(crate) fn setting(&self) -> ValueOf<'v, &'v ConstraintSettingInfo<'v>> {
-        ValueOf::unpack_value_err(self.setting.get()).expect("validated at construction")
+    pub(crate) fn setting(&self) -> ValueTyped<'v, ConstraintSettingInfo<'v>> {
+        self.setting
     }
 
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkProvidersLabel> {
-        ValueTyped::new_err(self.label.get()).expect("validated at construction")
+        self.label
     }
 
     /// Convert to a ConstraintValue for use in configuration data.
@@ -68,35 +64,24 @@ impl<'v> ConstraintValueInfo<'v> {
 
     /// Get the ConstraintKey and ConstraintValue pair for use in configuration data.
     pub fn to_constraint_key_value(&self) -> (ConstraintKey, ConstraintValue) {
-        let constraint_key = self.setting().typed.to_constraint_key();
+        let constraint_key = self.setting().to_constraint_key();
         let constraint_value = self.to_constraint_value();
         (constraint_key, constraint_value)
     }
 
     pub(crate) fn new(
-        setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        label: ValueOf<'v, &'v StarlarkProvidersLabel>,
+        setting: ValueTyped<'v, ConstraintSettingInfo<'v>>,
+        label: ValueTyped<'v, StarlarkProvidersLabel>,
     ) -> ConstraintValueInfo<'v> {
-        ConstraintValueInfo {
-            setting: ValueOfUnchecked::new(setting.value),
-            label: label.as_unchecked().cast(),
-        }
+        ConstraintValueInfo { setting, label }
     }
 
     pub(crate) fn default_from_constraint_setting(
-        setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        setting: ValueTyped<'v, ConstraintSettingInfo<'v>>,
     ) -> Option<ConstraintValueInfo<'v>> {
-        match setting.typed.default() {
-            Some(default_provider_label) => {
-                let constraint_value = ConstraintValueInfo::new(
-                    setting,
-                    ValueOf::unpack_value_err(default_provider_label.to_value())
-                        .expect("validated at construction"),
-                );
-                Some(constraint_value)
-            }
-            None => None,
-        }
+        setting
+            .default()
+            .map(|default| ConstraintValueInfo::new(setting, default))
     }
 }
 
@@ -104,12 +89,11 @@ impl<'v> ConstraintValueInfo<'v> {
 fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenConstraintValueInfo)]
     fn ConstraintValueInfo<'v>(
-        #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
+        #[starlark(require = named)] setting: ValueTyped<'v, ConstraintSettingInfo<'v>>,
         #[starlark(require = named)] label: LabelArg<'v>,
         heap: Heap<'v>,
     ) -> starlark::Result<ConstraintValueInfo<'v>> {
-        let provider_label = label.to_provider_label();
-        let label = heap.alloc_value_of(provider_label);
+        let label = heap.alloc_typed(label.to_provider_label());
         Ok(ConstraintValueInfo::new(setting, label))
     }
 }
