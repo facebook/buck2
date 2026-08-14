@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-use std::any::TypeId;
 use std::any::type_name;
 use std::marker::PhantomData;
 use std::mem;
 
 use super::simple::AValueSimple;
-use crate::eval::compiler::def::FrozenDef;
 use crate::private::Private;
 use crate::values::ComplexValue;
 use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
@@ -85,10 +82,6 @@ where
             );
             let res = x.freeze(freezer)?;
             r.fill(res);
-            if TypeId::of::<T::Frozen>() == TypeId::of::<FrozenDef>() {
-                let frozen_def = FrozenValueTyped::new(fv).unwrap();
-                freezer.frozen_defs.borrow_mut().push(frozen_def);
-            }
             Ok(fv)
         }
     }

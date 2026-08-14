@@ -83,13 +83,14 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::pagable::StarlarkPagable;
 use crate::register_starlark_any;
-use crate::starlark_complex_values;
 use crate::static_starlark_value;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::util::arc_str::ArcStr;
+use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -610,7 +611,11 @@ impl<V> Display for DefGen<V> {
 pub(crate) type Def<'v> = DefGen<Value<'v>>;
 pub(crate) type FrozenDef = DefGen<FrozenValue>;
 
-starlark_complex_values!(Def);
+impl<'v> AllocValue<'v> for Def<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+        heap.alloc_complex_branded(self)
+    }
+}
 
 impl<'v> Def<'v> {
     pub(crate) fn new(
@@ -637,14 +642,18 @@ impl<'v> Def<'v> {
     }
 }
 
-impl<'v> Freeze for Def<'v> {
-    type Frozen = FrozenDef;
+/// `Frozen` ignores the brand: a frozen def is invoked at whatever brand its caller runs at,
+/// through `Bc`, whose operands - `FrozenValueTyped<'static, FrozenDef>` and raw `FrozenValue`
+/// constants - are structurally unbranded. Branding the frozen def waits for the phase that
+/// brands `FrozenValue` itself.
+impl<'v> FreezeBranded for Def<'v> {
+    type Frozen<'fv> = FrozenDef;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let parameters = self.parameters.freeze(freezer)?;
-        let parameter_types = self.parameter_types.freeze(freezer)?;
-        let return_type = self.return_type.freeze(freezer)?;
-        let captured = self.captured.try_map(|x| x.freeze(freezer))?;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenDef> {
+        let parameters = Freeze::freeze(self.parameters, freezer)?;
+        let parameter_types = Freeze::freeze(self.parameter_types, freezer)?;
+        let return_type = Freeze::freeze(self.return_type, freezer)?;
+        let captured = self.captured.try_map(|x| Freeze::freeze(*x, freezer))?;
         let module = AtomicFrozenAnyValueOption::new(self.module.load_relaxed());
         Ok(FrozenDef {
             parameters,
