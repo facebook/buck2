@@ -89,7 +89,6 @@ use crate::typing::Ty;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::util::arc_str::ArcStr;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -650,16 +649,15 @@ impl<'v> FreezeBranded for Def<'v> {
     type Frozen<'fv> = FrozenDef;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenDef> {
-        let parameters = Freeze::freeze(self.parameters, freezer)?;
-        let parameter_types = Freeze::freeze(self.parameter_types, freezer)?;
-        let return_type = Freeze::freeze(self.return_type, freezer)?;
-        let captured = self.captured.try_map(|x| Freeze::freeze(*x, freezer))?;
+        let parameters = FreezeBranded::freeze(self.parameters, freezer)?;
+        let captured = self.captured.try_map(|x| freezer.freeze(*x))?;
         let module = AtomicFrozenAnyValueOption::new(self.module.load_relaxed());
         Ok(FrozenDef {
             parameters,
             parameter_captures: self.parameter_captures,
-            parameter_types,
-            return_type,
+            // Already in frozen form.
+            parameter_types: self.parameter_types,
+            return_type: self.return_type,
             def_info: self.def_info,
             captured,
             module,

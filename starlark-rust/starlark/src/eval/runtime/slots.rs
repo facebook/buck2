@@ -24,7 +24,6 @@ use starlark_derive::VisitSpanMut;
 use crate as starlark;
 use crate::eval::bc::stack_ptr::BcSlot;
 use crate::register_starlark_any;
-use crate::values::Freeze;
 
 /// Not captured.
 #[derive(
@@ -35,7 +34,6 @@ use crate::values::Freeze;
     PartialEq,
     Eq,
     Trace,
-    Freeze,
     VisitSpanMut,
     Allocative,
     StarlarkPagable

@@ -22,13 +22,13 @@ use std::fmt;
 use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::Coerce;
-use starlark_derive::Freeze;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::function_error;
 use starlark_syntax::other_error;
+use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::def::DefParamIndices;
 
 use crate as starlark;
@@ -52,6 +52,10 @@ use crate::hint::unlikely;
 use crate::pagable::StarlarkPagable;
 use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
+use crate::values::FreezeBranded;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
+use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -61,7 +65,7 @@ use crate::values::dict::DictRef;
 
 /// Describe parameter for [`ParametersSpec`].
 #[derive(
-    Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Trace, Freeze, Allocative
+    Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Trace, Allocative
 )]
 pub enum ParametersSpecParam<V> {
     /// Parameter is required.
@@ -91,7 +95,6 @@ impl<V> ParametersSpecParam<V> {
     Coerce,
     PartialEq,
     Trace,
-    Freeze,
     Allocative,
     StarlarkPagable
 )]
@@ -141,7 +144,7 @@ pub(crate) struct ParametersSpecBuilder<V> {
 /// Define a list of parameters. This code assumes that all names are distinct and that
 /// `*args`/`**kwargs` occur in well-formed locations.
 // V = Value, or FrozenValue
-#[derive(Debug, Clone, Trace, Freeze, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, Allocative, StarlarkPagable)]
 #[repr(C)]
 #[starlark_pagable(bound = "V: StarlarkPagable")]
 pub struct ParametersSpec<V> {
@@ -153,12 +156,43 @@ pub struct ParametersSpec<V> {
     /// Parameter names in the order they occur.
     param_names: Box<[String]>,
     /// Mapping from name to index where the argument lives.
-    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     pub(crate) names: SymbolMap<u32>,
-    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     indices: DefParamIndices,
+}
+
+/// `Frozen` ignores the brand: the frozen spec keeps its defaults as `FrozenValue`, because
+/// [`ParametersSpec::as_value`] reads the frozen and the unfrozen spec through one type, at the
+/// reader's lifetime. Branding the defaults waits for `FrozenValue` to be branded.
+impl<'v> FreezeBranded for ParametersSpec<Value<'v>> {
+    type Frozen<'fv> = ParametersSpec<FrozenValue>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(ParametersSpec {
+            function_name: self.function_name,
+            param_kinds: self
+                .param_kinds
+                .into_vec()
+                .into_try_map(|kind| kind.freeze(freezer))?
+                .into_boxed_slice(),
+            param_names: self.param_names,
+            names: self.names,
+            indices: self.indices,
+        })
+    }
+}
+
+impl<'v> ParameterKind<Value<'v>> {
+    fn freeze(self, freezer: &Freezer<'_>) -> FreezeResult<ParameterKind<FrozenValue>> {
+        Ok(match self {
+            ParameterKind::Required => ParameterKind::Required,
+            ParameterKind::Optional => ParameterKind::Optional,
+            ParameterKind::Defaulted(v) => ParameterKind::Defaulted(freezer.freeze(v)?),
+            ParameterKind::Args => ParameterKind::Args,
+            ParameterKind::KWargs => ParameterKind::KWargs,
+        })
+    }
 }
 
 impl<V> ParametersSpecBuilder<V> {
