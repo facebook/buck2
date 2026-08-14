@@ -26,7 +26,6 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
@@ -36,7 +35,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::private::Private;
-use crate::starlark_complex_value;
+use crate::starlark_complex_value_branded;
 use crate::starlark_simple_value;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -44,7 +43,7 @@ use crate::typing::arc_ty::ArcTy;
 use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -53,7 +52,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
@@ -361,9 +359,8 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
     Clone,
     Debug,
     Trace,
-    Coerce,
     Display,
-    Freeze,
+    FreezeBranded,
     NoSerialize,
     ProvidesStaticType,
     Allocative,
@@ -371,35 +368,31 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
 )]
 #[repr(C)]
 #[display("{}", method)]
-pub(crate) struct BoundMethodGen<V: ValueLifetimeless> {
+pub(crate) struct BoundMethod<'v> {
+    #[freeze_branded(identity)]
     pub(crate) method: FrozenValueTyped<'static, NativeMethod>,
-    pub(crate) this: V,
+    pub(crate) this: Value<'v>,
 }
 
-starlark_complex_value!(pub(crate) BoundMethod);
+starlark_complex_value_branded!(pub(crate) BoundMethod);
 
-impl<'v, V: ValueLike<'v>> BoundMethodGen<V> {
+impl<'v> BoundMethod<'v> {
     /// Create a new [`BoundMethod`]. Given the expression `object.function`,
     /// the first argument would be `object`, and the second would be `getattr(object, "function")`.
-    pub(crate) fn new(this: V, method: FrozenValueTyped<'static, NativeMethod>) -> Self {
-        BoundMethodGen { method, this }
+    pub(crate) fn new(this: Value<'v>, method: FrozenValueTyped<'static, NativeMethod>) -> Self {
+        BoundMethod { method, this }
     }
 }
 
 #[starlark_value(type = FUNCTION_TYPE)]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for BoundMethodGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for BoundMethod<'v> {
     fn invoke(
         &self,
         _me: Value<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        self.method
-            .function
-            .invoke(eval, self.this.to_value(), args)
+        self.method.function.invoke(eval, self.this, args)
     }
 
     fn documentation(&self) -> DocItem {

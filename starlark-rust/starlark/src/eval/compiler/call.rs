@@ -34,7 +34,6 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
 use crate::eval::runtime::visit_span::VisitSpanMut;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -248,13 +247,13 @@ impl CallCompiled {
         ctx: &mut OptCtx,
     ) -> Option<ExprCompiled> {
         let fun = fun.as_frozen_bound_method()?;
-        let format = FrozenStringValue::new(fun.this)?;
+        let format = fun.this.unpack_str()?;
         if fun.method.name != "format" {
             return None;
         }
         let arg = args.one_pos()?;
 
-        let (before, after) = parse_format_one(&format)?;
+        let (before, after) = parse_format_one(format)?;
 
         let before = ctx.frozen_heap().alloc_str_intern(&before);
         let after = ctx.frozen_heap().alloc_str_intern(&after);

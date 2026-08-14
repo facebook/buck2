@@ -73,8 +73,7 @@ use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
 use crate::values::bool::StarlarkBool;
-use crate::values::function::BoundMethodGen;
-use crate::values::function::FrozenBoundMethod;
+use crate::values::function::BoundMethod;
 use crate::values::list::ListRef;
 use crate::values::range::Range;
 use crate::values::string::interpolation::parse_percent_s_one;
@@ -302,7 +301,7 @@ impl ExprCompiled {
     }
 
     /// Expression is known to be a frozen bound method.
-    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<'_, FrozenBoundMethod>> {
+    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<'_, BoundMethod<'_>>> {
         FrozenValueTyped::new(self.as_value()?)
     }
 
@@ -877,7 +876,7 @@ impl ExprCompiled {
             MemberOrValue::Member(m) => match m {
                 UnboundValue::Method(m) => Some(
                     ctx.frozen_heap()
-                        .alloc_simple(BoundMethodGen::new(left, *m)),
+                        .alloc(BoundMethod::new(left.to_value(), *m)),
                 ),
                 UnboundValue::Attr(..) => None,
             },

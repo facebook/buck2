@@ -29,8 +29,7 @@ use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Value;
-use crate::values::ValueLike;
-use crate::values::function::BoundMethodGen;
+use crate::values::function::BoundMethod;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMethod;
 
@@ -62,9 +61,7 @@ impl UnboundValue {
     #[inline]
     pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
-            UnboundValue::Method(m) => {
-                Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))
-            }
+            UnboundValue::Method(m) => Ok(heap.alloc_complex_branded(BoundMethod::new(this, *m))),
             UnboundValue::Attr(a) => a.invoke(this, heap),
         }
     }

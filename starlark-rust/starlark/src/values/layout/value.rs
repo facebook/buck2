@@ -91,8 +91,8 @@ use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::FrozenDictRef;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
+use crate::values::function::BoundMethod;
 use crate::values::function::FUNCTION_TYPE;
-use crate::values::function::FrozenBoundMethod;
 use crate::values::function::NativeFunction;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::iter::StarlarkIterator;
@@ -1232,7 +1232,7 @@ impl FrozenValue {
     pub(crate) fn speculative_exec_safe(self) -> bool {
         if let Some(v) = FrozenValueTyped::<NativeFunction>::new(self) {
             v.speculative_exec_safe
-        } else if let Some(v) = FrozenValueTyped::<FrozenBoundMethod>::new(self) {
+        } else if let Some(v) = FrozenValueTyped::<BoundMethod>::new(self) {
             v.method.speculative_exec_safe
         } else {
             false
