@@ -41,8 +41,8 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -164,7 +164,7 @@ async fn get_builtin_globals_docs(dice_ctx: &DiceTransaction) -> buck2_error::Re
 
 async fn get_prelude_docs(
     ctx: &DiceTransaction,
-    existing_globals: &StdBuckHashSet<&str>,
+    existing_globals: &BuckMutSet<&str>,
 ) -> buck2_error::Result<Option<(ImportPath, DocModule)>> {
     let mut ctx = ctx.ctx();
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -197,9 +197,9 @@ async fn get_prelude_docs(
 struct DocsCache {
     /// Mapping of global names to URIs. These can either be files (for global symbols in the
     /// prelude), or `starlark:` URIs for rust native types and functions.
-    global_uris: StdBuckHashMap<String, LspUri>,
+    global_uris: BuckMutMap<String, LspUri>,
     /// Mapping of starlark: URIs to a synthesized starlark representation.
-    native_starlark_files: StdBuckHashMap<LspUri, String>,
+    native_starlark_files: BuckMutMap<LspUri, String>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -247,7 +247,7 @@ impl DocsCache {
         location_lookup: F,
     ) -> buck2_error::Result<Self> {
         let mut global_uris =
-            StdBuckHashMap::with_capacity_and_hasher(builtin_symbols.len(), Default::default());
+            BuckMutMap::with_capacity_and_hasher(builtin_symbols.len(), Default::default());
 
         let mut insert_global = |sym: String, uri: LspUri| {
             if let Some(existing) = global_uris.insert(sym.clone(), uri.clone()) {
@@ -262,7 +262,7 @@ impl DocsCache {
             }
         };
 
-        let mut native_starlark_files = StdBuckHashMap::default();
+        let mut native_starlark_files = BuckMutMap::default();
         for (import_path, docs) in builtin_symbols {
             match import_path {
                 Some(l) => {

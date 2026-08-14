@@ -21,8 +21,8 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashMap;
-use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use debugserver_types as dap;
 use dupe::Dupe;
@@ -269,16 +269,16 @@ struct ServerState {
     to_client: mpsc::UnboundedSender<ToClientMessage>,
 
     /// The currently set breakpoints. New hooks will be initialized with these.
-    set_breakpoints: StdBuckHashMap<String, ResolvedBreakpoints>,
+    set_breakpoints: BuckMutMap<String, ResolvedBreakpoints>,
 
     /// The project root is used to get the current source code to resolve breakpoints.
     project_root: ProjectRoot,
 
     /// Currently executing buck commands, this is primarily used to send debugger snapshots.
-    current_commands: StdBuckHashMap<HandleId, CommandState>,
+    current_commands: BuckMutMap<HandleId, CommandState>,
 
     /// Current starlark evaluation hooks.
-    current_hooks: StdBuckHashMap<HookId, HookState>,
+    current_hooks: BuckMutMap<HookId, HookState>,
 
     /// HookIds are simply incrementing.
     next_hook_id: HookId,
@@ -293,7 +293,7 @@ struct ServerState {
     /// This data structure keeps track of destructured local variables obtained by debugger at breakpoint
     /// this is required to satify incremental nature of VariablesRequeste
     /// variables are lazily fetched from starlark evaluator and cached by thread id
-    variables_by_thread: StdBuckHashMap<u32, VariablesKnownPaths>,
+    variables_by_thread: BuckMutMap<u32, VariablesKnownPaths>,
 }
 
 /// This type is using bitmasking to pack "frame_id, thread_id, variable_id" into an integer value
@@ -690,13 +690,13 @@ impl ServerState {
         Self {
             to_client,
             project_root,
-            current_commands: StdBuckHashMap::default(),
-            current_hooks: StdBuckHashMap::default(),
+            current_commands: BuckMutMap::default(),
+            current_hooks: BuckMutMap::default(),
             free_pseudo_threads: BTreeSet::new(),
             next_pseudo_thread: 0,
             next_hook_id: HookId(0),
-            set_breakpoints: StdBuckHashMap::default(),
-            variables_by_thread: StdBuckHashMap::default(),
+            set_breakpoints: BuckMutMap::default(),
+            variables_by_thread: BuckMutMap::default(),
         }
     }
 

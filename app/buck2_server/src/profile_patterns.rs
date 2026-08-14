@@ -17,7 +17,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::ProfileEventListener;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -31,7 +31,7 @@ pub(crate) struct FileWritingProfileEventListener {
 }
 
 struct State {
-    written: StdBuckHashMap<ForwardRelativePathBuf, usize>,
+    written: BuckMutMap<ForwardRelativePathBuf, usize>,
     errors: Vec<buck2_error::Error>,
     profiles: Vec<Arc<StarlarkProfileDataAndStats>>,
 }
@@ -41,7 +41,7 @@ impl FileWritingProfileEventListener {
         Self {
             base_path,
             state: Mutex::new(State {
-                written: StdBuckHashMap::default(),
+                written: BuckMutMap::default(),
                 errors: Vec::new(),
                 profiles: Vec::new(),
             }),

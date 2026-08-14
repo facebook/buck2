@@ -16,7 +16,7 @@ use buck2_core::soft_error;
 use buck2_data::*;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_util::threads::thread_spawn;
 use dice::DiceEvent;
 use dice::DiceEventListener;
@@ -73,7 +73,7 @@ impl BuckDiceTracker {
         queue_depth_fn: QueueDepthFn,
     ) {
         let mut needs_update = false;
-        let mut states = StdBuckHashMap::default();
+        let mut states = BuckMutMap::default();
         let mut interval = tokio::time::interval(snapshot_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         // This will loop until the sender side of the channel is dropped.

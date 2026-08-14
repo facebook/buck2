@@ -27,7 +27,7 @@ use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_events::span::SpanId;
 use buck2_explain::ActionEntryData;
 use buck2_explain::ChangedFilesEntryData;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::BuckMutMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -132,7 +132,7 @@ pub(crate) async fn explain(
         emit_cache_queries: false,
         ..Default::default()
     };
-    let mut known_actions: StdBuckHashMap<SpanId, ActionEntry> = Default::default();
+    let mut known_actions: BuckMutMap<SpanId, ActionEntry> = Default::default();
 
     let mut executed_actions = vec![];
     let mut changed_files = vec![];

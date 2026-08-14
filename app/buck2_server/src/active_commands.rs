@@ -19,24 +19,24 @@ use buck2_event_observer::span_tracker::Roots;
 use buck2_events::BuckEvent;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use tokio::sync::oneshot;
 
-static ACTIVE_COMMANDS: LazyLock<Mutex<StdBuckHashMap<TraceId, ActiveCommandHandle>>> =
-    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
+static ACTIVE_COMMANDS: LazyLock<Mutex<BuckMutMap<TraceId, ActiveCommandHandle>>> =
+    LazyLock::new(|| Mutex::new(BuckMutMap::default()));
 
 /// Return the active commands, if you can access them.
-pub fn try_active_commands() -> Option<StdBuckHashMap<TraceId, ActiveCommandHandle>> {
+pub fn try_active_commands() -> Option<BuckMutMap<TraceId, ActiveCommandHandle>> {
     // Note that this function is accessed during panic, so have to be super careful
     Some(ACTIVE_COMMANDS.try_lock()?.clone())
 }
 
-pub fn active_commands() -> MutexGuard<'static, StdBuckHashMap<TraceId, ActiveCommandHandle>> {
+pub fn active_commands() -> MutexGuard<'static, BuckMutMap<TraceId, ActiveCommandHandle>> {
     ACTIVE_COMMANDS.lock()
 }
 
@@ -158,7 +158,7 @@ pub struct SpansSnapshot {
 pub struct ActiveCommandStateWriter {
     /// Maps a SpanId to whether it is a root (i.e. no parent)
     roots: Roots<Arc<BuckEvent>>,
-    non_roots: StdBuckHashSet<SpanId>,
+    non_roots: BuckMutSet<SpanId>,
     dice_state: DiceState,
     closed: u64,
     shared: Arc<ActiveCommandState>,
@@ -168,7 +168,7 @@ impl ActiveCommandStateWriter {
     fn new(shared: Arc<ActiveCommandState>) -> Self {
         Self {
             roots: Roots::default(),
-            non_roots: StdBuckHashSet::default(),
+            non_roots: BuckMutSet::default(),
             dice_state: DiceState::new(),
             closed: 0,
             shared,
@@ -464,8 +464,8 @@ mod tests {
                     ))
                 }) => {
                     // Use HashSets because  trace ids may not be reported in the same order that we specified.
-                    let trace_ids: StdBuckHashSet<&String> = trace_ids.iter().collect();
-                    let expected_trace_ids: StdBuckHashSet<&String> = expected_trace_ids.iter().collect();
+                    let trace_ids: BuckMutSet<&String> = trace_ids.iter().collect();
+                    let expected_trace_ids: BuckMutSet<&String> = expected_trace_ids.iter().collect();
                     assert_eq!(trace_ids, expected_trace_ids);
                 }
             );
