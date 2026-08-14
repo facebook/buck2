@@ -622,7 +622,7 @@ fn new_attr_value<'v>(
                 .get(v)
                 .ok_or_else(|| internal_error!("Missing resolved dynamic value"))?;
             Ok(env.heap().alloc(StarlarkResolvedDynamicValue {
-                value: v.add_heap_ref_static(env.heap()),
+                value: v.add_heap_ref(env.heap()),
             }))
         }
         DynamicAttrValue::Value(v) => Ok(*v),

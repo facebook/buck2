@@ -11,7 +11,6 @@
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Display;
-use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -583,18 +582,6 @@ impl FrozenProviderCollectionValue {
         heap: &'v FrozenHeap,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
         self.as_ref().add_frozen_heap_ref(heap)
-    }
-
-    pub fn add_heap_ref_static<'v>(
-        &self,
-        heap: Heap<'v>,
-    ) -> FrozenValueTyped<'static, FrozenProviderCollection> {
-        unsafe {
-            mem::transmute::<
-                FrozenValueTyped<'_, ProviderCollection<'_>>,
-                FrozenValueTyped<'_, ProviderCollection<'_>>,
-            >(self.add_heap_ref(heap))
-        }
     }
 
     pub fn lookup_inner<'f>(

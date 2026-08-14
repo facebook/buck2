@@ -9,19 +9,19 @@
  */
 
 use allocative::Allocative;
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
+use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::AllocValue;
+use starlark::values::FreezeBranded;
 use starlark::values::FrozenValueTyped;
-use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
-use starlark::values::Value;
+use starlark::values::Trace;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 
@@ -31,28 +31,23 @@ use starlark::values::starlark_value;
     Allocative,
     NoSerialize,
     ProvidesStaticType,
-    StarlarkPagable
+    StarlarkPagable,
+    Trace,
+    FreezeBranded
 )]
 #[display("ResolvedDynamicValue<{}>", self.value)]
-pub struct StarlarkResolvedDynamicValue {
-    pub(crate) value: FrozenValueTyped<'static, FrozenProviderCollection>,
+pub struct StarlarkResolvedDynamicValue<'v> {
+    pub(crate) value: FrozenValueTyped<'v, ProviderCollection<'v>>,
 }
+
+starlark_complex_value_branded!(pub StarlarkResolvedDynamicValue);
 
 starlark::methods_static!(RESOLVED_DYNAMIC_VALUE_METHODS = resolved_dynamic_value_methods);
 
 #[starlark_value(type = "ResolvedDynamicValue")]
-impl<'v> StarlarkValue<'v> for StarlarkResolvedDynamicValue
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StarlarkResolvedDynamicValue<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(RESOLVED_DYNAMIC_VALUE_METHODS.methods())
-    }
-}
-
-impl<'v> AllocValue<'v> for StarlarkResolvedDynamicValue {
-    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_simple(self)
     }
 }
 
@@ -78,14 +73,14 @@ fn resolved_dynamic_value_methods(method: &mut MethodsBuilder) {
     /// ```
     #[starlark(attribute)]
     fn providers<'v>(
-        this: ValueTyped<'v, StarlarkResolvedDynamicValue>,
-    ) -> starlark::Result<FrozenValueTyped<'static, FrozenProviderCollection>> {
-        Ok(this.value)
+        this: ValueTyped<'v, StarlarkResolvedDynamicValue<'v>>,
+    ) -> starlark::Result<FrozenValueTyped<'v, ProviderCollection<'v>>> {
+        Ok(this.as_ref().value)
     }
 }
 
 #[starlark_module]
 #[starlark_types(
-    StarlarkResolvedDynamicValue as ResolvedDynamicValue
+    StarlarkResolvedDynamicValue<'_> as ResolvedDynamicValue
 )]
 pub(crate) fn register_resolved_dynamic_value(globals: &mut GlobalsBuilder) {}
