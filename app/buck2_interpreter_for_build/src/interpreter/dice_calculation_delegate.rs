@@ -48,6 +48,7 @@ use buck2_node::super_package::SuperPackage;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -147,8 +148,8 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
                 )?))
             }
 
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::AlwaysUnequal
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -448,11 +449,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 Ok(None)
             }
 
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|x, y| match (x, y) {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
-                }
+                })
             }
 
             fn validity(x: &Self::Value) -> bool {
@@ -548,11 +549,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     .await
             }
 
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|x, y| match (x, y) {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
-                }
+                })
             }
 
             fn validity(x: &Self::Value) -> bool {

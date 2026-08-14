@@ -39,6 +39,7 @@ use buck2_node::package_values_calculation::PackageValuesCalculation;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -115,9 +116,9 @@ impl Key for InterpreterResultsKey {
         result
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
         // TODO consider if we want to impl eq for this
-        false
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn validity(x: &Self::Value) -> bool {
@@ -186,11 +187,11 @@ impl Key for EvalImportKey {
             .await?)
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
         // While it is technically possible to compare the modules
         // at least for simple modules (like modules defining only string constants),
         // practically it is too hard to make it work correctly for every case.
-        false
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn validity(x: &Self::Value) -> bool {

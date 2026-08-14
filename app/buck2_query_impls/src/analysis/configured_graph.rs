@@ -23,6 +23,7 @@ use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::LinearRecomputeDiceComputations;
 use dice::OkPagableValueSerialize;
@@ -119,9 +120,11 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                 Ok(targets)
             }
 
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                // result is not comparable
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_, _| {
+                    // result is not comparable
+                    false
+                })
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

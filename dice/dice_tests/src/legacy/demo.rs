@@ -25,6 +25,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
@@ -52,8 +53,8 @@ impl InjectedKey for EncodingConfig {
         dice::NoValueSerialize::<Self::Value>::new()
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -117,11 +118,11 @@ impl Key for File {
         }))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 }
 

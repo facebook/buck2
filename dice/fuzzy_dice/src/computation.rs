@@ -19,6 +19,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
@@ -91,8 +92,8 @@ struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Expr>;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -260,11 +261,11 @@ impl Key for EvalVar {
         })
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {

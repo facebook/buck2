@@ -23,6 +23,7 @@ use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
 use dice::DiceProjectionDyn;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
@@ -49,8 +50,8 @@ impl Key for BaseK {
     ) -> Self::Value {
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 }
 
@@ -93,8 +94,8 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
             self.0.fetch_add(1, Ordering::SeqCst);
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
         }
     }
 

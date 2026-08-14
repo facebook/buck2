@@ -23,6 +23,7 @@ use buck2_sketches::MemoryUsageSketch;
 use buck2_util::commas::commas;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::ValueSerialize;
 use dupe::Dupe;
@@ -209,14 +210,14 @@ impl Key for ConfiguredGraphPropertiesKey {
         ))
     }
 
-    fn equality(a: &Self::Value, b: &Self::Value) -> bool {
-        match (a, b) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|a, b| match (a, b) {
             (ResultMaybeCompatible::Compatible(a), ResultMaybeCompatible::Compatible(b)) => a == b,
             (ResultMaybeCompatible::Incompatible(a), ResultMaybeCompatible::Incompatible(b)) => {
                 a == b
             }
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

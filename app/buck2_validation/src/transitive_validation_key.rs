@@ -23,6 +23,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -164,11 +165,11 @@ impl Key for TransitiveValidationKey {
         }
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {

@@ -31,6 +31,14 @@ use crate::api::computations::DiceComputations;
 use crate::api::storage_type::StorageType;
 use crate::introspection::graph::short_type_name;
 
+/// How DICE determines whether a recomputed value equals the cached value.
+pub enum EqualityBehavior<T> {
+    /// Compare both values with the provided function.
+    Compare(fn(&T, &T) -> bool),
+    /// Every recomputation is treated as changed, so the cached value need not be materialized.
+    AlwaysUnequal,
+}
+
 /// The computation Key that maps to a value. The key will be used as an index
 /// for caching the computed values.
 ///
@@ -57,13 +65,12 @@ pub trait Key:
         cancellations: &CancellationContext,
     ) -> Self::Value;
 
-    /// If computed value is equal to previously cached value,
-    /// DICE won't invalidate graph nodes depending on this node.
+    /// Defines how DICE determines whether a recomputed value equals the cached value.
     ///
-    /// It is safe to return `false` from this function when values are equal,
-    /// but returning `true` when values are not equal would result
-    /// in inconsistent graph state.
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool;
+    /// Returning equality for different values would produce inconsistent graph state. Keys whose
+    /// values can never be reused should return [`EqualityBehavior::AlwaysUnequal`], which lets
+    /// DICE avoid materializing a paged-out cached value after recomputation.
+    fn equality_behavior() -> EqualityBehavior<Self::Value>;
 
     /// If the computed value is `false`, DICE will consider that result to be a transient value
     /// that won't be re-used on subsequent computations. It will, however, reuse that value for

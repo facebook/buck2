@@ -23,6 +23,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceStorage;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
@@ -262,8 +263,8 @@ struct ScopeGenerationInput(u8);
 impl InjectedKey for ScopeGenerationInput {
     type Value = u32;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -307,8 +308,8 @@ impl Key for ScopeHeapKey {
         ))
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -332,8 +333,8 @@ impl Key for ScopeRootKey {
         unreachable!("ScopeRootKey values are injected")
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -24,6 +24,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -183,8 +184,8 @@ struct LegacyExternalBuckConfigDataKey;
 impl InjectedKey for LegacyExternalBuckConfigDataKey {
     type Value = Option<ExternalBuckconfigData>;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -225,11 +226,11 @@ impl Key for LegacyBuckConfigForCellKey {
         Ok(config)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x.compare(y),
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -260,8 +261,8 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
         config.as_ref().err().cloned()
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x.is_none() && y.is_none()
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x.is_none() && y.is_none())
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -318,8 +319,8 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
             .map(|s| s.to_owned().into())
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

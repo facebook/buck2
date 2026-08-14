@@ -22,6 +22,7 @@ use pagable::PagablePanic;
 use pagable::pagable_typetag;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -50,8 +51,8 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
             1
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn validity(_x: &Self::Value) -> bool {
@@ -141,8 +142,8 @@ async fn demo_with_transient() -> anyhow::Result<()> {
             }
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn validity(x: &Self::Value) -> bool {

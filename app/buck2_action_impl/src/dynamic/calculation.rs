@@ -28,6 +28,7 @@ use buck2_error::BuckErrorContext;
 use dice::CancellationContext;
 use dice::Demand;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -108,8 +109,8 @@ impl Key for DynamicLambdaDiceKey {
         Ok(res)
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn validity(x: &Self::Value) -> bool {

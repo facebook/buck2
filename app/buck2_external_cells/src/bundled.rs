@@ -60,6 +60,7 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -475,9 +476,11 @@ pub(crate) async fn get_file_ops_delegate(
             Ok(Arc::new(ops))
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            // No need for non-trivial equality, because this has no deps and is never recomputed
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| {
+                // No need for non-trivial equality, because this has no deps and is never recomputed
+                false
+            })
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

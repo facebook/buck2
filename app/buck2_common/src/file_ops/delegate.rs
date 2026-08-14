@@ -19,6 +19,7 @@ use buck2_events::dispatch::console_message;
 use buck2_fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -137,11 +138,11 @@ impl Key for FileOpsKey {
         Ok(FileOpsValue(out))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x.0 == y.0,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {

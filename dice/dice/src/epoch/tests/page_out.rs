@@ -28,6 +28,7 @@ use crate::DiceStorage;
 use crate::PagableStorageBackend;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
+use crate::api::key::EqualityBehavior;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::PagableValueSerialize;
@@ -68,8 +69,8 @@ impl Key for PagableKey {
         u64::from(self.0) * 100
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -93,8 +94,8 @@ impl Key for NonPagableKey {
         u64::from(self.0) * 7
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -135,8 +136,8 @@ impl Key for DeferredInput {
         unreachable!("DeferredInput values are injected")
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -181,8 +182,8 @@ impl Key for DeferredNonPagableKey {
         }
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -237,8 +238,8 @@ impl Key for DeferredPagableKey {
         }
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

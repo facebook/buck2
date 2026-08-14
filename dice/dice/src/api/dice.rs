@@ -27,6 +27,7 @@
 //!     use allocative::Allocative;
 //!     use dice_futures::cancellation::CancellationContext;
 //!     use dice::DiceKeyDyn;
+//!     use dice::EqualityBehavior;
 //!     use dice::ValueSerialize;
 //!     use dice::NoValueSerialize;
 //!     use dupe::Dupe;
@@ -51,8 +52,8 @@
 //!     impl InjectedKey for ConfigKey {
 //!         type Value = usize;
 //!
-//!         fn equality(x: &Self::Value,y: &Self::Value) -> bool {
-//!             x == y
+//!         fn equality_behavior() -> EqualityBehavior<Self::Value> {
+//!             EqualityBehavior::Compare(|x, y| x == y)
 //!         }
 //!         
 //!         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -80,8 +81,8 @@
 //!                     Arc::new(self.1.repeat(n))
 //!                 }
 //!
-//!                 fn equality(x: &Self::Value,y: &Self::Value) -> bool {
-//!                     x == y
+//!                 fn equality_behavior() -> EqualityBehavior<Self::Value> {
+//!                     EqualityBehavior::Compare(|x, y| x == y)
 //!                 }
 //!
 //!                 fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -111,8 +112,8 @@
 //!             self.0 + InjectConfigs(ctx).get_config().await + ctx.global_data().static_data().len()
 //!         }
 //!
-//!         fn equality(x: &Self::Value,y: &Self::Value) -> bool {
-//!             x == y
+//!         fn equality_behavior() -> EqualityBehavior<Self::Value> {
+//!             EqualityBehavior::Compare(|x, y| x == y)
 //!         }
 //!
 //!         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

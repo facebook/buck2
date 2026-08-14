@@ -19,6 +19,7 @@ use buck2_util::cycle_detector::LazyCycleDetectorGuard;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DynKey;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::NoValueSerialize;
 use dice::UserCycleDetector;
@@ -123,8 +124,8 @@ impl Key for PoisonedDueToDetectedCycleKey {
     ) -> Self::Value {
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 
     fn validity(_x: &Self::Value) -> bool {
@@ -220,6 +221,7 @@ mod tests {
     use dice::CancellationContext;
     use dice::DiceComputations;
     use dice::DynKey;
+    use dice::EqualityBehavior;
     use dice::Key;
     use dice::PagableValueSerialize;
     use dice::UserCycleDetector;
@@ -257,8 +259,8 @@ mod tests {
                 unreachable!()
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_x, _y| false)
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

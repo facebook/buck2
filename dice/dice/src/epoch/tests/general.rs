@@ -32,6 +32,7 @@ use crate::Dice;
 use crate::DiceData;
 use crate::DiceKeyDyn;
 use crate::DynKey;
+use crate::EqualityBehavior;
 use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
 use crate::api::computations::DiceComputations;
@@ -52,8 +53,8 @@ struct Foo(i32);
 impl InjectedKey for Foo {
     type Value = i32;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         NoValueSerialize::<Self::Value>::new()
@@ -88,8 +89,8 @@ impl Key for KeyThatRuns {
         self.is_ran.store(true, Ordering::SeqCst);
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -182,8 +183,8 @@ fn dice_computations_are_parallel() {
             1
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -243,8 +244,8 @@ async fn different_data_per_compute_ctx() {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -293,8 +294,8 @@ fn invalid_update() {
             unimplemented!("not needed for test")
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            unimplemented!("not needed for test")
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| unimplemented!("not needed for test"))
         }
 
         fn validity(_x: &Self::Value) -> bool {
@@ -347,11 +348,11 @@ impl Key for Fib {
         }
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -520,8 +521,8 @@ async fn dropping_request_future_cancels_execution() {
             panic!("shouldn't run")
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -628,8 +629,8 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
             );
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

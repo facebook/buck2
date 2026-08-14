@@ -29,6 +29,7 @@ use buck2_node::target_calculation::CONFIGURED_TARGET_CALCULATION;
 use buck2_node::target_calculation::ConfiguredTargetCalculationImpl;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -87,11 +88,11 @@ async fn get_target_platform_detector<'d>(
             )
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| match (x, y) {
                 (Ok(x), Ok(y)) => x == y,
                 _ => false,
-            }
+            })
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

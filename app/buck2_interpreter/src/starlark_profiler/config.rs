@@ -22,6 +22,7 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -182,11 +183,11 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
         Ok(Arc::new(new))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -261,11 +262,11 @@ impl ProjectionKey for StarlarkProfileModeForKind {
         }
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 }
 
@@ -296,8 +297,8 @@ pub struct StarlarkProfilerConfigurationKey;
 impl InjectedKey for StarlarkProfilerConfigurationKey {
     type Value = StarlarkProfilerConfiguration;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

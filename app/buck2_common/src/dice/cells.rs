@@ -20,6 +20,7 @@ use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::InvalidationSourcePriority;
 use dice::Key;
@@ -65,12 +66,12 @@ struct CellResolverKey;
 impl InjectedKey for CellResolverKey {
     type Value = Option<CellResolver>;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Some(x), Some(y)) => x == y,
             (None, None) => true,
             (_, _) => false,
-        }
+        })
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
@@ -144,11 +145,11 @@ impl Key for CellAliasResolverKey {
         )
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             (_, _) => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

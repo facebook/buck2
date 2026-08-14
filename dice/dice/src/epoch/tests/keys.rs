@@ -24,6 +24,7 @@ use pagable::pagable_typetag;
 use tokio::sync::Mutex;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
@@ -63,8 +64,8 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
             *count += 1;
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -136,8 +137,8 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
             1
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

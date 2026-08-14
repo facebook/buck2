@@ -16,6 +16,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -166,12 +167,14 @@ impl Key for TransitionAttrsKey {
             .map(|n| n.into_iter().map(|s| s.to_owned()).collect()))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        if let (Ok(x), Ok(y)) = (x, y) {
-            x == y
-        } else {
-            false
-        }
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| {
+            if let (Ok(x), Ok(y)) = (x, y) {
+                x == y
+            } else {
+                false
+            }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

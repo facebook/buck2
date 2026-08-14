@@ -35,6 +35,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -312,12 +313,14 @@ impl TransitionCalculation for TransitionCalculationImpl {
                 })?))
             }
 
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                if let (Ok(x), Ok(y)) = (x, y) {
-                    x == y
-                } else {
-                    false
-                }
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|x, y| {
+                    if let (Ok(x), Ok(y)) = (x, y) {
+                        x == y
+                    } else {
+                        false
+                    }
+                })
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

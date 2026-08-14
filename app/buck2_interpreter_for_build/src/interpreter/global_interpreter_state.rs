@@ -16,6 +16,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -136,8 +137,8 @@ impl<'d> HasGlobalInterpreterState<'d> for DiceComputations<'d> {
                 )?))
             }
 
-            fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::AlwaysUnequal
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

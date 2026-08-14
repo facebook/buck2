@@ -128,8 +128,8 @@ mod tests {
                 panic!("not needed in tests")
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                panic!("not needed in tests")
+            fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+                crate::EqualityBehavior::Compare(|_x, _y| panic!("not needed in tests"))
             }
 
             fn provide<'a>(&'a self, demand: &mut Demand<'a>) {

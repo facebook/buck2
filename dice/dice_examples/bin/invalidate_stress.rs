@@ -43,6 +43,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
@@ -142,8 +143,8 @@ struct Seed;
 impl InjectedKey for Seed {
     type Value = u32;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
@@ -172,8 +173,8 @@ impl Key for Buffer {
         0
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
@@ -259,8 +260,8 @@ impl Key for GraphNode {
         self.0
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {

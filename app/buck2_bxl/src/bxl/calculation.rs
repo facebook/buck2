@@ -16,6 +16,7 @@ use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -97,8 +98,8 @@ impl Key for internal::BxlComputeKey {
             .await
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -30,6 +30,7 @@ use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
@@ -66,8 +67,8 @@ impl Key for K {
         unimplemented!("test")
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

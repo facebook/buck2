@@ -62,6 +62,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::UserComputationData;
@@ -161,8 +162,8 @@ impl Key for TopKey {
         self.0
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -197,8 +198,8 @@ impl Key for BottomKey {
         self.0
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -237,8 +238,8 @@ impl Key for DenseKey {
         self.0
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -254,8 +255,8 @@ impl InjectedKey for Leaf {
         dice::NoValueSerialize::<Self::Value>::new()
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -271,8 +272,8 @@ impl InjectedKey for ConfigKey {
         dice::NoValueSerialize::<Self::Value>::new()
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 

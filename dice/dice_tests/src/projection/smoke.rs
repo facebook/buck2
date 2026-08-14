@@ -25,6 +25,7 @@ use dice::DiceData;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
 use dice::DiceProjectionDyn;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice::NoValueSerialize;
@@ -119,11 +120,11 @@ impl Key for FileKey {
         Ok(Arc::new(format!("<{value}>")))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 }
 
@@ -173,8 +174,8 @@ impl Key for ConfigKey {
         )
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -223,8 +224,8 @@ impl ProjectionKey for ConfigPropertyKey {
         Arc::new(value)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -362,8 +363,8 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
             1
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
     }
     impl PartialEq for ProjectionEqualKey {
@@ -387,8 +388,8 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
         }
         type Value = usize;
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
     }
     impl PartialEq for BaseKey {
@@ -426,8 +427,8 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
             .unwrap()
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
     }
     impl PartialEq for DependsOnProjection {

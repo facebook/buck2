@@ -12,6 +12,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::PagableValueSerialize;
 use dice::ValueSerialize;
@@ -44,8 +45,8 @@ struct StarlarkTypesKey;
 impl InjectedKey for StarlarkTypesKey {
     type Value = StarlarkTypesValue;
 
-    fn equality(x: &StarlarkTypesValue, y: &StarlarkTypesValue) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -25,6 +25,7 @@ use pagable::pagable_typetag;
 use tokio::task::JoinHandle;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -62,8 +63,8 @@ impl Key for K {
     ) -> Self::Value {
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

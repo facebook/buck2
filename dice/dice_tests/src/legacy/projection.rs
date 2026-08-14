@@ -22,6 +22,7 @@ use dice::DiceData;
 use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
 use dice::DiceProjectionDyn;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::ProjectionKey;
 use dice::UserComputationData;
@@ -112,8 +113,8 @@ impl Key for FileKey {
         Ok(Arc::new(format!("<{value}>")))
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        unreachable!("not used in test")
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| unreachable!("not used in test"))
     }
 }
 
@@ -164,8 +165,8 @@ impl Key for ConfigKey {
         )
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -215,8 +216,8 @@ impl ProjectionKey for ConfigPropertyKey {
         Arc::new(value)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 

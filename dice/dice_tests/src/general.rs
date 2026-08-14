@@ -15,6 +15,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
@@ -37,8 +38,8 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
         fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
             dice::NoValueSerialize::<Self::Value>::new()
         }
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            *x == *y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| *x == *y)
         }
     }
 
@@ -66,8 +67,8 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
             *ctx.compute(&Leaf(x)).await.unwrap()
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            *x == *y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| *x == *y)
         }
     }
 
@@ -123,8 +124,8 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
             })
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| false)
         }
     }
 
@@ -181,8 +182,8 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
                 1
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_x, _y| false)
             }
         }
 
@@ -199,8 +200,8 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
                 dice::NoValueSerialize::<Self::Value>::new()
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_x, _y| false)
             }
         }
 

@@ -16,6 +16,7 @@ use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use futures::future::FutureExt;
@@ -67,8 +68,8 @@ async fn test_linear_recompute_tracks_deps() {
             }
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
     }
 

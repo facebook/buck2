@@ -13,6 +13,7 @@ use std::collections::BTreeSet;
 use allocative::Allocative;
 use derive_more::Display;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::PagableValueSerialize;
 use dice::ValueSerialize;
@@ -35,8 +36,8 @@ pub trait SetEnabledOptionalValidations {
 impl InjectedKey for EnabledOptionalValidationsKey {
     type Value = BTreeSet<String>;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

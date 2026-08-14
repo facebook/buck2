@@ -23,6 +23,7 @@ use pagable::pagable_typetag;
 use tokio::sync::oneshot;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
@@ -40,8 +41,8 @@ struct Injected(i32);
 impl InjectedKey for Injected {
     type Value = i32;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -69,8 +70,8 @@ impl Key for SpawnedKey {
         .await
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -119,8 +120,8 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
             .await
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -189,8 +190,8 @@ async fn spawned_multiple() -> anyhow::Result<()> {
             a + b
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

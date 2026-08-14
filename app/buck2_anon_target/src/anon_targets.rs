@@ -85,6 +85,7 @@ use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -194,8 +195,8 @@ impl Key for AnonTargetKey {
         Ok(res)
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_, _| false)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

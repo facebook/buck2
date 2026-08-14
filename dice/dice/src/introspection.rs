@@ -74,8 +74,8 @@ mod tests {
             }
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unimplemented!()
+        fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+            crate::EqualityBehavior::Compare(|_, _| unimplemented!())
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -100,8 +100,8 @@ mod tests {
             // Noop
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unimplemented!()
+        fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+            crate::EqualityBehavior::Compare(|_, _| unimplemented!())
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

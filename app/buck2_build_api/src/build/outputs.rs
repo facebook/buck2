@@ -17,6 +17,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -106,8 +107,8 @@ pub async fn get_outputs_for_top_level_target(
             Ok(MaybeCompatible::Compatible(Arc::new(outputs)))
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| false)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

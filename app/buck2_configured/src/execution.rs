@@ -52,6 +52,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
+use dice::EqualityBehavior;
 use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -286,11 +287,11 @@ impl Key for ToolchainExecutionPlatformCompatibilityKey {
         )?)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -738,11 +739,11 @@ impl Key for ExecutionPlatformResolutionKey {
         .await
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -766,9 +767,11 @@ impl Key for ExecutionPlatformsKey {
         compute_execution_platforms(ctx).await
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        // TODO(cjhopman) should these be comparable for caching
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_, _| {
+            // TODO(cjhopman) should these be comparable for caching
+            false
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

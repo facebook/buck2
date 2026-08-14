@@ -22,6 +22,7 @@ use pagable::PagableTagged;
 
 use crate::ValueSerialize;
 use crate::api::data::DiceData;
+use crate::api::key::EqualityBehavior;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -62,7 +63,11 @@ pub trait ProjectionKey:
         ctx: &DiceProjectionComputations,
     ) -> Self::Value;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool;
+    /// Defines how DICE determines whether a recomputed value equals the cached value.
+    ///
+    /// Returning equality for different values would produce inconsistent graph state. Projections
+    /// whose values can never be reused should return [`EqualityBehavior::AlwaysUnequal`].
+    fn equality_behavior() -> EqualityBehavior<Self::Value>;
 
     fn validity(x: &Self::Value) -> bool {
         let _ = x;

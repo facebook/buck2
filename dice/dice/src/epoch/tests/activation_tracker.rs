@@ -25,6 +25,7 @@ use crate::Dice;
 use crate::DiceDataBuilder;
 use crate::DiceKeyDyn;
 use crate::DynKey;
+use crate::EqualityBehavior;
 use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -105,8 +106,8 @@ struct Injected;
 impl InjectedKey for Injected {
     type Value = i32;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -132,8 +133,8 @@ impl Key for Stage0 {
         ctx.compute(&Injected).await.unwrap();
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -159,8 +160,8 @@ impl Key for Stage1 {
         ctx.compute(&Stage0).await.unwrap();
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| true)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

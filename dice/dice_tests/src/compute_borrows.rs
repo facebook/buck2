@@ -20,6 +20,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -49,8 +50,8 @@ impl Key for Leaf {
         Arc::new(self.0)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -98,8 +99,8 @@ impl Key for Top {
         refs.into_iter().chain(nested).map(|v| **v).sum::<u32>() + **last
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 

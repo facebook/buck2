@@ -39,6 +39,7 @@ use buck2_sketches::MemoryUsageSketch;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -298,11 +299,11 @@ impl Key for AnalysisGraphPropertiesKey {
         })
     }
 
-    fn equality(a: &Self::Value, b: &Self::Value) -> bool {
-        match (a, b) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|a, b| match (a, b) {
             (Ok(a), Ok(b)) => a == b,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -411,11 +412,11 @@ impl Key for LoadGraphPropertiesKey {
         ))
     }
 
-    fn equality(a: &Self::Value, b: &Self::Value) -> bool {
-        match (a, b) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|a, b| match (a, b) {
             (Ok(a), Ok(b)) => a == b,
             _ => false,
-        }
+        })
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -28,6 +28,7 @@ use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -78,8 +79,8 @@ async fn get_cfg_constructor<'d>(
             get_cfg_constructor_uncached(ctx).await
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| false)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -144,11 +145,11 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     .await
             }
 
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|x, y| match (x, y) {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
-                }
+                })
             }
 
             fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

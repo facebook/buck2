@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::PagableValueSerialize;
 use dice::ValueSerialize;
@@ -32,8 +33,8 @@ struct BuildContextKey();
 impl InjectedKey for BuildContextKey {
     type Value = Arc<BuildInterpreterConfiguror>;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

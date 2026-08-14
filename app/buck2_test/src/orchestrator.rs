@@ -157,6 +157,7 @@ use buck2_test_api::protocol::TestOrchestrator;
 use derive_more::From;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::NoValueSerialize;
 use dice::ValueSerialize;
@@ -787,8 +788,8 @@ impl Key for TestExecutionKey {
             .await
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn validity(x: &Self::Value) -> bool {

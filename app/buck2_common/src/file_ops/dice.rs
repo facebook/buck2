@@ -22,6 +22,7 @@ use buck2_hash::BuckMutSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -311,8 +312,8 @@ impl Key for ReadFileKey {
         })
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_, _| false)
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
@@ -344,11 +345,11 @@ impl Key for ReadDirKey {
         file_ops.read_dir(ctx, self.path.as_ref().path()).await
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {
@@ -379,11 +380,11 @@ impl Key for ExistsMatchingExactCaseKey {
             .await
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {
@@ -426,11 +427,11 @@ impl Key for PathMetadataKey {
         Ok(res)
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
-        }
+        })
     }
 
     fn validity(x: &Self::Value) -> bool {

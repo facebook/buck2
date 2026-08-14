@@ -87,8 +87,8 @@ mod tests {
             unimplemented!("test")
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            unimplemented!("test")
+        fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+            crate::EqualityBehavior::Compare(|_x, _y| unimplemented!("test"))
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

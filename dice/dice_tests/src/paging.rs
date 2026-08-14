@@ -25,6 +25,7 @@ use dice::DiceEvent;
 use dice::DiceEventListener;
 use dice::DiceKeyDyn;
 use dice::DiceStorage;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::PagableStorageBackend;
 use dice::UserComputationData;
@@ -79,8 +80,8 @@ impl Key for FailToHydrateKey {
         u64::from(self.0) * 100
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

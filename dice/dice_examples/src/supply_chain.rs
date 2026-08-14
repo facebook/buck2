@@ -29,6 +29,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
@@ -267,11 +268,11 @@ async fn lookup_company_resource_cost(
             Ok(Some(sum + upcharge.unwrap()))
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| match (x, y) {
                 (Ok(x), Ok(y)) => x == y,
                 _ => false,
-            }
+            })
         }
     }
     let key = LookupCompanyResourceCost(company.clone(), resource.dupe());
@@ -329,11 +330,11 @@ impl Cost for DiceComputations<'_> {
                     .flatten())
             }
 
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|x, y| match (x, y) {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
-                }
+                })
             }
         }
 
@@ -379,8 +380,8 @@ impl InjectedKey for LookupCompany {
         dice::NoValueSerialize::<Self::Value>::new()
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -396,7 +397,7 @@ impl InjectedKey for LookupResource {
         dice::NoValueSerialize::<Self::Value>::new()
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }

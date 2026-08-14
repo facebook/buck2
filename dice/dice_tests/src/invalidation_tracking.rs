@@ -20,6 +20,7 @@ use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::DiceKeyTrackedInvalidationPaths;
 use dice::DiceTrackedInvalidationPath;
+use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::InvalidationSourcePriority;
 use dice::Key;
@@ -51,8 +52,8 @@ impl InjectedKey for NormalInjected {
     fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
         dice::NoValueSerialize::<Self::Value>::new()
     }
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -61,8 +62,8 @@ impl InjectedKey for HighInjected {
     fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
         dice::NoValueSerialize::<Self::Value>::new()
     }
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
@@ -84,8 +85,8 @@ impl Key for NormalChanged {
         *ctx.compute(&NormalInjected(self.0)).await.unwrap()
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 }
 
@@ -103,8 +104,8 @@ impl Key for HighChanged {
         *ctx.compute(&HighInjected(self.0)).await.unwrap()
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
@@ -267,8 +268,8 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
                 CapturedInvalidationPaths::new(ctx.get_invalidation_paths())
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_x, _y| false)
             }
         }
 
@@ -362,8 +363,8 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
                 CapturedInvalidationPaths::new(ctx.get_invalidation_paths())
             }
 
-            fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-                false
+            fn equality_behavior() -> EqualityBehavior<Self::Value> {
+                EqualityBehavior::Compare(|_x, _y| false)
             }
         }
 

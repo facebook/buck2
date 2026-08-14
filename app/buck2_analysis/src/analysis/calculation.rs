@@ -57,6 +57,7 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_util::time_span::TimeSpan;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::ValueSerialize;
 use dupe::Dupe;
@@ -112,10 +113,9 @@ impl Key for AnalysisKey {
         res.to_result_maybe_compatible()
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        // analysis result is not comparable
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
         // TODO consider if we want analysis result to be eq
-        false
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

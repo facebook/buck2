@@ -831,6 +831,7 @@ mod tests {
     use derivative::Derivative;
     use dice::DetectCycles;
     use dice::DiceComputations;
+    use dice::EqualityBehavior;
     use dice::InjectedKey;
     use dice::Key;
     use dice::PagableValueSerialize;
@@ -888,8 +889,8 @@ mod tests {
     impl InjectedKey for K {
         type Value = ();
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| false)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -1848,8 +1849,8 @@ mod tests {
                 .await;
         }
 
-        fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_me, _other| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

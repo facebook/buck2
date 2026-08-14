@@ -39,6 +39,7 @@ use tokio::sync::Semaphore;
 
 use crate::DetectCycles;
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::InvalidationSourcePriority;
@@ -86,8 +87,8 @@ impl Key for K {
         unimplemented!("test")
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -112,8 +113,8 @@ impl Key for IsRan {
         self.0.store(true, Ordering::SeqCst);
     }
 
-    fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-        false
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -146,8 +147,8 @@ impl Key for Finish {
     ) -> Self::Value {
     }
 
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        true
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_, _| true)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -281,8 +282,8 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
             }
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -445,8 +446,8 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
             futures::future::pending().await
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unreachable!("test")
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_, _| unreachable!("test"))
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -516,8 +517,8 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         ) -> Self::Value {
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_, _| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -663,8 +664,8 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
             }
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -763,8 +764,8 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             1
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -803,8 +804,8 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             Arc::new(())
         }
 
-        fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
-            false
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_x, _y| false)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -1247,8 +1248,8 @@ async fn _run_cancellation_caching_test(
             }
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            unreachable!("test")
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|_, _| unreachable!("test"))
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -1449,8 +1450,8 @@ impl Key for SPKey {
         self.idx
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

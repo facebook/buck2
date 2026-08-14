@@ -17,6 +17,7 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceKeyDyn;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::UserComputationData;
 use dice_futures::cancellation::CancellationContext;
@@ -91,8 +92,8 @@ impl Key for IsOpaque {
         Arc::new(format!("{number}"))
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 
@@ -121,8 +122,8 @@ impl Key for DoesNotReadOpaque {
         Arc::new("Aaa".to_owned())
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        x == y
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
     }
 }
 

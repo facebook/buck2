@@ -565,8 +565,8 @@ mod tests {
             unimplemented!("test")
         }
 
-        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-            true
+        fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+            crate::EqualityBehavior::Compare(|_, _| true)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

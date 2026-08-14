@@ -17,6 +17,7 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::DiceKeyDyn;
+use crate::EqualityBehavior;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -46,8 +47,8 @@ async fn different_data_per_compute_ctx() {
             ctx.per_transaction_data().data.get::<U>().unwrap().0
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            x == y
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

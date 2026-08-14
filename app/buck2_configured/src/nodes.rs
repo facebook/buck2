@@ -81,6 +81,7 @@ use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
+use dice::EqualityBehavior;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
@@ -1204,14 +1205,14 @@ impl Key for ConfiguredTargetNodeKey {
         LookingUpConfiguredNodeContext::add_context_rmc(res, self.0.dupe())
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
             (ResultMaybeCompatible::Compatible(x), ResultMaybeCompatible::Compatible(y)) => x == y,
             (ResultMaybeCompatible::Incompatible(x), ResultMaybeCompatible::Incompatible(y)) => {
                 x == y
             }
             _ => false,
-        }
+        })
     }
 
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
@@ -1359,11 +1360,11 @@ async fn check_target_enabled_for_config(
             Ok(result)
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| match (x, y) {
                 (Ok(x), Ok(y)) => x == y,
                 _ => false,
-            }
+            })
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
@@ -1431,11 +1432,11 @@ async fn get_dep_only_incompatible_custom_soft_error(
             Ok(Some(result))
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| match (x, y) {
                 (Ok(x), Ok(y)) => x == y,
                 _ => false,
-            }
+            })
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

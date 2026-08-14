@@ -19,6 +19,7 @@ use mini_vec::packed_ptr::PackedPtr;
 
 use crate::Key;
 use crate::ProjectionKey;
+use crate::api::key::EqualityBehavior;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::key::DiceKey;
@@ -343,7 +344,7 @@ impl Debug for DiceComputedValue {
 
 pub trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
     fn value_as_any(&self) -> &dyn Any;
-    /// Panics if called with incompatible values.
+    /// For `Compare` values, panics if called with an incompatible value.
     fn equality(&self, other: &dyn DiceValueDyn) -> bool;
     fn validity(&self) -> bool;
 }
@@ -377,7 +378,15 @@ where
     }
 
     fn equality(&self, other: &dyn DiceValueDyn) -> bool {
-        K::equality(&self.value, other.downcast_ref().unwrap())
+        match K::equality_behavior() {
+            EqualityBehavior::Compare(compare) => compare(
+                &self.value,
+                other
+                    .downcast_ref()
+                    .expect("values for the same DICE key must have the same type"),
+            ),
+            EqualityBehavior::AlwaysUnequal => false,
+        }
     }
 
     fn validity(&self) -> bool {
@@ -408,7 +417,15 @@ where
     }
 
     fn equality(&self, other: &dyn DiceValueDyn) -> bool {
-        K::equality(&self.value, other.downcast_ref().unwrap())
+        match K::equality_behavior() {
+            EqualityBehavior::Compare(compare) => compare(
+                &self.value,
+                other
+                    .downcast_ref()
+                    .expect("values for the same DICE projection must have the same type"),
+            ),
+            EqualityBehavior::AlwaysUnequal => false,
+        }
     }
 
     fn validity(&self) -> bool {

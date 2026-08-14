@@ -24,6 +24,7 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::DiceKeyTrackedInvalidationPaths;
+use crate::EqualityBehavior;
 use crate::OpaqueValue;
 use crate::ProjectionKey;
 use crate::UserCycleDetectorGuard;
@@ -550,8 +551,8 @@ fn _assert_dice_compute_future_sizes() {
             panic!()
         }
 
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            panic!()
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| panic!())
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

@@ -22,6 +22,7 @@ use pagable::typetag::PagableTagged;
 
 use crate::InvalidationSourcePriority;
 use crate::api::computations::DiceComputations;
+use crate::api::key::EqualityBehavior;
 use crate::api::key::Key;
 use crate::api::key::ValueSerialize;
 use crate::api::storage_type::StorageType;
@@ -52,7 +53,11 @@ pub trait InjectedKey:
 {
     type Value: Allocative + Send + Sync + 'static;
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool;
+    /// Defines how DICE determines whether a newly injected value equals the cached value.
+    ///
+    /// Returning equality for different values would produce inconsistent graph state. Injected
+    /// keys whose values can never be reused should return [`EqualityBehavior::AlwaysUnequal`].
+    fn equality_behavior() -> EqualityBehavior<Self::Value>;
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::Normal
@@ -80,8 +85,8 @@ where
         )
     }
 
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        Self::equality(x, y)
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        K::equality_behavior()
     }
 
     fn storage_type() -> StorageType {
