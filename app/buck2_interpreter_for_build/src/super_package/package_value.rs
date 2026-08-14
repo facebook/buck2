@@ -33,6 +33,8 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
+use starlark::values::Heap;
+use starlark::values::OwnedFrozen;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -130,7 +132,7 @@ pub(crate) struct StarlarkPackageValue<'v>(Value<'v>);
 pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 
 #[derive(Debug, Allocative, Clone, Dupe, Pagable)]
-pub struct OwnedFrozenStarlarkPackageValue(OwnedFrozenValue);
+pub struct OwnedFrozenStarlarkPackageValue(OwnedFrozen<Value<'static>>);
 
 impl<'v> StarlarkPackageValue<'v> {
     pub(crate) fn new(value: Value<'v>) -> buck2_error::Result<StarlarkPackageValue<'v>> {
@@ -165,19 +167,18 @@ impl OwnedFrozenStarlarkPackageValue {
         owner: FrozenHeapRef,
         value: FrozenStarlarkPackageValue,
     ) -> OwnedFrozenStarlarkPackageValue {
-        OwnedFrozenStarlarkPackageValue(unsafe { OwnedFrozenValue::new(owner, value.0) })
+        OwnedFrozenStarlarkPackageValue(unsafe { OwnedFrozenValue::new(owner, value.0) }.into())
     }
 
     pub(crate) fn to_json_value(&self) -> buck2_error::Result<serde_json::Value> {
         self.0
-            .value()
-            .to_json_value()
+            .by_ref(|v| v.to_json_value())
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .internal_error("Not valid JSON, should have been validated at construction")
     }
 
-    pub fn owned_frozen_value(&self) -> &OwnedFrozenValue {
-        &self.0
+    pub fn add_to_heap<'v>(&self, heap: Heap<'v>) -> Value<'v> {
+        self.0.as_ref().add_to_heap(heap)
     }
 }
 
@@ -254,9 +255,7 @@ pub(crate) fn read_parent_package_value_impl<'v>(
         .values
         .get(key)
     {
-        Some(value) => Ok(eval
-            .heap()
-            .access_owned_frozen_value(value.owned_frozen_value())),
+        Some(value) => Ok(value.add_to_heap(eval.heap())),
         None => Ok(Value::new_none()),
     }
 }
@@ -292,9 +291,7 @@ pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
             .values
             .get(key)
         {
-            Some(value) => Ok(eval
-                .heap()
-                .access_owned_frozen_value(value.owned_frozen_value())),
+            Some(value) => Ok(value.add_to_heap(eval.heap())),
             None => Ok(Value::new_none()),
         }
     }
