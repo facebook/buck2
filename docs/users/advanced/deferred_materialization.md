@@ -112,6 +112,13 @@ clean_stale_start_offset_hours = 12
 - `clean_stale_low_disk_adaptive_delete_intermediate_within_min_ttl` (default
   false) allows adaptive cleaning to delete non-active artifacts marked as
   intermediate-only even when they are below the adaptive minimum TTL.
+- `clean_stale_low_disk_adaptive_unmaterialize_active` (default false) adds a
+  final adaptive escalation step that discards active intermediate artifacts
+  backed by CAS or HTTP downloads. Their materializer entries return to the
+  declared state, so a later build downloads them again without rerunning the
+  producing action. This option is suppressed unless `ttl_refresh_enabled` is
+  enabled for the daemon, because CAS blobs must remain available for future
+  rematerialization.
 
 If clean stale is running in the background at the same time that a build begins
 to materialize artifacts, the clean will be interrupted and not run again until
@@ -119,3 +126,5 @@ after the next scheduled period, but it should be able to make gradual progress
 and prevent long term accumulation of artifacts.
 
 If needed, a clean can be manually triggered by calling `buck2 clean --stale`.
+The equivalent manual escalation is `--adaptive-unmaterialize-active`, which
+requires `--adaptive-low-disk-threshold` and the same TTL-refresh support.
