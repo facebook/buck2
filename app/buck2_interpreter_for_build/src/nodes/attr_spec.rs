@@ -38,6 +38,7 @@ use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::typing::TyFunction;
+use starlark::values::FrozenValue;
 use starlark::values::Value;
 
 use crate::attrs::AttributeCoerceExt;
@@ -66,7 +67,7 @@ pub trait AttributeSpecExt {
     ) -> buck2_error::Result<(&'v TargetNameRef, AttrValues)>;
 
     /// Returns a starlark Parameters for the rule callable, but not default values.
-    fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
+    fn signature(&self, rule_name: String) -> ParametersSpec<FrozenValue>;
 
     /// Returns a starlark Parameters for the rule callable, with default values.
     fn signature_with_default_value(&self, rule_name: String) -> ParametersSpec<Arc<CoercedAttr>>;
@@ -206,7 +207,7 @@ impl AttributeSpecExt for AttributeSpec {
     }
 
     /// Returns a starlark Parameters for the rule callable, but not default values.
-    fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>> {
+    fn signature(&self, rule_name: String) -> ParametersSpec<FrozenValue> {
         ParametersSpec::new_named_only(
             &rule_name,
             self.attr_specs().map(|(name, _idx, attribute)| {

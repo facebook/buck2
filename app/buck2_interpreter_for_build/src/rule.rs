@@ -441,7 +441,7 @@ impl<'v> Freeze for StarlarkRuleCallable<'v> {
         // For StarlarkRuleCallable, it doesn't rely on `signature` to get the default value, instead we get the default value from `Rule.attributes`,
         // so use `signature(rule_name)` method here.
         // TODO(nero): It need to some refactor to make it more clear, e.g. add a new type `ParametersSpec<NoDefaults>` here.
-        let signature = self.attributes.signature(rule_name).freeze(freezer)?;
+        let signature = self.attributes.signature(rule_name);
 
         let artifact_promise_mappings = match self.artifact_promise_mappings {
             Some(artifacts) => {
