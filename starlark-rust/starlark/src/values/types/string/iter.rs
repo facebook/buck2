@@ -19,7 +19,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -27,13 +27,11 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
+use crate::starlark_complex_value_branded;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
-use crate::values::StringValueLike;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
 use crate::values::typing::iter::StarlarkIter;
 
@@ -41,9 +39,8 @@ use crate::values::typing::iter::StarlarkIter;
 #[derive(
     Debug,
     Trace,
-    Coerce,
     Display,
-    Freeze,
+    FreezeBranded,
     NoSerialize,
     ProvidesStaticType,
     Allocative,
@@ -51,16 +48,18 @@ use crate::values::typing::iter::StarlarkIter;
 )]
 #[display("iterator")]
 #[repr(C)]
-struct StringIterableGen<'v, V: ValueLike<'v>> {
-    string: V::String,
+struct StringIterable<'v> {
+    string: StringValue<'v>,
     produce_char: bool, // if not char, then int
 }
+
+starlark_complex_value_branded!(StringIterable);
 
 pub(crate) fn iterate_chars<'v>(
     string: StringValue<'v>,
     heap: Heap<'v>,
 ) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
-    ValueOfUnchecked::new(heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
+    ValueOfUnchecked::new(heap.alloc_complex_branded(StringIterable {
         string,
         produce_char: true,
     }))
@@ -70,17 +69,14 @@ pub(crate) fn iterate_codepoints<'v>(
     string: StringValue<'v>,
     heap: Heap<'v>,
 ) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
-    ValueOfUnchecked::new(heap.alloc_complex(StringIterableGen::<'v, Value<'v>> {
+    ValueOfUnchecked::new(heap.alloc_complex_branded(StringIterable {
         string,
         produce_char: false,
     }))
 }
 
 #[starlark_value(type = "iterator")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StringIterableGen<'v, V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for StringIterable<'v> {
     unsafe fn iterate(&self, _me: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         // Lazy implementation: we allocate a tuple and then iterate over it.
         let iter = if self.produce_char {
