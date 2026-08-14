@@ -50,11 +50,11 @@ use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
@@ -79,6 +79,7 @@ use crate::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use crate::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use crate::analysis::extra_v::AnalysisExtraValue;
 use crate::analysis::extra_v::FrozenAnalysisExtraValue;
+use crate::analysis::extra_v::OwnedFrozenAnalysisValueStorage;
 use crate::artifact_groups::deferred::TransitiveSetIndex;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
@@ -417,7 +418,7 @@ pub struct AnalysisValueStorage<'v> {
 pub struct FrozenAnalysisValueStorage<'fv> {
     #[starlark_pagable(pagable)]
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
+    action_data: SmallMap<ActionIndex, (Option<Value<'fv>>, Option<FrozenStarlarkCallable>)>,
     #[starlark_pagable(
         serialize_with = "serialize_transitive_sets",
         deserialize_with = "deserialize_transitive_sets"
@@ -475,10 +476,10 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     }
 }
 
-impl<'v> Freeze for AnalysisValueStorage<'v> {
-    type Frozen = FrozenAnalysisValueStorage<'static>;
+impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
+    type Frozen<'fv> = FrozenAnalysisValueStorage<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let AnalysisValueStorage {
             self_key,
             action_data,
@@ -490,20 +491,26 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
         let mut frozen_action_data = SmallMap::with_capacity(action_data.len());
-        for (k, v) in action_data {
-            frozen_action_data.insert(k, v.freeze(freezer)?);
+        for (k, (data, error_handler)) in action_data {
+            frozen_action_data.insert(
+                k,
+                (
+                    FreezeBranded::freeze(data, freezer)?,
+                    Freeze::freeze(error_handler, freezer)?,
+                ),
+            );
         }
         let mut frozen_transitive_sets = Vec::with_capacity(transitive_sets.len());
         for v in transitive_sets {
             frozen_transitive_sets.push(
-                FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             );
         }
         let result_value = match result_value.into_inner() {
             None => None,
             Some(v) => Some(
-                FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             ),
         };
@@ -621,30 +628,27 @@ impl AnalysisValueFetcher {
             return Ok((None, None));
         };
 
-        let storage = FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
-            v.value
-                .analysis_value_storage
-                .ok_or_else(|| internal_error!("analysis_value_storage not set"))
-        })?;
+        let storage = FrozenAnalysisExtraValue::analysis_value_storage(module)?;
+        let storage = storage.as_ref();
 
-        let storage_ref = &storage.as_ref().value;
-        if id.holder_key() != &storage_ref.self_key {
+        let self_key = &storage.value().as_ref().value.self_key;
+        if id.holder_key() != self_key {
             return Err(internal_error!(
-                "Wrong action owner: expecting `{}`, got `{}`",
-                storage_ref.self_key,
-                id
+                "Wrong action owner: expecting `{self_key}`, got `{id}`"
             ));
         }
 
-        let Some(value) = storage_ref.action_data.get(&id.action_index()) else {
-            return Ok((None, None));
-        };
-
-        // The entries were just looked up inside `storage`, so they live in its heap.
-        let storage_value = storage.to_owned_frozen_value();
+        // Looking the entries up inside brand-generic closures is what witnesses that they are
+        // kept alive by `storage`'s heap.
+        let index = id.action_index();
+        let starlark_data =
+            storage.maybe_map::<Value<'static>, _>(|v| v.as_ref().value.action_data.get(&index)?.0);
+        let error_handler = storage.maybe_map::<Value<'static>, _>(|v| {
+            Some(v.as_ref().value.action_data.get(&index)?.1?.to_callable().0)
+        });
         Ok((
-            value.0.map(|v| storage_value.map(|_| v).into()),
-            value.1.map(|v| storage_value.map(|_| v.0).into()),
+            starlark_data.map(|v| v.to_owned()),
+            error_handler.map(|v| v.to_owned()),
         ))
     }
 
@@ -654,15 +658,7 @@ impl AnalysisValueFetcher {
     ) -> buck2_error::Result<RecordedAnalysisValues> {
         let analysis_storage = match &self.frozen_module {
             None => None,
-            Some(module) => Some(
-                FrozenAnalysisExtraValue::get(module)?
-                    .try_map(|v| {
-                        v.value
-                            .analysis_value_storage
-                            .ok_or_else(|| internal_error!("analysis_value_storage not set"))
-                    })?
-                    .into(),
-            ),
+            Some(module) => Some(FrozenAnalysisExtraValue::analysis_value_storage(module)?),
         };
 
         Ok(RecordedAnalysisValues {
@@ -677,9 +673,7 @@ impl AnalysisValueFetcher {
 #[derive(Debug, Allocative, pagable::Pagable)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
-    analysis_storage: Option<
-        OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
-    >,
+    analysis_storage: Option<OwnedFrozenAnalysisValueStorage>,
     actions: RecordedActions,
 }
 

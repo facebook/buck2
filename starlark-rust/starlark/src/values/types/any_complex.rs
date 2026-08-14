@@ -32,8 +32,11 @@ use crate::any::ProvidesStaticType;
 use crate::pagable::vtable_register::VtableRegistered;
 use crate::typing::starlark_value::TyStarlarkValueVTable;
 use crate::values::AllocValue;
-use crate::values::Freeze;
+use crate::values::FreezeBranded;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::Heap;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
@@ -46,10 +49,20 @@ use crate::values::layout::avalue::AValueSimpleBound;
 ///
 /// This type is for "complex" values (with tracing during GC). For no GC version check
 /// [`StarlarkAny`](crate::values::types::any::StarlarkAny).
-#[derive(Trace, Freeze, Allocative, ProvidesStaticType, NoSerialize)]
+#[derive(Trace, Allocative, ProvidesStaticType, NoSerialize)]
 pub struct StarlarkAnyComplex<T> {
     /// The value.
     pub value: T,
+}
+
+impl<T: FreezeBranded> FreezeBranded for StarlarkAnyComplex<T> {
+    type Frozen<'fv> = StarlarkAnyComplex<T::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(StarlarkAnyComplex {
+            value: self.value.freeze(freezer)?,
+        })
+    }
 }
 
 impl<'v, T> StarlarkAnyComplex<T>
@@ -190,13 +203,12 @@ macro_rules! register_starlark_any_complex {
 
 impl<'v, T> AllocValue<'v> for StarlarkAnyComplex<T>
 where
-    Self: StarlarkValue<'v> + Freeze,
-    T: Trace<'v> + ProvidesStaticType<'v>,
-    <Self as Freeze>::Frozen: AValueSimpleBound<'static>,
-    <Self as ProvidesStaticType<'v>>::StaticType: Send,
+    Self: StarlarkValue<'v> + HeapSendable<'v>,
+    T: Trace<'v> + ProvidesStaticType<'v> + FreezeBranded,
+    for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>: AValueSimpleBound<'fv>,
 {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
@@ -225,11 +237,9 @@ mod tests {
     use crate as starlark;
     use crate::const_frozen_string;
     use crate::environment::Module;
-    use crate::values::Freeze;
+    use crate::values::FreezeBranded;
     use crate::values::FreezeResult;
     use crate::values::Freezer;
-    use crate::values::FrozenStringValue;
-    use crate::values::FrozenValue;
     use crate::values::StringValue;
     use crate::values::Value;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
@@ -243,24 +253,24 @@ mod tests {
         other: Value<'v>,
     }
 
-    impl<'v> Freeze for UnfrozenData<'v> {
-        type Frozen = FrozenData;
+    impl<'v> FreezeBranded for UnfrozenData<'v> {
+        type Frozen<'fv> = FrozenData<'fv>;
 
-        fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenData<'fv>> {
             Ok(FrozenData {
-                string: self.string.freeze(freezer)?,
-                other: freezer.freeze(self.other)?,
+                string: self.string.freeze_branded(freezer)?,
+                other: freezer.freeze_branded(self.other)?,
             })
         }
     }
 
     #[derive(Allocative, ProvidesStaticType, StarlarkPagable)]
-    struct FrozenData {
-        string: FrozenStringValue,
-        other: FrozenValue,
+    struct FrozenData<'fv> {
+        string: StringValue<'fv>,
+        other: Value<'fv>,
     }
 
-    crate::register_starlark_any_complex!(UnfrozenData<'_>, frozen FrozenData);
+    crate::register_starlark_any_complex!(UnfrozenData<'_>, frozen FrozenData<'_>);
 
     #[test]
     fn test_any_complex() {

@@ -13,18 +13,15 @@ use std::cell::OnceCell;
 use allocative::Allocative;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
-use gazebo::prelude::OptionExt;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::Freeze;
-use starlark::values::FreezeError;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValueTyped;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
@@ -47,30 +44,22 @@ pub struct AnalysisExtraValue<'v> {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
-pub struct FrozenAnalysisExtraValue {
+pub struct FrozenAnalysisExtraValue<'fv> {
     pub(crate) analysis_value_storage:
-        Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>,
+        Option<ValueTyped<'fv, StarlarkAnyComplex<FrozenAnalysisValueStorage<'fv>>>>,
 }
 
-starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue);
+starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue<'_>);
 
-impl<'v> Freeze for AnalysisExtraValue<'v> {
-    type Frozen = FrozenAnalysisExtraValue;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+impl<'v> FreezeBranded for AnalysisExtraValue<'v> {
+    type Frozen<'fv> = FrozenAnalysisExtraValue<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let AnalysisExtraValue {
             analysis_value_storage,
         } = self;
-        let analysis_value_storage =
-            analysis_value_storage
-                .into_inner()
-                .try_map(|analysis_value_storage| {
-                    Ok(FrozenValueTyped::new_err(
-                        analysis_value_storage.to_value().freeze(freezer)?,
-                    )
-                    .map_err(|e| FreezeError::new(format!("{e}"))))?
-                })?;
         Ok(FrozenAnalysisExtraValue {
-            analysis_value_storage,
+            analysis_value_storage: FreezeBranded::freeze(analysis_value_storage, freezer)?,
         })
     }
 }
@@ -102,14 +91,33 @@ impl<'v> AnalysisExtraValue<'v> {
     }
 }
 
-impl FrozenAnalysisExtraValue {
-    pub fn get(
-        module: &FrozenModule,
-    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>>
-    {
-        Ok(module
-            .owned_extra_value()
+/// A frozen module's extra value, kept alive by that module's heap.
+pub type OwnedFrozenAnalysisExtraValue =
+    OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisExtraValue<'static>>>>;
+
+/// The [`AnalysisValueStorage`] written into a frozen module, kept alive by that module's heap.
+pub type OwnedFrozenAnalysisValueStorage =
+    OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage<'static>>>>;
+
+impl FrozenAnalysisExtraValue<'_> {
+    pub fn get(module: &FrozenModule) -> buck2_error::Result<OwnedFrozenAnalysisExtraValue> {
+        module
+            .extra_value_owned()
             .ok_or_else(|| internal_error!("extra_value not set"))?
-            .downcast_starlark()?)
+            .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisExtraValue>>, _>(
+                |v| ValueTyped::new(v),
+            )
+            .ok_or_else(|| internal_error!("extra_value has the wrong type"))
+    }
+
+    pub fn analysis_value_storage(
+        module: &FrozenModule,
+    ) -> buck2_error::Result<OwnedFrozenAnalysisValueStorage> {
+        Self::get(module)?.try_map(|v| {
+            v.as_ref()
+                .value
+                .analysis_value_storage
+                .ok_or_else(|| internal_error!("analysis_value_storage not set"))
+        })
     }
 }

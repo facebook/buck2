@@ -18,12 +18,10 @@ use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
-use starlark::values::OwnedFrozenValue;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
 use crate::interpreter::package_file_extra::OwnedFrozenPackageFileExtra;
-use crate::super_package::package_value::OwnedFrozenStarlarkPackageValue;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, Default)]
@@ -56,15 +54,9 @@ impl PackageFileEvalCtx {
         let Some(extra) = extra else {
             return Ok(None);
         };
-        let package_extra = extra.package_extra();
-        let Some(cfg_constructor) = package_extra.cfg_constructor else {
+        let Some(cfg_constructor) = extra.cfg_constructor() else {
             return Ok(None);
         };
-        let cfg_constructor = unsafe {
-            // SAFETY: field belongs to the same heap.
-            OwnedFrozenValue::new(extra.owner().dupe(), cfg_constructor)
-        }
-        .into();
         let make_cfg_constructor = MAKE_CFG_CONSTRUCTOR.get()?;
         Ok(Some(make_cfg_constructor(cfg_constructor)?))
     }
@@ -77,18 +69,7 @@ impl PackageFileEvalCtx {
 
         let package_values = match &extra {
             None => SmallMap::new(),
-            Some(extra) => {
-                let package_extra = extra.package_extra();
-                let mut values = SmallMap::with_capacity(package_extra.package_values.len());
-                for (name, value) in &package_extra.package_values {
-                    let value = unsafe {
-                        // SAFETY: using the same heap.
-                        OwnedFrozenStarlarkPackageValue::new(extra.owner().dupe(), *value)
-                    };
-                    values.insert(name.clone(), value);
-                }
-                values
-            }
+            Some(extra) => extra.package_values(),
         };
 
         let merged_package_values =

@@ -17,12 +17,13 @@ use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::OwnedFrozen;
 use starlark::values::Trace;
 use starlark::values::ValueLike;
+use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
@@ -43,22 +44,18 @@ pub(crate) struct InterpreterExtraValue<'v> {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
-pub(crate) struct FrozenInterpreterExtraValue {
-    pub(crate) package_extra: Option<FrozenPackageFileExtra>,
+pub(crate) struct FrozenInterpreterExtraValue<'v> {
+    pub(crate) package_extra: Option<FrozenPackageFileExtra<'v>>,
 }
 
-starlark::register_starlark_any_complex!(InterpreterExtraValue<'_>, frozen FrozenInterpreterExtraValue);
+starlark::register_starlark_any_complex!(InterpreterExtraValue<'_>, frozen FrozenInterpreterExtraValue<'_>);
 
-impl<'v> Freeze for InterpreterExtraValue<'v> {
-    type Frozen = FrozenInterpreterExtraValue;
+impl<'v> FreezeBranded for InterpreterExtraValue<'v> {
+    type Frozen<'fv> = FrozenInterpreterExtraValue<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenInterpreterExtraValue {
-            package_extra: self
-                .package_extra
-                .into_inner()
-                .map(|p| p.freeze(freezer))
-                .transpose()?,
+            package_extra: FreezeBranded::freeze(self.package_extra, freezer)?,
         })
     }
 }
@@ -74,16 +71,20 @@ impl<'v> InterpreterExtraValue<'v> {
     }
 }
 
-impl FrozenInterpreterExtraValue {
+/// A frozen module's extra value, kept alive by that module's heap.
+pub(crate) type OwnedFrozenInterpreterExtraValue =
+    OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenInterpreterExtraValue<'static>>>>;
+
+impl FrozenInterpreterExtraValue<'_> {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
-    {
+    ) -> buck2_error::Result<OwnedFrozenInterpreterExtraValue> {
         module
-            .owned_extra_value()
+            .extra_value_owned()
             .ok_or_else(|| internal_error!("Extra value is missing"))?
-            .downcast()
-            .ok()
+            .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenInterpreterExtraValue>>, _>(
+                |v| ValueTyped::new(v),
+            )
             .ok_or_else(|| internal_error!("Extra value had wrong type"))
     }
 }

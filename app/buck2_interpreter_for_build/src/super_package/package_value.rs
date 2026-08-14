@@ -26,16 +26,13 @@ use pagable::pagable_typetag;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeErrorContext;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenHeapRef;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozen;
-use starlark::values::OwnedFrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -125,11 +122,8 @@ impl SuperPackageValues for SuperPackageValuesImpl {
 }
 
 /// Value that is known to be serializable to JSON.
-#[derive(Trace, Debug, Allocative, Clone, Dupe, Copy)]
+#[derive(Trace, Debug, Allocative, Clone, Dupe, Copy, StarlarkPagable)]
 pub(crate) struct StarlarkPackageValue<'v>(Value<'v>);
-
-#[derive(Debug, Allocative, Clone, Dupe, Copy, StarlarkPagable)]
-pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 
 #[derive(Debug, Allocative, Clone, Dupe, Pagable)]
 pub struct OwnedFrozenStarlarkPackageValue(OwnedFrozen<Value<'static>>);
@@ -141,33 +135,30 @@ impl<'v> StarlarkPackageValue<'v> {
         )?;
         Ok(StarlarkPackageValue(value))
     }
+
+    pub(crate) fn value(self) -> Value<'v> {
+        self.0
+    }
 }
 
-impl<'v> Freeze for StarlarkPackageValue<'v> {
-    type Frozen = FrozenStarlarkPackageValue;
+impl<'v> FreezeBranded for StarlarkPackageValue<'v> {
+    type Frozen<'fv> = StarlarkPackageValue<'fv>;
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let frozen = self.0.freeze(freezer)?;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<StarlarkPackageValue<'fv>> {
+        let frozen = self.0.freeze_branded(freezer)?;
 
         // Error is possible if either:
         // * package value is modified after `write_package_value`
         // * frozen value is not valid JSON even if original value was
-        StarlarkPackageValue::new(frozen.to_value())
+        StarlarkPackageValue::new(frozen)
             .map_err(|e| FreezeError::new(e.to_string()))
-            .freeze_error_context("Frozen value is not valid JSON")?;
-
-        Ok(FrozenStarlarkPackageValue(frozen))
+            .freeze_error_context("Frozen value is not valid JSON")
     }
 }
 
 impl OwnedFrozenStarlarkPackageValue {
-    /// This function is unsafe for the same reason `OwnedFrozenValue::new` is unsafe:
-    /// `owner` must be the owner of `value`.
-    pub(crate) unsafe fn new(
-        owner: FrozenHeapRef,
-        value: FrozenStarlarkPackageValue,
-    ) -> OwnedFrozenStarlarkPackageValue {
-        OwnedFrozenStarlarkPackageValue(unsafe { OwnedFrozenValue::new(owner, value.0) }.into())
+    pub(crate) fn new(value: OwnedFrozen<Value<'static>>) -> OwnedFrozenStarlarkPackageValue {
+        OwnedFrozenStarlarkPackageValue(value)
     }
 
     pub(crate) fn to_json_value(&self) -> buck2_error::Result<serde_json::Value> {
