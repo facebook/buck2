@@ -9,13 +9,13 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_build_api::interpreter::rule_defs::required_test_local_resource::register_required_test_local_resource;
 use buck2_core::bzl::ImportPath;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_test_api::data::TestStatus;
 use indoc::indoc;
-use starlark::values::OwnedFrozenValueTyped;
 
 fn tester() -> Tester {
     let mut tester = Tester::new().unwrap();
@@ -24,9 +24,7 @@ fn tester() -> Tester {
     tester
 }
 
-fn freeze_provider(
-    starlark_code: &str,
-) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenInternalRunnerTestInfo>> {
+fn freeze_provider(starlark_code: &str) -> buck2_error::Result<OwnedInternalRunnerTestInfo> {
     let mut tester = tester();
     let loaded = tester.add_import(
         &ImportPath::testing_new("root//test:provider.bzl"),
@@ -34,9 +32,9 @@ fn freeze_provider(
     )?;
     loaded
         .env()
-        .get("exported_info")
+        .get_owned("exported_info")
         .expect("`exported_info` not found")
-        .downcast_starlark()
+        .downcast_starlark::<FrozenInternalRunnerTestInfo>()
         .map_err(buck2_error::Error::from)
 }
 
@@ -978,6 +976,8 @@ mod tests {
 
         let entries = info
             .as_ref()
+            .value()
+            .as_ref()
             .parse_test_listing_output("test_foo\ntest_bar\n")?;
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "test_foo");
@@ -1000,7 +1000,11 @@ mod tests {
         "#
         ))?;
 
-        let entries = info.as_ref().parse_test_listing_output("")?;
+        let entries = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_listing_output("")?;
         assert_eq!(entries.len(), 0);
         Ok(())
     }
@@ -1024,7 +1028,11 @@ mod tests {
         "#
         ))?;
 
-        let entries = info.as_ref().parse_test_listing_output("ignored")?;
+        let entries = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_listing_output("ignored")?;
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "Test Addition");
         assert_eq!(entries[0].filter, "math::TestAddition");
@@ -1044,7 +1052,12 @@ mod tests {
         "#
         ))?;
 
-        let err = info.as_ref().parse_test_listing_output("x").unwrap_err();
+        let err = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_listing_output("x")
+            .unwrap_err();
         assert!(err.to_string().contains("missing required key"), "{}", err);
         Ok(())
     }
@@ -1072,13 +1085,21 @@ mod tests {
         "#
         ))?;
 
-        let results = info.as_ref().parse_test_result_output("", "", 0)?;
+        let results = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_result_output("", "", 0)?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "test_all");
         assert_eq!(results[0].status, TestStatus::PASS);
         assert!(results[0].message.is_none());
 
-        let results = info.as_ref().parse_test_result_output("", "oops", 1)?;
+        let results = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_result_output("", "oops", 1)?;
         assert_eq!(results[0].status, TestStatus::FAIL);
         assert_eq!(results[0].message.as_deref(), Some("oops"));
         Ok(())
@@ -1106,7 +1127,11 @@ mod tests {
         "#
         ))?;
 
-        let results = info.as_ref().parse_test_result_output("", "", 1)?;
+        let results = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_result_output("", "", 1)?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "test_math");
         assert_eq!(results[0].status, TestStatus::FAIL);
@@ -1135,7 +1160,11 @@ mod tests {
         "#
         ))?;
 
-        let results = info.as_ref().parse_test_result_output("", "", 0)?;
+        let results = info
+            .as_ref()
+            .value()
+            .as_ref()
+            .parse_test_result_output("", "", 0)?;
         assert_eq!(results[0].duration, Some(std::time::Duration::from_secs(5)));
         Ok(())
     }
@@ -1157,6 +1186,8 @@ mod tests {
         ))?;
 
         let err = info
+            .as_ref()
+            .value()
             .as_ref()
             .parse_test_result_output("", "", 0)
             .unwrap_err();
@@ -1182,6 +1213,8 @@ mod tests {
 
         let err = info
             .as_ref()
+            .value()
+            .as_ref()
             .parse_test_result_output("", "", 0)
             .unwrap_err();
         assert!(err.to_string().contains("Unknown test status"), "{}", err);
@@ -1205,6 +1238,8 @@ mod tests {
         ))?;
 
         let err = info
+            .as_ref()
+            .value()
             .as_ref()
             .parse_test_result_output("", "", 0)
             .unwrap_err();
@@ -1235,6 +1270,8 @@ fn test_listing_command_accessor() -> buck2_error::Result<()> {
 
     let listing_cmd: Vec<String> = info
         .as_ref()
+        .value()
+        .as_ref()
         .listing_command()
         .map(|m| match m {
             TestCommandMember::Literal(s) => s.to_owned(),
@@ -1244,6 +1281,8 @@ fn test_listing_command_accessor() -> buck2_error::Result<()> {
     assert_eq!(listing_cmd, vec!["my_binary", "--gtest_list_tests"]);
 
     let exec_cmd: Vec<String> = info
+        .as_ref()
+        .value()
         .as_ref()
         .command()
         .map(|m| match m {
