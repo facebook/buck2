@@ -38,25 +38,26 @@ use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
-use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::util::ArcStr;
+use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::Freeze;
+use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValue;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
+use starlark::values::ValueTyped;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -107,10 +108,10 @@ pub(crate) struct Transition<'v> {
     StarlarkPagable
 )]
 #[display("transition")]
-pub(crate) struct FrozenTransition {
+pub(crate) struct FrozenTransition<'v> {
     #[starlark_pagable(pagable)]
     id: Arc<TransitionId>,
-    pub(crate) implementation: FrozenValue,
+    pub(crate) implementation: Value<'v>,
     // Mixed: keys are starlark, `ProvidersLabel` is pagable-only (`buck2_core`
     // cannot depend on `starlark`) — so the generic `SmallMap<K, V>:
     // StarlarkSerialize` blanket doesn't apply. Bridge here.
@@ -118,14 +119,22 @@ pub(crate) struct FrozenTransition {
         serialize_with = "serialize_refs",
         deserialize_with = "deserialize_refs"
     )]
-    pub(crate) refs: SmallMap<FrozenStringValue, ProvidersLabel>,
-    pub(crate) attrs_names: Option<Vec<FrozenStringValue>>,
+    pub(crate) refs: SmallMap<StringValue<'v>, ProvidersLabel>,
+    pub(crate) attrs_names: Option<Vec<StringValue<'v>>>,
     #[starlark_pagable(pagable)]
     pub(crate) split: bool,
 }
 
-fn serialize_refs(
-    field: &SmallMap<FrozenStringValue, ProvidersLabel>,
+starlark::register_simple_vtable_entry!(FrozenTransition<'static>);
+// SAFETY: The vtable entry is registered above; the deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenTransition<'v> {}
+
+/// A `Transition` kept alive by its owning frozen heap; usable across threads and awaits.
+pub(crate) type OwnedTransition = OwnedFrozen<ValueTyped<'static, FrozenTransition<'static>>>;
+
+fn serialize_refs<'v>(
+    field: &SmallMap<StringValue<'v>, ProvidersLabel>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -136,13 +145,13 @@ fn serialize_refs(
     Ok(())
 }
 
-fn deserialize_refs(
+fn deserialize_refs<'v>(
     ctx: &mut dyn StarlarkDeserializeContext<'_>,
-) -> starlark::Result<SmallMap<FrozenStringValue, ProvidersLabel>> {
+) -> starlark::Result<SmallMap<StringValue<'v>, ProvidersLabel>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut map = SmallMap::with_capacity(len);
     for _ in 0..len {
-        let k = FrozenStringValue::starlark_deserialize(ctx)?;
+        let k = StringValue::starlark_deserialize(ctx)?;
         let v = <ProvidersLabel as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
         map.insert(k, v);
     }
@@ -173,7 +182,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
 }
 
 #[starlark_value(type = "Transition")]
-impl<'v> StarlarkValue<'v> for FrozenTransition {
+impl<'v> StarlarkValue<'v> for FrozenTransition<'v> {
     type Canonical = Transition<'v>;
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -181,11 +190,17 @@ impl<'v> StarlarkValue<'v> for FrozenTransition {
     }
 }
 
-impl Freeze for Transition<'_> {
-    type Frozen = FrozenTransition;
+impl<'v> AllocValue<'v> for Transition<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+        heap.alloc_complex_branded(self)
+    }
+}
 
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenTransition> {
-        let implementation = freezer.freeze(self.implementation)?;
+impl<'v> FreezeBranded for Transition<'v> {
+    type Frozen<'fv> = FrozenTransition<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenTransition<'fv>> {
+        let implementation = self.implementation.freeze_branded(freezer)?;
         let id = self.id.into_inner().ok_or(FreezeError::new(
             TransitionError::TransitionNotAssigned.to_string(),
         ))?;
@@ -193,11 +208,11 @@ impl Freeze for Transition<'_> {
         // which can cause over-allocations in frozen containers.
         let mut refs = SmallMap::with_capacity(self.refs.len());
         for (k, v) in self.refs {
-            refs.insert(k.freeze(freezer)?, v.0);
+            refs.insert(k.freeze_branded(freezer)?, v.0);
         }
         let attrs = self
             .attrs
-            .map(|a| a.into_try_map(|a| a.freeze(freezer)))
+            .map(|a| a.into_try_map(|a| a.freeze_branded(freezer)))
             .transpose()?;
         let split = self.split;
         Ok(FrozenTransition {
@@ -210,8 +225,6 @@ impl Freeze for Transition<'_> {
     }
 }
 
-starlark_complex_values!(Transition);
-
 impl TransitionValue for Transition<'_> {
     fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>> {
         self.id
@@ -222,7 +235,7 @@ impl TransitionValue for Transition<'_> {
     }
 }
 
-impl TransitionValue for FrozenTransition {
+impl TransitionValue for FrozenTransition<'_> {
     fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>> {
         Ok(self.id.dupe())
     }

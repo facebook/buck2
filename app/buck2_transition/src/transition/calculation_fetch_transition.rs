@@ -26,24 +26,32 @@ use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
-use starlark::values::FrozenStringValue;
-use starlark::values::OwnedFrozenValueTyped;
 
 use crate::transition::provider::FrozenTransitionInfo;
 use crate::transition::provider::OwnedTransitionInfo;
 use crate::transition::starlark::FrozenTransition;
+use crate::transition::starlark::OwnedTransition;
 
 pub(crate) enum TransitionData {
-    MagicObject(OwnedFrozenValueTyped<FrozenTransition>),
+    MagicObject(OwnedTransition),
     Target(OwnedTransitionInfo),
 }
 
 impl TransitionData {
-    pub(crate) fn refs(
-        &self,
-    ) -> impl Iterator<Item = (&FrozenStringValue, &ProvidersLabel)> + Send + Sync {
+    /// The transition's `refs`, as `(name, target)` pairs.
+    ///
+    /// The iterator holds heap-branded values and so is not `Send`; collect it before crossing
+    /// an await.
+    pub(crate) fn refs(&self) -> impl Iterator<Item = (&str, &ProvidersLabel)> {
         match self {
-            TransitionData::MagicObject(v) => Either::Left(v.refs.iter()),
+            TransitionData::MagicObject(v) => Either::Left(
+                v.as_ref()
+                    .value()
+                    .as_ref()
+                    .refs
+                    .iter()
+                    .map(|(name, target)| (name.as_str(), target)),
+            ),
             TransitionData::Target(_) => Either::Right([].into_iter()),
         }
         .into_iter()
@@ -52,7 +60,13 @@ impl TransitionData {
     pub(crate) fn attr_names(&self) -> Option<impl IntoIterator<Item = &str>> {
         match self {
             TransitionData::MagicObject(v) => Some(Either::Left(
-                v.attrs_names.as_ref()?.iter().map(|s| s.as_str()),
+                v.as_ref()
+                    .value()
+                    .as_ref()
+                    .attrs_names
+                    .as_ref()?
+                    .iter()
+                    .map(|s| s.as_str()),
             )),
             TransitionData::Target(v) => Some(Either::Right(
                 v.as_ref().value().as_ref().get_attrs_names()?.into_iter(),
@@ -62,7 +76,7 @@ impl TransitionData {
 
     pub(crate) fn is_split(&self) -> bool {
         match self {
-            TransitionData::MagicObject(v) => v.split,
+            TransitionData::MagicObject(v) => v.as_ref().value().as_ref().split,
             TransitionData::Target(_) => false,
         }
     }
@@ -99,7 +113,11 @@ impl FetchTransition for DiceComputations<'_> {
                     })?
                     .0;
 
-                Ok(TransitionData::MagicObject(transition.downcast_starlark()?))
+                Ok(TransitionData::MagicObject(
+                    transition
+                        .downcast_starlark::<FrozenTransition<'static>>()?
+                        .into(),
+                ))
             }
             TransitionId::Target(label) => {
                 let transition_info = self

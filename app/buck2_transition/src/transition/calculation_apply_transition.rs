@@ -90,7 +90,7 @@ fn call_transition_function<'v>(
     let impl_ = match transition {
         TransitionData::MagicObject(v) => {
             args.push(("refs", refs));
-            v.implementation.to_value()
+            v.as_ref().add_to_heap(eval.heap()).as_ref().implementation
         }
         TransitionData::Target(v) => v.as_ref().add_to_heap(eval.heap()).as_ref().r#impl.get(),
     };
@@ -135,9 +135,9 @@ async fn do_apply_transition(
 ) -> buck2_error::Result<TransitionApplied> {
     let transition = ctx.fetch_transition(transition_id).await?;
     let mut refs = Vec::new();
-    for (s, t) in transition.refs() {
+    for (s, t) in transition.refs().collect::<Vec<_>>() {
         let provider_collection_value = ctx.fetch_transition_function_reference(t).await?;
-        refs.push((*s, provider_collection_value));
+        refs.push((s, provider_collection_value));
     }
     let print = EventDispatcherPrintHandler(get_dispatcher());
     let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
