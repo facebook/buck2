@@ -44,7 +44,6 @@ pub fn register_namespace(builder: &mut GlobalsBuilder) {
                         MaybeDocHiddenValue {
                             value: v,
                             doc_hidden: false,
-                            phantom: Default::default(),
                         },
                     )
                 })

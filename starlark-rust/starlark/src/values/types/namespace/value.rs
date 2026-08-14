@@ -17,12 +17,11 @@
 
 use std::fmt;
 use std::fmt::Display;
-use std::marker::PhantomData;
 
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::Freeze;
+use starlark_derive::FreezeBranded;
 use starlark_derive::Trace;
 use starlark_derive::starlark_value;
 use starlark_map::Hashed;
@@ -30,29 +29,23 @@ use starlark_map::small_map::SmallMap;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
-use crate::pagable::SmallMapKeyDeserialize;
-use crate::pagable::StarlarkPagable;
-use crate::starlark_complex_value;
+use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
-use crate::values::StringValueLike;
+use crate::values::StringValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::types::namespace::typing::TyNamespace;
 
-#[derive(Clone, Coerce, Debug, Trace, Freeze, Allocative, StarlarkPagable)]
+#[derive(Clone, Copy, Debug, Trace, FreezeBranded, Allocative, StarlarkPagable)]
 #[repr(C)]
-pub(crate) struct MaybeDocHiddenValue<'v, V: ValueLike<'v>> {
-    pub(crate) value: V,
+pub(crate) struct MaybeDocHiddenValue<'v> {
+    pub(crate) value: Value<'v>,
     pub(crate) doc_hidden: bool,
-    pub(crate) phantom: PhantomData<&'v ()>,
 }
 
 /// The return value of `namespace()`
@@ -60,34 +53,30 @@ pub(crate) struct MaybeDocHiddenValue<'v, V: ValueLike<'v>> {
     Clone,
     Debug,
     Trace,
-    Freeze,
+    FreezeBranded,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[starlark_pagable(
-    bound = "V: StarlarkPagable, V::String: StarlarkPagable + SmallMapKeyDeserialize"
-)]
 #[repr(C)]
-pub struct NamespaceGen<'v, V: ValueLike<'v>> {
-    fields: SmallMap<V::String, MaybeDocHiddenValue<'v, V>>,
+pub struct Namespace<'v> {
+    fields: SmallMap<StringValue<'v>, MaybeDocHiddenValue<'v>>,
 }
 
-impl<'v, V: ValueLike<'v>> NamespaceGen<'v, V> {
-    pub(crate) fn new(fields: SmallMap<V::String, MaybeDocHiddenValue<'v, V>>) -> Self {
+impl<'v> Namespace<'v> {
+    pub(crate) fn new(fields: SmallMap<StringValue<'v>, MaybeDocHiddenValue<'v>>) -> Self {
         Self { fields }
     }
 
-    pub fn get(&self, key: &str) -> Option<V> {
+    /// Get a member of this namespace.
+    pub fn get(&self, key: &str) -> Option<Value<'v>> {
         self.fields.get_hashed(Hashed::new(key)).map(|v| v.value)
     }
 }
 
-unsafe impl<'v> Coerce<NamespaceGen<'v, Value<'v>>> for NamespaceGen<'static, FrozenValue> {}
+starlark_complex_value_branded!(pub Namespace);
 
-starlark_complex_value!(pub Namespace<'v>);
-
-impl<'v, V: ValueLike<'v>> Display for NamespaceGen<'v, V> {
+impl<'v> Display for Namespace<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_keyed_container(
             f,
@@ -100,10 +89,7 @@ impl<'v, V: ValueLike<'v>> Display for NamespaceGen<'v, V> {
 }
 
 #[starlark_value(type = "namespace")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for NamespaceGen<'v, V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+impl<'v> StarlarkValue<'v> for Namespace<'v> {
     fn collect_repr_cycle(&self, collector: &mut String) {
         collector.push_str("namespace(...)");
     }
@@ -113,9 +99,7 @@ where
     }
 
     fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: Heap<'v>) -> Option<Value<'v>> {
-        self.fields
-            .get_hashed(attribute)
-            .map(|v| v.value.to_value())
+        self.fields.get_hashed(attribute).map(|v| v.value)
     }
 
     fn dir_attr(&self) -> Vec<String> {
@@ -129,7 +113,7 @@ where
                 .fields
                 .iter()
                 .filter(|(_, v)| !v.doc_hidden)
-                .map(|(k, v)| (k.as_str().to_owned(), v.value.to_value().documentation()))
+                .map(|(k, v)| (k.as_str().to_owned(), v.value.documentation()))
                 .collect(),
         })
     }
@@ -146,19 +130,14 @@ where
             fields: self
                 .fields
                 .iter()
-                .map(|(name, value)| {
-                    (
-                        ArcStr::from(name.as_str()),
-                        Ty::of_value(value.value.to_value()),
-                    )
-                })
+                .map(|(name, value)| (ArcStr::from(name.as_str()), Ty::of_value(value.value)))
                 .collect(),
             extra: false,
         }))
     }
 }
 
-impl<'v, V: ValueLike<'v>> Serialize for NamespaceGen<'v, V> {
+impl<'v> Serialize for Namespace<'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

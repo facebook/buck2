@@ -51,11 +51,13 @@ use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::OwnedFrozenValue;
+use crate::values::StarlarkPagable;
+use crate::values::StringValueLike;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
-use crate::values::namespace::FrozenNamespace;
+use crate::values::namespace::Namespace;
 use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::types::function::NativeFunction;
 
@@ -64,7 +66,12 @@ use crate::values::types::function::NativeFunction;
 #[derive(pagable::Pagable, starlark_derive::StarlarkPagableViaPagable)]
 pub struct Globals(Arc<GlobalsData>);
 
-type GlobalValue = MaybeDocHiddenValue<'static, FrozenValue>;
+/// A value in a [`Globals`], plus whether it should be hidden from generated documentation.
+#[derive(Clone, Copy, Dupe, Debug, Allocative, StarlarkPagable)]
+struct GlobalValue {
+    value: FrozenValue,
+    doc_hidden: bool,
+}
 
 #[derive(Debug, Allocative)]
 struct GlobalsData {
@@ -306,11 +313,20 @@ impl GlobalsBuilder {
         self.namespace_fields.push(SmallMap::new());
         f(self);
         let fields = self.namespace_fields.pop().unwrap();
-        self.set_inner(
-            name,
-            self.heap.alloc(FrozenNamespace::new(fields)),
-            doc_hidden,
-        );
+        let fields = fields
+            .into_iter()
+            .map(|(name, value)| {
+                (
+                    name.to_string_value(),
+                    MaybeDocHiddenValue {
+                        value: value.value.to_value(),
+                        doc_hidden: value.doc_hidden,
+                    },
+                )
+            })
+            .collect();
+        let namespace = self.heap.alloc(Namespace::new(fields));
+        self.set_inner(name, namespace, doc_hidden);
     }
 
     /// A fluent API for modifying [`GlobalsBuilder`] and returning the result.
@@ -360,11 +376,7 @@ impl GlobalsBuilder {
     }
 
     fn set_inner<'v>(&'v mut self, name: &str, value: FrozenValue, doc_hidden: bool) {
-        let value = MaybeDocHiddenValue {
-            value,
-            doc_hidden,
-            phantom: Default::default(),
-        };
+        let value = GlobalValue { value, doc_hidden };
         match self.namespace_fields.last_mut() {
             None => {
                 // TODO(nga): do not quietly ignore redefinitions.

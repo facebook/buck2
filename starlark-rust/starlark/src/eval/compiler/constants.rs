@@ -22,7 +22,7 @@ use dupe::Dupe;
 use crate::environment::Globals;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
-use crate::values::namespace::FrozenNamespace;
+use crate::values::namespace::Namespace;
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) struct BuiltinFn(pub(crate) FrozenValue);
@@ -66,9 +66,14 @@ impl Constants {
                 fn_isinstance: BuiltinFn(g.get_frozen("isinstance").unwrap()),
                 typing_callable: {
                     let typing =
-                        FrozenValueTyped::<FrozenNamespace>::new(g.get_frozen("typing").unwrap())
+                        FrozenValueTyped::<Namespace>::new(g.get_frozen("typing").unwrap())
                             .unwrap();
-                    BuiltinFn(typing.as_ref().get("Callable").unwrap())
+                    let callable = typing.as_ref().get("Callable").unwrap();
+                    BuiltinFn(
+                        callable
+                            .unpack_frozen()
+                            .expect("globals are allocated in a frozen heap"),
+                    )
                 },
             }
         });
