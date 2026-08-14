@@ -1088,33 +1088,10 @@ def _rustc_flags(flags: list[str | ResolvedStringWithMacros | Artifact], toolcha
             if "-Clink-arg" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("link-arg")):
                 fail("flags passed via `-Clink-arg` are dropped when linking through cxx; use the target's or toolchain's `linker_flags` instead")
 
-            # Additional flags that rustc only forwards to the linker
+            # Same story for `-Cstrip`: rustc implements it by passing strip
+            # flags to the linker it drives.
             if "-Cstrip" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("strip")):
                 fail("`-Cstrip` has no effect when linking through cxx; use the `symbols` strip_mode, or `-Wl,--strip-all`/`-Wl,-S` in `linker_flags`, instead")
-            if "-Crpath" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("rpath")):
-                fail("`-Crpath` has no effect when linking through cxx; pass `-Wl,-rpath,...` in `linker_flags` instead")
-            if "-Clink-dead-code" in flag or (flag == "-C" and i + 1 < len(flags) and str(flags[i + 1]).strip('"').startswith("link-dead-code")):
-                fail("`-Clink-dead-code` has no effect when linking through cxx; pass `-Wl,--no-gc-sections` in `linker_flags` instead")
-
-        if toolchain_info.explicit_sysroot_deps:
-            # `-Clink-self-contained` selects linker inputs bundled in the
-            # sysroot, and explicit sysroot deps point rustc at an empty one,
-            # so everything it can enable is a dangling reference. Only the
-            # subtractive forms make sense (the toolchain itself uses them to
-            # keep rustc from consulting the empty sysroot).
-            value = None
-            if flag.startswith("-Clink-self-contained"):
-                value = flag.removeprefix("-Clink-self-contained").removeprefix("=")
-            elif flag == "-C" and i + 1 < len(flags):
-                next_flag = str(flags[i + 1]).strip('"')
-                if next_flag.startswith("link-self-contained"):
-                    value = next_flag.removeprefix("link-self-contained").removeprefix("=")
-            if value != None:
-                for part in value.split(","):
-                    if part == "" or part in ("y", "yes", "on", "true") or part.startswith("+"):
-                        fail(
-                            "`-Clink-self-contained` cannot enable bundled linker inputs: explicit sysroot deps leave the sysroot empty, so there is nothing there to link"
-                        )
 
     return flags
 
@@ -2114,34 +2091,27 @@ def rust_link_binary(
     ]
 
     if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
-        flags = [
-            # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
-            # we should be passing blindly on the user's behalf. Unfortunately some builds break if
-            # you take it out.
-            "-Wl,--as-needed",
-            # lld deduplicates `.debug_str` only at `-O1`, and rustc always
-            # passes this for links it drives, overriding toolchains that link
-            # at `-O0` for speed (fbcode's opt-lg). Without the deduplication,
-            # very large binaries overflow the 32-bit `.debug_str` offsets in
-            # `.debug_names`.
-            "-Wl,-O1",
-            # The objects were codegened at the relocation model chosen in
-            # `_get_reloc_model`, which the toolchain's link flags cannot know
-            # about. Pin the PIE-ness of the executable to match, as rustc does
-            # for links it drives.
-            "-no-pie" if reloc_model == RelocModel("static") else "-pie",
-        ]
-
-        # On ELF, rustc-instrumented objects carry no reference to the
-        # profile runtime's registration object (clang-instrumented ones
-        # do), so nothing would pull it out of the `profiler_builtins`
-        # archive and the binary would silently write no profile. rustc
-        # compensates with this flag on links it drives; do the same,
-        # gated exactly like the `-Cinstrument-coverage` the compile gets.
-        if getattr(ctx.attrs, "coverage", False) and compile_ctx.toolchain_info.rustc_coverage_flags:
-            flags.append("-Wl,-u,__llvm_profile_runtime")
-
-        links.append(LinkArgs(flags = flags))
+        links.append(
+            LinkArgs(
+                flags = [
+                    # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
+                    # we should be passing blindly on the user's behalf. Unfortunately some builds break if
+                    # you take it out.
+                    "-Wl,--as-needed",
+                    # lld deduplicates `.debug_str` only at `-O1`, and rustc always
+                    # passes this for links it drives, overriding toolchains that link
+                    # at `-O0` for speed (fbcode's opt-lg). Without the deduplication,
+                    # very large binaries overflow the 32-bit `.debug_str` offsets in
+                    # `.debug_names`.
+                    "-Wl,-O1",
+                    # The objects were codegened at the relocation model chosen in
+                    # `_get_reloc_model`, which the toolchain's link flags cannot know
+                    # about. Pin the PIE-ness of the executable to match, as rustc does
+                    # for links it drives.
+                    "-no-pie" if reloc_model == RelocModel("static") else "-pie",
+                ]
+            )
+        )
 
     links += [
         rust_objects,
