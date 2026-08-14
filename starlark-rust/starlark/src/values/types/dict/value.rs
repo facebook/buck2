@@ -49,7 +49,6 @@ use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -330,7 +329,13 @@ impl FrozenDictData {
 impl<'v> FreezeBranded for DictGen<RefCell<Dict<'v>>> {
     type Frozen<'fv> = DictGen<FrozenDictData>;
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let content = Freeze::freeze(self.0.into_inner().content, freezer)?;
+        let entries = self.0.into_inner().content;
+        let mut content = SmallMap::with_capacity(entries.len());
+        for (key, value) in entries.into_iter_hashed() {
+            // Freezing does not change the hash.
+            let key = Hashed::new_unchecked(key.hash(), freezer.freeze(key.into_key())?);
+            content.insert_hashed_unique_unchecked(key, freezer.freeze(value)?);
+        }
         Ok(DictGen(FrozenDictData { content }))
     }
 }

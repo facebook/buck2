@@ -38,7 +38,6 @@ use crate::environment::Methods;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocValue;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -163,7 +162,13 @@ unsafe impl<'v> Coerce<SetData<'v>> for FrozenSetData {}
 impl<'v> FreezeBranded for MutableSet<'v> {
     type Frozen<'fv> = SetGen<FrozenSetData>;
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let content = Freeze::freeze(self.0.into_inner().content, freezer)?;
+        let values = self.0.into_inner().content;
+        let mut content = SmallSet::with_capacity(values.len());
+        for value in values.into_iter_hashed() {
+            // Freezing does not change the hash.
+            let value = Hashed::new_unchecked(value.hash(), freezer.freeze(value.into_key())?);
+            content.insert_hashed_unique_unchecked(value);
+        }
         Ok(SetGen(FrozenSetData { content }))
     }
 }

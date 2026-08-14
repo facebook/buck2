@@ -31,7 +31,6 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::values::Freeze;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -89,7 +88,9 @@ impl<'v> FreezeBranded for ValueCaptured<'v> {
     type Frozen<'fv> = FrozenValueCaptured;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured> {
-        Ok(FrozenValueCaptured(Freeze::freeze(self.0.get(), freezer)?))
+        Ok(FrozenValueCaptured(
+            self.0.get().map(|v| freezer.freeze(v)).transpose()?,
+        ))
     }
 }
 
