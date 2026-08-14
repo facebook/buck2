@@ -213,6 +213,16 @@ pub struct TtlRefreshConfiguration {
     pub enabled: bool,
 }
 
+impl TtlRefreshConfiguration {
+    fn rematerialization_ttl(&self) -> Option<SignedDuration> {
+        if self.enabled {
+            SignedDuration::try_from(self.frequency).ok()
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Dupe, PartialEq)]
 pub enum AccessTimesUpdates {
     /// Flushes when the buffer is full and periodically
@@ -751,6 +761,8 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
             (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
                 .then(BuckMutSet::default);
 
+        let rematerialization_ttl = configs.ttl_refresh.rematerialization_ttl();
+
         let tree = ArtifactTree::initialize(sqlite_state);
 
         let command_processor = {
@@ -772,6 +784,7 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
                     configs.verbose_materializer_log,
                     daemon_dispatcher,
                     configs.disable_eager_write_dispatch,
+                    rematerialization_ttl,
                 )
             }
         };

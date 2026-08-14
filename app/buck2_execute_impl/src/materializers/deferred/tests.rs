@@ -30,6 +30,25 @@ use super::*;
 use crate::materializers::deferred::artifact_tree::MaterializingFuture;
 
 #[test]
+fn test_rematerialization_ttl_tracks_refresh_frequency() {
+    let config = TtlRefreshConfiguration {
+        frequency: std::time::Duration::from_secs(123),
+        min_ttl: SignedDuration::from_hours(1),
+        enabled: true,
+    };
+    assert_eq!(
+        config.rematerialization_ttl(),
+        Some(SignedDuration::from_secs(123))
+    );
+
+    let disabled = TtlRefreshConfiguration {
+        enabled: false,
+        ..config
+    };
+    assert_eq!(disabled.rematerialization_ttl(), None);
+}
+
+#[test]
 fn test_find_artifacts() -> buck2_error::Result<()> {
     let artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned());
     let artifact2 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/qux".to_owned());
@@ -105,6 +124,7 @@ mod state_machine {
 
     use assert_matches::assert_matches;
     use buck2_common::file_ops::metadata::Symlink;
+    use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
@@ -120,6 +140,7 @@ mod state_machine {
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_hash::IntentionallyStdHashMap;
+    use buck2_util::threads::ignore_stack_overflow_checks_for_current_thread;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use buck2_wrapper_common::invocation_id::TraceId;
     use futures::StreamExt;
@@ -129,6 +150,7 @@ mod state_machine {
     use tokio::time::sleep;
 
     use super::*;
+    use crate::materializers::deferred::artifact_tree::Processing;
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
     use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
@@ -468,6 +490,7 @@ mod state_machine {
                 true,
                 daemon_dispatcher,
                 true,
+                None,
             ),
             command_sender,
             command_receiver,
@@ -615,6 +638,255 @@ mod state_machine {
             Ok(())
         })
         .await
+    }
+
+    fn cas_value(digest_config: DigestConfig, expiry: Timestamp) -> ArtifactValue {
+        let digest = TrackedFileDigest::from_content(b"x", digest_config.cas_digest_config());
+        digest.update_expires(expiry);
+        ArtifactValue::file(FileMetadata {
+            digest,
+            is_executable: false,
+        })
+    }
+
+    fn cas_method() -> Box<ArtifactMaterializationMethod> {
+        Box::new(ArtifactMaterializationMethod::CasDownload {
+            info: Arc::new(CasDownloadInfo::new_declared(
+                RemoteExecutorUseCase::buck2_default(),
+            )),
+        })
+    }
+
+    fn declare_and_materialize(
+        dm: &mut DeferredMaterializerCommandProcessor<StubIoHandler>,
+        path: &ProjectRelativePathBuf,
+        value: ArtifactValue,
+        method: Box<ArtifactMaterializationMethod>,
+    ) {
+        dm.testing_process_one_command(MaterializerCommand::Declare(
+            DeclareArtifactPayload {
+                path: path.clone(),
+                artifact: value,
+                configuration_path: None,
+            },
+            method,
+            EventDispatcher::null(),
+            None,
+        ));
+        dm.testing_materialization_finished(path.clone(), Timestamp::now(), Ok(()));
+    }
+
+    #[tokio::test]
+    async fn cas_rematerialization_method_survives_redeclaration() -> buck2_error::Result<()> {
+        let (mut dm, _) = make_processor(Default::default());
+        let path = make_path("foo/cas");
+        let expiry = Timestamp::now()
+            .checked_add(SignedDuration::from_hours(1))
+            .expect("one hour should fit in a timestamp");
+        let value = cas_value(dm.io.digest_config(), expiry);
+
+        declare_and_materialize(&mut dm, &path, value.dupe(), cas_method());
+        let data = dm
+            .tree
+            .prefix_get(&mut path.iter())
+            .expect("materialized CAS artifact should be present");
+        assert!(matches!(
+            &data.stage,
+            ArtifactMaterializationStage::Materialized {
+                rematerialization_method: Some(_),
+                ..
+            }
+        ));
+
+        dm.testing_process_one_command(MaterializerCommand::Declare(
+            DeclareArtifactPayload {
+                path: path.clone(),
+                artifact: value,
+                configuration_path: None,
+            },
+            cas_method(),
+            EventDispatcher::null(),
+            None,
+        ));
+        let data = dm
+            .tree
+            .prefix_get(&mut path.iter())
+            .expect("redeclared CAS artifact should be present");
+        assert!(matches!(
+            &data.stage,
+            ArtifactMaterializationStage::Materialized {
+                rematerialization_method: Some(_),
+                ..
+            }
+        ));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn unmaterialization_blocks_rematerialization_until_cleaning_finishes()
+    -> buck2_error::Result<()> {
+        let (mut dm, _) = make_processor(Default::default());
+        let digest_config = dm.io.digest_config();
+        let now = Timestamp::now();
+        let deadline = now
+            .checked_add(SignedDuration::from_mins(10))
+            .expect("ten minutes should fit in a timestamp");
+        let valid_expiry = now
+            .checked_add(SignedDuration::from_hours(1))
+            .expect("one hour should fit in a timestamp");
+        let paths = [
+            make_path("foo/happy"),
+            make_path("foo/expired"),
+            make_path("foo/processing"),
+            make_path("foo/final"),
+            make_path("foo/local"),
+        ];
+
+        for path in &paths[..4] {
+            let expiry = if path == &paths[1] { now } else { valid_expiry };
+            declare_and_materialize(
+                &mut dm,
+                path,
+                cas_value(digest_config, expiry),
+                cas_method(),
+            );
+        }
+        declare_and_materialize(
+            &mut dm,
+            &paths[4],
+            cas_value(digest_config, valid_expiry),
+            Box::new(ArtifactMaterializationMethod::LocalCopy(
+                FileTree::new(),
+                Vec::new(),
+            )),
+        );
+        assert_eq!(
+            dm.io.take_log(),
+            paths
+                .iter()
+                .cloned()
+                .map(|path| (Op::Clean, path))
+                .collect::<Vec<_>>()
+        );
+
+        dm.tree
+            .prefix_get_mut(&mut paths[2].iter())
+            .expect("processing artifact should be present")
+            .processing = Processing::active(
+            ProcessingFuture::Materializing(
+                futures::future::pending::<Result<(), SharedMaterializingError>>()
+                    .boxed()
+                    .shared(),
+            ),
+            Version(100),
+            DynamicPriorityHandle::new(Priority::High),
+        );
+        dm.tree
+            .prefix_get_mut(&mut paths[3].iter())
+            .expect("final artifact should be present")
+            .classification = ArtifactClassification::FinalOutput;
+
+        let requested = paths.iter().cloned().map(|path| (path, 1)).collect();
+        let (unmaterialized, ineligible_count, ineligible_bytes) =
+            dm.tree.unmaterialize_artifacts(
+                requested,
+                deadline,
+                dm.sqlite_db
+                    .as_mut()
+                    .expect("test processor should have sqlite state"),
+                &dm.stats,
+            )?;
+
+        assert_eq!(unmaterialized, vec![(paths[0].clone(), 1)]);
+        assert_eq!(ineligible_count, 4);
+        assert_eq!(ineligible_bytes, 4);
+        assert!(matches!(
+            dm.tree
+                .prefix_get(&mut paths[0].iter())
+                .expect("unmaterialized artifact should remain in the tree")
+                .stage,
+            ArtifactMaterializationStage::Declared { .. }
+        ));
+
+        let (cleaning_started_sender, cleaning_started_receiver) = oneshot::channel();
+        let (cleaning_sender, cleaning_receiver) = oneshot::channel();
+        dm.tree.attach_unmaterialization_future(
+            &paths[0],
+            async move {
+                cleaning_started_sender
+                    .send(())
+                    .map_err(|_| internal_error!("cleaning-start receiver should remain alive"))?;
+                cleaning_receiver
+                    .await
+                    .map_err(|_| internal_error!("cleaning sender should remain alive"))
+            }
+            .boxed()
+            .shared(),
+            Version(101),
+        )?;
+        let data = dm
+            .tree
+            .prefix_get(&mut paths[0].iter())
+            .expect("unmaterialized artifact should retain its cleaning future");
+        assert!(matches!(
+            data.processing.active_ref().map(|active| &active.future),
+            Some(ProcessingFuture::Cleaning(_))
+        ));
+
+        let materialization = {
+            let _ignore = ignore_stack_overflow_checks_for_current_thread();
+            dm.materialize_artifact(&paths[0], EventDispatcher::null())
+                .expect("declared artifact should require rematerialization")
+        };
+        cleaning_started_receiver
+            .await
+            .expect("cleaning future should be polled");
+        assert_eq!(dm.io.take_log(), &[]);
+
+        cleaning_sender
+            .send(())
+            .expect("cleaning receiver should remain alive");
+        materialization
+            .await
+            .expect("rematerialization should succeed after cleaning");
+        assert_eq!(dm.io.take_log(), &[(Op::Materialize, paths[0].clone())]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn unmaterialization_failure_keeps_artifact_materialized() -> buck2_error::Result<()> {
+        let (mut dm, _) = make_processor(Default::default());
+        let path = make_path("test/unmaterialize/failure");
+        let now = Timestamp::now();
+        let deadline = now
+            .checked_add(SignedDuration::from_mins(10))
+            .expect("ten minutes should fit in a timestamp");
+        let expiry = now
+            .checked_add(SignedDuration::from_hours(1))
+            .expect("one hour should fit in a timestamp");
+        let value = cas_value(dm.io.digest_config(), expiry);
+
+        declare_and_materialize(&mut dm, &path, value, cas_method());
+        let sizes_before = *dm.stats.sizes.read();
+
+        let result = dm.tree.unmaterialize_artifacts(
+            vec![(path.clone(), 1)],
+            deadline,
+            dm.sqlite_db
+                .as_mut()
+                .expect("test processor should have sqlite state"),
+            &dm.stats,
+        );
+        assert!(result.is_err(), "injected unmaterialization should fail");
+        assert!(matches!(
+            dm.tree
+                .prefix_get(&mut path.iter())
+                .expect("failed unmaterialization should leave the artifact in the tree")
+                .stage,
+            ArtifactMaterializationStage::Materialized { .. }
+        ));
+        assert_eq!(*dm.stats.sizes.read(), sizes_before);
+        Ok(())
     }
 
     fn make_artifact_value_with_symlink_dep(

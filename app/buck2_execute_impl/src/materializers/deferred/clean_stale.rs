@@ -45,6 +45,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use jiff::SignedDuration;
 use jiff::Timestamp;
 use tokio::sync::oneshot::Sender;
 
@@ -54,6 +55,8 @@ use crate::materializers::deferred::DeferredMaterializerStats;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
+use crate::materializers::deferred::artifact_tree::ProcessingFuture;
+use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
@@ -86,6 +89,9 @@ pub struct AdaptiveLowDiskParams {
     /// Whether non-active intermediate-only artifacts may be promoted even
     /// when they are within the adaptive minimum TTL.
     pub delete_intermediate_within_min_ttl: bool,
+    /// Whether active, remote-backed intermediate artifacts may be
+    /// unmaterialized as a final escalation step.
+    pub unmaterialize_active: bool,
 }
 
 #[derive(Derivative)]
@@ -216,11 +222,22 @@ impl CleanStaleArtifactsCommand {
     ) -> buck2_error::Result<PendingCleanResult> {
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
         *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
+        let cleaning_version = processor.next_version();
 
         if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {
                 Ok(CleanStaleResultKind::SkippedDeferWriteDisabled.into())
             } else {
+                if self
+                    .adaptive_low_disk
+                    .as_ref()
+                    .is_some_and(|params| params.unmaterialize_active)
+                    && processor.rematerialization_ttl.is_none()
+                {
+                    tracing::info!(
+                        "Disabling adaptive active-artifact unmaterialization because no TTL refresh interval is available"
+                    );
+                }
                 self.scan_and_create_clean_fut(
                     &mut processor.tree,
                     sqlite_db,
@@ -228,6 +245,8 @@ impl CleanStaleArtifactsCommand {
                     &processor.stats,
                     processor.cancellations,
                     liveliness_observer.clone(),
+                    processor.rematerialization_ttl,
+                    cleaning_version,
                 )
             }
         } else {
@@ -243,6 +262,8 @@ impl CleanStaleArtifactsCommand {
         materializer_stats: &DeferredMaterializerStats,
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
+        rematerialization_ttl: Option<SignedDuration>,
+        cleaning_version: Version,
     ) -> buck2_error::Result<PendingCleanResult> {
         let start_time = Instant::now();
 
@@ -286,6 +307,7 @@ impl CleanStaleArtifactsCommand {
                 StaleFinder {
                     io: io.dupe(),
                     keep_since_time: self.keep_since_time,
+                    rematerialization_deadline: rematerialization_deadline(rematerialization_ttl),
                     found_paths: &mut found_paths,
                     liveliness_observer: liveliness_observer.clone(),
                 }
@@ -304,6 +326,7 @@ impl CleanStaleArtifactsCommand {
                     params.threshold_percent,
                     params.min_access_time,
                     params.delete_intermediate_within_min_ttl,
+                    params.unmaterialize_active && rematerialization_ttl.is_some(),
                 ),
                 Err(e) => {
                     let _unused = soft_error!("disk_space_stats", e);
@@ -370,6 +393,8 @@ impl CleanStaleArtifactsCommand {
                 materializer_stats,
                 cancellations,
                 liveliness_observer,
+                rematerialization_ttl,
+                cleaning_version,
             )?))
         }
     }
@@ -401,7 +426,10 @@ fn stats_for_paths(paths: &Vec<FoundPath>) -> buck2_data::CleanStaleStats {
             }
             FoundPath::Tracked {
                 size,
-                state: TrackedState::Retained { .. } | TrackedState::ActiveRetained,
+                state:
+                    TrackedState::Retained { .. }
+                    | TrackedState::ActiveRetained { .. }
+                    | TrackedState::Unmaterialize,
                 ..
             } => {
                 stats.retained_artifact_count += 1;
@@ -421,6 +449,8 @@ fn create_clean_fut<T: IoHandler>(
     materializer_stats: &DeferredMaterializerStats,
     cancellations: &'static CancellationContext,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
+    rematerialization_ttl: Option<SignedDuration>,
+    cleaning_version: Version,
 ) -> buck2_error::Result<BoxFuture<'static, buck2_error::Result<CleanResult>>> {
     let io = io.dupe();
 
@@ -444,48 +474,111 @@ fn create_clean_fut<T: IoHandler>(
     let mut existing_materialization_futs = vec![];
     for data in tree.iter_without_paths() {
         if let Some(active) = data.processing.active_ref()
-            && let super::ProcessingFuture::Materializing(future) = &active.future
+            && let ProcessingFuture::Materializing(future) = &active.future
         {
             existing_materialization_futs.push(future.clone());
         }
     }
+    let wait_for_existing_futs = async move {
+        join_all_existing_futs(existing_clean_futs).await?;
+        for fut in existing_materialization_futs {
+            fut.await.ok();
+        }
+        Ok::<(), buck2_error::Error>(())
+    }
+    .boxed()
+    .shared();
+
+    let paths_to_unmaterialize = found_paths
+        .iter()
+        .filter_map(|path| match path {
+            FoundPath::Tracked {
+                path,
+                size,
+                state: TrackedState::Unmaterialize,
+            } => Some((path.clone(), *size)),
+            _ => None,
+        })
+        .collect();
+    let rematerialization_deadline = rematerialization_deadline(rematerialization_ttl);
+    let (unmaterialized, ineligible_count, ineligible_bytes) = tree.unmaterialize_artifacts(
+        paths_to_unmaterialize,
+        rematerialization_deadline,
+        sqlite_db,
+        materializer_stats,
+    )?;
+    stats.unmaterialization_ineligible_artifact_count += ineligible_count;
+    stats.unmaterialization_ineligible_bytes += ineligible_bytes;
+
+    let mut paths_to_clean: Vec<(ProjectRelativePathBuf, u64, bool)> = found_paths
+        .into_iter()
+        .filter_map(|path| match path {
+            FoundPath::Untracked(path, _, size) => Some((path, size, false)),
+            FoundPath::Tracked {
+                path,
+                size,
+                state: TrackedState::Stale,
+            } => Some((path, size, false)),
+            _ => None,
+        })
+        .collect();
+    paths_to_clean.extend(
+        unmaterialized
+            .into_iter()
+            .map(|(path, size)| (path, size, true)),
+    );
+
+    let mut clean_futs = Vec::with_capacity(paths_to_clean.len());
+    for (path, size, unmaterialized) in paths_to_clean {
+        let wait_for_existing_futs = wait_for_existing_futs.clone();
+        let io = io.dupe();
+        let liveliness_observer = liveliness_observer.dupe();
+        let path_to_clean = path.clone();
+        let clean_fut = async move {
+            wait_for_existing_futs.await?;
+            clean_artifact(path_to_clean, size, cancellations, &io, liveliness_observer).await
+        }
+        .boxed()
+        .shared();
+
+        if unmaterialized {
+            let cleaning_fut = {
+                let clean_fut = clean_fut.clone();
+                async move { clean_fut.await.map(|_| ()) }.boxed().shared()
+            };
+            tree.attach_unmaterialization_future(&path, cleaning_fut, cleaning_version)?;
+        }
+
+        clean_futs.push((clean_fut, unmaterialized));
+    }
 
     let fut = async move {
         let start_time = Instant::now();
-        // Wait for all in-progress operations to finish on the paths we are about to
-        // remove from disk.
-        join_all_existing_futs(existing_clean_futs).await?;
-        // Untracked artifacts can be produced during materialization that should not be cleaned while materialization is in progress.
-        // Wait for all materializations since the path for the future may not be associated with the untracked path.
-        for fut in existing_materialization_futs.into_iter() {
-            fut.await.ok();
-        }
-
-        // Then actually delete them. Note that we kick off one CleanOutputPaths per path. We
-        // do this to get parallelism.
         let res = buck2_util::future::try_join_all(
-            found_paths
+            clean_futs
                 .into_iter()
-                .filter_map(|x| match x {
-                    FoundPath::Untracked(p, _, size) => Some((p, size)),
-                    FoundPath::Tracked {
-                        path,
-                        size,
-                        state: TrackedState::Stale,
-                    } => Some((path, size)),
-                    _ => None,
-                })
-                .map(|(path, size)| {
-                    clean_artifact(path, size, cancellations, &io, liveliness_observer.dupe())
+                .map(|(clean_fut, unmaterialized)| {
+                    clean_fut.map(move |result| {
+                        result.map(|size| size.map(|size| (size, unmaterialized)))
+                    })
                 })
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
         .await?;
 
-        let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| *x).collect();
+        let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| x.map(|(size, _)| size)).collect();
+        let unmaterialized_sizes: Vec<u64> = res
+            .iter()
+            .filter_map(|x| match x {
+                Some((size, true)) => Some(*size),
+                _ => None,
+            })
+            .collect();
         stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
         stats.cleaned_bytes = cleaned_sizes.iter().sum();
+        stats.unmaterialized_only_artifact_count += unmaterialized_sizes.len() as u64;
+        stats.unmaterialized_only_bytes += unmaterialized_sizes.iter().sum::<u64>();
         stats.clean_duration_s = (Instant::now() - start_time).as_secs();
         let kind = if !liveliness_observer.is_alive().await {
             CleanStaleResultKind::Interrupted
@@ -495,6 +588,11 @@ fn create_clean_fut<T: IoHandler>(
         Ok(CleanResult { kind, stats })
     };
     Ok(fut.boxed())
+}
+
+fn rematerialization_deadline(ttl: Option<SignedDuration>) -> Timestamp {
+    ttl.and_then(|ttl| Timestamp::now().checked_add(ttl).ok())
+        .unwrap_or(Timestamp::MAX)
 }
 
 async fn clean_artifact<T: IoHandler>(
@@ -556,6 +654,7 @@ pub fn get_size(path: &AbsNormPath) -> buck2_error::Result<u64> {
 struct StaleFinder<'a, T: IoHandler> {
     io: Arc<T>,
     keep_since_time: Timestamp,
+    rematerialization_deadline: Timestamp,
     found_paths: &'a mut Vec<FoundPath>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
@@ -582,8 +681,15 @@ enum TrackedState {
         last_access_time: Timestamp,
         classification: ArtifactClassification,
     },
-    /// Materialized and is active. Must never be promoted/deleted.
-    ActiveRetained,
+    /// Materialized and active. Eligible for unmaterialization only when the
+    /// stored method is remote-backed and the artifact is intermediate-only.
+    ActiveRetained {
+        last_access_time: Timestamp,
+        classification: ArtifactClassification,
+        rematerializable: bool,
+    },
+    /// Will be returned to the declared state and deleted on disk.
+    Unmaterialize,
 }
 
 impl<T: IoHandler> StaleFinder<'_, T> {
@@ -660,6 +766,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                             active: false,
                             last_access_time,
                             metadata,
+                            ..
                         },
                     ..
                 }) if *last_access_time < self.keep_since_time => {
@@ -678,6 +785,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                             active: false,
                             last_access_time,
                             metadata,
+                            ..
                         },
                     ..
                 }) => {
@@ -692,14 +800,32 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     });
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
-                    stage: ArtifactMaterializationStage::Materialized { metadata, .. },
+                    classification,
+                    stage:
+                        ArtifactMaterializationStage::Materialized {
+                            metadata,
+                            last_access_time,
+                            rematerialization_method,
+                            ..
+                        },
                     ..
                 }) => {
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as active retained");
                     self.found_paths.push(FoundPath::Tracked {
                         path,
                         size: artifact_metadata_size(metadata),
-                        state: TrackedState::ActiveRetained,
+                        state: TrackedState::ActiveRetained {
+                            last_access_time: *last_access_time,
+                            classification: *classification,
+                            rematerializable: rematerialization_method.as_ref().is_some_and(
+                                |method| {
+                                    method.is_rematerializable(
+                                        metadata,
+                                        self.rematerialization_deadline,
+                                    )
+                                },
+                            ),
+                        },
                     });
                 }
                 _ => {
@@ -739,7 +865,11 @@ fn find_stale_tracked_only(
                 found_paths.push(FoundPath::Tracked {
                     path,
                     size: 0,
-                    state: TrackedState::ActiveRetained,
+                    state: TrackedState::ActiveRetained {
+                        last_access_time: *last_access_time,
+                        classification: v.classification,
+                        rematerializable: false,
+                    },
                 });
             } else {
                 tracing::trace!(path = %path, "retaining artifact");
@@ -769,6 +899,7 @@ fn apply_adaptive_low_disk(
     threshold_percent: f64,
     min_access_time: Timestamp,
     delete_intermediate_within_min_ttl: bool,
+    unmaterialize_active: bool,
 ) {
     if total_space == 0 {
         return;
@@ -817,6 +948,38 @@ fn apply_adaptive_low_disk(
         }
         accumulated = accumulated.saturating_add(size);
     }
+
+    if accumulated >= bytes_needed || !unmaterialize_active {
+        return;
+    }
+
+    let mut active: Vec<(usize, Timestamp, u64)> = found_paths
+        .iter()
+        .enumerate()
+        .filter_map(|(index, path)| match path {
+            FoundPath::Tracked {
+                size,
+                state:
+                    TrackedState::ActiveRetained {
+                        last_access_time,
+                        classification: ArtifactClassification::IntermediateOnly,
+                        rematerializable: true,
+                    },
+                ..
+            } => Some((index, *last_access_time, *size)),
+            _ => None,
+        })
+        .collect();
+    active.sort_by_key(|(_, last_access_time, _)| *last_access_time);
+    for (index, _, size) in active {
+        if accumulated >= bytes_needed {
+            break;
+        }
+        if let FoundPath::Tracked { state, .. } = &mut found_paths[index] {
+            *state = TrackedState::Unmaterialize;
+        }
+        accumulated = accumulated.saturating_add(size);
+    }
 }
 
 pub struct CleanStaleConfig {
@@ -849,6 +1012,7 @@ pub enum LowDiskCleanMode {
     Adaptive {
         min_ttl: Duration,
         delete_intermediate_within_min_ttl: bool,
+        unmaterialize_active: bool,
     },
 }
 
@@ -916,6 +1080,12 @@ impl CleanStaleConfig {
                 property: "clean_stale_low_disk_adaptive_delete_intermediate_within_min_ttl",
             })?
             .unwrap_or(false);
+        let unmaterialize_active = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_low_disk_adaptive_unmaterialize_active",
+            })?
+            .unwrap_or(false);
         let low_disk_artifact_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_artifact_ttl_hours",
@@ -927,6 +1097,7 @@ impl CleanStaleConfig {
                     "clean_stale_low_disk_adaptive_min_ttl_hours",
                 )?,
                 delete_intermediate_within_min_ttl,
+                unmaterialize_active,
             }
         } else {
             let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
@@ -966,6 +1137,29 @@ impl CleanStaleConfig {
         Ok(clean_stale_config)
     }
 
+    pub fn suppress_unmaterialize_without_ttl_refresh(&mut self, ttl_refresh_enabled: bool) {
+        if ttl_refresh_enabled {
+            return;
+        }
+        let Some(LowDiskCleanConfig {
+            mode:
+                LowDiskCleanMode::Adaptive {
+                    unmaterialize_active,
+                    ..
+                },
+            ..
+        }) = self.low_disk.as_mut()
+        else {
+            return;
+        };
+        if *unmaterialize_active {
+            tracing::info!(
+                "Disabling adaptive active-artifact unmaterialization because TTL refresh is disabled"
+            );
+            *unmaterialize_active = false;
+        }
+    }
+
     /// Invocation tags describing whether adaptive low-disk clean-stale is
     /// active and, if so, its parameters.
     pub fn adaptive_telemetry_tags(config: Option<&CleanStaleConfig>) -> Vec<String> {
@@ -976,6 +1170,7 @@ impl CleanStaleConfig {
                     LowDiskCleanMode::Adaptive {
                         min_ttl,
                         delete_intermediate_within_min_ttl,
+                        unmaterialize_active,
                     },
             }) => vec![
                 "adaptive-clean-stale:true".to_owned(),
@@ -990,6 +1185,10 @@ impl CleanStaleConfig {
                 format!(
                     "adaptive-clean-stale-delete-intermediate-within-min-ttl:{}",
                     delete_intermediate_within_min_ttl
+                ),
+                format!(
+                    "adaptive-clean-stale-unmaterialize-active:{}",
+                    unmaterialize_active
                 ),
             ],
             _ => vec!["adaptive-clean-stale:false".to_owned()],
@@ -1049,10 +1248,30 @@ mod tests {
     }
 
     fn active_retained(size: u64) -> FoundPath {
-        FoundPath::Tracked {
-            path: ProjectRelativePathBuf::unchecked_new("active".to_owned()),
+        active_retained_with_classification(
+            "active",
+            100,
             size,
-            state: TrackedState::ActiveRetained,
+            ArtifactClassification::IntermediateOnly,
+            true,
+        )
+    }
+
+    fn active_retained_with_classification(
+        name: &str,
+        last_access_secs: i64,
+        size: u64,
+        classification: ArtifactClassification,
+        rematerializable: bool,
+    ) -> FoundPath {
+        FoundPath::Tracked {
+            path: ProjectRelativePathBuf::unchecked_new(name.to_owned()),
+            size,
+            state: TrackedState::ActiveRetained {
+                last_access_time: t(last_access_secs),
+                classification,
+                rematerializable,
+            },
         }
     }
 
@@ -1081,7 +1300,7 @@ mod tests {
         matches!(
             p,
             FoundPath::Tracked {
-                state: TrackedState::ActiveRetained,
+                state: TrackedState::ActiveRetained { .. },
                 ..
             }
         )
@@ -1098,7 +1317,7 @@ mod tests {
     fn threshold_already_met_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
         // 60% free, threshold 50% -> already above, do nothing.
-        apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false);
+        apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false, false);
         assert!(
             is_retained(&paths[0]),
             "free disk (60%) already exceeds threshold (50%); nothing should be promoted",
@@ -1113,7 +1332,7 @@ mod tests {
             retained("oldest", 100, 100),
             retained("old", 200, 350),
         ];
-        apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false);
+        apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false, false);
         // Oldest (t=100, size=100) + next (t=200, size=350) = 450 >= 400 bytes_needed.
         // Newest (t=300) is left alone — promotion stops as soon as the running total crosses bytes_needed.
         assert!(
@@ -1138,7 +1357,7 @@ mod tests {
             retained("b", 200, 20),
             active_retained(9999),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
         assert!(
             is_stale(&paths[0], 10),
             "non-active retained `a` should be promoted"
@@ -1171,7 +1390,7 @@ mod tests {
             retained("r", 100, 100),
             active_retained(50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
         assert!(
             matches!(&paths[0], FoundPath::Untracked(_, _, 42)),
             "untracked entries should never be touched",
@@ -1193,7 +1412,7 @@ mod tests {
     #[test]
     fn zero_total_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
-        apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false);
+        apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false, false);
         assert!(
             is_retained(&paths[0]),
             "total_space=0 must short-circuit to a no-op (avoids divide-by-zero)",
@@ -1210,7 +1429,7 @@ mod tests {
             retained("on_boundary", 150, 50),
             retained("recent", 200, 50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false, false);
         assert!(
             is_stale(&paths[0], 50),
             "retained accessed before min_access_time is eligible for promotion",
@@ -1231,7 +1450,7 @@ mod tests {
         // retained access time means every artifact is within the min-TTL
         // window — adaptive cleaning never violates the minimum TTL floor.
         let mut paths = vec![retained("a", 100, 100), retained("b", 200, 100)];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(50), false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(50), false, false);
         assert!(
             is_retained(&paths[0]) && is_retained(&paths[1]),
             "no retained artifact may be promoted when all are within the adaptive min-TTL window",
@@ -1250,7 +1469,7 @@ mod tests {
             retained("final", 200, 50),
         ];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), true);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), true, false);
 
         assert!(
             is_stale(&paths[0], 50),
@@ -1271,11 +1490,59 @@ mod tests {
             ArtifactClassification::IntermediateOnly,
         )];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false, false);
 
         assert!(
             is_retained(&paths[0]),
             "the default-disabled gate must preserve minimum-TTL protection",
         );
+    }
+
+    #[test]
+    fn unmaterializes_active_intermediates_oldest_first_after_deletion_passes() {
+        let mut paths = vec![
+            retained("retained", 50, 10),
+            active_retained_with_classification(
+                "newer_active",
+                300,
+                500,
+                ArtifactClassification::IntermediateOnly,
+                true,
+            ),
+            active_retained_with_classification(
+                "older_active",
+                200,
+                100,
+                ArtifactClassification::IntermediateOnly,
+                true,
+            ),
+        ];
+
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 10.0, no_min_ttl(), false, true);
+
+        assert!(is_stale(&paths[0], 10));
+        assert!(matches!(
+            &paths[2],
+            FoundPath::Tracked {
+                state: TrackedState::Unmaterialize,
+                ..
+            }
+        ));
+        assert!(is_active_retained(&paths[1]));
+    }
+
+    #[test]
+    fn final_outputs_are_never_unmaterialized() {
+        let mut paths = vec![active_retained_with_classification(
+            "final",
+            100,
+            100,
+            ArtifactClassification::FinalOutput,
+            true,
+        )];
+
+        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, true);
+
+        assert!(is_active_retained(&paths[0]));
     }
 }

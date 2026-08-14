@@ -53,6 +53,7 @@ use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use jiff::SignedDuration;
 use jiff::Timestamp;
 use pin_project::pin_project;
 use tokio::runtime::Handle;
@@ -77,6 +78,7 @@ use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationMethod;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationStage;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
+use crate::materializers::deferred::artifact_tree::ArtifactRematerializationMethod;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::CleaningFuture;
 use crate::materializers::deferred::artifact_tree::MaterializingFuture;
@@ -132,6 +134,9 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// Filesystem root used for `disk_space_stats` lookups during the
     /// scheduled clean-stale loop.
     pub(super) root_abs_path: Option<Arc<AbsPathBuf>>,
+    /// Minimum remaining CAS TTL required before local contents may be discarded.
+    /// `None` when periodic TTL refresh cannot preserve a remotely-backed artifact.
+    pub(super) rematerialization_ttl: Option<SignedDuration>,
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
@@ -419,6 +424,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         verbose_materializer_log: bool,
         daemon_dispatcher: EventDispatcher,
         disable_eager_write_dispatch: bool,
+        rematerialization_ttl: Option<SignedDuration>,
     ) -> Self {
         let subscriptions = MaterializerSubscriptions::new();
         let ttl_refresh_history = Vec::new();
@@ -445,7 +451,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             disable_eager_write_dispatch,
             eager_materializations,
             root_abs_path,
+            rematerialization_ttl,
         }
+    }
+
+    pub(super) fn next_version(&mut self) -> Version {
+        self.version_tracker.next()
     }
 
     fn spawn_from_rt<F>(rt: &Handle, dispatcher: &EventDispatcher, f: F) -> JoinHandle<F::Output>
@@ -485,6 +496,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             LowDiskCleanMode::Adaptive {
                 min_ttl,
                 delete_intermediate_within_min_ttl,
+                unmaterialize_active,
             } => (
                 default_ttl,
                 Some(AdaptiveLowDiskParams {
@@ -495,6 +507,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .checked_sub(min_ttl)
                         .unwrap_or(Timestamp::MIN),
                     delete_intermediate_within_min_ttl,
+                    unmaterialize_active,
                 }),
             ),
         }
@@ -1104,6 +1117,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 stage: ArtifactMaterializationStage::Materialized {
                     metadata,
                     last_access_time: Timestamp::now(),
+                    rematerialization_method: None,
                     active: true,
                 },
                 processing: Processing::Done(self.version_tracker.next()),
@@ -1129,6 +1143,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 ArtifactMaterializationStage::Materialized {
                     metadata,
                     last_access_time,
+                    rematerialization_method,
                     ..
                 } => {
                     // NOTE: This is for testing performance when hitting mismatches with disk
@@ -1155,6 +1170,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         data.stage = ArtifactMaterializationStage::Materialized {
                             metadata: metadata.dupe(),
                             last_access_time: *last_access_time,
+                            rematerialization_method: rematerialization_method.dupe(),
                             active: true,
                         };
                         data.deps = deps;
@@ -1317,6 +1333,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 metadata: _,
                 last_access_time,
                 active,
+                ..
             } => {
                 // Treat this case much like a `declare_existing`
                 *active = true;
@@ -1753,10 +1770,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             tracing::debug!("artifact is already materialized");
                             None
                         }
-                        ArtifactMaterializationStage::Declared {
-                            entry,
-                            method: _method,
-                        } => {
+                        ArtifactMaterializationStage::Declared { entry, method } => {
                             let metadata = entry.dupe();
                             // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                             // future on this path.
@@ -1773,6 +1787,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             Some(ArtifactMaterializationStage::Materialized {
                                 metadata,
                                 last_access_time: timestamp,
+                                rematerialization_method:
+                                    ArtifactRematerializationMethod::from_materialization_method(
+                                        method,
+                                    ),
                                 active: true,
                             })
                         }

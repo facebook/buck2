@@ -1562,11 +1562,16 @@ message CleanStaleStats {
   uint64 retained_bytes = 4;
   uint64 untracked_artifact_count = 5;
   uint64 untracked_bytes = 6;
+  // Cleaned count and bytes include unmaterialization count and bytes.
   uint64 cleaned_artifact_count = 8;
   uint64 cleaned_bytes = 9;
   uint64 total_duration_s = 10;
   uint64 scan_duration_s = 11;
   uint64 clean_duration_s = 12;
+  uint64 unmaterialized_only_artifact_count = 13;
+  uint64 unmaterialized_only_bytes = 14;
+  uint64 unmaterialization_ineligible_artifact_count = 15;
+  uint64 unmaterialization_ineligible_bytes = 16;
 }
 
 enum CleanStaleResultKind {

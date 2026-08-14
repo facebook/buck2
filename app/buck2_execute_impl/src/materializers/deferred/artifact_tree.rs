@@ -13,10 +13,14 @@ use std::sync::Arc;
 use allocative::Allocative;
 use allocative::Visitor;
 use allocative::ident_key;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
@@ -28,6 +32,7 @@ use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
+use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_execute::output_size::OutputSize;
 use derive_more::Display;
 use dupe::Dupe;
@@ -199,6 +204,8 @@ pub enum ArtifactMaterializationStage {
         metadata: ArtifactMetadata,
         /// Used to clean older artifacts from buck-out.
         last_access_time: Timestamp,
+        /// How to recreate this artifact after discarding its local contents.
+        rematerialization_method: Option<Arc<ArtifactRematerializationMethod>>,
         /// Artifact declared by running daemon.
         /// Should not be deleted without invalidating DICE nodes, which currently
         /// means killing the daemon.
@@ -236,6 +243,53 @@ pub enum ArtifactMaterializationMethod {
 
     #[cfg(test)]
     Test,
+}
+
+/// A materialization method that can recreate an artifact from a remote source, so the
+/// artifact's local contents can be discarded and fetched again later.
+#[derive(Allocative, Debug, Display)]
+pub struct ArtifactRematerializationMethod(Arc<ArtifactMaterializationMethod>);
+
+impl ArtifactRematerializationMethod {
+    pub(crate) fn from_materialization_method(
+        method: &Arc<ArtifactMaterializationMethod>,
+    ) -> Option<Arc<Self>> {
+        match method.as_ref() {
+            ArtifactMaterializationMethod::CasDownload { .. }
+            | ArtifactMaterializationMethod::HttpDownload { .. } => {
+                Some(Arc::new(Self(method.dupe())))
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn materialization_method(&self) -> &Arc<ArtifactMaterializationMethod> {
+        &self.0
+    }
+
+    /// Whether every blob backing this artifact is expected to still be fetchable, so its local
+    /// contents can be discarded and downloaded again later.
+    pub(crate) fn is_rematerializable(
+        &self,
+        entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+        deadline: Timestamp,
+    ) -> bool {
+        match self.materialization_method().as_ref() {
+            ArtifactMaterializationMethod::CasDownload { .. } => {
+                let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+                while let Some((_, entry)) = walk.next() {
+                    if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry
+                        && file.digest.expires().unwrap_or_default() < deadline
+                    {
+                        return false;
+                    }
+                }
+                true
+            }
+            ArtifactMaterializationMethod::HttpDownload { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl Allocative for ArtifactMaterializationMethod {
@@ -310,6 +364,7 @@ impl ArtifactTree {
                         stage: ArtifactMaterializationStage::Materialized {
                             metadata,
                             last_access_time,
+                            rematerialization_method: None,
                             active: false,
                         },
                         processing: Processing::Done(Version(0)),
@@ -487,6 +542,117 @@ impl ArtifactTree {
         }
 
         Ok(futs)
+    }
+
+    pub(crate) fn unmaterialize_artifacts(
+        &mut self,
+        paths: Vec<(ProjectRelativePathBuf, u64)>,
+        deadline: Timestamp,
+        sqlite_db: &mut MaterializerStateSqliteDb,
+        stats: &DeferredMaterializerStats,
+    ) -> buck2_error::Result<(Vec<(ProjectRelativePathBuf, u64)>, u64, u64)> {
+        let mut eligible = Vec::new();
+        let mut ineligible_artifact_count = 0;
+        let mut ineligible_bytes = 0;
+
+        for (path, size) in paths {
+            let mut path_iter = path.iter();
+            let Some(data) = self.prefix_get(&mut path_iter) else {
+                ineligible_artifact_count += 1;
+                ineligible_bytes += size;
+                continue;
+            };
+
+            let replacement = match (
+                &data.stage,
+                data.classification,
+                data.processing.active_ref(),
+            ) {
+                (
+                    ArtifactMaterializationStage::Materialized {
+                        metadata,
+                        rematerialization_method: Some(method),
+                        ..
+                    },
+                    ArtifactClassification::IntermediateOnly,
+                    None,
+                ) if path_iter.next().is_none()
+                    && method.is_rematerializable(metadata, deadline) =>
+                {
+                    Some(ArtifactMaterializationStage::Declared {
+                        entry: metadata.dupe(),
+                        method: method.materialization_method().dupe(),
+                    })
+                }
+                _ => None,
+            };
+
+            if let Some(replacement) = replacement {
+                eligible.push((path, size, replacement));
+            } else {
+                ineligible_artifact_count += 1;
+                ineligible_bytes += size;
+            }
+        }
+
+        #[cfg(test)]
+        {
+            use buck2_error::buck2_error;
+            for (path, _, _) in &eligible {
+                if path.as_str() == "test/unmaterialize/failure" {
+                    return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Injected error"));
+                }
+            }
+        }
+
+        // Delete before demoting the tree entries. On failure the caller aborts without cleaning
+        // these paths or attaching cleaning futures, so the tree must still agree with what is on
+        // disk; only sqlite is left stale, in the direction that forces a rematerialization.
+        sqlite_db
+            .materializer_state_table()
+            .delete(eligible.iter().map(|(path, _, _)| path.clone()).collect())
+            .buck_error_context("Error unmaterializing paths in materializer state")?;
+
+        let unmaterialized = eligible
+            .into_iter()
+            .map(|(path, size, replacement)| {
+                let data = self.prefix_get_mut(&mut path.iter()).expect(
+                    "should be present, nothing can mutate the tree between the two passes",
+                );
+                data.stage = replacement;
+                stats.remove_materialized(data.classification, data.logical_size_bytes);
+                (path, size)
+            })
+            .collect();
+
+        Ok((unmaterialized, ineligible_artifact_count, ineligible_bytes))
+    }
+
+    pub(crate) fn attach_unmaterialization_future(
+        &mut self,
+        path: &ProjectRelativePath,
+        cleaning_fut: CleaningFuture,
+        version: Version,
+    ) -> buck2_error::Result<()> {
+        let mut path_iter = path.iter();
+        let Some(data) = self.prefix_get_mut(&mut path_iter) else {
+            return Err(internal_error!(
+                "Unmaterialized artifact `{path}` disappeared before its cleaning future was attached"
+            ));
+        };
+        if path_iter.next().is_some()
+            || !matches!(data.stage, ArtifactMaterializationStage::Declared { .. })
+        {
+            return Err(internal_error!(
+                "Unmaterialized artifact `{path}` was not declared when its cleaning future was attached"
+            ));
+        }
+        data.processing = Processing::active(
+            ProcessingFuture::Cleaning(cleaning_fut),
+            version,
+            DynamicPriorityHandle::new(Priority::High),
+        );
+        Ok(())
     }
 }
 
