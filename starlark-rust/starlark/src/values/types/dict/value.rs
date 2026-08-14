@@ -50,6 +50,7 @@ use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -129,7 +130,7 @@ unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 
 impl<'v> AllocValue<'v> for Dict<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(DictGen(RefCell::new(self)))
+        heap.alloc_complex_branded(DictGen(RefCell::new(self)))
     }
 }
 
@@ -323,10 +324,13 @@ impl FrozenDictData {
     }
 }
 
-impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
-    type Frozen = DictGen<FrozenDictData>;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let content = self.0.into_inner().content.freeze(freezer)?;
+/// `Frozen` ignores the brand: the frozen dict keeps storing `FrozenValue` entries, because
+/// `DictRef` and `FrozenDictRef` hand entries out of the mutable and frozen dict alike, at the
+/// reader's lifetime. Branding the entry storage waits for `FrozenValue` to be branded.
+impl<'v> FreezeBranded for DictGen<RefCell<Dict<'v>>> {
+    type Frozen<'fv> = DictGen<FrozenDictData>;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let content = Freeze::freeze(self.0.into_inner().content, freezer)?;
         Ok(DictGen(FrozenDictData { content }))
     }
 }
