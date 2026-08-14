@@ -39,6 +39,7 @@ use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -142,7 +143,7 @@ pub(crate) type FrozenSet = SetGen<FrozenSetData>;
 
 impl<'v> AllocValue<'v> for SetData<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex(SetGen(RefCell::new(self)))
+        heap.alloc_complex_branded(SetGen(RefCell::new(self)))
     }
 }
 
@@ -157,10 +158,12 @@ impl<'v> StarlarkTypeRepr for SetData<'v> {
 unsafe impl<'v> Coerce<SetData<'v>> for FrozenSetData {}
 
 // TODO Add optimizations not to allocate empty set.
-impl<'v> Freeze for MutableSet<'v> {
-    type Frozen = SetGen<FrozenSetData>;
-    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let content = self.0.into_inner().content.freeze(freezer)?;
+/// As for dict, `Frozen` ignores the brand: the frozen set keeps storing `FrozenValue`s, since
+/// `SetRef` reads the mutable and frozen sets through one API.
+impl<'v> FreezeBranded for MutableSet<'v> {
+    type Frozen<'fv> = SetGen<FrozenSetData>;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let content = Freeze::freeze(self.0.into_inner().content, freezer)?;
         Ok(SetGen(FrozenSetData { content }))
     }
 }
