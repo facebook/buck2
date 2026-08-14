@@ -9,6 +9,10 @@
 # pyre-strict
 
 
+import asyncio
+import fileinput
+import time
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -33,6 +37,57 @@ async def test_empty_dynamic_list(buck: Buck) -> None:
 @buck_test(data_dir="artifact_eq_bug")
 async def test_artifact_eq_bug(buck: Buck) -> None:
     await buck.build("root//:bug")
+
+
+@buck_test(data_dir="many_rebound_outputs", skip_for_os=["windows"])
+async def test_many_rebound_outputs_incremental_rebuild(buck: Buck) -> None:
+    """
+    Every artifact re-bound through a dynamic_output gets its own action key
+    that redirects to the producing action and stores that action's *entire*
+    `ActionOutputs` as its dice value. On an incremental rebuild all of those
+    keys recompute, and DICE equality-compares each one's old and new value on
+    its serialized core state thread. If that comparison is not O(1), the
+    rebuild does O(N^2) work serialized on one thread (N per key, N keys); for
+    real dist-ThinLTO links (~64k outputs on the index action) that stalled
+    rebuilds for over ten minutes.
+
+    The rebuild below does strictly less work than the initial build, so we can
+    use the initial build to calibrate for host speed. With the O(N^2) behavior
+    the rebuild is one to two orders of magnitude slower than the initial build
+    instead.
+    """
+    start = time.monotonic()
+    await buck.build("root//:check")
+    first = time.monotonic() - start
+
+    # Invalidate the analysis (and with it every action key). The seed changes
+    # the content of exactly one of the dynamic action's outputs (see the
+    # fixture for why that matters).
+    with fileinput.input(buck.cwd / "TARGETS.fixture", inplace=True) as f:
+        for line in f:
+            print(line.replace('seed = "A"', 'seed = "B"'), end="")
+
+    # Once the rebuild hits this threshold the test's outcome is decided, so
+    # don't wait for it to finish: with the O(N^2) behavior that would take
+    # many more minutes and hit the 10 minute test level timeout, which our
+    # test infra handles poorly.
+    threshold = max(60.0, 3.0 * first)
+    start = time.monotonic()
+    timed_out = False
+    try:
+        await asyncio.wait_for(buck.build("root//:check"), timeout=threshold)
+    except asyncio.TimeoutError:
+        timed_out = True
+        await buck.kill()
+    second = time.monotonic() - start
+
+    # Asserts the *presence* of the quadratic behavior so that this diff is
+    # green on its own; the next diff fixes it and inverts this assertion.
+    assert timed_out or second >= threshold, (
+        f"incremental rebuild took {second:.1f}s vs {first:.1f}s for the "
+        "initial build; expected deep ActionOutputs comparisons in dice to "
+        "make it dramatically slower"
+    )
 
 
 @buck_test(data_dir="analysis_failure")
