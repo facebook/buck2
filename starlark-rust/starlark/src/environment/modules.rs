@@ -252,6 +252,16 @@ impl FrozenModule {
         })
     }
 
+    /// Get value, exported or private by name, kept alive by this module's heap.
+    #[doc(hidden)]
+    pub fn get_any_visibility_owned(
+        &self,
+        name: &str,
+    ) -> anyhow::Result<(OwnedFrozen<Value<'static>>, Visibility)> {
+        let (value, vis) = self.get_any_visibility(name)?;
+        Ok((value.into(), vis))
+    }
+
     /// Get the value of the exported variable `name`.
     ///
     /// # Returns
@@ -267,6 +277,14 @@ impl FrozenModule {
         }
     }
 
+    /// Like [`get_option`](FrozenModule::get_option), but kept alive by this module's heap.
+    pub fn get_option_owned(
+        &self,
+        name: &str,
+    ) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
+        Ok(self.get_option(name)?.map(OwnedFrozen::from))
+    }
+
     /// Get the value of the exported variable `name`.
     /// Returns an error if the variable isn't defined in the module or it is private.
     pub fn get(&self, name: &str) -> anyhow::Result<OwnedFrozenValue> {
@@ -277,6 +295,11 @@ impl FrozenModule {
                 }
                 Visibility::Public => Ok(value),
             })
+    }
+
+    /// Like [`get`](FrozenModule::get), but kept alive by this module's heap.
+    pub fn get_owned(&self, name: &str) -> anyhow::Result<OwnedFrozen<Value<'static>>> {
+        Ok(self.get(name)?.into())
     }
 
     /// Iterate through all the names defined in this module.

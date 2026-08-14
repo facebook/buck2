@@ -99,6 +99,19 @@ where
     }
 }
 
+impl OwnedFrozen<Value<'static>> {
+    /// Check that the value is a `T`, returning an error describing the actual type if not.
+    pub fn downcast_starlark<T: IsStaticType + StarlarkValue<'static>>(
+        self,
+    ) -> crate::Result<OwnedFrozen<ValueTyped<'static, T>>>
+    where
+        for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
+        for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        self.try_map::<ValueTyped<'static, T>, crate::Error, _>(|v| ValueTyped::new_err(v))
+    }
+}
+
 impl<'f, T: IsStaticType> OwnedFrozenRef<'f, T>
 where
     for<'fv> T::Reinfect<'fv>: Sized,
