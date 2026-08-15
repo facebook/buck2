@@ -82,7 +82,7 @@ CxxCompileInfo = record(
     index_store_base = field(str | None),  # filename_base for index store compilation
     identifier = field(str),
     folder_name = field(str),
-    flavor_flags = field(dict[str, list[str]]),
+    flavor_flags = field(dict[str, typing.Any]),
 )
 
 # Input for a single CXX compilation - declared artifacts and compile info
@@ -863,7 +863,7 @@ def _get_base_compile_cmd(
     bitcode_args: cmd_args | list,
     src_compile_cmd: CxxSrcCompileCommand,
     flavors: set[CxxCompileFlavor],
-    flavor_flags: dict[str, list[str]],
+    flavor_flags: dict[str, typing.Any],
     output_args: list | None = None,
     use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
 ) -> cmd_args:
@@ -896,7 +896,7 @@ def _get_base_compile_cmd(
 def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
     return flavor.value in toolchain.supported_compile_flavors and toolchain.compiler_flavor_flags.get(flavor.value) != None
 
-def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -> dict[str, list[str]]:
+def build_flavor_flags(flavor_flags: dict[str, typing.Any], compiler_type: str) -> dict[str, typing.Any]:
     if not flavor_flags and compiler_type in ["clang", "gcc"]:
         # If there are no configured flavor flags for toolchain at all
         # we fallback to default fPIC for clang and gcc. Ideally this should be default
