@@ -190,6 +190,10 @@ load(
     ":shared_library_interface.bzl",
     "shared_library_interface",
 )
+load(
+    ":template_placeholders.bzl",
+    "cxx_template_placeholder_info",
+)
 
 #####################################################################
 # Operations
@@ -694,6 +698,7 @@ def _create_prebuilt_library_providers(
     inherited_link,
     first_order_deps,
     exported_first_order_deps,
+    propagated_preprocessor,
 ):
     """
     Create and return providers for a prebuilt library with a specific preferred linkage.
@@ -718,17 +723,24 @@ def _create_prebuilt_library_providers(
     pic_behavior = cxx_toolchain.pic_behavior
 
     # Propagate link info provider.
+    merged_native_link_info = create_merged_link_info(
+        ctx,
+        pic_behavior,
+        # Add link info for each link style,
+        libraries,
+        preferred_linkage = preferred_linkage,
+        # Export link info from non-exported deps (when necessary).
+        deps = inherited_link,
+        # Export link info from out (exported) deps.
+        exported_deps = inherited_exported_link,
+    )
+    providers.append(merged_native_link_info)
+
     providers.append(
-        create_merged_link_info(
+        cxx_template_placeholder_info(
             ctx,
-            pic_behavior,
-            # Add link info for each link style,
-            libraries,
-            preferred_linkage = preferred_linkage,
-            # Export link info from non-exported deps (when necessary).
-            deps = inherited_link,
-            # Export link info from out (exported) deps.
-            exported_deps = inherited_exported_link,
+            propagated_preprocessor,
+            merged_native_link_info,
         )
     )
 
@@ -975,6 +987,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
             inherited_link,
             first_order_deps,
             exported_first_order_deps,
+            propagated_preprocessor,
         )
 
     providers, sub_targets, output = linkage_providers[preferred_linkage]
