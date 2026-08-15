@@ -74,7 +74,7 @@ derive_more = { version = "1.0.0", features = ["full"] }
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
 dirs = "6.0"
 dunce = "1.0.5"
-either = "1.16.0"
+either = "1.17.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
 enum-map = "2.7.3"
