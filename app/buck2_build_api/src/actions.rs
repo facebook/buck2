@@ -295,6 +295,12 @@ pub trait ActionExecutionCtx: Send + Sync {
         dep_file_entry: Option<&mut dyn IntoRemoteDepFile>,
     ) -> buck2_error::Result<CacheUploadResults>;
 
+    /// Validate the executor's complete result against this action's declared outputs.
+    fn validate_command_execution_outputs(
+        &self,
+        result: &CommandExecutionResult,
+    ) -> Result<(), ExecuteError>;
+
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?
     async fn exec_cmd(

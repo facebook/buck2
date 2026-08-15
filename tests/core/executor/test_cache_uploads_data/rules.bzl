@@ -36,3 +36,27 @@ write = rule(
         "text": attrs.string(),
     },
 )
+
+def _missing_output_impl(ctx):
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
+    ctx.actions.run(
+        [
+            "fbpython",
+            "-c",
+            "pass",
+            ctx.attrs.nonce,
+            out.as_output(),
+        ],
+        category = "missing_output",
+        local_only = True,
+        allow_cache_upload = True,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+missing_output = rule(
+    impl = _missing_output_impl,
+    attrs = {
+        "nonce": attrs.string(),
+    },
+)

@@ -49,6 +49,7 @@ use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::prepared::PreparedAction;
 use buck2_execute::execute::prepared::PreparedCommand;
+use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputType;
@@ -429,6 +430,77 @@ struct BuckActionExecutionContext<'a, 'd> {
     cancellations: &'a CancellationContext,
 }
 
+fn validate_action_outputs(
+    fs: &ArtifactFs,
+    declared_outputs: &[BuildArtifact],
+    actual_outputs: &ActionOutputs,
+) -> Result<(), ExecuteError> {
+    // Check that all the outputs are the right output_type.
+    for output in declared_outputs {
+        let declared = output.output_type();
+        // FIXME: One day we should treat FileOrDirectory as a File, and soft_error if it is a directory
+        if declared != OutputType::FileOrDirectory
+            && let Some(value) = actual_outputs.get(output.get_path())
+        {
+            let real = if value.is_dir() {
+                OutputType::Directory
+            } else {
+                OutputType::File
+            };
+            if real != declared {
+                return Err(ExecuteError::WrongOutputType {
+                    path: fs
+                        .resolve_build(output.get_path(), Some(&value.content_based_path_hash()))?,
+                    declared,
+                    real,
+                });
+            }
+        }
+    }
+
+    // Ignore ordering as outputs in the original action might be ordered differently from output
+    // paths in the action result (they are sorted there).
+    let actual_output_paths: BuckMutSet<&BuildArtifactPath> =
+        actual_outputs.iter().map(|(path, _)| path).collect();
+    let all_declared_outputs_returned = declared_outputs
+        .iter()
+        .all(|output| actual_output_paths.contains(output.get_path()))
+        && declared_outputs.len() == actual_output_paths.len();
+
+    // TODO (T122966509): Check projections here as well.
+    if !all_declared_outputs_returned {
+        let declared = declared_outputs
+            .iter()
+            .filter(|output| actual_outputs.get(output.get_path()).is_none())
+            .map(|output| {
+                fs.resolve_build(
+                    output.get_path(),
+                    Some(&ContentBasedPathHash::for_output_artifact()),
+                )
+            })
+            .collect::<buck2_error::Result<_>>()?;
+        let real = actual_outputs
+            .iter()
+            .map(|(path, _)| path)
+            .filter(|path| {
+                // This is an error message; linear search is fine.
+                !declared_outputs
+                    .iter()
+                    .map(|output| output.get_path())
+                    .contains(path)
+            })
+            .map(|path| fs.resolve_build(path, Some(&ContentBasedPathHash::for_output_artifact())))
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+        if real.is_empty() {
+            Err(ExecuteError::MissingOutputs { declared })
+        } else {
+            Err(ExecuteError::MismatchedOutputs { declared, real })
+        }
+    } else {
+        Ok(())
+    }
+}
+
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
@@ -689,6 +761,25 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
             .await?)
     }
 
+    fn validate_command_execution_outputs(
+        &self,
+        result: &CommandExecutionResult,
+    ) -> Result<(), ExecuteError> {
+        let actual_outputs = ActionOutputs::new(
+            result
+                .outputs
+                .iter()
+                .filter_map(|(output, value)| match output {
+                    CommandExecutionOutput::BuildArtifact { path, .. } => {
+                        Some((path.dupe(), value.dupe()))
+                    }
+                    CommandExecutionOutput::TestPath { .. } => None,
+                })
+                .collect(),
+        );
+        validate_action_outputs(self.fs(), self.outputs, &actual_outputs)
+    }
+
     async fn cleanup_outputs(&self) -> buck2_error::Result<()> {
         // Delete all outputs before we start, so things will be clean.
         let output_paths = self
@@ -767,87 +858,8 @@ impl<'d> BuckActionExecutor<'d> {
 
             let (result, metadata) = action.execute(&mut ctx, waiting_data).await?;
 
-            // Check that all the outputs are the right output_type
-            for x in outputs.iter() {
-                let declared = x.output_type();
-                // FIXME: One day we should treat FileOrDirectory as a File, and soft_error if it is a directory
-                if declared != OutputType::FileOrDirectory {
-                    if let Some(t) = result.0.outputs.get(x.get_path()) {
-                        let real = if t.is_dir() {
-                            OutputType::Directory
-                        } else {
-                            OutputType::File
-                        };
-                        if real != declared {
-                            return Err(ExecuteError::WrongOutputType {
-                                path: self.command_executor.fs().resolve_build(
-                                    x.get_path(),
-                                    Some(&t.content_based_path_hash()),
-                                )?,
-                                declared,
-                                real,
-                            });
-                        }
-                    }
-                }
-            }
-
-            fn check_all_requested_outputs_returned_without_extra<'a>(
-                outputs: &[BuildArtifact],
-                result_outputs: impl IntoIterator<Item = &'a BuildArtifactPath>,
-            ) -> bool {
-                // Ignore ordering as outputs in original action might be ordered differently from
-                // output paths in action result (they are sorted there).
-                let result_output_paths: BuckMutSet<&BuildArtifactPath> =
-                    result_outputs.into_iter().collect();
-                let mut outputs_count = 0;
-                for output in outputs.iter() {
-                    outputs_count += 1;
-                    let output_path = output.get_path();
-                    if !result_output_paths.contains(output_path) {
-                        return false;
-                    }
-                }
-                outputs_count == result_output_paths.len()
-            }
-
-            // TODO (T122966509): Check projections here as well
-            if !check_all_requested_outputs_returned_without_extra(
-                &outputs,
-                result.0.outputs.keys(),
-            ) {
-                let declared = outputs
-                    .iter()
-                    .filter(|x| !result.0.outputs.contains_key(x.get_path()))
-                    .map(|x| {
-                        self.command_executor.fs().resolve_build(
-                            x.get_path(),
-                            Some(&ContentBasedPathHash::for_output_artifact()),
-                        )
-                    })
-                    .collect::<buck2_error::Result<_>>()?;
-                let real = result
-                    .0
-                    .outputs
-                    .keys()
-                    .filter(|x| {
-                        // This is error message, linear search is fine.
-                        !outputs.iter().map(|b| b.get_path()).contains(x)
-                    })
-                    .map(|x| {
-                        self.command_executor
-                            .fs()
-                            .resolve_build(x, Some(&ContentBasedPathHash::for_output_artifact()))
-                    })
-                    .collect::<buck2_error::Result<Vec<_>>>()?;
-                if real.is_empty() {
-                    Err(ExecuteError::MissingOutputs { declared })
-                } else {
-                    Err(ExecuteError::MismatchedOutputs { declared, real })
-                }
-            } else {
-                Ok((result, metadata))
-            }
+            validate_action_outputs(self.command_executor.fs(), &outputs, &result)?;
+            Ok((result, metadata))
         }
         .await;
 
