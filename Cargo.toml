@@ -358,7 +358,7 @@ inventory = "0.3.24"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
 itertools = "0.15.0"
-jiff = { version = "0.2.32", features = ["serde"] }
+jiff = { version = "0.2.35", features = ["serde"] }
 libc = "0.2.186"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.37", features = ["used_linker"] }
