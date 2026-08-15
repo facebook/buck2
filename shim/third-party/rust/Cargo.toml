@@ -36,7 +36,7 @@ async-condvar-fair = { version = "1.0.1", features = ["parking_lot_0_12", "tokio
 async-recursion = "1.1.1"
 async-scoped = { version = "0.9", features = ["use-tokio"] }
 async-stream = "0.3"
-async-trait = "0.1.91"
+async-trait = "0.1.92"
 atomic = "0.5.3"
 backtrace = "0.3"
 base64 = { version = "0.22.1", features = ["alloc"] }
