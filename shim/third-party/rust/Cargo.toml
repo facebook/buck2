@@ -222,7 +222,7 @@ termios = "0.3"
 termwiz = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331", features = ["use_serde", "widgets"], default-features = false }
 test-case = "3.3.1"
 textwrap = { version = "0.16.0", features = ["terminal_size"] }
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 threadpool = "1.8.1"
 tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
 tokio-retry = "0.3.2"
