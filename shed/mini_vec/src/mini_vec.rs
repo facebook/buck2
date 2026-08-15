@@ -1668,17 +1668,26 @@ mod tests {
         // not double-drop or read freed memory. The vec's len was lowered
         // to the start of the drain range when the iterator was created,
         // so the trailing elements are simply forgotten.
-        let r = Rc::new(());
-        let mut v: MiniVec<Rc<()>> = (0..5).map(|_| r.clone()).collect();
-        assert_eq!(Rc::strong_count(&r), 6);
+        struct DropCounter<'a>(&'a Cell<usize>);
+        impl Drop for DropCounter<'_> {
+            fn drop(&mut self) {
+                self.0.set(self.0.get() + 1);
+            }
+        }
+
+        let count = Cell::new(0);
+        let mut v: MiniVec<DropCounter<'_>> = (0..5).map(|_| DropCounter(&count)).collect();
         std::mem::forget(v.drain(1..4));
         // Vec length is now 1 (start of drain range). The 3 in-range and
         // 1 tail elements are leaked.
         assert_eq!(v.len(), 1);
-        // 1 still in v + 4 leaked + 1 original = 6.
-        assert_eq!(Rc::strong_count(&r), 6);
+        assert_eq!(count.get(), 0);
         drop(v);
         // Only the 1 element still tracked by v gets dropped; rest leaked.
-        assert_eq!(Rc::strong_count(&r), 5);
+        assert_eq!(
+            count.get(),
+            1,
+            "only the live element is dropped; forgotten elements are neither dropped nor double-dropped"
+        );
     }
 }
