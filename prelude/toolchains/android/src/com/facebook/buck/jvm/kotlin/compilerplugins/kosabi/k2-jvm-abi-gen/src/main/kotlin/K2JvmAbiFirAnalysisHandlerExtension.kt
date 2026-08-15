@@ -50,6 +50,7 @@ import org.jetbrains.kotlin.extensions.PreprocessedFileCreator
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
+import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
@@ -80,6 +81,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeKotlinTypeProjection
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
@@ -95,6 +97,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
@@ -593,7 +596,11 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
 
     // Phase 6: Validation
-    pipeline.validator.validate(irInput.irModuleFragment, messageCollector)
+    pipeline.validator.validate(
+        irInput.irModuleFragment,
+        messageCollector,
+        AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE)),
+    )
 
     // Generate .kotlin_module file
     generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)
@@ -789,41 +796,157 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     return result
   }
 
-  private class MissingConstantsVisitor(private val usedConstants: MutableSet<String>) :
-      KtTreeVisitorVoid() {
+  /**
+   * A place where a constant is passed to an annotation parameter.
+   *
+   * The parameter's declared type is the only remaining evidence of a missing constant's type once
+   * the declaring class is off the classpath, so it is captured alongside the expression text.
+   */
+  private data class ConstUsageSite(
+      val expressionText: String,
+      val annotationShortName: String?,
+      val parameterName: String?,
+      val parameterIndex: Int,
+  )
+
+  private class MissingConstantsVisitor(
+      private val usedConstants: MutableSet<String>,
+      private val usageSites: MutableList<ConstUsageSite>,
+  ) : KtTreeVisitorVoid() {
     override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
+      val annotationShortName = annotationEntry.shortName?.asString()
       // Use getArgumentExpression()?.text to get just the value, not the parameter name
       // For @Annotation(param = VALUE), we want "VALUE", not "param = VALUE"
       // For array expressions like [A, B], extract individual elements
-      annotationEntry.valueArgumentList
-          ?.arguments
-          ?.mapNotNull { it.getArgumentExpression()?.text }
-          ?.forEach { expressionText ->
-            if (expressionText.startsWith("[") && expressionText.endsWith("]")) {
-              // Array expression: parse and extract individual elements
-              val arrayContent = expressionText.substring(1, expressionText.length - 1).trim()
-              if (arrayContent.isNotEmpty()) {
-                // Simple comma split - for annotation arguments, we don't expect complex nesting
-                arrayContent.split(",").forEach { element ->
-                  val trimmed = element.trim()
-                  if (trimmed.isNotEmpty()) {
-                    usedConstants.add(trimmed)
-                  }
-                }
+      annotationEntry.valueArgumentList?.arguments?.forEachIndexed { index, argument ->
+        val expressionText = argument.getArgumentExpression()?.text ?: return@forEachIndexed
+        val parameterName = argument.getArgumentName()?.asName?.asString()
+        fun record(text: String) {
+          usedConstants.add(text)
+          usageSites.add(ConstUsageSite(text, annotationShortName, parameterName, index))
+        }
+        if (expressionText.startsWith("[") && expressionText.endsWith("]")) {
+          // Array expression: parse and extract individual elements
+          val arrayContent = expressionText.substring(1, expressionText.length - 1).trim()
+          if (arrayContent.isNotEmpty()) {
+            // Simple comma split - for annotation arguments, we don't expect complex nesting
+            arrayContent.split(",").forEach { element ->
+              val trimmed = element.trim()
+              if (trimmed.isNotEmpty()) {
+                record(trimmed)
               }
-            } else {
-              // Regular expression: add as-is
-              usedConstants.add(expressionText)
             }
           }
+        } else {
+          // Regular expression: add as-is
+          record(expressionText)
+        }
+      }
       return super.visitAnnotationEntry(annotationEntry)
     }
+  }
+
+  /**
+   * Resolves the declared type of the annotation parameter [site] is passed to.
+   *
+   * This runs before `buildFirFromKtFiles`, so annotations declared in the module being compiled
+   * are only available as PSI while annotations from dependencies are only available as FIR; both
+   * are tried. Returns null whenever the answer is not certain - a wrong type here would be exactly
+   * the defect this exists to fix.
+   */
+  private fun resolveAnnotationParameterType(
+      site: ConstUsageSite,
+      sourceFile: KtFile,
+      sourceFiles: List<KtFile>,
+      session: FirSession,
+  ): ConstTypeHint? {
+    val annotationShortName = site.annotationShortName ?: return null
+
+    val importedFqName =
+        sourceFile.importDirectives
+            .mapNotNull { it.importedFqName }
+            .firstOrNull { it.shortName().asString() == annotationShortName }
+    val candidates = listOfNotNull(
+        importedFqName,
+        sourceFile.packageFqName.child(Name.identifier(annotationShortName)),
+    )
+
+    // Recovering the type is best-effort: without it the old assumed-String behaviour still
+    // applies. It must therefore never be able to turn a working compilation red, which querying
+    // half-resolved declarations at this stage otherwise can.
+    return try {
+      candidates.firstNotNullOfOrNull { candidate ->
+        annotationParameterTypeFromPsi(candidate, site, sourceFiles)
+            ?: annotationParameterTypeFromFir(candidate, site, session)
+      }
+    } catch (e: Exception) {
+      pipeline.repairLog.recordFailedRepair(
+          annotationShortName,
+          "could not read annotation parameter type: ${e.javaClass.simpleName}: ${e.message}",
+      )
+      null
+    }
+  }
+
+  private fun annotationParameterTypeFromPsi(
+      annotationFqName: FqName,
+      site: ConstUsageSite,
+      sourceFiles: List<KtFile>,
+  ): ConstTypeHint? {
+    val ktClass =
+        sourceFiles
+            .flatMap { it.declarations }
+            .filterIsInstance<KtClass>()
+            .firstOrNull { it.isAnnotation() && it.fqName == annotationFqName } ?: return null
+    val parameters = ktClass.primaryConstructor?.valueParameters ?: return null
+    val parameter =
+        if (site.parameterName != null) {
+          parameters.firstOrNull { it.name == site.parameterName }
+        } else {
+          parameters.getOrNull(site.parameterIndex)
+        } ?: return null
+    return constTypeHintFromTypeText(parameter.typeReference?.text)
+  }
+
+  /**
+   * This runs before source declarations exist in FIR, so it deliberately consults only
+   * `dependenciesSymbolProvider` - the same provider the surrounding missing-constant logic uses.
+   * Reaching into the full symbol provider here resolves source and Java declarations too early.
+   */
+  @OptIn(SymbolInternals::class)
+  private fun annotationParameterTypeFromFir(
+      annotationFqName: FqName,
+      site: ConstUsageSite,
+      session: FirSession,
+  ): ConstTypeHint? {
+    val classSymbol =
+        session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(
+            ClassId.topLevel(annotationFqName),
+        ) as? FirClassSymbol<*> ?: return null
+    val firClass = classSymbol.fir as? FirRegularClass ?: return null
+    if (firClass.classKind != ClassKind.ANNOTATION_CLASS) return null
+    val primaryConstructor =
+        firClass.declarations.filterIsInstance<FirConstructor>().firstOrNull { it.isPrimary }
+            ?: return null
+    val parameter =
+        if (site.parameterName != null) {
+          primaryConstructor.valueParameters.firstOrNull {
+            it.name.asString() == site.parameterName
+          }
+        } else {
+          primaryConstructor.valueParameters.getOrNull(site.parameterIndex)
+        } ?: return null
+    // Java-declared annotations carry a FirJavaTypeRef at this point; asking such a ref for its
+    // cone type throws. No type is better than a crash, and better than a guessed one.
+    val typeRef = parameter.returnTypeRef as? FirResolvedTypeRef ?: return null
+    return constTypeHintFromConeType(typeRef.coneType)
   }
 
   // Collect missing constants from source files by analyzing imports
   private fun collectMissingConstantsFromSourceFiles(
       sourceFiles: List<KtFile>,
       session: FirSession,
+      state: AbiGenState,
   ): Map<ClassId, Set<String>> {
     val missingConstants = mutableMapOf<ClassId, MutableSet<String>>()
 
@@ -833,7 +956,29 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     for (sourceFile in sourceFiles) {
       val usedConstants = mutableSetOf<String>()
-      sourceFile.accept(MissingConstantsVisitor(usedConstants))
+      val usageSites = mutableListOf<ConstUsageSite>()
+      sourceFile.accept(MissingConstantsVisitor(usedConstants, usageSites))
+
+      // Records the annotation-parameter type for a constant we are about to synthesise. Two
+      // annotations disagreeing about the type means the evidence is unusable, so the constant is
+      // marked ambiguous and falls back rather than picking one arbitrarily.
+      fun recordTypeHint(classId: ClassId, propertyName: String, usage: String) {
+        val key = constHintKey(classId, propertyName)
+        if (key in state.ambiguousConstantTypeHints) return
+        val hint =
+            usageSites
+                .asSequence()
+                .filter { it.expressionText == usage }
+                .mapNotNull { resolveAnnotationParameterType(it, sourceFile, sourceFiles, session) }
+                .firstOrNull() ?: return
+        val existing = state.constantTypeHints[key]
+        if (existing == null) {
+          state.constantTypeHints[key] = hint
+        } else if (existing != hint) {
+          state.constantTypeHints.remove(key)
+          state.ambiguousConstantTypeHints.add(key)
+        }
+      }
 
       for (importDirective in sourceFile.importDirectives) {
         val importPath = importDirective.importedFqName ?: continue
@@ -878,6 +1023,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(propertyName)
+              recordTypeHint(classId, propertyName, usage)
             }
           } else if (usage == importedName) {
             // Constant import: import pkg.Class.CONSTANT, used as CONSTANT
@@ -891,6 +1037,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
+              recordTypeHint(classId, importedName, usage)
             }
           }
         }
@@ -1150,16 +1297,51 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     )
 
     val outputs = sessionsWithSources.map { (session, sources) ->
-      val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
-      session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
+      val state = session.jvmAbiGenService.state
+      val missingConstants = collectMissingConstantsFromSourceFiles(sources, session, state)
+      state.missingConstants.putAll(missingConstants)
       // Skip checkers - ABI generation only needs resolved types, and third-party
       // plugin checkers (like Litho K2) crash on unresolved references from stubs.
       val firFiles = session.buildFirFromKtFiles(sources)
       val (scopeSession, fir) = session.runResolution(firFiles)
+      // Constants are synthesised lazily during resolution, so this is the earliest point at
+      // which the full set is known. Reporting here rather than in ValidationStage keeps the
+      // signal even when a later phase fails.
+      reportFabricatedConstants(state, configuration)
       moduleFrontendOutputCompat(session, scopeSession, fir)
     }
 
     return frontendOutputCompat(outputs)
+  }
+
+  private fun reportFabricatedConstants(state: AbiGenState, configuration: CompilerConfiguration) {
+    if (state.fabricatedConstants.isEmpty()) return
+    pipeline.repairLog.fabricatedConstants.addAll(state.fabricatedConstants)
+
+    val policy =
+        AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE))
+    if (policy == AbiRepairPolicy.OFF) return
+
+    val severity =
+        if (policy == AbiRepairPolicy.ERROR) CompilerMessageSeverity.ERROR
+        else CompilerMessageSeverity.WARNING
+    for (constant in state.fabricatedConstants) {
+      configuration.messageCollector.report(
+          severity,
+          "Kosabi source-only ABI: the value of constant `${constant.classId}.${constant.name}` " +
+              "is not available, because no target on the source-only ABI classpath declares it. " +
+              "A placeholder of type `${constant.emittedType}` " +
+              "(${if (constant.typeSource == ConstTypeSource.ANNOTATION_PARAMETER)
+                  "type taken from the annotation parameter it is passed to"
+                else "type unknown, assumed String"}) " +
+              "was emitted instead, so this ABI does not match a class-ABI build. " +
+              "To fix, add the target that declares the constant to THIS target's " +
+              "`source_only_abi_deps`. Reach for `required_for_source_only_abi = True` on the " +
+              "declaring target only when many consumers need it: that is a global edge which " +
+              "puts its ABI on the source-only ABI classpath of every consumer, not just this " +
+              "one.",
+      )
+    }
   }
 }
 
@@ -1365,17 +1547,35 @@ class MissingConstantDeclarationGenerationExtension(
     return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName }
   }
 
+  /**
+   * Synthesises a constant whose declaring class is not on the source-only ABI classpath.
+   *
+   * The real value is unrecoverable here by construction: the constant is being synthesised
+   * precisely because nothing on the classpath declares it, and Kosabi never reads the provider's
+   * sources. Only a placeholder can be emitted, so any constant reaching this function makes the
+   * resulting ABI differ from a class-ABI build. The correct repair is to put the declaring target
+   * on the consuming target's source-only ABI classpath, by adding it to that target's
+   * `source_only_abi_deps`; this function only limits the damage in the meantime and records it for
+   * [AbiGenRepairLog].
+   *
+   * The type, unlike the value, is often recoverable - see [resolveAnnotationParameterType]. Using
+   * it matters: emitting `String` for an `Int` constant makes constant evaluation fail outright
+   * (`ClassCastException` in `IrConstAnnotationTransformer`) rather than merely produce a wrong
+   * number.
+   */
   private fun generateConstantProperty(
       constantName: String,
       owner: FirClassSymbol<*>,
   ): FirPropertySymbol {
-    // Default to String type with empty string value
-    // Only constants that are not available in dependencies are generated
+    val state = session.jvmAbiGenService.state
+    val key = constHintKey(owner.classId, constantName)
+    val hint = state.constantTypeHints[key]
+
     val property = createMemberProperty(
         owner,
         JvmAbiGenPlugin,
         Name.identifier(constantName),
-        session.builtinTypes.stringType.coneType,
+        hint?.coneType(session) ?: session.builtinTypes.stringType.coneType,
     )
     property.replaceStatus(
         FirResolvedDeclarationStatusImpl(
@@ -1388,13 +1588,105 @@ class MissingConstantDeclarationGenerationExtension(
     property.replaceInitializer(
         buildLiteralExpression(
             source = null,
-            kind = ConstantValueKind.String,
-            value = "",
+            kind = hint?.constantValueKind ?: ConstantValueKind.String,
+            value = hint?.placeholderValue ?: "",
             setType = true,
+        ),
+    )
+
+    state.fabricatedConstants.add(
+        FabricatedConstant(
+            classId = owner.classId.asString(),
+            name = constantName,
+            emittedType = hint?.typeName ?: "String",
+            typeSource =
+                if (hint != null) ConstTypeSource.ANNOTATION_PARAMETER
+                else ConstTypeSource.ASSUMED_STRING,
         ),
     )
     return property.symbol
   }
+}
+
+/** A constant type Kosabi is able to synthesise a placeholder literal for. */
+enum class ConstTypeHint(
+    val typeName: String,
+    val constantValueKind: ConstantValueKind,
+    val placeholderValue: Any,
+) {
+  BOOLEAN("Boolean", ConstantValueKind.Boolean, false),
+  BYTE("Byte", ConstantValueKind.Byte, 0.toByte()),
+  SHORT("Short", ConstantValueKind.Short, 0.toShort()),
+  INT("Int", ConstantValueKind.Int, 0),
+  LONG("Long", ConstantValueKind.Long, 0L),
+  FLOAT("Float", ConstantValueKind.Float, 0.0f),
+  DOUBLE("Double", ConstantValueKind.Double, 0.0),
+  CHAR("Char", ConstantValueKind.Char, '\u0000'),
+  STRING("String", ConstantValueKind.String, "");
+
+  fun coneType(session: FirSession): ConeKotlinType =
+      when (this) {
+        BOOLEAN -> session.builtinTypes.booleanType.coneType
+        BYTE -> session.builtinTypes.byteType.coneType
+        SHORT -> session.builtinTypes.shortType.coneType
+        INT -> session.builtinTypes.intType.coneType
+        LONG -> session.builtinTypes.longType.coneType
+        FLOAT -> session.builtinTypes.floatType.coneType
+        DOUBLE -> session.builtinTypes.doubleType.coneType
+        CHAR -> session.builtinTypes.charType.coneType
+        STRING -> session.builtinTypes.stringType.coneType
+      }
+
+  companion object {
+    fun bySimpleName(name: String): ConstTypeHint? = entries.firstOrNull { it.typeName == name }
+  }
+}
+
+internal fun constHintKey(classId: ClassId, constantName: String): String =
+    "${classId.asString()}.$constantName"
+
+/**
+ * Maps a type as written in source to a constant kind.
+ *
+ * Array types are unwrapped once because no constant can itself be an array - an array-typed
+ * annotation parameter is always fed element-wise. Anything not recognised (a typealias, an enum, a
+ * generic) yields null so the caller falls back instead of guessing.
+ */
+internal fun constTypeHintFromTypeText(typeText: String?): ConstTypeHint? {
+  var text = typeText?.trim()?.removeSuffix("?")?.trim() ?: return null
+  if (text.endsWith(">")) {
+    val open = text.indexOf('<')
+    if (open <= 0) return null
+    if (text.take(open).substringAfterLast('.') != "Array") return null
+    text = text.substring(open + 1, text.length - 1).removePrefix("out ").trim()
+  }
+  val simpleName = text.substringAfterLast('.').removeSuffix("?").trim()
+  ConstTypeHint.bySimpleName(simpleName)?.let {
+    return it
+  }
+  return when (simpleName) {
+    "BooleanArray" -> ConstTypeHint.BOOLEAN
+    "ByteArray" -> ConstTypeHint.BYTE
+    "ShortArray" -> ConstTypeHint.SHORT
+    "IntArray" -> ConstTypeHint.INT
+    "LongArray" -> ConstTypeHint.LONG
+    "FloatArray" -> ConstTypeHint.FLOAT
+    "DoubleArray" -> ConstTypeHint.DOUBLE
+    "CharArray" -> ConstTypeHint.CHAR
+    else -> null
+  }
+}
+
+/** FIR counterpart of [constTypeHintFromTypeText], for annotations coming from dependencies. */
+internal fun constTypeHintFromConeType(type: ConeKotlinType): ConstTypeHint? {
+  val classId = (type as? ConeClassLikeType)?.lookupTag?.classId ?: return null
+  val fqName = classId.asFqNameString()
+  if (fqName == "kotlin.Array") {
+    val elementType =
+        (type.typeArguments.firstOrNull() as? ConeKotlinTypeProjection)?.type ?: return null
+    return constTypeHintFromConeType(elementType)
+  }
+  return constTypeHintFromTypeText(fqName.takeIf { it.startsWith("kotlin.") })
 }
 
 class JvmAbiGenService(session: FirSession, state: AbiGenState) :
@@ -1410,6 +1702,18 @@ class JvmAbiGenService(session: FirSession, state: AbiGenState) :
 
 class AbiGenState {
   val missingConstants: MutableMap<ClassId, Set<String>> = mutableMapOf()
+
+  /**
+   * Declared type of each synthesised constant, keyed by [constHintKey], recovered from the
+   * annotation parameter it is passed to. Absent means the type could not be established.
+   */
+  val constantTypeHints: MutableMap<String, ConstTypeHint> = mutableMapOf()
+
+  /** Constants whose usages disagreed about the type; treated the same as having no hint. */
+  val ambiguousConstantTypeHints: MutableSet<String> = mutableSetOf()
+
+  /** Every constant synthesised during this compilation. See [AbiGenRepairLog]. */
+  val fabricatedConstants: MutableList<FabricatedConstant> = mutableListOf()
   // Track methods from internal interfaces that need to be generated for classes
   // Key: owning class's ClassId, Value: List of interface method details
   val internalInterfaceMethods: MutableMap<ClassId, MutableList<InterfaceMethodInfo>> =

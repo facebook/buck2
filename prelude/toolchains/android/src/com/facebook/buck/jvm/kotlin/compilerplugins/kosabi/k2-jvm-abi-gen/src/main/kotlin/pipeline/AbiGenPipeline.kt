@@ -19,6 +19,7 @@ package com.facebook
 
 import java.io.File
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -66,6 +67,7 @@ import org.jetbrains.kotlin.ir.declarations.IrMetadataSourceOwner
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -80,7 +82,7 @@ import org.jetbrains.kotlin.psi.KtFile
  * - Strip annotations with errors from FIR metadata sources (post-IR)
  * - Strip private supertypes + fake override conversion (post-IR)
  */
-internal class FirMetadataSanitizerStage : AbiGenStage {
+internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog) : AbiGenStage {
   override val name = "FirMetadataSanitizer"
 
   /**
@@ -467,13 +469,23 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
               if (toRemove.isNotEmpty()) {
                 superTypeRefs.removeAll(toRemove)
 
+                for (classId in strippedSupertypeClassIds) {
+                  repairLog.recordStrippedSupertype(
+                      firClass.symbol.classId.asString(),
+                      "private supertype ${classId.asString()} removed from ABI",
+                  )
+                }
+
                 convertFirFakeOverridesFromStrippedPrivateSupertypes(
                     firClass,
                     strippedSupertypeClassIds,
                 )
               }
             } catch (e: Exception) {
-              // Reflection failures are silently ignored
+              repairLog.recordFailedRepair(
+                  firClass.symbol.classId.asString(),
+                  "could not strip private supertypes: ${e.javaClass.simpleName}: ${e.message}",
+              )
             }
           }
 
@@ -519,8 +531,17 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
                   firClass.moduleData.session.providedDeclarationsForMetadataService
                       .registerDeclaration(copiedMethod)
                 } catch (e: Exception) {
-                  // Registration failure is silently ignored
+                  repairLog.recordFailedRepair(
+                      "${firClass.symbol.classId.asString()}.$methodName",
+                      "could not register materialized interface method: " +
+                          "${e.javaClass.simpleName}: ${e.message}",
+                  )
                 }
+              } else {
+                repairLog.recordFailedRepair(
+                    "${firClass.symbol.classId.asString()}.$methodName",
+                    "could not copy method from stripped private interface",
+                )
               }
             }
           }
@@ -748,12 +769,30 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
     override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
       val initializer = property.initializer
       if (initializer != null && hasErrorExpressionRecursive(initializer)) {
+        val owner = property.symbol.callableId.toString()
         try {
           val initializerField = property.javaClass.getDeclaredField("initializer")
           initializerField.isAccessible = true
           initializerField.set(property, null)
-        } catch (_: Exception) {
-          // If reflection fails, skip this property
+          // A const val that loses its initializer is emitted without a ConstantValue attribute,
+          // so consumers that constant-fold it fail during their own compile rather than here.
+          // That reasoning only applies to a constant a consumer can actually see, hence the
+          // visibility, which [ValidationStage] filters on.
+          repairLog.recordClearedPropertyInitializer(
+              owner,
+              if (property.isConst) "const val, no ConstantValue will be emitted"
+              else "val initializer discarded",
+              isConst = property.isConst,
+              consumerVisible =
+                  property.status.visibility != Visibilities.Private &&
+                      property.status.visibility != Visibilities.PrivateToThis &&
+                      property.status.visibility != Visibilities.Local,
+          )
+        } catch (e: Exception) {
+          repairLog.recordFailedRepair(
+              owner,
+              "could not clear unresolvable initializer: ${e.javaClass.simpleName}: ${e.message}",
+          )
         }
       }
       super.visitProperty(property)
@@ -941,12 +980,12 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
  * - Strips private supertypes and converts fake overrides
  * - Stubs method bodies
  */
-internal class IrSanitizerStage : AbiGenStage {
+internal class IrSanitizerStage(private val repairLog: AbiGenRepairLog) : AbiGenStage {
   override val name = "IrSanitizer"
 
   /** Create the IR generation extension to be registered during FIR-to-IR conversion. */
   fun createExtension(sourceFiles: List<KtFile>): IrGenerationExtension {
-    return NonAbiDeclarationsStrippingIrExtension(sourceFiles)
+    return NonAbiDeclarationsStrippingIrExtension(sourceFiles, repairLog)
   }
 }
 
@@ -999,18 +1038,121 @@ internal class BytecodeSanitizerStage : AbiGenStage {
 /**
  * Validation stage.
  *
- * Checks for leftover references to private supertypes or error annotations that might have slipped
- * through the sanitization stages.
+ * Answers a single question: does the ABI about to be published differ from what a class-ABI build
+ * would have produced, in a way the jar itself cannot reveal?
+ *
+ * The failure mode this guards against is a *green* build that emits a subtly wrong ABI - a
+ * constant holding a placeholder instead of its real value, or a `const val` emitted with no
+ * `ConstantValue` attribute at all. Both produce well-formed bytecode, so nothing downstream of
+ * here can detect them; the only evidence is what the earlier stages recorded in [AbiGenRepairLog].
+ *
+ * Rollout: [AbiRepairPolicy.OFF] is the default, so this stage emits nothing unless a target asks
+ * for it via `abiValidationMode`. Warnings are not a softer setting here - fbsource builds Kotlin
+ * with `-Werror`, so `warn` fails the compile just as `error` does. Enabling it repo-wide therefore
+ * has to wait until the repairs it names have been driven out, not the other way round.
+ *
+ * The cleared-initializer check carries that visibility filter (Assertion 2 below): a `private
+ * const val` is not part of any consumer's constant folding, so repairing one silently is not the
+ * defect this stage is looking for. [unsoundConstants] needs no equivalent filter - a fabricated
+ * constant only ever reaches that path as an annotation argument, which is by construction
+ * consumer-visible.
  */
-internal class ValidationStage : AbiGenStage {
+internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenStage {
   override val name = "Validation"
 
-  fun validate(moduleFragment: IrModuleFragment, messageCollector: MessageCollector) {
-    // Placeholder for future validation checks.
-    // Potential checks:
-    // - Verify no IrClass has private supertypes remaining
-    // - Verify no FirMetadataSource has annotations with error expressions
-    // - Verify no bytecode references to stripped classes
+  fun validate(
+      moduleFragment: IrModuleFragment,
+      messageCollector: MessageCollector,
+      policy: AbiRepairPolicy,
+  ) {
+    if (policy == AbiRepairPolicy.OFF) return
+
+    // Always emitted, including at zero, so that "no repairs happened" is distinguishable from
+    // "validation did not run" when aggregating across a build.
+    messageCollector.report(CompilerMessageSeverity.INFO, repairLog.counterLine())
+
+    val severity =
+        if (policy == AbiRepairPolicy.ERROR) CompilerMessageSeverity.ERROR
+        else CompilerMessageSeverity.WARNING
+
+    // Assertion 1: every synthesised constant has a type consistent with a real declaration.
+    // Constants that reached ASSUMED_STRING have a fabricated type, not merely a fabricated value.
+    for (constant in repairLog.unsoundConstants()) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: constant `${constant.classId}.${constant.name}` was emitted " +
+              "with an assumed type of `String`. Neither its type nor its value could be " +
+              "established, so if the real constant is not a String this ABI is wrong in a way " +
+              "that will not surface until a consumer compiles against it.",
+      )
+    }
+
+    // Assertion 2: no *consumer-visible* const val silently lost its ConstantValue attribute.
+    //
+    // The visibility filter is not a convenience. Every one of the 12 constants this assertion
+    // named on its first repo-wide run was a `private const val` initialised from a constant
+    // declared in another buck target. A private companion constant takes part in no consumer's
+    // constant folding, so the message's own justification - "consumers that constant-fold it fail
+    // during their own compile" - cannot apply to it. Reporting those is a false positive, and
+    // since `warn` is fatal under `-Werror` a false positive here is a broken build. What they do
+    // expose is real but narrower, and belongs to a different check: Kosabi's const resolver is
+    // source-local and cannot read a constant's value off a dependency's ABI.
+    for (cleared in repairLog.clearedPropertyInitializers) {
+      if (!cleared.isConst) continue
+      if (!cleared.consumerVisible) continue
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: `${cleared.owner}` is a const val whose initializer could not " +
+              "be resolved and was discarded. It will be emitted without a ConstantValue " +
+              "attribute, so consumers that constant-fold it fail during their own compile.",
+      )
+    }
+
+    // Assertion 3: a repair that threw leaves the tree in an unknown state. Unlike a placeholder
+    // value there is no claim that can be made about the result at all, which makes this the first
+    // check that should be promoted to a hard error once the rate is known to be zero.
+    for (failure in repairLog.failedRepairs) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: repair of `${failure.owner}` failed and was previously " +
+              "swallowed: ${failure.detail}. The emitted ABI cannot be trusted.",
+      )
+    }
+
+    // Assertion 4: no private supertype survived into the emitted IR. Unlike the checks above this
+    // one is verifiable from the module itself, so it is checked directly rather than trusted.
+    val leakedSupertypes = mutableListOf<String>()
+    moduleFragment.accept(
+        object : IrElementVisitorVoidCompat() {
+          override fun visitElement(element: IrElement) {
+            element.acceptChildren(this, null)
+          }
+
+          override fun visitClass(declaration: IrClass) {
+            for (superType in declaration.superTypes) {
+              val superClass =
+                  (superType as? org.jetbrains.kotlin.ir.types.IrSimpleType)?.classifier?.owner
+                      as? IrClass ?: continue
+              if (
+                  superClass.visibility ==
+                      org.jetbrains.kotlin.descriptors.DescriptorVisibilities.PRIVATE
+              ) {
+                leakedSupertypes.add(
+                    "${declaration.kotlinFqName.asString()} -> ${superClass.kotlinFqName.asString()}",
+                )
+              }
+            }
+            super.visitClass(declaration)
+          }
+        },
+        null,
+    )
+    for (leaked in leakedSupertypes) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: private supertype survived stripping: $leaked",
+      )
+    }
   }
 }
 
@@ -1028,12 +1170,15 @@ internal class ValidationStage : AbiGenStage {
  * compiler infrastructure (FIR-to-IR conversion, code generation).
  */
 internal class AbiGenPipeline(
-    val firMetadataSanitizer: FirMetadataSanitizerStage = FirMetadataSanitizerStage(),
+    /** Shared by every stage; the only record of repairs the emitted jar cannot reveal. */
+    val repairLog: AbiGenRepairLog = AbiGenRepairLog(),
     val composeAbi: ComposeAbiEmulationStage = ComposeAbiEmulationStage(),
-    val irSanitizer: IrSanitizerStage = IrSanitizerStage(),
     val bytecodeSanitizer: BytecodeSanitizerStage = BytecodeSanitizerStage(),
-    val validator: ValidationStage = ValidationStage(),
 ) {
+  val firMetadataSanitizer: FirMetadataSanitizerStage = FirMetadataSanitizerStage(repairLog)
+  val irSanitizer: IrSanitizerStage = IrSanitizerStage(repairLog)
+  val validator: ValidationStage = ValidationStage(repairLog)
+
   val stages: List<AbiGenStage>
     get() = listOf(firMetadataSanitizer, composeAbi, irSanitizer, bytecodeSanitizer, validator)
 }
