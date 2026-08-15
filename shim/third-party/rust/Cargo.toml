@@ -224,7 +224,7 @@ test-case = "3.3.1"
 textwrap = { version = "0.16.0", features = ["terminal_size"] }
 thiserror = "2.0.19"
 threadpool = "1.8.1"
-tokio = { version = "1.52.4", features = ["full", "test-util", "tracing"] }
+tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
 tokio-retry = "0.3.2"
 tokio-rustls = { version = "0.26.4", features = ["logging", "ring", "tls12"], default-features = false }
 tokio-stream = { version = "0.1.19", features = ["fs", "io-util", "net", "signal", "sync", "time"] }
