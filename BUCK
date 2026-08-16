@@ -64,4 +64,5 @@ buck2_bundle(
 alias(
     name = "symlinked_buck2_and_tpx",
     actual = ":buck2_bundle",
+    modifiers = buck2_modifiers(),
 )
