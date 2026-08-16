@@ -757,10 +757,26 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         self,
         opts: AttrInspectOptions,
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
-        self.0.get().target_node.attrs(opts).map(move |a| {
-            a.configure(&self.attr_configuration_context())
-                .expect_compatible("checked attr configuration in constructor")
-        })
+        self.filter_attrs(opts, |_| true)
+    }
+
+    /// Like [`attrs`](Self::attrs), but only configures attributes whose unconfigured
+    /// form passes `filter`. Configuration is the expensive step, so callers that
+    /// need a subset should filter with this rather than discarding configured attrs.
+    pub fn filter_attrs(
+        self,
+        opts: AttrInspectOptions,
+        filter: impl Fn(&CoercedAttrFull) -> bool + 'a,
+    ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
+        self.0
+            .get()
+            .target_node
+            .attrs(opts)
+            .filter(move |a| filter(a))
+            .map(move |a| {
+                a.configure(&self.attr_configuration_context())
+                    .expect_compatible("checked attr configuration in constructor")
+            })
     }
 
     pub fn get(self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttrFull<'a>> {
@@ -819,12 +835,9 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             }
         }
 
-        for a in self.attrs(AttrInspectOptions::All) {
-            // Optimization.
-            if !a.attr.coercer().0.may_have_queries {
-                continue;
-            }
-
+        for a in self.filter_attrs(AttrInspectOptions::All, |a| {
+            a.attr.coercer().0.may_have_queries
+        }) {
             a.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.queries.into_iter()
