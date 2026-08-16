@@ -51,7 +51,7 @@ bumpalo = { version = "3.20.3", features = ["allocator_api", "collections"] }
 bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
 byteorder = "1.5"
 bytes = { version = "1.12.1", features = ["serde"] }
-bytesize = "2.4.2"
+bytesize = "2.7.0"
 chrono = { version = "0.4.45", features = ["clock", "serde", "std"], default-features = false }
 clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 clap_complete = { version = "4.6.9", features = ["unstable-dynamic"] }
