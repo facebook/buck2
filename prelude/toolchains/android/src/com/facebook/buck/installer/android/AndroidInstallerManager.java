@@ -69,13 +69,16 @@ class AndroidInstallerManager implements InstallCommand {
   public InstallResult fileReady(String artifactName, Path artifactPath, InstallId installId) {
     try {
       AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
-      androidArtifacts.recordFileArrival(artifactName, System.currentTimeMillis());
+      long arrivedAt = System.currentTimeMillis();
 
       if (artifactName.equals("cpu_filters")) {
+        androidArtifacts.recordFileArrival(artifactName, arrivedAt);
         return checkAbiCompatibility(AbsPath.of(artifactPath));
       }
-
       recordArtifactPath(androidArtifacts, artifactName, artifactPath);
+      // After the path, never before: an artifact counted as arrived while its path is still unset
+      // reads as usable to anyone judging readiness from arrivals.
+      androidArtifacts.recordFileArrival(artifactName, arrivedAt);
 
       return InstallResult.success();
     } catch (Exception err) {
