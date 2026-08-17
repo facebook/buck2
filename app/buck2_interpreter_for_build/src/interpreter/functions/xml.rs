@@ -80,17 +80,25 @@ fn parse_attrs(
 
 /// Parse an XML string into a tree of `XmlElement`s using quick-xml's streaming reader.
 fn parse_xml(input: &str) -> Result<XmlElement, XmlDecodeError> {
+    let mut buf = Vec::new();
     let mut reader = Reader::from_str(input);
-    reader.config_mut().trim_text(true);
 
     let mut stack: Vec<XmlElement> = Vec::new();
     let mut root: Option<XmlElement> = None;
+    let mut next_event: Option<Event> = None;
 
     loop {
-        match reader
-            .read_event()
-            .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?
-        {
+        let mut event = match next_event {
+            Some(next_event) => next_event,
+            None => {
+                buf.clear();
+                reader
+                    .read_event_into(&mut buf)
+                    .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?
+            }
+        };
+        next_event = None;
+        match event {
             Event::Start(e) => {
                 let tag = String::from_utf8(e.name().as_ref().to_vec())
                     .map_err(|_| XmlDecodeError::Utf8Error)?;
@@ -126,13 +134,47 @@ fn parse_xml(input: &str) -> Result<XmlElement, XmlDecodeError> {
                     root = Some(elem);
                 }
             }
-            Event::Text(e) => {
-                let text = e
-                    .unescape()
-                    .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?
-                    .into_owned();
+            Event::Text(_) | Event::GeneralRef(_) => {
+                let mut text = String::new();
+                loop {
+                    // Consume consecutive Text and GeneralRef events.
+                    match event {
+                        Event::Text(e) => {
+                            let fragment = e
+                                .decode()
+                                .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?;
+                            text.push_str(&fragment);
+                        }
+                        Event::GeneralRef(e) => {
+                            if e.is_char_ref() {
+                                if let Some(ch) = e
+                                    .resolve_char_ref()
+                                    .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?
+                                {
+                                    text.push(ch);
+                                }
+                            } else {
+                                let entity = e
+                                    .decode()
+                                    .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?;
+                                if let Some(value) = quick_xml::escape::resolve_xml_entity(&entity)
+                                {
+                                    text.push_str(value);
+                                }
+                            }
+                        }
+                        _ => {
+                            next_event = Some(event);
+                            break;
+                        }
+                    }
+                    buf.clear();
+                    event = reader
+                        .read_event_into(&mut buf)
+                        .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?;
+                }
                 if let Some(current) = stack.last_mut() {
-                    current.text.push_str(&text);
+                    current.text.push_str(text.trim_ascii());
                 }
             }
             Event::CData(e) => {
