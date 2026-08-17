@@ -52,8 +52,12 @@ class AndroidArtifacts implements InstallTimings {
     }
   }
 
-  // Stage timings, written from the install thread and read once the install is over.
-  private final Map<String, long[]> pushWindows = new LinkedHashMap<>();
+  // Stage timings. Written from the push threads, several at once, and read when the install is
+  // over, which is what the synchronization on these methods is for.
+  // Every shard's window, per push group. Kept separately rather than spanned: shards of a group
+  // overlap each other and queue behind other groups, so only the union of these is time the group
+  // was actually transferring.
+  private final Map<String, List<long[]>> pushWindows = new LinkedHashMap<>();
   private long deviceSetupMillis;
   private long apkInstallMillis;
   private long deviceWorkMillis;
@@ -65,11 +69,9 @@ class AndroidArtifacts implements InstallTimings {
 
   @Override
   public synchronized void recordPush(String group, long startMillis, long endMillis) {
-    // A group may be pushed as several concurrent shards; the group spans all of them.
-    pushWindows.merge(
-        group,
-        new long[] {startMillis, endMillis},
-        (a, b) -> new long[] {Math.min(a[0], b[0]), Math.max(a[1], b[1])});
+    pushWindows
+        .computeIfAbsent(group, unused -> new ArrayList<>())
+        .add(new long[] {startMillis, endMillis});
   }
 
   @Override
@@ -116,8 +118,8 @@ class AndroidArtifacts implements InstallTimings {
     // Replay: one pusher, each payload started as soon as it was available.
     List<long[]> payloads = new ArrayList<>(); // {availableAt, durationMillis}
     long metadataMillis = 0L;
-    for (Map.Entry<String, long[]> push : pushWindows.entrySet()) {
-      long duration = push.getValue()[1] - push.getValue()[0];
+    for (Map.Entry<String, List<long[]>> push : pushWindows.entrySet()) {
+      long duration = unionMillis(push.getValue());
       ArtifactClass pushed = ArtifactClass.forPushGroup(push.getKey());
       if (pushed == null) {
         metadataMillis += duration; // metadata is derived, so it can only follow every payload
@@ -151,8 +153,8 @@ class AndroidArtifacts implements InstallTimings {
     // Without this the replay looks faster than anything achievable and every install appears to
     // have a saving.
     long modelled = deviceSetupMillis + apkInstallMillis;
-    for (long[] window : pushWindows.values()) {
-      modelled += window[1] - window[0];
+    for (List<long[]> windows : pushWindows.values()) {
+      modelled += unionMillis(windows);
     }
     clock += Math.max(0L, deviceWorkMillis - modelled);
 
@@ -183,12 +185,41 @@ class AndroidArtifacts implements InstallTimings {
     if (artifactClass == ArtifactClass.APK) {
       return apkInstallMillis;
     }
-    for (Map.Entry<String, long[]> push : pushWindows.entrySet()) {
+    for (Map.Entry<String, List<long[]>> push : pushWindows.entrySet()) {
       if (ArtifactClass.forPushGroup(push.getKey()) == artifactClass) {
-        return push.getValue()[1] - push.getValue()[0];
+        return unionMillis(push.getValue());
       }
     }
     return 0L;
+  }
+
+  /**
+   * Time a group spent transferring: the union of its shards' windows. Overlapping shards count
+   * once, and a gap where every shard was queued behind another group counts for nothing -- the
+   * span between the first start and the last end would charge the group for both.
+   */
+  private static long unionMillis(List<long[]> windows) {
+    long total = 0L;
+    for (long[] window : coalesce(windows)) {
+      total += window[1] - window[0];
+    }
+    return total;
+  }
+
+  /** The windows in order, with overlapping ones fused so each instant appears once. */
+  private static List<long[]> coalesce(List<long[]> windows) {
+    List<long[]> sorted = new ArrayList<>(windows);
+    sorted.sort(Comparator.comparingLong(window -> window[0]));
+    List<long[]> fused = new ArrayList<>();
+    for (long[] window : sorted) {
+      long[] open = fused.isEmpty() ? null : fused.get(fused.size() - 1);
+      if (open != null && window[0] <= open[1]) {
+        open[1] = Math.max(open[1], window[1]);
+      } else {
+        fused.add(new long[] {window[0], window[1]});
+      }
+    }
+    return fused;
   }
 
   private static String seconds(long millis) {
@@ -201,10 +232,13 @@ class AndroidArtifacts implements InstallTimings {
    */
   private int observedConcurrency() {
     List<long[]> edges = new ArrayList<>();
-    for (long[] window : pushWindows.values()) {
-      if (window[1] > window[0]) {
-        edges.add(new long[] {window[0], 1L});
-        edges.add(new long[] {window[1], -1L});
+    for (List<long[]> windows : pushWindows.values()) {
+      // Fused first: a group's own shards overlapping is not two payloads in flight.
+      for (long[] window : coalesce(windows)) {
+        if (window[1] > window[0]) {
+          edges.add(new long[] {window[0], 1L});
+          edges.add(new long[] {window[1], -1L});
+        }
       }
     }
     // Ends before starts at the same instant, so touching windows are not counted as overlapping.

@@ -199,9 +199,9 @@ public class AndroidArtifactsTest {
     assertEquals("0.000", metrics.get("potential_saving_s"));
   }
 
-  /** A group pushed as several concurrent shards spans all of them. */
+  /** Shards of one group overlapping is one payload transferring, not two. */
   @Test
-  public void shardsOfOneGroupAreMergedIntoOneWindow() {
+  public void overlappingShardsOfOneGroupCountOnce() {
     AndroidArtifacts artifacts = new AndroidArtifacts();
     artifacts.recordFileArrival("options", T0);
     artifacts.recordFileArrival("native_library_exopackage_info_directory", T0);
@@ -209,6 +209,38 @@ public class AndroidArtifactsTest {
     artifacts.recordPush("native_library", 2_000L, 6_000L);
 
     assertEquals("8.000", artifacts.getInstallMetrics(T0 + 10_000L).get("native_transfer_s"));
+  }
+
+  /**
+   * Shards are recorded when they finish, so a long one started first is recorded last. Coalescing
+   * has to order them itself; taking them as given would drop everything before the first record.
+   */
+  @Test
+  public void shardsRecordedOutOfOrderStillCoalesce() {
+    AndroidArtifacts artifacts = new AndroidArtifacts();
+    artifacts.recordFileArrival("options", T0);
+    artifacts.recordFileArrival("native_library_exopackage_info_directory", T0);
+    // The short shard finishes first, so it is recorded before the long one that started earlier.
+    artifacts.recordPush("native_library", 1_000L, 5_000L);
+    artifacts.recordPush("native_library", 0L, 30_000L);
+
+    assertEquals("30.000", artifacts.getInstallMetrics(T0 + 40_000L).get("native_transfer_s"));
+  }
+
+  /**
+   * Shards queue behind other groups, so a group can be idle between its own shards. That gap is
+   * not transfer time -- the span from first start to last end would charge the group for it.
+   */
+  @Test
+  public void aGapBetweenShardsOfOneGroupIsNotTransferTime() {
+    AndroidArtifacts artifacts = new AndroidArtifacts();
+    artifacts.recordFileArrival("options", T0);
+    artifacts.recordFileArrival("native_library_exopackage_info_directory", T0);
+    artifacts.recordPush("native_library", 0L, 10_000L);
+    // Queued behind another group for ten seconds, then transferring again.
+    artifacts.recordPush("native_library", 20_000L, 30_000L);
+
+    assertEquals("20.000", artifacts.getInstallMetrics(T0 + 40_000L).get("native_transfer_s"));
   }
 
   /**

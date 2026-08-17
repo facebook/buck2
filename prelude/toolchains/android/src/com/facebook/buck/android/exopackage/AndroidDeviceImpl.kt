@@ -546,9 +546,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             tempFolders.forEach { (destination, source) ->
               try {
                 executeAdbCommand("push -z brotli $source $stagingDir")
+                // In staging, where the glob covers this shard's files and nothing else. The
+                // destination holds every shard's, so chmodding there costs the whole directory
+                // once per shard. The app will not start if its dex files are writable.
+                executeAdbShellCommand("chmod 644 $stagingDir/${source.fileName}/*")
                 executeAdbShellCommand("mv $stagingDir/${source.fileName}/* $destination")
-                // instagram will fail to star if dex files are writable
-                executeAdbShellCommand("chmod 644 $destination/*")
               } catch (e: AdbCommandFailedException) {
                 throw AndroidInstallException.adbCommandFailedException(
                     "Failed to push $source to $destination.",
@@ -582,6 +584,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             executeAdbCommandCatching(
                 "push $source $destination",
                 "Failed to push $source to $destination.",
+            )
+            // As for the payloads above: nothing the app reads is left writable. One named file
+            // rather than a glob, since these are pushed one at a time.
+            executeAdbShellCommandCatching(
+                "chmod 644 $destination",
+                "Failed to set permissions on $destination.",
             )
           }
         }

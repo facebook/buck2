@@ -31,20 +31,23 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.jetbrains.annotations.Nullable;
 
 /** ExopackageInstaller manages the installation of apps with the "exopackage" flag set to true. */
 @Nullsafe(Nullsafe.Mode.LOCAL)
@@ -67,6 +70,15 @@ public class ExopackageInstaller {
   private static final int RM_GROUPING_THRESHOLD = 10;
 
   private static final long BYTES_PER_BLOCK = 1024L;
+
+  private static final int MAX_CONCURRENT_PUSHES = 8;
+
+  private static final long TARGET_SHARD_BYTES = 32L * 1024L * 1024L;
+
+  private static final ExecutorService PUSH_EXECUTOR =
+      Executors.newFixedThreadPool(
+          MAX_CONCURRENT_PUSHES,
+          new ThreadFactoryBuilder().setNameFormat("exopackage-push-%d").setDaemon(true).build());
 
   public static final Path EXOPACKAGE_INSTALL_ROOT = Paths.get("/data/local/tmp/exopackage/");
 
@@ -246,11 +258,150 @@ public class ExopackageInstaller {
       ImmutableSortedSet<Path> presentFiles, ImmutableList<ResolvedExoPayload> payloads)
       throws Exception {
     ImmutableMap.Builder<Path, String> metadata = ImmutableMap.builder();
+    ImmutableList.Builder<PushShard> shards = ImmutableList.builder();
     for (ResolvedExoPayload payload : payloads) {
-      installMissingFiles(presentFiles, payload, metadata);
+      ImmutableSortedMap<Path, Path> filesToInstall =
+          payload.filesToInstall.entrySet().stream()
+              .filter(entry -> !presentFiles.contains(entry.getKey()))
+              .collect(
+                  ImmutableSortedMap.toImmutableSortedMap(
+                      Ordering.natural(), Map.Entry::getKey, Map.Entry::getValue));
+      shards.addAll(
+          splitIntoShards(payload.type, filesToInstall, rootPath, dataRoot, TARGET_SHARD_BYTES));
+      if (!skipMetadataIfNoInstalls || !filesToInstall.isEmpty()) {
+        metadata.putAll(payload.metadataToInstall);
+      }
     }
+
+    pushShards(shards.build());
+
     // Metadata is what the app reads to find these files, so it must not land before them.
     installMetadata(metadata.build());
+  }
+
+  /**
+   * Splits a payload into roughly equal chunks by size.
+   *
+   * <p>A single `adb push` is limited by per-stream round trips rather than by bandwidth or by the
+   * host, so concurrent pushes scale close to linearly. Sharding by bytes rather than by payload
+   * matters because native libs alone are over half the total, and pushing one payload per stream
+   * leaves that stream setting the wall time on its own.
+   */
+  @VisibleForTesting
+  static ImmutableList<PushShard> splitIntoShards(
+      String filesType,
+      ImmutableSortedMap<Path, Path> filesToInstall,
+      AbsPath rootPath,
+      Path dataRoot,
+      long targetShardBytes) {
+    ImmutableList.Builder<PushShard> shards = ImmutableList.builder();
+    ImmutableMap.Builder<Path, Path> current = ImmutableMap.builder();
+    long currentBytes = 0L;
+    boolean currentIsEmpty = true;
+
+    for (Map.Entry<Path, Path> file : filesToInstall.entrySet()) {
+      Path localPath = rootPath.resolve(file.getValue()).getPath();
+      current.put(dataRoot.resolve(file.getKey()), localPath);
+      currentBytes += localPath.toFile().length();
+      currentIsEmpty = false;
+      // A shard can never be smaller than a single file, so a payload of one huge file stays whole.
+      if (currentBytes >= targetShardBytes) {
+        shards.add(new PushShard(filesType, current.build()));
+        current = ImmutableMap.builder();
+        currentBytes = 0L;
+        currentIsEmpty = true;
+      }
+    }
+    if (!currentIsEmpty) {
+      shards.add(new PushShard(filesType, current.build()));
+    }
+    return shards.build();
+  }
+
+  /** Pushes every shard, up to {@link #MAX_CONCURRENT_PUSHES} at a time. */
+  private void pushShards(ImmutableList<PushShard> shards) throws Exception {
+    if (shards.isEmpty()) {
+      return;
+    }
+    try (AutoCloseable ignored = device.createForward()) {
+      // Create every destination directory up front: shards from one payload share a directory,
+      // and concurrent mkdir -p of the same path is pointless work at best.
+      ImmutableSet<Path> destinationDirs =
+          shards.stream()
+              .flatMap(shard -> shard.installPaths.keySet().stream())
+              .map(Path::getParent)
+              .filter(Objects::nonNull)
+              .collect(ImmutableSet.toImmutableSet());
+      for (Path destinationDir : destinationDirs) {
+        device.mkDirP(destinationDir.toString());
+      }
+
+      List<Future<Void>> pushes = new ArrayList<>(shards.size());
+      for (PushShard shard : shards) {
+        pushes.add(
+            PUSH_EXECUTOR.submit(
+                () -> {
+                  pushShard(shard);
+                  return null;
+                }));
+      }
+      awaitAll(pushes);
+    }
+  }
+
+  private void pushShard(PushShard shard) throws Exception {
+    long start = System.currentTimeMillis();
+    device.installFiles(shard.filesType, shard.installPaths, packageName);
+    // Each shard records its own window; the group's transfer time is their union.
+    timings.recordPush(shard.filesType, start, System.currentTimeMillis());
+  }
+
+  /**
+   * Waits for every push, reporting the first failure with any others attached.
+   *
+   * <p>Deliberately does not cancel the rest once one fails. A thread blocked reading an {@code
+   * adb} subprocess does not observe an interrupt, so cancelling would not stop the transfer -- it
+   * would only stop us waiting for it, leaving shards writing to the device after the install has
+   * been called failed, and skipping the scratch each one removes on its way out. The cost is that
+   * a failing install takes as long as its slowest shard.
+   *
+   * <p>Interruption is the exception: it means the process is going away, so it stops waiting and
+   * leaves whatever is in flight to die with the JVM.
+   */
+  private static void awaitAll(List<Future<Void>> pushes) throws Exception {
+    Exception failure = null;
+    for (Future<Void> push : pushes) {
+      try {
+        push.get();
+      } catch (ExecutionException e) {
+        Exception cause = e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+        if (failure == null) {
+          failure = cause;
+        } else {
+          // Every shard that failed, not just the first: they fail independently, and which one
+          // arrives first says nothing about which one explains the install.
+          failure.addSuppressed(cause);
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw e;
+      }
+    }
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  /** One concurrently pushable chunk of a payload. */
+  @VisibleForTesting
+  static final class PushShard {
+    final String filesType;
+    final ImmutableMap<Path, Path> installPaths;
+
+    PushShard(String filesType, ImmutableMap<Path, Path> installPaths) {
+      this.filesType = filesType;
+      this.installPaths = installPaths;
+    }
   }
 
   /**
@@ -372,25 +523,6 @@ public class ExopackageInstaller {
     return result;
   }
 
-  private void installMissingFiles(
-      ImmutableSortedSet<Path> presentFiles,
-      ResolvedExoPayload payload,
-      @Nullable ImmutableMap.Builder<Path, String> metadataToInstall)
-      throws Exception {
-    ImmutableSortedMap<Path, Path> filesToInstall =
-        payload.filesToInstall.entrySet().stream()
-            .filter(entry -> !presentFiles.contains(entry.getKey()))
-            .collect(
-                ImmutableSortedMap.toImmutableSortedMap(
-                    Ordering.natural(), Map.Entry::getKey, Map.Entry::getValue));
-
-    installFiles(payload.type, filesToInstall);
-
-    if (metadataToInstall != null && (!skipMetadataIfNoInstalls || !filesToInstall.isEmpty())) {
-      metadataToInstall.putAll(payload.metadataToInstall);
-    }
-  }
-
   private void deleteUnwantedFiles(
       ImmutableSortedSet<Path> presentFiles, ImmutableSet<Path> wantedFiles) {
     ImmutableSortedSet<Path> filesToDelete =
@@ -422,42 +554,20 @@ public class ExopackageInstaller {
     }
   }
 
-  private void installFiles(String filesType, ImmutableMap<Path, Path> filesToInstall)
-      throws Exception {
-    try (AutoCloseable ignored = device.createForward()) {
-      // Make sure all the directories exist.
-      for (Path parent :
-          filesToInstall.keySet().stream()
-              .map(p -> dataRoot.resolve(p).getParent())
-              .distinct()
-              .collect(Collectors.toList())) {
-        device.mkDirP(parent.toString());
-      }
-      // Plan the installation.
-      Map<Path, Path> installPaths =
-          filesToInstall.entrySet().stream()
-              .collect(
-                  Collectors.toMap(
-                      entry -> dataRoot.resolve(entry.getKey()),
-                      entry -> rootPath.resolve(entry.getValue()).getPath()));
-      // Install the files.
-      long pushStart = System.currentTimeMillis();
-      device.installFiles(filesType, installPaths, packageName);
-      timings.recordPush(filesType, pushStart, System.currentTimeMillis());
-    }
-  }
-
   private void installMetadata(ImmutableMap<Path, String> metadataToInstall) throws Exception {
     try (Closer closer = Closer.create()) {
-      Map<Path, Path> filesToInstall = new HashMap<>();
+      ImmutableMap.Builder<Path, Path> filesToInstall = ImmutableMap.builder();
       for (Map.Entry<Path, String> entry : metadataToInstall.entrySet()) {
         NamedTemporaryFile temp =
             Objects.requireNonNull(closer.register(new NamedTemporaryFile("metadata", "tmp")));
         com.google.common.io.Files.write(
             entry.getValue().getBytes(StandardCharsets.UTF_8), temp.get().toFile());
-        filesToInstall.put(entry.getKey(), temp.get());
+        filesToInstall.put(
+            dataRoot.resolve(entry.getKey()), rootPath.resolve(temp.get()).getPath());
       }
-      installFiles("metadata", ImmutableMap.copyOf(filesToInstall));
+      // Pushed as one shard, through the same path as every payload. It stays inside the closer:
+      // the temporary files it names are deleted when that closes.
+      pushShards(ImmutableList.of(new PushShard("metadata", filesToInstall.build())));
     }
   }
 
