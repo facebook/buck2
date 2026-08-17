@@ -10,12 +10,8 @@
 
 package com.facebook.buck.installer.android;
 
-import com.facebook.buck.android.AdbExecutionContext;
 import com.facebook.buck.android.AdbHelper;
-import com.facebook.buck.android.AdbOptions;
 import com.facebook.buck.android.IsolatedApkInfo;
-import com.facebook.buck.android.device.TargetDeviceOptions;
-import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
@@ -73,53 +69,17 @@ class AndroidInstall {
     this.cliOptions = cliOptions;
     this.artifacts = artifacts;
 
-    // Set-up adbOptions
-    AdbOptions adbOptions =
-        new AdbOptions(
-            cliOptions.adbExecutablePath,
-            cliOptions.adbThreadCount,
-            cliOptions.adbServerPort,
-            cliOptions.multiInstallMode,
-            apkOptions.stagedInstallMode,
-            cliOptions.ignoreMissingDevices,
-            apkOptions.apexMode,
-            cliOptions.restartMode.name(),
-            cliOptions.waitForDeviceReady);
-    LOG.info("adbOptions: " + adbOptions);
-
-    TargetDeviceOptions targetDeviceOptions =
-        new TargetDeviceOptions(
-            cliOptions.useEmulatorsOnlyMode,
-            cliOptions.useRealDevicesOnlyMode,
-            Optional.ofNullable(cliOptions.serialNumber));
-    LOG.info("targetDeviceOptions: " + targetDeviceOptions);
-
     this.stderr = new ByteArrayOutputStream();
     Console console =
         new Console(
             Verbosity.STANDARD_INFORMATION,
             new PrintStream(ByteStreams.nullOutputStream()),
             new PrintStream(stderr));
-    SetDebugAppMode setDebugAppMode = SetDebugAppMode.SET;
-    if (cliOptions.skipSetDebugApp) {
-      setDebugAppMode = SetDebugAppMode.SKIP;
-    }
-    AdbUtils adbUtils =
-        new AdbUtils(
-            Optional.of(apkOptions.adbExecutable)
-                .orElseThrow(AndroidInstallException.Companion::adbPathNotFound),
-            adbOptions.getAdbServerPort());
+    SetDebugAppMode setDebugAppMode =
+        cliOptions.skipSetDebugApp ? SetDebugAppMode.SKIP : SetDebugAppMode.SET;
     this.adbHelper =
-        new AdbHelper(
-            adbUtils,
-            adbOptions,
-            targetDeviceOptions,
-            new AdbExecutionContext(console),
-            new IsolatedAndroidInstallerPrinter(logger),
-            apkOptions.restartAdbOnFailure,
-            apkOptions.skipInstallMetadata,
-            setDebugAppMode,
-            artifacts);
+        AdbHelperFactory.create(
+            logger, cliOptions, apkOptions, console, setDebugAppMode, artifacts);
   }
 
   /** Uses AdbHelper to do actual install with APK */
