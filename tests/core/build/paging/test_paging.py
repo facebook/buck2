@@ -175,18 +175,19 @@ async def test_config_change_after_page_out_analysis_validation(buck: Buck) -> N
         "expected the paged-out analysis graph to be revalidated after an "
         "unrelated command-line configuration change"
     )
-    assert analysis_page_ins == 0, (
-        "dependency validation should not materialize paged-out AnalysisKey values; "
-        f"checks={analysis_checks}, computes={analysis_computes}, page_ins={analysis_page_ins}"
-    )
     with pytest.raises(
         AssertionError,
-        match="the unrelated configuration change should be cut off",
+        match="dependency validation should not materialize",
     ):
-        assert analysis_computes == 0, (
-            "the unrelated configuration change should be cut off without rerunning analysis; "
-            f"checks={analysis_checks}, computes={analysis_computes}"
+        assert analysis_page_ins == 0, (
+            "dependency validation should not materialize paged-out AnalysisKey values; "
+            f"checks={analysis_checks}, computes={analysis_computes}, "
+            f"page_ins={analysis_page_ins}"
         )
+    assert analysis_computes == 0, (
+        "the unrelated configuration change should be cut off without rerunning analysis; "
+        f"checks={analysis_checks}, computes={analysis_computes}"
+    )
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)

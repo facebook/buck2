@@ -25,6 +25,7 @@ use dice::DiceTransactionUpdater;
 use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
+use dice::NoValueSerialize;
 use dice::OkPagableValueSerialize;
 use dice::PagableValueSerialize;
 use dice::ProjectionKey;
@@ -216,7 +217,7 @@ impl ProjectionKey for StarlarkProfileModeForKind {
     type Value = buck2_error::Result<StarlarkProfileMode>;
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
+        NoValueSerialize::<Self::Value>::new()
     }
 
     fn compute(

@@ -27,6 +27,7 @@ use dice::DiceTransactionUpdater;
 use dice::EqualityBehavior;
 use dice::InjectedKey;
 use dice::Key;
+use dice::NoValueSerialize;
 use dice::OkPagableValueSerialize;
 use dice::OpaqueValue;
 use dice::PagableValueSerialize;
@@ -266,29 +267,7 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        struct T;
-        impl ValueSerialize for T {
-            type Value = <LegacyBuckConfigErrorKey as ProjectionKey>::Value;
-
-            fn pagable_serialize_value(
-                &self,
-                v: &Self::Value,
-                _ser: &mut dyn pagable::PagableSerializer,
-            ) -> Option<pagable::Result<()>> {
-                match v {
-                    Some(_) => unimplemented!(),
-                    None => Some(Ok(())),
-                }
-            }
-
-            fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
-                &self,
-                _deser: &mut D,
-            ) -> pagable::Result<Self::Value> {
-                Ok(None)
-            }
-        }
-        T
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -324,7 +303,7 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        PagableValueSerialize::<Self::Value>::new()
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
