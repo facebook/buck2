@@ -21,6 +21,8 @@ use dice::CancellationContext;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceEvent;
+use dice::DiceEventListener;
 use dice::DiceKeyDyn;
 use dice::DiceStorage;
 use dice::EqualityBehavior;
@@ -29,6 +31,7 @@ use dice::Key;
 use dice::NoValueSerialize;
 use dice::PagableStorageBackend;
 use dice::PagableValueSerialize;
+use dice::UserComputationData;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -503,6 +506,316 @@ async fn page_in_scopes_starlark_heaps_by_dice_root_impl()
     assert_eq!(
         old_target.count, 111,
         "B0 must not resolve its target through A1's H1 state",
+    );
+
+    Ok(())
+}
+
+#[derive(Default, Allocative)]
+struct CollisionEventRecorder {
+    #[allocative(skip)]
+    events: Mutex<Vec<DiceEvent>>,
+}
+
+impl CollisionEventRecorder {
+    fn count_check_deps(&self, key_type: &'static str) -> usize {
+        self.events
+            .lock()
+            .expect("collision event recorder poisoned")
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    DiceEvent::CheckDepsStarted {
+                        key_type: actual,
+                    } if *actual == key_type
+                )
+            })
+            .count()
+    }
+
+    fn count_computes(&self, key_type: &'static str) -> usize {
+        self.events
+            .lock()
+            .expect("collision event recorder poisoned")
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    DiceEvent::ComputeStarted {
+                        key_type: actual,
+                    } if *actual == key_type
+                )
+            })
+            .count()
+    }
+
+    fn hydration_errors(&self, key_type: &'static str) -> Vec<String> {
+        self.events
+            .lock()
+            .expect("collision event recorder poisoned")
+            .iter()
+            .filter_map(|event| match event {
+                DiceEvent::HydrationFailed {
+                    key_type: actual,
+                    error,
+                } if *actual == key_type => Some(error.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn clear(&self) {
+        self.events
+            .lock()
+            .expect("collision event recorder poisoned")
+            .clear();
+    }
+}
+
+impl DiceEventListener for CollisionEventRecorder {
+    fn event(&self, event: DiceEvent) {
+        self.events
+            .lock()
+            .expect("collision event recorder poisoned")
+            .push(event);
+    }
+}
+
+fn user_data_with_recorder(recorder: &Arc<CollisionEventRecorder>) -> UserComputationData {
+    UserComputationData {
+        tracker: recorder.clone(),
+        ..Default::default()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct CollisionHeapKey;
+
+#[async_trait]
+impl Key for CollisionHeapKey {
+    type Value = ScopeHeapValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let _generation = ctx
+            .compute(&ScopeGenerationInput(1))
+            .await
+            .expect("injected heap generation should compute");
+        ScopeHeapValue::new(OwnedFrozen::build(
+            FrozenHeapName::user("dice_collision_dependency"),
+            |heap| {
+                heap.alloc_simple(ScopeLeafData {
+                    flag: true,
+                    count: 333,
+                })
+                .to_value()
+            },
+        ))
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        ScopeHeapValueSerialize
+    }
+}
+
+#[derive(Clone, Dupe, Allocative, Pagable)]
+struct CollisionRootValue {
+    direct: OwnedFrozen<Value<'static>>,
+    enclosing: OwnedFrozen<Value<'static>>,
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct CollisionRootInput;
+
+impl InjectedKey for CollisionRootInput {
+    type Value = CollisionRootValue;
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct CollisionRootKey;
+
+#[async_trait]
+impl Key for CollisionRootKey {
+    type Value = CollisionRootValue;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        ctx.compute(&CollisionRootInput)
+            .await
+            .expect("collision root input should compute")
+            .clone()
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|_x, _y| false)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// Reproduces the production cache-substitution sequence without constructing
+/// an inconsistent root up front:
+///
+/// ```text
+/// page out C0 -> H0
+/// change C's dependency, recompute C1 -> H1, then hydrate C0 for equality
+///
+/// construct R1:
+/// R1.direct    -> H1
+/// R1.enclosing -> P1 -> H1
+///
+/// page out R1
+///
+/// page in R1:
+///   direct heap key    -> strong Arc-cache hit for H0, binding X -> H0
+///   enclosing heap key -> resident P1 -> H1, conflicting with X -> H0
+/// ```
+///
+/// `H0` and `H1` are distinct allocations with the same name and serialized
+/// contents. Before page-out, both paths in `R1` point to the exact `H1`
+/// allocation; the mixed graph is introduced only by page-in.
+#[tokio::test]
+async fn page_in_substitutes_cached_heap_into_consistent_dice_root() {
+    page_in_substitutes_cached_heap_into_consistent_dice_root_impl()
+        .await
+        .expect("heap cache-substitution reproduction should complete");
+}
+
+async fn page_in_substitutes_cached_heap_into_consistent_dice_root_impl()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let tmp = tempdir()?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let mut builder = Dice::builder();
+    builder.set_pagable_storage(storage);
+    let dice = builder.build(DetectCycles::Disabled);
+    let recorder = Arc::new(CollisionEventRecorder::default());
+
+    let mut updater = dice.updater();
+    updater.changed_to([(ScopeGenerationInput(1), 0)])?;
+    let tx = updater.commit().await;
+    let c0 = tx.compute(&CollisionHeapKey).await?.clone_owned();
+    assert_eq!(
+        c0.as_ref()
+            .value()
+            .downcast_ref::<ScopeLeafData>()
+            .expect("C0 should contain ScopeLeafData")
+            .count,
+        333,
+    );
+    drop(c0);
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+    assert_eq!(
+        dice.pagable_status().await.paged_out_count,
+        1,
+        "C0 should be paged out before its dependency changes",
+    );
+
+    let mut updater = dice.updater_with_data(user_data_with_recorder(&recorder));
+    updater.changed_to([(ScopeGenerationInput(1), 1)])?;
+    let tx = updater.commit().await;
+    let c1 = tx.compute(&CollisionHeapKey).await?.clone_owned();
+    let collision_key_type = <CollisionHeapKey as Key>::key_type_name();
+    assert_eq!(recorder.count_check_deps(collision_key_type), 1);
+    assert_eq!(recorder.count_computes(collision_key_type), 1);
+    assert_eq!(
+        dice.page_in_metrics()
+            .get(collision_key_type)
+            .map_or(0, |metrics| metrics.count),
+        1,
+        "CheckDepsPagedOut should hydrate C0 after recomputing C1",
+    );
+
+    let h1 = c1.owner().dupe();
+    let p1 = make_root(&c1, 1);
+    assert!(
+        p1.owner().refs().any(|dependency| dependency == &h1),
+        "P1 should retain the exact H1 allocation",
+    );
+    let root = CollisionRootValue {
+        direct: c1,
+        enclosing: p1,
+    };
+    assert_eq!(root.direct.owner(), &h1);
+    assert!(
+        root.enclosing
+            .owner()
+            .refs()
+            .any(|dependency| dependency == &h1),
+        "both pre-page-out paths should reach the exact H1 allocation",
+    );
+    drop(tx);
+
+    let mut updater = dice.updater();
+    updater.changed_to([(CollisionRootInput, root)])?;
+    let tx = updater.commit().await;
+    let resident_root = tx.compute(&CollisionRootKey).await?;
+    assert_eq!(resident_root.direct.owner(), &h1);
+    assert!(
+        resident_root
+            .enclosing
+            .owner()
+            .refs()
+            .any(|dependency| dependency == &h1),
+    );
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+    recorder.clear();
+
+    let tx = dice
+        .updater_with_data(user_data_with_recorder(&recorder))
+        .commit()
+        .await;
+    let restored = tx.compute(&CollisionRootKey).await?;
+    let root_key_type = <CollisionRootKey as Key>::key_type_name();
+    let errors = recorder.hydration_errors(root_key_type);
+    assert_eq!(errors.len(), 1, "R1 hydration should fail exactly once");
+    assert!(
+        errors[0].contains("is already bound to a different heap in this page-in scope"),
+        "unexpected R1 hydration error: {}",
+        errors[0],
+    );
+    assert_eq!(
+        recorder.count_computes(root_key_type),
+        1,
+        "DICE should recover from the hydration failure by recomputing R1",
+    );
+    assert_eq!(restored.direct.owner(), &h1);
+    assert!(
+        restored
+            .enclosing
+            .owner()
+            .refs()
+            .any(|dependency| dependency == &h1),
+        "the recomputed root should still consistently reference H1",
     );
 
     Ok(())
