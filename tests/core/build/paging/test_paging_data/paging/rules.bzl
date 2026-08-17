@@ -20,15 +20,24 @@ copy_file = rule(
 
 MyInfo = provider(fields = ["value"])
 
+def _analysis_node_impl(ctx):
+    return [DefaultInfo(), MyInfo(value = len(ctx.attrs.deps))]
+
+analysis_node = rule(
+    impl = _analysis_node_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+    },
+)
+
 # A module-scope frozen value. A rule that references it stores, in its provider, a
 # `FrozenValue` that lives on this `.bzl` module's frozen heap rather than the
 # target's own analysis heap -- a cross-frozen-heap reference.
 _MODULE_CONST = struct(items = ["a", "b", "c"])
 
-def _module_const_impl(ctx):
-    # `ctx` is unused: the provider value comes from the module constant, not the
+def _module_const_impl(_ctx):
+    # The context is unused: the provider value comes from the module constant, not the
     # target, which is what puts a foreign-heap `FrozenValue` in the analysis result.
-    _unused = ctx
     return [DefaultInfo(), MyInfo(value = _MODULE_CONST)]
 
 module_const = rule(

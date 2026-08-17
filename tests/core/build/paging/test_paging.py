@@ -10,9 +10,11 @@
 
 
 import asyncio
+import json
 import re
 from pathlib import Path
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuildResult
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
@@ -47,6 +49,44 @@ async def _paged_out_count(buck: Buck) -> int:
 def _paged_in_count(result: BuildResult) -> int:
     # Populated by `write_invocation_record=True` on the test; absent/null when 0.
     return int(result.invocation_record().get("page_in_count") or 0)
+
+
+def _paged_in_count_for_key_type(result: BuildResult, key_type: str) -> int:
+    stats = result.invocation_record().get("page_in_by_key_type", {}).get(key_type)
+    return int(stats["count"]) if stats is not None else 0
+
+
+async def _hydration_counts_for_key_type(buck: Buck, key_type: str) -> tuple[int, int]:
+    out = (await buck.debug("hydration", "status")).stdout
+    match = re.search(
+        rf"^\s*(\d+)\s+(\d+)\s+{re.escape(key_type)}\s*$",
+        out,
+        re.MULTILINE,
+    )
+    assert match is not None, f"missing {key_type} in hydration status:\n{out}"
+    return int(match.group(1)), int(match.group(2))
+
+
+async def _analysis_activity(buck: Buck, result: BuildResult) -> tuple[int, int]:
+    trace_id = result.invocation_record()["trace_id"]
+    event_log = (await buck.log("show", f"--trace-id={trace_id}")).stdout
+    check_deps_started = 0
+    compute_started = 0
+    for line in event_log.splitlines():
+        event = json.loads(line)
+        try:
+            snapshot = event["Event"]["data"]["Instant"]["data"]["DiceStateSnapshot"]
+        except (KeyError, TypeError):
+            continue
+        analysis = snapshot["key_states"].get("AnalysisKey")
+        if analysis is not None:
+            check_deps_started = max(
+                check_deps_started,
+                analysis["check_deps_started"],
+            )
+            compute_started = max(compute_started, analysis["compute_started"])
+
+    return check_deps_started, compute_started
 
 
 def _target_output(result: BuildResult, target: str) -> str:
@@ -109,6 +149,44 @@ async def test_incremental_build_after_page_out(buck: Buck) -> None:
     )
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"
+
+
+@buck_test(
+    data_dir="paging",
+    write_invocation_record=True,
+    extra_buck_config={"buck2_hydration": {"page_out_on_idle": "false"}},
+)
+@env("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", "1")
+async def test_config_change_after_page_out_analysis_validation(buck: Buck) -> None:
+    await buck.build("//:analysis_root")
+    await buck.debug("hydration", "page-out")
+    assert await _paged_out_count(buck) > 0, "expected the analysis graph to page out"
+    analysis_resident, analysis_paged_out = await _hydration_counts_for_key_type(
+        buck,
+        "AnalysisKey",
+    )
+    assert analysis_resident == 0, "all AnalysisKey values should have been evicted"
+    assert analysis_paged_out >= 3, "the three fixture AnalysisKeys should be paged out"
+
+    result = await buck.build("//:analysis_root", "-c", "fbcode.unused=0")
+    analysis_checks, analysis_computes = await _analysis_activity(buck, result)
+    analysis_page_ins = _paged_in_count_for_key_type(result, "AnalysisKey")
+    assert analysis_checks > 0, (
+        "expected the paged-out analysis graph to be revalidated after an "
+        "unrelated command-line configuration change"
+    )
+    assert analysis_page_ins == 0, (
+        "dependency validation should not materialize paged-out AnalysisKey values; "
+        f"checks={analysis_checks}, computes={analysis_computes}, page_ins={analysis_page_ins}"
+    )
+    with pytest.raises(
+        AssertionError,
+        match="the unrelated configuration change should be cut off",
+    ):
+        assert analysis_computes == 0, (
+            "the unrelated configuration change should be cut off without rerunning analysis; "
+            f"checks={analysis_checks}, computes={analysis_computes}"
+        )
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)

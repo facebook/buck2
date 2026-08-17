@@ -1,4 +1,18 @@
-load(":rules.bzl", "copy_file", "module_const", "uses_anon")
+load(":rules.bzl", "analysis_node", "copy_file", "module_const", "uses_anon")
+
+analysis_node(
+    name = "analysis_leaf",
+)
+
+analysis_node(
+    name = "analysis_middle",
+    deps = [":analysis_leaf"],
+)
+
+analysis_node(
+    name = "analysis_root",
+    deps = [":analysis_middle"],
+)
 
 copy_file(
     name = "mysrcrule",
