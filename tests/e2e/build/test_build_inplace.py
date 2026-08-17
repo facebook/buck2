@@ -208,7 +208,7 @@ if False:
     )
     async def test_source_hashing_eden_blake3_only(buck: Buck) -> None:
         if not os.path.exists(buck.cwd / ".eden"):
-            pytest.skip("This test is meaningless if not using Eden")  # pyre-ignore
+            pytest.skip("This test is meaningless if not using Eden")
 
         # Check we have Eden I/O
         await buck.build()
@@ -218,7 +218,7 @@ if False:
         # Skip in this case, unless
 
         if io_provider != "eden" and os.environ.get("SANDCASTLE") is None:
-            pytest.skip("Unsupported Eden version")  # pyre-ignore
+            pytest.skip("Unsupported Eden version")
 
         # On Sandcastle we'll assert we *are* using Eden to make sure this test
         # isn't just always skipping.
@@ -263,7 +263,7 @@ if False:
     )
     async def test_source_hashing(buck: Buck) -> None:
         if not os.path.exists(buck.cwd / ".eden"):
-            pytest.skip("This test is meaningless if not using Eden")  # pyre-ignore
+            pytest.skip("This test is meaningless if not using Eden")
 
         target = "fbcode//buck2/tests/targets/rules/rust/hello_world:welcome"
 

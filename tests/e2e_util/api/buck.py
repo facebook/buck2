@@ -801,7 +801,6 @@ class Buck(Executable):
         input: Optional[bytes],
         rel_cwd: Optional[Path],
         env: Optional[Dict[str, str]],
-        # pyrefly: ignore [bad-function-definition]
         result_type: type[R] = BuckResult,
         result_kwargs: Optional[Dict[str, Any]] = None,
         stdin: Optional[int] = None,

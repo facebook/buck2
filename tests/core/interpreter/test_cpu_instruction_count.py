@@ -36,7 +36,6 @@ async def test_cpu_instruction_count(buck: Buck) -> None:
     if platform.system() == "Linux":
         if cpu_instruction_count is None:
             # warnings.warn(
-            # pyre-ignore[29]: pytest.xfail is callable at runtime
             pytest.xfail(
                 "cpu_instruction_count is None, but we expect it to be populated on Linux most of the time. This is not a failure."
             )
