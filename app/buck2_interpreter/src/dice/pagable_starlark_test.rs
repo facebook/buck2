@@ -691,21 +691,22 @@ impl Key for CollisionRootKey {
 /// page out R1
 ///
 /// page in R1:
-///   direct heap key    -> strong Arc-cache hit for H0, binding X -> H0
-///   enclosing heap key -> resident P1 -> H1, conflicting with X -> H0
+///   direct heap key    -> resident H1, binding X -> H1
+///   enclosing heap key -> resident P1 -> H1
 /// ```
 ///
 /// `H0` and `H1` are distinct allocations with the same name and serialized
 /// contents. Before page-out, both paths in `R1` point to the exact `H1`
-/// allocation; the mixed graph is introduced only by page-in.
+/// allocation. Page-in must prefer that live resident allocation over the older
+/// deserialized Arc cached for the same data key.
 #[tokio::test]
-async fn page_in_substitutes_cached_heap_into_consistent_dice_root() {
-    page_in_substitutes_cached_heap_into_consistent_dice_root_impl()
+async fn page_in_prefers_resident_heap_for_consistent_dice_root() {
+    page_in_prefers_resident_heap_for_consistent_dice_root_impl()
         .await
-        .expect("heap cache-substitution reproduction should complete");
+        .expect("resident heap page-in should complete");
 }
 
-async fn page_in_substitutes_cached_heap_into_consistent_dice_root_impl()
+async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let tmp = tempdir()?;
     let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
@@ -797,16 +798,14 @@ async fn page_in_substitutes_cached_heap_into_consistent_dice_root_impl()
     let restored = tx.compute(&CollisionRootKey).await?;
     let root_key_type = <CollisionRootKey as Key>::key_type_name();
     let errors = recorder.hydration_errors(root_key_type);
-    assert_eq!(errors.len(), 1, "R1 hydration should fail exactly once");
     assert!(
-        errors[0].contains("is already bound to a different heap in this page-in scope"),
-        "unexpected R1 hydration error: {}",
-        errors[0],
+        errors.is_empty(),
+        "R1 should hydrate without conflicting heap bindings: {errors:#?}",
     );
     assert_eq!(
         recorder.count_computes(root_key_type),
-        1,
-        "DICE should recover from the hydration failure by recomputing R1",
+        0,
+        "R1 should hydrate instead of recomputing",
     );
     assert_eq!(restored.direct.owner(), &h1);
     assert!(

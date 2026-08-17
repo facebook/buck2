@@ -88,6 +88,15 @@ impl DeserializedArcCache {
     }
 
     pub fn get(&self, type_id: &TypeId, key: &DataKey) -> Option<Box<dyn ArcEraseDyn>> {
+        // A live allocation may be retained by another resident object graph. Reusing an
+        // older deserialized allocation would mix pointer identities during one page-in.
+        if let Some(arc) = self
+            .resident
+            .get(&(*type_id, *key))
+            .and_then(|weak| weak.upgrade())
+        {
+            return Some(arc);
+        }
         if let Some(arc) = self
             .map
             .get(&(*type_id, *key))
@@ -95,9 +104,7 @@ impl DeserializedArcCache {
         {
             return Some(arc);
         }
-        self.resident
-            .get(&(*type_id, *key))
-            .and_then(|weak| weak.upgrade())
+        None
     }
 
     pub fn register_resident(&self, key: DataKey, arc: &dyn ArcEraseDyn) {
@@ -408,6 +415,7 @@ mod tests {
     use crate::PagableSerialize;
     use crate::PagableTagged;
     use crate::PartialPagableArc;
+    use crate::arc_erase::ArcErase;
     use crate::storage::handle::PagableStorageHandle;
     use crate::storage::in_memory::InMemoryPagableStorage;
     use crate::storage::support::SerializerForPaging;
@@ -774,6 +782,36 @@ mod tests {
         let second_parent = storage.fetch_data_blocking(&second_parent_key)?;
         assert_eq!(second_parent.arcs.as_slice(), &[child_key]);
         Ok(())
+    }
+
+    #[test]
+    fn live_resident_arc_takes_precedence_over_deserialized_arc() {
+        let cache = DeserializedArcCache::new();
+        let key = DataKey::testing_new(1);
+        let type_id = TypeId::of::<PartialPagableArc<ResidentArcValue>>();
+
+        let deserialized = PartialPagableArc::new(ResidentArcValue(1));
+        ArcErase::set_data_key(&deserialized, key);
+        assert!(
+            cache
+                .on_arc_deserialized(type_id, key, Box::new(deserialized.dupe()))
+                .is_none()
+        );
+
+        let resident = PartialPagableArc::new(ResidentArcValue(1));
+        ArcErase::set_data_key(&resident, key);
+        cache.register_resident(key, &resident);
+
+        let selected = cache.get(&type_id, &key).expect("cached Arc should exist");
+        let selected = selected
+            .as_arc_any()
+            .downcast_ref::<PartialPagableArc<ResidentArcValue>>()
+            .expect("cached Arc type should match");
+        assert!(
+            PartialPagableArc::ptr_eq(&resident, selected),
+            "the live resident allocation should supersede the older deserialized allocation",
+        );
+        assert!(!PartialPagableArc::ptr_eq(&deserialized, selected));
     }
 
     #[test]
