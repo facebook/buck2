@@ -16,6 +16,8 @@ use std::ptr;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
+use bytemuck::NoUninit;
+
 /// Generalized non-null pointer.
 ///
 /// Anything which can be stored in `LockFreeRawTable`.
@@ -24,7 +26,7 @@ pub trait AtomicValue {
     ///
     /// If the value is larger than max support atomic width on the platform,
     /// atomic operations will be spinlocked.
-    type Raw: Copy;
+    type Raw: NoUninit;
     /// Dereferenced value.
     type Ref<'a>: Copy
     where
@@ -43,7 +45,7 @@ pub trait AtomicValue {
 }
 
 impl<T> AtomicValue for Box<T> {
-    type Raw = *mut T;
+    type Raw = usize; // *mut T
     type Ref<'a>
         = &'a T
     where
@@ -51,32 +53,32 @@ impl<T> AtomicValue for Box<T> {
 
     #[inline]
     fn null() -> Self::Raw {
-        ptr::null_mut()
+        0
     }
 
     #[inline]
     fn is_null(this: Self::Raw) -> bool {
-        this.is_null()
+        this == 0
     }
 
     #[inline]
     fn into_raw(this: Self) -> Self::Raw {
-        Box::into_raw(this)
+        Box::into_raw(this).expose_provenance()
     }
 
     #[inline]
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        unsafe { Box::from_raw(raw) }
+        unsafe { Box::from_raw(ptr::with_exposed_provenance_mut(raw)) }
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { &*raw }
+        unsafe { &*ptr::with_exposed_provenance(raw) }
     }
 }
 
 impl<T> AtomicValue for Arc<T> {
-    type Raw = *const T;
+    type Raw = usize; // *const T
     type Ref<'a>
         = &'a T
     where
@@ -84,27 +86,27 @@ impl<T> AtomicValue for Arc<T> {
 
     #[inline]
     fn null() -> Self::Raw {
-        ptr::null()
+        0
     }
 
     #[inline]
     fn is_null(this: Self::Raw) -> bool {
-        this.is_null()
+        this == 0
     }
 
     #[inline]
     fn into_raw(this: Self) -> Self::Raw {
-        Arc::into_raw(this)
+        Arc::into_raw(this).expose_provenance()
     }
 
     #[inline]
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        unsafe { Arc::from_raw(raw) }
+        unsafe { Arc::from_raw(ptr::with_exposed_provenance(raw)) }
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { &*raw }
+        unsafe { &*ptr::with_exposed_provenance(raw) }
     }
 }
 
@@ -173,37 +175,41 @@ impl AtomicValue for NonZeroU32 {
 pub struct RawPtr<T>(pub NonNull<T>);
 
 impl<T> AtomicValue for RawPtr<T> {
-    type Raw = *mut T;
+    type Raw = usize; // *mut T
     type Ref<'a>
         = NonNull<T>
     where
         Self: 'a;
 
     #[inline]
-    fn null() -> *mut T {
-        ptr::null_mut()
+    fn null() -> Self::Raw {
+        0
     }
 
     #[inline]
-    fn is_null(this: *mut T) -> bool {
-        this.is_null()
+    fn is_null(this: Self::Raw) -> bool {
+        this == 0
     }
 
     #[inline]
-    fn into_raw(this: RawPtr<T>) -> *mut T {
-        this.0.as_ptr()
+    fn into_raw(this: RawPtr<T>) -> Self::Raw {
+        this.0.as_ptr().expose_provenance()
     }
 
     #[inline]
-    unsafe fn from_raw(raw: *mut T) -> RawPtr<T> {
-        unsafe { RawPtr(NonNull::new_unchecked(raw)) }
+    unsafe fn from_raw(raw: Self::Raw) -> RawPtr<T> {
+        unsafe {
+            RawPtr(NonNull::new_unchecked(ptr::with_exposed_provenance_mut(
+                raw,
+            )))
+        }
     }
 
     #[inline]
-    unsafe fn deref<'a>(raw: *mut T) -> Self::Ref<'a>
+    unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a>
     where
         Self: 'a,
     {
-        unsafe { NonNull::new_unchecked(raw) }
+        unsafe { NonNull::new_unchecked(ptr::with_exposed_provenance_mut(raw)) }
     }
 }

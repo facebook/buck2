@@ -9,6 +9,7 @@ version = "0.1.4"
 [dependencies]
 allocative = { version = "0.3.6", path = "../../allocative/allocative", default-features = false, optional = true }
 atomic = "0.5.3"
+bytemuck = "1.25"
 parking_lot = "0.12.1"
 
 [dev-dependencies]

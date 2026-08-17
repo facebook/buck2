@@ -323,29 +323,29 @@ impl Hash for TargetLabelBorrow<'_> {
 }
 
 impl AtomicValue for TargetLabel {
-    type Raw = *const ();
+    type Raw = usize; // *const ()
     type Ref<'a>
         = TargetLabelBorrow<'a>
     where
         Self: 'a;
 
     fn null() -> Self::Raw {
-        ptr::null()
+        0
     }
 
     fn is_null(this: Self::Raw) -> bool {
-        this.is_null()
+        this == 0
     }
 
     fn into_raw(this: Self) -> Self::Raw {
-        TargetLabel::into_raw(this)
+        TargetLabel::into_raw(this).expose_provenance()
     }
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        unsafe { TargetLabel::from_raw(raw) }
+        unsafe { TargetLabel::from_raw(ptr::with_exposed_provenance(raw)) }
     }
 
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { TargetLabelBorrow::from_raw(raw) }
+        unsafe { TargetLabelBorrow::from_raw(ptr::with_exposed_provenance(raw)) }
     }
 }

@@ -128,7 +128,7 @@ impl<'a, T> Deref for ArcBorrow<'a, T> {
 }
 
 impl<T> AtomicValue for Arc<T> {
-    type Raw = *const T;
+    type Raw = usize; // *const T
     type Ref<'a>
         = ArcBorrow<'a, T>
     where
@@ -136,27 +136,27 @@ impl<T> AtomicValue for Arc<T> {
 
     #[inline]
     fn null() -> Self::Raw {
-        ptr::null()
+        0
     }
 
     #[inline]
     fn is_null(this: Self::Raw) -> bool {
-        this.is_null()
+        this == 0
     }
 
     #[inline]
     fn into_raw(this: Self) -> Self::Raw {
-        triomphe::Arc::into_raw(this.0)
+        triomphe::Arc::into_raw(this.0).expose_provenance()
     }
 
     #[inline]
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        Arc(unsafe { triomphe::Arc::from_raw(raw) })
+        Arc(unsafe { triomphe::Arc::from_raw(ptr::with_exposed_provenance(raw)) })
     }
 
     #[inline]
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { ArcBorrow::from_ptr(raw) }
+        unsafe { ArcBorrow::from_ptr(ptr::with_exposed_provenance(raw)) }
     }
 }
 

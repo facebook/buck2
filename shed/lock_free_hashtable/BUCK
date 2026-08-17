@@ -10,6 +10,7 @@ rust_library(
     features = ["allocative"],
     deps = [
         "fbsource//third-party/rust:atomic",
+        "fbsource//third-party/rust:bytemuck",
         "fbsource//third-party/rust:parking_lot",
         "//buck2/allocative/allocative:allocative",
     ],
