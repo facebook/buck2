@@ -129,8 +129,6 @@ public interface AndroidDevice {
    */
   void rmStaleFiles(String packageName) throws Exception;
 
-  AutoCloseable createForward() throws Exception;
-
   /**
    * Pushes {@code installPaths}, a map of device destination to local source.
    *

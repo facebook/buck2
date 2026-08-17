@@ -94,11 +94,6 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public AutoCloseable createForward() throws Exception {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public void installFiles(String filesType, Map<Path, Path> installPaths, String packageName)
       throws Exception {
     throw new UnsupportedOperationException();

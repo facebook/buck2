@@ -323,30 +323,28 @@ public class ExopackageInstaller {
     if (shards.isEmpty()) {
       return;
     }
-    try (AutoCloseable ignored = device.createForward()) {
-      // Create every destination directory up front: shards from one payload share a directory,
-      // and concurrent mkdir -p of the same path is pointless work at best.
-      ImmutableSet<Path> destinationDirs =
-          shards.stream()
-              .flatMap(shard -> shard.installPaths.keySet().stream())
-              .map(Path::getParent)
-              .filter(Objects::nonNull)
-              .collect(ImmutableSet.toImmutableSet());
-      for (Path destinationDir : destinationDirs) {
-        device.mkDirP(destinationDir.toString());
-      }
-
-      List<Future<Void>> pushes = new ArrayList<>(shards.size());
-      for (PushShard shard : shards) {
-        pushes.add(
-            PUSH_EXECUTOR.submit(
-                () -> {
-                  pushShard(shard);
-                  return null;
-                }));
-      }
-      awaitAll(pushes);
+    // Create every destination directory up front: shards from one payload share a directory, and
+    // concurrent mkdir -p of the same path is pointless work at best.
+    ImmutableSet<Path> destinationDirs =
+        shards.stream()
+            .flatMap(shard -> shard.installPaths.keySet().stream())
+            .map(Path::getParent)
+            .filter(Objects::nonNull)
+            .collect(ImmutableSet.toImmutableSet());
+    for (Path destinationDir : destinationDirs) {
+      device.mkDirP(destinationDir.toString());
     }
+
+    List<Future<Void>> pushes = new ArrayList<>(shards.size());
+    for (PushShard shard : shards) {
+      pushes.add(
+          PUSH_EXECUTOR.submit(
+              () -> {
+                pushShard(shard);
+                return null;
+              }));
+    }
+    awaitAll(pushes);
   }
 
   private void pushShard(PushShard shard) throws Exception {

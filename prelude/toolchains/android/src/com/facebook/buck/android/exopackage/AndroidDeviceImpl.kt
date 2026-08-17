@@ -499,11 +499,6 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   @Throws(Exception::class)
-  override fun createForward(): AutoCloseable {
-    return AutoCloseable {}
-  }
-
-  @Throws(Exception::class)
   override fun installFiles(
       filesType: String,
       installPaths: Map<Path, Path>,
