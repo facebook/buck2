@@ -2956,8 +2956,8 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
 
     let heap1 = FrozenHeap::new();
     let value1 = heap1.alloc_simple(SimpleData {
-        flag: false,
-        count: 222,
+        flag: true,
+        count: 111,
     });
     let owner1 = heap1.into_ref_named(TestHeapName::heap_name("same_name_independent_roots"));
     // SAFETY: `owner1` owns the arena hosting `value1`.
@@ -2975,8 +2975,12 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
 
     // Keep both roots alive so both exact heaps are resident in the shared
     // Starlark serialization state when the second root is serialized.
-    let _key0 = ser_owned_frozen_value_into_storage(&backing, &root0)?;
+    let key0 = ser_owned_frozen_value_into_storage(&backing, &root0)?;
     let key1 = ser_owned_frozen_value_into_storage(&backing, &root1)?;
+    assert_ne!(
+        key0, key1,
+        "the serialized heap nonce must distinguish otherwise identical heaps"
+    );
 
     drop(root0);
     drop(root1);
@@ -2990,8 +2994,8 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
         .value()
         .downcast_ref::<SimpleData>()
         .expect("second root should restore its own SimpleData");
-    assert!(!data1.flag);
-    assert_eq!(data1.count, 222);
+    assert!(data1.flag);
+    assert_eq!(data1.count, 111);
 
     Ok(())
 }

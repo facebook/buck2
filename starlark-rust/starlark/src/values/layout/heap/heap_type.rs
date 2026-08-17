@@ -47,6 +47,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
+use rand::RngExt;
 use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
 
@@ -362,9 +363,23 @@ macro_rules! singleton_heap_name {
 }
 
 /// `FrozenHeap` when it is no longer modified and can be shared between threads.
+#[derive(Debug, Clone, Copy, Allocative, PagableSerialize, PagableDeserialize)]
+struct HeapSerializationNonce(u128);
+
+impl HeapSerializationNonce {
+    fn random() -> Self {
+        Self(rand::rng().random())
+    }
+}
+
 #[derive(Allocative)]
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
+    // Keeps content-identical heap incarnations in distinct cache entries while Buck2 still has
+    // load-bearing frozen-value pointer identity. Remove this once distinct equal-content
+    // allocations are interchangeable; the nonce prevents independent serializations from
+    // sharing a `DataKey`.
+    serialization_nonce: HeapSerializationNonce,
     arena: Arena<ChunkAllocator>,
     refs: Box<[FrozenHeapRef]>,
     // TODO(nero): remove Option here, make it required.
@@ -431,6 +446,8 @@ impl FrozenFrozenHeap {
 
     /// Serialization format:
     /// ```text
+    /// [heap_name: FrozenHeapName]
+    /// [serialization_nonce: HeapSerializationNonce]
     /// [refs_count: usize]
     /// for each ref:
     ///     [pagable serialized arc]
@@ -464,6 +481,7 @@ impl FrozenFrozenHeap {
             .as_ref()
             .expect("The name of the FrozenFrozenHeap should exist in starlark pagable serialize");
         heap_name.pagable_serialize(serializer)?;
+        self.serialization_nonce.pagable_serialize(serializer)?;
 
         self.refs.len().pagable_serialize(serializer)?;
         for heap_ref in self.refs.iter() {
@@ -578,10 +596,11 @@ impl FrozenFrozenHeap {
     /// Read the heap identity prefix; pair with [`deserialize_skeleton`](Self::deserialize_skeleton).
     pub fn deserialize_heap_identity<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
-    ) -> crate::Result<(HeapRefId, FrozenHeapName)> {
+    ) -> crate::Result<(HeapRefId, FrozenHeapName, HeapSerializationNonce)> {
         let name = FrozenHeapName::pagable_deserialize(deserializer)?;
+        let serialization_nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
         let heap_id = HeapRefId::from_heap_name(&name);
-        Ok((heap_id, name))
+        Ok((heap_id, name, serialization_nonce))
     }
 
     /// Deserialize the heap references and advance past the lazily-read body.
@@ -629,6 +648,7 @@ impl FrozenFrozenHeap {
         deserializer: &mut D,
         heap_id: HeapRefId,
         name: FrozenHeapName,
+        serialization_nonce: HeapSerializationNonce,
         recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
     ) -> crate::Result<PartialPagableArc<Self>> {
         let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer.as_dyn());
@@ -638,6 +658,7 @@ impl FrozenFrozenHeap {
         let (refs, metadata_start) = Self::deserialize_refs_and_skip_body(deserializer)?;
 
         let heap = PartialPagableArc::new(FrozenFrozenHeap {
+            serialization_nonce,
             arena: Arena::default(),
             refs,
             name: Some(name),
@@ -745,10 +766,11 @@ fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
-    let (heap_id, name) =
+    let (heap_id, name, serialization_nonce) =
         FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
-    let arc = FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, recipe)
-        .map_err(|e| e.into_anyhow())?;
+    let arc =
+        FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, serialization_nonce, recipe)
+            .map_err(|e| e.into_anyhow())?;
     Ok(Box::new(arc))
 }
 
@@ -764,6 +786,7 @@ impl Debug for FrozenHeap {
 impl Debug for FrozenFrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
+        x.field("serialization_nonce", &self.serialization_nonce);
         x.field("bytes", &self.arena.allocated_bytes());
         x.field("refs", &self.refs.len());
         x.finish()
@@ -1015,6 +1038,7 @@ impl FrozenHeap {
             FrozenHeapRef::default()
         } else {
             let heap = PartialPagableArc::new(FrozenFrozenHeap {
+                serialization_nonce: HeapSerializationNonce::random(),
                 arena,
                 refs: refs.into_iter().collect(),
                 name,
