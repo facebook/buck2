@@ -17,6 +17,7 @@ load(
     "create_resource_db",
     "gather_resources",
 )
+load("@prelude//cxx:cxx_bolt.bzl", "cxx_use_bolt")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
@@ -217,6 +218,12 @@ def _rust_binary_common(
     links_via_cxx = toolchain_info.advanced_unstable_linking
     bin_emit = Emit("rlib") if links_via_cxx else Emit("link")
 
+    use_bolt = cxx_use_bolt(ctx)
+    if use_bolt and not links_via_cxx:
+        fail(
+            "`bolt_profile` is set, but BOLT runs as part of the cxx link. "
+            + "This target links via rustc; BOLT requires `advanced_unstable_linking` on the Rust toolchain."
+        )
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
     unstamped_name = None
@@ -326,18 +333,19 @@ def _rust_binary_common(
     # RPATH that survives co-location) and get content-addressing from the
     # bundle dir instead. Static binaries reuse their content-based exe in the
     # bundle directly (no RPATH to break).
-    exe_content_based = content_based_output and not needs_shlib_tree
+    exe_content_based = content_based_output and not needs_shlib_tree and not use_bolt
     if links_via_cxx:
         # cxx performs the terminal link (see `rust_link_binary` below) and its
-        # own late build-info stamping; we must not stamp again.
-        if enable_late_build_info_stamping:
-            # Use the pre-stamp suffix so cxx's stamp strips it back to `name`.
-            predeclared_output = ctx.actions.declare_output(
-                output_filename(compile_ctx, simple_crate, Emit("link"), params, PRE_STAMPED_SUFFIX),
-                has_content_based_path = exe_content_based,
-            )
-        else:
-            predeclared_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
+        # own post-link processing (BOLT, late build-info stamping); we must not
+        # stamp again. Each stage strips the suffix it owns, outermost first,
+        # mirroring `get_cxx_executable_product_name`: the linker emits
+        # `<name>-pre_stamped-wrapper`, BOLT strips `-wrapper`, and the stamp
+        # strips `-pre_stamped` to land back on `name`.
+        suffix = (PRE_STAMPED_SUFFIX if enable_late_build_info_stamping else "") + ("-wrapper" if use_bolt else "")
+        predeclared_output = ctx.actions.declare_output(
+            output_filename(compile_ctx, simple_crate, Emit("link"), params, suffix),
+            has_content_based_path = exe_content_based,
+        )
 
         # final_output is whatever cxx returns, set after the link below.
         final_output = None
@@ -381,6 +389,7 @@ def _rust_binary_common(
 
     dwp_output = link.link_output.dwp_output if link.link_output else None
     pdb_output = link.link_output.pdb if link.link_output else None
+    prebolt_output = None
     if links_via_cxx:
         link_result = rust_link_binary(
             ctx = ctx,
@@ -398,6 +407,7 @@ def _rust_binary_common(
         final_output = link_result.linked_object.output
         dwp_output = link_result.linked_object.dwp
         pdb_output = link_result.linked_object.pdb
+        prebolt_output = link_result.linked_object.prebolt_output
     elif enable_late_build_info_stamping:
         stamp_build_info(ctx, link.output, final_output)
 
@@ -679,6 +689,9 @@ def _rust_binary_common(
 
     if pdb_output:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = pdb_output, binary = final_output)
+
+    if use_bolt and prebolt_output:
+        sub_targets["prebolt"] = [DefaultInfo(default_output = prebolt_output)]
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:
