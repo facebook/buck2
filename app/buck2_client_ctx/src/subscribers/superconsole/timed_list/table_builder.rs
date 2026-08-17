@@ -319,7 +319,10 @@ impl AuxCell {
     fn line(self, cutoffs: &Cutoffs) -> buck2_error::Result<Line> {
         let Self { text, age } = self;
         let text = match text.split_once(' ') {
-            Some((kind, rest)) => format!("{kind:<ACTION_KIND_WIDTH$}{rest}"),
+            Some((kind, rest)) => {
+                let width = ACTION_KIND_WIDTH.max(kind.chars().count() + 1);
+                format!("{kind:<width$}{rest}")
+            }
             None => text,
         };
         Ok(Line::from_iter([Span::new_styled(styled_for_delay(
@@ -369,6 +372,7 @@ mod tests {
     use superconsole::Component;
 
     use crate::subscribers::superconsole::timed_list::Cutoffs;
+    use crate::subscribers::superconsole::timed_list::table_builder::AuxCell;
     use crate::subscribers::superconsole::timed_list::table_builder::Row;
     use crate::subscribers::superconsole::timed_list::table_builder::Table;
     use crate::subscribers::superconsole::timed_list::table_builder::TimedRow;
@@ -472,6 +476,27 @@ mod tests {
         );
 
         pretty_assertions::assert_eq!(output, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn aux_cell_separates_action_kind_from_duration() -> buck2_error::Result<()> {
+        for (text, expected) in [
+            ("local_execute 5.4s", "local_execute   5.4s"),
+            ("re_worker_upload 5.4s", "re_worker_upload 5.4s"),
+            ("local_prepare_outputs 5.4s", "local_prepare_outputs 5.4s"),
+        ] {
+            let output = AuxCell {
+                text: text.to_owned(),
+                age: Duration::ZERO,
+            }
+            .line(&CUTOFFS)?
+            .fmt_for_test()
+            .to_string();
+
+            pretty_assertions::assert_eq!(output, expected);
+        }
 
         Ok(())
     }
