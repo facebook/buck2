@@ -29,6 +29,7 @@ load(
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
+    "PRE_BOLT_SUFFIX",
     "cxx_use_bolt",
 )
 load(
@@ -1186,5 +1187,5 @@ def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: 
         # Pre-suffix so hip_debug_extract can strip back to canonical name.
         name += PRE_EXTRACT_SUFFIX
     if cxx_use_bolt(ctx):
-        name += "-wrapper"
+        name += PRE_BOLT_SUFFIX
     return name

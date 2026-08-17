@@ -16,6 +16,8 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
+PRE_BOLT_SUFFIX = "-wrapper"
+
 CxxBoltOutput = record(
     output = field(Artifact),
     dwo_output = field(Artifact | None),
@@ -33,7 +35,7 @@ def bolt(
     generate_dwp: bool,
     allow_cache_upload: bool = False,
 ) -> CxxBoltOutput:
-    output_name = prebolt_output.short_path.removesuffix("-wrapper")
+    output_name = prebolt_output.short_path.removesuffix(PRE_BOLT_SUFFIX)
     postbolt_output = ctx.actions.declare_output(output_name, has_content_based_path = False)
     dwo_output = None
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)

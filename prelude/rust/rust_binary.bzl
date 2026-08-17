@@ -17,7 +17,7 @@ load(
     "create_resource_db",
     "gather_resources",
 )
-load("@prelude//cxx:cxx_bolt.bzl", "cxx_use_bolt")
+load("@prelude//cxx:cxx_bolt.bzl", "PRE_BOLT_SUFFIX", "cxx_use_bolt")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
@@ -341,7 +341,7 @@ def _rust_binary_common(
         # mirroring `get_cxx_executable_product_name`: the linker emits
         # `<name>-pre_stamped-wrapper`, BOLT strips `-wrapper`, and the stamp
         # strips `-pre_stamped` to land back on `name`.
-        suffix = (PRE_STAMPED_SUFFIX if enable_late_build_info_stamping else "") + ("-wrapper" if use_bolt else "")
+        suffix = (PRE_STAMPED_SUFFIX if enable_late_build_info_stamping else "") + (PRE_BOLT_SUFFIX if use_bolt else "")
         predeclared_output = ctx.actions.declare_output(
             output_filename(compile_ctx, simple_crate, Emit("link"), params, suffix),
             has_content_based_path = exe_content_based,
