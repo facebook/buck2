@@ -25,7 +25,12 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
-/** Holds android install related artifacts (apk options, manifest path, etc) */
+/**
+ * Holds android install related artifacts (apk options, manifest path, etc)
+ *
+ * <p>Shared across the gRPC handler threads that deliver artifacts, the threads that push them, and
+ * the install that reads them, so every member is guarded by this object's monitor.
+ */
 class AndroidArtifacts implements InstallTimings {
   private AbsPath androidManifestPath;
   private AndroidInstallApkOptions apkOptions;
@@ -38,7 +43,7 @@ class AndroidArtifacts implements InstallTimings {
   private Optional<AbsPath> resourcesExopackageInfoAssetsHash = Optional.empty();
   private Optional<AbsPath> resourcesExopackageInfoRes = Optional.empty();
   private Optional<AbsPath> resourcesExopackageInfoResHash = Optional.empty();
-  // Artifact name -> wall-clock arrival. Written from concurrent gRPC handler threads.
+  // Artifact name -> wall-clock arrival.
   private final Map<String, Long> fileArrivalMillis = new HashMap<>();
 
   /**
@@ -46,14 +51,11 @@ class AndroidArtifacts implements InstallTimings {
    * called when the file is actually received, not when the installer gets around to consuming it,
    * or every artifact is stamped with the same instant and the spans below all collapse to zero.
    */
-  public void recordFileArrival(String artifactName, long timestampMillis) {
-    synchronized (fileArrivalMillis) {
-      fileArrivalMillis.putIfAbsent(artifactName, timestampMillis);
-    }
+  public synchronized void recordFileArrival(String artifactName, long timestampMillis) {
+    fileArrivalMillis.putIfAbsent(artifactName, timestampMillis);
   }
 
-  // Stage timings. Written from the push threads, several at once, and read when the install is
-  // over, which is what the synchronization on these methods is for.
+  // Stage timings, written from the push threads and read once the install is over.
   // Every shard's window, per push group. Kept separately rather than spanned: shards of a group
   // overlap each other and queue behind other groups, so only the union of these is time the group
   // was actually transferring.
@@ -99,17 +101,13 @@ class AndroidArtifacts implements InstallTimings {
    * waiting less.
    */
   public synchronized Map<String, String> getInstallMetrics(long installCompleteMillis) {
-    Map<String, Long> arrivals;
-    synchronized (fileArrivalMillis) {
-      if (fileArrivalMillis.isEmpty()) {
-        return Map.of();
-      }
-      arrivals = new HashMap<>(fileArrivalMillis);
+    if (fileArrivalMillis.isEmpty()) {
+      return Map.of();
     }
-    long first = Collections.min(arrivals.values());
+    long first = Collections.min(fileArrivalMillis.values());
 
     Map<ArtifactClass, Long> readyByClass = new EnumMap<>(ArtifactClass.class);
-    for (Map.Entry<String, Long> arrival : arrivals.entrySet()) {
+    for (Map.Entry<String, Long> arrival : fileArrivalMillis.entrySet()) {
       readyByClass.merge(ArtifactClass.of(arrival.getKey()), arrival.getValue(), Math::max);
     }
     long controlReady = readyByClass.getOrDefault(ArtifactClass.CONTROL, first);
@@ -302,96 +300,99 @@ class AndroidArtifacts implements InstallTimings {
     }
   }
 
-  public void setAndroidManifestPath(AbsPath androidManifestPath) {
+  public synchronized void setAndroidManifestPath(AbsPath androidManifestPath) {
     this.androidManifestPath = androidManifestPath;
   }
 
-  public AbsPath getAndroidManifestPath() {
+  public synchronized AbsPath getAndroidManifestPath() {
     return this.androidManifestPath;
   }
 
-  public void setApkOptions(AndroidInstallApkOptions apkOptions) {
+  public synchronized void setApkOptions(AndroidInstallApkOptions apkOptions) {
     this.apkOptions = apkOptions;
   }
 
-  public AndroidInstallApkOptions getApkOptions() {
+  public synchronized AndroidInstallApkOptions getApkOptions() {
     return this.apkOptions;
   }
 
-  public AbsPath getApk() {
+  public synchronized AbsPath getApk() {
     return apk;
   }
 
-  public void setApk(AbsPath apk) {
+  public synchronized void setApk(AbsPath apk) {
     this.apk = apk;
   }
 
-  public Optional<AbsPath> getSecondaryDexExopackageInfoDirectory() {
+  public synchronized Optional<AbsPath> getSecondaryDexExopackageInfoDirectory() {
     return secondaryDexExopackageInfoDirectory;
   }
 
-  public void setSecondaryDexExopackageInfoDirectory(
+  public synchronized void setSecondaryDexExopackageInfoDirectory(
       Optional<AbsPath> secondaryDexExopackageInfoDirectory) {
     this.secondaryDexExopackageInfoDirectory = secondaryDexExopackageInfoDirectory;
   }
 
-  public Optional<AbsPath> getSecondaryDexExopackageInfoMetadata() {
+  public synchronized Optional<AbsPath> getSecondaryDexExopackageInfoMetadata() {
     return secondaryDexExopackageInfoMetadata;
   }
 
-  public void setSecondaryDexExopackageInfoMetadata(
+  public synchronized void setSecondaryDexExopackageInfoMetadata(
       Optional<AbsPath> secondaryDexExopackageInfoMetadata) {
     this.secondaryDexExopackageInfoMetadata = secondaryDexExopackageInfoMetadata;
   }
 
-  public Optional<AbsPath> getNativeLibraryExopackageInfoDirectory() {
+  public synchronized Optional<AbsPath> getNativeLibraryExopackageInfoDirectory() {
     return nativeLibraryExopackageInfoDirectory;
   }
 
-  public void setNativeLibraryExopackageInfoDirectory(
+  public synchronized void setNativeLibraryExopackageInfoDirectory(
       Optional<AbsPath> nativeLibraryExopackageInfoDirectory) {
     this.nativeLibraryExopackageInfoDirectory = nativeLibraryExopackageInfoDirectory;
   }
 
-  public Optional<AbsPath> getNativeLibraryExopackageInfoMetadata() {
+  public synchronized Optional<AbsPath> getNativeLibraryExopackageInfoMetadata() {
     return nativeLibraryExopackageInfoMetadata;
   }
 
-  public void setNativeLibraryExopackageInfoMetadata(
+  public synchronized void setNativeLibraryExopackageInfoMetadata(
       Optional<AbsPath> nativeLibraryExopackageInfoMetadata) {
     this.nativeLibraryExopackageInfoMetadata = nativeLibraryExopackageInfoMetadata;
   }
 
-  public Optional<AbsPath> getResourcesExopackageInfoAssets() {
+  public synchronized Optional<AbsPath> getResourcesExopackageInfoAssets() {
     return resourcesExopackageInfoAssets;
   }
 
-  public void setResourcesExopackageInfoAssets(Optional<AbsPath> resourcesExopackageInfoAssets) {
+  public synchronized void setResourcesExopackageInfoAssets(
+      Optional<AbsPath> resourcesExopackageInfoAssets) {
     this.resourcesExopackageInfoAssets = resourcesExopackageInfoAssets;
   }
 
-  public Optional<AbsPath> getResourcesExopackageInfoAssetsHash() {
+  public synchronized Optional<AbsPath> getResourcesExopackageInfoAssetsHash() {
     return resourcesExopackageInfoAssetsHash;
   }
 
-  public void setResourcesExopackageInfoAssetsHash(
+  public synchronized void setResourcesExopackageInfoAssetsHash(
       Optional<AbsPath> resourcesExopackageInfoAssetsHash) {
     this.resourcesExopackageInfoAssetsHash = resourcesExopackageInfoAssetsHash;
   }
 
-  public Optional<AbsPath> getResourcesExopackageInfoRes() {
+  public synchronized Optional<AbsPath> getResourcesExopackageInfoRes() {
     return resourcesExopackageInfoRes;
   }
 
-  public void setResourcesExopackageInfoRes(Optional<AbsPath> resourcesExopackageInfoRes) {
+  public synchronized void setResourcesExopackageInfoRes(
+      Optional<AbsPath> resourcesExopackageInfoRes) {
     this.resourcesExopackageInfoRes = resourcesExopackageInfoRes;
   }
 
-  public Optional<AbsPath> getResourcesExopackageInfoResHash() {
+  public synchronized Optional<AbsPath> getResourcesExopackageInfoResHash() {
     return resourcesExopackageInfoResHash;
   }
 
-  public void setResourcesExopackageInfoResHash(Optional<AbsPath> resourcesExopackageInfoResHash) {
+  public synchronized void setResourcesExopackageInfoResHash(
+      Optional<AbsPath> resourcesExopackageInfoResHash) {
     this.resourcesExopackageInfoResHash = resourcesExopackageInfoResHash;
   }
 }
