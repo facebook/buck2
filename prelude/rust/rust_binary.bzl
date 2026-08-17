@@ -74,7 +74,6 @@ load(
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
-    "can_emit_rlib_from_link",
     "generate_rustdoc",
     "rust_compile",
     "rust_link_binary",
@@ -212,11 +211,11 @@ def _rust_binary_common(
     params = strategy_param[link_strategy]
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
 
-    # Where supported, the binary is compiled via `Emit("rlib-from-link")` and
-    # linked through cxx below (`rust_link_binary`), mirroring how
-    # rust_library produces dylibs via `rust_link_shared`.
-    links_via_cxx = can_emit_rlib_from_link(compile_ctx)
-    bin_emit = Emit("rlib-from-link") if links_via_cxx else Emit("link")
+    # Under advanced_unstable_linking, the binary is compiled via
+    # `Emit("rlib")` and linked through cxx below (`rust_link_binary`),
+    # mirroring how rust_library produces dylibs via `rust_link_shared`.
+    links_via_cxx = toolchain_info.advanced_unstable_linking
+    bin_emit = Emit("rlib") if links_via_cxx else Emit("link")
 
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
@@ -363,7 +362,7 @@ def _rust_binary_common(
         shared_libs,
     )
 
-    # Compile rust binary. With `rlib-from-link`, this only compiles: rustc's
+    # Compile rust binary. Under `Emit("rlib")`, this only compiles: rustc's
     # synthesized objects are extracted and linked below.
     link = rust_compile(
         ctx = ctx,

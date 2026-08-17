@@ -88,6 +88,7 @@ load(
 load(
     ":build_params.bzl",
     "BuildParams",  # @unused Used as a type
+    "CrateType",
     "Emit",
     "LinkageLang",
     "MetadataKind",
@@ -191,7 +192,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         link = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = Emit("rlib") if params.crate_type == CrateType("rlib") else Emit("link"),
             params = params,
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
@@ -352,7 +353,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         llvm_time_trace = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = Emit("rlib"),
             params = static_library_params,
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
@@ -361,7 +362,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         self_profile = rust_compile(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            emit = Emit("link"),
+            emit = Emit("rlib"),
             params = static_library_params,
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
@@ -449,7 +450,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     remarks_artifact = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        emit = Emit("link"),
+        emit = Emit("rlib"),
         params = meta_params,
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = False,

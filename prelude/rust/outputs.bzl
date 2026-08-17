@@ -35,16 +35,16 @@ RustcLinkOutput = record(
 )
 
 RustcOutput = record(
-    # For `Emit("rlib-from-link")` compiles this is the `out_manifest` of
+    # For bin-crate `Emit("rlib")` compiles this is the `out_manifest` of
     # `link_extraction` — the list of extracted objects — since rustc produces
     # no linked artifact; the executable is produced by `rust_link_binary`.
     output = Artifact,
     singleton_tset = TransitiveDeps,
     compile_output = RustcCompileOutput,
     # Only available when the combination of params requires linking and rustc
-    # itself performs the link (i.e. not for `Emit("rlib-from-link")`).
+    # itself performs the link (i.e. not for bin-crate `Emit("rlib")`).
     link_output = RustcLinkOutput | None,
-    # A `LinkExtraction`, set exactly when this was an `Emit("rlib-from-link")`
+    # A `LinkExtraction`, set exactly when this was a bin-crate `Emit("rlib")`
     # compile: rustc compiled and its synthesized link inputs were extracted
     # for the caller to link via `rust_link_binary`.
     link_extraction = typing.Any,

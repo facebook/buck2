@@ -588,15 +588,23 @@ def rust_compile(
     )
 
     requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
-    extracts_objects = emit == Emit("rlib-from-link")
+    extracts_objects = emit == Emit("rlib") and params.crate_type == CrateType("bin")
+
+    if (
+        emit == Emit("link")
+        and compile_ctx.toolchain_info.advanced_unstable_linking
+        # FIXME(JakobDegen): We should probably not support cdylib or staticlib under AUL
+        and params.crate_type not in [CrateType("proc-macro"), CrateType("staticlib"), CrateType("cdylib")]
+    ):
+        fail('rustc-driven linking is not supported with `advanced_unstable_linking`: binaries compile via `Emit("rlib")` and link through cxx')
 
     if extracts_objects:
-        if params.crate_type != CrateType("bin"):
-            fail("`rlib-from-link` is only supported for executables; other crate types would need rustc's version script preserved")
-        if not can_emit_rlib_from_link(compile_ctx):
-            fail("`rlib-from-link` is unsupported for this configuration, see `can_emit_rlib_from_link`")
+        if not compile_ctx.toolchain_info.advanced_unstable_linking:
+            fail(
+                '`Emit("rlib")` for a bin crate requires `advanced_unstable_linking`: without it, dependency link providers do not carry the rlibs for cxx to link'
+            )
         if predeclared_output != None:
-            fail("`rlib-from-link` produces no linked output; the caller owns the linked artifact and must produce it via `rust_link_binary`")
+            fail("extraction produces no linked output; the caller owns the linked artifact and must produce it via `rust_link_binary`")
 
     use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
     emit_cbp = use_cbp if predeclared_output == None else False
@@ -839,7 +847,7 @@ def rust_compile(
         ),
     )
 
-    if (emit == Emit("link") or extracts_objects) and has_split_debug:
+    if (emit == Emit("link") or emit == Emit("rlib")) and has_split_debug:
         dwo_output_directory = emit_op.extra_out
         dwp_inputs.append(dwo_output_directory)
     else:
@@ -861,7 +869,8 @@ def rust_compile(
     else:
         dwp_output = None
 
-    if not requires_linking and emit == Emit("link"):
+    # FIXME(JakobDegen): What's going on with stripped objects in binaries? What is this what cxx does?
+    if emit in [Emit("rlib"), Emit("link")] and not extracts_objects:
         stripped_output = strip_debug_info(
             ctx.actions,
             paths.join(
@@ -1171,7 +1180,7 @@ def _abbreviated_subdir(
         Emit("llvm-ir-noopt"): "n",
         Emit("obj"): "o",
         Emit("link"): "L",
-        Emit("rlib-from-link"): "O",
+        Emit("rlib"): "R",
         Emit("dep-info"): "d",
         Emit("mir"): "m",
         Emit("expand"): "e",
@@ -1235,24 +1244,7 @@ def _compute_common_args(
     if compile_ctx.exec_is_windows:
         root = root.replace("/", "\\")
 
-    # With `advanced_unstable_linking`, we unconditionally pass the metadata
-    # artifacts. There are two things that work together to make this possible
-    # in the case of binaries:
-    #
-    #  1. The actual rlibs appear in the link providers, so they'll still be
-    #     available for the linker to link in
-    #  2. The metadata artifacts aren't rmetas, but rather rlibs that just
-    #     don't contain any generated code. Rustc can't distinguish these
-    #     from real rlibs, and so doesn't throw an error
-    #
-    # The benefit of doing this is that there's no requirement that the
-    # dependency's generated code be provided to the linker via an rlib. It
-    # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)
-
-    if compile_ctx.dep_ctx.advanced_unstable_linking or crate_type == CrateType("rlib"):
-        if dep_metadata_kind == MetadataKind("link"):
-            dep_metadata_kind = MetadataKind("full")
 
     dep_args, dep_argsfiles, crate_map = dependency_args(
         ctx = ctx,
@@ -1479,15 +1471,12 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
     if emit == Emit("metadata-fast"):
         base = "diag" if infallible_diagnostics else "check"
 
-    if emit == Emit("rlib-from-link"):
-        base = (
-            "rlib-from-link"
-            + {
-                LinkStrategy("static"): "",
-                LinkStrategy("static_pic"): " [pic]",
-                LinkStrategy("shared"): " [shared]",
-            }[link_strategy]
-        )
+    if emit == Emit("rlib"):
+        base = ("rlib" if crate_type == CrateType("rlib") else "rlib-from-link") + {
+            LinkStrategy("static"): "",
+            LinkStrategy("static_pic"): " [pic]",
+            LinkStrategy("shared"): " [shared]",
+        }[link_strategy]
 
     if emit == Emit("link"):
         link_strategy_suffix = {
@@ -1532,7 +1521,7 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
         return base
 
 EmitOperation = record(
-    # None exactly for `Emit("rlib-from-link")`: the caller owns the linked
+    # None exactly for bin-crate `Emit("rlib")`: the caller owns the linked
     # artifact, and rustc produces only the extraction outputs.
     output = field(Artifact | None),
     args = field(cmd_args),
@@ -1576,7 +1565,7 @@ def _rustc_emit(
         emit_args.add("-Cextra-filename={}".format(extra_hash))
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
-        if emit == Emit("rlib-from-link"):
+        if emit == Emit("rlib") and params.crate_type == CrateType("bin"):
             # The caller links the extracted objects through cxx and owns the
             # linked artifact; there is no rustc output to declare.
             emit_output = None
@@ -1614,9 +1603,10 @@ def _rustc_emit(
         elif emit == Emit("llvm-ir-noopt"):
             effective_emit = "llvm-ir"
             emit_args.add("-Cno-prepopulate-passes")
-        elif emit == Emit("rlib-from-link"):
-            # Compile exactly as for a link; the extraction wrapper set via
-            # `-Clinker=` captures the objects, so there is no output to bind.
+        elif emit == Emit("rlib"):
+            # rlibs are `--emit=link` products of the rlib crate type. For bin
+            # crates there is additionally no output to bind: the extraction
+            # wrapper set via `-Clinker=` captures the objects instead.
             effective_emit = "link"
         else:
             effective_emit = emit.value
@@ -1901,22 +1891,6 @@ def process_env(
 
     return (plain_env, path_env)
 
-def can_emit_rlib_from_link(compile_ctx: CompileContext) -> bool:
-    """Whether this configuration supports `Emit("rlib-from-link")`."""
-    if not compile_ctx.toolchain_info.advanced_unstable_linking:
-        # Without AUL, dependency link providers do not carry the rlibs for
-        # cxx to link.
-        return False
-
-    # The extraction preserves rustc's synthesized objects — plus wasm-ld's
-    # `--export`/entry args, the wasm analogue of `symbols.o` — and drops the
-    # rest of its linker argv, which is sound only when everything dropped is
-    # redundant with what the toolchain and dependency graph provide. Flags
-    # injected via `-Clink-arg` would be silently lost, which the check in
-    # `rust_compile` turns into an analysis failure, and a synthesized link
-    # input the extraction does not recognize fails it loudly.
-    return True
-
 def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> bool:
     if not getattr(ctx.attrs, "enable_distributed_thinlto", False):
         return False
@@ -2021,7 +1995,7 @@ def rust_link_binary(
     output: Artifact,
     identifier: str | None,
 ) -> CxxLinkResult:
-    """Link an executable from the objects that an `Emit("rlib-from-link")`
+    """Link an executable from the objects that a bin-crate `Emit("rlib")`
     `rust_compile` extracted, plus the link args of the dependency graph."""
     dist_thinlto = extraction.out_archive != None
 
