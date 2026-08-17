@@ -9,6 +9,7 @@
  */
 
 use quick_xml::Reader;
+use quick_xml::XmlVersion;
 use quick_xml::events::BytesStart;
 use quick_xml::events::Event;
 use starlark::environment::GlobalsBuilder;
@@ -70,7 +71,7 @@ fn parse_attrs(
             let key = String::from_utf8(a.key.as_ref().to_vec())
                 .map_err(|_| XmlDecodeError::Utf8Error)?;
             let val = a
-                .decode_and_unescape_value(reader.decoder())
+                .decoded_and_normalized_value(XmlVersion::Implicit1_0, reader.decoder())
                 .map_err(|e| XmlDecodeError::XmlError(e.to_string()))?
                 .into_owned();
             Ok((key, val))
