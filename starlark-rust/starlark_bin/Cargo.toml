@@ -21,7 +21,7 @@ starlark_lsp = { version = "0.14.2", path = "../starlark_lsp" }
 starlark_map = { version = "0.14.2", path = "../starlark_map" }
 
 anyhow = "1.0.65"
-argfile = "0.2"
+argfile = "1.0.0"
 clap = { version = "4.0.7", features = ["derive", "wrap_help"] }
 debugserver-types = "0.5.0"
 either = "1.8"
