@@ -20,6 +20,7 @@ load(
 GraphQLiOSInfo = record(
     header_path_prefix = str | None,
     force_export_fragment_headers = bool,
+    fragment_models_use_classes = bool,
     use_implicit_codegen = bool,
 )
 
