@@ -130,12 +130,12 @@ pub(crate) fn apply_slice<T: Copy>(
     if stride < 0 {
         res.reverse();
     }
-    let astride = stride.abs();
+    let astride = stride.unsigned_abs();
     let res = res
         .into_iter()
         .enumerate()
         .filter_map(|x| {
-            if 0 == (x.0 as i32 % astride) {
+            if 0 == (x.0 as u32 % astride) {
                 Some(x.1)
             } else {
                 None
@@ -253,5 +253,26 @@ mod tests {
         )
         .unwrap();
         assert_eq!(x, &[] as &[i32]);
+    }
+
+    #[test]
+    fn test_slice_i32_min_stride_no_panic() {
+        // Regression for https://github.com/facebook/starlark-rust/issues/230
+        // i32::MIN stride previously panicked on abs()
+        Heap::temp(|heap| {
+            let xs = [1, 2, 3];
+            let res = apply_slice(&xs, None, None, Some(Value::testing_new_int(i32::MIN))).unwrap();
+            assert_eq!(res, vec![3]);
+            let xs2 = ['a', 'b', 'c', 'd', 'e'];
+            let res2 =
+                apply_slice(&xs2, None, None, Some(Value::testing_new_int(i32::MIN))).unwrap();
+            assert_eq!(res2, vec!['e']);
+            // neighbour -2147483647 works too
+            let res3 =
+                apply_slice(&xs, None, None, Some(Value::testing_new_int(-2147483647))).unwrap();
+            assert_eq!(res3, vec![3]);
+            // via string/tuple/list slicing would also go through same path; test direct apply_slice
+            let _ = heap; // keep heap alive
+        });
     }
 }
