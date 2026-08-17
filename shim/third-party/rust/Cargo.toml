@@ -167,7 +167,7 @@ prost-types = { version = "0.14.4", default-features = false }
 protoc-bin-vendored = "3.0.0"
 psutil = "3.3.0"
 ptyprocess = "0.4.1"
-quick-xml = { version = "0.38.4", features = ["overlapped-lists", "serialize"] }
+quick-xml = { version = "0.39.4", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
 quote = "1.0.47"
 rand = "0.10.2"
