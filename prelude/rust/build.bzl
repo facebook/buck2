@@ -1811,6 +1811,7 @@ def _long_command(ctx: AnalysisContext, exe: RunInfo, args: cmd_args, argfile_na
 
 _DOUBLE_ESCAPED_NEWLINE_RE = regex("\\\\n")
 _ESCAPED_NEWLINE_RE = regex("\\n")
+_ESCAPED_CARRIAGE_RETURN_RE = regex("\\r")
 _DIRECTORY_ENV = [
     "CARGO_MANIFEST_DIR",
     "OUT_DIR",
@@ -1847,6 +1848,7 @@ def process_env(
                 replace_regex = [
                     (_DOUBLE_ESCAPED_NEWLINE_RE, "\\\n"),
                     (_ESCAPED_NEWLINE_RE, "\\n"),
+                    (_ESCAPED_CARRIAGE_RETURN_RE, "\\r"),
                 ],
             )
         else:
