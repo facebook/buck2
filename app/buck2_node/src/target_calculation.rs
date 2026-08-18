@@ -16,6 +16,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 
@@ -95,7 +96,7 @@ impl ConfiguredTargetCalculation for DiceComputations<'_> {
             .get_internal_configured_target_node(&configured)
             .await
             .require_compatible()?;
-        Ok(configured_target_node.unwrap_forward().label().clone())
+        Ok(configured_target_node.unwrap_forward().label().dupe())
     }
 
     async fn get_configured_provider_label(

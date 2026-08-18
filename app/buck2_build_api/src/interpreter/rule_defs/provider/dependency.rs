@@ -18,6 +18,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -236,7 +237,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
             .unwrap()
             .inner();
         let lbl = ConfiguredProvidersLabel::new(
-            lbl.target().clone(),
+            lbl.target().dupe(),
             lbl.name().push(ProviderName::new(subtarget.to_owned())?),
         );
         Ok(Dependency::new(heap, lbl, providers, None))

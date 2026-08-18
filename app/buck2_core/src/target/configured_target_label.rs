@@ -32,7 +32,7 @@ use crate::target::name::TargetNameRef;
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
 #[derive(
-    Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
+    Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
 )]
 pub struct ConfiguredTargetLabel {
     pub(crate) target: TargetLabel,

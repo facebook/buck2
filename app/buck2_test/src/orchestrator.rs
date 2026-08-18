@@ -2061,7 +2061,7 @@ impl BuckTestOrchestrator<'_> {
         let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
             // .buck_error_context("Error parsing local resource setup command output")
             .map_err(|e| from_any_with_tag(e, ErrorTag::LocalResourceSetup))?;
-        let state = data.into_state(context.target.clone(), &context.env_var_mapping)?;
+        let state = data.into_state(context.target.dupe(), &context.env_var_mapping)?;
 
         Ok(state)
     }

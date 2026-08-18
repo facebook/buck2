@@ -128,8 +128,8 @@ fn encode_logical_key(logical: &LogicalActionKey) -> Option<Vec<u8>> {
 
 /// Stable, forward-only key for a configuration, used as the persisted database `config_key` (which
 /// distinguishes per-configuration rows of one logical action). `None` and `Some` hash distinctly.
-fn encode_config_key(cfg: &Option<Configuration>) -> Vec<u8> {
-    strong_hash_bytes(cfg)
+fn encode_config_key(cfg: Option<Configuration>) -> Vec<u8> {
+    strong_hash_bytes(&cfg)
 }
 
 /// Groups the per-configuration dep-file states of one logical action, keyed by the action's
@@ -147,10 +147,10 @@ enum ConfigActionSlot {
 }
 
 impl ConfigActionSlot {
-    fn get(&self, cfg: &Option<Configuration>) -> Option<&Arc<DepFileState>> {
+    fn get(&self, cfg: Option<Configuration>) -> Option<&Arc<DepFileState>> {
         match self {
-            ConfigActionSlot::One(c, s) => (*c == *cfg).then_some(s),
-            ConfigActionSlot::Many(m) => m.get(cfg),
+            ConfigActionSlot::One(c, s) => (*c == cfg).then_some(s),
+            ConfigActionSlot::Many(m) => m.get(&cfg),
         }
     }
 
@@ -188,11 +188,11 @@ impl ConfigActionSlot {
     }
 
     /// Remove `cfg`'s entry; returns true if the slot is now empty and should be dropped.
-    fn remove(&mut self, cfg: &Option<Configuration>) -> bool {
+    fn remove(&mut self, cfg: Option<Configuration>) -> bool {
         match self {
-            ConfigActionSlot::One(c, _) => *c == *cfg,
+            ConfigActionSlot::One(c, _) => *c == cfg,
             ConfigActionSlot::Many(m) => {
-                m.shift_remove(cfg);
+                m.shift_remove(&cfg);
                 m.is_empty()
             }
         }
@@ -224,7 +224,7 @@ impl ShardedDepFiles {
     fn get(
         &self,
         logical: &LogicalActionKey,
-        cfg: &Option<Configuration>,
+        cfg: Option<Configuration>,
     ) -> Option<Arc<DepFileState>> {
         self.map.get(logical)?.get(cfg).map(Dupe::dupe)
     }
@@ -249,7 +249,7 @@ impl ShardedDepFiles {
     }
 
     /// Remove the entry for `(logical, cfg)`, if present.
-    fn remove(&self, logical: &LogicalActionKey, cfg: &Option<Configuration>) {
+    fn remove(&self, logical: &LogicalActionKey, cfg: Option<Configuration>) {
         // Remove the entry and, if that empties the slot, drop the slot -- both under one guard.
         self.map.remove_if_mut(logical, |_, slot| slot.remove(cfg));
     }
@@ -324,17 +324,17 @@ pub(crate) fn init_flush_dep_files() {
 }
 
 pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
-    DEP_FILES.get(&key.to_logical(), &key.configuration())
+    DEP_FILES.get(&key.to_logical(), key.configuration())
 }
 
 /// Remove a single configuration's entry from the cache (both in-memory and persisted).
 fn remove_dep_file_entry(key: &RunActionKey) {
     let logical = key.to_logical();
-    DEP_FILES.remove(&logical, &key.configuration());
+    DEP_FILES.remove(&logical, key.configuration());
     if let Ok(store) = DEP_FILE_STORE.get()
         && let Some(logical_key) = encode_logical_key(&logical)
     {
-        store.delete(logical_key, encode_config_key(&key.configuration()));
+        store.delete(logical_key, encode_config_key(key.configuration()));
     }
 }
 
@@ -2087,7 +2087,7 @@ pub(crate) async fn populate_dep_files(
         // Persisting is best-effort, per the `DepFileStore` contract: a failure to serialize costs a
         // cache miss in a later session and must not fail this build.
         match state.to_stored() {
-            Ok(Some(stored)) => store.insert(logical_key, encode_config_key(&cfg), stored),
+            Ok(Some(stored)) => store.insert(logical_key, encode_config_key(cfg.dupe()), stored),
             Ok(None) => {}
             Err(e) => tracing::debug!("Not persisting dep-file entry: {}", e),
         }

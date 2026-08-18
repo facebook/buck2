@@ -24,6 +24,7 @@ use crate::target::label::label::TargetLabel;
 /// This is used to mark code which deals with configurations of toolchains, but does not actually
 /// care about the toolchain's exec platform.
 #[derive(
+    Copy,
     Clone,
     Dupe,
     Debug,

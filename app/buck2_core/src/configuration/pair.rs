@@ -39,7 +39,7 @@ struct ConfigurationPairData {
 /// Pair of `cfg` and `exec_cfg`.
 /// These two are added to `TargetLabel` to make `ConfiguredTargetLabel`.
 #[derive(
-    Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
+    Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
 )]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
@@ -73,6 +73,7 @@ impl Configuration {
 /// `ConfigurationPair` where `exec_cfg` is always `None`.
 #[derive(
     Debug,
+    Copy,
     Clone,
     Dupe,
     Eq,
