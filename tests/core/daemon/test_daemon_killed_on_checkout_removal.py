@@ -10,8 +10,8 @@
 
 
 import asyncio
+import csv
 import json
-import os
 import platform
 import re
 import subprocess
@@ -22,20 +22,28 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, eden_remove, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_daemon_stderr
 
 
-def _is_process_alive(pid: int) -> bool:
-    if platform.system() == "Windows":
+def _get_process_name(pid: int) -> str | None:
+    system = platform.system()
+    if system == "Windows":
         result = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
             capture_output=True,
             text=True,
         )
-        return str(pid) in result.stdout
+        for row in csv.reader(result.stdout.splitlines()):
+            if len(row) >= 2 and row[1] == str(pid):
+                return row[0]
+        return None
+
+    if system == "Darwin":
+        command = ["ps", "-o", "comm=", str(pid)]
+    elif system == "Linux":
+        command = ["ps", "-o", "cmd=", str(pid)]
     else:
-        try:
-            os.kill(pid, 0)
-            return True
-        except OSError:
-            return False
+        raise Exception(f"Unknown platform: {system}")
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    return result.stdout.strip() or None
 
 
 @buck_test(setup_eden=True, skip_final_kill=True)
@@ -46,6 +54,8 @@ async def test_daemon_killed_on_checkout_removal(buck: Buck) -> None:
 
     status = json.loads((await buck.status()).stdout)
     pid = status["process_info"]["pid"]
+    process_name = _get_process_name(pid)
+    assert process_name is not None, f"Could not find daemon process {pid}"
     daemon_dir = await buck.get_daemon_dir()
 
     project_dir = Path(buck.cwd)
@@ -56,7 +66,7 @@ async def test_daemon_killed_on_checkout_removal(buck: Buck) -> None:
 
     # Wait for the daemon to detect the missing project root and shut down.
     await asyncio.sleep(20)
-    if _is_process_alive(pid):
+    if _get_process_name(pid) == process_name:
         raise AssertionError("Server did not die in 20 seconds")
 
     # Process is dead. Verify the shutdown reason in daemon stderr.
