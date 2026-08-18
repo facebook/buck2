@@ -24,6 +24,10 @@ use starlark::typing::Ty;
 use starlark::values::FreezeBranded;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
+use starlark::values::ValueOfUnchecked;
+use starlark::values::list::ListRef;
+use starlark::values::list::ListType;
 use starlark::values::starlark_value;
 
 /// Wrapper for `regex::Regex`.
@@ -67,6 +71,24 @@ impl StarlarkBuckRegex {
         }
     }
 
+    /// Matches the regex against each element of `strings`, combining results with OR
+    /// (`any = true`) or AND (`any = false`). Returns as soon as the result is decided,
+    /// without inspecting or type-checking the remaining elements.
+    fn multi_match<'v>(
+        &self,
+        strings: ValueOfUnchecked<'v, ListType<&'v str>>,
+        any: bool,
+    ) -> starlark::Result<bool> {
+        let strings = <&ListRef>::unpack_value_err(strings.get())?;
+        for string in strings.iter() {
+            let string = string.unpack_str_err()?;
+            if self.is_match(string)? == any {
+                return Ok(any);
+            }
+        }
+        Ok(!any)
+    }
+
     pub fn replace_all<'a>(&self, haystack: &'a str, rep: &str) -> Cow<'a, str> {
         match self {
             StarlarkBuckRegex::Regular(r) => r.replace_all(haystack, rep),
@@ -106,6 +128,32 @@ fn regex_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] str: &str,
     ) -> starlark::Result<bool> {
         Ok(this.is_match(str)?)
+    }
+
+    /// Determine if the regex matches a substring of any of the given strings.
+    /// Returns `False` for an empty list. Returns as soon as a match is found,
+    /// without validating the remaining elements.
+    ///
+    /// Behaves like calling `match` on each element, but is significantly faster on large
+    /// lists because it crosses from Starlark into native code only once.
+    fn any_match<'v>(
+        this: &StarlarkBuckRegex,
+        #[starlark(require = pos)] strings: ValueOfUnchecked<'v, ListType<&'v str>>,
+    ) -> starlark::Result<bool> {
+        this.multi_match(strings, true)
+    }
+
+    /// Determine if the regex matches a substring of every one of the given strings.
+    /// Returns `True` for an empty list. Returns as soon as a non-matching element is
+    /// found, without validating the remaining elements.
+    ///
+    /// Behaves like calling `match` on each element, but is significantly faster on large
+    /// lists because it crosses from Starlark into native code only once.
+    fn all_match<'v>(
+        this: &StarlarkBuckRegex,
+        #[starlark(require = pos)] strings: ValueOfUnchecked<'v, ListType<&'v str>>,
+    ) -> starlark::Result<bool> {
+        this.multi_match(strings, false)
     }
 
     /// Replace all matches of the regex in the given string with the replacement string.
@@ -180,6 +228,34 @@ mod tests {
     }
 
     #[test]
+    fn test_any_match() {
+        let mut a = Assert::new();
+        a.globals_add(register_buck_regex);
+
+        a.is_true("regex('abc|def|ghi').any_match(['none', 'def'])");
+        a.is_false("regex('abc|def|ghi').any_match(['none', 'other'])");
+        a.is_false("regex('x').any_match([])");
+        a.fail("regex('x').any_match('x')", "Expected `list`");
+        a.fail("regex('x').any_match([1])", "Expected `str`");
+        // Short-circuits once the result is decided; later elements are not validated.
+        a.is_true("regex('x').any_match(['x', 1])");
+    }
+
+    #[test]
+    fn test_all_match() {
+        let mut a = Assert::new();
+        a.globals_add(register_buck_regex);
+
+        a.is_true("regex('abc|def|ghi').all_match(['xdefy', 'abc'])");
+        a.is_false("regex('abc|def|ghi').all_match(['def', 'other'])");
+        a.is_true("regex('x').all_match([])");
+        a.fail("regex('x').all_match('x')", "Expected `list`");
+        a.fail("regex('x').all_match([1])", "Expected `str`");
+        // Short-circuits once the result is decided; later elements are not validated.
+        a.is_false("regex('x').all_match(['nomatch', 1])");
+    }
+
+    #[test]
     fn test_str() {
         let mut a = Assert::new();
         a.globals_add(register_buck_regex);
@@ -199,6 +275,8 @@ str(regex("foo")) == 'regex("foo")'
         a.pass(r"regex('(?=x)', fancy=True)");
 
         a.is_true(r"regex('^(?=x)x$', fancy=True).match('x')");
+        a.is_true(r"regex('(?=x)', fancy=True).any_match(['y', 'x'])");
+        a.is_false(r"regex('(?=x)', fancy=True).all_match(['y', 'x'])");
     }
 
     #[test]
