@@ -395,7 +395,7 @@ proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 prost = { version = "0.14.4", default-features = false }
 prost-types = { version = "0.14.4", default-features = false }
 protoc-bin-vendored = "3.0.0"
-psutil = "4.0.0"
+psutil = "5.4.0"
 quick-xml = { version = "0.41.0", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
 quickcheck_macros = "1.2.0"
