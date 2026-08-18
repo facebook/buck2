@@ -764,6 +764,7 @@ fn conflicting_heap_binding(
     heap_id: HeapRefId,
     bound: &FrozenHeapRef,
     bound_heap_ptr: FrozenHeapPtr,
+    conflicting: Option<&FrozenHeapRef>,
     conflicting_heap_ptr: FrozenHeapPtr,
 ) -> PagableError {
     PagableError::ConflictingHeapBinding {
@@ -772,7 +773,9 @@ fn conflicting_heap_binding(
             .name()
             .map_or_else(|| "<unnamed>".to_owned(), |name| name.to_string()),
         bound_heap_ptr: bound_heap_ptr.addr(),
+        bound_origin: bound.allocation_origin(),
         conflicting_heap_ptr: conflicting_heap_ptr.addr(),
+        conflicting_origin: conflicting.map(FrozenHeapRef::allocation_origin),
     }
 }
 
@@ -803,6 +806,7 @@ impl StarlarkDeserScope {
                         heap_id,
                         &bound,
                         entry.get().heap_ptr(),
+                        heap.upgrade().as_ref(),
                         heap_ptr,
                     ));
                 }
@@ -815,8 +819,12 @@ impl StarlarkDeserScope {
     pub(crate) fn is_heap_bound(
         &self,
         heap_id: HeapRefId,
-        heap_ptr: FrozenHeapPtr,
+        heap: &FrozenHeapRef,
     ) -> Result<bool, PagableError> {
+        let heap_ptr = heap
+            .downgrade()
+            .expect("a heap being bound must have an allocation")
+            .heap_ptr();
         let Some(entry) = self.heap_bindings.get(&heap_id) else {
             return Ok(false);
         };
@@ -828,6 +836,7 @@ impl StarlarkDeserScope {
                 heap_id,
                 &bound,
                 entry.heap_ptr(),
+                Some(heap),
                 heap_ptr,
             ));
         }

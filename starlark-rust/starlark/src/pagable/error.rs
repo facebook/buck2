@@ -23,6 +23,7 @@ use thiserror::Error;
 
 use crate::pagable::DeserTypeId;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
 
 /// Errors that can occur during pagable serialization/deserialization.
 #[derive(Debug, Error)]
@@ -74,7 +75,9 @@ pub enum PagableError {
     /// One root page-in encountered two live heap allocations with the same
     /// logical heap identity.
     #[error(
-        "Heap {heap_id:?} is already bound to a different heap in this page-in scope; heap name `{heap_name}`, bound allocation {bound_heap_ptr:#x}, conflicting allocation {conflicting_heap_ptr:#x}"
+        "Heap {heap_id:?} is already bound to a different heap in this page-in scope; heap name `{heap_name}`, bound allocation {bound_heap_ptr:#x} ({}), conflicting allocation {conflicting_heap_ptr:#x} ({})",
+        .bound_origin.as_str(),
+        .conflicting_origin.map_or("expired", HeapAllocationOrigin::as_str),
     )]
     ConflictingHeapBinding {
         /// The ambiguous logical heap identity.
@@ -83,8 +86,13 @@ pub enum PagableError {
         heap_name: String,
         /// Address of the allocation already bound in this scope.
         bound_heap_ptr: usize,
+        /// How page-in obtained the already-bound allocation.
+        bound_origin: HeapAllocationOrigin,
         /// Address of the allocation that could not be bound.
         conflicting_heap_ptr: usize,
+        /// How page-in obtained the allocation that could not be bound, or
+        /// `None` if it expired before it could be classified.
+        conflicting_origin: Option<HeapAllocationOrigin>,
     },
 
     /// A lazily deserialized heap slot was previously claimed, but its

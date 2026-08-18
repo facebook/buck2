@@ -828,7 +828,34 @@ impl PartialEq<FrozenHeapRef> for FrozenHeapRef {
 
 impl Eq for FrozenHeapRef {}
 
+/// How page-in obtained a heap allocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeapAllocationOrigin {
+    /// Reconstructed from stored bytes.
+    Deserialized,
+    /// A live allocation page-in reused instead of reconstructing.
+    Native,
+}
+
+impl HeapAllocationOrigin {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Deserialized => "deserialized",
+            Self::Native => "native",
+        }
+    }
+}
+
 impl FrozenHeapRef {
+    /// Only page-in installs a `HeapDeserializationState`, so its presence
+    /// separates a reconstructed allocation from a live one.
+    pub(crate) fn allocation_origin(&self) -> HeapAllocationOrigin {
+        match self.deser_state() {
+            Some(_) => HeapAllocationOrigin::Deserialized,
+            None => HeapAllocationOrigin::Native,
+        }
+    }
+
     pub(crate) fn deser_state(&self) -> Option<&HeapDeserializationState> {
         self.0
             .as_ref()
@@ -858,7 +885,7 @@ impl FrozenHeapRef {
             .downgrade()
             .expect("a deserialized heap must have an inner allocation");
         if scope
-            .is_heap_bound(heap_id, heap.heap_ptr())
+            .is_heap_bound(heap_id, self)
             .map_err(pagable::Error::new)?
         {
             return Ok(());

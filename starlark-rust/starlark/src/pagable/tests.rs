@@ -55,6 +55,7 @@ use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::dict::globals::register_dict;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
 use crate::values::list::globals::register_list;
 
 pagable::static_str!(TEST_EVAL_HEAP_NAME = "test_eval");
@@ -872,6 +873,8 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
         PagableError::ConflictingHeapBinding {
             heap_id: actual,
             heap_name,
+            bound_origin: HeapAllocationOrigin::Native,
+            conflicting_origin: Some(HeapAllocationOrigin::Native),
             ..
         } if *actual == heap_id
             && heap_name == "TestHeapName(conflicting_deser_binding)",
