@@ -10,19 +10,50 @@
 
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::hash::BuildHasher;
 
 use allocative::Allocative;
-use buck2_hash::BuckHasherBuilder;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
+use crate::package::PackageLabel;
+use crate::target::label::label::OwnedTargetLabel;
 use crate::target::label::label::TargetLabel;
+use crate::target::name::TargetNameRef;
 
-/// Concurrent target label interner.
-#[derive(Default, Allocative)]
-pub struct ConcurrentTargetLabelInterner {
-    table: ShardedLockFreeRawTable<TargetLabel, 64>,
+/// Every `TargetLabel` ever created lives here, forever.
+///
+/// Entries are never removed: `TargetLabel` is a non-refcounted `Copy` handle
+/// whose soundness relies on this table never dropping an entry.
+#[allocative::root]
+static GLOBAL_TARGET_LABEL_INTERNER: ShardedLockFreeRawTable<OwnedTargetLabel, 64> =
+    ShardedLockFreeRawTable::new();
+
+pub(crate) fn global_intern(pkg: PackageLabel, name: &TargetNameRef) -> TargetLabel {
+    let hash = OwnedTargetLabel::label_hash(pkg, name);
+    if let Some(label) = GLOBAL_TARGET_LABEL_INTERNER
+        .lookup(hash, |label| label.pkg() == pkg && label.name() == name)
+    {
+        return label;
+    }
+    let owned = OwnedTargetLabel::alloc(pkg, name, hash);
+    GLOBAL_TARGET_LABEL_INTERNER
+        .insert(
+            hash,
+            owned,
+            // `a` may be a handle to a not-yet-inserted candidate that is
+            // freed if it loses the insert race: compare by value only, and
+            // never let these handles escape (`==` on them would also be
+            // wrong: it is pointer equality, always false here).
+            |a, b| a.pkg() == b.pkg() && a.name() == b.name(),
+            |label| OwnedTargetLabel::label_hash(label.pkg(), label.name()),
+        )
+        .0
 }
+
+/// Hands labels back unchanged: they are interned globally at construction,
+/// so this type holds no state and `intern` is the identity function. It is kept so existing wiring
+/// compiles; removing that wiring is tracked separately.
+#[derive(Default, Allocative)]
+pub struct ConcurrentTargetLabelInterner {}
 
 impl Debug for ConcurrentTargetLabelInterner {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -39,40 +70,63 @@ impl PartialEq for ConcurrentTargetLabelInterner {
 
 impl ConcurrentTargetLabelInterner {
     pub fn intern(&self, target_label: TargetLabel) -> TargetLabel {
-        let hash = BuckHasherBuilder.hash_one(&target_label);
-
-        if let Some(r) = self
-            .table
-            .lookup(hash, |entry_ref| entry_ref == target_label.arc_borrow())
-        {
-            return r.to_owned();
-        }
-
-        let (entry, _) = self.table.insert(
-            hash,
-            target_label,
-            |a, b| a == b,
-            |a| BuckHasherBuilder.hash_one(a),
-        );
-        entry.to_owned()
+        target_label
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::ptr;
 
-    use crate::target::label::interner::ConcurrentTargetLabelInterner;
     use crate::target::label::label::TargetLabel;
 
     #[test]
-    fn test_interner() {
-        let interner = ConcurrentTargetLabelInterner::default();
+    fn test_concurrent_interning_is_canonical() {
+        // Race many threads interning the same small label set to exercise
+        // the losing side of concurrent inserts.
+        let labels: Vec<TargetLabel> = std::thread::scope(|s| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    s.spawn(|| {
+                        (0..1000)
+                            .map(|i| TargetLabel::testing_parse(&format!("foo//pkg:t{}", i % 100)))
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|h| h.join().unwrap())
+                .collect()
+        });
 
-        let label1 = interner.intern(TargetLabel::testing_parse("foo//:bar"));
-        let label2 = interner.intern(TargetLabel::testing_parse("foo//:bar"));
-        assert!(ptr::eq(label1.as_raw(), label2.as_raw()));
+        let mut canonical: HashMap<String, *const ()> = HashMap::new();
+        for label in &labels {
+            let ptr = canonical.entry(label.to_string()).or_insert(label.as_raw());
+            assert!(
+                ptr::eq(*ptr, label.as_raw()),
+                "equal labels must share one allocation"
+            );
+        }
+        assert_eq!(100, canonical.len(), "expected 100 distinct labels");
+    }
 
-        // We would like to check refcount, but there's no public API for that.
+    #[test]
+    fn test_global_interning_canonicalizes() {
+        let label1 = TargetLabel::testing_parse("foo//:bar");
+        let label2 = TargetLabel::testing_parse("foo//:bar");
+        assert!(
+            ptr::eq(label1.as_raw(), label2.as_raw()),
+            "same label must be the same allocation"
+        );
+        assert_eq!(label1, label2);
+
+        let other = TargetLabel::testing_parse("foo//:baz");
+        assert!(
+            !ptr::eq(label1.as_raw(), other.as_raw()),
+            "different labels must be different allocations"
+        );
+        assert_ne!(label1, other);
     }
 }

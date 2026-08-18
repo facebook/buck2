@@ -477,7 +477,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                 CellNameForConfigurationResolution(this.cell_name()),
                                 exec_deps,
                                 toolchains,
-                                target_platform.clone(),
+                                target_platform.dupe(),
                                 exec_compatible_with.clone(),
                             )
                             .await?;

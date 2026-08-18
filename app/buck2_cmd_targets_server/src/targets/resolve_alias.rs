@@ -48,7 +48,7 @@ trait ResolveAliasFormatter {
     fn separator(&self, buffer: &mut String);
 
     /// Emit an alias
-    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String);
+    fn emit(&self, alias: &str, label: TargetLabel, buffer: &mut String);
 }
 
 impl ResolveAliasFormatter for JsonWriter {
@@ -64,7 +64,7 @@ impl ResolveAliasFormatter for JsonWriter {
         self.separator(buffer);
     }
 
-    fn emit(&self, alias: &str, label: &TargetLabel, buffer: &mut String) {
+    fn emit(&self, alias: &str, label: TargetLabel, buffer: &mut String) {
         let mut first = true;
         self.entry_start(buffer);
         self.entry_item(buffer, &mut first, "alias", QuotedJson::quote_str(alias));
@@ -96,7 +96,7 @@ impl ResolveAliasFormatter for LinesWriter {
         buffer.push('\n');
     }
 
-    fn emit(&self, _alias: &str, label: &TargetLabel, buffer: &mut String) {
+    fn emit(&self, _alias: &str, label: TargetLabel, buffer: &mut String) {
         write!(buffer, "{label}").unwrap();
     }
 }
@@ -197,7 +197,7 @@ pub(crate) async fn targets_resolve_aliases(
             formatter.separator(&mut buffer);
         }
         needs_separator = true;
-        formatter.emit(alias, node.label(), &mut buffer);
+        formatter.emit(alias, node.label().dupe(), &mut buffer);
     }
 
     formatter.end(&mut buffer);

@@ -155,7 +155,7 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
             }))
         }
         ConfiguredAttr::ConfigurationDep(dep) => CoercedAttr::ConfigurationDep(dep.dupe()),
-        ConfiguredAttr::PluginDep(dep, _) => CoercedAttr::PluginDep(dep.clone()),
+        ConfiguredAttr::PluginDep(dep, _) => CoercedAttr::PluginDep(dep.dupe()),
         ConfiguredAttr::Dep(dep) => CoercedAttr::Dep(dep.label.unconfigured()),
         ConfiguredAttr::SourceLabel(dep) => CoercedAttr::SourceLabel(dep.unconfigured()),
         ConfiguredAttr::Label(label) => CoercedAttr::Label(label.unconfigured()),

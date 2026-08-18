@@ -39,10 +39,10 @@ impl<'v> ValueAsStarlarkTargetLabel<'v> {
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
         cell_name: CellName,
-        default_target_platform: &Option<TargetLabel>,
+        default_target_platform: Option<TargetLabel>,
     ) -> buck2_error::Result<Option<TargetLabel>> {
         match self {
-            ValueAsStarlarkTargetLabel::None(_) => Ok(default_target_platform.clone()),
+            ValueAsStarlarkTargetLabel::None(_) => Ok(default_target_platform),
             ValueAsStarlarkTargetLabel::Str(s) => {
                 Ok(Some(
                     ParsedPattern::<TargetPatternExtra>::parse_relaxed(

@@ -26,14 +26,6 @@ pub(crate) struct ThinArcBorrow<'a, H, T> {
 }
 
 impl<'a, H, T> ThinArcBorrow<'a, H, T> {
-    /// Borrow.
-    pub(crate) fn borrow(arc: &'a triomphe::ThinArc<H, T>) -> ThinArcBorrow<'a, H, T> {
-        ThinArcBorrow {
-            ptr: NonNull::new(triomphe::ThinArc::as_ptr(arc) as *mut _).unwrap(),
-            _marker: PhantomData,
-        }
-    }
-
     /// Obtain a temporary reference to the `ThinArc`.
     pub(crate) fn with_arc<R>(self, mut f: impl FnMut(&triomphe::ThinArc<H, T>) -> R) -> R {
         // Tricky part: we create a `ThinArc` without incrementing the reference counter
@@ -45,16 +37,16 @@ impl<'a, H, T> ThinArcBorrow<'a, H, T> {
         }
     }
 
-    /// Upgrade to `triomphe::ThinArc`.
-    pub(crate) fn to_owned(self) -> triomphe::ThinArc<H, T> {
-        self.with_arc(|arc| arc.clone())
-    }
-
     /// Create from a raw pointer produced by `triomphe::ThinArc::into_raw`.
     pub(crate) unsafe fn from_raw(ptr: *const ()) -> Self {
         ThinArcBorrow {
             ptr: NonNull::new(ptr as *mut _).unwrap(),
             _marker: PhantomData,
         }
+    }
+
+    /// Raw pointer identity of the underlying allocation.
+    pub(crate) fn as_ptr(self) -> *const () {
+        self.ptr.as_ptr()
     }
 }

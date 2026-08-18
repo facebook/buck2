@@ -70,10 +70,10 @@ pub(crate) fn check_within_view(
     }
 
     impl<'x> WithinViewCheckTraversal<'x> {
-        fn check_dep_within_view(&self, dep: &TargetLabel) -> buck2_error::Result<()> {
+        fn check_dep_within_view(&self, dep: TargetLabel) -> buck2_error::Result<()> {
             if self.pkg == dep.pkg()
-                || self.default_deps.contains(dep)
-                || self.within_view.0.matches_target(dep)?
+                || self.default_deps.contains(&dep)
+                || self.within_view.0.matches_target(&dep)?
             {
                 Ok(())
             } else {
@@ -87,7 +87,7 @@ pub(crate) fn check_within_view(
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
         fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep.target())
+            self.check_dep_within_view(dep.target().dupe())
         }
 
         fn configuration_dep(
@@ -101,7 +101,7 @@ pub(crate) fn check_within_view(
                 ConfigurationDepKind::SelectKey => (),
                 ConfigurationDepKind::DefaultTargetPlatform => (),
                 ConfigurationDepKind::ConfiguredDepPlatform | ConfigurationDepKind::Transition => {
-                    self.check_dep_within_view(dep.target())?
+                    self.check_dep_within_view(dep.target().dupe())?
                 }
             }
             Ok(())

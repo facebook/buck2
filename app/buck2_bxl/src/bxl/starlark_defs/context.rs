@@ -317,7 +317,7 @@ impl BxlContextCoreData {
             self.cell_resolver(),
             self.cell_alias_resolver(),
             self.cell_name(),
-            &self.global_cfg_options().target_platform,
+            self.global_cfg_options().target_platform,
         )
     }
 

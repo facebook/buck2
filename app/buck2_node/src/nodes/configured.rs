@@ -139,10 +139,10 @@ impl TargetNodeOrForward {
         }
     }
 
-    fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
+    fn is_visible_to(&self, target: TargetLabel) -> buck2_error::Result<bool> {
         match self {
-            TargetNodeOrForward::TargetNode(node) => node.is_visible_to(target),
-            TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(target),
+            TargetNodeOrForward::TargetNode(node) => node.is_visible_to(&target),
+            TargetNodeOrForward::Forward(_, forward) => forward.is_visible_to(&target),
         }
     }
 
@@ -459,7 +459,7 @@ impl ConfiguredTargetNode {
     }
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
-        self.0.target_node.is_visible_to(target)
+        self.0.target_node.is_visible_to(target.dupe())
     }
 
     pub fn not_visible_to_error(
