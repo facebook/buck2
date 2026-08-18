@@ -30,6 +30,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -257,22 +258,49 @@ class AndroidDeviceImplTest {
 
   @Test
   fun testIsEmulator() {
+    // A device caches the read-only properties it reads, so each case needs its own instance.
     // Setup for non-emulator
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
         .thenReturn("0")
 
-    assertFalse(androidDevice.isEmulator)
+    assertFalse(AndroidDeviceImpl(serialNumber, mockAdbUtils).isEmulator)
 
     // Setup for emulator
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
         .thenReturn("1")
 
-    assertTrue(androidDevice.isEmulator)
+    assertTrue(AndroidDeviceImpl(serialNumber, mockAdbUtils).isEmulator)
 
     // Setup for Genymotion device
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.kernel.qemu", serialNumber))
         .thenReturn("0")
     assertTrue(AndroidDeviceImpl("192.168.57.101:5555", mockAdbUtils).isEmulator)
+  }
+
+  @Test
+  fun testReadOnlyPropertiesAreOnlyQueriedOnce() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.product.cpu.abilist", serialNumber))
+        .thenReturn("arm64-v8a")
+
+    androidDevice.getDeviceAbis()
+    androidDevice.getDeviceAbis()
+    androidDevice.getProperty("ro.product.cpu.abilist")
+
+    verify(mockAdbUtils, times(1))
+        .executeAdbShellCommand("getprop ro.product.cpu.abilist", serialNumber)
+  }
+
+  /** Anything outside `ro.` can change mid-install, so it must be read through every time. */
+  @Test
+  fun testMutablePropertiesAreNotCached() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop sys.boot_completed", serialNumber))
+        .thenReturn("1")
+
+    androidDevice.getProperty("sys.boot_completed")
+    androidDevice.getProperty("sys.boot_completed")
+
+    verify(mockAdbUtils, times(2))
+        .executeAdbShellCommand("getprop sys.boot_completed", serialNumber)
   }
 
   @Test

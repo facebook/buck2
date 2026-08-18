@@ -24,10 +24,14 @@ import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Optional
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
 class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDevice {
+
+  private val properties: ConcurrentMap<String, String> = ConcurrentHashMap()
 
   override fun installApkOnDevice(
       apk: File,
@@ -619,7 +623,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   @Throws(Exception::class)
   override fun getProperty(name: String): String {
-    return executeAdbShellCommandCatching("getprop $name", "Failed to get property $name.")
+    val read = { executeAdbShellCommandCatching("getprop $name", "Failed to get property $name.") }
+    // Only `ro.` properties are fixed at boot and so safe to hold on to; anything else can change
+    // under us mid-install. Caching is worth it because a single exopackage install otherwise
+    // re-queries ro.product.cpu.abilist five times over adb.
+    return if (name.startsWith("ro.")) properties.computeIfAbsent(name) { read() } else read()
   }
 
   @Throws(Exception::class)
