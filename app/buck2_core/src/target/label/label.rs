@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::alloc;
 use std::alloc::Layout;
 use std::cmp::Ordering;
 use std::fmt;
@@ -94,8 +93,9 @@ const _: () = assert!(LabelData::NAME_OFFSET == 14);
 const _: () = assert!(mem::size_of::<TargetLabel>() == 8);
 const _: () = assert!(mem::size_of::<Option<TargetLabel>>() == 8);
 
-// `Drop for OwnedTargetLabel` deallocates without running drop glue; this
-// holds as long as all fields are plain data.
+// Nothing ever runs drop glue for `LabelData`: entries live forever in the
+// arena, and even a racy-insert loser is abandoned in place. Fields must
+// therefore be plain data that is safe to leak.
 const _: () = assert!(!std::mem::needs_drop::<LabelData>());
 
 impl LabelData {
@@ -105,7 +105,9 @@ impl LabelData {
 
     /// The header is written as a whole 16-byte struct, so the allocation
     /// must never be smaller than the struct, even when `NAME_OFFSET +
-    /// name_len` is (names shorter than two bytes).
+    /// name_len` is (names shorter than two bytes). The arena additionally
+    /// rounds carves up to its bump step; `arena_size` is the
+    /// accounting-accurate figure.
     fn layout(name_len: usize) -> Layout {
         let size = std::cmp::max(
             mem::size_of::<LabelData>(),
@@ -116,23 +118,32 @@ impl LabelData {
         Layout::from_size_align(size, mem::align_of::<LabelData>())
             .expect("label allocation overflows a Layout")
     }
+
+    /// Bytes actually consumed in the arena for a label with this name
+    /// length (the layout size rounded to the arena's bump step).
+    fn arena_size(name_len: usize) -> usize {
+        Self::layout(name_len)
+            .size()
+            .next_multiple_of(crate::target::label::arena::BUMP_STEP)
+    }
 }
 
 /// The owning form of a target label allocation.
 ///
 /// Exactly one of these exists per unique label, and it lives forever inside
 /// the global interner's table (the only exception: the losing candidate of a
-/// racy insert of the same label, which is dropped before any handle to it
-/// escapes). All public `TargetLabel` values are non-owning copies of these
-/// entries.
+/// racy insert of the same label, which is abandoned in place before any
+/// handle to it escapes). All public `TargetLabel` values are non-owning
+/// copies of these entries.
 ///
-/// Visibility is deliberately restricted to this module tree: storing this
-/// type in any table other than the immortal global interner would let its
-/// allocation be freed behind live `'static` `TargetLabel` handles.
+/// Visibility is deliberately restricted to this module tree: a `TargetLabel`
+/// handle is canonical only if it came from the global interner, so letting
+/// other code mint or store owning entries would break the pointer-equality
+/// invariant every label comparison relies on.
 pub(in crate::target::label) struct OwnedTargetLabel(NonNull<LabelData>);
 
-// SAFETY: the pointee is immutable after construction, and `Drop` requires
-// unique ownership.
+// SAFETY: the pointee is immutable after construction and never freed;
+// this type only ever reads it.
 unsafe impl Send for OwnedTargetLabel {}
 // SAFETY: as above; shared access only reads immutable data.
 unsafe impl Sync for OwnedTargetLabel {}
@@ -149,25 +160,24 @@ impl OwnedTargetLabel {
 
     pub(crate) fn alloc(pkg: PackageLabel, name: &TargetNameRef, hash: u64) -> OwnedTargetLabel {
         let name = name.as_str().as_bytes();
-        // `TargetName::verify` enforces the bound at construction, and the
-        // stored length feeds `Drop`'s layout reconstruction, so truncation
-        // here would be undefined behavior, not just a wrong name.
+        // `TargetName::verify` enforces the bound at construction; the stored
+        // length bounds every later read of the name bytes, so truncation
+        // here would read garbage, not just shorten a name.
         let name_len: u16 = name
             .len()
             .try_into()
             .expect("verified target names fit the u16 length limit");
         let layout = LabelData::layout(name.len());
-        // SAFETY: the layout is at least `size_of::<LabelData>()`, so the
-        // whole-struct header write is in-bounds and aligned. The name copy
-        // then initializes bytes `NAME_OFFSET..NAME_OFFSET + name_len`
-        // (starting in the struct's tail padding); any allocation bytes past
-        // that remain uninitialized and are never read, since every reader
-        // is bounded by `name_len`.
+        let raw = crate::target::label::interner::label_arenas().alloc(hash, layout);
+        // SAFETY: the arena returned at least `layout.size()` >=
+        // `size_of::<LabelData>()` 8-aligned bytes, so the whole-struct
+        // header write is in-bounds and aligned. The name copy then
+        // initializes bytes `NAME_OFFSET..NAME_OFFSET + name_len` (starting
+        // in the struct's tail padding); any allocation bytes past that
+        // remain uninitialized and are never read, since every reader is
+        // bounded by `name_len`.
         unsafe {
-            let data = alloc::alloc(layout) as *mut LabelData;
-            let Some(data_ptr) = NonNull::new(data) else {
-                alloc::handle_alloc_error(layout);
-            };
+            let data = raw.as_ptr() as *mut LabelData;
             data.write(LabelData {
                 pkg,
                 hash: hash as u32,
@@ -178,23 +188,22 @@ impl OwnedTargetLabel {
                 (data as *mut u8).add(LabelData::NAME_OFFSET),
                 name.len(),
             );
-            OwnedTargetLabel(data_ptr)
+            OwnedTargetLabel(NonNull::new_unchecked(data))
         }
+    }
+
+    /// Bytes `LabelArenas::alloc` accounted for this label; what `abandon`
+    /// must hand back for a racy-insert loser.
+    pub(in crate::target::label) fn arena_size(&self) -> usize {
+        // SAFETY: the pointee is a live, immutable `LabelData`.
+        LabelData::arena_size(unsafe { self.0.as_ref() }.name_len as usize)
     }
 }
 
-impl Drop for OwnedTargetLabel {
-    fn drop(&mut self) {
-        // Only ever reached for the losing candidate of a racy insert; table
-        // entries are never dropped.
-        // SAFETY: unique ownership; the allocation was created by `alloc`
-        // with this exact layout.
-        unsafe {
-            let name_len = self.0.as_ref().name_len as usize;
-            alloc::dealloc(self.0.as_ptr() as *mut u8, LabelData::layout(name_len));
-        }
-    }
-}
+// No `Drop`: label storage comes from the immortal arenas, so even the
+// losing candidate of a racy insert is simply abandoned in place (a small,
+// rare hole counted in `label_arena_slack` once the interner reports it
+// abandoned).
 
 /// Account the shared label allocation. Used by both the interner's owning
 /// entry and every `TargetLabel` handle; `enter_shared` deduplicates by
@@ -207,8 +216,8 @@ fn visit_label_allocation<'a, 'b: 'a>(data: NonNull<LabelData>, visitor: &'a mut
     ) {
         // SAFETY: the pointee is a live, immutable `LabelData`.
         let name_len = unsafe { data.as_ref().name_len as usize };
-        // `.size()` includes the 16-byte allocation floor for short names.
-        visitor.visit_simple(Key::new("label_data"), LabelData::layout(name_len).size());
+        // `arena_size` includes the 16-byte floor and the arena's rounding.
+        visitor.visit_simple(Key::new("label_data"), LabelData::arena_size(name_len));
         visitor.exit();
     }
 }
@@ -224,8 +233,10 @@ impl Allocative for OwnedTargetLabel {
 /// This impl hands out `'static` `TargetLabel`s untied to the table's
 /// lifetime, which is sound only for the immortal global interner. Inside
 /// `insert`, the eq callback can also receive a handle to a not-yet-inserted
-/// candidate that is freed if it loses the insert race; such handles must
-/// never escape the callback.
+/// candidate that is abandoned if it loses the insert race; such handles
+/// must never escape the callback — the memory stays valid (nothing is ever
+/// freed), but an escaped candidate would compare unequal to the canonical
+/// entry under pointer equality.
 impl AtomicValue for OwnedTargetLabel {
     type Raw = usize; // *const ()
     type Ref<'a> = TargetLabel;
@@ -239,10 +250,7 @@ impl AtomicValue for OwnedTargetLabel {
     }
 
     fn into_raw(this: Self) -> Self::Raw {
-        let raw = (this.0.as_ptr() as *const ()).expose_provenance();
-        // The table takes over ownership; do not run `Drop`.
-        mem::forget(this);
-        raw
+        (this.0.as_ptr() as *const ()).expose_provenance()
     }
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
@@ -279,6 +287,14 @@ pub struct TargetLabel(NonNull<LabelData>);
 unsafe impl Send for TargetLabel {}
 // SAFETY: as above; all access is to immutable data.
 unsafe impl Sync for TargetLabel {}
+
+// The `Send`/`Sync` arguments above lean on `PackageLabel` being freely
+// shareable; make a change to that a compile error here rather than a
+// latent soundness hole.
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<PackageLabel>();
+};
 
 impl StrongHash for TargetLabel {
     fn strong_hash<H: Hasher>(&self, state: &mut H) {
@@ -337,12 +353,12 @@ impl TargetLabel {
 
     #[inline]
     fn header(&self) -> &'static LabelData {
-        // SAFETY: the allocation is owned by the global interner and is
-        // never freed or mutated, so extending the borrow to `'static` is
-        // sound. (Exception: candidate handles inside the interner's insert
-        // eq callback point at an allocation that is freed if it loses the
-        // race; those must not escape the callback — see the `AtomicValue`
-        // impl — and the allocation is live for the callback's duration.)
+        // SAFETY: every label allocation comes from the immortal arenas and
+        // is never freed or mutated — including a racy-insert loser, which
+        // is abandoned in place — so extending the borrow to `'static` is
+        // always sound. (Candidate handles inside the interner's insert eq
+        // callback still must not escape, for canonicity, not liveness; see
+        // the `AtomicValue` impl.)
         unsafe { &*self.0.as_ptr() }
     }
 
@@ -575,6 +591,22 @@ mod tests {
         let long = TargetLabel::testing_parse(&format!("foo//some/pkg:{long_name}"));
         assert_eq!(long_name, long.name().as_str());
         assert_eq!(301, long.name().as_str().len());
+    }
+
+    #[test]
+    fn test_max_length_name_roundtrip() {
+        // The longest legal name: exercises `alloc`'s u16 boundary, a carve
+        // larger than an arena chunk (which installs a dedicated oversize
+        // chunk), and interning right at the cap.
+        let max_name = format!("t{}", "x".repeat(u16::MAX as usize - 1));
+        let label = TargetLabel::testing_parse(&format!("foo//some/pkg:{max_name}"));
+        assert_eq!(max_name, label.name().as_str());
+        assert_eq!(u16::MAX as usize, label.name().as_str().len());
+        let again = TargetLabel::testing_parse(&format!("foo//some/pkg:{max_name}"));
+        assert_eq!(
+            label, again,
+            "max-length labels canonicalize like any other"
+        );
     }
 
     #[test]

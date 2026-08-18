@@ -23,6 +23,17 @@ use crate::target::name::TargetNameRef;
 static GLOBAL_TARGET_LABEL_INTERNER: ShardedLockFreeRawTable<OwnedTargetLabel, 64> =
     ShardedLockFreeRawTable::new();
 
+/// Backing storage for every label allocation. Reported to allocative as
+/// slack only; payload bytes are accounted per entry via `label_data`.
+#[allocative::root]
+static LABEL_ARENAS: crate::target::label::arena::LabelArenas =
+    crate::target::label::arena::LabelArenas::new();
+
+pub(in crate::target::label) fn label_arenas() -> &'static crate::target::label::arena::LabelArenas
+{
+    &LABEL_ARENAS
+}
+
 pub(crate) fn global_intern(pkg: PackageLabel, name: &TargetNameRef) -> TargetLabel {
     let hash = OwnedTargetLabel::label_hash(pkg, name);
     if let Some(label) = GLOBAL_TARGET_LABEL_INTERNER
@@ -31,18 +42,22 @@ pub(crate) fn global_intern(pkg: PackageLabel, name: &TargetNameRef) -> TargetLa
         return label;
     }
     let owned = OwnedTargetLabel::alloc(pkg, name, hash);
-    GLOBAL_TARGET_LABEL_INTERNER
-        .insert(
-            hash,
-            owned,
-            // `a` may be a handle to a not-yet-inserted candidate that is
-            // freed if it loses the insert race: compare by value only, and
-            // never let these handles escape (`==` on them would also be
-            // wrong: it is pointer equality, always false here).
-            |a, b| a.pkg() == b.pkg() && a.name() == b.name(),
-            |label| OwnedTargetLabel::label_hash(label.pkg(), label.name()),
-        )
-        .0
+    let (label, loser) = GLOBAL_TARGET_LABEL_INTERNER.insert(
+        hash,
+        owned,
+        // `a` may be a handle to a not-yet-inserted candidate that is
+        // abandoned if it loses the insert race: compare by value only, and
+        // never let these handles escape (`==` on them would also be
+        // wrong: it is pointer equality, always false here).
+        |a, b| a.pkg() == b.pkg() && a.name() == b.name(),
+        |label| OwnedTargetLabel::label_hash(label.pkg(), label.name()),
+    );
+    if let Some(loser) = loser {
+        // The losing candidate's carve is never reused; reclassify its bytes
+        // as slack so allocative accounting stays exact.
+        label_arenas().abandon(loser.arena_size());
+    }
+    label
 }
 
 #[cfg(test)]
