@@ -8,15 +8,21 @@
  * above-listed licenses.
  */
 
+use std::alloc;
+use std::alloc::Layout;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem;
 use std::ptr;
+use std::ptr::NonNull;
+use std::slice;
 use std::str;
 
 use allocative::Allocative;
+use allocative::Key;
 use allocative::Visitor;
 use buck2_data::ToProtoMessage;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -34,7 +40,6 @@ use pagable::arc_erase::deserialize_arc;
 use serde::Serialize;
 use serde::Serializer;
 use strong_hash::StrongHash;
-use triomphe::ThinArc;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
@@ -49,32 +54,88 @@ use crate::pattern::pattern::lex_target_pattern;
 use crate::pattern::pattern_type::TargetPatternExtra;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::interner::global_intern;
-use crate::target::label::triomphe_thin_arc_borrow::ThinArcBorrow;
 use crate::target::name::TargetNameRef;
 
-#[derive(Debug, Eq, PartialEq, Allocative)]
-pub(crate) struct TargetLabelHeader {
+/// Header of a packed target label allocation. The target name bytes are
+/// stored inline immediately after this header, `name_len` bytes long.
+///
+/// Labels are immortal and deduplicated, so no refcount or capacity is
+/// stored: the whole allocation is `NAME_OFFSET + name_len` bytes (with a
+/// 16-byte minimum), the name occupying the tail padding and beyond.
+// `repr(C)` is load-bearing, not documentation: the name bytes are stored at
+// `NAME_OFFSET`, immediately after `name_len`, which is only free space if
+// `name_len` is the *last* field in memory. `repr(C)` guarantees declaration
+// order; without it the compiler could reorder fields and `NAME_OFFSET`
+// would land inside one. (The const asserts below turn any layout drift into
+// a compile error rather than corruption.)
+#[repr(C)]
+struct LabelData {
+    pkg: PackageLabel,
     /// Hash of target label (not package, not name). Stored because it must
     /// stay bit-stable — it feeds target hashes (`TargetNode::target_hash`,
     /// surfaced by `targets --show-target-hash`) — and it doubles as the
     /// precomputed `Hash` for label-keyed maps. Equality does not read it:
     /// labels are interned, so pointer comparison suffices.
     hash: u32,
-    pkg: PackageLabel,
-    // TODO(nga): this struct has 4 bytes of padding.
+    /// Length of the name bytes stored inline at `NAME_OFFSET`, which is
+    /// inside this struct's tail padding: the fields end at byte 14 and
+    /// `pkg`'s 8-byte alignment pads the struct size to 16.
+    /// `TargetName::verify` enforces the `u16` bound.
+    name_len: u16,
+}
+
+// The manual offset arithmetic below is sound only for exactly this layout.
+const _: () = assert!(mem::size_of::<LabelData>() == 16);
+const _: () = assert!(mem::align_of::<LabelData>() == 8);
+const _: () = assert!(mem::offset_of!(LabelData, pkg) == 0);
+const _: () = assert!(mem::offset_of!(LabelData, hash) == 8);
+const _: () = assert!(mem::offset_of!(LabelData, name_len) == 12);
+const _: () = assert!(LabelData::NAME_OFFSET == 14);
+const _: () = assert!(mem::size_of::<TargetLabel>() == 8);
+const _: () = assert!(mem::size_of::<Option<TargetLabel>>() == 8);
+
+// `Drop for OwnedTargetLabel` deallocates without running drop glue; this
+// holds as long as all fields are plain data.
+const _: () = assert!(!std::mem::needs_drop::<LabelData>());
+
+impl LabelData {
+    /// Name bytes start in the struct's tail padding, two bytes before
+    /// `size_of::<LabelData>()`.
+    const NAME_OFFSET: usize = mem::offset_of!(LabelData, name_len) + mem::size_of::<u16>();
+
+    /// The header is written as a whole 16-byte struct, so the allocation
+    /// must never be smaller than the struct, even when `NAME_OFFSET +
+    /// name_len` is (names shorter than two bytes).
+    fn layout(name_len: usize) -> Layout {
+        let size = std::cmp::max(
+            mem::size_of::<LabelData>(),
+            Self::NAME_OFFSET
+                .checked_add(name_len)
+                .expect("name length overflows a Layout"),
+        );
+        Layout::from_size_align(size, mem::align_of::<LabelData>())
+            .expect("label allocation overflows a Layout")
+    }
 }
 
 /// The owning form of a target label allocation.
 ///
 /// Exactly one of these exists per unique label, and it lives forever inside
-/// the global interner's table. All public `TargetLabel` values are
-/// non-refcounted borrows of these entries.
+/// the global interner's table (the only exception: the losing candidate of a
+/// racy insert of the same label, which is dropped before any handle to it
+/// escapes). All public `TargetLabel` values are non-owning copies of these
+/// entries.
 ///
 /// Visibility is deliberately restricted to this module tree: storing this
 /// type in any table other than the immortal global interner would let its
 /// allocation be freed behind live `'static` `TargetLabel` handles.
-#[derive(Allocative)]
-pub(in crate::target::label) struct OwnedTargetLabel(ThinArc<TargetLabelHeader, u8>);
+pub(in crate::target::label) struct OwnedTargetLabel(NonNull<LabelData>);
+
+// SAFETY: the pointee is immutable after construction, and `Drop` requires
+// unique ownership.
+unsafe impl Send for OwnedTargetLabel {}
+// SAFETY: as above; shared access only reads immutable data.
+unsafe impl Sync for OwnedTargetLabel {}
 
 impl OwnedTargetLabel {
     /// This computation must not change: the truncated `u32` feeds target
@@ -87,13 +148,76 @@ impl OwnedTargetLabel {
     }
 
     pub(crate) fn alloc(pkg: PackageLabel, name: &TargetNameRef, hash: u64) -> OwnedTargetLabel {
-        OwnedTargetLabel(ThinArc::from_header_and_slice(
-            TargetLabelHeader {
-                hash: hash as u32,
+        let name = name.as_str().as_bytes();
+        // `TargetName::verify` enforces the bound at construction, and the
+        // stored length feeds `Drop`'s layout reconstruction, so truncation
+        // here would be undefined behavior, not just a wrong name.
+        let name_len: u16 = name
+            .len()
+            .try_into()
+            .expect("verified target names fit the u16 length limit");
+        let layout = LabelData::layout(name.len());
+        // SAFETY: the layout is at least `size_of::<LabelData>()`, so the
+        // whole-struct header write is in-bounds and aligned. The name copy
+        // then initializes bytes `NAME_OFFSET..NAME_OFFSET + name_len`
+        // (starting in the struct's tail padding); any allocation bytes past
+        // that remain uninitialized and are never read, since every reader
+        // is bounded by `name_len`.
+        unsafe {
+            let data = alloc::alloc(layout) as *mut LabelData;
+            let Some(data_ptr) = NonNull::new(data) else {
+                alloc::handle_alloc_error(layout);
+            };
+            data.write(LabelData {
                 pkg,
-            },
-            name.as_str().as_bytes(),
-        ))
+                hash: hash as u32,
+                name_len,
+            });
+            ptr::copy_nonoverlapping(
+                name.as_ptr(),
+                (data as *mut u8).add(LabelData::NAME_OFFSET),
+                name.len(),
+            );
+            OwnedTargetLabel(data_ptr)
+        }
+    }
+}
+
+impl Drop for OwnedTargetLabel {
+    fn drop(&mut self) {
+        // Only ever reached for the losing candidate of a racy insert; table
+        // entries are never dropped.
+        // SAFETY: unique ownership; the allocation was created by `alloc`
+        // with this exact layout.
+        unsafe {
+            let name_len = self.0.as_ref().name_len as usize;
+            alloc::dealloc(self.0.as_ptr() as *mut u8, LabelData::layout(name_len));
+        }
+    }
+}
+
+/// Account the shared label allocation. Used by both the interner's owning
+/// entry and every `TargetLabel` handle; `enter_shared` deduplicates by
+/// pointer, so whichever is visited first accounts it, identically.
+fn visit_label_allocation<'a, 'b: 'a>(data: NonNull<LabelData>, visitor: &'a mut Visitor<'b>) {
+    if let Some(mut visitor) = visitor.enter_shared(
+        Key::new("data"),
+        mem::size_of::<*const ()>(),
+        data.as_ptr() as *const (),
+    ) {
+        // SAFETY: the pointee is a live, immutable `LabelData`.
+        let name_len = unsafe { data.as_ref().name_len as usize };
+        // `.size()` includes the 16-byte allocation floor for short names.
+        visitor.visit_simple(Key::new("label_data"), LabelData::layout(name_len).size());
+        visitor.exit();
+    }
+}
+
+impl Allocative for OwnedTargetLabel {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        visit_label_allocation(self.0, &mut visitor);
+        visitor.exit();
     }
 }
 
@@ -115,26 +239,29 @@ impl AtomicValue for OwnedTargetLabel {
     }
 
     fn into_raw(this: Self) -> Self::Raw {
-        (ThinArc::into_raw(this.0) as *const ()).expose_provenance()
+        let raw = (this.0.as_ptr() as *const ()).expose_provenance();
+        // The table takes over ownership; do not run `Drop`.
+        mem::forget(this);
+        raw
     }
 
     unsafe fn from_raw(raw: Self::Raw) -> Self {
-        // SAFETY: `raw` came from `into_raw` on an `OwnedTargetLabel`, so it
-        // is a live `ThinArc` allocation whose ownership we are resuming.
+        // SAFETY: `raw` came from `into_raw` and is non-null.
         OwnedTargetLabel(unsafe {
-            ThinArc::from_raw(ptr::with_exposed_provenance::<()>(raw) as *const _)
+            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
         })
     }
 
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        // SAFETY: `raw` came from `into_raw`, and the allocation stays live:
-        // entries are never removed from the immortal global interner.
-        TargetLabel(unsafe { ThinArcBorrow::from_raw(ptr::with_exposed_provenance(raw)) })
+        // SAFETY: `raw` came from `into_raw` and is non-null.
+        TargetLabel(unsafe {
+            NonNull::new_unchecked(ptr::with_exposed_provenance_mut::<LabelData>(raw))
+        })
     }
 }
 
 /// 'TargetLabel' that uniquely maps to a 'target'
-/// It contains a 'Package' which is the 'Package' defined by the build fine
+/// It contains a 'Package' which is the 'Package' defined by the build file
 /// that contains this 'target', and a 'name' which is a 'TargetName'
 /// representing the target name given to the particular target.
 ///
@@ -143,11 +270,12 @@ impl AtomicValue for OwnedTargetLabel {
 /// and equality is pointer equality. The backing allocation is never freed.
 #[derive(Copy, Clone, derive_more::Display)]
 #[display("{}", self.as_ref())]
-pub struct TargetLabel(ThinArcBorrow<'static, TargetLabelHeader, u8>);
+pub struct TargetLabel(NonNull<LabelData>);
 
 // SAFETY: `TargetLabel` points to an allocation owned by the global interner,
 // which is immutable after construction and is never freed, so sharing the
-// pointer across threads is sound.
+// pointer across threads is sound. The pointee's fields are themselves
+// `Send + Sync` (`u32`, `u16`, and `PackageLabel`, an interned handle).
 unsafe impl Send for TargetLabel {}
 // SAFETY: as above; all access is to immutable data.
 unsafe impl Sync for TargetLabel {}
@@ -208,23 +336,27 @@ impl TargetLabel {
     }
 
     #[inline]
-    fn header(&self) -> &'static TargetLabelHeader {
-        self.0.with_arc(|arc| {
-            let header: *const TargetLabelHeader = &arc.header.header;
-            // SAFETY: the allocation is owned by the global interner and is
-            // never freed or mutated, so extending the borrow to `'static`
-            // is sound.
-            unsafe { &*header }
-        })
+    fn header(&self) -> &'static LabelData {
+        // SAFETY: the allocation is owned by the global interner and is
+        // never freed or mutated, so extending the borrow to `'static` is
+        // sound. (Exception: candidate handles inside the interner's insert
+        // eq callback point at an allocation that is freed if it loses the
+        // race; those must not escape the callback — see the `AtomicValue`
+        // impl — and the allocation is live for the callback's duration.)
+        unsafe { &*self.0.as_ptr() }
     }
 
     #[inline]
     fn name_bytes(&self) -> &'static [u8] {
-        self.0.with_arc(|arc| {
-            let slice: *const [u8] = &arc.slice;
-            // SAFETY: as in `header`.
-            unsafe { &*slice }
-        })
+        let header = self.header();
+        // SAFETY: `name_len` bytes were written immediately after the header
+        // at construction, and the allocation is immortal and immutable.
+        unsafe {
+            slice::from_raw_parts(
+                (self.0.as_ptr() as *const u8).add(LabelData::NAME_OFFSET),
+                header.name_len as usize,
+            )
+        }
     }
 
     #[inline]
@@ -293,7 +425,7 @@ impl TargetLabel {
     }
 
     pub(crate) fn as_raw(&self) -> *const () {
-        self.0.as_ptr()
+        self.0.as_ptr() as *const ()
     }
 
     /// Simple and incorrect target label parser which can be used in tests.
@@ -325,10 +457,7 @@ impl TargetLabel {
 impl Allocative for TargetLabel {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        // `ThinArc`'s impl already deduplicates by allocation pointer via
-        // `enter_shared`, so the payload is counted once per report no matter
-        // how many handles or the interner itself visit it.
-        self.0.with_arc(|arc| arc.visit(&mut visitor));
+        visit_label_allocation(self.0, &mut visitor);
         visitor.exit();
     }
 }
@@ -426,5 +555,33 @@ impl<'a> TargetLabelRef<'a> {
     #[inline]
     pub fn new(pkg: PackageLabel, name: &'a TargetNameRef) -> TargetLabelRef<'a> {
         TargetLabelRef { pkg, name }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::target::label::label::TargetLabel;
+
+    #[test]
+    fn test_short_and_long_names_roundtrip() {
+        // A one-byte name exercises the minimum-allocation path (the header
+        // write is larger than `NAME_OFFSET + name_len`).
+        let short = TargetLabel::testing_parse("foo//some/pkg:a");
+        assert_eq!("a", short.name().as_str());
+        // Exactly fills the header's tail padding: NAME_OFFSET + 2 == 16.
+        let exact = TargetLabel::testing_parse("foo//some/pkg:ab");
+        assert_eq!("ab", exact.name().as_str());
+        let long_name = format!("t{}", "x".repeat(300));
+        let long = TargetLabel::testing_parse(&format!("foo//some/pkg:{long_name}"));
+        assert_eq!(long_name, long.name().as_str());
+        assert_eq!(301, long.name().as_str().len());
+    }
+
+    #[test]
+    fn test_accessors_roundtrip() {
+        let label = TargetLabel::testing_parse("foo//some/pkg:a_target_name");
+        assert_eq!("a_target_name", label.name().as_str());
+        assert_eq!("foo//some/pkg", label.pkg().to_string());
+        assert_eq!("foo//some/pkg:a_target_name", label.to_string());
     }
 }
