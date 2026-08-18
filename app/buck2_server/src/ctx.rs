@@ -890,7 +890,7 @@ impl DiceCommandUpdater<'_, '_> {
                 section: "buck2",
                 property: "share_action_paths",
             })?
-            .unwrap_or(false)
+            .unwrap_or(true)
         {
             run_action_knobs.action_paths_interner = Some(DashMapDirectoryInterner::new());
         }
@@ -900,7 +900,7 @@ impl DiceCommandUpdater<'_, '_> {
                 section: "buck2",
                 property: "deduplicate_get_digests_ttl_calls",
             })?
-            .unwrap_or(false);
+            .unwrap_or(true);
 
         let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
             section: "buck2",
