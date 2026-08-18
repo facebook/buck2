@@ -69,6 +69,8 @@ enum TargetNameError {
     DotDotDot,
     #[error("Target name `{0}` should not contain pattern: `{1}`")]
     InvalidPattern(String, String),
+    #[error("Target name is {0} bytes long, which exceeds the limit of {1}")]
+    NameTooLong(usize, u16),
 }
 
 impl TargetName {
@@ -91,7 +93,13 @@ impl TargetName {
         TargetNameError::InvalidName(name.to_owned()).into()
     }
 
+    /// Bounds the name length so label allocations can store it as a `u16`.
+    pub(crate) const MAX_NAME_LEN: u16 = u16::MAX;
+
     fn verify(name: &str) -> buck2_error::Result<()> {
+        if name.len() > Self::MAX_NAME_LEN as usize {
+            return Err(TargetNameError::NameTooLong(name.len(), Self::MAX_NAME_LEN).into());
+        }
         if name.is_empty()
             || !name
                 .chars()
@@ -237,6 +245,17 @@ mod tests {
 
     use crate::target::name::TargetName;
     use crate::target::name::TargetNameRef;
+
+    #[test]
+    fn test_name_length_bound() {
+        let max = "x".repeat(TargetName::MAX_NAME_LEN as usize);
+        assert!(TargetName::new(&max).is_ok(), "u16::MAX-byte name is legal");
+        let over = "x".repeat(TargetName::MAX_NAME_LEN as usize + 1);
+        assert!(
+            TargetName::new(&over).is_err(),
+            "names beyond u16::MAX are rejected"
+        );
+    }
 
     #[test]
     fn target_name_validation() {

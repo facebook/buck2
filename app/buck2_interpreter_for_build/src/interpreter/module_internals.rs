@@ -217,10 +217,11 @@ impl ModuleInternals {
     }
 
     pub(crate) fn target_exists(&self, name: &str) -> bool {
-        self.recording_targets()
-            .recorder
-            .targets
-            .contains_key(TargetNameRef::unchecked_new(name))
+        // A string that is not a valid target name cannot be a recorded target.
+        match TargetNameRef::new(name) {
+            Ok(name) => self.recording_targets().recorder.targets.contains_key(name),
+            Err(_) => false,
+        }
     }
 
     pub fn buildfile_path(&self) -> &Arc<BuildFilePath> {
