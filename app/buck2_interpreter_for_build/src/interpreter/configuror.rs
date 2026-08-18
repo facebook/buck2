@@ -109,7 +109,7 @@ impl BuildInterpreterConfiguror {
         }))
     }
 
-    pub(crate) fn infer_target_names(&self) -> InferTargetNames {
+    pub fn infer_target_names(&self) -> InferTargetNames {
         self.infer_target_names
     }
 
