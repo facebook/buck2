@@ -359,32 +359,48 @@ provided by ct displaying results of all the tests ran.
     Tests :: [#ct_test{}],
     CollectedStdOut :: ct_stdout:collected_stdout().
 collect_results_fine_run(TreeResults, Tests, CollectedStdOut) ->
-    cth_tpx_test_tree:collect_results(TreeResults, maps:from_list(get_requested_tests(Tests)), CollectedStdOut).
+    cth_tpx_test_tree:collect_results(
+        TreeResults, get_requested_tests_by_group_path(Tests), CollectedStdOut
+    ).
 
 -doc """
-Returns a list of the tests by classifying from the (sequence) of groups they belong.
-The list is [{[sequence of groups] => [list of tests belonging to this sequence]}].
-We make sure to respect the group / test insertion order. That is, if the sequence is
-g1.t1, g2.t2, g1.t2, g1.t3, g2.t2, we produce:
-[g1.[t1,t2,t3], g2.[t1,t2]]
+Splits the requested tests into consecutive runs of tests sharing a (sequence) of groups.
+The list is [{[sequence of groups], [list of tests belonging to this sequence]}], in the order the
+tests were requested, so a sequence returned to later gets a further entry. That is, if the sequence
+is g1.t1, g2.t1, g1.t2, g1.t3, g2.t2, we produce:
+[{g1,[t1]}, {g2,[t1]}, {g1,[t2,t3]}, {g2,[t2]}]
+The tests are expected in listing order, the depth first traversal of all/0 with groups/0 expanded
+that reorder_tests/2 puts them in. The runs only follow the order the suite declares under that
+precondition.
 """.
--spec get_requested_tests([#ct_test{}]) -> [{[atom()], [atom()]}].
+-spec get_requested_tests(Tests) -> [{GroupPath, TestCases}] when
+    Tests :: [#ct_test{}],
+    GroupPath :: cth_tpx_test_tree:group_path(),
+    TestCases :: [ct_suite:ct_testname()].
 get_requested_tests(Tests) ->
-    {TestMap, RevOrderedKeys} = lists:foldl(
-        fun(Test, {Map, Keys}) ->
-            Groups = Test#ct_test.groups,
-            TestName = Test#ct_test.test_name,
-            case Map of
-                #{Groups := Existing} ->
-                    {Map#{Groups => [TestName | Existing]}, Keys};
-                _ ->
-                    {Map#{Groups => [TestName]}, [Groups | Keys]}
+    lists:foldr(
+        fun(#ct_test{groups = Groups, test_name = TestName}, Runs) ->
+            case Runs of
+                [{Groups, TestNames} | Rest] -> [{Groups, [TestName | TestNames]} | Rest];
+                _ -> [{Groups, [TestName]} | Runs]
             end
         end,
-        {#{}, []},
+        [],
         Tests
-    ),
-    [{Key, lists:reverse(maps:get(Key, TestMap))} || Key <- lists:reverse(RevOrderedKeys)].
+    ).
+
+-spec get_requested_tests_by_group_path(Tests) -> #{GroupPath => TestCases} when
+    Tests :: [#ct_test{}],
+    GroupPath :: cth_tpx_test_tree:group_path(),
+    TestCases :: [ct_suite:ct_testname()].
+get_requested_tests_by_group_path(Tests) ->
+    lists:foldr(
+        fun(#ct_test{groups = Groups, test_name = TestName}, Acc) ->
+            maps:update_with(Groups, fun(TestNames) -> [TestName | TestNames] end, [TestName], Acc)
+        end,
+        #{},
+        Tests
+    ).
 
 -doc """
 Built the test_spec selecting the requested tests and
