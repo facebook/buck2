@@ -836,12 +836,12 @@ pub fn format_test_result(
             ))?);
         }
     }
-    // If a test has details, we always show them. It's the test runner's
-    // responsibility to withhold details when these are not relevant.
-    // For instance, tpx will always withhold details of passing tests
-    // unless the --print-passing-details is set.
+    // Show details for non-passing tests always. For passing tests, only
+    // show details if the test_passing_details verbosity item is set
+    // (e.g. via --print-passing-details or -v=test_passing_details).
     let mut lines = vec![base];
-    if !details.is_empty() {
+    let is_passing = matches!(&status, TestStatus::PASS | TestStatus::LISTING_SUCCESS);
+    if !details.is_empty() && (!is_passing || verbosity.print_test_passing_details()) {
         lines.append(&mut Lines::from_multiline_string(details, Default::default()).0);
     }
     Ok(Some(Lines(lines)))

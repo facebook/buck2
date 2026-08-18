@@ -20,7 +20,7 @@ enum VerbosityError {
     UnknownItem(String),
 }
 
-const VERBOSITY_ITEM_VARIANTS: usize = 7;
+const VERBOSITY_ITEM_VARIANTS: usize = 8;
 
 /// The logging verbosity to use in our various consoles.
 ///
@@ -65,6 +65,8 @@ pub enum VerbosityItem {
     Stats,
     /// Some commands print a success message to stderr when they succeed
     Success,
+    /// Show stdout/stderr details for passing tests
+    TestPassingDetails,
     // ** update VERBOSITY_ITEM_VARIANTS const if more items are added **
 }
 
@@ -123,6 +125,7 @@ impl VerbosityItem {
             "status" => Self::Status,
             "stats" => Self::Stats,
             "success" => Self::Success,
+            "test_passing_details" => Self::TestPassingDetails,
             _ => return Err(VerbosityError::UnknownItem(value.to_owned()).into()),
         };
         Ok(item)
@@ -204,6 +207,20 @@ impl Verbosity {
     /// For commands that might do this, whether a message should be printed when the command succeeds.
     pub fn print_success_message(self) -> bool {
         self.has(VerbosityItem::Success)
+    }
+
+    /// Whether to show stdout/stderr details for passing tests.
+    pub fn print_test_passing_details(self) -> bool {
+        self.has(VerbosityItem::TestPassingDetails)
+    }
+
+    /// Add a verbosity item.
+    pub fn add_item(&mut self, item: VerbosityItem) {
+        if !self.has(item) {
+            if let Some(slot) = self.items.iter_mut().find(|s| s.is_none()) {
+                *slot = Some(item);
+            }
+        }
     }
 }
 

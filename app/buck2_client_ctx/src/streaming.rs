@@ -18,6 +18,7 @@ use buck2_common::init::DEFAULT_RETAINED_EVENT_LOGS;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_error::ExitCode;
 use buck2_event_observer::span_tracker::EventTimestamp;
+use buck2_event_observer::verbosity::Verbosity;
 use dupe::Dupe;
 
 use crate::client_ctx::BuckSubcommand;
@@ -92,10 +93,11 @@ fn update_events_ctx<T: StreamingCommand>(
         (None, None, None)
     };
 
+    let verbosity = cmd.adjust_verbosity(ctx.verbosity);
     let (console_subscriber, used_superconsole) = get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
-        ctx.verbosity,
+        verbosity,
         expect_spans,
         Timekeeper::new(
             Box::new(RealtimeClock),
@@ -189,6 +191,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions;
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions;
+
+    fn adjust_verbosity(&self, verbosity: Verbosity) -> Verbosity {
+        verbosity
+    }
 
     fn extra_subscribers(&self) -> Vec<Box<dyn EventSubscriber>> {
         vec![]
