@@ -1090,7 +1090,12 @@ impl RunAction {
                     found_dep_file_entry,
                     &result,
                 ),
-                buck2_data::MatchDepFilesEnd {},
+                // The remote dep-file cache, not the persisted local store.
+                buck2_data::MatchDepFilesEnd {
+                    outcome: buck2_data::DepFileLookupOutcome::NotSet as i32,
+                    persisted_probe_us: None,
+                    persisted_fetch_us: None,
+                },
             )
             .await?;
 

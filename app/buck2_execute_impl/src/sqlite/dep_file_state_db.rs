@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
@@ -22,7 +23,10 @@ use buck2_common::sqlite::sqlite_db::SqliteTable;
 use buck2_common::sqlite::sqlite_db::SqliteTables;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_execute::dep_file_state::DepFileDbSize;
+use buck2_execute::dep_file_state::DepFileReadStats;
 use buck2_execute::dep_file_state::DepFileStore;
+use buck2_execute::dep_file_state::DepFileWriteStats;
 use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileState;
 use buck2_execute::digest_config::DigestConfig;
@@ -234,16 +238,81 @@ fn report_read_failure(e: buck2_error::Error) {
 /// connection, so WAL's concurrent-reader property is not in play here: a read can wait on the mutex
 /// a write transaction holds, even though it never waits on the queue. The mutex is released before
 /// rows are deserialized, and a read only runs when the in-memory cache misses.
+/// Writer-thread counters. Grouped so the thread takes one handle rather than one per counter, and
+/// so a new counter is added in one place.
+#[derive(Default)]
+struct WriteCounters {
+    /// Writes accepted. Its difference from `applied` is the queue depth, reported per snapshot;
+    /// the channel is unbounded, so this is the only signal that it is growing.
+    queued: AtomicU64,
+    /// Every message the writer handled, `Flush` included, so the difference above stays correct.
+    applied: AtomicU64,
+    /// The subset that touched the database. `Flush` does none, so it is excluded here and from the
+    /// durations, which makes this the denominator that turns them into a mean.
+    db_writes: AtomicU64,
+    /// Time spent applying writes, and the slowest single one: a total alone would only give a mean,
+    /// and it is one slow write that stalls `flush` at the end of a command.
+    duration_us: AtomicU64,
+    max_us: AtomicU64,
+}
+
+impl WriteCounters {
+    /// Records one applied message. `elapsed` is `None` for a `Flush`, which does no database work.
+    fn record(&self, elapsed: Option<u64>) {
+        self.applied.fetch_add(1, Ordering::Relaxed);
+        if let Some(elapsed) = elapsed {
+            self.db_writes.fetch_add(1, Ordering::Relaxed);
+            self.duration_us.fetch_add(elapsed, Ordering::Relaxed);
+            self.max_us.fetch_max(elapsed, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Read counters, measured in the store rather than at the call site so they cover the wait for a
+/// connection as well as the query. Grouped so that recording a read cannot update the count and
+/// miss the duration.
+#[derive(Default)]
+struct ReadCounters {
+    probes: AtomicU64,
+    probe_duration_us: AtomicU64,
+    fetches: AtomicU64,
+    fetches_found: AtomicU64,
+    fetch_duration_us: AtomicU64,
+    /// Spans probes and fetches together: it exists to surface a single pathological read, and which
+    /// half it came from does not change that.
+    max_us: AtomicU64,
+    /// Entries actually served, reported by the caller: a fetched row can still be rejected.
+    hits: AtomicU64,
+}
+
+impl ReadCounters {
+    fn record_probe(&self, elapsed: u64) {
+        self.probes.fetch_add(1, Ordering::Relaxed);
+        self.probe_duration_us.fetch_add(elapsed, Ordering::Relaxed);
+        self.max_us.fetch_max(elapsed, Ordering::Relaxed);
+    }
+
+    fn record_fetch(&self, found: bool, elapsed: u64) {
+        self.fetches.fetch_add(1, Ordering::Relaxed);
+        if found {
+            self.fetches_found.fetch_add(1, Ordering::Relaxed);
+        }
+        self.fetch_duration_us.fetch_add(elapsed, Ordering::Relaxed);
+        self.max_us.fetch_max(elapsed, Ordering::Relaxed);
+    }
+}
+
 pub struct PersistedDepFileStore {
     db: Arc<DepFileStateSqliteDb>,
     digest_config: DigestConfig,
     writes: crossbeam_channel::Sender<DepFileWrite>,
     /// Set once the writer thread is found to be gone, so the soft error is reported only once.
     writer_gone: AtomicBool,
-    /// Writes accepted and writes applied. Their difference is the queue depth, reported per
-    /// snapshot; the channel is unbounded, so this is the only signal that it is growing.
-    queued: AtomicU64,
-    applied: Arc<AtomicU64>,
+    /// Shared with the writer thread, which is why this one is an `Arc`.
+    write: Arc<WriteCounters>,
+    read: ReadCounters,
+    /// Measured once, after `initialize` has pruned, so it is the size this daemon inherited.
+    db_size: DepFileDbSize,
 }
 
 impl PersistedDepFileStore {
@@ -252,18 +321,22 @@ impl PersistedDepFileStore {
         db: DepFileStateSqliteDb,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
+        let (entries, bytes) = db.dep_file_state_table().measure();
         let db = Arc::new(db);
         let (writes, receiver) = crossbeam_channel::unbounded();
         let writer_db = db.dupe();
-        let applied = Arc::new(AtomicU64::new(0));
-        let writer_applied = applied.dupe();
+        let write = Arc::new(WriteCounters::default());
+        let writer_counters = write.dupe();
         // The thread exits when the last sender is dropped, i.e. when the store is dropped. The
         // daemon's store lives in a process-global `LateBinding`, so there it runs until the process
         // exits; the drop path is what lets tests reclaim the thread.
         thread_spawn("buck2-dep-file-db", move || {
             for write in receiver.iter() {
+                let is_flush = matches!(write, DepFileWrite::Flush(_));
+                let started = Instant::now();
                 apply_write(&writer_db, write);
-                writer_applied.fetch_add(1, Ordering::Relaxed);
+                let elapsed = (!is_flush).then(|| (Instant::now() - started).as_micros() as u64);
+                writer_counters.record(elapsed);
             }
         })
         .buck_error_context("Failed to spawn the dep-file db writer thread")?;
@@ -272,9 +345,38 @@ impl PersistedDepFileStore {
             digest_config,
             writes,
             writer_gone: AtomicBool::new(false),
-            queued: AtomicU64::new(0),
-            applied,
+            write,
+            read: ReadCounters::default(),
+            db_size: DepFileDbSize { entries, bytes },
         })
+    }
+
+    fn get_digests_inner(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
+        match self
+            .db
+            .dep_file_state_table()
+            .read_digests_by_logical(logical_key, self.digest_config)
+        {
+            Ok(digests) => digests,
+            Err(e) => {
+                report_read_failure(e);
+                Vec::new()
+            }
+        }
+    }
+
+    fn get_entry_inner(&self, id: i64) -> Option<StoredDepFileState> {
+        match self
+            .db
+            .dep_file_state_table()
+            .read_entry(id, self.digest_config)
+        {
+            Ok(state) => state,
+            Err(e) => {
+                report_read_failure(e);
+                None
+            }
+        }
     }
 
     /// Queue a write. The channel only fails once the writer thread is gone (it panicked, since it
@@ -284,7 +386,7 @@ impl PersistedDepFileStore {
         // Counted only once accepted, so a rejected write does not leave `queued` permanently ahead of
         // `applied` and turn the depth gauge into a monotonic counter.
         if self.writes.send(write).is_ok() {
-            self.queued.fetch_add(1, Ordering::Relaxed);
+            self.write.queued.fetch_add(1, Ordering::Relaxed);
             return;
         }
         if !self.writer_gone.swap(true, Ordering::Relaxed) {
@@ -318,30 +420,41 @@ impl DepFileStore for PersistedDepFileStore {
     }
 
     fn get_digests(&self, logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
-        match self
-            .db
-            .dep_file_state_table()
-            .read_digests_by_logical(logical_key, self.digest_config)
-        {
-            Ok(digests) => digests,
-            Err(e) => {
-                report_read_failure(e);
-                Vec::new()
-            }
-        }
+        let started = Instant::now();
+        let result = self.get_digests_inner(logical_key);
+        let elapsed = (Instant::now() - started).as_micros() as u64;
+        self.read.record_probe(elapsed);
+        result
     }
 
     fn get_entry(&self, id: i64) -> Option<StoredDepFileState> {
-        match self
-            .db
-            .dep_file_state_table()
-            .read_entry(id, self.digest_config)
-        {
-            Ok(state) => state,
-            Err(e) => {
-                report_read_failure(e);
-                None
-            }
+        let started = Instant::now();
+        let result = self.get_entry_inner(id);
+        let elapsed = (Instant::now() - started).as_micros() as u64;
+        self.read.record_fetch(result.is_some(), elapsed);
+        result
+    }
+
+    fn note_persisted_hit(&self) {
+        self.read.hits.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn db_size(&self) -> DepFileDbSize {
+        self.db_size
+    }
+
+    fn read_stats(&self) -> DepFileReadStats {
+        let (lock_wait, lock_wait_max) = self.db.dep_file_state_table().read_lock_wait();
+        DepFileReadStats {
+            probes: self.read.probes.load(Ordering::Relaxed),
+            probe_duration_us: self.read.probe_duration_us.load(Ordering::Relaxed),
+            fetches: self.read.fetches.load(Ordering::Relaxed),
+            fetches_found: self.read.fetches_found.load(Ordering::Relaxed),
+            fetch_duration_us: self.read.fetch_duration_us.load(Ordering::Relaxed),
+            max_us: self.read.max_us.load(Ordering::Relaxed),
+            hits: self.read.hits.load(Ordering::Relaxed),
+            lock_wait_us: lock_wait,
+            lock_wait_max_us: lock_wait_max,
         }
     }
 
@@ -360,12 +473,22 @@ impl DepFileStore for PersistedDepFileStore {
         let _ignored = wait.recv();
     }
 
+    fn write_stats(&self) -> DepFileWriteStats {
+        DepFileWriteStats {
+            applied: self.write.applied.load(Ordering::Relaxed),
+            writes: self.write.db_writes.load(Ordering::Relaxed),
+            duration_us: self.write.duration_us.load(Ordering::Relaxed),
+            max_us: self.write.max_us.load(Ordering::Relaxed),
+        }
+    }
+
     fn queue_size(&self) -> u64 {
         // Both counters only increase, so their difference is the depth. The writer can apply a write
         // before `queue` counts it, so the difference saturates at zero rather than underflowing.
         // Relaxed ordering makes it approximate, which is all a gauge needs.
-        self.queued
+        self.write
+            .queued
             .load(Ordering::Relaxed)
-            .saturating_sub(self.applied.load(Ordering::Relaxed))
+            .saturating_sub(self.write.applied.load(Ordering::Relaxed))
     }
 }

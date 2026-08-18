@@ -1193,6 +1193,46 @@ message Snapshot {
 
   // Persisted dep-file cache writes queued but not yet applied to sqlite.
   uint64 dep_file_db_queue_size = 442;
+  // Writes the dep-file db writer thread has applied, and how long they took.
+  // Cumulative for the daemon's life; `max` is kept because the total only
+  // gives a mean and a single slow write is what would stall `flush` at the end
+  // of a command.
+  // Every message the writer handled, including `Flush`, so `queue_size` stays
+  // correct. Divide the duration below by `dep_file_db_writes` rather than by
+  // this: a flush does no database work and is excluded from the duration.
+  uint64 dep_file_db_writes_applied = 443;
+  uint64 dep_file_db_writes = 457;
+  uint64 dep_file_db_write_duration_us = 444;
+  uint64 dep_file_db_write_max_us = 445;
+  // Reads, counted the same way. `MatchDepFilesEnd` carries per-action probe
+  // and fetch times, which give a distribution but only for one invocation and
+  // only by parsing its event log; these are the cheap always-on aggregate,
+  // which is what answers how much the cache costs across the fleet rather than
+  // in one forced-local build.
+  uint64 dep_file_db_probes = 446;
+  uint64 dep_file_db_probe_duration_us = 447;
+  // Fetches issued, and those that found their row. A fetch that finds one is
+  // not necessarily a served hit: `check_action` re-validates the entry and can
+  // still reject it.
+  uint64 dep_file_db_fetches = 448;
+  uint64 dep_file_db_fetches_found = 449;
+  uint64 dep_file_db_fetch_duration_us = 450;
+  uint64 dep_file_db_read_max_us = 451;
+  // Of `probe_duration_us` + `fetch_duration_us`, the part spent waiting for
+  // the single database connection rather than querying it. Separates a slow
+  // lookup caused by the database working from one caused by queueing behind
+  // another reader; the two want different fixes.
+  uint64 dep_file_db_read_lock_wait_us = 452;
+  uint64 dep_file_db_read_lock_wait_max_us = 453;
+  // What the database held when this daemon opened it, after pruning. Constant
+  // for the daemon's life. Write counts cannot substitute: they cannot tell an
+  // insert from a replace, and say nothing about what survived the prune.
+  // Entries actually served from disk: the row survived re-validation and its
+  // outputs were still materialized. Strictly fewer than `fetches_found`, which
+  // only says the row existed.
+  uint64 dep_file_db_hits = 456;
+  uint64 dep_file_db_entries_at_start = 454;
+  uint64 dep_file_db_bytes_at_start = 455;
 
   // Delay between time snapshot is created and time it is received
   // by the client.
@@ -2502,7 +2542,32 @@ message MatchDepFilesStart {
   bool remote_cache = 2;
 }
 
-message MatchDepFilesEnd {}
+// What served a local dep-file cache lookup. Distinguishes a hit from the
+// in-memory map, which costs nothing, from one reloaded off disk, which costs
+// the queries measured below.
+enum DepFileLookupOutcome {
+  DEP_FILE_LOOKUP_OUTCOME_NOT_SET = 0;
+  // Nothing served the lookup; the action goes on to execute.
+  DEP_FILE_LOOKUP_OUTCOME_MISS = 1;
+  // Served from the in-memory cache, i.e. built earlier in this daemon session.
+  DEP_FILE_LOOKUP_OUTCOME_LIVE = 2;
+  // Served from the persisted store, i.e. built by an earlier daemon.
+  DEP_FILE_LOOKUP_OUTCOME_PERSISTED = 3;
+  // The lookup failed. Distinct from a miss: the action does not go on to
+  // execute, it fails, so counting these as misses would understate the hit
+  // rate against a denominator that includes actions that never ran.
+  DEP_FILE_LOOKUP_OUTCOME_ERROR = 4;
+}
+
+message MatchDepFilesEnd {
+  DepFileLookupOutcome outcome = 1;
+  // Time spent in the persisted store, absent when it was not consulted (the
+  // in-memory cache answered, or persistence is off). Split because the probe
+  // reads only the scalar row of each candidate while the fetch reads its
+  // outputs and declared dep files.
+  optional uint64 persisted_probe_us = 2;
+  optional uint64 persisted_fetch_us = 3;
+}
 
 // Returned when a Span is dropped before terminating.
 message SpanCancelled {}

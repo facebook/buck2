@@ -21,6 +21,9 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
@@ -231,13 +234,71 @@ fn delete_key_in_tx(
     Ok(())
 }
 
+/// Time readers spent waiting for a connection, separate from time spent querying: this is what
+/// says whether a slow lookup is the database working or a queue behind another reader, and the two
+/// want different fixes.
+#[derive(Default)]
+struct LockWait {
+    total_us: AtomicU64,
+    max_us: AtomicU64,
+}
+
+impl LockWait {
+    fn record(&self, waited: u64) {
+        self.total_us.fetch_add(waited, Ordering::Relaxed);
+        self.max_us.fetch_max(waited, Ordering::Relaxed);
+    }
+}
+
 pub struct DepFileStateSqliteTable {
     connection: Arc<Mutex<Connection>>,
+    lock_wait: LockWait,
 }
 
 impl DepFileStateSqliteTable {
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
-        Self { connection }
+        Self {
+            connection,
+            lock_wait: LockWait::default(),
+        }
+    }
+
+    /// Take the connection for a read, charging the wait to `read_lock_wait_us`.
+    fn lock_for_read(&self) -> parking_lot::MutexGuard<'_, Connection> {
+        let started = Instant::now();
+        let guard = self.connection.lock();
+        self.lock_wait
+            .record((Instant::now() - started).as_micros() as u64);
+        guard
+    }
+
+    /// Rows present and bytes on disk. Read once at startup rather than per snapshot: `count(*)` is
+    /// a b-tree walk, and what sizes the database is what it holds when a daemon opens it, not what
+    /// it holds a second later. Bytes come from the page count, so no path is needed.
+    pub(crate) fn measure(&self) -> (u64, u64) {
+        let conn = self.connection.lock();
+        let entries = conn
+            .query_row(
+                &format!("SELECT count(*) FROM {STATE_TABLE_NAME}"),
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap_or(0) as u64;
+        let pages = conn
+            .query_row("PRAGMA page_count", [], |r| r.get::<_, i64>(0))
+            .unwrap_or(0) as u64;
+        let page_size = conn
+            .query_row("PRAGMA page_size", [], |r| r.get::<_, i64>(0))
+            .unwrap_or(0) as u64;
+        (entries, pages * page_size)
+    }
+
+    /// Cumulative reader wait for the connection, and the longest single wait.
+    pub(crate) fn read_lock_wait(&self) -> (u64, u64) {
+        (
+            self.lock_wait.total_us.load(Ordering::Relaxed),
+            self.lock_wait.max_us.load(Ordering::Relaxed),
+        )
     }
 
     pub(crate) fn create_table(&self) -> buck2_error::Result<()> {
@@ -554,7 +615,7 @@ impl DepFileStateSqliteTable {
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Vec<StoredDepFileDigests>> {
         let rows = {
-            let conn = self.connection.lock();
+            let conn = self.lock_for_read();
             static SQL: LazyLock<String> = LazyLock::new(|| {
                 format!(
                     "SELECT id, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind FROM {STATE_TABLE_NAME} WHERE logical_key = ?1"
@@ -634,7 +695,7 @@ impl DepFileStateSqliteTable {
         id: i64,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Option<StoredDepFileState>> {
-        let conn = self.connection.lock();
+        let conn = self.lock_for_read();
 
         let mut output_rows = Vec::new();
         {

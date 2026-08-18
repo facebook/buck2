@@ -11,6 +11,8 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -49,7 +51,7 @@ use buck2_directory::directory::find::find;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_events::dispatch::span_async_simple;
+use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
@@ -935,21 +937,29 @@ impl DepFileBundle {
         declared_outputs: &[BuildArtifact],
     ) -> buck2_error::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
         // Get the action outputs (if cache hit) and an indicator on whether a full lookup operation should be performed
-        let (outputs, check_filtered_inputs) = span_async_simple(
+        let (outputs, check_filtered_inputs) = span_async(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: false,
                 remote_cache: false,
             },
-            match_if_identical_action(
-                ctx,
-                &self.dep_files_key,
-                &self.input_directory_digest,
-                &self.common_digests.local_worker_inputs_digest,
-                &self.common_digests.commandline_cli_digest,
-                declared_outputs,
-                &self.declared_dep_files,
-            ),
-            buck2_data::MatchDepFilesEnd {},
+            async {
+                let mut stats = DepFileLookupStats::default();
+                let result = match_if_identical_action(
+                    ctx,
+                    &self.dep_files_key,
+                    &self.input_directory_digest,
+                    &self.common_digests.local_worker_inputs_digest,
+                    &self.common_digests.commandline_cli_digest,
+                    declared_outputs,
+                    &self.declared_dep_files,
+                    &mut stats,
+                )
+                .await;
+                if result.is_err() {
+                    stats.error();
+                }
+                (result, stats.into_end_event())
+            },
         )
         .await?;
         let outputs = outputs.map(|o| {
@@ -971,22 +981,38 @@ impl DepFileBundle {
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
     ) -> buck2_error::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
-        let matching_result = span_async_simple(
+        // This path never consults the persisted store: it needs input signatures, which only an
+        // entry produced this session carries. So the timings stay absent and the outcome is only
+        // ever live-or-miss.
+        let matching_result = span_async(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: true,
                 remote_cache: false,
             },
-            match_or_clear_dep_file(
-                ctx,
-                &self.dep_files_key,
-                &self.input_directory_digest,
-                &self.common_digests.local_worker_inputs_digest,
-                &self.common_digests.commandline_cli_digest,
-                &self.shared_declared_inputs,
-                declared_outputs,
-                &self.declared_dep_files,
-            ),
-            buck2_data::MatchDepFilesEnd {},
+            async {
+                let result = match_or_clear_dep_file(
+                    ctx,
+                    &self.dep_files_key,
+                    &self.input_directory_digest,
+                    &self.common_digests.local_worker_inputs_digest,
+                    &self.common_digests.commandline_cli_digest,
+                    &self.shared_declared_inputs,
+                    declared_outputs,
+                    &self.declared_dep_files,
+                )
+                .await;
+                let outcome = match &result {
+                    Ok(Some(_)) => buck2_data::DepFileLookupOutcome::Live,
+                    Ok(None) => buck2_data::DepFileLookupOutcome::Miss,
+                    Err(_) => buck2_data::DepFileLookupOutcome::Error,
+                };
+                let end = buck2_data::MatchDepFilesEnd {
+                    outcome: outcome as i32,
+                    persisted_probe_us: None,
+                    persisted_fetch_us: None,
+                };
+                (result, end)
+            },
         )
         .await?;
 
@@ -1181,7 +1207,13 @@ pub(crate) async fn match_if_identical_action(
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
+    stats: &mut DepFileLookupStats,
 ) -> buck2_error::Result<(Option<ActionOutputs>, bool)> {
+    // Every exit below is a miss unless it says otherwise, so the hit paths are the only ones that
+    // have to remember to record anything. A failure is not one of them: the caller overwrites this
+    // with `error` when the lookup returns `Err`.
+    stats.outcome = buck2_data::DepFileLookupOutcome::Miss as i32;
+
     // First, this configuration's own cached action.
     if let Some(previous_state) = get_dep_files(key) {
         let actions_match = check_action(
@@ -1201,6 +1233,7 @@ pub(crate) async fn match_if_identical_action(
             let live = previous_state.result();
             if outputs_are_still_present_in_materializer(ctx, live).await? {
                 tracing::trace!("Dep files are a hit");
+                stats.hit_live();
                 return Ok((Some(live.dupe()), false));
             }
             // Outputs no longer present; not a hit. Don't evict -- we didn't fully check dep files.
@@ -1239,6 +1272,7 @@ pub(crate) async fn match_if_identical_action(
             CrossConfigProbe::NotHit => {}
             CrossConfigProbe::Hit(outputs) => {
                 tracing::trace!("Cross-configuration local action cache hit");
+                stats.hit_live();
                 return Ok((Some(outputs), false));
             }
             CrossConfigProbe::OutputsGone => return Ok((None, false)),
@@ -1283,7 +1317,10 @@ pub(crate) async fn match_if_identical_action(
             );
             store.delete(logical_key.clone(), config_key);
         };
-        for digests in store.get_digests(&logical_key) {
+        let probe_started = Instant::now();
+        let candidates = store.get_digests(&logical_key);
+        stats.add_probe(Instant::now() - probe_started);
+        for digests in candidates {
             let candidate_digests = match stored_command_digests(&digests) {
                 Ok(candidate_digests) => candidate_digests,
                 Err(e) => {
@@ -1298,7 +1335,10 @@ pub(crate) async fn match_if_identical_action(
             ) {
                 continue;
             }
-            let Some(stored) = store.get_entry(digests.id) else {
+            let fetch_started = Instant::now();
+            let stored = store.get_entry(digests.id);
+            stats.add_fetch(Instant::now() - fetch_started);
+            let Some(stored) = stored else {
                 continue;
             };
             let loaded = match LoadedEntry::from_stored(stored) {
@@ -1323,6 +1363,8 @@ pub(crate) async fn match_if_identical_action(
                 CrossConfigProbe::Hit(outputs) => {
                     promote_reloaded_entry(&logical, key.configuration(), loaded, outputs.dupe());
                     tracing::trace!("Persisted local action cache hit");
+                    store.note_persisted_hit();
+                    stats.hit_persisted();
                     return Ok((Some(outputs), false));
                 }
                 CrossConfigProbe::OutputsGone => return Ok((None, false)),
@@ -1626,6 +1668,48 @@ pub(crate) async fn match_or_clear_dep_file(
     }
 
     Ok(None)
+}
+
+/// What a lookup did, reported on `MatchDepFilesEnd`. The persisted timings stay `None` when the
+/// store was not consulted, which is the common case once the in-memory cache is warm -- an absent
+/// value and a zero mean different things here.
+#[derive(Debug, Default)]
+pub(crate) struct DepFileLookupStats {
+    outcome: i32,
+    probe_us: Option<u64>,
+    fetch_us: Option<u64>,
+}
+
+impl DepFileLookupStats {
+    fn hit_live(&mut self) {
+        self.outcome = buck2_data::DepFileLookupOutcome::Live as i32;
+    }
+
+    fn hit_persisted(&mut self) {
+        self.outcome = buck2_data::DepFileLookupOutcome::Persisted as i32;
+    }
+
+    /// Overrides whatever the lookup had recorded: it did not finish, so what it reached before
+    /// failing does not describe the outcome.
+    fn error(&mut self) {
+        self.outcome = buck2_data::DepFileLookupOutcome::Error as i32;
+    }
+
+    fn add_probe(&mut self, d: Duration) {
+        *self.probe_us.get_or_insert(0) += d.as_micros() as u64;
+    }
+
+    fn add_fetch(&mut self, d: Duration) {
+        *self.fetch_us.get_or_insert(0) += d.as_micros() as u64;
+    }
+
+    pub(crate) fn into_end_event(self) -> buck2_data::MatchDepFilesEnd {
+        buck2_data::MatchDepFilesEnd {
+            outcome: self.outcome,
+            persisted_probe_us: self.probe_us,
+            persisted_fetch_us: self.fetch_us,
+        }
+    }
 }
 
 #[derive(PartialEq)]

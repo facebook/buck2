@@ -98,6 +98,50 @@ pub struct StoredDepFileIdentity {
     pub is_content_based: bool,
 }
 
+/// Cumulative cost of the persisted store's writes, reported per snapshot.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DepFileWriteStats {
+    /// Every message the writer handled, including `Flush`. Counts the queue, not the database.
+    pub applied: u64,
+    /// The subset that wrote to the database. `duration_us` excludes `Flush` for the same reason,
+    /// so this is the count those durations average over; `applied` is not.
+    pub writes: u64,
+    pub duration_us: u64,
+    pub max_us: u64,
+}
+
+/// Cumulative cost of the persisted store's reads, reported per snapshot. `MatchDepFilesEnd`
+/// carries the same measurements per action, which gives a distribution but only for one
+/// invocation and only by parsing its event log; this is the aggregate that answers what the cache
+/// costs across many builds.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DepFileReadStats {
+    pub probes: u64,
+    pub probe_duration_us: u64,
+    pub fetches: u64,
+    /// Fetches that found their row. Not the same as a served hit: `check_action` re-validates the
+    /// entry afterwards and can still reject it.
+    pub fetches_found: u64,
+    pub fetch_duration_us: u64,
+    pub max_us: u64,
+    /// Entries actually served from disk. Strictly fewer than `fetches_found`: a fetched row can
+    /// still be rejected by `check_action` or have lost its outputs.
+    pub hits: u64,
+    /// Of the durations above, how much was spent waiting for the database connection rather than
+    /// querying it. Every read takes one mutex, so this separates a slow lookup caused by the
+    /// database working from one caused by queueing behind another reader.
+    pub lock_wait_us: u64,
+    pub lock_wait_max_us: u64,
+}
+
+/// What the database held when the daemon opened it. Constant for the daemon's life, so it reaches
+/// Scuba through `InvocationRecord::first_snapshot` without being recomputed per snapshot.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DepFileDbSize {
+    pub entries: u64,
+    pub bytes: u64,
+}
+
 /// Write-through handle to the persisted dep-file database. Implemented in `buck2_execute_impl` and
 /// installed by `buck2_server` once the database is opened. All methods must be crash-safe and must
 /// never fail the build: implementations downgrade database errors to soft errors.
@@ -127,6 +171,26 @@ pub trait DepFileStore: Send + Sync + 'static {
     /// unbounded, so sustained growth is the signal that the writer is not keeping up.
     fn queue_size(&self) -> u64 {
         0
+    }
+    /// Writes applied so far, the time spent applying them, and the slowest single one, all
+    /// cumulative for the store's life. Reported per snapshot alongside `queue_size`, which says
+    /// how far behind the writer is but not what it costs.
+    fn write_stats(&self) -> DepFileWriteStats {
+        DepFileWriteStats::default()
+    }
+    /// The same for reads, cumulative for the store's life.
+    fn read_stats(&self) -> DepFileReadStats {
+        DepFileReadStats::default()
+    }
+    /// Record that a persisted entry was actually served, i.e. it survived `check_action` and its
+    /// outputs were still materialized. Reported by the caller because the store cannot know:
+    /// `get_entry` returning a row only means the row exists, and `fetches_found` counts that.
+    fn note_persisted_hit(&self) {}
+    /// Rows and bytes the database held at startup. Reported so the size a daemon inherits is
+    /// visible without inferring it from write counts, which cannot tell an insert from a replace
+    /// and say nothing about what survived the last prune.
+    fn db_size(&self) -> DepFileDbSize {
+        DepFileDbSize::default()
     }
     /// Block until every write issued so far has been applied. Called at the end of a command so
     /// that a daemon restart afterwards sees everything the command produced. Implementations that

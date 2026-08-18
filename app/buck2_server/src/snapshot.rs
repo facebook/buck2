@@ -152,6 +152,24 @@ impl SnapshotCollector {
             self.daemon.blocking_executor.queue_size() as u64;
         if let Ok(store) = DEP_FILE_STORE.get() {
             snapshot.dep_file_db_queue_size = store.queue_size();
+            let writes = store.write_stats();
+            snapshot.dep_file_db_writes_applied = writes.applied;
+            snapshot.dep_file_db_writes = writes.writes;
+            snapshot.dep_file_db_write_duration_us = writes.duration_us;
+            snapshot.dep_file_db_write_max_us = writes.max_us;
+            let reads = store.read_stats();
+            snapshot.dep_file_db_probes = reads.probes;
+            snapshot.dep_file_db_probe_duration_us = reads.probe_duration_us;
+            snapshot.dep_file_db_fetches = reads.fetches;
+            snapshot.dep_file_db_fetches_found = reads.fetches_found;
+            snapshot.dep_file_db_fetch_duration_us = reads.fetch_duration_us;
+            snapshot.dep_file_db_read_max_us = reads.max_us;
+            snapshot.dep_file_db_read_lock_wait_us = reads.lock_wait_us;
+            snapshot.dep_file_db_read_lock_wait_max_us = reads.lock_wait_max_us;
+            snapshot.dep_file_db_hits = reads.hits;
+            let size = store.db_size();
+            snapshot.dep_file_db_entries_at_start = size.entries;
+            snapshot.dep_file_db_bytes_at_start = size.bytes;
         }
     }
 
