@@ -39,7 +39,7 @@ async-stream = "0.3"
 async-trait = "0.1.92"
 atomic = "0.6.1"
 backtrace = "0.3"
-base64 = { version = "0.22.1", features = ["alloc"] }
+base64 = { version = "0.23.1", features = ["alloc"] }
 bincode = { version = "2", features = ["serde"] }
 bit-set = "0.9"
 bit-vec = "0.9"
