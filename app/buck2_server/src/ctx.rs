@@ -72,7 +72,6 @@ use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
@@ -715,8 +714,6 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.skip_targets_with_duplicate_names,
             infer_target_names,
             None,
-            // New interner for each transaction.
-            Arc::new(ConcurrentTargetLabelInterner::default()),
         )?;
 
         ctx.set_buck_out_path(Some(self.cmd_ctx.buck_out_dir.clone()))?;

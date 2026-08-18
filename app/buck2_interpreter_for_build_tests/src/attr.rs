@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
@@ -19,7 +17,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::plugins::PluginKindSet;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::ctx::BuildAttrCoercionContext;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
@@ -123,7 +120,6 @@ fn attr_coercer_coerces() -> buck2_error::Result<()> {
             cell_alias_resolver,
             enclosing_package,
             false,
-            Arc::new(ConcurrentTargetLabelInterner::default()),
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
                 package.as_cell_path().to_owned(),
             ),
@@ -303,7 +299,6 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
             PackageListing::testing_files(&["baz/quz.cpp"]),
         ),
         false,
-        Arc::new(ConcurrentTargetLabelInterner::default()),
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),
@@ -313,7 +308,6 @@ fn coercing_src_to_path_works() -> buck2_error::Result<()> {
         cell_resolver,
         CellName::testing_new("root"),
         cell_alias_resolver,
-        Arc::new(ConcurrentTargetLabelInterner::default()),
         InferTargetNames::No,
     );
 

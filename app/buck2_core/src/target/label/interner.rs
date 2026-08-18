@@ -8,10 +8,6 @@
  * above-listed licenses.
  */
 
-use std::fmt::Debug;
-use std::fmt::Formatter;
-
-use allocative::Allocative;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::package::PackageLabel;
@@ -47,31 +43,6 @@ pub(crate) fn global_intern(pkg: PackageLabel, name: &TargetNameRef) -> TargetLa
             |label| OwnedTargetLabel::label_hash(label.pkg(), label.name()),
         )
         .0
-}
-
-/// Hands labels back unchanged: they are interned globally at construction,
-/// so this type holds no state and `intern` is the identity function. It is kept so existing wiring
-/// compiles; removing that wiring is tracked separately.
-#[derive(Default, Allocative)]
-pub struct ConcurrentTargetLabelInterner {}
-
-impl Debug for ConcurrentTargetLabelInterner {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ConcurrentTargetLabelInterner")
-            .finish_non_exhaustive()
-    }
-}
-
-impl PartialEq for ConcurrentTargetLabelInterner {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
-
-impl ConcurrentTargetLabelInterner {
-    pub fn intern(&self, target_label: TargetLabel) -> TargetLabel {
-        target_label
-    }
 }
 
 #[cfg(test)]

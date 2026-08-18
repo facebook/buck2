@@ -26,7 +26,6 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -223,7 +222,6 @@ impl Tester {
                             }
                         },
                     ))))),
-                    Arc::new(ConcurrentTargetLabelInterner::default()),
                 )?,
                 false,
                 true,

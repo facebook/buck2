@@ -11,7 +11,6 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Debug;
-use std::sync::Arc;
 
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::cells::CellAliasResolver;
@@ -31,7 +30,6 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_path::CoercedDirectory;
 use buck2_node::attrs::coerced_path::CoercedPath;
@@ -93,7 +91,6 @@ pub struct BuildAttrCoercionContext {
     infer_target_names: InferTargetNames,
     /// Allocator for `label_cache`.
     alloc: Bump,
-    global_label_interner: Arc<ConcurrentTargetLabelInterner>,
     /// Label coercion cache. We use `RawTable` where because `HashMap` API
     /// requires either computing hash twice (for get, then for insert) or
     /// allocating a key to perform a query using `entry` API.
@@ -124,7 +121,6 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: Option<(PackageLabel, PackageListing)>,
         package_boundary_exception: bool,
-        global_label_interner: Arc<ConcurrentTargetLabelInterner>,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -137,7 +133,6 @@ impl BuildAttrCoercionContext {
             package_boundary_exception,
             infer_target_names,
             alloc: Bump::new(),
-            global_label_interner,
             label_cache: RefCell::new(HashTable::new()),
             str_interner: ArcStrInterner::new(),
             list_interner: AttrCoercionInterner::new(),
@@ -150,7 +145,6 @@ impl BuildAttrCoercionContext {
         cell_resolver: CellResolver,
         cell_name: CellName,
         cell_alias_resolver: CellAliasResolver,
-        global_label_interner: Arc<ConcurrentTargetLabelInterner>,
         infer_target_names: InferTargetNames,
     ) -> Self {
         Self::new(
@@ -159,7 +153,6 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             None,
             false,
-            global_label_interner,
             CellPathWithAllowedRelativeDir::backwards_relative_not_supported(CellPath::new(
                 cell_name,
                 CellRelativePathBuf::unchecked_new("".into()),
@@ -173,7 +166,6 @@ impl BuildAttrCoercionContext {
         cell_alias_resolver: CellAliasResolver,
         enclosing_package: (PackageLabel, PackageListing),
         package_boundary_exception: bool,
-        global_label_interner: Arc<ConcurrentTargetLabelInterner>,
         current_dir_with_allowed_relative_dirs: CellPathWithAllowedRelativeDir,
         infer_target_names: InferTargetNames,
     ) -> Self {
@@ -183,7 +175,6 @@ impl BuildAttrCoercionContext {
             cell_alias_resolver,
             Some(enclosing_package),
             package_boundary_exception,
-            global_label_interner,
             current_dir_with_allowed_relative_dirs,
             infer_target_names,
         )
@@ -251,10 +242,6 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             hash_table::Entry::Occupied(e) => Ok(e.get().2.dupe()),
             hash_table::Entry::Vacant(e) => {
                 let label = self.coerce_label_no_cache(value)?;
-
-                let (target_label, providers) = label.into_parts();
-                let target_label = self.global_label_interner.intern(target_label);
-                let label = ProvidersLabel::new(target_label, providers);
 
                 e.insert((hash, self.alloc.alloc_str(value), label.dupe()));
                 Ok(label)

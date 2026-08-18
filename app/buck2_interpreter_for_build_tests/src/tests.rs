@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
@@ -23,7 +21,6 @@ use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::dice::starlark_types::SetStarlarkTypes;
@@ -70,7 +67,6 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
             false,
             InferTargetNames::No,
             None,
-            Arc::new(ConcurrentTargetLabelInterner::default()),
         )
         .unwrap(),
     )

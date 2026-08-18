@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_PROVIDERS_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -107,8 +106,6 @@ pub(crate) fn attr_coercion_context_for_bzl<'v>(
         build_context.cell_info().cell_resolver().dupe(),
         build_context.cell_info().name().name(),
         build_context.cell_info().cell_alias_resolver().dupe(),
-        // It is OK to not deduplicate because we don't coerce a lot of labels in bzl files.
-        Arc::new(ConcurrentTargetLabelInterner::default()),
         build_context.infer_target_names,
     ))
 }

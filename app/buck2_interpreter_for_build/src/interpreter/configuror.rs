@@ -16,7 +16,6 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
@@ -80,8 +79,6 @@ pub struct BuildInterpreterConfiguror {
     /// not provide one, making `//foo/bar` equivalent to `//foo/bar:bar`.
     /// Controlled by the `buck2.infer_target_names` buckconfig.
     infer_target_names: InferTargetNames,
-    #[pagable(discard = "Default::default()")]
-    global_target_interner: Arc<ConcurrentTargetLabelInterner>,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
 }
@@ -96,7 +93,6 @@ impl BuildInterpreterConfiguror {
         skip_targets_with_duplicate_names: bool,
         infer_target_names: InferTargetNames,
         additional_globals: Option<AdditionalGlobalsFn>,
-        global_target_interner: Arc<ConcurrentTargetLabelInterner>,
     ) -> buck2_error::Result<Arc<Self>> {
         Ok(Arc::new(Self {
             prelude_import,
@@ -105,7 +101,6 @@ impl BuildInterpreterConfiguror {
             skip_targets_with_duplicate_names,
             infer_target_names,
             additional_globals,
-            global_target_interner,
         }))
     }
 
@@ -155,7 +150,6 @@ impl BuildInterpreterConfiguror {
             cell_info.cell_alias_resolver().dupe(),
             (buildfile_path.package().dupe(), package_listing.dupe()),
             package_boundary_exception,
-            self.global_target_interner.dupe(),
             current_dir_with_allowed_relative_dirs,
             self.infer_target_names,
         );

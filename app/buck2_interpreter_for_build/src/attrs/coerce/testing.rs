@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
@@ -22,7 +20,6 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::InferTargetNames;
-use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -70,7 +67,6 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         cell_alias_resolver,
         (package, package_listing),
         false,
-        Arc::new(ConcurrentTargetLabelInterner::default()),
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),
