@@ -10,8 +10,10 @@
 
 package com.facebook.buck.installer.android;
 
+import com.facebook.buck.android.AdbHelper;
 import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
+import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallCommand;
 import com.facebook.buck.installer.InstallError;
@@ -20,6 +22,7 @@ import com.facebook.buck.installer.InstallResult;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -34,6 +37,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
 import java.util.stream.Collectors;
@@ -49,6 +53,8 @@ class AndroidInstallerManager implements InstallCommand {
   private final AndroidInstallErrorClassifier errorClassifier =
       AndroidInstallErrorClassifier.INSTANCE;
   private final Map<InstallId, AndroidArtifacts> installIdToFutureMap = new HashMap<>();
+  // Resolved once the install options arrive, and reused for everything that follows.
+  private final Map<InstallId, AdbHelper> targetDevices = new ConcurrentHashMap<>();
 
   private final Map<String, String> SHORT_TO_FULL_ABI_MAP =
       new HashMap<>(
@@ -77,8 +83,12 @@ class AndroidInstallerManager implements InstallCommand {
       }
       recordArtifactPath(androidArtifacts, artifactName, artifactPath);
       // After the path, never before: an artifact counted as arrived while its path is still unset
-      // reads as usable to anyone judging readiness from arrivals.
+      // reads as usable to anyone judging readiness from arrivals. Delivery is all this records --
+      // what the install then makes of the artifact is not the artifact's business.
       androidArtifacts.recordFileArrival(artifactName, arrivedAt);
+      if (artifactName.equals("options")) {
+        resolveDevices(installId, androidArtifacts);
+      }
 
       return InstallResult.success();
     } catch (Exception err) {
@@ -167,6 +177,13 @@ class AndroidInstallerManager implements InstallCommand {
                     adbPath)));
       }
 
+      AdbHelper adbHelper = resolveDevices(installId, androidArtifacts);
+      ImmutableSet<String> departed = adbHelper.departedSerials();
+      if (!departed.isEmpty()) {
+        return InstallResult.error(
+            AndroidInstallException.Companion.devicesDeparted(departed).getInstallError());
+      }
+
       Optional<IsolatedExopackageInfo> isolatedExopackageInfo =
           buildExopackageInfo(androidArtifacts);
       AndroidInstall androidInstaller =
@@ -174,12 +191,12 @@ class AndroidInstallerManager implements InstallCommand {
               LOG,
               AbsPath.of(Paths.get(".").normalize().toAbsolutePath()),
               options,
-              androidArtifacts.getApkOptions(),
               IsolatedApkInfo.of(
                   androidArtifacts.getAndroidManifestPath(), androidArtifacts.getApk()),
               isolatedExopackageInfo,
               installId,
-              androidArtifacts);
+              androidArtifacts,
+              adbHelper);
       return androidInstaller.installApk();
 
     } catch (Exception err) {
@@ -265,6 +282,39 @@ class AndroidInstallerManager implements InstallCommand {
           Optional.of(new IsolatedExopackageInfo(dexInfo, nativeLibsInfo, resourcesInfo));
     }
     return isolatedExopackageInfo;
+  }
+
+  /**
+   * Fixes the devices this install targets, as soon as there are options to reach them with.
+   *
+   * <p>Pinned here rather than at install time so that everything the install does reaches one set
+   * of devices. A device connected after this point is not installed to; one that disconnects
+   * before the install fails it, rather than being dropped silently.
+   */
+  private AdbHelper resolveDevices(InstallId installId, AndroidArtifacts androidArtifacts) {
+    // Per install, not process wide: resolution asks adb, and two installs arriving together have
+    // no reason to wait for each other. computeIfAbsent is what keeps one install from resolving
+    // twice, and leaves no window between deciding to resolve and publishing the answer.
+    return targetDevices.computeIfAbsent(
+        installId,
+        unused -> {
+          AdbHelper adbHelper =
+              AdbHelperFactory.create(
+                  LOG,
+                  options,
+                  androidArtifacts.getApkOptions(),
+                  options.skipSetDebugApp ? SetDebugAppMode.SKIP : SetDebugAppMode.SET,
+                  androidArtifacts);
+          // Asking now is what fixes the set: the helper resolves its devices once, on first use,
+          // and answers from that for the rest of the install. Leaving it to whoever happens to ask
+          // first would move the instant this install is pinned to.
+          ImmutableSet<String> serials =
+              adbHelper.getDevices(true).stream()
+                  .map(device -> device.getSerialNumber())
+                  .collect(ImmutableSet.toImmutableSet());
+          LOG.log(Level.INFO, "Install targets " + serials);
+          return adbHelper;
+        });
   }
 
   private AndroidArtifacts getOrMakeAndroidArtifacts(InstallId install_id) {

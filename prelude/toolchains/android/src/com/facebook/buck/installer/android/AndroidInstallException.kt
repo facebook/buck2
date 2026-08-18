@@ -87,6 +87,14 @@ class AndroidInstallException(val installError: InstallError) :
         ),
     )
 
+    fun devicesDeparted(serials: Collection<String>) = AndroidInstallException(
+        InstallError(
+            "Device(s) disconnected while the build was running, so the install could not " +
+                "reach them: ${serials.sorted().joinToString(", ")}",
+            AndroidInstallErrorTag.DEVICE_NOT_FOUND,
+        ),
+    )
+
     fun adbPathNotFound() = AndroidInstallException(
         InstallError("Adb path not found.", AndroidInstallErrorTag.ADB_NOT_FOUND),
     )

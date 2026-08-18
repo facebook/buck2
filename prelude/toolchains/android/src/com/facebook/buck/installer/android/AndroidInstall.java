@@ -15,7 +15,6 @@ import com.facebook.buck.android.IsolatedApkInfo;
 import com.facebook.buck.android.exopackage.AndroidDeviceInfo;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
-import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
@@ -50,11 +49,11 @@ class AndroidInstall {
       Logger logger,
       AbsPath rootPath,
       AndroidCommandLineOptions cliOptions,
-      AndroidInstallApkOptions apkOptions,
       IsolatedApkInfo apkInfo,
       Optional<IsolatedExopackageInfo> exopackageInfo,
       InstallId installId,
-      AndroidArtifacts artifacts) {
+      AndroidArtifacts artifacts,
+      AdbHelper adbHelper) {
     this.logger = logger;
     this.rootPath = rootPath;
     this.apkInfo = apkInfo;
@@ -62,11 +61,7 @@ class AndroidInstall {
     this.installId = installId;
     this.cliOptions = cliOptions;
     this.artifacts = artifacts;
-
-    SetDebugAppMode setDebugAppMode =
-        cliOptions.skipSetDebugApp ? SetDebugAppMode.SKIP : SetDebugAppMode.SET;
-    this.adbHelper =
-        AdbHelperFactory.create(logger, cliOptions, apkOptions, setDebugAppMode, artifacts);
+    this.adbHelper = adbHelper;
   }
 
   /** Uses AdbHelper to do actual install with APK */

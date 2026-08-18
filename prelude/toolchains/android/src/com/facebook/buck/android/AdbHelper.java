@@ -165,6 +165,32 @@ public class AdbHelper implements AndroidDevicesHelper {
     AdbHelper.devicesSupplierForTests = devicesSupplierForTests;
   }
 
+  /**
+   * Of the devices this helper resolved, those adb no longer reports.
+   *
+   * <p>The resolved set is fixed at its first use; this asks adb afresh on every call, so it is for
+   * deciding once whether to go on rather than for polling. What it asks for is every serial adb
+   * reports, not the filtered set: a superset can only shrink the answer, and a device that never
+   * matched the filter was never resolved, so it can never be reported gone.
+   */
+  public ImmutableSet<String> departedSerials() {
+    ImmutableSet<String> connected =
+        adbUtils.getDevices().stream()
+            .map(AndroidDevice::getSerialNumber)
+            .collect(ImmutableSet.toImmutableSet());
+    if (connected.isEmpty()) {
+      // Adb answering with nothing is far more likely to be adb than every device at once. Reading
+      // it as a mass departure would fail installs that a retry would have completed, and a device
+      // that really has gone still fails the moment it is used.
+      LOG.warn("adb reported no devices at all; not treating that as a disconnection");
+      return ImmutableSet.of();
+    }
+    return devicesSupplier.get().devices.stream()
+        .map(AndroidDevice::getSerialNumber)
+        .filter(serial -> !connected.contains(serial))
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
   @Override
   public ImmutableList<AndroidDevice> getDevices(boolean quiet) {
     GetDevicesResult result = devicesSupplier.get();
