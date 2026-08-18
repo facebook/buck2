@@ -105,7 +105,7 @@ public class D8Utils {
         classpathFiles,
         minSdkVersion,
         threadCount,
-        false);
+        ImmutableSet.of());
   }
 
   public static D8Output runD8CommandWithOutputClassDescriptors(
@@ -129,7 +129,7 @@ public class D8Utils {
         classpathFiles,
         minSdkVersion,
         threadCount,
-        true);
+        ImmutableSet.of(D8OutputOption.CLASS_DESCRIPTORS));
   }
 
   private static D8Output runD8Command(
@@ -142,7 +142,7 @@ public class D8Utils {
       Collection<Path> classpathFiles,
       Optional<Integer> minSdkVersion,
       OptionalInt threadCount,
-      boolean captureOutputClassDescriptors)
+      Set<D8OutputOption> outputOptions)
       throws CompilationFailedException, IOException {
     Set<Path> inputs = new HashSet<>();
     for (Path toDex : filesToDex) {
@@ -226,7 +226,7 @@ public class D8Utils {
                 });
 
     OutputClassDescriptorConsumer outputClassDescriptorConsumer = null;
-    if (captureOutputClassDescriptors) {
+    if (outputOptions.contains(D8OutputOption.CLASS_DESCRIPTORS)) {
       outputClassDescriptorConsumer = new OutputClassDescriptorConsumer(recordingConsumer);
       builder.setProgramConsumer(outputClassDescriptorConsumer);
     } else {
