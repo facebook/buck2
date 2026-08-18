@@ -10,7 +10,7 @@ rust_library(
     # which controls pagable serialization/deserialization support for starlark values.
     features = ["pagable_dep"],
     modifiers = [
-        # @oss-disable[end= ]: "ovr_config//rust:panic_unwind",
+        # @oss-disable[end= ]: "ovr_config//rust:panic[unwind]",
     ],
     rustc_flags = [
         "--cfg=rust_nightly",
