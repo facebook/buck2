@@ -313,7 +313,7 @@ impl Key for ReadFileKey {
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|_, _| false)
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {

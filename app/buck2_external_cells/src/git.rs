@@ -438,7 +438,7 @@ pub(crate) async fn get_file_ops_delegate(
         }
 
         fn equality_behavior() -> EqualityBehavior<Self::Value> {
-            EqualityBehavior::Compare(|_x, _y| false)
+            EqualityBehavior::AlwaysUnequal
         }
 
         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {

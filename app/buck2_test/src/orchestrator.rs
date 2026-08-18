@@ -789,7 +789,7 @@ impl Key for TestExecutionKey {
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|_x, _y| false)
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn validity(x: &Self::Value) -> bool {

@@ -231,7 +231,7 @@ impl Key for MatchedConfigurationSettingKeysKey {
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
-        EqualityBehavior::Compare(|_, _| false)
+        EqualityBehavior::AlwaysUnequal
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
