@@ -23,6 +23,7 @@ use allocative::Visitor;
 use atomic::Atomic;
 
 use crate::atomic_value::AtomicValue;
+use crate::cache_line::IsolatedCacheLine;
 
 /// Fixed capacity hashtable.
 /// When dropped, it will not drop the entries.
@@ -31,7 +32,10 @@ pub(crate) struct FixedCapTable<T: AtomicValue> {
     entries: Box<[Atomic<T::Raw>]>,
     /// Number of entries in the table. We always use relaxed operations for this, meaning
     /// that any particular return value can always be wrong in either direction.
-    size: AtomicUsize,
+    ///
+    /// Insertions increment this while every lookup reads the `entries` fat
+    /// pointer, so the two must not share a cache line.
+    size: IsolatedCacheLine<AtomicUsize>,
 }
 
 pub(crate) struct IterPtrs<'a, T: AtomicValue> {
@@ -175,7 +179,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
         entries.resize_with(cap, || Atomic::new(T::null()));
         FixedCapTable {
             entries: entries.into_boxed_slice(),
-            size: AtomicUsize::new(0),
+            size: IsolatedCacheLine(AtomicUsize::new(0)),
         }
     }
 
@@ -186,7 +190,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
 
     #[inline]
     pub(crate) fn need_resize(&self) -> bool {
-        self.size.load(Ordering::Relaxed) >= self.entries.len() / 2
+        self.size.0.load(Ordering::Relaxed) >= self.entries.len() / 2
     }
 
     #[inline]
@@ -212,7 +216,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
             let entry = self.entries[index].get_mut();
             if T::is_null(*entry) {
                 *self.entries[index].get_mut() = value;
-                *self.size.get_mut() += 1;
+                *self.size.0.get_mut() += 1;
                 return;
             }
             index = (index + 1) & (self.entries.len() - 1);
@@ -254,7 +258,7 @@ impl<T: AtomicValue> FixedCapTable<T> {
                     Ordering::Acquire,
                 ) {
                     Ok(_) => {
-                        self.size.fetch_add(1, Ordering::Relaxed);
+                        self.size.0.fetch_add(1, Ordering::Relaxed);
                         return Ok((unsafe { T::deref(value) }, None));
                     }
                     Err(entry) => {
@@ -311,6 +315,23 @@ impl<T: AtomicValue> FixedCapTable<T> {
 
     #[inline]
     pub(crate) fn len(&self) -> usize {
-        self.size.load(Ordering::Relaxed)
+        self.size.0.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::fixed_cap::FixedCapTable;
+
+    #[test]
+    fn test_write_hot_size_isolated_from_read_hot_entries() {
+        let entries = std::mem::offset_of!(FixedCapTable<Box<u32>>, entries);
+        let size = std::mem::offset_of!(FixedCapTable<Box<u32>>, size);
+        assert_ne!(
+            entries / 128,
+            size / 128,
+            "insertions increment `size` while lookups read the `entries` fat \
+             pointer; they must not share an effective cache line"
+        );
     }
 }

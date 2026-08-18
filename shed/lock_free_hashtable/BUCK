@@ -24,3 +24,11 @@ rust_binary(
         ":lock_free_hashtable",
     ],
 )
+
+rust_binary(
+    name = "bench",
+    srcs = ["examples/bench.rs"],
+    deps = [
+        ":lock_free_hashtable",
+    ],
+)

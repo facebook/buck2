@@ -27,6 +27,7 @@ use allocative::Visitor;
 use parking_lot::RwLock;
 
 use crate::atomic_value::AtomicValue;
+use crate::cache_line::IsolatedCacheLine;
 use crate::fixed_cap;
 use crate::fixed_cap::FixedCapTable;
 pub use crate::fixed_cap::Iter;
@@ -69,15 +70,18 @@ impl<T: AtomicValue + Allocative> CurrentTable<T> {
 pub struct LockFreeRawTable<T: AtomicValue> {
     /// Shared lock for insertion, exclusive lock for resizing.
     /// No lock for lookup.
-    write_lock: RwLock<()>,
+    ///
+    /// Insertions write this word while every lookup reads `current`, so the
+    /// two must not share a cache line.
+    write_lock: IsolatedCacheLine<RwLock<()>>,
     /// Current table. Readers can grab the pointer without locking
     /// and pointer remains valid even if the table is resized.
-    current: AtomicPtr<CurrentTable<T>>,
+    current: IsolatedCacheLine<AtomicPtr<CurrentTable<T>>>,
 }
 
 impl<T: AtomicValue> Drop for LockFreeRawTable<T> {
     fn drop(&mut self) {
-        let current = self.current.get_mut();
+        let current = self.current.0.get_mut();
         if !current.is_null() {
             unsafe {
                 let mut current = Box::from_raw(*current);
@@ -101,15 +105,15 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     #[inline]
     pub const fn new() -> LockFreeRawTable<T> {
         LockFreeRawTable {
-            write_lock: RwLock::new(()),
-            current: AtomicPtr::new(ptr::null_mut()),
+            write_lock: IsolatedCacheLine(RwLock::new(())),
+            current: IsolatedCacheLine(AtomicPtr::new(ptr::null_mut())),
         }
     }
 
     /// Find an entry.
     #[inline]
     pub fn lookup(&self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'_>> {
-        let current = self.current.load(Ordering::Acquire);
+        let current = self.current.0.load(Ordering::Acquire);
 
         if current.is_null() {
             return None;
@@ -134,9 +138,9 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     ) -> (T::Ref<'_>, Option<T>) {
         loop {
             // Acquire shared lock.
-            let guard = self.write_lock.read();
+            let guard = self.write_lock.0.read();
 
-            let current = self.current.load(Ordering::Relaxed);
+            let current = self.current.0.load(Ordering::Relaxed);
 
             if current.is_null() {
                 // The table is just created. Allocate capacity and start over.
@@ -171,9 +175,9 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     fn resize_if_needed(&self, hash: impl Fn(T::Ref<'_>) -> u64) {
         // Acquire exclusive lock.
         // Readers still read the old table, but new insertions will wait.
-        let _guard = self.write_lock.write();
+        let _guard = self.write_lock.0.write();
 
-        let current_ptr = self.current.load(Ordering::Relaxed);
+        let current_ptr = self.current.0.load(Ordering::Relaxed);
 
         if current_ptr.is_null() {
             let new_table: FixedCapTable<T> = FixedCapTable::with_capacity(16);
@@ -182,6 +186,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
                 table: new_table,
             });
             self.current
+                .0
                 .store(Box::into_raw(new_current), Ordering::Release);
             return;
         }
@@ -207,12 +212,13 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
         });
 
         self.current
+            .0
             .store(Box::into_raw(new_current), Ordering::Release);
     }
 
     /// Iterate over all entries.
     pub fn iter(&self) -> Iter<'_, T> {
-        let current = self.current.load(Ordering::Acquire);
+        let current = self.current.0.load(Ordering::Acquire);
 
         if current.is_null() {
             return Iter::empty();
@@ -225,7 +231,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     /// Number of entries in the table.
     #[inline]
     pub fn len(&self) -> usize {
-        let current = self.current.load(Ordering::Acquire);
+        let current = self.current.0.load(Ordering::Acquire);
 
         if current.is_null() {
             return 0;
@@ -269,7 +275,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     /// synchronization out of Thread 1.
     #[inline]
     pub fn synchronize_with_inserts(&self) {
-        drop(self.write_lock.write());
+        drop(self.write_lock.0.write());
     }
 }
 
@@ -302,7 +308,7 @@ impl<T: AtomicValue> IntoIterator for LockFreeRawTable<T> {
     /// from them — they just free their slot arrays when the `_prev` chain drops.
     fn into_iter(mut self) -> IntoIter<T> {
         // Take the pointer and replace with null so `Drop` doesn't double-free.
-        let current_ptr = mem::replace(self.current.get_mut(), ptr::null_mut());
+        let current_ptr = mem::replace(self.current.0.get_mut(), ptr::null_mut());
         if current_ptr.is_null() {
             return IntoIter {
                 _prev: None,
@@ -327,7 +333,7 @@ impl<T: AtomicValue + Allocative> Allocative for LockFreeRawTable<T> {
                 allocative::Key::new("current"),
                 mem::size_of_val(&self.current),
             );
-            let current = self.current.load(Ordering::Acquire);
+            let current = self.current.0.load(Ordering::Acquire);
             if !current.is_null() {
                 let current = unsafe { &*current };
                 current.visit(&mut visitor, true);
@@ -359,6 +365,28 @@ mod tests {
     #[allow(clippy::trivially_copy_pass_by_ref)]
     fn hash_fn(key: &u32) -> u64 {
         hash(*key)
+    }
+
+    #[test]
+    fn test_write_hot_lock_isolated_from_read_hot_current() {
+        let write_lock = std::mem::offset_of!(LockFreeRawTable<Box<u32>>, write_lock);
+        let current = std::mem::offset_of!(LockFreeRawTable<Box<u32>>, current);
+        assert_eq!(
+            0,
+            write_lock % 128,
+            "lock word must start its own 128-byte block"
+        );
+        assert_eq!(
+            0,
+            current % 128,
+            "current pointer must start its own 128-byte block"
+        );
+        assert_ne!(
+            write_lock / 128,
+            current / 128,
+            "insertions write the lock word while lookups read `current`; \
+             they must not share an effective cache line"
+        );
     }
 
     #[test]
