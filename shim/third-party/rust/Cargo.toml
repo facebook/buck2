@@ -165,7 +165,7 @@ prost = { version = "0.14.4", default-features = false }
 prost-build = { version = "0.14.4", features = ["cleanup-markdown"] }
 prost-types = { version = "0.14.4", default-features = false }
 protoc-bin-vendored = "3.0.0"
-psutil = "3.3.0"
+psutil = "4.0.0"
 ptyprocess = "0.4.1"
 quick-xml = { version = "0.41.0", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
@@ -263,6 +263,7 @@ windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Globa
 winver = "1"
 
 [patch.crates-io]
+darwin-libproc = { git = "https://github.com/fbsource/darwin-libproc", rev = "f73ddb1002d51ae74c1b41670fae56bd5896b7a3" }
 perf-event = { version = "0.4", git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4" }
 perf-event-open-sys = { version = "5.0", git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4" }
 
