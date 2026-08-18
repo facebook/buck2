@@ -25,7 +25,6 @@ import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
-import com.facebook.buck.util.Console;
 import com.facebook.buck.util.MoreSuppliers;
 import com.facebook.buck.util.Threads;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
@@ -380,7 +379,6 @@ public class AdbHelper implements AndroidDevicesHelper {
               apk.getName(),
               String.format(" (CPU(s): %s)", String.join(", ", apkAbis)),
               String.join(", ", abis));
-      getConsole().printErrorText(errorMsg);
       throw new IncompatibleAbiException(errorMsg);
     }
   }
@@ -735,10 +733,6 @@ public class AdbHelper implements AndroidDevicesHelper {
 
     return GetDevicesResult.createSuccess(
         devices.stream().collect(ImmutableList.toImmutableList()));
-  }
-
-  private Console getConsole() {
-    return adbExecutionContext.getConsole();
   }
 
   @Override

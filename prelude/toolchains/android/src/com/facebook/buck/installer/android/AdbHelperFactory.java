@@ -17,7 +17,6 @@ import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.InstallTimings;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.util.Console;
 import java.util.Optional;
 import java.util.logging.Logger; // NOPMD
 
@@ -35,7 +34,6 @@ class AdbHelperFactory {
       Logger logger,
       AndroidCommandLineOptions cliOptions,
       AndroidInstallApkOptions apkOptions,
-      Console console,
       SetDebugAppMode setDebugAppMode,
       InstallTimings timings) {
     AdbOptions adbOptions =
@@ -68,7 +66,7 @@ class AdbHelperFactory {
         adbUtils,
         adbOptions,
         targetDeviceOptions,
-        new AdbExecutionContext(console),
+        new AdbExecutionContext(),
         new IsolatedAndroidInstallerPrinter(logger),
         apkOptions.restartAdbOnFailure,
         apkOptions.skipInstallMetadata,

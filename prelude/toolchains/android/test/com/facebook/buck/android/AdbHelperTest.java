@@ -26,7 +26,6 @@ import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
 import com.facebook.buck.testutil.MoreAsserts;
 import com.facebook.buck.testutil.TestLogSink;
-import com.facebook.buck.util.Console;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -55,7 +54,6 @@ public class AdbHelperTest {
   @Rule public ExpectedException exceptionRule = ExpectedException.none();
   @Rule public TestLogSink testLogSink = new TestLogSink(AdbHelperTest.class);
 
-  private Console testConsole;
   private TestAdbExecutionContext adbExecutionContext;
   private AdbHelper basicAdbHelper;
 
@@ -63,8 +61,7 @@ public class AdbHelperTest {
 
   @Before
   public void setUp() {
-    adbExecutionContext = new TestAdbExecutionContext(Console.createNullConsole());
-    testConsole = adbExecutionContext.getConsole();
+    adbExecutionContext = new TestAdbExecutionContext();
     basicAdbHelper = createAdbHelper(createAdbOptions(), new TargetDeviceOptions());
   }
 
@@ -230,7 +227,6 @@ public class AdbHelperTest {
       AdbHelper myAdbHelper =
           createAdbHelper(
               new TestAdbExecutionContext(
-                  testConsole,
                   ImmutableMap.of(AdbHelper.SERIAL_NUMBER_ENV, device.getSerialNumber())),
               createAdbOptions(),
               new TargetDeviceOptions());

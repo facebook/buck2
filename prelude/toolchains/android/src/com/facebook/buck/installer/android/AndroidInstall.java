@@ -19,11 +19,6 @@ import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
-import com.facebook.buck.util.Console;
-import com.facebook.buck.util.Verbosity;
-import com.google.common.io.ByteStreams;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -49,7 +44,6 @@ class AndroidInstall {
   private final boolean installViaSd = false;
   private final Logger logger;
   private final AdbHelper adbHelper;
-  private final ByteArrayOutputStream stderr;
   private final AndroidArtifacts artifacts;
 
   public AndroidInstall(
@@ -69,17 +63,10 @@ class AndroidInstall {
     this.cliOptions = cliOptions;
     this.artifacts = artifacts;
 
-    this.stderr = new ByteArrayOutputStream();
-    Console console =
-        new Console(
-            Verbosity.STANDARD_INFORMATION,
-            new PrintStream(ByteStreams.nullOutputStream()),
-            new PrintStream(stderr));
     SetDebugAppMode setDebugAppMode =
         cliOptions.skipSetDebugApp ? SetDebugAppMode.SKIP : SetDebugAppMode.SET;
     this.adbHelper =
-        AdbHelperFactory.create(
-            logger, cliOptions, apkOptions, console, setDebugAppMode, artifacts);
+        AdbHelperFactory.create(logger, cliOptions, apkOptions, setDebugAppMode, artifacts);
   }
 
   /** Uses AdbHelper to do actual install with APK */
@@ -181,11 +168,7 @@ class AndroidInstall {
     } catch (AndroidInstallException exc) {
       return new InstallResult(deviceInfos, Optional.of(exc.getInstallError()));
     } catch (Exception err) {
-      String errMsg =
-          Optional.ofNullable(stderr.toString())
-              .filter(s -> !s.isEmpty())
-              .map(s -> "stderr message: " + s)
-              .orElseGet(err::getMessage);
+      String errMsg = err.getMessage();
       logger.log(
           Level.SEVERE,
           String.format("Error while installing %s. Error message: %s", installId, errMsg),
