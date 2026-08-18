@@ -1069,7 +1069,13 @@ async fn build_files(
                     artifact: artifact.to_owned(),
                     artifact_value: artifact_value.to_owned(),
                 };
-                tx_clone.send(file_result)?;
+                // The receiver lives exactly as long as the install, so a closed channel means the
+                // install has already finished. That happens early when it fails, leaving these
+                // artifacts nowhere to go; treating it as an error here would replace the
+                // install's own error with this one.
+                if tx_clone.send(file_result).is_err() {
+                    return buck2_error::Ok(());
+                }
             }
             buck2_error::Ok(())
         },
