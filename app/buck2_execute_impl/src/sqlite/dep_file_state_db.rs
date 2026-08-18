@@ -71,7 +71,11 @@ impl SqliteDb for DepFileStateSqliteDb {
 
     fn open_tables(path: &AbsNormPath) -> buck2_error::Result<SqliteTables<Self::TableType>> {
         let connection = SqliteTables::<Self::TableType>::create_connection(path)?;
-        let dep_file_state_table = DepFileStateSqliteTable::new(connection.dupe());
+        // Reads get their own connections. Opening them here rather than lazily ties their lifetime
+        // to the table, so a database that is deleted and recreated on a version mismatch cannot
+        // leave a reader pointing at the old file.
+        let dep_file_state_table =
+            DepFileStateSqliteTable::new_with_read_connections(connection.dupe(), path);
         Ok(SqliteTables::new(dep_file_state_table, connection))
     }
 
@@ -234,10 +238,10 @@ fn report_read_failure(e: buck2_error::Error) {
 /// this store and already holds anything just written, and an entry read before its queued delete
 /// lands is still re-validated against the action's digests before use.
 ///
-/// They do run synchronously on the calling (async) thread, and reader and writer share one
-/// connection, so WAL's concurrent-reader property is not in play here: a read can wait on the mutex
-/// a write transaction holds, even though it never waits on the queue. The mutex is released before
-/// rows are deserialized, and a read only runs when the in-memory cache misses.
+/// They do run synchronously on the calling (async) thread, so a read that waits parks a runtime
+/// worker. Readers take connections of their own, which is what WAL's concurrent readers need: a
+/// read does not wait on the transaction a write holds. The connection is released before rows are
+/// deserialized, and a read only runs when the in-memory cache misses.
 /// Writer-thread counters. Grouped so the thread takes one handle rather than one per counter, and
 /// so a new counter is added in one place.
 #[derive(Default)]
@@ -455,6 +459,7 @@ impl DepFileStore for PersistedDepFileStore {
             hits: self.read.hits.load(Ordering::Relaxed),
             lock_wait_us: lock_wait,
             lock_wait_max_us: lock_wait_max,
+            read_connections: self.db.dep_file_state_table().read_connections(),
         }
     }
 

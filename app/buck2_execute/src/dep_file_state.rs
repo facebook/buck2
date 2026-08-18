@@ -132,6 +132,10 @@ pub struct DepFileReadStats {
     /// database working from one caused by queueing behind another reader.
     pub lock_wait_us: u64,
     pub lock_wait_max_us: u64,
+    /// Connections reads are spread over, fixed for the daemon's life. Reported with the waits
+    /// because it is what sizes them: the same wait means different things at one connection and at
+    /// sixteen, and zero connections means reads fell back to sharing the writer's.
+    pub read_connections: u64,
 }
 
 /// What the database held when the daemon opened it. Constant for the daemon's life, so it reaches

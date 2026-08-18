@@ -30,6 +30,8 @@ use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::Symlink;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_common::sqlite::sqlite_db::SqliteTables;
+use buck2_core::soft_error;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -41,7 +43,9 @@ use buck2_execute::dep_file_state::StoredOutput;
 use buck2_execute::dep_file_state::StoredOutputValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::threads::available_parallelism;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -234,6 +238,18 @@ fn delete_key_in_tx(
     Ok(())
 }
 
+/// Ceiling on connections used for reads, set by measurement rather than by the machine: on a
+/// 96-worker daemon, 16 left 5us of mean wait per read, which is an uncontended mutex, and more
+/// stopped helping. `dep_file_db_read_lock_wait_us` is what would show the ceiling stops holding.
+const READ_CONNECTIONS_MAX: usize = 16;
+
+/// Scaled to the machine, so a daemon restricted by cgroup quota or affinity does not open
+/// connections it has no threads to use, then capped at the ceiling. This is the count the daemon
+/// sizes its tokio workers from, and reads run on those workers, so the two move together.
+fn read_connection_count() -> usize {
+    available_parallelism().min(READ_CONNECTIONS_MAX)
+}
+
 /// Time readers spent waiting for a connection, separate from time spent querying: this is what
 /// says whether a slow lookup is the database working or a queue behind another reader, and the two
 /// want different fixes.
@@ -251,22 +267,78 @@ impl LockWait {
 }
 
 pub struct DepFileStateSqliteTable {
-    connection: Arc<Mutex<Connection>>,
+    /// Carries every write, and every read when `read_connections` is empty.
+    shared_connection: Arc<Mutex<Connection>>,
+    /// Connections used only for reads, so lookups do not queue behind each other on the single
+    /// connection the writer holds. WAL allows many concurrent readers; one shared connection gives
+    /// that up. Empty when the database has no path to reopen (in-memory, i.e. tests), in which case
+    /// reads fall back to `connection`.
+    read_connections: Vec<Arc<Mutex<Connection>>>,
     lock_wait: LockWait,
 }
 
 impl DepFileStateSqliteTable {
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(shared_connection: Arc<Mutex<Connection>>) -> Self {
         Self {
-            connection,
+            shared_connection,
+            read_connections: Vec::new(),
             lock_wait: LockWait::default(),
         }
     }
 
-    /// Take the connection for a read, charging the wait to `read_lock_wait_us`.
+    /// As `new`, plus a set of read-only-by-convention connections to the same file. A connection
+    /// that fails to open is skipped rather than failing startup: fewer connections is slower, not
+    /// incorrect, and reads fall back to the shared one if none open.
+    pub fn new_with_read_connections(
+        shared_connection: Arc<Mutex<Connection>>,
+        path: &AbsNormPath,
+    ) -> Self {
+        let requested = read_connection_count();
+        let read_connections: Vec<_> = (0..requested)
+            .filter_map(|_| SqliteTables::<Self>::create_connection(path).ok())
+            .collect();
+        if read_connections.len() < requested {
+            // Reads stay correct on a short pool, only slower, so this reports rather than fails.
+            let _unused = soft_error!(
+                "dep_file_db_read_connections_short",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Opened {} of {} dep-file db read connections; reads will contend",
+                    read_connections.len(),
+                    requested
+                ),
+                quiet: true
+            );
+        }
+        Self {
+            shared_connection,
+            read_connections,
+            lock_wait: LockWait::default(),
+        }
+    }
+
+    /// Take a connection for a read, charging the wait to `read_lock_wait_us`. Threads are assigned
+    /// a connection round-robin on first use and keep it, so a thread never contends with itself and
+    /// the spread does not depend on how thread ids happen to hash.
     fn lock_for_read(&self) -> parking_lot::MutexGuard<'_, Connection> {
+        let connection = if self.read_connections.is_empty() {
+            &self.shared_connection
+        } else {
+            thread_local! {
+                static SHARD: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+            }
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let shard = SHARD.with(|s| {
+                s.get().unwrap_or_else(|| {
+                    let next = NEXT.fetch_add(1, Ordering::Relaxed) as usize;
+                    s.set(Some(next));
+                    next
+                })
+            });
+            &self.read_connections[shard % self.read_connections.len()]
+        };
         let started = Instant::now();
-        let guard = self.connection.lock();
+        let guard = connection.lock();
         self.lock_wait
             .record((Instant::now() - started).as_micros() as u64);
         guard
@@ -276,7 +348,7 @@ impl DepFileStateSqliteTable {
     /// a b-tree walk, and what sizes the database is what it holds when a daemon opens it, not what
     /// it holds a second later. Bytes come from the page count, so no path is needed.
     pub(crate) fn measure(&self) -> (u64, u64) {
-        let conn = self.connection.lock();
+        let conn = self.shared_connection.lock();
         let entries = conn
             .query_row(
                 &format!("SELECT count(*) FROM {STATE_TABLE_NAME}"),
@@ -293,7 +365,13 @@ impl DepFileStateSqliteTable {
         (entries, pages * page_size)
     }
 
-    /// Cumulative reader wait for the connection, and the longest single wait.
+    /// Connections reads are spread over. Zero means every read shares the write connection, which
+    /// is the in-memory (test) case and the one a short pool degrades to.
+    pub(crate) fn read_connections(&self) -> u64 {
+        self.read_connections.len() as u64
+    }
+
+    /// Cumulative reader wait for a connection, and the longest single wait.
     pub(crate) fn read_lock_wait(&self) -> (u64, u64) {
         (
             self.lock_wait.total_us.load(Ordering::Relaxed),
@@ -302,7 +380,7 @@ impl DepFileStateSqliteTable {
     }
 
     pub(crate) fn create_table(&self) -> buck2_error::Result<()> {
-        let conn = self.connection.lock();
+        let conn = self.shared_connection.lock();
         for sql in [
             format!(
                 "CREATE TABLE {STATE_TABLE_NAME} (
@@ -386,7 +464,7 @@ impl DepFileStateSqliteTable {
         // Stamped on write (re-stamped every rebuild); `prune` uses it to bound the db by age.
         let last_write_time = jiff::Timestamp::now().as_second();
 
-        let mut conn = self.connection.lock();
+        let mut conn = self.shared_connection.lock();
         let tx = conn.transaction()?;
         // Clearing all three tables first handles that uniformly, and also avoids the primary-key
         // constraint that would otherwise roll the whole transaction back to a soft error, silently
@@ -531,7 +609,7 @@ impl DepFileStateSqliteTable {
     pub(crate) fn delete(&self, logical_key: &[u8], config_key: &[u8]) -> buck2_error::Result<()> {
         // One transaction across all three tables so a mid-way failure can never leave an entry
         // half-deleted (state row gone but output/declared rows orphaned).
-        let mut conn = self.connection.lock();
+        let mut conn = self.shared_connection.lock();
         let tx = conn.transaction()?;
         delete_key_in_tx(&tx, logical_key, config_key)?;
         tx.commit()?;
@@ -539,7 +617,7 @@ impl DepFileStateSqliteTable {
     }
 
     pub(crate) fn clear(&self) -> buck2_error::Result<()> {
-        let mut conn = self.connection.lock();
+        let mut conn = self.shared_connection.lock();
         let tx = conn.transaction()?;
         for table in [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
             tx.execute(&format!("DELETE FROM {table}"), [])
@@ -561,7 +639,7 @@ impl DepFileStateSqliteTable {
         cutoff: Option<i64>,
         max_entries: Option<usize>,
     ) -> buck2_error::Result<usize> {
-        let mut conn = self.connection.lock();
+        let mut conn = self.shared_connection.lock();
         let tx = conn.transaction()?;
 
         // The count cap reduces to a timestamp: the `(max_entries + 1)`-th most-recently-written
@@ -863,7 +941,7 @@ mod tests {
 
     fn set_write_time(table: &DepFileStateSqliteTable, logical: &[u8], config: &[u8], t: i64) {
         table
-            .connection
+            .shared_connection
             .lock()
             .execute(
                 &format!(
@@ -897,7 +975,7 @@ mod tests {
     /// the assertion that catches that, and a per-key count could not: once the parent row is gone,
     /// any query joining through it reports zero whether or not the child rows are still there.
     fn orphan_row_count(table: &DepFileStateSqliteTable) -> i64 {
-        let conn = table.connection.lock();
+        let conn = table.shared_connection.lock();
         [OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME]
             .iter()
             .map(|child| {
@@ -916,7 +994,7 @@ mod tests {
     /// Rows across all three tables. Reads by key can only speak for the keys a test knows about;
     /// this is what says the table itself is empty.
     fn total_row_count(table: &DepFileStateSqliteTable) -> i64 {
-        let conn = table.connection.lock();
+        let conn = table.shared_connection.lock();
         [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME]
             .iter()
             .map(|name| {
@@ -1360,7 +1438,7 @@ mod tests {
     #[test]
     fn test_production_statements_are_indexed() {
         let table = table();
-        let conn = table.connection.lock();
+        let conn = table.shared_connection.lock();
         let plan = |sql: &str| -> String {
             let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
             // The plan does not depend on the bound values (no `ANALYZE`, so no statistics), but the

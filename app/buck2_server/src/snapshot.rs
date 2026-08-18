@@ -166,6 +166,7 @@ impl SnapshotCollector {
             snapshot.dep_file_db_read_max_us = reads.max_us;
             snapshot.dep_file_db_read_lock_wait_us = reads.lock_wait_us;
             snapshot.dep_file_db_read_lock_wait_max_us = reads.lock_wait_max_us;
+            snapshot.dep_file_db_read_connections = reads.read_connections;
             snapshot.dep_file_db_hits = reads.hits;
             let size = store.db_size();
             snapshot.dep_file_db_entries_at_start = size.entries;

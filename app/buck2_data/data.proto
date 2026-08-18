@@ -1224,6 +1224,7 @@ message Snapshot {
   // another reader; the two want different fixes.
   uint64 dep_file_db_read_lock_wait_us = 452;
   uint64 dep_file_db_read_lock_wait_max_us = 453;
+  uint64 dep_file_db_read_connections = 458;
   // What the database held when this daemon opened it, after pruning. Constant
   // for the daemon's life. Write counts cannot substitute: they cannot tell an
   // insert from a replace, and say nothing about what survived the prune.
