@@ -93,7 +93,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
                     // because we'll be able to create a dir here.
                     tracing::trace!(path = %path, "remove_file");
 
-                    fs_util::remove_file(path)
+                    fs_util::remove_file_harder(path)
                         .categorize_internal()
                         .map_err(tag_environment_error)?;
                 }
