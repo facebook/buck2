@@ -1613,6 +1613,9 @@ message CleanStaleStats {
   uint64 unmaterialized_only_bytes = 14;
   uint64 unmaterialization_ineligible_artifact_count = 15;
   uint64 unmaterialization_ineligible_bytes = 16;
+  // Paths skipped because they could not be read or deleted due to
+  // insufficient permissions.
+  uint64 skipped_unreadable_count = 17;
 }
 
 enum CleanStaleResultKind {

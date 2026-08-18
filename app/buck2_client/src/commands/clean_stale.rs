@@ -88,6 +88,12 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
         stats.untracked_artifact_count,
         bytesize::ByteSize::b(stats.untracked_bytes).display().iec(),
     );
+    if stats.skipped_unreadable_count > 0 {
+        output += &format!(
+            "Skipped {} paths that could not be read or deleted (permission denied)\n",
+            stats.skipped_unreadable_count,
+        );
+    }
     if stats.cleaned_artifact_count > 0 || stats.cleaned_bytes > 0 {
         output += &format!("Cleaned {} paths\n", stats.cleaned_artifact_count,);
         output += &format!(

@@ -118,6 +118,8 @@ fn test_remove_path() {
 
 #[cfg(test)]
 mod state_machine {
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
     use std::sync::Barrier;
     use std::thread;
@@ -1599,6 +1601,83 @@ mod state_machine {
                     cleaned_bytes
                 ),
                 (1, 8, 1, 8)
+            );
+            Ok(())
+        })
+        .await
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_clean_stale_skips_unreadable() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            // Drop dm and flush sqlite connection.
+            dm.abort();
+            // Create new materializer from db state so that artifacts are not active
+            let (dm, _, _) = make_materializer(io, None).await;
+
+            // An untracked artifact containing a directory the scan cannot read.
+            let untracked_dir = project_root.resolve(make_path("buck-out/v2/art/foo/untracked"));
+            let unreadable_dir =
+                project_root.resolve(make_path("buck-out/v2/art/foo/untracked/unreadable"));
+            fs_util::create_dir(&untracked_dir)?;
+            fs_util::create_dir(&unreadable_dir)?;
+            fs_util::set_permissions(&unreadable_dir, std::fs::Permissions::from_mode(0o000))?;
+
+            // A second untracked artifact whose directory can be listed but not
+            // traversed (readable, not executable), so its entries cannot be
+            // statted.
+            let listable_dir = project_root.resolve(make_path("buck-out/v2/art/foo/untracked2"));
+            let listable_file =
+                project_root.resolve(make_path("buck-out/v2/art/foo/untracked2/file"));
+            fs_util::create_dir(&listable_dir)?;
+            fs_util::write(&listable_file, b"x")?;
+            fs_util::set_permissions(&listable_dir, std::fs::Permissions::from_mode(0o444))?;
+
+            let res = dm
+                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                    keep_since_time: jiff::Timestamp::MAX,
+                    dry_run: false,
+                    tracked_only: false,
+                    adaptive_low_disk_threshold: None,
+                    adaptive_min_ttl: None,
+                    adaptive_unmaterialize_active: false,
+                })
+                .await;
+
+            // Restore permissions so the temp dir can be deleted.
+            fs_util::set_permissions(&unreadable_dir, std::fs::Permissions::from_mode(0o755))?;
+            fs_util::set_permissions(&listable_dir, std::fs::Permissions::from_mode(0o755))?;
+
+            let res = res?;
+            let &buck2_data::CleanStaleStats {
+                stale_artifact_count,
+                cleaned_artifact_count,
+                untracked_artifact_count,
+                skipped_unreadable_count,
+                ..
+            } = res
+                .stats
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}", res.message.unwrap()));
+            assert_eq!(
+                (
+                    stale_artifact_count,
+                    cleaned_artifact_count,
+                    untracked_artifact_count,
+                    skipped_unreadable_count
+                ),
+                (1, 1, 2, 4),
+                "clean should finish despite the unreadable entries: the stale artifact is \
+                 cleaned; neither untracked root can be fully deleted, so both are skipped \
+                 rather than failing the clean — four skips total: the scan reading the \
+                 unreadable dir, the scan statting the file in the non-traversable dir, and \
+                 the two failed deletions"
             );
             Ok(())
         })

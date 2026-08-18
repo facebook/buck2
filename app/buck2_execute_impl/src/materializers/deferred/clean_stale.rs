@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::io::ErrorKind;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -31,7 +32,6 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -282,6 +282,7 @@ impl CleanStaleArtifactsCommand {
         }
 
         let mut found_paths = Vec::new();
+        let mut skipped_unreadable_count = 0u64;
         if self.tracked_only {
             find_stale_tracked_only(tree, self.keep_since_time, &mut found_paths)?
         } else {
@@ -309,6 +310,7 @@ impl CleanStaleArtifactsCommand {
                     keep_since_time: self.keep_since_time,
                     rematerialization_deadline: rematerialization_deadline(rematerialization_ttl),
                     found_paths: &mut found_paths,
+                    skipped_unreadable_count: &mut skipped_unreadable_count,
                     liveliness_observer: liveliness_observer.clone(),
                 }
                 .visit_recursively(dir_path.clone(), dir_subtree)?;
@@ -336,6 +338,7 @@ impl CleanStaleArtifactsCommand {
 
         let mut stats = stats_for_paths(&found_paths);
         stats.scan_duration_s = (Instant::now() - start_time).as_secs();
+        stats.skipped_unreadable_count = skipped_unreadable_count;
 
         // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
         for (path, file_type) in found_paths
@@ -558,27 +561,27 @@ fn create_clean_fut<T: IoHandler>(
             clean_futs
                 .into_iter()
                 .map(|(clean_fut, unmaterialized)| {
-                    clean_fut.map(move |result| {
-                        result.map(|size| size.map(|size| (size, unmaterialized)))
-                    })
+                    clean_fut.map(move |result| result.map(|cleaned| (cleaned, unmaterialized)))
                 })
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
         .await?;
 
-        let cleaned_sizes: Vec<u64> = res.iter().filter_map(|x| x.map(|(size, _)| size)).collect();
-        let unmaterialized_sizes: Vec<u64> = res
-            .iter()
-            .filter_map(|x| match x {
-                Some((size, true)) => Some(*size),
-                _ => None,
-            })
-            .collect();
-        stats.cleaned_artifact_count += cleaned_sizes.len() as u64;
-        stats.cleaned_bytes = cleaned_sizes.iter().sum();
-        stats.unmaterialized_only_artifact_count += unmaterialized_sizes.len() as u64;
-        stats.unmaterialized_only_bytes += unmaterialized_sizes.iter().sum::<u64>();
+        for (cleaned, unmaterialized) in &res {
+            match cleaned {
+                CleanedPath::Cleaned(size) => {
+                    stats.cleaned_artifact_count += 1;
+                    stats.cleaned_bytes += size;
+                    if *unmaterialized {
+                        stats.unmaterialized_only_artifact_count += 1;
+                        stats.unmaterialized_only_bytes += size;
+                    }
+                }
+                CleanedPath::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
+                CleanedPath::Interrupted => {}
+            }
+        }
         stats.clean_duration_s = (Instant::now() - start_time).as_secs();
         let kind = if !liveliness_observer.is_alive().await {
             CleanStaleResultKind::Interrupted
@@ -595,13 +598,20 @@ fn rematerialization_deadline(ttl: Option<SignedDuration>) -> Timestamp {
         .unwrap_or(Timestamp::MAX)
 }
 
+#[derive(Clone, Copy, Dupe)]
+enum CleanedPath {
+    Cleaned(u64),
+    Interrupted,
+    SkippedPermissionDenied,
+}
+
 async fn clean_artifact<T: IoHandler>(
     path: ProjectRelativePathBuf,
     size: u64,
     cancellations: &'static CancellationContext,
     io: &Arc<T>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
-) -> buck2_error::Result<Option<u64>> {
+) -> buck2_error::Result<CleanedPath> {
     match io
         .clean_invalidated_path(
             CleanInvalidatedPathRequest {
@@ -612,10 +622,19 @@ async fn clean_artifact<T: IoHandler>(
         )
         .await
     {
-        Ok(()) => Ok(Some(size)),
+        Ok(()) => Ok(CleanedPath::Cleaned(size)),
         Err(e) => {
             if e.has_tag(ErrorTag::CleanInterrupt) {
-                Ok(None)
+                Ok(CleanedPath::Interrupted)
+            } else if e.has_tag(ErrorTag::IoPermissionDenied) {
+                // A skipped path may still hold bytes for an entry the tree/db
+                // already recorded as cleaned or unmaterialized (both are
+                // committed before deletion) — the same state a failed clean
+                // left behind. This is safe: materialization always cleans its
+                // destination first, so a later rematerialization surfaces the
+                // permission error at the point of use.
+                tracing::warn!("Skipping undeletable path in clean --stale: {e:#}");
+                Ok(CleanedPath::SkippedPermissionDenied)
             } else {
                 Err(e)
             }
@@ -638,15 +657,44 @@ impl IoRequest for CleanInvalidatedPathRequest {
     }
 }
 
-/// Get file size or directory size, without following symlinks
-pub fn get_size(path: &AbsNormPath) -> buck2_error::Result<u64> {
+/// Get file size or directory size, without following symlinks.
+/// Entries that cannot be read or statted due to insufficient permissions are
+/// skipped (and counted in `skipped_unreadable`) rather than treated as
+/// errors, so the result may undercount.
+pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error::Result<u64> {
     let mut result = 0;
     if path.is_dir() {
-        for entry in fs_util::read_dir(path).categorize_internal()? {
-            result += get_size(&entry?.path())?;
+        let read_dir = match fs_util::read_dir(path) {
+            Ok(read_dir) => read_dir,
+            Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
+                tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#?}");
+                *skipped_unreadable += 1;
+                return Ok(0);
+            }
+            Err(e) => return Err(e.categorize_internal()),
+        };
+        for entry in read_dir {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                    tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
+                    *skipped_unreadable += 1;
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
+            result += get_size(&entry.path(), skipped_unreadable)?;
         }
     } else {
-        result = path.symlink_metadata()?.len();
+        result = match path.symlink_metadata() {
+            Ok(metadata) => metadata.len(),
+            Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
+                *skipped_unreadable += 1;
+                0
+            }
+            Err(e) => return Err(e.into()),
+        };
     }
     Ok(result)
 }
@@ -656,6 +704,7 @@ struct StaleFinder<'a, T: IoHandler> {
     keep_since_time: Timestamp,
     rematerialization_deadline: Timestamp,
     found_paths: &'a mut Vec<FoundPath>,
+    skipped_unreadable_count: &'a mut u64,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
 
@@ -723,8 +772,31 @@ impl<T: IoHandler> StaleFinder<'_, T> {
     ) -> buck2_error::Result<()> {
         let abs_path = self.io.fs().resolve(path);
 
-        for child in self.io.read_dir(&abs_path)? {
-            let child = child?;
+        let read_dir = match self.io.read_dir(&abs_path) {
+            Ok(read_dir) => read_dir,
+            Err(e) if e.has_tag(ErrorTag::IoPermissionDenied) => {
+                // Tracked entries beneath the skipped directory are deliberately
+                // left out of `found_paths`: they cannot be deleted through an
+                // unreadable parent anyway, and leaving their tree/db state
+                // untouched means a later scan (after permissions are repaired)
+                // sees them again with metadata intact.
+                tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#}");
+                *self.skipped_unreadable_count += 1;
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        };
+
+        for child in read_dir {
+            let child = match child {
+                Ok(child) => child,
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                    tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
+                    *self.skipped_unreadable_count += 1;
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
 
             let file_name = child.file_name();
             let file_name = file_name.to_str().and_then(|f| FileName::new(f).ok());
@@ -740,7 +812,18 @@ impl<T: IoHandler> StaleFinder<'_, T> {
 
             let path = path.join(file_name);
 
-            let file_type = FileType::from(child.file_type()?);
+            // `file_type()` falls back to an `lstat` on filesystems that don't
+            // report `d_type` (NFS, FUSE), which fails without search
+            // permission on the parent even though `read_dir` succeeded.
+            let file_type = match child.file_type() {
+                Ok(file_type) => FileType::from(file_type),
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                    tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
+                    *self.skipped_unreadable_count += 1;
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
 
             let subtree = match subtree.get(file_name) {
                 Some(subtree) => subtree,
@@ -750,7 +833,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     self.found_paths.push(FoundPath::Untracked(
                         path,
                         file_type,
-                        get_size(&child.path())?,
+                        get_size(&child.path(), self.skipped_unreadable_count)?,
                     ));
                     continue;
                 }
