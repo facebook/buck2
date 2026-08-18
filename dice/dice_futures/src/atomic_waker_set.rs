@@ -158,39 +158,33 @@ impl AtomicWakerSetEntry {
     pub unsafe fn register(self: Pin<&mut Self>, set: &AtomicWakerSet, waker: Waker) {
         unsafe {
             let this = Pin::into_inner_unchecked(self.into_ref());
-            let is_already_inserted = this.next.load(Ordering::Acquire) != NOT_INSERTED;
-            if is_already_inserted {
-                // Spurious wakeup. With some more work we could optimize this to fast path out in
-                // the case of an equality comparison, but so far we haven't bothered.
-                let guard = set.mutex.lock();
-                // Need to check that we're still inserted; a concurrent `wake_all` may have
-                // evicted us before we acquired the lock. If it did, fall through to a fresh
-                // insert below.
-                let still_inserted = *this.next.as_ptr() != NOT_INSERTED;
-                if still_inserted {
-                    // Owning the lock gives us the right to change the waker
-                    #[expect(clippy::mem_replace_option_with_some)]
-                    let old = std::mem::replace(&mut *this.waker.get(), Some(waker));
-                    // Don't drop the previous waker while we hold the lock
-                    drop(guard);
-                    drop(old);
-                    return;
-                }
-            }
-            // Not inserted anywhere, own our own fields. Prepare the waker and prev fields
-            *this.waker.get() = Some(waker);
-            *this.prev.get() = std::ptr::null_mut();
-            // We need to insert into the stack. The wake -> register happens before
-            // relationship is established by this lock
+            // With some more work, re-registration by a still-inserted entry could fast path out
+            // lock-free when the new waker `will_wake`s the old one, but so far we haven't
+            // bothered.
+            //
+            // The wake -> register happens before relationship is established by this lock
             let mut guard = set.mutex.lock();
-            let old_head = *guard;
-            let this_ptr = this as *const _ as *mut _;
-            *this.next.as_ptr() = old_head;
-            // We become the new head, so the old head (if any) must point back at us.
-            if !old_head.is_null() {
-                *(*old_head).prev.get() = this_ptr;
+            // Owning the lock gives us the right to change the waker
+            #[expect(clippy::mem_replace_option_with_some)]
+            let old = std::mem::replace(&mut *this.waker.get(), Some(waker));
+            // Checking this under the lock is important: A concurrent `wake_all` is free to evict
+            // us at any point before we acquired it.
+            let is_inserted = *this.next.as_ptr() != NOT_INSERTED;
+            if !is_inserted {
+                // Insert at the head of the list
+                *this.prev.get() = std::ptr::null_mut();
+                let old_head = *guard;
+                let this_ptr = this as *const _ as *mut _;
+                *this.next.as_ptr() = old_head;
+                // We become the new head, so the old head (if any) must point back at us.
+                if !old_head.is_null() {
+                    *(*old_head).prev.get() = this_ptr;
+                }
+                *guard = this_ptr;
             }
-            *guard = this_ptr;
+            // Don't drop the previous waker while we hold the lock
+            drop(guard);
+            drop(old);
         }
     }
 
