@@ -135,9 +135,9 @@ run_test(TestEnv, Timeout) ->
             after Timeout ->
                 ensure_test_exec_stopped(),
                 ErrorMsg =
-                    "\n***************************************************************\n"
-                    "* the suite timed out, all tests will be reported as failure. *\n"
-                    "***************************************************************\n",
+                    "\n************************\n"
+                    "* the suite timed out. *\n"
+                    "************************\n",
                 test_run_timeout(TestEnv, ErrorMsg)
             end;
         {error, Reason} ->
@@ -214,14 +214,14 @@ provide_output_file(
     Results =
         case Status of
             failed ->
-                collect_results_broken_run(Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes);
+                collect_results_broken_run(
+                    Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes
+                );
             timeout ->
-                % Suite timeout: this is typically a user error, so we don't want to display the
-                % executor logs.
-                StdOutLogFile = #{ct_executor_stdout => StdOutFile},
-                collect_results_broken_run(Tests, Suite, ~"", ResultExec, StdOutLogFile);
+                % Once the suite watchdog fires, group/suite teardown may not
+                % have completed, so no testcase has an independent verdict.
+                [];
             passed ->
-                % Here we either passed or timeout.
                 case file:read_file(ResultsFile, [raw]) of
                     {ok, JsonFile} ->
                         TreeResults = decode_erlang_term(JsonFile),
@@ -233,7 +233,9 @@ provide_output_file(
                                             ResultsFile
                                         ]
                                     ),
-                                collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
+                                collect_results_broken_run(
+                                    Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes
+                                );
                             _ ->
                                 {ok, CollectedStdOut} = ct_stdout:collect_method_stdout(
                                     StdOutFile,
@@ -247,11 +249,14 @@ provide_output_file(
                         ErrorMsg = io_lib:format(~"ct failed to produced results file ~tp", [
                             ResultsFile
                         ]),
-                        collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes)
+                        collect_results_broken_run(
+                            Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes
+                        )
                 end
         end,
 
-    {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
+    {ok, _ResultOuptuFile} =
+        json_interfacer:write_json_output(OutputDir, Status, ResultExec, Results),
     test_artifact_directory:link_to_artifact_dir(
         StdOutFile, OutputDir, ArtifactAnnotationFunction
     ),

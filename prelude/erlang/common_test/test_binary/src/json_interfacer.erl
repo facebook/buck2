@@ -13,9 +13,11 @@ defined in tpx [here](https://www.internalfb.com/code/fbsource/[bb9e81daacad]/fb
 """.
 -compile(warn_missing_spec_all).
 
--export([write_json_output/2, format_json/1, status_name/1]).
+-export([write_json_output/4, format_json/3, status_name/1]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
+
+-define(RESULT_EXEC_VERSION, 1).
 
 -define(PASSED, <<"PASSED">>).
 -define(FAILED, <<"FAILED">>).
@@ -72,15 +74,37 @@ summary(infra_failure) -> ?INFRA_FAILURE.
         ends := [formatted_result()]
     }.
 
--spec write_json_output(file:filename_all(), [collected_result()]) -> {ok, file:filename_all()}.
-write_json_output(OutputDir, TpxResults) ->
+-type formatted_output() ::
+    #{
+        version := pos_integer(),
+        status := integer(),
+        summary := binary(),
+        details := binary(),
+        test_results := [formatted_case_result()]
+    }.
+
+-spec write_json_output(file:filename_all(), status(), unicode:chardata(), [collected_result()]) ->
+    {ok, file:filename_all()}.
+write_json_output(OutputDir, SuiteStatus, SuiteDetails, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
-    file:write_file(OuptputFile, format_json(TpxResults), [raw, binary]),
+    file:write_file(
+        OuptputFile, format_json(SuiteStatus, SuiteDetails, TpxResults), [raw, binary]
+    ),
     {ok, OuptputFile}.
 
--spec format_json([collected_result()]) -> iodata().
-format_json(TpxResults) ->
-    json:encode([format_case(CaseResult) || CaseResult <- TpxResults]).
+-spec format_json(status(), unicode:chardata(), [collected_result()]) -> iodata().
+format_json(SuiteStatus, SuiteDetails, TpxResults) ->
+    json:encode(format_output(SuiteStatus, SuiteDetails, TpxResults)).
+
+-spec format_output(status(), unicode:chardata(), [collected_result()]) -> formatted_output().
+format_output(SuiteStatus, SuiteDetails, TpxResults) ->
+    #{
+        version => ?RESULT_EXEC_VERSION,
+        status => status(SuiteStatus),
+        summary => summary(SuiteStatus),
+        details => unicode_characters_to_binary(SuiteDetails),
+        test_results => [format_case(CaseResult) || CaseResult <- TpxResults]
+    }.
 
 -spec format_case(collected_result()) -> formatted_case_result().
 format_case(

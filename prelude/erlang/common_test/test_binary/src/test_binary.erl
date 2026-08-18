@@ -299,14 +299,14 @@ stdout_streaming(_) -> output_to_stdout.
 -spec print_results(file:filename()) -> boolean().
 print_results(ResultsFile) ->
     {ok, Data} = file:read_file(ResultsFile, [raw]),
-    Results = json:decode(Data),
-    {Summary, AnyFailure} = lists:foldl(fun print_individual_results/2, {#{}, false}, Results),
+    #{<<"status">> := SuiteStatus, <<"test_results">> := Results} = json:decode(Data),
+    {Summary, AnyTestFailure} = lists:foldl(fun print_individual_results/2, {#{}, false}, Results),
     io:format("~n~10s: ~b~n~n", ["TOTAL", lists:sum(maps:values(Summary))]),
     [
         io:format("~10ts: ~b~n", [json_interfacer:status_name(Result), Amount])
      || Result := Amount <- Summary
     ],
-    AnyFailure.
+    AnyTestFailure orelse json_interfacer:status_name(SuiteStatus) =/= passed.
 
 -spec print_individual_results(map(), Acc) -> Acc when Acc :: {#{non_neg_integer() => non_neg_integer()}, boolean()}.
 print_individual_results(Result, {Summary, AnyFailure}) ->
