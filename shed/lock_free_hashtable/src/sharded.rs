@@ -19,10 +19,16 @@ use crate::atomic_value::AtomicValue;
 use crate::raw;
 use crate::raw::LockFreeRawTable;
 
+// Insertions update each shard's lock word. Keep independently hot shard headers on separate
+// effective cache lines; 128 bytes covers 64-byte lines plus adjacent-line prefetching.
+#[repr(align(128))]
+#[cfg_attr(feature = "allocative", derive(Allocative))]
+struct CachePaddedLockFreeRawTable<T: AtomicValue>(LockFreeRawTable<T>);
+
 /// Lock-free hashtable sharded by key hash.
 #[cfg_attr(feature = "allocative", derive(Allocative))]
 pub struct ShardedLockFreeRawTable<T: AtomicValue, const SHARDS: usize> {
-    shards: [LockFreeRawTable<T>; SHARDS],
+    shards: [CachePaddedLockFreeRawTable<T>; SHARDS],
 }
 
 impl<T: AtomicValue, const SHARDS: usize> Default for ShardedLockFreeRawTable<T, SHARDS> {
@@ -45,7 +51,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
         }
 
         ShardedLockFreeRawTable {
-            shards: [Empty::<T>::EMPTY; SHARDS],
+            shards: [const { CachePaddedLockFreeRawTable(Empty::<T>::EMPTY) }; SHARDS],
         }
     }
 
@@ -53,7 +59,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     fn table_for_hash(&self, hash: u64) -> &LockFreeRawTable<T> {
         // `LockFreeRawTable` uses low bits of hash, so we use high bits to select a shard.
         let shard_index = (hash >> (64 - Self::SHARD_BITS)) as usize;
-        &self.shards[shard_index]
+        &self.shards[shard_index].0
     }
 
     /// Find an entry.
@@ -85,14 +91,14 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
         Iter {
             table: self,
             shard: 0,
-            iter: self.shards[0].iter(),
+            iter: self.shards[0].0.iter(),
         }
     }
 
     /// Number of entries in the table.
     #[inline]
     pub fn len(&self) -> usize {
-        self.shards.iter().map(|s| s.len()).sum()
+        self.shards.iter().map(|s| s.0.len()).sum()
     }
 
     /// Number of entries in the table is zero.
@@ -107,7 +113,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     #[inline]
     pub fn synchronize_with_inserts(&self) {
         for shard in &self.shards {
-            shard.synchronize_with_inserts();
+            shard.0.synchronize_with_inserts();
         }
     }
 }
@@ -134,7 +140,7 @@ impl<'a, T: AtomicValue + 'a, const SHARDS: usize> Iterator for Iter<'a, T, SHAR
                 return None;
             }
             self.shard += 1;
-            self.iter = self.table.shards[self.shard].iter();
+            self.iter = self.table.shards[self.shard].0.iter();
         }
     }
 }
@@ -146,14 +152,14 @@ impl<T: AtomicValue, const SHARDS: usize> IntoIterator for ShardedLockFreeRawTab
     fn into_iter(self) -> IntoIter<T, SHARDS> {
         let mut shards = self.shards.into_iter();
         // SAFETY: SHARDS is guaranteed >= 1 by the power-of-two const assertion.
-        let current = shards.next().expect("SHARDS >= 1").into_iter();
+        let current = shards.next().expect("SHARDS >= 1").0.into_iter();
         IntoIter { shards, current }
     }
 }
 
 /// Consuming iterator over all entries in a sharded raw table.
 pub struct IntoIter<T: AtomicValue, const SHARDS: usize> {
-    shards: std::array::IntoIter<LockFreeRawTable<T>, SHARDS>,
+    shards: std::array::IntoIter<CachePaddedLockFreeRawTable<T>, SHARDS>,
     current: raw::IntoIter<T>,
 }
 
@@ -165,7 +171,7 @@ impl<T: AtomicValue, const SHARDS: usize> Iterator for IntoIter<T, SHARDS> {
             if let Some(next) = self.current.next() {
                 return Some(next);
             }
-            self.current = self.shards.next()?.into_iter();
+            self.current = self.shards.next()?.0.into_iter();
         }
     }
 }
@@ -176,8 +182,19 @@ mod tests {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hash;
     use std::hash::Hasher;
+    use std::mem::align_of;
 
+    use crate::sharded::CachePaddedLockFreeRawTable;
     use crate::sharded::ShardedLockFreeRawTable;
+
+    #[test]
+    fn test_shards_are_cache_padded() {
+        assert_eq!(
+            128,
+            align_of::<CachePaddedLockFreeRawTable<Box<u32>>>(),
+            "shard headers must not share effective cache lines",
+        );
+    }
 
     #[test]
     fn test_shard_bits() {
