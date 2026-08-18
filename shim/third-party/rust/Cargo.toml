@@ -41,8 +41,8 @@ atomic = "0.6.1"
 backtrace = "0.3"
 base64 = { version = "0.23.1", features = ["alloc"] }
 bincode = { version = "2", features = ["serde"] }
-bit-set = "0.10.0"
-bit-vec = "0.9"
+bit-set = "0.11.1"
+bit-vec = "0.10.1"
 bitflags = { version = "2.13.1", features = ["serde", "std"], default-features = false }
 blake3 = { version = "1.8", features = ["mmap", "rayon", "traits-preview"] }
 bstr = { version = "1.13.0", features = ["serde", "std", "unicode"] }
