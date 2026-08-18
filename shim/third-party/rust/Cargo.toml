@@ -246,7 +246,7 @@ twox-hash = "1.6.1"
 typed-arena = "2"
 unicode-segmentation = "1.13.3"
 unicode-width = "0.1.14"
-uuid = { version = "1.24.0", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
+uuid = { version = "1.24.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
 vt100 = "0.16.2"
 walkdir = "2.3"
 watchman_client = "0.9"
