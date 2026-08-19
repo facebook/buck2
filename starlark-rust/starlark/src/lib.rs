@@ -457,7 +457,6 @@ pub use starlark_derive::StarlarkPagable;
 pub use starlark_derive::StarlarkPagablePanic;
 pub use starlark_derive::StarlarkPagableViaPagable;
 pub use starlark_derive::starlark_module;
-pub use starlark_derive::starlark_pagable_typetag;
 pub use starlark_derive::type_matcher;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;
