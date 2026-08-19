@@ -35,7 +35,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// is implemented for `char` to construct Starlark `str`.
 ///
 /// For types that implement [`crate::values::StarlarkValue`] a typical implementation
-/// will probably call either [`Heap::alloc_simple`] or [`Heap::alloc_complex`],
+/// will probably call either [`Heap::alloc_simple`] or [`Heap::alloc_complex_no_freeze`],
 /// e.g.
 ///
 /// ```

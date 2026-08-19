@@ -163,7 +163,7 @@ pub struct ParametersSpec<V> {
 }
 
 /// `Frozen` ignores the brand: the frozen spec keeps its defaults as `FrozenValue`, because
-/// [`ParametersSpec::as_value`] reads the frozen and the unfrozen spec through one type, at the
+/// `ParametersSpec::as_value` reads the frozen and the unfrozen spec through one type, at the
 /// reader's lifetime. Branding the defaults waits for `FrozenValue` to be branded.
 impl<'v> FreezeBranded for ParametersSpec<Value<'v>> {
     type Frozen<'fv> = ParametersSpec<FrozenValue>;

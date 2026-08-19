@@ -17,7 +17,7 @@
 
 //! Fixed set enumerations, with runtime checking of validity.
 //!
-//! Calling `enum()` produces an [`EnumType`]. Calling the [`EnumType`] creates an [`EnumValue`].
+//! Calling `enum()` produces an enum type. Calling that enum type creates an [`EnumValue`].
 //!
 //! The implementation ensures that each value of the enumeration is only stored once,
 //! so they may also provide (modest) memory savings. Created in starlark with the

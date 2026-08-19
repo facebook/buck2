@@ -413,7 +413,7 @@ pub struct SuperConsoleConfig {
     pub two_lines: bool,
     pub max_lines: usize,
     /// Extra line(s) rendered at the very top of the canvas, e.g. `buck2 log snoop`'s
-    /// "Snooping <trace>: <argv>" banner. Part of the canvas so that erasing or
+    /// `Snooping <trace>: <argv>` banner. Part of the canvas so that erasing or
     /// redrawing the console replaces it too.
     pub banner: Option<String>,
     /// Do not emit "File changed:" notifications above the canvas. Used by viewers
