@@ -38,11 +38,16 @@ use crate::transform_format;
 /// (runtime of this node), user duration (duration the user can improve), potential improvement
 /// before this node stops being on the critical path, non-critical path time, and start offset.
 ///
+/// Entries whose value was reused from a previous command rather than computed have `(reused)`
+/// appended to their kind in the `readable` and `tabulated` formats. The `json` and `csv` formats
+/// leave the kind untouched and carry reuse as a boolean `reused` field, emitted as the last
+/// `csv` column.
+///
 /// The `readable` format produces space-aligned columnar output with a header:
-/// `<start_offset> <total> <waiting> <user> <potential> <kind> <name> <category> <identifier> <execution_kind>`
+/// `<start_offset> <total> <waiting> <user> <potential> <kind>[(reused)] <name> <category> <identifier> <execution_kind>`
 ///
 /// The `tabulated` format produces tab-delimited output:
-/// `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
+/// `<kind>[(reused)]\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
 ///
 /// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
 #[derive(Debug, clap::Parser)]
@@ -77,11 +82,16 @@ impl BuckSubcommand for CriticalPathCommand {
 /// It includes the kind of node, its name, category and identifier, as well as total duration
 /// (runtime of this node), user duration (duration the user can improve), non-critical time, and start offset.
 ///
+/// Entries whose value was reused from a previous command rather than computed have `(reused)`
+/// appended to their kind in the `readable` and `tabulated` formats. The `json` and `csv` formats
+/// leave the kind untouched and carry reuse as a boolean `reused` field, emitted as the last
+/// `csv` column.
+///
 /// The `readable` format produces space-aligned columnar output with a header:
-/// `<start_offset> <total> <waiting> <user> <potential> <kind> <name> <category> <identifier> <execution_kind>`
+/// `<start_offset> <total> <waiting> <user> <potential> <kind>[(reused)] <name> <category> <identifier> <execution_kind>`
 ///
 /// The `tabulated` format produces tab-delimited output:
-/// `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
+/// `<kind>[(reused)]\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
 ///
 /// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
 ///
@@ -224,6 +234,9 @@ struct CriticalPathEntry<'a> {
     non_critical_path_time: OptionalDuration,
     /// Start offset in microseconds from the beginning of the build.
     start_offset: u64,
+    /// Whether this entry's DICE value was reused from a previous command rather than computed.
+    /// Kept as the last field so the new `csv` column appends to the pre-existing columns.
+    reused: bool,
 }
 
 async fn log_critical_path(
@@ -259,6 +272,8 @@ async fn log_critical_path(
                     None => continue,
                 };
 
+            let reused_suffix = entry_display.reused_suffix();
+
             let critical_path = CriticalPathEntry {
                 kind: entry_display.kind,
                 name: entry_display.name,
@@ -272,6 +287,7 @@ async fn log_critical_path(
                 )?,
                 non_critical_path_time: OptionalDuration::new(entry.non_critical_path_duration)?,
                 start_offset: entry.start_offset_ns.map_or(0, |v| v / 1000),
+                reused: entry_display.reused,
             };
 
             let res: Result<(), ClientIoError> = {
@@ -279,13 +295,14 @@ async fn log_critical_path(
                     LogCommandOutputFormatWithWriter::Readable(writer) => {
                         writeln!(
                             writer,
-                            "{:>13} {:>10} {:>10} {:>10} {:>10} {} {} {} {} {}",
+                            "{:>13} {:>10} {:>10} {:>10} {:>10} {}{} {} {} {} {}",
                             critical_path.start_offset,
                             critical_path.total_duration,
                             critical_path.non_critical_path_time,
                             critical_path.user_duration,
                             critical_path.potential_improvement_duration,
                             critical_path.kind,
+                            reused_suffix,
                             critical_path.name,
                             critical_path.category.unwrap_or_default(),
                             critical_path.identifier.unwrap_or_default(),
@@ -296,8 +313,9 @@ async fn log_critical_path(
                         // This should match the format specified in the docstrings on CriticalPathCommand and SlowestPathCommand
                         writeln!(
                             writer,
-                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                            "{}{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                             critical_path.kind,
+                            reused_suffix,
                             critical_path.name,
                             critical_path.category.unwrap_or_default(),
                             critical_path.identifier.unwrap_or_default(),

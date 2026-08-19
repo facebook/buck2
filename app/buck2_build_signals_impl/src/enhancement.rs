@@ -18,6 +18,7 @@ use buck2_util::time_span::TimeSpan;
 use gazebo::variants::VariantName;
 
 use crate::DetailedCriticalPathEntry;
+use crate::NodeExtraData;
 use crate::duration_to_proto_saturating;
 
 /// Helper for building critical path protobuf entries.
@@ -140,6 +141,7 @@ impl CriticalPathProtoEnhancer {
                         .try_into()
                         .unwrap_or(u64::MAX),
                 ),
+                was_reused: matches!(data.extra_data, NodeExtraData::Reused).then_some(true),
             },
         );
     }
@@ -255,6 +257,7 @@ impl CriticalPathProtoEnhancer {
                     .try_into()
                     .unwrap_or(u64::MAX),
             ),
+            was_reused: None,
         }
     }
 }
@@ -393,6 +396,7 @@ fn group_page_in_run(
             count,
             key_type_counts: key_type_counts.into_iter().collect(),
         })),
+        was_reused: None,
     }
 }
 
@@ -444,6 +448,7 @@ mod tests {
             ))),
             start_offset_ns: Some(Duration::from_millis(start_ms).as_nanos() as u64),
             entry: Some(entry),
+            was_reused: None,
         }
     }
 

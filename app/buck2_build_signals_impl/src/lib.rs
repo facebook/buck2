@@ -725,6 +725,8 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
             }
+        } else {
+            signal.extra_data = NodeExtraData::Reused;
         }
 
         let _ignored = self.sender.send(BuildSignal::Evaluation(signal));
@@ -1335,6 +1337,9 @@ enum NodeExtraData {
     Analysis(AnalysisNodeData),
     /// The Load result that corresponds to a `NodeKey::InterpreterResultsKey` Evaluation if evaluation was successful.
     Load(Option<Arc<EvaluationResult>>),
+    /// The node was not computed in this command: DICE validated its dependencies and reused the
+    /// value from a previous command.
+    Reused,
     /// No extra data (used for other node types or when data is not available).
     None,
 }

@@ -1430,6 +1430,7 @@ impl ChromeTraceWriter {
                         kind: "waiting".to_owned(),
                     },
                 )),
+                was_reused: None,
             };
 
             self.write_critical_path_group(
@@ -1498,6 +1499,9 @@ impl ChromeTraceWriter {
         // Build args for parent span
         let mut parent_args = serde_json::Map::new();
         parent_args.insert("kind".to_owned(), json!(main_display.kind));
+        if main_display.reused {
+            parent_args.insert("reused".to_owned(), json!(true));
+        }
         if !main_display.name.is_empty() {
             parent_args.insert("name".to_owned(), json!(main_display.name));
         }
@@ -1626,6 +1630,9 @@ impl ChromeTraceWriter {
 
         let mut args = serde_json::Map::new();
         args.insert("kind".to_owned(), json!(entry_display.kind));
+        if entry_display.reused {
+            args.insert("reused".to_owned(), json!(true));
+        }
         if !entry_display.name.is_empty() {
             args.insert("name".to_owned(), json!(entry_display.name));
         }

@@ -763,6 +763,13 @@ message CriticalPathEntry2 {
   // Indicates the offset from the start of the build for this entry.
   optional uint64 start_offset_ns = 8;
 
+  // Set when this entry's DICE computation was not performed in this command:
+  // DICE validated the node's dependencies and reused the value from a
+  // previous command. Reused entries have zero duration and their
+  // start_offset_ns is when dependency validation completed, not when the
+  // value was originally computed.
+  optional bool was_reused = 9;
+
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;

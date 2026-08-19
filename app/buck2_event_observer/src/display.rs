@@ -1188,6 +1188,8 @@ pub fn sanitize_output_colors(stderr: &[u8]) -> String {
 pub struct CriticalPathEntryDisplay<'a> {
     /// The kind of critical path entry (e.g., "action", "analysis", "materialization").
     pub kind: &'a str,
+    /// Whether the entry's DICE value was reused from a previous command rather than computed.
+    pub reused: bool,
     /// The name/label of the entry (e.g., target label, package name).
     pub name: String,
     /// Optional category (e.g., for actions).
@@ -1336,6 +1338,7 @@ impl<'a> CriticalPathEntryDisplay<'a> {
 
         Ok(Some(CriticalPathEntryDisplay {
             kind,
+            reused: entry.was_reused(),
             name,
             category,
             identifier,
@@ -1343,13 +1346,20 @@ impl<'a> CriticalPathEntryDisplay<'a> {
         }))
     }
 
-    /// Returns a formatted display name combining kind and name.
+    /// Returns a formatted display name combining kind, reuse marker, and name.
     pub fn display_name(&self) -> String {
+        let reused = self.reused_suffix();
         if self.name.is_empty() {
-            self.kind.to_owned()
+            format!("{}{reused}", self.kind)
         } else {
-            format!("{}: {}", self.kind, self.name)
+            format!("{}{reused}: {}", self.kind, self.name)
         }
+    }
+
+    /// Returns "(reused)" for entries whose DICE value was reused, for appending to the kind in
+    /// rendered output.
+    pub fn reused_suffix(&self) -> &'static str {
+        if self.reused { "(reused)" } else { "" }
     }
 }
 
@@ -1423,6 +1433,43 @@ mod tests {
         assert_eq!(display.label.as_deref(), Some("pkg:target (cfg)"));
         assert_eq!(display.detail, "category other");
         assert_eq!(display.category.as_deref(), Some("category"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn critical_path_entry_display_marks_reused_entries() -> buck2_error::Result<()> {
+        let entry = |was_reused| buck2_data::CriticalPathEntry2 {
+            entry: Some(
+                buck2_data::critical_path_entry2::Analysis {
+                    target: None,
+                    target_rule_type_name: None,
+                    part: None,
+                }
+                .into(),
+            ),
+            was_reused,
+            ..Default::default()
+        };
+
+        let reused_entry = entry(Some(true));
+        let reused =
+            CriticalPathEntryDisplay::from_entry(&reused_entry, TargetDisplayOptions::for_log())?
+                .expect("entry is set, so display info should be extracted");
+        assert_eq!(reused.kind, "analysis");
+        assert!(
+            reused.reused,
+            "was_reused should carry through to the display"
+        );
+        assert_eq!(reused.display_name(), "analysis(reused): unknown");
+
+        let computed_entry = entry(None);
+        let computed =
+            CriticalPathEntryDisplay::from_entry(&computed_entry, TargetDisplayOptions::for_log())?
+                .expect("entry is set, so display info should be extracted");
+        assert_eq!(computed.kind, "analysis");
+        assert!(!computed.reused, "unset was_reused should not mark reuse");
+        assert_eq!(computed.display_name(), "analysis: unknown");
 
         Ok(())
     }
