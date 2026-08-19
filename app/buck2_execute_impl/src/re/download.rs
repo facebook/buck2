@@ -65,7 +65,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;
 use gazebo::prelude::*;
-use jiff::SignedDuration;
 use jiff::Timestamp;
 use remote_execution as RE;
 
@@ -291,8 +290,31 @@ impl CasDownloader<'_> {
     > {
         let manager = manager.with_execution_kind(output_spec.execution_kind(details.clone()));
         executor_stage_async(stage, async {
+            let now = Timestamp::now();
+            let expires = re_expiration_from_ttl(now, output_spec.ttl(), &identity.action_key);
+            // Derived from the clamped expiration rather than the raw TTL so that the two can't
+            // disagree, and because the difference of two in-range datetimes can't overflow.
+            let ttl = expires.duration_since(now);
+            let info = CasDownloadInfo::new_execution(
+                TrackedActionDigest::new_expires(
+                    details.action_digest.dupe(),
+                    expires,
+                    self.digest_config.cas_digest_config(),
+                ),
+                self.re_client.use_case,
+                now,
+                ttl,
+            );
             let artifacts = self
-                .extract_artifacts(artifact_fs, identity, paths, requested_outputs, output_spec)
+                .extract_artifacts(
+                    artifact_fs,
+                    identity,
+                    paths,
+                    requested_outputs,
+                    output_spec,
+                    expires,
+                    &info,
+                )
                 .await;
 
             let artifacts =
@@ -316,17 +338,6 @@ impl CasDownloader<'_> {
                         ));
                     }
                 };
-
-            let info = CasDownloadInfo::new_execution(
-                TrackedActionDigest::new_expires(
-                    details.action_digest.dupe(),
-                    artifacts.expires,
-                    self.digest_config.cas_digest_config(),
-                ),
-                self.re_client.use_case,
-                artifacts.now,
-                artifacts.ttl,
-            );
 
             let (manager, outputs) = match self.paranoid {
                 Some(paranoid) => {
@@ -374,13 +385,9 @@ impl CasDownloader<'_> {
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
+        expires: Timestamp,
+        info: &CasDownloadInfo,
     ) -> buck2_error::Result<ExtractedArtifacts> {
-        let now = Timestamp::now();
-        let expires = re_expiration_from_ttl(now, output_spec.ttl(), &identity.action_key);
-        // Derived from the clamped expiration rather than the raw TTL so that the two can't
-        // disagree, and because the difference of two in-range datetimes can't overflow.
-        let ttl = expires.duration_since(now);
-
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure
         // 2. computes the ArtifactValue for all outputs from that merged structure
@@ -443,6 +450,7 @@ impl CasDownloader<'_> {
                     output_spec
                         .output_directories()
                         .map(|x| x.tree_digest.clone()),
+                    info,
                 )
                 .boxed()
                 .await
@@ -504,9 +512,6 @@ impl CasDownloader<'_> {
         Ok(ExtractedArtifacts {
             to_declare,
             mapped_outputs,
-            now,
-            expires,
-            ttl,
         })
     }
 
@@ -538,9 +543,6 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
 struct ExtractedArtifacts {
     to_declare: Vec<DeclareArtifactPayload>,
     mapped_outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
-    now: Timestamp,
-    expires: Timestamp,
-    ttl: SignedDuration,
 }
 
 /// Did this download work out?

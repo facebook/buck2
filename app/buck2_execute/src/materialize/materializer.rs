@@ -22,6 +22,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::ordered_entry_walk;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use derive_more::Display;
 use dice::UserComputationData;
@@ -30,6 +31,7 @@ use futures::stream::BoxStream;
 use futures::stream::TryStreamExt;
 use jiff::SignedDuration;
 use jiff::Timestamp;
+use remote_execution::TCode;
 
 use crate::artifact_value::ArtifactValue;
 use crate::directory::ActionDirectoryEntry;
@@ -38,6 +40,7 @@ use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::TrackedActionDigest;
 use crate::materialize::http::Checksum;
+use crate::re::error::RemoteExecutionError;
 
 /// Opaque guard returned by `Materializer::register_eager_paths`.
 /// Dropping this guard releases the eager path registrations and cancels
@@ -485,6 +488,12 @@ pub enum CasDownloadInfoOrigin {
 
     /// Simply declared by an action.
     Declared,
+
+    /// Uploaded directly by the client.
+    Uploaded,
+
+    /// Produced as a test artifact managed by the test client.
+    TestArtifact,
 }
 
 #[derive(Debug, Allocative)]
@@ -531,6 +540,12 @@ impl fmt::Display for CasDownloadInfoOrigin {
             Self::Declared => {
                 write!(f, "declared")?;
             }
+            Self::Uploaded => {
+                write!(f, "uploaded by client")?;
+            }
+            Self::TestArtifact => {
+                write!(f, "test artifact")?;
+            }
         }
 
         Ok(())
@@ -547,8 +562,8 @@ impl CasDownloadInfoOrigin {
     pub fn guaranteed_by_action_cache(&self) -> bool {
         match self {
             Self::Execution(execution) => execution.action_age() < execution.ttl,
-            Self::Declared => {
-                // If the output was just declared, then there are no action cache guarantees.
+            Self::Declared | Self::Uploaded | Self::TestArtifact => {
+                // These origins do not carry an action cache result.
                 false
             }
         }
@@ -605,17 +620,52 @@ impl CasDownloadInfo {
         }
     }
 
+    pub fn new_uploaded(re_use_case: RemoteExecutorUseCase) -> Self {
+        Self {
+            origin: CasDownloadInfoOrigin::Uploaded,
+            re_use_case,
+        }
+    }
+
+    pub fn new_test_artifact(re_use_case: RemoteExecutorUseCase) -> Self {
+        Self {
+            origin: CasDownloadInfoOrigin::TestArtifact,
+            re_use_case,
+        }
+    }
+
+    pub(crate) fn classify_result<T>(
+        &self,
+        result: buck2_error::Result<T>,
+    ) -> buck2_error::Result<T> {
+        result.map_err(|error| {
+            if matches!(self.origin, CasDownloadInfoOrigin::Declared)
+                && error
+                    .find_typed_context::<RemoteExecutionError>()
+                    .is_some_and(|error| error.code == TCode::NOT_FOUND)
+            {
+                error.tag([ErrorTag::DeclaredArtifactNotFound])
+            } else {
+                error
+            }
+        })
+    }
+
     pub fn action_age(&self) -> Option<SignedDuration> {
         match &self.origin {
             CasDownloadInfoOrigin::Execution(execution) => Some(execution.action_age()),
-            CasDownloadInfoOrigin::Declared => None,
+            CasDownloadInfoOrigin::Declared
+            | CasDownloadInfoOrigin::Uploaded
+            | CasDownloadInfoOrigin::TestArtifact => None,
         }
     }
 
     pub fn action_digest(&self) -> Option<&TrackedActionDigest> {
         match &self.origin {
             CasDownloadInfoOrigin::Execution(execution) => Some(&execution.action_digest),
-            CasDownloadInfoOrigin::Declared => None,
+            CasDownloadInfoOrigin::Declared
+            | CasDownloadInfoOrigin::Uploaded
+            | CasDownloadInfoOrigin::TestArtifact => None,
         }
     }
 }

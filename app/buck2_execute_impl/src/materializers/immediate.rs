@@ -127,7 +127,7 @@ pub async fn cas_download(
     let re_client = re_conn.get_client().with_use_case(info.re_use_case);
     cancellations
         .critical_section(|| {
-            re_client.materialize_files(files, DynamicPriorityHandle::new(Priority::High))
+            re_client.materialize_files(files, DynamicPriorityHandle::new(Priority::High), info)
         })
         .await?;
     Ok(())

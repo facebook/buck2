@@ -102,6 +102,7 @@ use crate::re::convert::platform_to_proto;
 use crate::re::digest_sampler::should_sample_action_digest;
 use crate::re::error::RemoteExecutionError;
 use crate::re::error::test_re_error;
+use crate::re::error::test_re_error_with_group;
 use crate::re::error::with_error_handler;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
@@ -1760,6 +1761,17 @@ impl RemoteExecutionClientImpl {
         if digests.is_empty() {
             return Ok((Vec::new(), TLocalCacheStats::default()));
         }
+        if buck2_env!(
+            "BUCK2_TEST_FAIL_RE_DOWNLOADS",
+            bool,
+            applicability = testing
+        )? {
+            return Err(test_re_error_with_group(
+                "Injected error",
+                TCode::NOT_FOUND,
+                RE::TCodeReasonGroup::DIGEST_NOT_FOUND,
+            ));
+        }
         let expected_blobs = digests.len();
         let response = with_error_handler(
             "download_typed_blobs",
@@ -1855,7 +1867,11 @@ impl RemoteExecutionClientImpl {
             bool,
             applicability = testing
         )? {
-            return Err(test_re_error("Injected error", TCode::NOT_FOUND));
+            return Err(test_re_error_with_group(
+                "Injected error",
+                TCode::NOT_FOUND,
+                RE::TCodeReasonGroup::DIGEST_NOT_FOUND,
+            ));
         }
 
         let use_case = &use_case;

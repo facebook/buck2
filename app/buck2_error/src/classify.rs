@@ -247,6 +247,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
         ErrorTag::ReInvalidArgument => rank!(tier0),
+        // This must outrank ReNotFound, which is otherwise always an infra error.
+        ErrorTag::DeclaredArtifactNotFound => rank!(input),
         ErrorTag::ReNotFound => rank!(tier0),
         ErrorTag::ReAlreadyExists => rank!(tier0),
         ErrorTag::ReAborted => rank!(tier0),

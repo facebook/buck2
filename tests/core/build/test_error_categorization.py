@@ -450,11 +450,42 @@ async def test_download_failure(buck: Buck) -> None:
         )
     )
     error = res.invocation_record().single_error()
-    assert error["category_key"] == "RE_NOT_FOUND:UNKNOWN"
+    assert error["category"] == "INFRA"
+    assert error["category_key"] == "RE_NOT_FOUND:DIGEST_NOT_FOUND"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
     )
+
+
+@buck_test(write_invocation_record=True)
+async def test_declared_artifact_download_failure(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build(
+            "//:declared_file",
+            env={"BUCK2_TEST_FAIL_RE_DOWNLOADS": "true"},
+        )
+    )
+    error = res.invocation_record().single_error()
+    assert error["best_tag"] == "DECLARED_ARTIFACT_NOT_FOUND"
+    assert error["category"] == "USER"
+
+
+@buck_test(write_invocation_record=True)
+async def test_declared_tree_download_failure(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as buckconfig:
+        buckconfig.write("[buck2]\n")
+        buckconfig.write("digest_algorithms = BLAKE3-KEYED,SHA1\n")
+
+    res = await expect_failure(
+        buck.build(
+            "//:declared_tree",
+            env={"BUCK2_TEST_FAIL_RE_DOWNLOADS": "true"},
+        )
+    )
+    error = res.invocation_record().single_error()
+    assert error["best_tag"] == "DECLARED_ARTIFACT_NOT_FOUND"
+    assert error["category"] == "USER"
 
 
 @buck_test(write_invocation_record=True)

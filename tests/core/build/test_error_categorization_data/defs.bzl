@@ -48,6 +48,25 @@ run_action = rule(
     },
 )
 
+def _declared_cas_artifact(ctx):
+    out = ctx.actions.cas_artifact(
+        ctx.label.name,
+        ctx.attrs.digest,
+        ctx.attrs.use_case,
+        expires_after_timestamp = 0,
+        is_tree = ctx.attrs.is_tree,
+    )
+    return [DefaultInfo(default_output = out)]
+
+declared_cas_artifact = rule(
+    impl = _declared_cas_artifact,
+    attrs = {
+        "digest": attrs.string(),
+        "is_tree": attrs.bool(default = False),
+        "use_case": attrs.string(),
+    },
+)
+
 def _slow(ctx):
     slow = ctx.actions.declare_output("slow", has_content_based_path = False)
 

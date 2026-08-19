@@ -120,13 +120,15 @@ pub(crate) fn with_error_handler<T>(
 }
 
 pub fn test_re_error(message: &str, code: TCode) -> buck2_error::Error {
-    re_error(
-        "test",
-        "test",
-        message.to_owned(),
-        code,
-        TCodeReasonGroup::UNKNOWN,
-    )
+    test_re_error_with_group(message, code, TCodeReasonGroup::UNKNOWN)
+}
+
+pub(crate) fn test_re_error_with_group(
+    message: &str,
+    code: TCode,
+    group: TCodeReasonGroup,
+) -> buck2_error::Error {
+    re_error("test", "test", message.to_owned(), code, group)
 }
 
 #[cfg(test)]

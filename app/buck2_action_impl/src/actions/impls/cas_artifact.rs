@@ -198,11 +198,15 @@ impl Action for CasArtifactAction {
         }
 
         let re_client = ctx.re_client().with_use_case(self.inner.re_use_case);
+        let cas_download_info = Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case));
 
         let get_expiration = || async {
             buck2_error::Ok(
                 re_client
-                    .get_digest_expirations(vec![self.inner.digest.to_re()])
+                    .get_digest_expirations(
+                        vec![self.inner.digest.to_re()],
+                        cas_download_info.as_ref(),
+                    )
                     .await
                     .with_buck_error_context(|| {
                         format!(
@@ -240,6 +244,7 @@ impl Action for CasArtifactAction {
                     vec![self.inner.digest.to_re()],
                     std::time::Duration::try_from(new_ttl)
                         .map_err(|e| internal_error!("casting ttl to std duration `{}`", e))?,
+                    cas_download_info.as_ref(),
                 )
                 .await?;
 
@@ -261,7 +266,11 @@ impl Action for CasArtifactAction {
 
                 let tree = match directory_kind {
                     DirectoryKind::Tree => re_client
-                        .download_typed_blobs::<RE::Tree>(None, vec![self.inner.digest.to_re()])
+                        .download_typed_blobs::<RE::Tree>(
+                            None,
+                            vec![self.inner.digest.to_re()],
+                            cas_download_info.as_ref(),
+                        )
                         .await
                         .and_then(|trees| {
                             trees
@@ -277,6 +286,7 @@ impl Action for CasArtifactAction {
                             .download_typed_blobs::<RE::Directory>(
                                 None,
                                 vec![self.inner.digest.to_re()],
+                                cas_download_info.as_ref(),
                             )
                             .await
                             .and_then(|dirs| {
@@ -287,7 +297,12 @@ impl Action for CasArtifactAction {
                             .with_buck_error_context(|| {
                                 format!("Error downloading dir: {}", self.inner.digest)
                             })?;
-                        re_directory_to_re_tree(root_directory, &re_client).await?
+                        re_directory_to_re_tree(
+                            root_directory,
+                            &re_client,
+                            cas_download_info.as_ref(),
+                        )
+                        .await?
                     }
                 };
 
@@ -339,7 +354,7 @@ impl Action for CasArtifactAction {
             .maybe_eager_configuration_path(ctx.fs(), self.output.get_path())?;
         ctx.materializer()
             .declare_cas_many(
-                Arc::new(CasDownloadInfo::new_declared(self.inner.re_use_case)),
+                cas_download_info,
                 vec![DeclareArtifactPayload {
                     path,
                     artifact: value.dupe(),

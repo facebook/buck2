@@ -50,6 +50,7 @@ use crate::execute::action_digest::ActionDigest;
 use crate::execute::blobs::ActionBlobs;
 use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
+use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
 use crate::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use crate::re::action_identity::ReActionIdentity;
@@ -464,24 +465,30 @@ impl ManagedRemoteExecutionClient {
         &self,
         files: Vec<NamedDigestWithPermissions>,
         priority_control: DynamicPriorityHandle,
+        info: &CasDownloadInfo,
     ) -> buck2_error::Result<()> {
-        self.lock()?
+        let result = self
+            .lock()?
             .get()
             .await?
             .materialize_files(files, self.use_case, priority_control)
-            .await
+            .await;
+        self.classify_cas_result(info, result)
     }
 
     pub async fn download_typed_blobs<T: Message + Default>(
         &self,
         identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
+        info: &CasDownloadInfo,
     ) -> buck2_error::Result<Vec<T>> {
-        self.lock()?
+        let result = self
+            .lock()?
             .get()
             .await?
             .download_typed_blobs(identity, digests, self.use_case)
-            .await
+            .await;
+        self.classify_cas_result(info, result)
     }
 
     pub async fn download_blob(&self, digest: &TDigest) -> buck2_error::Result<Vec<u8>> {
@@ -503,24 +510,30 @@ impl ManagedRemoteExecutionClient {
     pub async fn get_digest_expirations(
         &self,
         digests: Vec<TDigest>,
+        info: &CasDownloadInfo,
     ) -> buck2_error::Result<Vec<(TDigest, jiff::Timestamp)>> {
-        self.lock()?
+        let result = self
+            .lock()?
             .get()
             .await?
             .get_digest_expirations(digests, &self.use_case.metadata(None))
-            .await
+            .await;
+        self.classify_cas_result(info, result)
     }
 
     pub async fn extend_digest_ttl(
         &self,
         digests: Vec<TDigest>,
         ttl: Duration,
+        info: &CasDownloadInfo,
     ) -> buck2_error::Result<()> {
-        self.lock()?
+        let result = self
+            .lock()?
             .get()
             .await?
             .extend_digest_ttl(digests, ttl, self.use_case)
-            .await
+            .await;
+        self.classify_cas_result(info, result)
     }
 
     pub async fn write_action_result(
@@ -546,5 +559,14 @@ impl ManagedRemoteExecutionClient {
                 .write_action_result(digest, result, self.use_case, platform, write_type)
                 .await
         }
+    }
+
+    fn classify_cas_result<T>(
+        &self,
+        info: &CasDownloadInfo,
+        result: buck2_error::Result<T>,
+    ) -> buck2_error::Result<T> {
+        debug_assert_eq!(self.use_case, info.re_use_case);
+        info.classify_result(result)
     }
 }

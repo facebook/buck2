@@ -63,6 +63,7 @@ use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
+use crate::materialize::materializer::CasDownloadInfo;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]
@@ -312,6 +313,7 @@ where
 pub async fn re_directory_to_re_tree(
     directory: RE::Directory,
     client: &ManagedRemoteExecutionClient,
+    info: &CasDownloadInfo,
 ) -> buck2_error::Result<RE::Tree> {
     let mut children: Vec<RE::Directory> = vec![];
     let mut frontier = directory.directories.clone();
@@ -326,7 +328,7 @@ pub async fn re_directory_to_re_tree(
             })
             .collect();
         let mut retrieved = client
-            .download_typed_blobs::<RE::Directory>(None, digests)
+            .download_typed_blobs::<RE::Directory>(None, digests, info)
             .await?;
         frontier = retrieved
             .iter()

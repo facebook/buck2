@@ -22,6 +22,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
+use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::BuckMutSet;
@@ -77,11 +78,12 @@ impl ReClientWithCache {
                     return Ok(());
                 }
 
+                let info = CasDownloadInfo::new_test_artifact(ttl_config.use_case);
                 Ok(self
                     .client
                     .clone()
-                    .with_use_case(ttl_config.use_case.dupe())
-                    .extend_digest_ttl(digests_to_extend, ttl_config.ttl)
+                    .with_use_case(info.re_use_case)
+                    .extend_digest_ttl(digests_to_extend, ttl_config.ttl, &info)
                     .await?)
             }
             _ => Ok(()),
@@ -109,7 +111,8 @@ impl ReClientWithCache {
 
         let re_use_case = RemoteExecutorUseCase::new(use_case.to_owned());
 
-        let managed_client = self.client.dupe().with_use_case(re_use_case);
+        let info = CasDownloadInfo::new_uploaded(re_use_case);
+        let managed_client = self.client.dupe().with_use_case(info.re_use_case);
 
         managed_client
             .upload_files_and_directories(
@@ -127,6 +130,7 @@ impl ReClientWithCache {
             .extend_digest_ttl(
                 vec![re_digest.clone()],
                 Duration::from_secs(ttl_seconds as u64),
+                &info,
             )
             .await?;
 

@@ -40,6 +40,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::http::http_download;
+use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CasNotFoundError;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
@@ -255,7 +256,7 @@ impl DefaultIoHandler {
                 let re_client = connection.get_client().with_use_case(info.re_use_case);
 
                 re_client
-                    .materialize_files(files, priority_control.dupe())
+                    .materialize_files(files, priority_control.dupe(), info)
                     .await
                     .map_err(|e| match e.find_typed_context::<RemoteExecutionError>() {
                         Some(re_error) if re_error.code == TCode::NOT_FOUND => {
@@ -655,7 +656,8 @@ pub(super) fn create_ttl_refresh(
     min_ttl: SignedDuration,
     digest_config: DigestConfig,
 ) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
-    let mut digests_to_refresh = BuckMutMap::<_, BuckMutSet<_>>::default();
+    let mut digests_to_refresh =
+        BuckMutMap::<usize, (Arc<CasDownloadInfo>, BuckMutSet<_>)>::default();
 
     let ttl_deadline = Timestamp::now()
         .checked_add(min_ttl)
@@ -671,9 +673,12 @@ pub(super) fn create_ttl_refresh(
                     let needs_refresh = file.digest.expires().unwrap_or_default() < ttl_deadline;
                     tracing::trace!("{} needs_refresh: {}", file, needs_refresh);
                     if needs_refresh {
+                        // Preserve the exact provenance for every batched RE request.
+                        let info_key = Arc::as_ptr(info) as usize;
                         digests_to_refresh
-                            .entry(info.re_use_case)
-                            .or_default()
+                            .entry(info_key)
+                            .or_insert_with(|| (info.dupe(), BuckMutSet::default()))
+                            .1
                             .insert(file.digest.dupe());
                     }
                 }
@@ -695,7 +700,7 @@ pub(super) fn create_ttl_refresh(
         let re_connection = re_manager.get_re_connection();
         let re_client = re_connection.get_client();
 
-        for (use_case, digests_to_refresh) in digests_to_refresh {
+        for (_, (info, digests_to_refresh)) in digests_to_refresh {
             let mut digests_to_refresh = digests_to_refresh.into_iter().collect::<Vec<_>>();
             digests_to_refresh.sort();
 
@@ -704,8 +709,11 @@ pub(super) fn create_ttl_refresh(
 
                 let digests_expires = re_client
                     .dupe()
-                    .with_use_case(use_case)
-                    .get_digest_expirations(chunk.iter().map(|d| d.to_re()).collect())
+                    .with_use_case(info.re_use_case)
+                    .get_digest_expirations(
+                        chunk.iter().map(|d| d.to_re()).collect(),
+                        info.as_ref(),
+                    )
                     .await?;
 
                 let mut digests_expires = digests_expires.into_try_map(|(digest, expires)| {
