@@ -3387,6 +3387,137 @@ fn test_restored_heap_refreshes_index_after_later_materialization() -> crate::Re
     Ok(())
 }
 
+/// A clean registered owner can hide a restored dependency that became dirty
+/// after the owner's transitive chunk indices were first registered.
+#[test]
+fn test_pointer_lookup_repairs_dirty_restored_dependency_hidden_by_clean_owner() -> crate::Result<()>
+{
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let dep_heap = FrozenHeap::new();
+    let first = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    let second = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 2,
+    });
+    let third = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 3,
+    });
+    let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("repair_dirty_dep"));
+    // SAFETY: all values belong to `dep_heap_ref`.
+    let first = unsafe { OwnedFrozen::unchecked_new(dep_heap_ref.clone(), first.to_value()) };
+    let second: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(dep_heap_ref, second.to_value()) };
+    let third: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(second.owner().clone(), third.to_value()) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let first_key = ser_owned_frozen_value_into_storage(&backing, &first)?;
+    let second_key = ser_owned_frozen_value_into_storage(&backing, &second)?;
+    let third_key = ser_owned_frozen_value_into_storage(&backing, &third)?;
+    drop(first);
+    drop(second);
+    drop(third);
+
+    let restored_first = deser_owned_frozen_from_storage(&backing, &handle, &first_key)?;
+    let owner_heap = FrozenHeap::new();
+    let first_in_owner = restored_first
+        .as_ref()
+        .add_to_frozen_heap(&owner_heap)
+        .unpack_frozen()
+        .expect("value added from a frozen heap remains frozen");
+    let owner_root = owner_heap.alloc_simple(RefData {
+        label: 1,
+        target: first_in_owner,
+    });
+    let owner_heap_ref = owner_heap.into_ref_named(TestHeapName::heap_name("repair_owner"));
+    // SAFETY: `owner_heap_ref` owns `owner_root`.
+    let owner_root: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(owner_heap_ref.clone(), owner_root.to_value()) };
+    let _owner_key = ser_owned_frozen_value_into_storage(&backing, &owner_root)?;
+
+    let ser_state = backing
+        .storage_context()
+        .get::<StarlarkSerState>()
+        .expect("serializing the owner should initialize Starlark serialization state");
+    let restored_second = deser_owned_frozen_from_storage(&backing, &handle, &second_key)?;
+    assert_eq!(
+        restored_first.owner(),
+        restored_second.owner(),
+        "both values should materialize in the same restored dependency heap",
+    );
+    let second_value = restored_second.as_ref().value();
+    let second_ptr = second_value.get_ref().value.ptr as usize;
+    assert!(
+        ser_state.lookup_ptr(second_ptr).is_none(),
+        "the clean owner fast path should leave the newly materialized dependency slot unindexed",
+    );
+
+    // The owner keeps the dependency alive transitively, but its clean registration
+    // prevents the normal recursive ensure path from reaching the dirty dependency.
+    // SAFETY: `owner_heap_ref` references the heap containing `second_value`.
+    let through_clean_owner: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(owner_heap_ref.clone(), second_value) };
+    let repaired_key = ser_owned_frozen_value_into_storage(&backing, &through_clean_owner)?;
+
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &repaired_key)?;
+    let restored = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("repaired pointer should round-trip as SimpleData");
+    assert_eq!(restored.count, 2);
+
+    let restored_third = deser_owned_frozen_from_storage(&backing, &handle, &third_key)?;
+    let third_value = restored_third.as_ref().value();
+    let third_ptr = third_value.get_ref().value.ptr as usize;
+    assert!(
+        ser_state.lookup_ptr(third_ptr).is_none(),
+        "materializing another dependency slot should make its pointer require repair",
+    );
+
+    // Pagable serializes Arc payloads after the enclosing Starlark serializer returns, so
+    // the captured scope must preserve the clean owner's identity for a targeted repair.
+    let deferred = Arc::new(ArcBlanketInner {
+        target: third_value
+            .unpack_frozen()
+            .expect("value restored from a frozen heap remains frozen"),
+        label: 3,
+    });
+    let storage = backing.handle();
+    let storage_ctx = storage.storage_context();
+    let mut serializer = pagable::storage::support::SerializerForPaging::new(storage_ctx);
+    ser_state.ensure_chunk_index_registered(&owner_heap_ref)?;
+    assert!(
+        ser_state.lookup_ptr(third_ptr).is_none(),
+        "the clean owner fast path should still hide the dirty dependency",
+    );
+    let mut ctx = crate::pagable::StarlarkSerializerImpl::new_with_root(
+        &mut serializer,
+        ser_state.clone(),
+        &owner_heap_ref,
+    );
+    <Arc<ArcBlanketInner> as crate::pagable::StarlarkSerialize>::starlark_serialize(
+        &deferred, &mut ctx,
+    )?;
+    let (data, arcs) = serializer.finish();
+    storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage_ctx)
+        .map_err(crate::Error::new_other)?;
+    assert!(
+        ser_state.lookup_ptr(third_ptr).is_some(),
+        "deferred Arc serialization should repair through its captured owner scope",
+    );
+
+    Ok(())
+}
+
 /// Cross-thread cycle test: two values on the same heap reference each other.
 /// Two threads simultaneously deserialize one value each. Without cross-thread
 /// cycle detection, this deadlocks (thread A waits for B's value, B waits for A's).

@@ -18,6 +18,7 @@
 //! Implementation of StarlarkSerializeContext.
 
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::mem;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -25,6 +26,7 @@ use std::sync::RwLock;
 use allocative::Allocative;
 use dashmap::DashMap;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::StorageState;
@@ -144,6 +146,23 @@ impl StarlarkSerState {
         self: &Arc<Self>,
         heap_ref: &FrozenHeapRef,
     ) -> pagable::Result<()> {
+        self.ensure_chunk_index_registered_impl(heap_ref, true)
+    }
+
+    #[cold]
+    fn ensure_current_chunk_index_registered(
+        self: &Arc<Self>,
+        heap_ref: &FrozenHeapRef,
+    ) -> pagable::Result<()> {
+        // `repair_and_lookup_ptr` owns dependency traversal and deduplication.
+        self.ensure_chunk_index_registered_impl(heap_ref, false)
+    }
+
+    fn ensure_chunk_index_registered_impl(
+        self: &Arc<Self>,
+        heap_ref: &FrozenHeapRef,
+        ensure_dependencies: bool,
+    ) -> pagable::Result<()> {
         let Some(name) = heap_ref.name() else {
             return Ok(());
         };
@@ -161,8 +180,10 @@ impl StarlarkSerState {
             }
         }
 
-        for dep in heap_ref.refs_slice() {
-            self.ensure_chunk_index_registered(dep)?;
+        if ensure_dependencies {
+            for dep in heap_ref.refs_slice() {
+                self.ensure_chunk_index_registered(dep)?;
+            }
         }
 
         heap_ref.register_ser_state(self)?;
@@ -265,6 +286,43 @@ impl StarlarkSerState {
             .binary_search(&within_chunk_offset)
             .ok()? as u32;
         Some((entry.heap_id, entry.values_before + k))
+    }
+
+    /// A `FrozenValue` reachable from the source heap may be owned by any transitive heap
+    /// dependency, not only the source heap or one of its direct refs. If a restored owner
+    /// lazily materialized the value after a clean ancestor was registered, the normal fast
+    /// path can leave its chunk index stale. On lookup miss, revisit the source heap's reachable
+    /// ownership graph to refresh dirty indices before retrying.
+    #[cold]
+    fn repair_and_lookup_ptr(
+        self: &Arc<Self>,
+        root: FrozenHeapPtr,
+        raw_ptr: usize,
+    ) -> pagable::Result<Option<(HeapRefId, u32)>> {
+        let Some(root) = self.registered_heap(root) else {
+            return Ok(None);
+        };
+
+        let mut pending = vec![root];
+        let mut visited = HashSet::new();
+        while let Some(heap) = pending.pop() {
+            let Some(heap_ptr) = heap.downgrade().map(|heap| heap.heap_ptr()) else {
+                continue;
+            };
+            if !visited.insert(heap_ptr) {
+                continue;
+            }
+
+            pending.extend(heap.refs().duped());
+            self.ensure_current_chunk_index_registered(&heap)?;
+        }
+
+        Ok(self.lookup_ptr(raw_ptr))
+    }
+
+    #[cold]
+    fn registered_heap(&self, heap_ptr: FrozenHeapPtr) -> Option<FrozenHeapRef> {
+        self.registered_heaps.get(&heap_ptr)?.heap.upgrade()
     }
 
     #[cfg(all(test, feature = "pagable"))]
@@ -443,7 +501,17 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
                 let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
 
-                let Some((heap_id, value_index)) = self.state.lookup_ptr(raw_ptr) else {
+                let resolved = match self.state.lookup_ptr(raw_ptr) {
+                    Some(resolved) => Some(resolved),
+                    None => match self.root {
+                        Some(root) => self
+                            .state
+                            .repair_and_lookup_ptr(root, raw_ptr)
+                            .map_err(crate::Error::new_other)?,
+                        None => None,
+                    },
+                };
+                let Some((heap_id, value_index)) = resolved else {
                     return Err(PagableError::FrozenValueNotRegistered {
                         raw_ptr,
                         target_type: fv.to_value().get_type(),
