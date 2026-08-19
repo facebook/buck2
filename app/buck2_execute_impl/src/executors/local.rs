@@ -933,62 +933,16 @@ impl LocalExecutor {
             if let Some(value) = value {
                 match output {
                     CommandExecutionOutput::BuildArtifact { .. } => {
-                        // For content-based paths, things are a bit complicated here, because (a) the action
-                        // wrote outputs at "placeholder" paths, not the final content-based paths (because
-                        // they are not know until the output is produced), and (b) other actions can declare
-                        // outputs at the same content-based path. Note that only remote actions can do that
-                        // concurrently (with this local action), as we prevent any local run actions with any of
-                        // the same placeholder output paths from running at the same time (see
-                        // NamedSemaphores and HostSharingRequirements).
-                        // We do the following:
-                        // (1) We create a symlink from the configuration-based path to the content-based path
-                        //     (for any users/tooling that only has access to the configuration-based path)
-                        // (2) Declare an existing artifact at the "placeholder" output path that the action wrote to.
-                        // (3) Then we declare a copy from the "placeholder" output path to the content-based path.
-                        // (4) Finally, we ensure everything is materialized.
-                        // (5) Note that we don't need to invalidate the "placeholder" output path, as that is
-                        //     the responsibility of any action that subsequently uses it.
                         if output.as_ref().has_content_based_path() {
-                            let hashed_path = output
-                                .as_ref()
-                                .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
-                                .into_path();
-
-                            let configuration_hash_path = output
-                                .as_ref()
-                                .resolve_configuration_hash_path(&self.artifact_fs)?
-                                .into_path();
-                            let mut builder =
-                                ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
-                            builder.add_symlinked(
+                            self.declare_content_based_output(
+                                &output,
+                                &output_path,
                                 &value,
-                                hashed_path.clone(),
-                                &configuration_hash_path,
+                                digest_config,
+                                &mut to_declare,
+                                &mut configuration_path_to_content_based_path_symlinks,
+                                &mut output_path_to_content_based_path_copies,
                             )?;
-                            let symlink_value = builder.build(&configuration_hash_path)?;
-                            let cfg_path = if self.materializer.is_eager_materialization_enabled() {
-                                Some(configuration_hash_path.clone())
-                            } else {
-                                None
-                            };
-                            to_declare.push(DeclareArtifactPayload {
-                                path: output_path.clone(),
-                                artifact: value.dupe(),
-                                configuration_path: None,
-                            });
-                            configuration_path_to_content_based_path_symlinks
-                                .push((configuration_hash_path, symlink_value));
-                            output_path_to_content_based_path_copies.push((
-                                hashed_path.clone(),
-                                value.dupe(),
-                                vec![CopiedArtifact {
-                                    src: output_path.clone(),
-                                    dest: hashed_path,
-                                    dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
-                                    executable_bit_override: None,
-                                }],
-                                cfg_path,
-                            ));
                         } else {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
@@ -1042,6 +996,76 @@ impl LocalExecutor {
                 hashed_artifacts_count: total_hashed_outputs,
             },
         ))
+    }
+
+    /// Handle content-based path output declaration.
+    ///
+    /// For content-based paths, things are a bit complicated here, because (a) the action
+    /// wrote outputs at "placeholder" paths, not the final content-based paths (because
+    /// they are not know until the output is produced), and (b) other actions can declare
+    /// outputs at the same content-based path. Note that only remote actions can do that
+    /// concurrently (with this local action), as we prevent any local run actions with any of
+    /// the same placeholder output paths from running at the same time (see
+    /// NamedSemaphores and HostSharingRequirements).
+    /// We do the following:
+    /// (1) We create a symlink from the configuration-based path to the content-based path
+    ///     (for any users/tooling that only has access to the configuration-based path)
+    /// (2) Declare an existing artifact at the "placeholder" output path that the action wrote to.
+    /// (3) Then we declare a copy from the "placeholder" output path to the content-based path.
+    /// (4) Finally, we ensure everything is materialized.
+    /// (5) Note that we don't need to invalidate the "placeholder" output path, as that is
+    ///     the responsibility of any action that subsequently uses it.
+    #[allow(clippy::too_many_arguments)]
+    fn declare_content_based_output(
+        &self,
+        output: &CommandExecutionOutput,
+        output_path: &ProjectRelativePathBuf,
+        value: &ArtifactValue,
+        digest_config: DigestConfig,
+        to_declare: &mut Vec<DeclareArtifactPayload>,
+        symlinks: &mut Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+        copies: &mut Vec<(
+            ProjectRelativePathBuf,
+            ArtifactValue,
+            Vec<CopiedArtifact>,
+            Option<ProjectRelativePathBuf>,
+        )>,
+    ) -> buck2_error::Result<()> {
+        let hashed_path = output
+            .as_ref()
+            .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
+            .into_path();
+
+        let configuration_hash_path = output
+            .as_ref()
+            .resolve_configuration_hash_path(&self.artifact_fs)?
+            .into_path();
+        let mut builder = ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
+        builder.add_symlinked(value, hashed_path.clone(), &configuration_hash_path)?;
+        let symlink_value = builder.build(&configuration_hash_path)?;
+        let cfg_path = if self.materializer.is_eager_materialization_enabled() {
+            Some(configuration_hash_path.clone())
+        } else {
+            None
+        };
+        to_declare.push(DeclareArtifactPayload {
+            path: output_path.clone(),
+            artifact: value.dupe(),
+            configuration_path: None,
+        });
+        symlinks.push((configuration_hash_path, symlink_value));
+        copies.push((
+            hashed_path.clone(),
+            value.dupe(),
+            vec![CopiedArtifact {
+                src: output_path.clone(),
+                dest: hashed_path,
+                dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
+                executable_bit_override: None,
+            }],
+            cfg_path,
+        ));
+        Ok(())
     }
 
     async fn acquire_worker_permit(
