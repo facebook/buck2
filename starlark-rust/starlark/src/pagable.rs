@@ -76,6 +76,8 @@ pub use starlark_pagable::StarlarkPagable;
 pub use starlark_pagable_impls::SmallMapKeyDeserialize;
 pub use starlark_serialize::StarlarkSerialize;
 pub use starlark_serialize::StarlarkSerializeContext;
+#[doc(hidden)]
+pub use starlark_serialize::StarlarkSerializeScope;
 pub use starlark_serialize_context::StarlarkSerializerImpl;
 
 #[cfg(all(test, feature = "pagable"))]

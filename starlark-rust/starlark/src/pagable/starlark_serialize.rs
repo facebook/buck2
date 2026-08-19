@@ -20,6 +20,24 @@
 use pagable::PagableSerializer;
 
 use crate::values::FrozenValue;
+use crate::values::layout::heap::heap_type::FrozenHeapPtr;
+
+/// Opaque context that must follow Starlark values across deferred pagable serialization.
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct StarlarkSerializeScope {
+    /// Root of the ownership graph containing values serialized by this context.
+    ///
+    /// Pagable-only boundaries carry this identity so pointer lookup recovery can revisit
+    /// only the heaps reachable from the original Starlark source.
+    pub(crate) root: Option<FrozenHeapPtr>,
+}
+
+impl StarlarkSerializeScope {
+    pub(crate) const fn rootless() -> Self {
+        Self { root: None }
+    }
+}
 
 /// Trait for Starlark values that can be serialized.
 ///
@@ -44,4 +62,10 @@ pub trait StarlarkSerializeContext {
 
     /// Serialize a `FrozenValue`
     fn serialize_frozen_value(&mut self, fv: FrozenValue) -> crate::Result<()>;
+
+    /// Capture the Starlark ownership context for serialization delegated to pagable code.
+    #[doc(hidden)]
+    fn serialization_scope(&self) -> StarlarkSerializeScope {
+        StarlarkSerializeScope::rootless()
+    }
 }

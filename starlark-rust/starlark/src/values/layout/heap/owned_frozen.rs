@@ -214,7 +214,7 @@ fn serialize_owned_frozen(
     let state = StarlarkSerializerImpl::get_or_create_state(serializer);
     state.ensure_chunk_index_registered(owner)?;
 
-    let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+    let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, owner);
     ctx.serialize_frozen_value(value)
         .map_err(|e| e.into_anyhow())?;
 

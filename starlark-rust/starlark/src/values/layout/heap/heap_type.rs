@@ -539,7 +539,11 @@ impl FrozenFrozenHeap {
         // FrozenHeapRef registered this heap and its transitive dependencies
         // before deferring this Arc for serialization.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+        let mut ctx = StarlarkSerializerImpl::new_with_root_ptr(
+            serializer,
+            state,
+            FrozenHeapPtr(self as *const Self as usize),
+        );
 
         // Serialize value data, recording start cursor per value.
         let mut entry_cursors: Vec<(u32, u32)> = Vec::with_capacity(table_entry_count);

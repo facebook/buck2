@@ -33,6 +33,7 @@ use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ChunkInfo;
@@ -363,22 +364,50 @@ pub struct StarlarkSerializerImpl<'a> {
     pagable: &'a mut dyn PagableSerializer,
     /// Shared state for heap chunk-index lookups across all heaps.
     state: Arc<StarlarkSerState>,
+    /// Root of the ownership graph containing `FrozenValue`s serialized by this context.
+    ///
+    /// It is carried across pagable-only boundaries and used only when pointer lookup must
+    /// revisit the source graph to refresh a lazily materialized heap index.
+    root: Option<FrozenHeapPtr>,
 }
 
 impl<'a> StarlarkSerializerImpl<'a> {
-    /// Recover a `StarlarkSerializerImpl` after a hop through a pagable-only
-    /// boundary (typically `serialize_arc`).
-    pub fn recover_from_pagable(serializer: &'a mut dyn PagableSerializer) -> crate::Result<Self> {
-        let state = Self::get_or_create_state(serializer);
-        Ok(Self::new(serializer, state))
-    }
-
-    /// Create a new serializer with shared state.
-    pub(crate) fn new(
+    /// Recover a Starlark serializer after serialization crosses a pagable-only boundary.
+    ///
+    /// The scope must come from the original `StarlarkSerializeContext` so deferred work retains
+    /// the same ownership root used for targeted pointer-index recovery.
+    pub(crate) fn recover_from_pagable(
         pagable: &'a mut dyn PagableSerializer,
         state: Arc<StarlarkSerState>,
+        scope: StarlarkSerializeScope,
     ) -> Self {
-        Self { pagable, state }
+        Self {
+            pagable,
+            state,
+            root: scope.root,
+        }
+    }
+
+    pub(crate) fn new_with_root(
+        pagable: &'a mut dyn PagableSerializer,
+        state: Arc<StarlarkSerState>,
+        root: &FrozenHeapRef,
+    ) -> Self {
+        Self::recover_from_pagable(
+            pagable,
+            state,
+            StarlarkSerializeScope {
+                root: root.downgrade().map(|heap| heap.heap_ptr()),
+            },
+        )
+    }
+
+    pub(crate) fn new_with_root_ptr(
+        pagable: &'a mut dyn PagableSerializer,
+        state: Arc<StarlarkSerState>,
+        root: FrozenHeapPtr,
+    ) -> Self {
+        Self::recover_from_pagable(pagable, state, StarlarkSerializeScope { root: Some(root) })
     }
 
     /// Get or create the storage-owned `StarlarkSerState`.
@@ -394,6 +423,10 @@ impl<'a> StarlarkSerializerImpl<'a> {
 impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
     fn pagable(&mut self) -> &mut dyn PagableSerializer {
         self.pagable
+    }
+
+    fn serialization_scope(&self) -> StarlarkSerializeScope {
+        StarlarkSerializeScope { root: self.root }
     }
 
     fn serialize_frozen_value(&mut self, fv: FrozenValue) -> crate::Result<()> {

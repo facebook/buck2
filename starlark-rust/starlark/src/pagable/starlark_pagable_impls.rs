@@ -50,6 +50,7 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -489,11 +490,18 @@ impl StarlarkDeserialize for NonZeroI32 {
 
 /// Wrapper that lets `Arc<T: StarlarkSerialize + StarlarkDeserialize>` plug
 /// into pagable's `Arc` dedup machinery via starlark-context recovery.
-struct StarlarkArcBridge<T: 'static>(Arc<T>);
+struct StarlarkArcBridge<T: 'static> {
+    inner: Arc<T>,
+    // Repair provenance is not part of Arc identity and cannot change wire contents.
+    scope: StarlarkSerializeScope,
+}
 
 impl<T: 'static> Clone for StarlarkArcBridge<T> {
     fn clone(&self) -> Self {
-        Self(self.0.dupe())
+        Self {
+            inner: self.inner.dupe(),
+            scope: self.scope,
+        }
     }
 }
 impl<T: 'static> Dupe for StarlarkArcBridge<T> {}
@@ -501,19 +509,25 @@ impl<T: 'static> Dupe for StarlarkArcBridge<T> {}
 /// Weak counterpart of [`StarlarkArcBridge`]. Wraps `Weak<T>` so its
 /// `WeakErase::upgrade_weak` produces a boxed `StarlarkArcBridge<T>` rather
 /// than the pagable-flavored Arc that pagable's blanket would produce.
-struct StarlarkArcBridgeWeak<T: 'static>(Weak<T>);
+struct StarlarkArcBridgeWeak<T: 'static> {
+    inner: Weak<T>,
+    scope: StarlarkSerializeScope,
+}
 
 impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> WeakErase
     for StarlarkArcBridgeWeak<T>
 {
     fn is_expired(&self) -> bool {
-        self.0.strong_count() == 0
+        self.inner.strong_count() == 0
     }
 
     fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
-        self.0
-            .upgrade()
-            .map(|arc| Box::new(StarlarkArcBridge(arc)) as _)
+        self.inner.upgrade().map(|inner| {
+            Box::new(StarlarkArcBridge {
+                inner,
+                scope: self.scope,
+            }) as _
+        })
     }
 }
 
@@ -531,21 +545,27 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> ArcEras
     }
 
     fn identity(&self) -> usize {
-        Arc::as_ptr(&self.0) as *const () as usize
+        Arc::as_ptr(&self.inner) as *const () as usize
     }
 
     fn downgrade(&self) -> Option<Self::Weak> {
-        Some(StarlarkArcBridgeWeak(Arc::downgrade(&self.0)))
+        Some(StarlarkArcBridgeWeak {
+            inner: Arc::downgrade(&self.inner),
+            scope: self.scope,
+        })
     }
 
     fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
-        weak.0.upgrade().map(Self)
+        weak.inner.upgrade().map(|inner| Self {
+            inner,
+            scope: weak.scope,
+        })
     }
 
     fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        let mut ctx = StarlarkSerializerImpl::recover_from_pagable(ser)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        <T as StarlarkSerialize>::starlark_serialize(&self.0, &mut ctx)
+        let state = StarlarkSerializerImpl::get_or_create_state(ser);
+        let mut ctx = StarlarkSerializerImpl::recover_from_pagable(ser, state, self.scope);
+        <T as StarlarkSerialize>::starlark_serialize(&self.inner, &mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())
     }
 
@@ -555,7 +575,10 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> ArcEras
         let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deser.as_dyn())
             .map_err(|e: crate::Error| e.into_anyhow())?;
         let inner = T::starlark_deserialize(&mut ctx).map_err(|e: crate::Error| e.into_anyhow())?;
-        Ok(Self(Arc::new(inner)))
+        Ok(Self {
+            inner: Arc::new(inner),
+            scope: StarlarkSerializeScope::rootless(),
+        })
     }
 }
 
@@ -563,7 +586,10 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> Starlar
     for Arc<T>
 {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        let bridge = StarlarkArcBridge(self.clone());
+        let bridge = StarlarkArcBridge {
+            inner: self.clone(),
+            scope: ctx.serialization_scope(),
+        };
         ctx.pagable().serialize_arc(&bridge)?;
         Ok(())
     }
@@ -574,7 +600,7 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> Starlar
 {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
         let bridge: StarlarkArcBridge<T> = deserialize_arc(ctx.pagable())?;
-        Ok(bridge.0)
+        Ok(bridge.inner)
     }
 }
 

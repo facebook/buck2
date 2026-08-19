@@ -1720,162 +1720,6 @@ fn test_starlark_value_as_type_round_trip() -> crate::Result<()> {
 }
 
 // ============================================================================
-// `StarlarkSerializerImpl::recover_from_pagable` /
-// `StarlarkDeserializerImpl::recover_from_pagable`:
-// pagable Arc<T> dedup combined with starlark FrozenValue resolution.
-//
-// `InnerArcData` is reachable from the starlark layer via a derived
-// `StarlarkPagable` (so its `target: FrozenValue` is resolved against the
-// currently-deserializing heap), but it is also wrapped in `Arc<InnerArcData>`
-// inside `OuterArcValue` and routed through `pagable::PagableSerialize` (with
-// `#[starlark_pagable(pagable)]`) so the pagable Arc-identity dedup mechanism
-// can fire — two `OuterArcValue`s sharing the same `Arc<InnerArcData>`
-// serialize the body once and round-trip to pointer-equal Arcs.
-//
-// To bridge between the two layers, `InnerArcData::pagable_serialize` /
-// `pagable_deserialize` use `StarlarkSerializerImpl::recover_from_pagable`
-// and `StarlarkDeserializerImpl::recover_from_pagable` to recover the
-// starlark heap context inside what is otherwise a pure-pagable
-// (typetag/Arc) dispatch path.
-// ============================================================================
-
-/// Inner type carried inside an `Arc`. Holds a `FrozenValue` that must be
-/// resolved against the currently-(de)serializing heap. Implements:
-///   - `StarlarkPagable` via derive (so the `FrozenValue` field works).
-///   - `pagable::Pagable*` manually, bridging into the starlark context via
-///     `with_starlark_*_context` so the `Arc<InnerArcData>` field on
-///     `OuterArcValue` can be routed through pagable's Arc-dedup mechanism
-///     (which serializes the body using `pagable::PagableSerialize`, not
-///     `StarlarkSerialize`).
-#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
-struct InnerArcData {
-    target: FrozenValue,
-    label: u32,
-}
-
-impl pagable::PagableSerialize for InnerArcData {
-    fn pagable_serialize(
-        &self,
-        serializer: &mut dyn pagable::PagableSerializer,
-    ) -> pagable::Result<()> {
-        let mut ctx = crate::pagable::StarlarkSerializerImpl::recover_from_pagable(serializer)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        <Self as crate::pagable::StarlarkSerialize>::starlark_serialize(self, &mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())
-    }
-}
-
-impl<'de> pagable::PagableDeserialize<'de> for InnerArcData {
-    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> pagable::Result<Self> {
-        let mut ctx =
-            crate::pagable::StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
-                .map_err(|e: crate::Error| e.into_anyhow())?;
-        <Self as crate::pagable::StarlarkDeserialize>::starlark_deserialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())
-    }
-}
-
-/// Outer `StarlarkValue` holding an `Arc<InnerArcData>` plus a `Vec<u32>`.
-/// The `Vec` puts it firmly on the **drop bump**, which is serialized
-/// *first* on the wire (before the non-drop bump). The inner
-/// `target: FrozenValue` then points into the non-drop bump (`SimpleData`),
-/// which is serialized *second*. So when the deserializer is processing
-/// an `OuterArcValue` body, the inner `FrozenValue` is a forward
-/// reference into a not-yet-deserialized non-drop slot — exercising the
-/// `ensure_initialized` work-queue path through the shared
-/// `HeapDeserializationState` that `StarlarkDeserializerImpl::recover_from_pagable`
-/// hands off via the session context.
-///
-/// The `Arc<InnerArcData>` field is routed through `pagable::PagableSerialize`
-/// (via `#[starlark_pagable(pagable)]`) so multiple `OuterArcValue`s sharing
-/// the same Arc dedup on the wire and round-trip to a pointer-equal Arc.
-#[derive(
-    Debug,
-    Display,
-    Allocative,
-    ProvidesStaticType,
-    NoSerialize,
-    StarlarkPagable
-)]
-#[display("OuterArcValue({})", self.outer_label)]
-struct OuterArcValue {
-    #[starlark_pagable(pagable)]
-    inner: Arc<InnerArcData>,
-    outer_label: u32,
-    items: Vec<u32>,
-}
-
-starlark_simple_value!(OuterArcValue);
-
-#[starlark_value(type = "OuterArcValue")]
-impl<'v> StarlarkValue<'v> for OuterArcValue {
-    type Canonical = Self;
-}
-
-#[test]
-fn test_with_starlark_context_arc_dedup_round_trip() -> crate::Result<()> {
-    let heap = FrozenHeap::new();
-    let target_fv = heap.alloc_simple(SimpleData {
-        flag: true,
-        count: 314,
-    });
-
-    let shared = Arc::new(InnerArcData {
-        target: target_fv,
-        label: 99,
-    });
-
-    let a = heap.alloc_simple(OuterArcValue {
-        inner: shared.clone(),
-        outer_label: 1,
-        items: vec![10, 20, 30],
-    });
-    let b = heap.alloc_simple(OuterArcValue {
-        inner: shared,
-        outer_label: 2,
-        items: vec![40, 50],
-    });
-    let root = heap.alloc_tuple(&[a, b]);
-
-    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_with_starlark_context_arc"));
-    // SAFETY: heap_ref owns the arena hosting root.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
-    let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
-
-    let tuple: &crate::values::types::tuple::value::Tuple = restored
-        .as_ref()
-        .value()
-        .downcast_ref::<crate::values::types::tuple::value::Tuple>()
-        .unwrap();
-    let content = tuple.content();
-    let outer_a: &OuterArcValue = content[0].downcast_ref::<OuterArcValue>().unwrap();
-    let outer_b: &OuterArcValue = content[1].downcast_ref::<OuterArcValue>().unwrap();
-    assert_eq!(outer_a.outer_label, 1);
-    assert_eq!(outer_b.outer_label, 2);
-    assert_eq!(outer_a.items, vec![10, 20, 30]);
-    assert_eq!(outer_b.items, vec![40, 50]);
-
-    assert_eq!(outer_a.inner.label, 99);
-    assert_eq!(outer_b.inner.label, 99);
-    let target_data: &SimpleData = outer_a.inner.target.downcast_ref::<SimpleData>().unwrap();
-    assert_eq!(target_data.flag, true);
-    assert_eq!(target_data.count, 314);
-    assert_eq!(
-        outer_a.inner.target.ptr_value().ptr_value_untagged(),
-        outer_b.inner.target.ptr_value().ptr_value_untagged(),
-    );
-
-    assert!(
-        Arc::ptr_eq(&outer_a.inner, &outer_b.inner),
-        "pagable Arc dedup should round-trip the shared Arc as a single allocation",
-    );
-
-    Ok(())
-}
-
-// ============================================================================
 // Arc<T> blanket: starlark-only T, plain `Arc<T>` field — round-trips through
 // the `Arc<T>: StarlarkSerialize` blanket, no manual bridge.
 // ============================================================================
@@ -2558,50 +2402,48 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
     Ok(())
 }
 
-/// Storage-path counterpart to `test_with_starlark_context_arc_dedup_round_trip`.
-/// `OuterArcValue` owns `Arc<InnerArcData>` whose inner holds a `FrozenValue`.
+/// Storage-path counterpart to `test_arc_blanket_round_trip`.
+/// `ArcBlanketOuter` owns `Arc<ArcBlanketInner>` whose inner holds a `FrozenValue`.
 /// `PagableDeserializerImpl` reads the inner `Arc` body through its own
 /// sub-deserializer, so a naive `seek(target.abs_pos)` would land in the
 /// wrong stream; `ensure` instead seeks a deserializer reconstructed from
 /// the owning heap's recipe (stored on its `HeapDeserializationState`).
 #[test]
-fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
+fn test_arc_blanket_round_trip_via_storage() {
     let heap = FrozenHeap::new();
     let target_fv = heap.alloc_simple(SimpleData {
         flag: true,
         count: 314,
     });
 
-    let shared = Arc::new(InnerArcData {
+    let shared = Arc::new(ArcBlanketInner {
         target: target_fv,
         label: 99,
     });
 
-    let outer_a_fv = heap.alloc_simple(OuterArcValue {
+    let outer_a_fv = heap.alloc_simple(ArcBlanketOuter {
         inner: shared.clone(),
         outer_label: 1,
         items: vec![10, 20, 30],
     });
-    heap.alloc_simple(OuterArcValue {
+    heap.alloc_simple(ArcBlanketOuter {
         inner: shared,
         outer_label: 2,
         items: vec![40, 50],
     });
 
-    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
-        "test_with_starlark_context_arc_storage",
-    ));
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_arc_blanket_storage"));
 
     // SAFETY: `heap_ref` keeps the arena hosting `outer_a_fv` alive.
     let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, outer_a_fv.to_value()) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned).expect("round-trip via storage");
 
-    // Partial deser: only the root `OuterArcValue` (and its transitive deps)
-    // is materialized. The second `OuterArcValue`, which is unreachable from
+    // Partial deser: only the root `ArcBlanketOuter` (and its transitive deps)
+    // is materialized. The second `ArcBlanketOuter`, which is unreachable from
     // the root, is never allocated.
     let drop_headers = restored.owner().collect_drop_headers_ordered();
     assert_eq!(drop_headers.len(), 1);
-    let outer_a: &OuterArcValue = drop_headers[0].unpack().downcast_ref().unwrap();
+    let outer_a: &ArcBlanketOuter = drop_headers[0].unpack().downcast_ref().unwrap();
     assert_eq!(outer_a.outer_label, 1);
     assert_eq!(outer_a.inner.label, 99);
     let resolved: &SimpleData = outer_a
@@ -2609,7 +2451,7 @@ fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
         .target
         .to_value()
         .downcast_ref::<SimpleData>()
-        .expect("FrozenValue inside Arc<InnerArcData> should resolve");
+        .expect("FrozenValue inside Arc<ArcBlanketInner> should resolve");
     assert_eq!(resolved.count, 314);
 }
 
@@ -2618,7 +2460,7 @@ fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
 /// encoded under `HA`'s context can be decoded under `HB`'s — without an
 /// explicit `heap_id` the embedded `FrozenValue` would misroute.
 ///
-/// `HA` owns the target; `HB` refs `HA` and shares the `Arc<InnerArcData>`.
+/// `HA` owns the target; `HB` refs `HA` and shares the `Arc<ArcBlanketInner>`.
 /// Serializing `OFV(HB)` encodes the Arc body under `HA` (walked first as
 /// `HB`'s ref); deser of `HB` then checks the `FrozenValue` still lands in
 /// `HA`.
@@ -2627,17 +2469,17 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
 
-    // HA: SimpleData target + OuterArcValue_A holding Arc<InnerArcData>.
+    // HA: SimpleData target + ArcBlanketOuter_A holding Arc<ArcBlanketInner>.
     let heap_a = FrozenHeap::new();
     let target_fv = heap_a.alloc_simple(SimpleData {
         flag: true,
         count: 271,
     });
-    let shared = Arc::new(InnerArcData {
+    let shared = Arc::new(ArcBlanketInner {
         target: target_fv,
         label: 42,
     });
-    heap_a.alloc_simple(OuterArcValue {
+    heap_a.alloc_simple(ArcBlanketOuter {
         inner: shared.clone(),
         outer_label: 1,
         items: vec![10, 20, 30],
@@ -2646,10 +2488,10 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
         "test_cross_heap_arc_dedup_explicit_heap_id_HA",
     ));
 
-    // HB: refs HA, holds OuterArcValue_B with a clone of the same Arc.
+    // HB: refs HA, holds ArcBlanketOuter_B with a clone of the same Arc.
     let heap_b = FrozenHeap::new();
     heap_b.add_reference(&heap_a_ref);
-    let outer_b_fv = heap_b.alloc_simple(OuterArcValue {
+    let outer_b_fv = heap_b.alloc_simple(ArcBlanketOuter {
         inner: shared,
         outer_label: 2,
         items: vec![40, 50],
@@ -2662,7 +2504,7 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     let ofv_b = unsafe { OwnedFrozen::unchecked_new(heap_b_ref, outer_b_fv.to_value()) };
 
     // Serializing OFV(HB, …) walks HB.refs first inside `page_out_item`, so HA
-    // — and the InnerArcData Arc body reachable through HA — is encoded under
+    // — and the ArcBlanketInner Arc body reachable through HA — is encoded under
     // HA's serialize context before HB's body is written.
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -2675,17 +2517,17 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     // context — are decoded inside HB's deserialize. The explicit `heap_id`
     // must still route the embedded FrozenValue into HA's arena.
     let restored_b = deser_owned_frozen_from_storage(&backing, &handle, &key_b)?;
-    let outer_b: &OuterArcValue = restored_b
+    let outer_b: &ArcBlanketOuter = restored_b
         .as_ref()
         .value()
-        .downcast_ref::<OuterArcValue>()
-        .expect("restored_b root is OuterArcValue");
+        .downcast_ref::<ArcBlanketOuter>()
+        .expect("restored_b root is ArcBlanketOuter");
     assert_eq!(outer_b.outer_label, 2);
     assert_eq!(outer_b.items, vec![40, 50]);
     assert_eq!(outer_b.inner.label, 42);
 
     // HB's owner refs HA. Partial deser will have materialized HA's
-    // SimpleData on demand when the InnerArcData was decoded; OuterArcValue_A
+    // SimpleData on demand when the ArcBlanketInner was decoded; ArcBlanketOuter_A
     // is unreachable from HB's root and intentionally stays unmaterialized.
     let hb_refs: Vec<_> = restored_b.owner().refs().collect();
     assert_eq!(hb_refs.len(), 1, "HB should retain its ref to HA");
