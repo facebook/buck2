@@ -29,7 +29,9 @@ import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -63,6 +65,7 @@ import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationBase
+import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrMetadataSourceOwner
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
@@ -117,6 +120,11 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
         object : IrElementVisitorVoidCompat() {
           override fun visitElement(element: IrElement) {
             element.acceptChildren(this, null)
+          }
+
+          override fun visitFile(declaration: IrFile) {
+            degradeErrorTypedFileMemberTypes(declaration)
+            super.visitFile(declaration)
           }
 
           override fun visitClass(declaration: IrClass) {
@@ -179,39 +187,30 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
             val firClass = firMetadataSource.fir as? FirRegularClass ?: return
 
+            // A member of a private/local class is not ABI surface even when it is declared
+            // public: no consumer can reference it, so degrading its unserializable type cannot
+            // make the ABI lie to anyone. This covers the common
+            // `private object Utils { fun get() = Dep.somethingUnresolvable() }` shape, where the
+            // member's own visibility is public but the enclosing object is private.
+            val classIsNonApi = isClassPrivate(firClass.symbol)
+
             firClass.symbol.declarationSymbols.forEach { symbol ->
               val decl = (symbol as? FirCallableSymbol<*>)?.fir ?: return@forEach
-              if (!isNonApiVisibility(decl)) return@forEach
-              if (hasErrorReturnType(decl)) {
-                runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
-              }
+              if (!classIsNonApi && !isNonApiVisibility(decl)) return@forEach
               // The metadata serializer collects functions/constructors from the class member
-              // SCOPE, which references these same symbols' FIR. An error-typed value parameter
-              // (e.g. a parameter typed by a nested enum of a stubbed dependency such as
-              // `CdsNavigationBar.Action`) crashes FirElementSerializer.valueParameterProto the
-              // same
-              // way an error return type does, so degrade those to `Any?` here as well. The
-              // IR-visitor pass only reaches parameters via firClass.declarations, which can be
-              // missing members that are served only from the member scope.
-              if (decl is FirFunction) {
-                decl.valueParameters.forEach { param ->
-                  if (hasErrorReturnType(param)) {
-                    runCatching {
-                      param.replaceReturnTypeRef(session.builtinTypes.nullableAnyType)
-                    }
-                  }
-                }
-              }
+              // SCOPE, which references these same symbols' FIR. An error type in any position the
+              // serializer reads — the return type, a value parameter (e.g. a parameter typed by a
+              // nested enum of a stubbed dependency such as `CdsNavigationBar.Action`), or a
+              // property's accessors/backing field — crashes FirElementSerializer the same way, so
+              // degrade all of them to `Any?` here. The IR-visitor pass only reaches these via
+              // firClass.declarations, which can be missing members served only from the scope.
+              degradeErrorTypedPositions(decl, session)
             }
 
             // Belt-and-suspenders: also cover anything present only in firClass.declarations.
             firClass.declarations.forEach { decl ->
-              if (
-                  decl is FirCallableDeclaration &&
-                      isNonApiVisibility(decl) &&
-                      hasErrorReturnType(decl)
-              ) {
-                runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+              if (decl is FirCallableDeclaration && (classIsNonApi || isNonApiVisibility(decl))) {
+                degradeErrorTypedPositions(decl, session)
               }
             }
           }
@@ -249,6 +248,67 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
                 runCatching { param.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
               }
             }
+          }
+
+          // The file facade's @Metadata is serialized by FirElementSerializer.packagePartProto,
+          // which iterates firFile.declarations. A private top-level member is deleted from the IR
+          // by the IR sanitizer before this pass runs, so visitSimpleFunction/visitProperty never
+          // reach it, yet the serializer still reads it from the FIR file and crashes on its error
+          // type (e.g. `private fun f() = Dep.unresolved()`).
+          private fun degradeErrorTypedFileMemberTypes(declaration: IrFile) {
+            val firFile = (declaration.metadata as? FirMetadataSource)?.fir as? FirFile ?: return
+            firFile.declarations.forEach { decl ->
+              if (decl is FirCallableDeclaration && isNonApiVisibility(decl)) {
+                degradeErrorTypedPositions(decl, session)
+              }
+            }
+          }
+
+          // Degrade every error-typed position the serializer reads for a callable, not just its
+          // own return type. propertyProto serializes the setter's value parameter whenever the
+          // accessors are non-default, which is the case for a delegated property
+          // (`private var x by AtomicReference(...)` with an unresolved `getValue`), so degrading
+          // only the property return type leaves the crash in place.
+          private fun degradeErrorTypedPositions(
+              decl: FirCallableDeclaration,
+              session: FirSession,
+          ) {
+            if (decl is FirProperty) {
+              // The property type, its getter return type, its setter's value parameter and its
+              // backing field all describe the SAME type, so they are degraded together: degrading
+              // them independently could leave metadata claiming `returnType = Foo` alongside
+              // `setterValueParameter = Any?`, a signature the bytecode does not have. The setter's
+              // own return type is Unit and is deliberately left alone. Of these, only the property
+              // type and the setter value parameter are known to be serialized today; the getter
+              // and backing field are included defensively.
+              val sameTypePositions =
+                  buildList<FirCallableDeclaration> {
+                    add(decl)
+                    decl.getter?.let { add(it) }
+                    decl.setter?.let { addAll(it.valueParameters) }
+                    decl.backingField?.let { add(it) }
+                  }
+              if (sameTypePositions.any { hasErrorReturnType(it) }) {
+                sameTypePositions.forEach {
+                  runCatching { it.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+                }
+              }
+              return
+            }
+            // A function's return type and each of its value parameters are independent, so they
+            // are degraded one by one to keep the degradation as narrow as possible.
+            degradeReturnTypeIfError(decl, session)
+            if (decl is FirFunction) {
+              decl.valueParameters.forEach { degradeReturnTypeIfError(it, session) }
+            }
+          }
+
+          private fun degradeReturnTypeIfError(
+              decl: FirCallableDeclaration,
+              session: FirSession,
+          ) {
+            if (!hasErrorReturnType(decl)) return
+            runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
           }
 
           // --- @Throws stripping helpers ---
