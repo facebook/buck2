@@ -3387,11 +3387,10 @@ fn test_restored_heap_refreshes_index_after_later_materialization() -> crate::Re
     Ok(())
 }
 
-/// A clean registered owner can hide a restored dependency that became dirty
-/// after the owner's transitive chunk indices were first registered.
+/// A clean registered owner can hide a restored transitive dependency that became dirty
+/// after the ownership graph's chunk indices were first registered.
 #[test]
-fn test_pointer_lookup_repairs_dirty_restored_dependency_hidden_by_clean_owner() -> crate::Result<()>
-{
+fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::Result<()> {
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
 
@@ -3426,20 +3425,45 @@ fn test_pointer_lookup_repairs_dirty_restored_dependency_hidden_by_clean_owner()
     drop(third);
 
     let restored_first = deser_owned_frozen_from_storage(&backing, &handle, &first_key)?;
+    let middle_heap = FrozenHeap::new();
+    let first_in_middle = restored_first
+        .as_ref()
+        .add_to_frozen_heap(&middle_heap)
+        .unpack_frozen()
+        .expect("value added from a frozen heap remains frozen");
+    let middle_root = middle_heap.alloc_simple(RefData {
+        label: 2,
+        target: first_in_middle,
+    });
+    let middle_heap_ref = middle_heap.into_ref_named(TestHeapName::heap_name("repair_middle"));
+    // SAFETY: `middle_heap_ref` owns `middle_root`.
+    let middle_root: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(middle_heap_ref.clone(), middle_root.to_value()) };
+
     let owner_heap = FrozenHeap::new();
-    let first_in_owner = restored_first
+    let middle_in_owner = middle_root
         .as_ref()
         .add_to_frozen_heap(&owner_heap)
         .unpack_frozen()
         .expect("value added from a frozen heap remains frozen");
     let owner_root = owner_heap.alloc_simple(RefData {
         label: 1,
-        target: first_in_owner,
+        target: middle_in_owner,
     });
     let owner_heap_ref = owner_heap.into_ref_named(TestHeapName::heap_name("repair_owner"));
     // SAFETY: `owner_heap_ref` owns `owner_root`.
     let owner_root: OwnedFrozen<Value> =
         unsafe { OwnedFrozen::unchecked_new(owner_heap_ref.clone(), owner_root.to_value()) };
+    assert_eq!(
+        owner_heap_ref.refs_slice(),
+        std::slice::from_ref(&middle_heap_ref),
+        "the owner should reference only the intermediate heap directly",
+    );
+    assert_eq!(
+        middle_heap_ref.refs_slice(),
+        std::slice::from_ref(restored_first.owner()),
+        "the restored dependency should be reachable only through the intermediate heap",
+    );
     let _owner_key = ser_owned_frozen_value_into_storage(&backing, &owner_root)?;
 
     let ser_state = backing
