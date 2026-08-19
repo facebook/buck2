@@ -759,6 +759,86 @@ impl CgroupMemoryMax {
     }
 }
 
+/// Build phases summarized on the `build-phases` async track: for each phase, one
+/// span from the first start to the last end of any matching span event. These are
+/// coarse envelopes for categories with no defined phase boundaries — they show
+/// where the bulk of each kind of work begins and ends, not exclusive intervals.
+/// Order defines the bit index used in phase masks.
+const BUILD_PHASES: [&str; 11] = [
+    "load",
+    "analysis",
+    "analysis (dynamic)",
+    "action",
+    "action: compile",
+    "action: link",
+    "action: lto",
+    "action: bolt",
+    "action: cache query",
+    "action: remote exec",
+    "action: local exec",
+];
+
+/// Bitmask over `BUILD_PHASES` of the phases a span belongs to. A span can be in
+/// several buckets (e.g. `action` and `action: link`).
+fn build_phase_mask(data: &buck2_data::span_start_event::Data) -> u16 {
+    use buck2_data::analysis_start::Target;
+    use buck2_data::span_start_event::Data;
+
+    let bit = |name: &str| -> u16 {
+        1 << BUILD_PHASES
+            .iter()
+            .position(|phase| *phase == name)
+            .expect("phase names in this function must appear in BUILD_PHASES")
+    };
+
+    match data {
+        Data::Load(..) => bit("load"),
+        Data::Analysis(analysis) => match &analysis.target {
+            // Anon targets are promise-driven, so group them with dynamic analysis.
+            Some(Target::AnonTarget(..) | Target::DynamicLambda(..)) => bit("analysis (dynamic)"),
+            Some(Target::StandardTarget(..)) | None => bit("analysis"),
+        },
+        Data::DynamicLambda(..) => bit("analysis (dynamic)"),
+        Data::ActionExecution(action) => {
+            let mut mask = bit("action");
+            if let Some(name) = &action.name {
+                for (keyword, phase) in [
+                    ("compile", "action: compile"),
+                    ("link", "action: link"),
+                    ("lto", "action: lto"),
+                    ("bolt", "action: bolt"),
+                ] {
+                    // Match whole snake_case tokens: `cxx_link` is a link but
+                    // `symlinked_dir` is not.
+                    if name.category.split('_').any(|token| token == keyword) {
+                        mask |= bit(phase);
+                    }
+                }
+            }
+            mask
+        }
+        Data::ExecutorStage(executor) => {
+            use buck2_data::executor_stage_start::Stage;
+            match &executor.stage {
+                Some(Stage::CacheQuery(..)) => bit("action: cache query"),
+                Some(Stage::Re(re)) => match &re.stage {
+                    Some(buck2_data::re_stage::Stage::Execute(..)) => bit("action: remote exec"),
+                    _ => 0,
+                },
+                Some(Stage::Local(local)) => match &local.stage {
+                    Some(
+                        buck2_data::local_stage::Stage::Execute(..)
+                        | buck2_data::local_stage::Stage::WorkerExecute(..),
+                    ) => bit("action: local exec"),
+                    _ => 0,
+                },
+                _ => 0,
+            }
+        }
+        _ => 0,
+    }
+}
+
 struct ChromeTraceWriter {
     trace_events: Vec<serde_json::Value>,
     open_spans: BuckMutMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
@@ -773,6 +853,82 @@ struct ChromeTraceWriter {
     allprocs_memory_max: CgroupMemoryMax,
     forkserver_actions_memory_max: CgroupMemoryMax,
     rate_of_change_counters: AverageRateOfChangeCounters,
+    // Distribution stats per entry of BUILD_PHASES.
+    build_phases: [BuildPhaseStats; BUILD_PHASES.len()],
+    // First/last snapshot timestamp at which each DICE key type's counters
+    // changed, for min/max envelopes on the "dice activity" track. Resolution
+    // is the DiceStateSnapshot cadence (~500ms).
+    dice_activity: BuckMutMap<String, (SystemTime, SystemTime)>,
+    dice_prev_key_states: BuckMutMap<String, buck2_data::DiceKeyState>,
+    // Phase memberships and start time of currently-open spans, applied to the
+    // stats when the corresponding SpanEnd arrives.
+    open_build_phase_spans: BuckMutMap<buck2_events::span::SpanId, (u16, SystemTime)>,
+}
+
+/// Where one build phase's work sits in time: the raw first-start/last-end
+/// envelope, plus duration-weighted moments of the work distribution. Each
+/// span's work is modeled as spread uniformly over its interval, so a span
+/// contributes `dur * midpoint` to the mean and a `dur^2 / 12` term to the
+/// variance. Offsets are signed f64 seconds relative to `base` — an arbitrary
+/// origin near the data (the first start processed) that keeps squared terms
+/// well within f64 precision. Spans processed out of log order can precede
+/// `base`, giving negative offsets; the moments are origin-invariant.
+#[derive(Default)]
+struct BuildPhaseStats {
+    envelope: Option<(SystemTime, SystemTime)>,
+    base: Option<SystemTime>,
+    span_count: u64,
+    weight_sum: f64,
+    weighted_mid_sum: f64,
+    weighted_sq_sum: f64,
+}
+
+/// Signed seconds from `base` to `t`; negative when `t` precedes `base`.
+fn signed_secs_since(base: SystemTime, t: SystemTime) -> f64 {
+    match t.duration_since(base) {
+        Ok(d) => d.as_secs_f64(),
+        Err(e) => -e.duration().as_secs_f64(),
+    }
+}
+
+impl BuildPhaseStats {
+    fn record_start(&mut self, timestamp: SystemTime) {
+        self.base.get_or_insert(timestamp);
+        self.envelope = Some(match self.envelope {
+            None => (timestamp, timestamp),
+            Some((start, end)) => (start.min(timestamp), end.max(timestamp)),
+        });
+    }
+
+    fn record_end(&mut self, start: SystemTime, end: SystemTime) {
+        if let Some((_, envelope_end)) = self.envelope.as_mut() {
+            *envelope_end = (*envelope_end).max(end);
+        }
+        self.span_count += 1;
+
+        let Some(base) = self.base else { return };
+        let offset = |t: SystemTime| signed_secs_since(base, t);
+        let (start, end) = (offset(start), offset(end));
+        let duration = end - start;
+        if duration <= 0.0 {
+            return;
+        }
+        let mid = (start + end) / 2.0;
+        self.weight_sum += duration;
+        self.weighted_mid_sum += duration * mid;
+        self.weighted_sq_sum += duration * (mid * mid + duration * duration / 12.0);
+    }
+
+    /// Duration-weighted (mean, stddev) of the work distribution, as offsets in
+    /// seconds from `base`. `None` when no span with nonzero duration was seen.
+    fn moments(&self) -> Option<(f64, f64)> {
+        if self.weight_sum <= 0.0 {
+            return None;
+        }
+        let mean = self.weighted_mid_sum / self.weight_sum;
+        let variance = (self.weighted_sq_sum / self.weight_sum - mean * mean).max(0.0);
+        Some((mean, variance.sqrt()))
+    }
 }
 
 #[repr(u8)]
@@ -805,7 +961,220 @@ impl ChromeTraceWriter {
             allprocs_memory_max: CgroupMemoryMax::default(),
             forkserver_actions_memory_max: CgroupMemoryMax::default(),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
+            build_phases: Default::default(),
+            dice_activity: BuckMutMap::default(),
+            dice_prev_key_states: BuckMutMap::default(),
+            open_build_phase_spans: BuckMutMap::default(),
         }
+    }
+
+    /// Emit one `dice activity` legacy async track: a parent envelope over all
+    /// DICE activity with a min/max child slice per key type, bounding when
+    /// that key type's snapshot counters were changing. Envelopes only — no
+    /// per-key-type distribution stats — to keep the event count small.
+    fn write_dice_activity(&mut self) -> buck2_error::Result<()> {
+        let Some(parent) = self
+            .dice_activity
+            .values()
+            .copied()
+            .reduce(|(first, last), (f, l)| (first.min(f), last.max(l)))
+        else {
+            return Ok(());
+        };
+
+        let mut children: Vec<(&String, &(SystemTime, SystemTime))> =
+            self.dice_activity.iter().collect();
+        children.sort_by_key(|(_, (first, _))| *first);
+
+        // "5." pins this track after the four ordinal-prefixed build-phase
+        // tracks in Perfetto's lexicographic group ordering.
+        const PARENT_NAME: &str = "5. dice activity";
+
+        let counter_args = |state: &buck2_data::DiceKeyState| {
+            json!({
+                "finished": state.finished,
+                "check_deps_finished": state.check_deps_finished,
+                "compute_finished": state.compute_finished,
+            })
+        };
+        let totals = self.dice_prev_key_states.values().fold(
+            buck2_data::DiceKeyState::default(),
+            |mut acc, s| {
+                acc.finished += s.finished;
+                acc.check_deps_finished += s.check_deps_finished;
+                acc.compute_finished += s.compute_finished;
+                acc
+            },
+        );
+
+        let mut events = Vec::with_capacity(2 * children.len() + 2);
+        events.push((
+            PARENT_NAME.to_owned(),
+            "b",
+            parent.0,
+            Some(counter_args(&totals)),
+        ));
+        for (key_type, (first, last)) in children {
+            // The final cumulative counters for this key type (counters only
+            // ever grow, so the value stored at its last change is the total).
+            let args = self.dice_prev_key_states.get(key_type).map(counter_args);
+            events.push(((*key_type).clone(), "b", *first, args));
+            events.push(((*key_type).clone(), "e", *last, None));
+        }
+        events.push((PARENT_NAME.to_owned(), "e", parent.1, None));
+
+        for (name, ph, timestamp, args) in events {
+            let mut event = json!({
+                "name": name,
+                "cat": "dice-activity",
+                "ph": ph,
+                "id": 0,
+                "pid": 0,
+                "tid": "dice-activity",
+                "ts": timestamp
+                    .duration_since(SystemTime::UNIX_EPOCH)?
+                    .as_micros() as u64,
+            });
+            if let Some(args) = args {
+                event["args"] = args;
+            }
+            self.trace_events.push(event);
+        }
+        Ok(())
+    }
+
+    fn record_build_phase_start(
+        &mut self,
+        span_id: buck2_events::span::SpanId,
+        mask: u16,
+        timestamp: SystemTime,
+    ) {
+        self.open_build_phase_spans
+            .insert(span_id, (mask, timestamp));
+        for (idx, stats) in self.build_phases.iter_mut().enumerate() {
+            if mask & (1 << idx) != 0 {
+                stats.record_start(timestamp);
+            }
+        }
+    }
+
+    fn record_build_phase_end(&mut self, mask: u16, start: SystemTime, end: SystemTime) {
+        for (idx, stats) in self.build_phases.iter_mut().enumerate() {
+            if mask & (1 << idx) != 0 {
+                stats.record_end(start, end);
+            }
+        }
+    }
+
+    /// Emit each non-empty phase as nested slices on its own legacy async track
+    /// (Perfetto groups these by `(pid, cat, id)` under the process, e.g. in
+    /// "Global Legacy Events"): the full first-start/last-end envelope, with
+    /// duration-weighted `±3σ` and `±1σ` bands of the work distribution nested
+    /// inside it. A phase whose bulk happens early with a long tail shows as a
+    /// wide envelope with the σ bands packed to the left.
+    fn write_build_phases(&mut self) -> buck2_error::Result<()> {
+        // Inset children so nesting stays unambiguous even when a band clamps
+        // to its parent's edge (same trick as CHILD_TIME_OFFSET above).
+        const BAND_INSET: f64 = 1e-6;
+
+        for (idx, stats) in self.build_phases.iter().enumerate() {
+            let Some((envelope_start, envelope_end)) = stats.envelope else {
+                continue;
+            };
+            let base = stats.base.expect("base is set whenever an envelope exists");
+            let envelope = (
+                0.0,
+                envelope_end
+                    .duration_since(envelope_start)
+                    .unwrap_or(Duration::ZERO)
+                    .as_secs_f64(),
+            );
+            // Zero or negative: `envelope_start` is the true minimum start,
+            // which precedes `base` when starts were processed out of log
+            // order.
+            let base_offset = signed_secs_since(base, envelope_start);
+
+            // Action sub-phases (`action: *`) render as envelope-only children
+            // on the parent `action` track rather than tracks of their own.
+            // Their envelopes partially overlap each other, which is safe on a
+            // shared track because SliceTracker::End matches slices by name.
+            let phase = BUILD_PHASES[idx];
+            let is_action_child = phase.starts_with("action: ");
+            let track_id = if is_action_child {
+                BUILD_PHASES
+                    .iter()
+                    .position(|p| *p == "action")
+                    .expect("BUILD_PHASES contains `action`")
+            } else {
+                idx
+            };
+
+            // The outermost slice names the async track group, and Perfetto
+            // orders the groups lexicographically, so prefix an ordinal to pin
+            // the display order (dice-activity takes the slot after these).
+            let envelope_name = if is_action_child {
+                phase.to_owned()
+            } else {
+                format!("{}. {phase}", track_id + 1)
+            };
+
+            // Bands as (name suffix, start, end) offsets in seconds from the
+            // envelope start, innermost last, each clamped inside its parent.
+            let mut bands: Vec<(String, f64, f64)> = vec![(envelope_name, envelope.0, envelope.1)];
+            if let Some((mean, sigma)) = stats.moments()
+                && !is_action_child
+            {
+                let mean = mean - base_offset;
+                let mut parent = envelope;
+                for (label, width) in [("±3σ", 3.0 * sigma), ("±1σ", sigma)] {
+                    let band = (
+                        (mean - width).max(parent.0 + BAND_INSET),
+                        (mean + width).min(parent.1 - BAND_INSET),
+                    );
+                    if band.0 >= band.1 {
+                        break;
+                    }
+                    bands.push((format!("{} {label}", BUILD_PHASES[idx]), band.0, band.1));
+                    parent = band;
+                }
+            }
+
+            let ts = |offset: f64| -> buck2_error::Result<u64> {
+                Ok(envelope_start
+                    .checked_add(Duration::from_secs_f64(offset))
+                    .unwrap_or(envelope_start)
+                    .duration_since(SystemTime::UNIX_EPOCH)?
+                    .as_micros() as u64)
+            };
+
+            // Begins outermost-first, ends innermost-first, so slices nest.
+            for (name, start, _) in &bands {
+                self.trace_events.push(json!({
+                    "name": name,
+                    "cat": "build-phase",
+                    "ph": "b",
+                    "id": track_id,
+                    "pid": 0,
+                    "tid": "build-phases",
+                    "ts": ts(*start)?,
+                    "args": {
+                        "span_count": stats.span_count,
+                    },
+                }));
+            }
+            for (name, _, end) in bands.iter().rev() {
+                self.trace_events.push(json!({
+                    "name": name,
+                    "cat": "build-phase",
+                    "ph": "e",
+                    "id": track_id,
+                    "pid": 0,
+                    "tid": "build-phases",
+                    "ts": ts(*end)?,
+                }));
+            }
+        }
+        Ok(())
     }
 
     fn set_cgroup_memory_counters(
@@ -898,6 +1267,8 @@ impl ChromeTraceWriter {
         self.rate_of_change_counters
             .counters
             .flush_all_to(&mut self.trace_events)?;
+        self.write_build_phases()?;
+        self.write_dice_activity()?;
 
         serde_json::to_writer(
             file,
@@ -949,6 +1320,13 @@ impl ChromeTraceWriter {
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(start_data),
             }) => {
+                let phase_mask = build_phase_mask(start_data);
+                if phase_mask != 0
+                    && let Some(span_id) = event.span_id()
+                {
+                    self.record_build_phase_start(span_id, phase_mask, event.timestamp());
+                }
+
                 let on_critical_path = event.span_id().is_some_and(|span_id| {
                     self.first_pass
                         .critical_path_span_ids
@@ -1303,6 +1681,18 @@ impl ChromeTraceWriter {
                             "http_download_bytes",
                             snapshot.http_download_bytes,
                         )?;
+                }
+                buck2_data::instant_event::Data::DiceStateSnapshot(dice) => {
+                    for (key_type, state) in &dice.key_states {
+                        if self.dice_prev_key_states.get(key_type) != Some(state) {
+                            self.dice_prev_key_states.insert(key_type.clone(), *state);
+                            let timestamp = event.timestamp();
+                            self.dice_activity
+                                .entry(key_type.clone())
+                                .and_modify(|(_, last)| *last = timestamp)
+                                .or_insert((timestamp, timestamp));
+                        }
+                    }
                 }
                 buck2_data::instant_event::Data::ResourceControlEvent(events) => {
                     self.snapshot_counters.set(
@@ -1663,6 +2053,12 @@ impl ChromeTraceWriter {
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.span_counters.handle_event_end(end, event)?;
+        if let Some((mask, start)) = self
+            .open_build_phase_spans
+            .remove(&event.span_id().unwrap())
+        {
+            self.record_build_phase_end(mask, start, event.timestamp());
+        }
         if let Some(open) = self.open_spans.remove(&event.span_id().unwrap()) {
             let duration = end
                 .duration
