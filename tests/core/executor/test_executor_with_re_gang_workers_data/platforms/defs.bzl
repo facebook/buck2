@@ -19,7 +19,7 @@ def _execution_platform(ctx):
             local_enabled = False,
             remote_enabled = True,
             remote_execution_properties = {
-                "platform": "mtia",
+                "platform": "mtia_simulation",
             },
             remote_execution_use_case = "buck2-testing",
         ),
