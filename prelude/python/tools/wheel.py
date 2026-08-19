@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import configparser
 import contextlib
+import csv
 import io
 import json
 import os
@@ -125,9 +126,16 @@ class WheelBuilder(contextlib.AbstractContextManager):
 
     def _write_record(self) -> None:
         record = self._dist_info("RECORD")
+        # RECORD is CSV, so a path containing a comma has to be quoted or it
+        # parses as extra fields and strict installers reject the wheel. For
+        # paths needing no quoting csv.writer emits exactly `path,,`.
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        for path in self._record + [record]:
+            writer.writerow([path, "", ""])
         self._outf.writestr(
             zinfo_or_arcname=zipfile.ZipInfo(filename=record),
-            data="".join([f"{f},,\n" for f in (self._record + [record])]),
+            data=buf.getvalue(),
         )
 
     def close(self) -> None:
