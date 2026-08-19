@@ -116,6 +116,15 @@ def cuda_distributed_compile(
     Compile a CUDA file using distributed compilation.
     NVCC provides the compilation plan, but compilation is split into
     one Buck action per sub-command.
+
+    Compilation modes that require a whole-program device link step are NOT
+    supported here: relocatable device code (-rdc=true / --device-c), device
+    LTO (-dlto), and PTX-only codegen all make nvcc -dryrun emit an nvlink
+    sub-command that dist NVCC cannot distribute. Such targets must set
+    cuda_compile_style = "mono". If one of these modes reaches this path, the
+    dryrun parser (tools/build/cuda/nvcc_dryrun.py) fails the
+    cuda_compile_prepare action with an actionable error that names the source
+    .cu and points to the mono escape hatch.
     """
     hostcc_argsfile = cuda_dist_output.hostcc_argsfile
 
