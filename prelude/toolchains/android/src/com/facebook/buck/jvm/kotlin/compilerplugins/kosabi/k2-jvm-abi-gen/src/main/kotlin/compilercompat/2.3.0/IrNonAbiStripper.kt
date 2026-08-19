@@ -45,8 +45,10 @@ import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtFile
 
-internal class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
-    IrGenerationExtension {
+internal class NonAbiDeclarationsStrippingIrExtension(
+    private val sourceFiles: List<KtFile>,
+    private val repairLog: AbiGenRepairLog,
+) : IrGenerationExtension {
 
   private fun shouldStripAnnotation(annotation: IrConstructorCall): Boolean {
     val annotationClass = annotation.symbol.owner.parent as? IrClass ?: return false
@@ -216,6 +218,7 @@ internal class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: L
             pluginContext.irFactory,
             pluginContext.irBuiltIns,
             pluginContext,
+            repairLog,
         ),
         null,
     )
@@ -227,6 +230,7 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     private val irFactory: IrFactory,
     private val irBuiltins: IrBuiltIns,
     private val pluginContext: IrPluginContext,
+    private val repairLog: AbiGenRepairLog,
 ) : IrElementTransformerVoidCompat() {
 
   override fun visitFile(declaration: IrFile): IrFile {
@@ -410,6 +414,14 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
         val defaultExpressionBody = generateDefaultExpressionBody(declaration.type)
         if (defaultExpressionBody != null) {
           declaration.initializer = defaultExpressionBody
+          // For a non-const field this only affects the initializer, which is not part of the
+          // ABI. For a const val it rewrites the ConstantValue attribute consumers inline.
+          val ownerPrefix = (declaration.parent as? IrClass)?.kotlinFqName?.asString()?.plus(".")
+          repairLog.recordReplacedFieldInitializer(
+              (ownerPrefix ?: "") + declaration.name.asString(),
+              "initializer contained a call that source-only ABI cannot evaluate; " +
+                  "replaced with the default value for ${declaration.type.classFqName?.asString()}",
+          )
         }
       }
     }
