@@ -77,7 +77,7 @@ dunce = "1.0.5"
 either = "1.17.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
-enum-map = "2.7.3"
+enum-map = "3.1.0"
 env_logger = { version = "0.11.11", features = ["color"] }
 equivalent = "1.0.2"
 erased-serde = "0.4.10"

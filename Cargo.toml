@@ -317,7 +317,7 @@ dupe = { path = "gazebo/dupe" }
 either = "1.17.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
-enum-map = "2.7.3"
+enum-map = "3.1.0"
 equivalent = "1.0.2"
 faccess = "0.2.4"
 fancy-regex = "0.16.2"
