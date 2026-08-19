@@ -158,6 +158,18 @@ impl InvocationPaths {
         self.cache_dir_path().join(self.dep_file_state_dir_name())
     }
 
+    /// Subdirectory of `cache_dir` holding event logs downloaded from remote storage
+    /// by `buck2 log` commands, and their in-flight `.tmp` staging files. Kept apart
+    /// from `log_dir` so downloads never appear in local log listings, and apart from
+    /// the action scratch dirs, which are cleaned by liveness.
+    ///
+    /// Deliberately absent from [`Self::valid_cache_dirs`], so it is wiped on daemon
+    /// startup: it is purely a cache of remote content, and the wipe bounds it
+    /// without a dedicated reaper.
+    pub fn log_download_cache_dir(&self) -> AbsNormPathBuf {
+        self.cache_dir_path().join(FileName::unchecked_new("logs"))
+    }
+
     /// Subdirectory of `cache_dir` responsible for storing paged-out DICE node
     /// values (see `buck2_hydration.enable_paging`).
     ///

@@ -109,18 +109,15 @@ impl EventLogOptions {
             Encoding::PROTO_ZSTD.extensions[0]
         ))?;
 
-        let log_path = ctx
-            .paths()?
-            .log_dir()
-            .join(FileName::new(&format!("dl-{log_file_name}"))?);
+        let dl_cache_dir = ctx.paths()?.log_download_cache_dir();
+        let log_path = dl_cache_dir.join(&log_file_name);
 
         if fs_util::try_exists(&log_path)? {
             return Ok(log_path.into_abs_path_buf());
         }
 
-        let tmp_dir = ctx.paths()?.tmp_dir();
-        fs_util::create_dir_all(&tmp_dir)?;
-        let temp_path = tmp_dir.join(FileName::new(&format!(
+        fs_util::create_dir_all(&dl_cache_dir)?;
+        let temp_path = dl_cache_dir.join(FileName::new(&format!(
             "dl.{}.{}.tmp",
             log_file_name,
             Self::random_string()
