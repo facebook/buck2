@@ -8,6 +8,7 @@
 
 import os
 
+from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platform
 
@@ -25,7 +26,7 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
         return [elem for item in split_list for elem in (to_bxl_param, item)]
 
     @buck_test(inplace=True)
-    async def test_check_dependencies_bxl(buck) -> None:
+    async def test_check_dependencies_bxl(buck: Buck) -> None:
         allowlist_args = pass_list_arg(
             from_env_var="ALLOWLIST", to_bxl_param="--allowlist_patterns"
         )
