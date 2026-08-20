@@ -35,6 +35,7 @@ pub mod starlark_error;
 #[doc(inline)]
 pub use classify::Tier;
 pub use context::BuckErrorContext;
+pub use context::BuckErrorOptionContext;
 pub use context_value::ContextValue;
 pub use context_value::TypedContext;
 pub use conversion::serde::BuckErrorSerde;

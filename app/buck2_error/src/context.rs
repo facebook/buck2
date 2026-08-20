@@ -113,6 +113,37 @@ where
     }
 }
 
+/// Provides `internal_error` for `Option`, turning an unexpected `None` into a tagged internal
+/// error. `Option` deliberately gets only this subset of [`BuckErrorContext`]: there is no
+/// underlying error to wrap, so the general context methods would have to synthesize a root
+/// error out of an arbitrary `ContextValue`.
+pub trait BuckErrorOptionContext<T>: Sealed {
+    #[track_caller]
+    fn internal_error(self, message: &str) -> crate::Result<T> {
+        self.with_internal_error(|| message.to_owned())
+    }
+
+    #[track_caller]
+    fn with_internal_error<F>(self, f: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> String;
+}
+
+impl<T> Sealed for Option<T> {}
+
+impl<T> BuckErrorOptionContext<T> for Option<T> {
+    #[track_caller]
+    fn with_internal_error<F>(self, f: F) -> crate::Result<T>
+    where
+        F: FnOnce() -> String,
+    {
+        match self {
+            Some(x) => Ok(x),
+            None => Err(crate::macros::internal_error_impl(format_args!("{}", f()))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::any::Any;
@@ -154,6 +185,30 @@ mod tests {
         fn display(&self) -> Option<String> {
             Some(format!("{self:?}"))
         }
+    }
+
+    #[test]
+    fn test_option_internal_error() {
+        assert_eq!(
+            Some(42).internal_error("missing").unwrap(),
+            42,
+            "Some should pass through unchanged"
+        );
+
+        let err = None::<u32>.internal_error("missing").unwrap_err();
+        assert!(
+            format!("{err:#}").contains("missing (internal error)"),
+            "message should match the Result path's shape, got: {err:#}"
+        );
+        assert!(err.has_tag(crate::ErrorTag::InternalError));
+
+        let err = None::<u32>
+            .with_internal_error(|| format!("key `{}`", 1))
+            .unwrap_err();
+        assert!(
+            format!("{err:#}").contains("key `1` (internal error)"),
+            "lazy message should be formatted, got: {err:#}"
+        );
     }
 
     #[test]
