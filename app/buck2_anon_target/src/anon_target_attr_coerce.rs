@@ -129,11 +129,13 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 // Check if this is a StarlarkPromiseArtifact first before checking other artifact types to
                 // allow anon targets to accept unresolved promise artifacts.
                 if let Some(promise_artifact) = StarlarkPromiseArtifact::from_value(value) {
-                    Ok(AnonTargetAttr::PromiseArtifact(PromiseArtifactAttr {
-                        id: promise_artifact.artifact.id.clone(),
-                        short_path: promise_artifact.short_path.clone(),
-                        has_content_based_path: promise_artifact.has_content_based_path,
-                    }))
+                    Ok(AnonTargetAttr::PromiseArtifact(Box::new(
+                        PromiseArtifactAttr {
+                            id: promise_artifact.artifact.id.clone(),
+                            short_path: promise_artifact.short_path.clone(),
+                            has_content_based_path: promise_artifact.has_content_based_path,
+                        },
+                    )))
                 } else if let Some(artifact_like) = ValueAsInputArtifactLike::unpack_value(value)? {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
@@ -150,7 +152,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 if let Some(resolved_macro) = ResolvedStringWithMacros::from_value(value) {
                     match resolved_macro.configured_macros() {
                         Some(configured_macros) => {
-                            Ok(AnonTargetAttr::Arg(configured_macros.clone()))
+                            Ok(AnonTargetAttr::Arg(Box::new(configured_macros.clone())))
                         }
                         None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
                     }

@@ -31,6 +31,7 @@ use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::json::ToJsonWithContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
+use buck2_util::size_assert;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use pagable::Pagable;
@@ -76,10 +77,17 @@ pub enum AnonTargetAttr {
     // Accepts any bound artifacts. Maps to `attr.source()`.
     Artifact(Artifact),
     // Accepts unresolved promise artifacts. Maps to `attr.source()`.
-    PromiseArtifact(PromiseArtifactAttr),
-    Arg(ConfiguredStringWithMacros),
+    PromiseArtifact(Box<PromiseArtifactAttr>),
+    Arg(Box<ConfiguredStringWithMacros>),
     Label(ProvidersLabel),
 }
+
+// Anon target attrs live in the `AnonTarget` DICE key, which is retained for
+// the daemon lifetime, and large anon targets (e.g. anonymous link groups)
+// hold millions of these inline in lists and tuples — so every inline word
+// here is paid at scale. Fat payloads must be boxed (`Dep`, `PromiseArtifact`,
+// `Arg`).
+size_assert::words_of_type!(AnonTargetAttr, 3);
 
 impl AttrSerializeWithContext for AnonTargetAttr {
     fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
@@ -194,7 +202,6 @@ impl AnonTargetAttr {
         }
     }
 
-    #[allow(unused)]
     pub(crate) fn traverse_anon_attr(
         &self,
         traversal: &mut dyn AnonTargetAttrTraversal,
