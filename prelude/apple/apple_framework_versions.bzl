@@ -958,6 +958,13 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 9, 0),
         "watchos": (3, 0, 0),
     },
+    "StateReporting": {
+        "appletvos": (27, 0, 0),
+        "iphoneos": (27, 0, 0),
+        "macosx": (27, 0, 0),
+        "visionos": (27, 0, 0),
+        "watchos": (27, 0, 0),
+    },
     "StickerKit": {
         "iphoneos": (18, 0, 0),
         "macosx": (15, 0, 0),
