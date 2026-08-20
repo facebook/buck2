@@ -135,7 +135,7 @@ pub(crate) fn apply_slice<T: Copy>(
         .into_iter()
         .enumerate()
         .filter_map(|x| {
-            if 0 == (x.0 as u32 % astride) {
+            if (x.0 as u32).is_multiple_of(astride) {
                 Some(x.1)
             } else {
                 None
