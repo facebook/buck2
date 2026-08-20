@@ -25,8 +25,6 @@ use buck2_build_signals::env::EXCLUSIVE_COMMAND_WAIT;
 use buck2_build_signals::env::EarlyCommandTimingBuilder;
 use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
-use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
-use buck2_core::fs::project::ProjectRoot;
 use buck2_core::soft_error;
 use buck2_data::CommandPreempted;
 use buck2_data::DiceBlockConcurrentCommandEnd;
@@ -64,9 +62,6 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::RecvError;
-
-use crate::ctx::LockedPreviousCommandData;
-use crate::experiment_util::get_experiment_tags;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -267,6 +262,21 @@ pub trait DiceUpdater: Send + Sync {
     ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)>;
 }
 
+/// Per-command work that needs the committed `DiceTransaction` but is not part of deciding whether
+/// the command may run. Returning `Err` fails the command.
+///
+/// This is invoked while the concurrency lock is held, immediately after the transaction is
+/// committed and before the command is registered as active. Implementations that compare against
+/// state shared between commands rely on that ordering, so moving the call is a behavioural change,
+/// not a refactor.
+#[async_trait]
+pub trait CommandTransactionObserver: Send + Sync {
+    async fn on_transaction_committed(
+        &self,
+        transaction: &DiceTransaction,
+    ) -> buck2_error::Result<()>;
+}
+
 #[derive(Allocative)]
 struct ExclusiveCommandLock {
     lock: tokio::sync::RwLock<()>,
@@ -361,8 +371,7 @@ impl ConcurrencyHandler {
         exclusive_cmd: Option<String>,
         cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
-        previous_command_data: Arc<LockedPreviousCommandData>,
-        project_root: &ProjectRoot,
+        transaction_observer: &dyn CommandTransactionObserver,
         exit_when: ExitWhen,
         mut early_command_timing: EarlyCommandTimingBuilder,
     ) -> buck2_error::Result<R>
@@ -409,8 +418,7 @@ impl ConcurrencyHandler {
                                     is_nested_invocation,
                                     sanitized_argv,
                                     preemptible,
-                                    previous_command_data,
-                                    project_root,
+                                    transaction_observer,
                                     exit_when,
                                 )
                             })
@@ -446,8 +454,7 @@ impl ConcurrencyHandler {
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
         preemptible: PreemptibleWhen,
-        previous_command_data: Arc<LockedPreviousCommandData>,
-        project_root: &ProjectRoot,
+        transaction_observer: &dyn CommandTransactionObserver,
         exit_when: ExitWhen,
     ) -> buck2_error::Result<(
         OnExecExit,
@@ -458,7 +465,6 @@ impl ConcurrencyHandler {
         #![allow(clippy::await_holding_invalid_type)]
 
         let trace = event_dispatcher.trace_id().dupe();
-        let current_sanitized_argv = sanitized_argv.clone();
 
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
         // FIXME(JakobDegen): Clippy points out that tracing won't know when this future gets
@@ -648,36 +654,10 @@ impl ConcurrencyHandler {
             data.previously_tainted = true;
         }
 
-        if transaction
-            .ctx()
-            .is_injected_external_buckconfig_data_key_set()
-            .await?
-        {
-            let external_configs = transaction
-                .ctx()
-                .get_injected_external_buckconfig_data()
-                .await?;
-            let current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent> =
-                external_configs
-                    .get_buckconfig_components(project_root)
-                    .await;
+        transaction_observer
+            .on_transaction_committed(&transaction)
+            .await?;
 
-            let mut previous_command_data = previous_command_data.data.lock().unwrap();
-
-            previous_command_data.process_current_command(
-                event_dispatcher.dupe(),
-                current_external_and_local_configs.clone(),
-                current_sanitized_argv,
-                trace,
-            );
-
-            event_dispatcher.instant_event(buck2_data::TagEvent {
-                tags: get_experiment_tags(&current_external_and_local_configs),
-            });
-            event_dispatcher.instant_event(buck2_data::BuckconfigInputValues {
-                components: current_external_and_local_configs,
-            });
-        }
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
         // This adds the task to the list of all tasks (see ::new impl)
@@ -819,8 +799,6 @@ mod tests {
     use async_trait::async_trait;
     use buck2_build_signals::env::EXCLUSIVE_COMMAND_WAIT;
     use buck2_build_signals::env::FILE_WATCHER_WAIT;
-    use buck2_common::legacy_configs::dice::SetLegacyConfigs;
-    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::is_open_source;
     use buck2_events::BuckEvent;
     use buck2_events::create_source_sink_pair;
@@ -847,11 +825,24 @@ mod tests {
     use tokio::sync::RwLock;
 
     use super::*;
-    use crate::ctx::LockedPreviousCommandData;
 
     /// Creates a new null Event Dispatcher with trace ID that accepts events but does not write them anywhere.
     fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
         EventDispatcher::new(trace_id, DaemonId::new(), NullEventSink::new())
+    }
+
+    /// The production observer emits buckconfig telemetry; concurrency behaviour does not depend
+    /// on it, so tests use one that does nothing.
+    struct NoTelemetry;
+
+    #[async_trait]
+    impl CommandTransactionObserver for NoTelemetry {
+        async fn on_transaction_committed(
+            &self,
+            _transaction: &DiceTransaction,
+        ) -> buck2_error::Result<()> {
+            Ok(())
+        }
     }
 
     struct NoChanges;
@@ -898,12 +889,10 @@ mod tests {
         }
     }
 
-    async fn make_default_dice() -> Arc<Dice> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-        let mut updater = dice.updater();
-        drop(updater.set_none_legacy_config_external_data());
-        updater.commit().await;
-        dice
+    /// The concurrency manager itself reads no injected keys; the buckconfig data the old inline
+    /// telemetry needed is now the observer's concern, and tests use `NoTelemetry`.
+    fn make_default_dice() -> Arc<Dice> {
+        Dice::builder().build(DetectCycles::Enabled)
     }
 
     /// Builder for a test call to [`ConcurrencyHandler::enter`], which otherwise takes twelve
@@ -946,7 +935,6 @@ mod tests {
             F: FnOnce(DiceTransaction, EarlyCommandTimingBuilder) -> Fut,
             Fut: Future<Output = R> + Send,
         {
-            let project_root = ProjectRootTemp::new().unwrap();
             concurrency
                 .enter(
                     self.dispatcher,
@@ -957,8 +945,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     self.preemptible,
-                    LockedPreviousCommandData::default().into(),
-                    project_root.path(),
+                    &NoTelemetry,
                     self.exit_when,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -1001,7 +988,7 @@ mod tests {
         if is_open_source() {
             return;
         }
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
@@ -1009,8 +996,6 @@ mod tests {
         let traces3 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(3));
-
-        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             null_sink_with_trace(traces1),
@@ -1026,8 +1011,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1045,8 +1029,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1064,8 +1047,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1078,7 +1060,7 @@ mod tests {
 
     #[tokio::test]
     async fn nested_invocation_should_error() {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -1086,7 +1068,6 @@ mod tests {
         let traces2 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(2));
-        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             null_sink_with_trace(traces1),
@@ -1102,8 +1083,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1122,8 +1102,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1138,7 +1117,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_same_transaction() {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -1147,8 +1126,6 @@ mod tests {
         let traces3 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(3));
-
-        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             null_sink_with_trace(traces1),
@@ -1164,8 +1141,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1183,8 +1159,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1202,8 +1177,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -1216,7 +1190,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1254,8 +1228,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1282,8 +1255,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1312,8 +1284,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1342,7 +1313,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1380,8 +1351,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitDifferentState,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1408,8 +1378,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitDifferentState,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1438,8 +1407,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitDifferentState,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1473,7 +1441,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1511,8 +1479,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1539,8 +1506,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1569,8 +1535,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -1605,7 +1570,7 @@ mod tests {
     /// reached only from the `BypassSemaphore::Run` call site.
     #[tokio::test]
     async fn on_different_state_survives_a_same_state_command() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice);
 
         let block = Arc::new(RwLock::new(()));
@@ -1647,7 +1612,7 @@ mod tests {
     #[tokio::test]
     async fn on_different_state_is_preempted_by_a_different_state_command()
     -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice);
 
         let block = Arc::new(RwLock::new(()));
@@ -1705,7 +1670,7 @@ mod tests {
     /// `NoActiveDiceState`, and one that joins an equivalent state reports `DiceEqualityCheck`.
     #[tokio::test]
     async fn dice_state_transitions_are_reported_as_events() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice);
 
         let (mut first_source, first_sink) = create_source_sink_pair();
@@ -1769,7 +1734,7 @@ mod tests {
     /// transaction is still winding down is tainted, and says so.
     #[tokio::test]
     async fn command_taking_over_non_idle_dice_is_tagged_tainted() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let key = CleanupTestKey {
             is_executing: Arc::new(Mutex::new(())),
@@ -1866,7 +1831,7 @@ mod tests {
 
         let key = &key;
 
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1902,8 +1867,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -1924,8 +1888,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -1945,8 +1908,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -2027,7 +1989,7 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::await_holding_lock)] // Intentional: testing exclusive access
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
         let dispatcher = EventDispatcher::new(TraceId::new(), DaemonId::new(), sink);
@@ -2058,8 +2020,7 @@ mod tests {
                             exclusive_cmd,
                             CancellationContext::testing(),
                             PreemptibleWhen::Never,
-                            LockedPreviousCommandData::default().into(),
-                            ProjectRootTemp::new().unwrap().path(),
+                            &NoTelemetry,
                             ExitWhen::ExitNever,
                             EarlyCommandTimingBuilder::new(Instant::now()),
                         )
@@ -2115,7 +2076,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_thundering_herd() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -2136,8 +2097,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNever,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2159,7 +2119,7 @@ mod tests {
             }
         }
 
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -2186,7 +2146,6 @@ mod tests {
             on_enter: AtomicBool::new(false),
             allow_exit: AtomicBool::new(false),
         };
-        let project_root_temp = ProjectRootTemp::new().unwrap();
         let fut1 = concurrency.enter(
             EventDispatcher::null(),
             &updater1,
@@ -2198,8 +2157,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -2222,8 +2180,7 @@ mod tests {
             None,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
-            LockedPreviousCommandData::default().into(),
-            project_root_temp.path(),
+            &NoTelemetry,
             ExitWhen::ExitNever,
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
@@ -2257,7 +2214,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_with_same_state() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2288,8 +2245,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2314,8 +2270,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2341,7 +2296,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_with_different_state() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2372,8 +2327,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2398,8 +2352,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2428,7 +2381,7 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_exit_when_not_idle_commands_with_same_state() -> buck2_error::Result<()>
     {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2460,8 +2413,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNotIdle,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2485,8 +2437,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2506,8 +2457,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2540,7 +2490,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_with_preemptible_command() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2571,8 +2521,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always, // This command is preemptible
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2599,8 +2548,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2633,7 +2581,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_exit_when_not_idle_gets_preempted() -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2667,8 +2615,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNotIdle,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2706,8 +2653,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never, // Not preemptible
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNever,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2734,7 +2680,7 @@ mod tests {
     #[tokio::test]
     async fn test_multiple_exit_when_not_idle_commands_with_different_state()
     -> buck2_error::Result<()> {
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2765,8 +2711,7 @@ mod tests {
                         None,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNotIdle,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -2791,8 +2736,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
-                    LockedPreviousCommandData::default().into(),
-                    ProjectRootTemp::new().unwrap().path(),
+                    &NoTelemetry,
                     ExitWhen::ExitNotIdle,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2821,7 +2765,7 @@ mod tests {
         // This test verifies that when the daemon is idle (no command is currently running),
         // a command with --exit-when=notidle should succeed if it has the same state as the
         // previous command that has finished.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2841,8 +2785,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -2866,8 +2809,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNotIdle,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -2886,7 +2828,7 @@ mod tests {
         // This test verifies that when the daemon is idle (no command is currently running),
         // a command with --exit-when=notidle should succeed even if it has a different state
         // than previous commands.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -2906,8 +2848,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -2931,8 +2872,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNotIdle,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -2974,7 +2914,7 @@ mod tests {
     async fn test_enter_duration_parameter_populated() -> buck2_error::Result<()> {
         // Test that the duration parameter passed to the enter() callback is properly populated
         // when waiting for an exclusive command lock.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces1 = TraceId::new();
@@ -3006,8 +2946,7 @@ mod tests {
                         Some("exclusive_test".to_owned()),
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -3039,8 +2978,7 @@ mod tests {
                         Some("exclusive_test_2".to_owned()),
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
-                        LockedPreviousCommandData::default().into(),
-                        ProjectRootTemp::new().unwrap().path(),
+                        &NoTelemetry,
                         ExitWhen::ExitNever,
                         EarlyCommandTimingBuilder::new(Instant::now()),
                     )
@@ -3072,7 +3010,7 @@ mod tests {
     #[tokio::test]
     async fn test_enter_duration_parameter_zero_for_non_exclusive() -> buck2_error::Result<()> {
         // Test that the duration parameter is zero when no exclusive command lock is needed.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         let traces = TraceId::new();
@@ -3095,8 +3033,7 @@ mod tests {
                 None, // No exclusive command
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -3117,7 +3054,7 @@ mod tests {
     async fn test_file_watcher_sync_duration_captured() -> buck2_error::Result<()> {
         // Test that file_watcher_sync_duration is properly captured when the updater
         // returns a non-zero duration.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         struct UpdaterWithDelay;
@@ -3159,8 +3096,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -3187,7 +3123,7 @@ mod tests {
     -> buck2_error::Result<()> {
         // Test that file_watcher_sync_duration is accumulated across multiple loop iterations
         // when the dice state transitions through cleanup.
-        let dice = make_default_dice().await;
+        let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
         // First, establish an active DICE state by running a command
@@ -3205,8 +3141,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )
@@ -3261,8 +3196,7 @@ mod tests {
                 None,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
-                LockedPreviousCommandData::default().into(),
-                ProjectRootTemp::new().unwrap().path(),
+                &NoTelemetry,
                 ExitWhen::ExitNever,
                 EarlyCommandTimingBuilder::new(Instant::now()),
             )

@@ -22,6 +22,7 @@ use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::ExitWhen;
 use buck2_cli_proto::client_context::PreemptibleWhen;
+use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -42,8 +43,10 @@ use dice::DiceTransaction;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
+use crate::concurrency::CommandTransactionObserver;
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
+use crate::experiment_util::get_experiment_tags;
 use crate::stderr_output_guard::StderrOutputGuard;
 
 #[derive(Allocative, Debug)]
@@ -97,6 +100,62 @@ impl LockedPreviousCommandData {
         Arc::new(LockedPreviousCommandData {
             data: Mutex::new(PreviousCommandData { data: None }),
         })
+    }
+}
+
+/// Emits the buckconfig-derived telemetry for a command: the comparison against the previous
+/// command's config, the experiment tags, and the config values themselves.
+struct BuckconfigTelemetry<'a> {
+    events: EventDispatcher,
+    project_root: &'a ProjectRoot,
+    previous_command_data: Arc<LockedPreviousCommandData>,
+    sanitized_argv: Vec<String>,
+    trace_id: TraceId,
+}
+
+#[async_trait]
+impl CommandTransactionObserver for BuckconfigTelemetry<'_> {
+    async fn on_transaction_committed(
+        &self,
+        transaction: &DiceTransaction,
+    ) -> buck2_error::Result<()> {
+        if !transaction
+            .ctx()
+            .is_injected_external_buckconfig_data_key_set()
+            .await?
+        {
+            return Ok(());
+        }
+
+        let external_configs = transaction
+            .ctx()
+            .get_injected_external_buckconfig_data()
+            .await?;
+        let current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent> =
+            external_configs
+                .get_buckconfig_components(self.project_root)
+                .await;
+
+        self.previous_command_data
+            .data
+            .lock()
+            .unwrap()
+            .process_current_command(
+                self.events.dupe(),
+                current_external_and_local_configs.clone(),
+                self.sanitized_argv.clone(),
+                self.trace_id.dupe(),
+            );
+
+        self.events.instant_event(buck2_data::TagEvent {
+            tags: get_experiment_tags(&current_external_and_local_configs),
+        });
+        self.events
+            .instant_event(buck2_data::BuckconfigInputValues {
+                components: current_external_and_local_configs,
+            });
+
+        Ok(())
     }
 }
 
@@ -224,6 +283,14 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
 
         let early_command_timing = EarlyCommandTimingBuilder::new(self.command_start());
 
+        let transaction_observer = BuckconfigTelemetry {
+            events: self.events().dupe(),
+            project_root: self.project_root(),
+            previous_command_data: self.previous_command_data(),
+            sanitized_argv: sanitized_argv.clone(),
+            trace_id: self.events().trace_id().dupe(),
+        };
+
         let events = self.events().dupe();
         events
             .span_async(DiceCriticalSectionStart {}, async move {
@@ -284,8 +351,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             exclusive_cmd,
                             self.cancellation_context(),
                             preemptible,
-                            self.previous_command_data(),
-                            self.project_root(),
+                            &transaction_observer,
                             exit_when,
                             early_command_timing,
                         )
