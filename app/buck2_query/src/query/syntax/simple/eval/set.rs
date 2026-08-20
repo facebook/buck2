@@ -213,7 +213,7 @@ impl<T: QueryTarget> TargetSet<T> {
 
     pub fn kind(&self, regex: &str) -> buck2_error::Result<TargetSet<T>> {
         let re = Regex::new(regex)?;
-        self.filter(|node| Ok(re.is_match(&node.rule_type())?))
+        self.filter(|node| Ok(re.is_match(&*node.rule_type())?))
     }
 
     pub fn intersect(&self, right: &TargetSet<T>) -> buck2_error::Result<TargetSet<T>> {
