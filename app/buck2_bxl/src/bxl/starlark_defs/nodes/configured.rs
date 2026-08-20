@@ -546,7 +546,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         };
 
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
-        let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
+        let mut resolved_attrs = Vec::with_capacity(attrs_iter.len());
 
         for a in attrs_iter {
             resolved_attrs.push((

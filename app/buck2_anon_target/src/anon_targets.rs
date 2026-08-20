@@ -248,7 +248,11 @@ impl AnonTargetKey {
 
         let entries = attributes.entries;
         let attrs_spec = rule.attributes();
-        let mut attrs = OrderedMap::with_capacity(attrs_spec.len());
+        // Internal attrs are never stored in the map (rejected or skipped
+        // below), so size the allocation for the non-internal attrs only.
+        // This map is retained for the lifetime of the anon target key, so
+        // over-allocating here wastes memory for every anon target.
+        let mut attrs = OrderedMap::with_capacity(attrs_spec.num_non_internal_attrs());
 
         let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
 

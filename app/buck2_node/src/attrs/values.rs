@@ -37,6 +37,10 @@ impl AttrValues {
         self.sorted.get(index).map(|(id, v)| (*id, v))
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.sorted.len()
+    }
+
     pub fn get(&self, id: AttributeId) -> Option<&CoercedAttr> {
         // Could use binary search here, but for small attr map like 20
         // linear search is faster.

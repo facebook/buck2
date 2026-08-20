@@ -23,7 +23,7 @@ pub(crate) fn node_to_attrs_struct<'v>(
     ctx: &mut dyn AttrResolutionContext<'v>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
     let attrs_iter = node.attrs(AttrInspectOptions::All);
-    let mut resolved_attrs = Vec::with_capacity(attrs_iter.size_hint().0);
+    let mut resolved_attrs = Vec::with_capacity(attrs_iter.len());
     for a in attrs_iter {
         resolved_attrs.push((a.name, a.value.resolve_single(node.label().pkg(), ctx)?));
     }

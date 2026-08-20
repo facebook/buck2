@@ -312,7 +312,10 @@ impl TargetNode {
     ///
     /// "attribute" here is a user defined attribute, not including "special" attributes.
     #[inline]
-    pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull<'_>> {
+    pub fn attrs(
+        &self,
+        opts: AttrInspectOptions,
+    ) -> impl ExactSizeIterator<Item = CoercedAttrFull<'_>> {
         self.as_ref().attrs(opts)
     }
 
@@ -508,7 +511,10 @@ impl<'a> TargetNodeRef<'a> {
     /// Get the iterator of all attributes.
     ///
     /// "attribute" here is a user defined attribute, not including "special" attributes.
-    pub fn attrs(self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull<'a>> {
+    pub fn attrs(
+        self,
+        opts: AttrInspectOptions,
+    ) -> impl ExactSizeIterator<Item = CoercedAttrFull<'a>> {
         self.0
             .get()
             .rule

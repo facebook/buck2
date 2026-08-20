@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use gazebo::prelude::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -89,8 +90,13 @@ impl AttributeSpec {
     ) -> buck2_error::Result<Self> {
         let internal_attrs = common_internal_attrs();
 
+        // Internal attrs are inserted below in addition to the user-declared
+        // ones; include them in the capacity so the map does not regrow, as it
+        // is retained for the lifetime of the rule definition.
+        let num_internal_attrs =
+            internal_attrs.len() + usize::from(cfg == &RuleIncomingTransition::FromAttribute);
         let mut instances: OrderedMap<Box<str>, Attribute> =
-            OrderedMap::with_capacity(attributes.len());
+            OrderedMap::with_capacity(attributes.len() + num_internal_attrs);
         for (name, instance) in internal_attrs {
             let prev = instances.insert((*name).into(), instance.clone());
             if prev.is_some() {
@@ -133,6 +139,19 @@ impl AttributeSpec {
         self.attributes.len()
     }
 
+    /// Number of attributes excluding internal attributes, i.e. the number of
+    /// attributes declared in the `rule()` call. O(1).
+    pub fn num_non_internal_attrs(&self) -> usize {
+        // All common internal attrs are unconditionally present, and user
+        // attrs may not shadow internal ones, so the subtraction is exact.
+        let num_internal = common_internal_attrs().len()
+            + usize::from(
+                self.attributes
+                    .contains_key(INCOMING_TRANSITION_ATTRIBUTE.name),
+            );
+        self.attributes.len() - num_internal
+    }
+
     pub fn attr_specs(&self) -> impl ExactSizeIterator<Item = (&str, AttributeId, &Attribute)> {
         self.attributes
             .iter()
@@ -169,7 +188,15 @@ impl AttributeSpec {
         &'v self,
         attr_values: &'v AttrValues,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = CoercedAttrFull<'v>> {
+    ) -> impl ExactSizeIterator<Item = CoercedAttrFull<'v>> {
+        // The `filter_map` below yields every spec entry when defaults are
+        // included, and exactly the explicitly-set entries otherwise, so the
+        // length is known up front even though `FilterMap::size_hint` is not.
+        let len = if opts.include_default() {
+            self.len()
+        } else {
+            attr_values.len()
+        };
         let mut pos = 0;
         let mut entry: Option<(AttributeId, &CoercedAttr)> = attr_values.get_by_index(0);
 
@@ -200,6 +227,7 @@ impl AttributeSpec {
                     }
                 }
             })
+            .with_exact_size(len)
     }
 
     pub fn known_attr_or_none<'v>(
@@ -267,5 +295,36 @@ pub(crate) mod testing {
             )
             .unwrap()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::attrs::attr::Attribute;
+    use crate::attrs::attr_type::AttrType;
+    use crate::attrs::spec::AttributeSpec;
+    use crate::rule::RuleIncomingTransition;
+
+    #[test]
+    fn test_num_non_internal_attrs() {
+        let user_attrs = vec![
+            (
+                "foo".to_owned(),
+                Attribute::new_const(None, "", AttrType::string()),
+            ),
+            (
+                "bar".to_owned(),
+                Attribute::new_const(None, "", AttrType::string()),
+            ),
+        ];
+
+        let spec =
+            AttributeSpec::from(user_attrs.clone(), false, &RuleIncomingTransition::None).unwrap();
+        assert_eq!(2, spec.num_non_internal_attrs());
+
+        let spec_with_transition =
+            AttributeSpec::from(user_attrs, false, &RuleIncomingTransition::FromAttribute).unwrap();
+        assert_eq!(2, spec_with_transition.num_non_internal_attrs());
+        assert_eq!(spec.len() + 1, spec_with_transition.len());
     }
 }

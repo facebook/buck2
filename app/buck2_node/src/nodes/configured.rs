@@ -97,7 +97,10 @@ enum TargetNodeOrForward {
 const ACTUAL_ATTR_NAME: &str = "actual";
 
 impl TargetNodeOrForward {
-    fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull<'_>> + '_ {
+    fn attrs(
+        &self,
+        opts: AttrInspectOptions,
+    ) -> impl ExactSizeIterator<Item = CoercedAttrFull<'_>> + '_ {
         match self {
             TargetNodeOrForward::TargetNode(target_node) => Either::Left(target_node.attrs(opts)),
             TargetNodeOrForward::Forward(actual, _) => {
@@ -487,7 +490,7 @@ impl ConfiguredTargetNode {
     pub fn attrs(
         &self,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = ConfiguredAttrFull<'_>> + '_ {
+    ) -> impl ExactSizeIterator<Item = ConfiguredAttrFull<'_>> + '_ {
         self.as_ref().attrs(opts)
     }
 
@@ -753,11 +756,17 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         })
     }
 
+    /// Not implemented via [`Self::filter_attrs`]: the trivial filter would
+    /// reset the iterator's `size_hint` lower bound to 0, and callers rely on
+    /// the exact size to pre-allocate.
     pub fn attrs(
         self,
         opts: AttrInspectOptions,
-    ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
-        self.filter_attrs(opts, |_| true)
+    ) -> impl ExactSizeIterator<Item = ConfiguredAttrFull<'a>> + 'a {
+        self.0.get().target_node.attrs(opts).map(move |a| {
+            a.configure(&self.attr_configuration_context())
+                .expect_compatible("checked attr configuration in constructor")
+        })
     }
 
     /// Like [`attrs`](Self::attrs), but only configures attributes whose unconfigured
