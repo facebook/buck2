@@ -89,14 +89,12 @@ load(
     "UnstrippedLinkOutputInfo",
     "create_merged_link_info",
     "get_lib_output_style",
-    "get_link_args_for_strategy",
     "get_output_styles_for_linkage",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
     "process_link_strategy_for_pic_behavior",
     "subtarget_for_output_style",
     "to_link_strategy",
-    "unpack_link_args",
     "wrap_link_info",
 )
 load(
@@ -252,6 +250,10 @@ load(
 load(
     ":shared_library_interface.bzl",
     "shared_library_interface",
+)
+load(
+    ":template_placeholders.bzl",
+    "cxx_template_placeholder_info",
 )
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
@@ -1240,58 +1242,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             providers.append(apple_resource_graph)
 
     if impl_params.generate_providers.template_placeholders:
-        templ_vars = {}
-
-        # Some rules, e.g. fbcode//thrift/lib/cpp:thrift-core-module
-        # define preprocessor flags as things like: -DTHRIFT_PLATFORM_CONFIG=<thrift/facebook/PlatformConfig.h>
-        # and unless they get quoted, they break shell syntax.
-        cxx_compiler_info = get_cxx_toolchain_info(ctx).cxx_compiler_info
-        cxx_preprocessor_flags = cmd_args(
-            cmd_args(cxx_compiler_info.preprocessor_flags or [], quote = "shell"),
-            cmd_args(propagated_preprocessor.set.project_as_args("args"), quote = "shell"),
-            propagated_preprocessor.set.project_as_args("include_dirs"),
-        )
-        templ_vars["cxxppflags"] = cxx_preprocessor_flags
-
-        c_compiler_info = get_cxx_toolchain_info(ctx).c_compiler_info
-        c_preprocessor_flags = cmd_args(
-            cmd_args(c_compiler_info.preprocessor_flags or [], quote = "shell"),
-            cmd_args(propagated_preprocessor.set.project_as_args("args"), quote = "shell"),
-            propagated_preprocessor.set.project_as_args("include_dirs"),
-        )
-        templ_vars["cppflags"] = c_preprocessor_flags
-
-        # Add in ldflag macros.
-        for link_strategy in (LinkStrategy("static"), LinkStrategy("static_pic")):
-            name = "ldflags-" + link_strategy.value.replace("_", "-")
-            args = []
-            linker_info = get_cxx_toolchain_info(ctx).linker_info
-            args.append(linker_info.linker_flags or [])
-
-            # Normally, we call get_link_args_for_strategy for getting the args for our own link from our
-            # deps. This case is a bit different as we are effectively trying to get the args for how this library
-            # would be represented on a dependent's link line and so it is appropriate to use our own merged_native_link_info.
-            link_args = get_link_args_for_strategy(
-                ctx.actions,
-                ctx.label,
-                get_cxx_toolchain_info(ctx).linker_info,
-                [merged_native_link_info],
-                link_strategy,
-                prefer_stripped = False,
-                transformation_spec_context = None,
-            )
-            args.append(unpack_link_args(link_args))
-            templ_vars[name] = cmd_args(args)
-
-        # TODO(T110378127): To implement `$(ldflags-shared ...)` properly, we'd need
-        # to setup a symink tree rule for all transitive shared libs.  Since this
-        # currently would be pretty costly (O(N^2)?), and since it's not that
-        # commonly used anyway, just use `static-pic` instead.  Longer-term, once
-        # v1 is gone, macros that use `$(ldflags-shared ...)` (e.g. Haskell's
-        # hsc2hs) can move to a v2 rules-based API to avoid needing this macro.
-        templ_vars["ldflags-shared"] = templ_vars["ldflags-static-pic"]
-
-        providers.append(TemplatePlaceholderInfo(keyed_variables = templ_vars))
+        providers.append(cxx_template_placeholder_info(ctx, propagated_preprocessor, merged_native_link_info))
 
     # It is possible (e.g. in a java binary or an Android APK) to have C++ libraries that depend
     # upon Java libraries (through JNI). In some cases those Java libraries are not depended upon
