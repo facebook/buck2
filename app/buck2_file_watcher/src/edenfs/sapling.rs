@@ -9,17 +9,47 @@
  */
 
 use std::env;
+use std::io;
 use std::path::Path;
 use std::process::Stdio;
 
 use allocative::Allocative;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::process::async_background_command;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Sapling)]
+pub(crate) enum SaplingError {
+    #[error("Failed to run `hg {subcommand}`")]
+    CommandFailed {
+        subcommand: &'static str,
+        #[source]
+        error: io::Error,
+    },
+
+    #[error("Failed to obtain mergebase (exit code {}):\n{stderr}", exit_code_display(*exit_code))]
+    Mergebase {
+        exit_code: Option<i32>,
+        stderr: String,
+    },
+
+    #[error("Warning while obtaining mergebase:\n{stderr}")]
+    MergebaseWarning { stderr: String },
+
+    #[error("Failed to read stdout when invoking `hg {subcommand}`")]
+    MissingStdout { subcommand: &'static str },
+
+    #[error("Invalid status line: {line}")]
+    InvalidStatusLine { line: String },
+}
+
+fn exit_code_display(exit_code: Option<i32>) -> String {
+    exit_code.map_or_else(|| "unknown".to_owned(), |code| code.to_string())
+}
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum SaplingStatus {
@@ -79,26 +109,24 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         ])
         .output()
         .await
-        .buck_error_context("Failed to obtain mergebase")?;
+        .map_err(|error| SaplingError::CommandFailed {
+            subcommand: "log",
+            error,
+        })?;
 
     if !output.status.success() {
-        return Err(buck2_error!(
-            buck2_error::ErrorTag::Sapling,
-            "Failed to obtain mergebase (exit code {}):\n{}",
-            output
-                .status
-                .code()
-                .map_or_else(|| "unknown".to_owned(), |code| code.to_string()),
-            String::from_utf8_lossy(&output.stderr),
-        ));
+        return Err(SaplingError::Mergebase {
+            exit_code: output.status.code(),
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        }
+        .into());
     } else if !output.stderr.is_empty() {
         soft_error!(
             "sapling_mergebase_warning",
-            buck2_error!(
-                buck2_error::ErrorTag::Sapling,
-                "Warning while obtaining mergebase:\n{}",
-                String::from_utf8_lossy(&output.stderr),
-            ),
+            SaplingError::MergebaseWarning {
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            }
+            .into(),
             quiet: false
         )
         .ok();
@@ -147,40 +175,13 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     second: Option<S>,
     limit_results: usize,
 ) -> buck2_error::Result<SaplingGetStatusResult> {
-    let mut args = vec!["status", "--traceback", "-mardu", "--rev", first.as_ref()];
+    let mut args = vec!["--traceback", "-mardu", "--rev", first.as_ref()];
     if let Some(ref second) = second {
         args.push("--rev");
         args.push(second.as_ref());
     }
 
-    let mut output = async_background_command(get_sapling_exe_path())
-        .current_dir(current_dir)
-        .env("HGPLAIN", "1")
-        .args(args.as_slice())
-        .stdout(Stdio::piped())
-        .spawn()
-        .buck_error_context("Failed to obtain Sapling status")?;
-
-    let stdout = output.stdout.take().ok_or_else(|| {
-        buck2_error!(
-            buck2_error::ErrorTag::Sapling,
-            "Failed to read stdout when invoking 'hg status'."
-        )
-    })?;
-    let reader = BufReader::new(stdout);
-
-    let mut status = vec![];
-    let mut lines = reader.lines();
-    while let Some(line) = lines.next_line().await? {
-        if let Some(status_line) = process_one_status_line(&line)? {
-            if status.len() >= limit_results {
-                return Ok(SaplingGetStatusResult::TooManyChanges);
-            }
-            status.push(status_line);
-        }
-    }
-
-    Ok(SaplingGetStatusResult::Normal(status))
+    run_status_command(current_dir, "status", &args, limit_results).await
 }
 
 // Get directory differences between two revisions. If second is None, then it is the working copy.
@@ -192,26 +193,35 @@ pub(crate) async fn get_dir_diff<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     second: Option<S>,
     limit_results: usize,
 ) -> buck2_error::Result<SaplingGetStatusResult> {
-    let mut args = vec!["debugdiffdirs", "--rev", first.as_ref()];
+    let mut args = vec!["--rev", first.as_ref()];
     if let Some(ref second) = second {
         args.push("--rev");
         args.push(second.as_ref());
     }
 
+    run_status_command(current_dir, "debugdiffdirs", &args, limit_results).await
+}
+
+/// Runs a Sapling subcommand that emits status lines, and parses them.
+async fn run_status_command<D: AsRef<Path>>(
+    current_dir: D,
+    subcommand: &'static str,
+    args: &[&str],
+    limit_results: usize,
+) -> buck2_error::Result<SaplingGetStatusResult> {
     let mut output = async_background_command(get_sapling_exe_path())
         .current_dir(current_dir)
         .env("HGPLAIN", "1")
-        .args(args.as_slice())
+        .arg(subcommand)
+        .args(args)
         .stdout(Stdio::piped())
         .spawn()
-        .buck_error_context("Failed to obtain Sapling debugdiffdirs")?;
+        .map_err(|error| SaplingError::CommandFailed { subcommand, error })?;
 
-    let stdout = output.stdout.take().ok_or_else(|| {
-        buck2_error!(
-            buck2_error::ErrorTag::Sapling,
-            "Failed to read stdout when invoking 'hg debugdiffdirs'."
-        )
-    })?;
+    let stdout = output
+        .stdout
+        .take()
+        .ok_or(SaplingError::MissingStdout { subcommand })?;
     let reader = BufReader::new(stdout);
 
     let mut status = vec![];
@@ -261,10 +271,10 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
             _ => None, // Skip all others
         })
     } else {
-        Err(buck2_error!(
-            buck2_error::ErrorTag::Sapling,
-            "Invalid status line: {line}"
-        ))
+        Err(SaplingError::InvalidStatusLine {
+            line: line.to_owned(),
+        }
+        .into())
     }
 }
 
