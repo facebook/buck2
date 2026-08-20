@@ -70,28 +70,27 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
             "-T",
             "{node}\n{date}\n{get(extras, \"global_rev\")}",
             "-r",
-            format!("ancestor({}, {})", commit.as_ref(), mergegase_with.as_ref()).as_str(),
+            format!(
+                "present(ancestor({}, {}))",
+                commit.as_ref(),
+                mergegase_with.as_ref()
+            )
+            .as_str(),
         ])
         .output()
         .await
         .buck_error_context("Failed to obtain mergebase")?;
 
     if !output.status.success() {
-        // Consider upgrading to a hard error
-        soft_error!(
-            "sapling_mergebase_failed",
-            buck2_error!(
-                buck2_error::ErrorTag::Sapling,
-                "Failed to obtain mergebase (exit code {}):\n{}",
-                output
-                    .status
-                    .code()
-                    .map_or_else(|| "unknown".to_owned(), |code| code.to_string()),
-                String::from_utf8_lossy(&output.stderr),
-            ),
-            quiet: false
-        )
-        .ok();
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Sapling,
+            "Failed to obtain mergebase (exit code {}):\n{}",
+            output
+                .status
+                .code()
+                .map_or_else(|| "unknown".to_owned(), |code| code.to_string()),
+            String::from_utf8_lossy(&output.stderr),
+        ));
     } else if !output.stderr.is_empty() {
         soft_error!(
             "sapling_mergebase_warning",
