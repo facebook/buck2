@@ -19,16 +19,13 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::IntentionallyStdHashMap;
+use buck2_util::early_command_timing::EarlyCommandTiming;
 use buck2_util::time_span::TimeSpan;
 use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 use crate::error::CriticalPathError;
-
-pub const OTHER_COMMAND_START_OVERHEAD: &str = "other-command-start-overhead";
-pub const EXCLUSIVE_COMMAND_WAIT: &str = "exclusive-command-wait";
-pub const FILE_WATCHER_WAIT: &str = "file-watcher-wait";
 
 #[derive(Copy, Clone, Dupe)]
 pub struct NodeDuration {
@@ -169,43 +166,6 @@ impl FromStr for CriticalPathBackendName {
             "Invalid backend name: `{}`",
             s
         ))
-    }
-}
-
-pub struct EarlyCommandTiming {
-    pub command_start: Instant,
-    pub early_spans: Vec<(Instant, String)>,
-    pub early_command_end: Instant,
-}
-
-pub struct EarlyCommandTimingBuilder {
-    command_start: Instant,
-    early_spans: Vec<(Instant, String)>,
-}
-
-impl EarlyCommandTimingBuilder {
-    pub fn new(command_start: Instant) -> Self {
-        Self {
-            command_start,
-            early_spans: Vec::new(),
-        }
-    }
-
-    pub fn start_span(&mut self, name: String) {
-        self.early_spans.push((Instant::now(), name));
-    }
-
-    pub fn end_known_span(&mut self) {
-        self.early_spans
-            .push((Instant::now(), OTHER_COMMAND_START_OVERHEAD.to_owned()));
-    }
-
-    pub fn finish_early_command_timing(self) -> EarlyCommandTiming {
-        EarlyCommandTiming {
-            command_start: self.command_start,
-            early_spans: self.early_spans,
-            early_command_end: Instant::now(),
-        }
     }
 }
 
