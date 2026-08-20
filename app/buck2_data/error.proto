@@ -248,7 +248,16 @@ enum ErrorTag {
   IO_EDEN_NETWORK_TLS = 1171;
   IO_EDEN_NETWORK_CURL_TIMEDOUT = 11728;
 
+  // Sapling Section
+  // Indicates that the error came from invoking a Sapling command. On its own
+  // it means the failure was not one we categorize.
   SAPLING = 12000;
+  // The Sapling binary could not be started, e.g. it is not on the PATH
+  SAPLING_NOT_FOUND = 12001;
+  // Sapling could not reach the source control server
+  SAPLING_NETWORK = 12002;
+  // Buck2 could not read or parse the output of a Sapling command
+  SAPLING_INVALID_OUTPUT = 12003;
 
   // Client IO
   // Broken pipe specifically from client stdio streams
@@ -400,6 +409,17 @@ enum ErrorTag {
   // No valid internal or VPNless certs could be found
   NO_VALID_CERTS = 25;
   CERT_EXPIRED = 22001;
+
+  // Causes external to buck2, not specific to any one subsystem. Pair these
+  // with a tag identifying the subsystem that hit them.
+  // A TLS handshake failed. Not necessarily a cert problem, see CERTS for those
+  TLS = 23000;
+  // A source control repository is missing or is not a usable checkout
+  MISSING_REPO = 23001;
+  // The directory buck2 was invoked from no longer exists
+  MISSING_WORKING_DIR = 23002;
+  // A policy, e.g. workspace isolation, refused to run a command
+  BLOCKED_BY_POLICY = 23003;
 
   // Misc phases/subsystem tags
   BXL = 11000;

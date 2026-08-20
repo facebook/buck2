@@ -123,6 +123,7 @@ pub enum ErrorSourceArea {
     Eden,
     Re,
     Watchman,
+    Sapling,
     TestExecutor,
     Installer,
 }
@@ -141,6 +142,8 @@ impl ErrorTagExtra for ErrorTag {
             ErrorSourceArea::Re
         } else if tag_name.starts_with("WATCHMAN") {
             ErrorSourceArea::Watchman
+        } else if tag_name.starts_with("SAPLING") {
+            ErrorSourceArea::Sapling
         } else if matches!(
             self,
             crate::ErrorTag::Tpx
@@ -220,6 +223,13 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuckdExeDeleted => rank!(environment),
         ErrorTag::MissingProjectRoot => rank!(environment),
         ErrorTag::ActionOom => rank!(environment),
+        ErrorTag::SaplingNotFound => rank!(environment),
+        ErrorTag::SaplingNetwork => rank!(environment),
+        ErrorTag::Tls => rank!(environment),
+        // Typically CI tearing down the workspace out from under a running command.
+        ErrorTag::MissingRepo => rank!(environment),
+        ErrorTag::MissingWorkingDir => rank!(environment),
+        ErrorTag::BlockedByPolicy => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -337,7 +347,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::TestRunnerUnknownExitCode => rank!(tier0),
 
         ErrorTag::CleanOutputs => rank!(tier0),
-        ErrorTag::Sapling => rank!(tier0),
+        ErrorTag::SaplingInvalidOutput => rank!(tier0),
         ErrorTag::CrashRequested => rank!(tier0),
         ErrorTag::CpuStats => rank!(tier0),
         ErrorTag::FailedToKill => rank!(tier0),
@@ -476,6 +486,9 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoSource => rank!(unspecified),
         ErrorTag::IoSystem => rank!(unspecified),
         ErrorTag::IoEden => rank!(unspecified).generic(false),
+        // Only says which subsystem failed, so unlike IoEden above it is left out of the
+        // category key whenever a root cause tag is also present.
+        ErrorTag::Sapling => rank!(unspecified),
         ErrorTag::IoEdenConnectionError => rank!(unspecified),
         ErrorTag::MaterializationError => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
