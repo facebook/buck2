@@ -100,6 +100,7 @@ def make_py_package_providers(ctx: AnalysisContext, manifest_identifier: str, pe
                         ),
                     ],
                 ),
+                deps = ctx.attrs.deps,
             )
         )
 
