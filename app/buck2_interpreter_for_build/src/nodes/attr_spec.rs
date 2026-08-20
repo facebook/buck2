@@ -41,6 +41,7 @@ use starlark::typing::Ty;
 use starlark::typing::TyFunction;
 use starlark::values::FrozenValue;
 use starlark::values::Value;
+use starlark_map::vec2::Vec2;
 
 use crate::attrs::AttributeCoerceExt;
 use crate::interpreter::module_internals::ModuleInternals;
@@ -56,8 +57,8 @@ pub trait AttributeSpecExt {
         &'v TargetNameRef,
         // Remaining attributes.
         impl ExactSizeIterator<Item = (&'a str, AttributeId, &'a Attribute)> + 'a,
-        // Populated with name.
-        AttrValues,
+        // Attr value rows for `AttrValues::new`, populated with name.
+        Vec2<AttributeId, CoercedAttr>,
     )>;
 
     fn parse_params<'v>(
@@ -87,15 +88,15 @@ impl AttributeSpecExt for AttributeSpec {
     ) -> buck2_error::Result<(
         &'v TargetNameRef,
         impl ExactSizeIterator<Item = (&'a str, AttributeId, &'a Attribute)> + 'a,
-        AttrValues,
+        Vec2<AttributeId, CoercedAttr>,
     )> {
-        let mut attr_values = AttrValues::with_capacity(size_hint);
+        let mut attr_values = Vec2::with_capacity(size_hint);
 
         let mut indices = self.attr_specs();
         let name = match indices.next() {
             Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE.name => {
                 let name = param_parser.next()?;
-                attr_values.push_sorted(
+                attr_values.push(
                     attr_idx,
                     CoercedAttr::String(StringLiteral(ArcStr::from(name))),
                 );
@@ -160,25 +161,25 @@ impl AttributeSpecExt for AttributeSpec {
 
                 match coerced {
                     CoercedValue::Custom(v) => {
-                        attr_values.push_sorted(attr_idx, v);
+                        attr_values.push(attr_idx, v);
                         default_allowed_deps.insert(attr_name, attribute.default_allowed_deps());
                     }
                     CoercedValue::Default => {}
                 }
             } else if attr_is_visibility {
-                attr_values.push_sorted(
+                attr_values.push(
                     attr_idx,
                     CoercedAttr::Visibility(internals.super_package.visibility().dupe()),
                 );
             } else if attr_is_within_view {
-                attr_values.push_sorted(
+                attr_values.push(
                     attr_idx,
                     CoercedAttr::WithinView(internals.super_package.within_view().dupe()),
                 );
             }
         }
 
-        attr_values.shrink_to_fit();
+        let attr_values = AttrValues::new(attr_values);
 
         // For now `within_view` is always set, but let's make code more robust.
         if let Some(within_view) = attr_values.get(WITHIN_VIEW_ATTRIBUTE.id) {

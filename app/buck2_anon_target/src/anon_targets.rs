@@ -19,8 +19,10 @@ use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
 use buck2_analysis::analysis::calculation::AnalysisSplitInstants;
 use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_analysis::analysis::calculation::AnonTargetSplitData;
-use buck2_analysis::analysis::calculation::get_rule_spec;
+use buck2_analysis::analysis::calculation::get_loaded_module;
 use buck2_analysis::analysis::env::RuleSpec;
+use buck2_analysis::analysis::env::get_rule_callable;
+use buck2_analysis::analysis::env::get_user_defined_rule_spec;
 use buck2_analysis::analysis::env::transitive_validations;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::AnalysisResult;
@@ -75,6 +77,7 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter_for_build::attrs::coerce::arc_str_interner::ArcStrInterner;
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
+use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::spec::internal::is_internal_attr;
@@ -105,12 +108,13 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
-use starlark_map::sorted_map::SortedMap;
+use starlark_map::vec2::Vec2;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetDependents;
+use crate::anon_target_node::AnonAttrValues;
 use crate::anon_target_node::AnonTarget;
 use crate::anon_target_node::AnonTargetVariant;
 use crate::bxl::eval_bxl_for_anon_target;
@@ -241,49 +245,48 @@ impl AnonTargetKey {
     ) -> buck2_error::Result<(
         Arc<StarlarkRuleType>,
         TargetLabel,
-        SortedMap<String, AnonTargetAttr>,
+        AnonAttrValues,
         ConfigurationNoExec,
     )> {
         let mut name = None;
 
         let entries = attributes.entries;
         let attrs_spec = rule.attributes();
-        // Internal attrs are never stored in the map (rejected or skipped
-        // below), so size the allocation for the non-internal attrs only.
-        // This map is retained for the lifetime of the anon target key, so
-        // over-allocating here wastes memory for every anon target.
-        let mut attrs = OrderedMap::with_capacity(attrs_spec.num_non_internal_attrs());
-
         let anon_attr_ctx = AnonAttrCtx::new(execution_platform);
 
+        let mut provided: SmallMap<&str, Value> = SmallMap::with_capacity(entries.len());
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
             } else if is_internal_attr(k) {
                 return Err(AnonTargetsError::InternalAttribute(k.to_owned()).into());
+            } else if attrs_spec.attribute(k).is_none() {
+                return Err(AnonTargetsError::UnknownAttribute(k.to_owned()).into());
             } else {
-                let attr = attrs_spec
-                    .attribute(k)
-                    .ok_or_else(|| AnonTargetsError::UnknownAttribute(k.to_owned()))?;
-                attrs.insert(
-                    k.to_owned(),
-                    Self::coerce_to_anon_target_attr(attr.coercer(), v, &anon_attr_ctx)
-                        .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
-                );
+                provided.insert(k, v);
             }
         }
-        for (k, _, a) in attrs_spec.attr_specs() {
-            if !attrs.contains_key(k) && !is_internal_attr(k) {
-                if let Some(x) = a.default() {
-                    attrs.insert(
-                        k.to_owned(),
-                        Self::coerced_to_anon_target_attr(k, x, a.coercer())?,
-                    );
-                } else {
-                    return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into());
-                }
+
+        // Internal attrs are never stored (rejected above or skipped here),
+        // and every non-internal attr gets a value (provided or default), so
+        // the allocation is sized exactly; it is retained for the lifetime
+        // of the anon target key.
+        let mut attr_values = Vec2::with_capacity(attrs_spec.num_non_internal_attrs());
+        for (k, id, a) in attrs_spec.attr_specs() {
+            if is_internal_attr(k) {
+                continue;
             }
+            let value = match provided.get(k) {
+                Some(v) => Self::coerce_to_anon_target_attr(a.coercer(), *v, &anon_attr_ctx)
+                    .with_buck_error_context(|| format!("Error coercing attribute `{k}`"))?,
+                None => match a.default() {
+                    Some(x) => Self::coerced_to_anon_target_attr(k, x, a.coercer())?,
+                    None => return Err(AnonTargetsError::MissingAttribute(k.to_owned()).into()),
+                },
+            };
+            attr_values.push(id, value);
         }
+        let attrs = AnonAttrValues::new(attr_values);
 
         // We need to ensure there is a "name" attribute which corresponds to something we can turn in to a label.
         // If there isn't a good one, make something up
@@ -294,7 +297,7 @@ impl AnonTargetKey {
         Ok((
             rule.rule_type().dupe(),
             name,
-            attrs.into(),
+            attrs,
             execution_platform.base_cfg().dupe(),
         ))
     }
@@ -504,7 +507,8 @@ impl AnonTargetKey {
         cancellation: &CancellationContext,
     ) -> buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)> {
         let validations_from_deps = dependents_analyses.validations();
-        let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
+        let module = get_loaded_module(dice, self.0.rule_type()).await?;
+        let rule_impl = get_user_defined_rule_spec(module.env().dupe(), self.0.rule_type());
 
         let eval_kind = self.0.dupe().eval_kind();
         let provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
@@ -517,9 +521,15 @@ impl AnonTargetKey {
                 eval.set_print_handler(&print);
                 eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                let attributes =
-                    self.0
-                        .resolve_attrs(&env, dependents_analyses, exec_resolution.clone())?;
+                let rule_callable =
+                    get_rule_callable(eval, module.env(), &self.0.rule_type().name)?;
+                let attrs_spec = frozen_rule_attribute_spec(rule_callable)?;
+                let attributes = self.0.resolve_attrs(
+                    &env,
+                    attrs_spec,
+                    dependents_analyses,
+                    exec_resolution.clone(),
+                )?;
 
                 let registry = AnalysisRegistry::new_from_owner(
                     BaseDeferredKey::AnonTarget(self.0.dupe()),

@@ -375,7 +375,7 @@ pub fn transitive_validations(
     }
 }
 
-fn get_rule_callable<'v>(
+pub fn get_rule_callable<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     module: &FrozenModule,
     name: &str,

@@ -511,6 +511,11 @@ fn unpack_frozen_rule<'v>(
     ValueTyped::new(rule).ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
 }
 
+/// The `AttributeSpec` of a frozen `rule()` / `anon_rule()` / `bxl.anon_rule()` value.
+pub fn frozen_rule_attribute_spec<'v>(rule: Value<'v>) -> buck2_error::Result<&'v AttributeSpec> {
+    Ok(unpack_frozen_rule(rule)?.as_ref().attributes())
+}
+
 pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
         let rule = unpack_frozen_rule(rule)?;

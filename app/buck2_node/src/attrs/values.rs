@@ -21,27 +21,54 @@ use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
 
-#[derive(Debug, Eq, PartialEq, Hash, Default, Allocative, Pagable)]
-pub struct AttrValues {
-    sorted: Vec2<AttributeId, CoercedAttr>,
+/// Attribute values sorted by [`AttributeId`].
+///
+/// Invariant: entries are sorted by strictly ascending id. [`Self::new`]
+/// establishes this and no mutation is possible afterwards. The
+/// deterministic order is relied upon by `Eq`/`Hash`, by [`Self::get`], and
+/// by merge walks against id-ordered `AttributeSpec::attr_specs()` iteration.
+///
+/// What is stored depends on the use: `TargetNode` stores only explicitly
+/// set attributes (`V = CoercedAttr`, the default) and looks defaults up
+/// through the `AttributeSpec`; anon targets store every non-internal
+/// attribute with defaults materialized.
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable)]
+pub struct AttrValues<V = CoercedAttr> {
+    sorted: Vec2<AttributeId, V>,
 }
 
-impl AttrValues {
-    pub fn with_capacity(capacity: usize) -> AttrValues {
-        AttrValues {
-            sorted: Vec2::with_capacity(capacity),
+impl<V> AttrValues<V> {
+    /// Sorts `entries` by id and shrinks them to fit (attr values are
+    /// typically retained for the lifetime of a node). Ids must be unique.
+    ///
+    /// Callers typically build entries in id order already (walking the
+    /// `AttributeSpec`); construction then costs only one verification pass
+    /// over the ids, with no sorting or copying.
+    pub fn new(mut entries: Vec2<AttributeId, V>) -> AttrValues<V> {
+        if !entries.iter().is_sorted_by(|a, b| a.0 < b.0) {
+            entries.sort_by(|(a_id, _), (b_id, _)| a_id.cmp(b_id));
+            assert!(
+                entries.iter().is_sorted_by(|a, b| a.0 < b.0),
+                "attribute ids must be unique"
+            );
         }
+        entries.shrink_to_fit();
+        AttrValues { sorted: entries }
     }
 
-    pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, &CoercedAttr)> {
+    pub(crate) fn get_by_index(&self, index: usize) -> Option<(AttributeId, &V)> {
         self.sorted.get(index).map(|(id, v)| (*id, v))
     }
 
-    pub(crate) fn len(&self) -> usize {
+    #[expect(
+        clippy::len_without_is_empty,
+        reason = "`len` exists to size pre-allocations; no caller needs an emptiness check"
+    )]
+    pub fn len(&self) -> usize {
         self.sorted.len()
     }
 
-    pub fn get(&self, id: AttributeId) -> Option<&CoercedAttr> {
+    pub fn get(&self, id: AttributeId) -> Option<&V> {
         // Could use binary search here, but for small attr map like 20
         // linear search is faster.
         for (next_id, next_value) in self {
@@ -57,21 +84,28 @@ impl AttrValues {
         None
     }
 
-    pub fn shrink_to_fit(&mut self) {
-        self.sorted.shrink_to_fit();
+    /// Iterate over the entries, in id order.
+    pub fn iter(&self) -> vec2::Iter<'_, AttributeId, V> {
+        self.sorted.iter()
     }
 
-    pub fn push_sorted(&mut self, id: AttributeId, value: CoercedAttr) {
-        if let Some((last_id, _)) = self.sorted.last() {
-            assert!(&id > last_id, "attributed must be sorted");
-        }
-        self.sorted.push(id, value)
+    /// Iterate over the values, in id order.
+    pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
+        self.iter().map(|(_, value)| value)
     }
 }
 
-impl<'a> IntoIterator for &'a AttrValues {
-    type Item = (&'a AttributeId, &'a CoercedAttr);
-    type IntoIter = vec2::Iter<'a, AttributeId, CoercedAttr>;
+impl<V> Default for AttrValues<V> {
+    fn default() -> AttrValues<V> {
+        AttrValues {
+            sorted: Vec2::new(),
+        }
+    }
+}
+
+impl<'a, V> IntoIterator for &'a AttrValues<V> {
+    type Item = (&'a AttributeId, &'a V);
+    type IntoIter = vec2::Iter<'a, AttributeId, V>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.sorted.iter()

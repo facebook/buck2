@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_analysis::analysis::calculation::get_loaded_module;
+use buck2_analysis::analysis::env::get_rule_callable;
 use buck2_analysis::analysis::env::get_rule_impl;
 use buck2_analysis::analysis::env::promise_artifact_mappings;
 use buck2_analysis::analysis::env::transitive_validations;
@@ -37,6 +38,8 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter_for_build::attrs::StarlarkAttribute;
 use buck2_interpreter_for_build::rule::StarlarkRuleCallable;
+use buck2_interpreter_for_build::rule::frozen_rule_attribute_spec;
+use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
@@ -173,6 +176,13 @@ impl AnonImpl {
     ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
         promise_artifact_mappings(eval, &self.module, &self.name)
     }
+
+    fn attribute_spec<'v>(
+        &self,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> buck2_error::Result<&'v AttributeSpec> {
+        frozen_rule_attribute_spec(get_rule_callable(eval, &self.module, &self.name)?)
+    }
 }
 
 async fn eval_bxl_for_anon_target(
@@ -271,8 +281,13 @@ async fn eval_bxl_for_anon_target_inner(
                 execution_platform.clone(),
             )?;
 
-            let attributes =
-                anon_target.resolve_attrs(&env, dependents_analyses, execution_platform.clone())?;
+            let attrs_spec = anon_impl.attribute_spec(eval)?;
+            let attributes = anon_target.resolve_attrs(
+                &env,
+                attrs_spec,
+                dependents_analyses,
+                execution_platform.clone(),
+            )?;
 
             let bxl_anon_ctx = BxlContext::new_anon(
                 env.heap(),

@@ -14,6 +14,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
@@ -69,7 +70,7 @@ impl TargetNodeExt for TargetNode {
             rule.dupe(),
             package,
             label,
-            attr_values,
+            AttrValues::new(attr_values),
             CoercedDeps::default(),
             None,
             package_cfg_modifiers,

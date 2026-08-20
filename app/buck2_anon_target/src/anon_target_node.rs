@@ -39,12 +39,15 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
+use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
 use buck2_hash::BuckMutMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_node::attrs::spec::AttributeSpec;
+use buck2_node::attrs::values::AttrValues;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
@@ -60,12 +63,20 @@ use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
-use starlark_map::sorted_map::SortedMap;
 use strong_hash::StrongHash;
 
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
+
+/// The attribute values of an anon target.
+///
+/// Unlike `TargetNode`, every non-internal attribute is present: defaults
+/// are filled in eagerly so that key equality does not distinguish a default
+/// from the same value passed explicitly. Attribute names are not stored;
+/// ids resolve against the [`AttributeSpec`] of the rule identified by the
+/// `rule_type` stored alongside this in [`AnonTarget`].
+pub(crate) type AnonAttrValues = AttrValues<AnonTargetAttr>;
 
 #[derive(Eq, PartialEq, Clone, Debug, Allocative, Pagable)]
 pub(crate) struct AnonTarget {
@@ -73,9 +84,9 @@ pub(crate) struct AnonTarget {
     name: TargetLabel,
     /// The type of the rule we are running.
     rule_type: Arc<StarlarkRuleType>,
-    /// The attributes the target was defined with.
-    /// We use a sorted map since we want to iterate in a defined order.
-    attrs: SortedMap<String, AnonTargetAttr>,
+    /// The attributes the target was defined with. Iteration order is
+    /// deterministic (sorted by id), which the cached hashes below rely on.
+    attrs: AnonAttrValues,
     /// The execution configuration - same as the parent.
     exec_cfg: ConfigurationNoExec,
     /// Variant of the anon target, either bxl or bzl.
@@ -130,7 +141,7 @@ impl AnonTarget {
     pub(crate) fn new(
         rule_type: Arc<StarlarkRuleType>,
         name: TargetLabel,
-        attrs: SortedMap<String, AnonTargetAttr>,
+        attrs: AnonAttrValues,
         exec_cfg: ConfigurationNoExec,
         variant: AnonTargetVariant,
     ) -> Self {
@@ -165,7 +176,7 @@ impl AnonTarget {
         &self.name
     }
 
-    pub(crate) fn attrs(&self) -> &SortedMap<String, AnonTargetAttr> {
+    pub(crate) fn attrs(&self) -> &AnonAttrValues {
         &self.attrs
     }
 
@@ -196,6 +207,7 @@ impl AnonTargetDyn for AnonTarget {
     fn resolve_attrs<'v>(
         &self,
         env: &Module<'v>,
+        attrs_spec: &AttributeSpec,
         dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
     ) -> buck2_error::Result<ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>> {
@@ -215,13 +227,28 @@ impl AnonTargetDyn for AnonTarget {
             rule_analysis_attr_resolution_ctx,
         };
 
+        // Both `self.attrs` and `attr_specs()` are sorted by id, so a single
+        // merge walk recovers each attribute's name.
         let mut resolved_attrs = Vec::with_capacity(self.attrs().len());
-        for (name, attr) in self.attrs().iter() {
+        let mut attr_specs = attrs_spec.attr_specs();
+        for (id, attr) in self.attrs().iter() {
+            let name = loop {
+                let (name, spec_id, _) = attr_specs.next().ok_or_else(|| {
+                    internal_error!("anon target attr id not in the rule's attribute spec")
+                })?;
+                if spec_id == *id {
+                    break name;
+                }
+            };
             resolved_attrs.push((
                 name,
                 attr.resolve_single(self.name().pkg(), &resolution_ctx)?,
             ));
         }
+        // The field order of `ctx.attrs` is user-visible (e.g. `dir()`, repr).
+        // Storage order (attribute ids) is an internal detail; present the
+        // fields in name order.
+        resolved_attrs.sort_unstable_by_key(|(name, _)| *name);
         let attributes = env
             .heap()
             .alloc_typed_unchecked(AllocStruct(resolved_attrs))

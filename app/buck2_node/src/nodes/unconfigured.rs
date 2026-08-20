@@ -679,6 +679,7 @@ pub mod testing {
     use buck2_fs::paths::file_name::FileNameBuf;
     use serde_json::map::Map;
     use serde_json::value::Value;
+    use starlark_map::vec2::Vec2;
 
     use super::*;
     use crate::attrs::attr::Attribute;
@@ -711,9 +712,9 @@ pub mod testing {
                     .collect(),
             );
 
-            let mut attributes = AttrValues::with_capacity(attrs.len() + 1);
+            let mut attributes = Vec2::with_capacity(attrs.len() + 1);
 
-            attributes.push_sorted(
+            attributes.push(
                 NAME_ATTRIBUTE.id,
                 CoercedAttr::String(StringLiteral(label.name().as_str().into())),
             );
@@ -725,8 +726,9 @@ pub mod testing {
                 let attr = attr_spec.attribute(name).unwrap();
                 val.traverse(attr.coercer(), Some(label.pkg()), &mut deps_cache)
                     .unwrap();
-                attributes.push_sorted(idx, val);
+                attributes.push(idx, val);
             }
+            let attributes = AttrValues::new(attributes);
 
             let buildfile_path = Arc::new(BuildFilePath::new(
                 label.pkg().dupe(),
