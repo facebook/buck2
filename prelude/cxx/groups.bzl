@@ -171,10 +171,7 @@ def _parse_filter(entry: str) -> GroupFilterInfo:
             regex_expr = regex("^{}$".format(label_regex), fancy = False)
 
             def matches_regex(_r, _t, labels):
-                for label in labels:
-                    if regex_expr.match(label):
-                        return True
-                return False
+                return regex_expr.any_match(labels)
 
             return GroupFilterInfo(
                 matches = matches_regex,
