@@ -10,7 +10,6 @@
 
 pub(crate) mod base;
 mod fat;
-pub(crate) mod iterator_as_exact_size_iterator;
 mod slice;
 mod string_like;
 mod thin;

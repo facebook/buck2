@@ -14,13 +14,12 @@ use std::ops::Deref;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use gazebo::prelude::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 use strong_hash::StrongHash;
 use triomphe::Arc;
-
-use crate::arc_str::iterator_as_exact_size_iterator::IteratorAsExactSizeIterator;
 
 /// `Arc<[T]>` but more efficient.
 #[derive(Debug, Allocative, Pagable)]
@@ -144,7 +143,7 @@ impl<T> FromIterator<T> for ArcSlice<T> {
         if upper == Some(0) {
             ArcSlice::default()
         } else if Some(lower) == upper {
-            let arc = Arc::from_header_and_iter((), IteratorAsExactSizeIterator(iter));
+            let arc = Arc::from_header_and_iter((), iter.with_exact_size(lower));
             let arc: Arc<[T]> = arc.into();
             if arc.is_empty() {
                 ArcSlice::default()

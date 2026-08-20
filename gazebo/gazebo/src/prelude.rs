@@ -26,6 +26,7 @@
 //! ```
 pub use gazebo_derive::Default_;
 
+pub use crate::ext::iter::IterExactSize;
 pub use crate::ext::iter::IterExt;
 pub use crate::ext::iter::IterOwned;
 pub use crate::ext::option::OptionExt;

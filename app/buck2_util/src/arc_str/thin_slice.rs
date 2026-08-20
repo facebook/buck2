@@ -15,12 +15,11 @@ use std::slice;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use gazebo::prelude::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 use triomphe::ThinArc;
-
-use crate::arc_str::iterator_as_exact_size_iterator::IteratorAsExactSizeIterator;
 
 #[derive(Allocative, Debug, Pagable)]
 pub struct ThinArcSlice<T> {
@@ -138,7 +137,7 @@ impl<T> FromIterator<T> for ThinArcSlice<T> {
         if upper == Some(0) {
             ThinArcSlice::default()
         } else if Some(lower) == upper {
-            let arc = ThinArc::from_header_and_iter((), IteratorAsExactSizeIterator(iter));
+            let arc = ThinArc::from_header_and_iter((), iter.with_exact_size(lower));
             if arc.slice.is_empty() {
                 ThinArcSlice::default()
             } else {

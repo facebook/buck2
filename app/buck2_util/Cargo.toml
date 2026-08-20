@@ -17,6 +17,7 @@ buck2_wrapper_common.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
+gazebo.workspace = true
 mini_vec.workspace = true
 pagable.workspace = true
 regex.workspace = true

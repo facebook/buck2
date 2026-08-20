@@ -17,6 +17,7 @@ use buck2_hash::BuckMutMap;
 use derivative::Derivative;
 use derive_more::From;
 use dupe::Dupe;
+use gazebo::prelude::IterExactSize;
 use linked_hash_map::LinkedHashMap;
 
 use crate::what_ran::WhatRanRelevantAction;
@@ -236,42 +237,16 @@ impl<T: SpanTrackable> Roots<T> {
 
         // Chain does not implement ExactSizeIterator because it may overflow. We assume that our
         // roots don't overflow.
-        ExactSizeIteratorWrapper {
-            inner: self.roots.keys().chain(self.boring_roots.keys()),
-            size,
-        }
+        self.roots
+            .keys()
+            .chain(self.boring_roots.keys())
+            .with_exact_size(size)
     }
 
     pub fn dice_counts(&self) -> &BuckMutMap<&'static str, u64> {
         &self.dice_counts
     }
 }
-
-struct ExactSizeIteratorWrapper<T> {
-    inner: T,
-    size: usize,
-}
-
-impl<T> Iterator for ExactSizeIteratorWrapper<T>
-where
-    T: Iterator,
-{
-    type Item = <T as Iterator>::Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let val = self.inner.next();
-        if val.is_some() {
-            self.size -= 1;
-        }
-        val
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.size, Some(self.size))
-    }
-}
-
-impl<T> ExactSizeIterator for ExactSizeIteratorWrapper<T> where T: Iterator {}
 
 /// SpanTracker tracks ongoing spans received via handle() (those are typically produced by
 /// the Buck daemon). Internally, we keep track of:
