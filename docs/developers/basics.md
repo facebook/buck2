@@ -87,6 +87,17 @@ Buck2 uses `buck2_error` replacing both `anyhow` and `thiserror`. The must-knows
 For more details including about defining errors, tagging, conversion, and context see [Error
 Handling](./error_handling.md).
 
+## Feature gates
+
+Gate new or risky behavior with buckconfig, not environment variables: a
+`[buck2]`-section key, read where DICE can track it (grep for
+`BuckconfigKeyRef` with `section: "buck2"` for the pattern), and named so
+the value flips false -> true as the feature rolls out. Use
+`RolloutPercentage` in place of `bool` when you want hostname-hashed
+percentage rollout. Reserve `buck2_env!` for the few places configuration
+cannot reach: the client before it talks to the daemon, and test-only
+knobs.
+
 ## Internal vs open source
 
 Code is generally the same internally and externally, exceptions will be locally self-explanatory.
