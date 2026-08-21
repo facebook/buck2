@@ -124,7 +124,7 @@ impl RecordVariant for RecordVariantFrozen {
 }
 
 #[derive(Debug, thiserror::Error)]
-enum RecordTypeError {
+pub(crate) enum RecordTypeError {
     #[error(
         "Record instance cannot be created if record type is not assigned to a global variable"
     )]
@@ -228,6 +228,16 @@ impl<'v> FreezeBranded for RecordType<'v> {
 }
 
 impl<'v, V: RecordVariant> RecordTypeGen<'v, V> {
+    /// Returns the number of fields in the record type.
+    pub fn len(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// Returns whether the record type has no fields.
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+
     fn ty_record_data(&self) -> Option<&Arc<TyRecordData>> {
         V::get_ty(&self.ty_record_data)
     }
