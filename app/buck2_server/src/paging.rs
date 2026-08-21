@@ -52,6 +52,7 @@ use dice::Dice;
 use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dupe::Dupe;
+use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
 
 use crate::active_commands::is_only_active_command;
@@ -432,6 +433,10 @@ async fn page_out_on_idle(
     let duration_ms = (Instant::now() - start).as_millis() as u64;
     let (resident_bytes_after, allocated_bytes_after, db_size_bytes_after) =
         page_out_memory_snapshot(&dice);
+    let starlark_serialization_state_bytes_after =
+        dice.pagable_storage_context().and_then(|storage| {
+            u64::try_from(starlark_serialization_state_retained_bytes(storage)).ok()
+        });
     let (paged_out_count, error) = match &result {
         Ok(n) => (*n as u64, None),
         Err(e) => {
@@ -460,6 +465,7 @@ async fn page_out_on_idle(
         allocated_bytes_after,
         db_size_bytes_before,
         db_size_bytes_after,
+        starlark_serialization_state_bytes_after,
     });
     result.map(|_| ())
 }

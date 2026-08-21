@@ -230,6 +230,9 @@ message PageOutSummary {
   /// page-out. Absent if pagable storage is not configured.
   optional uint64 db_size_bytes_before = 11;
   optional uint64 db_size_bytes_after = 12;
+  /// Estimated bytes retained by Starlark serialization bookkeeping after the
+  /// page-out. Absent if pagable storage is not configured.
+  optional uint64 starlark_serialization_state_bytes_after = 13;
 }
 
 // An event that represents a single point in time.
