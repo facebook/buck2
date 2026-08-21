@@ -71,6 +71,7 @@ pub use crate::flamegraph::FlameGraphOutput;
 pub use crate::global_root::register_root;
 pub use crate::impls::hashbrown_util;
 pub use crate::key::Key;
+pub use crate::size_of::size_of_reachable;
 pub use crate::size_of::size_of_unique;
 pub use crate::size_of::size_of_unique_allocated_data;
 pub use crate::visitor::Visitor;
