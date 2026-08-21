@@ -24,11 +24,13 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use allocative::Allocative;
+use allocative::size_of_reachable;
 use dashmap::DashMap;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::StorageContext;
 use pagable::StorageState;
 
 use crate::pagable::error::PagableError;
@@ -85,6 +87,16 @@ pub(crate) struct StarlarkSerState {
 }
 
 impl StorageState for StarlarkSerState {}
+
+/// Estimate the memory retained by the Starlark serialization state in this storage.
+///
+/// Shared allocations such as `ChunkEntry` are counted once, and weak heap references are not
+/// followed. Returns zero before Starlark serialization has initialized its storage state.
+pub fn starlark_serialization_state_retained_bytes(storage: &StorageContext) -> usize {
+    storage
+        .get::<StarlarkSerState>()
+        .map_or(0, |state| size_of_reachable(state.as_ref()))
+}
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {

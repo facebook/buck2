@@ -30,6 +30,7 @@ use dashmap::DashMap;
 use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
 use pagable::DataKey;
+use pagable::StorageContext;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::noop::NoopPagableStorage;
 use pagable::storage::support::SerializerForPaging;
@@ -154,6 +155,10 @@ impl DiceStorage {
     /// created.
     pub(crate) fn page_in_metrics_snapshot(&self) -> HashMap<&'static str, PageInKeyTypeMetrics> {
         self.page_in_metrics.snapshot()
+    }
+
+    pub(crate) fn storage_context(&self) -> &StorageContext {
+        self.storage.storage_context()
     }
 
     /// The last measured on-disk store size in bytes, or `None` if this storage has

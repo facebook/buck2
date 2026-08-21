@@ -24,6 +24,7 @@ use derive_more::Display;
 use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use pagable::StorageContext;
 use pagable::storage::traits::ArcSerCache;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
@@ -42,6 +43,7 @@ use crate::environment::MethodFrozenHeapName;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
+use crate::pagable::starlark_serialization_state_retained_bytes;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
@@ -834,6 +836,36 @@ fn test_heap_registration_supports_different_ser_states() {
     second_state
         .ensure_chunk_index_registered(&heap_ref)
         .expect("register heap in a different state");
+}
+
+#[test]
+fn test_ser_state_retained_bytes_tracks_registered_heap_memory() {
+    let storage = StorageContext::new();
+    assert_eq!(starlark_serialization_state_retained_bytes(&storage), 0);
+
+    let state = storage.get_or_init(StarlarkSerState::new);
+    let empty_bytes = starlark_serialization_state_retained_bytes(&storage);
+
+    let heap = FrozenHeap::new();
+    for i in 0..500 {
+        let _ = heap.alloc_str(&format!("value-{i}"));
+    }
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("ser_state_retained_bytes"));
+    state
+        .ensure_chunk_index_registered(&heap_ref)
+        .expect("register heap chunk index");
+
+    let populated_bytes = starlark_serialization_state_retained_bytes(&storage);
+    assert!(
+        populated_bytes > empty_bytes,
+        "registered chunk metadata should increase retained bytes",
+    );
+
+    drop(heap_ref);
+    assert!(
+        starlark_serialization_state_retained_bytes(&storage) < populated_bytes,
+        "dropping the heap should release its registered chunk metadata",
+    );
 }
 
 #[test]

@@ -79,6 +79,8 @@ pub use starlark_serialize::StarlarkSerializeContext;
 #[doc(hidden)]
 pub use starlark_serialize::StarlarkSerializeScope;
 pub use starlark_serialize_context::StarlarkSerializerImpl;
+#[doc(hidden)]
+pub use starlark_serialize_context::starlark_serialization_state_retained_bytes;
 
 #[cfg(all(test, feature = "pagable"))]
 mod state_benchmark;
