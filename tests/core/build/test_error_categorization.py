@@ -631,3 +631,34 @@ async def test_nix_errno(buck: Buck) -> None:
     )
     error = res.invocation_record().single_error()
     assert error["category_key"] == "NIX:ENOENT"
+
+
+@buck_test(
+    skip_for_os=["darwin", "windows"],
+    write_invocation_record=True,
+)
+async def test_re_logs_permission_denied(buck: Buck) -> None:
+    # Start daemon to create buck-out/v2 with correct permissions
+    await buck.targets(":")
+
+    # Kill daemon so next command starts a fresh one that creates a new RE client
+    await buck.kill()
+
+    # Create re_logs/lock with no permissions so RE client gets a permission error
+    re_logs = buck.cwd / "buck-out" / "v2" / "re_logs"
+    re_logs.mkdir(parents=True, exist_ok=True)
+    lock_file = re_logs / "lock"
+    lock_file.touch()
+    lock_file.chmod(0o000)
+
+    try:
+        res = await expect_failure(
+            buck.build("//:run_action", "--remote-only"),
+            stderr_regex="Unable to lock file in log dir",
+        )
+        error = res.invocation_record().single_error()
+        # Check that TCode/TCodeReasonGroup are propagated correctly from RE
+        assert error["category_key"] == "RE_INTERNAL:RE_CLIENT"
+    finally:
+        # Restore permissions so test cleanup can proceed
+        lock_file.chmod(0o644)
