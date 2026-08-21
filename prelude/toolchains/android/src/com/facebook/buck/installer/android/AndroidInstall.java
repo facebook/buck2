@@ -43,7 +43,7 @@ class AndroidInstall {
   private final boolean installViaSd = false;
   private final Logger logger;
   private final AdbHelper adbHelper;
-  private final AndroidArtifacts artifacts;
+  private final InstallState state;
 
   public AndroidInstall(
       Logger logger,
@@ -52,7 +52,7 @@ class AndroidInstall {
       IsolatedApkInfo apkInfo,
       Optional<IsolatedExopackageInfo> exopackageInfo,
       InstallId installId,
-      AndroidArtifacts artifacts,
+      InstallState state,
       AdbHelper adbHelper) {
     this.logger = logger;
     this.rootPath = rootPath;
@@ -60,7 +60,7 @@ class AndroidInstall {
     this.exopackageInfo = exopackageInfo;
     this.installId = installId;
     this.cliOptions = cliOptions;
-    this.artifacts = artifacts;
+    this.state = state;
     this.adbHelper = adbHelper;
   }
 
@@ -110,11 +110,11 @@ class AndroidInstall {
             installViaSd,
             /* quiet= */ false,
             installId.getValue());
-        artifacts.recordDeviceWork(deviceWorkStart, System.currentTimeMillis());
+        state.metrics().recordDeviceWork(deviceWorkStart, System.currentTimeMillis());
 
         // Only now are the stage timings complete, so the metrics cannot be gathered any earlier.
         Map<String, String> installMetrics =
-            artifacts.getInstallMetrics(System.currentTimeMillis());
+            state.metrics().summarise(System.currentTimeMillis(), state.artifacts().arrivals());
         deviceInfos.forEach(infoMap -> infoMap.putAll(installMetrics));
         logger.info(
             String.format(

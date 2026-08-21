@@ -30,7 +30,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -49,9 +48,7 @@ class AndroidInstallerManager implements InstallCommand {
   private final AndroidCommandLineOptions options;
   private final AndroidInstallErrorClassifier errorClassifier =
       AndroidInstallErrorClassifier.INSTANCE;
-  private final Map<InstallId, AndroidArtifacts> artifactsByInstall = new HashMap<>();
-  // Resolved once the install options arrive, and reused for everything that follows.
-  private final Map<InstallId, AdbHelper> targetDevices = new ConcurrentHashMap<>();
+  private final Map<InstallId, InstallState> installs = new ConcurrentHashMap<>();
 
   private static final ImmutableMap<String, String> SHORT_TO_FULL_ABI_MAP =
       ImmutableMap.of(
@@ -69,7 +66,7 @@ class AndroidInstallerManager implements InstallCommand {
   @Override
   public InstallResult fileReady(String artifactName, Path artifactPath, InstallId installId) {
     try {
-      AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
+      AndroidArtifacts androidArtifacts = installState(installId).artifacts();
       long arrivedAt = System.currentTimeMillis();
 
       // Path before arrival: an artifact counted as arrived while its path is still unset reads as
@@ -100,7 +97,7 @@ class AndroidInstallerManager implements InstallCommand {
 
   @Override
   public void onInstallStarted(InstallId installId, Set<String> expectedArtifacts) {
-    getOrMakeAndroidArtifacts(installId).setExpectedArtifacts(expectedArtifacts);
+    installState(installId).artifacts().setExpectedArtifacts(expectedArtifacts);
   }
 
   /**
@@ -165,7 +162,7 @@ class AndroidInstallerManager implements InstallCommand {
   @Override
   public InstallResult allFilesReady(InstallId installId) {
     try {
-      AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
+      AndroidArtifacts androidArtifacts = installState(installId).artifacts();
 
       ImmutableSet<String> undelivered = androidArtifacts.undeliveredArtifacts();
       if (!undelivered.isEmpty()) {
@@ -206,7 +203,7 @@ class AndroidInstallerManager implements InstallCommand {
                   androidArtifacts.getAndroidManifestPath(), androidArtifacts.getApk()),
               isolatedExopackageInfo,
               installId,
-              androidArtifacts,
+              installState(installId),
               adbHelper);
       return androidInstaller.installApk();
 
@@ -303,22 +300,21 @@ class AndroidInstallerManager implements InstallCommand {
    * before the install fails it, rather than being dropped silently.
    */
   private AdbHelper resolveDevices(InstallId installId, AndroidArtifacts androidArtifacts) {
+    InstallState state = installState(installId);
     // Per install, not process wide: resolution asks adb, and two installs arriving together have
-    // no reason to wait for each other. computeIfAbsent is what keeps one install from resolving
-    // twice, and leaves no window between deciding to resolve and publishing the answer.
-    return targetDevices.computeIfAbsent(
-        installId,
-        unused -> {
+    // no reason to wait for each other.
+    return state.resolveDevices(
+        () -> {
           AdbHelper adbHelper =
               AdbHelperFactory.create(
                   LOG,
                   options,
                   androidArtifacts.getApkOptions(),
                   options.skipSetDebugApp ? SetDebugAppMode.SKIP : SetDebugAppMode.SET,
-                  androidArtifacts);
-          // Asking now is what fixes the set: the helper resolves its devices once, on first use,
-          // and answers from that for the rest of the install. Leaving it to whoever happens to ask
-          // first would move the instant this install is pinned to.
+                  state.metrics());
+          // Asking now is what fixes the set: the helper resolves its devices once, on
+          // first use, and answers from that for the rest of the install. Leaving it to
+          // whoever asks first would move the instant this install is pinned to.
           ImmutableSet<String> serials =
               adbHelper.getDevices(true).stream()
                   .map(device -> device.getSerialNumber())
@@ -328,10 +324,8 @@ class AndroidInstallerManager implements InstallCommand {
         });
   }
 
-  private AndroidArtifacts getOrMakeAndroidArtifacts(InstallId install_id) {
-    synchronized (artifactsByInstall) {
-      return artifactsByInstall.computeIfAbsent(install_id, ignore -> new AndroidArtifacts());
-    }
+  private InstallState installState(InstallId installId) {
+    return installs.computeIfAbsent(installId, ignore -> new InstallState());
   }
 
   /**
@@ -363,9 +357,9 @@ class AndroidInstallerManager implements InstallCommand {
    * or that no device would report an ABI -- unknown is not treated as incompatible.
    */
   private Optional<InstallError> checkAbiCompatibility(InstallId installId) {
-    AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
-    ImmutableSet<String> apkAbis = androidArtifacts.getApkAbis();
-    AdbHelper adbHelper = targetDevices.get(installId);
+    InstallState state = installState(installId);
+    ImmutableSet<String> apkAbis = state.artifacts().getApkAbis();
+    AdbHelper adbHelper = state.adbHelper();
     if (apkAbis == null || adbHelper == null) {
       return Optional.empty();
     }
