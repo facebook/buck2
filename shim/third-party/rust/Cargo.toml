@@ -242,7 +242,7 @@ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-core = { version = "0.1.33", features = ["valuable"] }
 tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
 triomphe = { version = "0.1.16", features = ["arc-swap"] }
-twox-hash = "1.6.1"
+twox-hash = "2.1.3"
 typed-arena = "2"
 unicode-segmentation = "1.13.3"
 unicode-width = "0.1.14"
