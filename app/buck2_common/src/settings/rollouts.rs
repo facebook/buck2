@@ -16,18 +16,26 @@ use buck2_error::buck2_error;
 #[cfg(fbcode_build)]
 use crate::settings::settings::ALL_SECTION_METADATA;
 #[cfg(fbcode_build)]
+use crate::settings::settings::BuckSettingsData;
+#[cfg(fbcode_build)]
 use crate::settings::settings::SectionMetadata;
 
 /// Selects the exact compiled version of every registered settings section.
 ///
 /// `Ok(None)` means no rollout matches a registered section and version.
-/// `Err` means a registered section or its selected version is malformed.
+/// `Err` means a registered section or its selected version is malformed, or
+/// the selected layer does not match the compiled settings schema.
 #[cfg(fbcode_build)]
 #[cfg_attr(not(test), expect(dead_code, reason = "Consumed by T3"))]
 pub(crate) fn select_rollout_layer(
     versioned_settings: toml::Table,
 ) -> buck2_error::Result<Option<toml::Table>> {
-    select_rollout_layer_with_registry(versioned_settings, ALL_SECTION_METADATA)
+    let Some(layer) = select_rollout_layer_with_registry(versioned_settings, ALL_SECTION_METADATA)?
+    else {
+        return Ok(None);
+    };
+    validate_rollout_layer(&layer)?;
+    Ok(Some(layer))
 }
 
 /// Settings rollouts are unavailable in OSS builds.
@@ -77,6 +85,20 @@ fn select_rollout_layer_with_registry(
     }
 
     Ok((!layer.is_empty()).then_some(layer))
+}
+
+#[cfg(fbcode_build)]
+fn validate_rollout_layer(layer: &toml::Table) -> buck2_error::Result<()> {
+    let _validated: BuckSettingsData =
+        toml::Value::Table(layer.clone())
+            .try_into()
+            .map_err(|error| {
+                buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Validating settings rollout layer: {error}"
+                )
+            })?;
+    Ok(())
 }
 
 #[cfg(all(test, fbcode_build))]
@@ -165,11 +187,48 @@ mod tests {
     }
 
     #[test]
-    fn uses_production_registry() -> buck2_error::Result<()> {
+    fn accepts_valid_settings() -> buck2_error::Result<()> {
+        let selected = select_rollout_layer(table(
+            r#"
+                [log_download.0]
+                log_use_manifold = true
+                log_url = "https://example.com"
+            "#,
+        ))?
+        .expect("The production section version is present");
+
         assert_eq!(
-            select_rollout_layer(table("[log_download.0]"))?,
-            Some(table("[log_download]")),
+            selected,
+            table(
+                r#"
+                    [log_download]
+                    log_use_manifold = true
+                    log_url = "https://example.com"
+                "#,
+            ),
         );
         Ok(())
+    }
+
+    #[test]
+    fn rejects_unknown_setting_in_selected_version() {
+        select_rollout_layer(table(
+            r#"
+                [log_download.0]
+                not_a_setting = true
+            "#,
+        ))
+        .expect_err("An unknown setting must fail standalone validation");
+    }
+
+    #[test]
+    fn rejects_wrong_value_type_in_selected_version() {
+        select_rollout_layer(table(
+            r#"
+                [log_download.0]
+                log_use_manifold = 1
+            "#,
+        ))
+        .expect_err("A setting with the wrong type must fail standalone validation");
     }
 }
