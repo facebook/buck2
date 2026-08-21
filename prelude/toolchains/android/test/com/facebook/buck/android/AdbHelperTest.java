@@ -103,7 +103,6 @@ public class AdbHelperTest {
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
         /* restartAdbOnFailure */ true,
-        /* skipMetadataIfNoInstalls */ false,
         SetDebugAppMode.SET);
   }
 
@@ -423,7 +422,6 @@ public class AdbHelperTest {
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
         /* restartAdbOnFailure */ true,
-        /* skipMetadataIfNoInstalls= */ false,
         SetDebugAppMode.SET) {};
   }
 
@@ -442,7 +440,6 @@ public class AdbHelperTest {
         adbExecutionContext,
         new IsolatedAndroidInstallerPrinter(LOGGER),
         /* restartAdbOnFailure */ true,
-        /* skipMetadataIfNoInstalls= */ false,
         SetDebugAppMode.SET);
   }
 

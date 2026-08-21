@@ -314,7 +314,6 @@ def get_install_config(apex_mode: bool) -> dict[str, typing.Any]:
         "adb_restart_on_failure": read_root_config("adb", "adb_restart_on_failure", "true"),
         "apex_mode": apex_mode,
         "multi_install_mode": read_root_config("adb", "multi_install_mode", "false"),
-        "skip_install_metadata": read_root_config("adb", "skip_install_metadata", "false"),
         "staged_install_mode": read_root_config("adb", "staged_install_mode", None),
     }
 

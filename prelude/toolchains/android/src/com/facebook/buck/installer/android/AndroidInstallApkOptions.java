@@ -33,7 +33,6 @@ public class AndroidInstallApkOptions {
   public final String adbExecutable;
   public final boolean restartAdbOnFailure;
   public final boolean stagedInstallMode;
-  public final boolean skipInstallMetadata;
   public final boolean apexMode;
 
   AndroidInstallApkOptions(Path jsonArtifactPath, String adbExecutablePath)
@@ -45,7 +44,6 @@ public class AndroidInstallApkOptions {
     this.restartAdbOnFailure = readBoolean(jsonData, "adb_restart_on_failure");
     this.stagedInstallMode = readBoolean(jsonData, "staged_install_mode");
     this.apexMode = readBoolean(jsonData, "apex_mode");
-    this.skipInstallMetadata = readBoolean(jsonData, "skip_install_metadata");
   }
 
   private boolean readBoolean(Map<String, String> jsonData, String name) {
@@ -103,8 +101,6 @@ public class AndroidInstallApkOptions {
         + restartAdbOnFailure
         + ", stagedInstallMode="
         + stagedInstallMode
-        + ", skipInstallMetadata="
-        + skipInstallMetadata
         + ", apexMode="
         + apexMode
         + '}';

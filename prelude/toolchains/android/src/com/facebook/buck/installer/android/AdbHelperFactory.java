@@ -69,7 +69,6 @@ class AdbHelperFactory {
         new AdbExecutionContext(),
         new IsolatedAndroidInstallerPrinter(logger),
         apkOptions.restartAdbOnFailure,
-        apkOptions.skipInstallMetadata,
         setDebugAppMode,
         timings);
   }

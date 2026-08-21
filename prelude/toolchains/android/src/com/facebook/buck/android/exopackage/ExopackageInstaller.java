@@ -89,7 +89,6 @@ public class ExopackageInstaller {
   private final String packageName;
   private final Optional<String> buck2BuildUuid;
   private final Path dataRoot;
-  private final boolean skipMetadataIfNoInstalls;
   private final InstallTimings timings;
 
   public ExopackageInstaller(
@@ -98,7 +97,6 @@ public class ExopackageInstaller {
       AbsPath rootPath,
       String packageName,
       AndroidDevice device,
-      boolean skipMetadataIfNoInstalls,
       Optional<String> buck2BuildUuid) {
     this(
         exoInfo,
@@ -106,7 +104,6 @@ public class ExopackageInstaller {
         rootPath,
         packageName,
         device,
-        skipMetadataIfNoInstalls,
         buck2BuildUuid,
         InstallTimings.NONE);
   }
@@ -117,7 +114,6 @@ public class ExopackageInstaller {
       AbsPath rootPath,
       String packageName,
       AndroidDevice device,
-      boolean skipMetadataIfNoInstalls,
       Optional<String> buck2BuildUuid,
       InstallTimings timings) {
     this.timings = timings;
@@ -127,7 +123,6 @@ public class ExopackageInstaller {
     this.device = device;
     this.packageName = packageName;
     this.dataRoot = EXOPACKAGE_INSTALL_ROOT.resolve(packageName);
-    this.skipMetadataIfNoInstalls = skipMetadataIfNoInstalls;
     this.buck2BuildUuid = buck2BuildUuid;
 
     Preconditions.checkArgument(AdbHelper.PACKAGE_NAME_PATTERN.matcher(packageName).matches());
@@ -268,9 +263,7 @@ public class ExopackageInstaller {
                       Ordering.natural(), Map.Entry::getKey, Map.Entry::getValue));
       shards.addAll(
           splitIntoShards(payload.type, filesToInstall, rootPath, dataRoot, TARGET_SHARD_BYTES));
-      if (!skipMetadataIfNoInstalls || !filesToInstall.isEmpty()) {
-        metadata.putAll(payload.metadataToInstall);
-      }
+      metadata.putAll(payload.metadataToInstall);
     }
 
     pushShards(shards.build());

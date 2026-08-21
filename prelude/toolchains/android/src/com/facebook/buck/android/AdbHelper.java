@@ -112,7 +112,6 @@ public class AdbHelper implements AndroidDevicesHelper {
   // Caches the list of android devices for this execution
   private final Supplier<GetDevicesResult> devicesSupplier;
   private final Supplier<ImmutableMap<String, ImmutableSet<String>>> deviceAbisSupplier;
-  private final boolean skipMetadataIfNoInstalls;
   private final AndroidInstallPrinter androidPrinter;
   private final SetDebugAppMode setDebugAppMode;
   private final InstallTimings timings;
@@ -128,7 +127,6 @@ public class AdbHelper implements AndroidDevicesHelper {
       AdbExecutionContext adbExecutionContext,
       AndroidInstallPrinter androidPrinter,
       boolean restartAdbOnFailure,
-      boolean skipMetadataIfNoInstalls,
       SetDebugAppMode setDebugAppMode) {
     this(
         adbUtils,
@@ -137,7 +135,6 @@ public class AdbHelper implements AndroidDevicesHelper {
         adbExecutionContext,
         androidPrinter,
         restartAdbOnFailure,
-        skipMetadataIfNoInstalls,
         setDebugAppMode,
         InstallTimings.NONE);
   }
@@ -149,7 +146,6 @@ public class AdbHelper implements AndroidDevicesHelper {
       AdbExecutionContext adbExecutionContext,
       AndroidInstallPrinter androidPrinter,
       boolean restartAdbOnFailure,
-      boolean skipMetadataIfNoInstalls,
       SetDebugAppMode setDebugAppMode,
       InstallTimings timings) {
     this.timings = timings;
@@ -161,7 +157,6 @@ public class AdbHelper implements AndroidDevicesHelper {
     this.devicesSupplier = MoreSuppliers.memoize(this::getDevicesImpl);
     this.deviceAbisSupplier = MoreSuppliers.memoize(this::deviceAbisBySerialImpl);
     this.androidPrinter = androidPrinter;
-    this.skipMetadataIfNoInstalls = skipMetadataIfNoInstalls;
     this.setDebugAppMode = setDebugAppMode;
   }
 
@@ -873,7 +868,6 @@ public class AdbHelper implements AndroidDevicesHelper {
                   rootPath,
                   packageName,
                   device,
-                  skipMetadataIfNoInstalls,
                   buck2BuildUuid,
                   timings)
               .doInstall(isolatedApkInfo, setDebugAppMode);
