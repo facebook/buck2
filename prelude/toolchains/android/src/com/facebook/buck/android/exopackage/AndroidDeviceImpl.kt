@@ -16,6 +16,7 @@ import com.google.common.base.Splitter
 import com.google.common.collect.ImmutableSortedSet
 import com.google.common.collect.Sets
 import java.io.File
+import java.io.IOException
 import java.lang.Thread.sleep
 import java.nio.file.Files
 import java.nio.file.Path
@@ -538,7 +539,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
                 .forEach { tempFolders[it] = Files.createTempDirectory("${it.fileName}_") }
             installPaths.forEach { (destination, source) ->
               val targetPath = tempFolders[destination.parent]?.resolve(destination.fileName)
-              Files.copy(source, targetPath, StandardCopyOption.REPLACE_EXISTING)
+              stageForPush(source, checkNotNull(targetPath))
             }
             // push the temp folder to the device
             mkDirP(stagingDir)
@@ -628,6 +629,27 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     // under us mid-install. Caching is worth it because a single exopackage install otherwise
     // re-queries ro.product.cpu.abilist five times over adb.
     return if (name.startsWith("ro.")) properties.computeIfAbsent(name) { read() } else read()
+  }
+
+  /**
+   * Hardlinks an artifact into the staging directory, copying only if it cannot be linked -- a
+   * different filesystem, typically, when the temp directory is on another volume.
+   *
+   * Buck materialises exopackage payloads as symlink farms and adb will not follow symlinks, so
+   * something has to resolve them; staging also renames each file to the hash-based name it takes
+   * on the device. Neither needs the bytes copied, and a payload is several GB.
+   *
+   * The link shares an inode with the artifact in buck-out, so nothing may modify a staged file.
+   * The `chmod` after the push deliberately runs on the device, not here.
+   */
+  private fun stageForPush(source: Path, target: Path) {
+    try {
+      Files.createLink(target, source.toRealPath())
+    } catch (e: IOException) {
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    } catch (e: UnsupportedOperationException) {
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+    }
   }
 
   @Throws(Exception::class)
