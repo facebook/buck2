@@ -10,14 +10,10 @@
 
 //! Selection of settings rollouts from the versioned TOML cache.
 
-#[cfg(fbcode_build)]
 use buck2_error::buck2_error;
 
-#[cfg(fbcode_build)]
 use crate::settings::settings::ALL_SECTION_METADATA;
-#[cfg(fbcode_build)]
 use crate::settings::settings::BuckSettingsData;
-#[cfg(fbcode_build)]
 use crate::settings::settings::SectionMetadata;
 
 /// Selects the exact compiled version of every registered settings section.
@@ -25,9 +21,7 @@ use crate::settings::settings::SectionMetadata;
 /// `Ok(None)` means no rollout matches a registered section and version.
 /// `Err` means a registered section or its selected version is malformed, or
 /// the selected layer does not match the compiled settings schema.
-#[cfg(fbcode_build)]
-#[cfg_attr(not(test), expect(dead_code, reason = "Consumed by T3"))]
-pub(crate) fn select_rollout_layer(
+pub(super) fn select_rollout_table(
     versioned_settings: toml::Table,
 ) -> buck2_error::Result<Option<toml::Table>> {
     let Some(layer) = select_rollout_layer_with_registry(versioned_settings, ALL_SECTION_METADATA)?
@@ -38,16 +32,6 @@ pub(crate) fn select_rollout_layer(
     Ok(Some(layer))
 }
 
-/// Settings rollouts are unavailable in OSS builds.
-#[cfg(not(fbcode_build))]
-#[expect(dead_code, reason = "Consumed by T3")]
-pub(crate) fn select_rollout_layer(
-    _versioned_settings: toml::Table,
-) -> buck2_error::Result<Option<toml::Table>> {
-    Ok(None)
-}
-
-#[cfg(fbcode_build)]
 fn select_rollout_layer_with_registry(
     mut versioned_settings: toml::Table,
     sections: &[SectionMetadata],
@@ -87,7 +71,6 @@ fn select_rollout_layer_with_registry(
     Ok((!layer.is_empty()).then_some(layer))
 }
 
-#[cfg(fbcode_build)]
 fn validate_rollout_layer(layer: &toml::Table) -> buck2_error::Result<()> {
     let _validated: BuckSettingsData =
         toml::Value::Table(layer.clone())
@@ -101,7 +84,7 @@ fn validate_rollout_layer(layer: &toml::Table) -> buck2_error::Result<()> {
     Ok(())
 }
 
-#[cfg(all(test, fbcode_build))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -188,7 +171,7 @@ mod tests {
 
     #[test]
     fn accepts_valid_settings() -> buck2_error::Result<()> {
-        let selected = select_rollout_layer(table(
+        let selected = select_rollout_table(table(
             r#"
                 [log_download.0]
                 log_use_manifold = true
@@ -212,7 +195,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_setting_in_selected_version() {
-        select_rollout_layer(table(
+        select_rollout_table(table(
             r#"
                 [log_download.0]
                 not_a_setting = true
@@ -223,7 +206,7 @@ mod tests {
 
     #[test]
     fn rejects_wrong_value_type_in_selected_version() {
-        select_rollout_layer(table(
+        select_rollout_table(table(
             r#"
                 [log_download.0]
                 log_use_manifold = 1

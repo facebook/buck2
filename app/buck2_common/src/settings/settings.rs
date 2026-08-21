@@ -22,11 +22,13 @@ pub(crate) enum OverrideSource {
     LocalSettings,
 }
 
-/// Classifies a setting's provenance as base or an override source.
+/// Classifies a setting's source for policy validation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum SettingSource {
     /// Repo-root `.bucksettings.toml`
     Base,
+    /// Wrapper-cached rollout settings.
+    Rollout,
     Override(OverrideSource),
 }
 
@@ -45,7 +47,7 @@ pub(crate) struct SettingKeyMetadata {
 impl SettingKeyMetadata {
     pub(super) fn allows_source(&self, source: SettingSource) -> bool {
         match source {
-            SettingSource::Base => true,
+            SettingSource::Base | SettingSource::Rollout => true,
             SettingSource::Override(source) => self.overridable_in.contains(&source),
         }
     }

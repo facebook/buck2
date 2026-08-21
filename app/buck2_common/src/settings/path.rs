@@ -8,8 +8,19 @@
  * above-listed licenses.
  */
 
+#[cfg(fbcode_build)]
+use buck2_fs::paths::abs_path::AbsPath;
+#[cfg(fbcode_build)]
+use buck2_fs::paths::abs_path::AbsPathBuf;
+
 pub(crate) static DOT_BUCKSETTINGS: &str = ".bucksettings.toml";
 pub(crate) static DOT_BUCKSETTINGS_LOCAL: &str = ".bucksettings.local.toml";
+
+/// Returns the wrapper-managed rollout cache path.
+#[cfg(fbcode_build)]
+pub(crate) fn rollouts_path(home_dir: &AbsPath) -> AbsPathBuf {
+    home_dir.join(buck2_wrapper_common::SETTINGS_ROLLOUTS_FILENAME)
+}
 
 pub(crate) enum SettingsSource {
     RepoRootFile(&'static str),
