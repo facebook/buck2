@@ -658,7 +658,9 @@ async def test_re_logs_permission_denied(buck: Buck) -> None:
         )
         error = res.invocation_record().single_error()
         # Check that TCode/TCodeReasonGroup are propagated correctly from RE
-        assert error["category_key"] == "RE_INTERNAL:RE_CLIENT"
+        assert "Permission denied" in error["telemetry_message"]
+        assert error["category_key"] == "RE_PERMISSION_DENIED:RE_CLIENT"
+        assert error["category"] == "ENVIRONMENT"
     finally:
         # Restore permissions so test cleanup can proceed
         lock_file.chmod(0o644)
