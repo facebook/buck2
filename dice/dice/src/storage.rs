@@ -161,6 +161,10 @@ impl DiceStorage {
         self.storage.storage_context()
     }
 
+    pub(crate) fn storage_handle(&self) -> PagableStorageHandle {
+        PagableStorageHandle::new(self.storage.dupe())
+    }
+
     /// The last measured on-disk store size in bytes, or `None` if this storage has
     /// no on-disk path (constructed via `new`). `Some(Err)` if the last measurement
     /// walk failed. Cached at page-out, so it is cheap on the command-end path (no
@@ -403,7 +407,7 @@ impl DiceStorage {
         // pagable_deserialize_value lazily fetches nested `PagableArc` sub-values,
         // so deser_us also covers that nested I/O, not just CPU.
         let deser_start = Instant::now();
-        let handle = PagableStorageHandle::new(self.storage.dupe());
+        let handle = self.storage_handle();
         let mut deserializer = handle.root_deserializer(data_key, &data);
         let arc = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_deserialize_value(&mut deserializer)?,

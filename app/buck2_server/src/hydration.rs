@@ -30,6 +30,8 @@ use dice::Dice;
 use dice::DiceTransaction;
 use dice::PagableStatus;
 use dupe::Dupe;
+use starlark::pagable::starlark_deserialization_state_retained_bytes;
+use starlark::pagable::starlark_serialization_state_retained_bytes;
 
 use crate::ctx::ServerCommandContext;
 use crate::paging::cancel_active_page_out;
@@ -107,15 +109,34 @@ impl ServerCommandTemplate for HydrationServerCommand {
                     wait_for_idle_page_out().await;
                 }
                 let status = self.dice.pagable_status().await;
+                let starlark_serialization_state_bytes = self
+                    .dice
+                    .pagable_storage_context()
+                    .map(starlark_serialization_state_retained_bytes);
+                let starlark_deserialization_state_bytes = self
+                    .dice
+                    .pagable_storage_handle()
+                    .as_ref()
+                    .map(starlark_deserialization_state_retained_bytes);
                 Ok(buck2_cli_proto::HydrationResponse {
-                    summary: Some(format_status_summary(&status, page_out_in_progress())),
+                    summary: Some(format_status_summary(
+                        &status,
+                        page_out_in_progress(),
+                        starlark_serialization_state_bytes,
+                        starlark_deserialization_state_bytes,
+                    )),
                 })
             }
         }
     }
 }
 
-fn format_status_summary(status: &PagableStatus, page_out_in_progress: bool) -> String {
+fn format_status_summary(
+    status: &PagableStatus,
+    page_out_in_progress: bool,
+    starlark_serialization_state_bytes: Option<usize>,
+    starlark_deserialization_state_bytes: Option<usize>,
+) -> String {
     // `total_nodes` counts vacant/in-progress nodes too; the rest is "other".
     // saturating_sub guards an underflow the struct invariant already rules out.
     let other = status
@@ -134,6 +155,16 @@ fn format_status_summary(status: &PagableStatus, page_out_in_progress: bool) -> 
         "idle page-out in progress: {}\n",
         if page_out_in_progress { "yes" } else { "no" }
     ));
+    if let Some(bytes) = starlark_serialization_state_bytes {
+        summary.push_str(&format!(
+            "starlark serialization state retained bytes: {bytes}\n"
+        ));
+    }
+    if let Some(bytes) = starlark_deserialization_state_bytes {
+        summary.push_str(&format!(
+            "starlark deserialization state retained bytes: {bytes}\n"
+        ));
+    }
     if !status.by_type.is_empty() {
         summary.push('\n');
         summary.push_str(&format!(

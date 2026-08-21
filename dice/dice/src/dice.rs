@@ -15,6 +15,7 @@ use std::sync::Arc as StdArc;
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::StorageContext;
+use pagable::storage::handle::PagableStorageHandle;
 
 use crate::DiceTransactionUpdater;
 use crate::HashMap;
@@ -137,6 +138,14 @@ impl Dice {
         self.pagable_storage
             .as_ref()
             .map(DiceStorage::storage_context)
+    }
+
+    /// Pagable storage handle used by serializer-specific debug telemetry.
+    #[doc(hidden)]
+    pub fn pagable_storage_handle(&self) -> Option<PagableStorageHandle> {
+        self.pagable_storage
+            .as_ref()
+            .map(DiceStorage::storage_handle)
     }
 
     /// Current depth of the request queue feeding the dice core-state thread.
