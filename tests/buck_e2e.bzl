@@ -38,6 +38,7 @@ def buck_e2e_test(
     ci_deps = [],
     compatible_with = None,
     heavyweight_threads = "4",
+    remote_execution = None,
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
@@ -146,6 +147,12 @@ def buck_e2e_test(
         deps = deps,
         env = env,
         emails = contacts,
+        # Forwarded verbatim (python_pytest already accepts it): e2e tests
+        # boot buck2 daemons against the host checkout, so callers under an
+        # RE-by-default PACKAGE (re_test_utils.set_package_default) need the
+        # per-target `remote_execution = False` pin — the narrow form —
+        # instead of a directory-wide PACKAGE opt-out.
+        remote_execution = remote_execution,
         resources = resources,
         skip_on_mode_mac = "darwin" in skip_for_os,
         skip_on_mode_win = "windows" in skip_for_os,
@@ -218,6 +225,7 @@ def buck2_e2e_test(
     ci_deps = [],
     compatible_with = None,
     heavyweight_threads = "4",
+    remote_execution = None,
 ):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
@@ -258,6 +266,7 @@ def buck2_e2e_test(
         "pytest_config": pytest_config,
         "pytest_expr": pytest_expr,
         "pytest_marks": pytest_marks,
+        "remote_execution": remote_execution,
         "require_nano_prelude": require_nano_prelude,
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
