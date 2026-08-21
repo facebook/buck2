@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
@@ -95,6 +96,11 @@ class AndroidInstallerManager implements InstallCommand {
           err);
       return InstallResult.error(errorClassifier.fromErrorMessage(errMsg));
     }
+  }
+
+  @Override
+  public void onInstallStarted(InstallId installId, Set<String> expectedArtifacts) {
+    getOrMakeAndroidArtifacts(installId).setExpectedArtifacts(expectedArtifacts);
   }
 
   /**
@@ -160,6 +166,17 @@ class AndroidInstallerManager implements InstallCommand {
   public InstallResult allFilesReady(InstallId installId) {
     try {
       AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
+
+      ImmutableSet<String> undelivered = androidArtifacts.undeliveredArtifacts();
+      if (!undelivered.isEmpty()) {
+        LOG.log(
+            Level.WARNING,
+            String.format(
+                "Install %s: buck declared these artifacts and never sent them, so their payload"
+                    + " never counted as complete and was pushed by the install rather than"
+                    + " ahead of it: %s",
+                installId.getValue(), undelivered));
+      }
 
       String adbPath = androidArtifacts.getApkOptions().adbExecutable;
       if (!Files.exists(Paths.get(adbPath))) {

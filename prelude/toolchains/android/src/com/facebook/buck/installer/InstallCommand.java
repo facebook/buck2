@@ -11,6 +11,7 @@
 package com.facebook.buck.installer;
 
 import java.nio.file.Path;
+import java.util.Set;
 
 /**
  * Install Command interface. Support for a specific installer such as iOS or Android is implemented
@@ -22,4 +23,12 @@ public interface InstallCommand {
 
   /** Indicate that all files have been received by the installer */
   InstallResult allFilesReady(InstallId installId);
+
+  /**
+   * Notifies which artifacts the client intends to send, before any of them arrive.
+   *
+   * <p>Lets an implementation tell "this build has no such artifact" apart from "it has not turned
+   * up yet", which is not otherwise decidable while artifacts are still in flight.
+   */
+  default void onInstallStarted(InstallId installId, Set<String> expectedArtifacts) {}
 }

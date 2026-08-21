@@ -19,11 +19,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +49,57 @@ class AndroidArtifacts implements InstallTimings {
   private Optional<AbsPath> resourcesExopackageInfoResHash = Optional.empty();
   // Artifact name -> wall-clock arrival.
   private final Map<String, Long> fileArrivalMillis = new HashMap<>();
+  // What buck said it would send, split by payload. A class with no entry is one this build does
+  // not produce, which is why it can never be complete.
+  private final Map<ArtifactClass, Set<String>> expectedByClass =
+      new EnumMap<>(ArtifactClass.class);
+
+  /** Records which artifacts buck said it would send, before any of them arrive. */
+  public synchronized void setExpectedArtifacts(Set<String> expectedArtifacts) {
+    expectedByClass.clear();
+    for (String artifactName : expectedArtifacts) {
+      expectedByClass
+          .computeIfAbsent(ArtifactClass.of(artifactName), unused -> new HashSet<>())
+          .add(artifactName);
+    }
+  }
+
+  /**
+   * True once every artifact this build declared for {@code artifactClass} has arrived, and false
+   * if it declared none.
+   *
+   * <p>Checked against what buck said it would send, not against what happens to be on disk: assets
+   * are optional for a build, so their absence is otherwise indistinguishable from their not having
+   * turned up yet.
+   */
+  public synchronized boolean hasAllArtifactsFor(ArtifactClass artifactClass) {
+    Set<String> declared = expectedByClass.get(artifactClass);
+    return declared != null && fileArrivalMillis.keySet().containsAll(declared);
+  }
+
+  /**
+   * True once every artifact buck declared has arrived, and false if it declared none.
+   *
+   * <p>Independent of how names bucket into classes: it asks whether anything is still coming, not
+   * which payload it belongs to.
+   */
+  public synchronized boolean allArtifactsArrived() {
+    return !expectedByClass.isEmpty() && undeliveredArtifacts().isEmpty();
+  }
+
+  /**
+   * Artifacts buck declared but never delivered.
+   *
+   * <p>Only meaningful once buck says it has sent everything; before that an artifact is missing
+   * simply because it has not arrived. A name here means the two sides disagree about what an
+   * artifact is called, which leaves its class permanently incomplete and its payload unstreamed.
+   */
+  public synchronized ImmutableSet<String> undeliveredArtifacts() {
+    return expectedByClass.values().stream()
+        .flatMap(Set::stream)
+        .filter(artifactName -> !fileArrivalMillis.containsKey(artifactName))
+        .collect(ImmutableSet.toImmutableSet());
+  }
 
   /**
    * Records that {@code artifactName} was delivered by buck at {@code timestampMillis}. Must be
@@ -254,7 +307,7 @@ class AndroidArtifacts implements InstallTimings {
   }
 
   /** Groups install artifacts by the exopackage payload they belong to. */
-  private enum ArtifactClass {
+  enum ArtifactClass {
     SECONDARY_DEX("dex"),
     NATIVE_LIBRARY("native"),
     RESOURCES("resources"),
