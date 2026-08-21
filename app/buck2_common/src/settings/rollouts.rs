@@ -1,0 +1,175 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+//! Selection of settings rollouts from the versioned TOML cache.
+
+#[cfg(fbcode_build)]
+use buck2_error::buck2_error;
+
+#[cfg(fbcode_build)]
+use crate::settings::settings::ALL_SECTION_METADATA;
+#[cfg(fbcode_build)]
+use crate::settings::settings::SectionMetadata;
+
+/// Selects the exact compiled version of every registered settings section.
+///
+/// `Ok(None)` means no rollout matches a registered section and version.
+/// `Err` means a registered section or its selected version is malformed.
+#[cfg(fbcode_build)]
+#[cfg_attr(not(test), expect(dead_code, reason = "Consumed by T3"))]
+pub(crate) fn select_rollout_layer(
+    versioned_settings: toml::Table,
+) -> buck2_error::Result<Option<toml::Table>> {
+    select_rollout_layer_with_registry(versioned_settings, ALL_SECTION_METADATA)
+}
+
+/// Settings rollouts are unavailable in OSS builds.
+#[cfg(not(fbcode_build))]
+#[expect(dead_code, reason = "Consumed by T3")]
+pub(crate) fn select_rollout_layer(
+    _versioned_settings: toml::Table,
+) -> buck2_error::Result<Option<toml::Table>> {
+    Ok(None)
+}
+
+#[cfg(fbcode_build)]
+fn select_rollout_layer_with_registry(
+    mut versioned_settings: toml::Table,
+    sections: &[SectionMetadata],
+) -> buck2_error::Result<Option<toml::Table>> {
+    let mut layer = toml::Table::new();
+
+    for section in sections {
+        let Some(versions) = versioned_settings.remove(section.section_name) else {
+            continue;
+        };
+        let toml::Value::Table(mut versions) = versions else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Buck settings rollout section `{}` must contain a table of versions",
+                section.section_name,
+            ));
+        };
+
+        let version = section.section_version.to_string();
+        let Some(settings) = versions.remove(&version) else {
+            continue;
+        };
+        let toml::Value::Table(settings) = settings else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Buck settings rollout section `{}` version `{version}` must contain a table of settings",
+                section.section_name,
+            ));
+        };
+
+        layer.insert(
+            section.section_name.to_owned(),
+            toml::Value::Table(settings),
+        );
+    }
+
+    Ok((!layer.is_empty()).then_some(layer))
+}
+
+#[cfg(all(test, fbcode_build))]
+mod tests {
+    use super::*;
+
+    const SECTION: &str = "test_section";
+    const SECTION_METADATA: SectionMetadata = SectionMetadata {
+        section_name: SECTION,
+        section_version: 0,
+    };
+
+    fn table(content: &str) -> toml::Table {
+        toml::from_str(content).expect("Test input should be valid TOML")
+    }
+
+    fn select(content: &str) -> buck2_error::Result<Option<toml::Table>> {
+        select_rollout_layer_with_registry(table(content), &[SECTION_METADATA])
+    }
+
+    #[test]
+    fn selects_version() -> buck2_error::Result<()> {
+        let selected = select(
+            r#"
+                [test_section.0]
+                test_flag = true
+                test_value = "compiled"
+
+                [test_section.1]
+                test_flag = false
+                test_value = "future"
+            "#,
+        )?
+        .expect("The compiled section version is present");
+
+        assert_eq!(
+            selected,
+            table(
+                r#"
+                    [test_section]
+                    test_flag = true
+                    test_value = "compiled"
+                "#,
+            ),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn skips_missing_version() -> buck2_error::Result<()> {
+        assert_eq!(select("[test_section.1]\ntest_flag = true")?, None);
+        Ok(())
+    }
+
+    #[test]
+    fn ignores_unknown_section() -> buck2_error::Result<()> {
+        assert_eq!(
+            select(
+                r#"
+                    unknown_section = false
+
+                    [test_section.0]
+                    test_flag = true
+                "#,
+            )?,
+            Some(table(
+                r#"
+                    [test_section]
+                    test_flag = true
+                "#,
+            )),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_non_table_section() {
+        select("test_section = false")
+            .expect_err("A registered section must contain version tables");
+    }
+
+    #[test]
+    fn rejects_non_table_version() {
+        select("[test_section]\n0 = false")
+            .expect_err("The selected version must contain a settings table");
+    }
+
+    #[test]
+    fn uses_production_registry() -> buck2_error::Result<()> {
+        assert_eq!(
+            select_rollout_layer(table("[log_download.0]"))?,
+            Some(table("[log_download]")),
+        );
+        Ok(())
+    }
+}

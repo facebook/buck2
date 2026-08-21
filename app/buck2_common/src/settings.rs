@@ -13,6 +13,7 @@
 pub mod args;
 pub mod parser;
 mod path;
+pub(crate) mod rollouts;
 pub mod settings;
 
 pub use settings::BuckSettings;

@@ -52,8 +52,8 @@ impl SettingKeyMetadata {
 }
 
 #[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "Consumed by follow-up rollout integration")
+    not(fbcode_build),
+    expect(dead_code, reason = "Settings rollouts are internal-only")
 )]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SectionMetadata {
@@ -109,8 +109,8 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] =
     &[LOG_USE_MANIFOLD.metadata, LOG_URL.metadata];
 #[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "Consumed by follow-up rollout integration")
+    not(fbcode_build),
+    expect(dead_code, reason = "Settings rollouts are internal-only")
 )]
 pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[LogDownloadSection::METADATA];
 
