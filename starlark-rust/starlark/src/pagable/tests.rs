@@ -42,6 +42,7 @@ use crate::environment::GlobalsBuilder;
 use crate::environment::MethodFrozenHeapName;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::starlark_deserialization_state_retained_bytes;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
 use crate::pagable::starlark_serialization_state_retained_bytes;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
@@ -866,6 +867,50 @@ fn test_ser_state_retained_bytes_tracks_registered_heap_memory() {
         starlark_serialization_state_retained_bytes(&storage) < populated_bytes,
         "dropping the heap should release its registered chunk metadata",
     );
+}
+
+#[test]
+fn test_deser_state_retained_bytes_tracks_cached_heap_memory() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let heap = FrozenHeap::new();
+    let value = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 42,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("deser_state_retained_bytes"));
+    // SAFETY: `heap_ref` owns the arena hosting `value`.
+    let root: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::unchecked_new(heap_ref, value.to_value()) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let root_key = ser_owned_frozen_value_into_storage(&backing, &root)?;
+    assert_eq!(starlark_deserialization_state_retained_bytes(&handle), 0);
+
+    drop(root);
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &root_key)?;
+    let retained_bytes = starlark_deserialization_state_retained_bytes(&handle);
+    assert!(
+        retained_bytes > 0,
+        "a cached deserialized heap should retain its deserialization state",
+    );
+
+    drop(restored);
+    assert_eq!(
+        starlark_deserialization_state_retained_bytes(&handle),
+        retained_bytes,
+        "the deserialized Arc cache should keep the heap state alive",
+    );
+
+    let _restored_again = deser_owned_frozen_from_storage(&backing, &handle, &root_key)?;
+    assert_eq!(
+        starlark_deserialization_state_retained_bytes(&handle),
+        retained_bytes,
+        "reusing the cached heap must not duplicate its deserialization state",
+    );
+    Ok(())
 }
 
 #[test]

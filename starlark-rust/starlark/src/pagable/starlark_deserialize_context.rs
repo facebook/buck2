@@ -30,6 +30,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::thread::ThreadId;
 
+use allocative::Allocative;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use dupe::Dupe;
@@ -57,18 +58,21 @@ use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
+use crate::values::layout::heap::heap_type::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
 
 /// Per-slot metadata for partial-deser. Immutable after `deserialize_metadata`.
+#[derive(Allocative)]
 pub(crate) struct ValueDeserSlot {
     /// Byte offset of this value's data relative to base_pos.
     stream_offset: u32,
     /// Arc index offset relative to base_pos.arc_index.
     arc_offset: u32,
     /// This value's vtable, used for deserialization dispatch.
+    #[allocative(skip)]
     vtable: &'static AValueVTable,
     /// Which bump (drop or non-drop) this value lives in.
     bump_kind: BumpKind,
@@ -158,6 +162,7 @@ impl SlotState {
 ///
 /// The low bits are free for the flags because `AValueHeader` is ≥ 8-byte
 /// aligned (checked below).
+#[derive(Allocative)]
 #[repr(transparent)]
 struct AtomicSlotState(AtomicU64);
 
@@ -214,18 +219,21 @@ impl AtomicSlotState {
     }
 }
 
+#[derive(Allocative)]
 struct InitWaiters {
     state: Mutex<InitWaiterState>,
+    #[allocative(skip)]
     cv: OnceLock<Condvar>,
 }
 
-#[derive(Default)]
+#[derive(Allocative, Default)]
 struct InitWaiterState {
     /// Failure records are sparse because successful slots never need this
     /// diagnostic state.
     failures: Vec<SlotFailure>,
 }
 
+#[derive(Allocative)]
 struct SlotFailure {
     index: usize,
     cause: Arc<str>,
@@ -251,6 +259,7 @@ pub(crate) enum ClaimResult {
 
 /// Metadata + init state — lazily parsed from the recipe on first
 /// `try_claim`.
+#[derive(Allocative)]
 pub(crate) struct HeapMetadata {
     /// All values in this heap.
     slots: Vec<ValueDeserSlot>,
@@ -271,7 +280,9 @@ pub(crate) struct HeapMetadata {
     init_waiters: InitWaiters,
 }
 
+#[derive(Allocative)]
 struct HeapArenaState {
+    #[allocative(skip)]
     arena: NonNull<Arena<ChunkAllocator>>,
     serialization_index_dirty: bool,
 }
@@ -279,6 +290,7 @@ struct HeapArenaState {
 /// Locked pointer to the owning `FrozenFrozenHeap`'s arena plus the
 /// information needed to lazily parse this heap's slot metadata from its
 /// recipe. The metadata is materialized only on first `try_claim`.
+#[derive(Allocative)]
 pub(crate) struct HeapDeserializationState {
     heap_id: HeapRefId,
     /// Scope state that owns cross-heap resolution for this heap's recipe.
@@ -629,6 +641,7 @@ impl HeapDeserializationState {
 }
 
 /// Heap bindings shared by Starlark deserialization within one root page-in.
+#[derive(Allocative)]
 pub(crate) struct StarlarkDeserScope {
     /// Weak heap index used to resolve a heap ID while retaining the exact
     /// owning heap for every access to its arena-backed deserialization state.
@@ -636,6 +649,14 @@ pub(crate) struct StarlarkDeserScope {
 }
 
 impl PageInState for StarlarkDeserScope {}
+
+/// Estimate memory retained by cached Starlark heap deserialization state.
+///
+/// All heap states are visited with one builder so shared scopes and serialized
+/// recipe data are counted once. The heap arenas themselves are not followed.
+pub fn starlark_deserialization_state_retained_bytes(storage: &PagableStorageHandle) -> usize {
+    cached_heap_deserialization_state_retained_bytes(storage)
+}
 
 /// Exact process-local value identity used only while a claim or wait guard is
 /// active. The caller retains the owning heap, so `heap_ptr` cannot be reused

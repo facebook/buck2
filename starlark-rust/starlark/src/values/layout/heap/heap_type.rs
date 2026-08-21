@@ -37,6 +37,7 @@ use std::sync::OnceLock;
 use std::sync::Weak;
 
 use allocative::Allocative;
+use allocative::FlameGraphBuilder;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -47,6 +48,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
+use pagable::storage::handle::PagableStorageHandle;
 use rand::RngExt;
 use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
@@ -690,6 +692,21 @@ impl FrozenFrozenHeap {
 
         Ok(heap)
     }
+}
+
+pub(crate) fn cached_heap_deserialization_state_retained_bytes(
+    storage: &PagableStorageHandle,
+) -> usize {
+    let heaps = storage.deserialized_arcs::<PartialPagableArc<FrozenFrozenHeap>>();
+    // One builder must span every heap so its shared-allocation visited set prevents a scope or
+    // recipe reachable from multiple states from being counted once per heap.
+    let mut builder = FlameGraphBuilder::default();
+    for heap in &heaps {
+        if let Some(state) = heap.deser_state.get() {
+            builder.visit_root(state.as_ref());
+        }
+    }
+    builder.finish().flamegraph().total_size()
 }
 
 impl Drop for FrozenFrozenHeap {

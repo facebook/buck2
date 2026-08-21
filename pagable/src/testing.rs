@@ -38,6 +38,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use dupe::Dupe;
 use postcard::ser_flavors::Flavor as _;
 use serde::Deserialize;
@@ -266,8 +267,10 @@ impl EmptyPagableStorage {
     }
 }
 
+#[derive(Allocative)]
 pub(crate) struct TestingRecipe {
     bytes: Arc<[u8]>,
+    #[allocative(skip)]
     page_in_scope: PageInScope,
 }
 

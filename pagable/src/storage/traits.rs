@@ -18,6 +18,7 @@ use dupe::Dupe;
 use either::Either;
 use once_cell::sync::OnceCell;
 
+use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::WeakEraseDyn;
 use crate::storage::data::DataKey;
@@ -105,6 +106,25 @@ impl DeserializedArcCache {
             return Some(arc);
         }
         None
+    }
+
+    pub(crate) fn snapshot<T: ArcErase>(&self) -> Vec<T> {
+        let type_id = TypeId::of::<T>();
+        self.map
+            .iter()
+            .filter_map(|entry| {
+                if entry.key().0 != type_id {
+                    return None;
+                }
+                let arc = entry.value().get()?;
+                Some(
+                    arc.as_arc_any()
+                        .downcast_ref::<T>()
+                        .expect("deserialized Arc cache key must match its value type")
+                        .dupe_strong(),
+                )
+            })
+            .collect()
     }
 
     pub fn register_resident(&self, key: DataKey, arc: &dyn ArcEraseDyn) {

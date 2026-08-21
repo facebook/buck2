@@ -21,6 +21,7 @@ use std::any::Any;
 use std::any::TypeId;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use dashmap::DashMap;
 
 use crate::PagableDeserializerRecipe;
@@ -84,7 +85,7 @@ impl StorageContext {
 /// stream position and the arc list index.
 ///
 /// This enables correct save/restore of position across seek operations.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Allocative, Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct PagableCursor {
     /// Position in the byte stream.
     pub byte_pos: usize,

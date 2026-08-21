@@ -17,6 +17,8 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
+
 use crate::PagableDeserializer;
 use crate::PageInScope;
 use crate::storage::data::PagableData;
@@ -25,7 +27,7 @@ use crate::storage::handle::PagableStorageHandle;
 /// Reconstructable handle to a [`PagableDeserializer`].
 ///
 /// `Send + Sync`; cheap to share (typically behind `Arc`).
-pub trait PagableDeserializerRecipe: Send + Sync {
+pub trait PagableDeserializerRecipe: Allocative + Send + Sync {
     /// Build a fresh deserializer positioned at the start of this recipe's data.
     ///
     /// The recipe retains its original [`PageInScope`]. Storage is supplied by
@@ -42,9 +44,10 @@ static_assertions::assert_obj_safe!(PagableDeserializerRecipe);
 /// [`PagableDeserializerRecipe`] for
 /// [`PagableDeserializerImpl`](crate::context::PagableDeserializerImpl): owns
 /// its bytes via `Arc<PagableData>`.
-#[derive(Clone)]
+#[derive(Allocative, Clone)]
 pub struct PagableDeserializerRecipeImpl {
     data: Arc<PagableData>,
+    #[allocative(skip)]
     page_in_scope: PageInScope,
 }
 

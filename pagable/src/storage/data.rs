@@ -104,6 +104,7 @@ impl DataKey {
 ///
 /// Contains the raw bytes and any nested arc references that need to be resolved
 /// during deserialization.
+#[derive(Allocative)]
 pub struct PagableData {
     pub data: Vec<u8>,
     pub arcs: Vec<DataKey>,

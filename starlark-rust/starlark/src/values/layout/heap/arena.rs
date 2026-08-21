@@ -84,7 +84,7 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
 };
 
 /// Which bump region a value is allocated in.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Allocative, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) enum BumpKind {
     Drop = 0,
     NonDrop = 1,

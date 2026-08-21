@@ -12,6 +12,7 @@ use dupe::Dupe;
 
 use crate::Pagable;
 use crate::PageInScope;
+use crate::arc_erase::ArcErase;
 use crate::context::PagableDeserializerImpl;
 use crate::pagable_arc::PagableArc;
 use crate::storage::data::DataKey;
@@ -62,6 +63,15 @@ impl PagableStorageHandle {
         data: &'de PagableData,
     ) -> PagableDeserializerImpl<'de, 's> {
         PageInScope::new(root_key).deserializer(data, self)
+    }
+
+    /// Snapshot initialized deserialized arcs of one concrete type.
+    ///
+    /// The returned strong references keep the snapshot stable after the cache
+    /// locks are released.
+    #[doc(hidden)]
+    pub fn deserialized_arcs<T: ArcErase>(&self) -> Vec<T> {
+        self.backing_storage.arc_cache().snapshot::<T>()
     }
 
     pub(crate) fn backing_storage(&self) -> &dyn PagableStorage {
