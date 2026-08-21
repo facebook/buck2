@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -76,7 +77,7 @@ where
                     if let ActionExecution(action_execution_end) = end
                         .data
                         .as_ref()
-                        .ok_or_else(|| internal_error!("Missing `data` in SpanEnd"))?
+                        .internal_error("Missing `data` in SpanEnd")?
                     {
                         self.action_stats.update(action_execution_end);
                     }
@@ -87,7 +88,7 @@ where
                     match instant
                         .data
                         .as_ref()
-                        .ok_or_else(|| internal_error!("Missing `data` in `Instant`"))?
+                        .internal_error("Missing `data` in `Instant`")?
                     {
                         ReSession(re_session) => {
                             self.re_state.add_re_session(re_session);

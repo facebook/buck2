@@ -12,8 +12,8 @@
 
 use std::fs;
 
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 
 use crate::os::host_cpu_usage::HostCpuUsage;
 
@@ -25,7 +25,7 @@ pub fn host_cpu_usage() -> buck2_error::Result<HostCpuUsage> {
     let line = contents
         .lines()
         .next()
-        .ok_or_else(|| internal_error!("Failed to read /proc/stat"))?;
+        .internal_error("Failed to read /proc/stat")?;
 
     let mut line = line.split_whitespace();
     // Expected values at indices:
@@ -33,10 +33,10 @@ pub fn host_cpu_usage() -> buck2_error::Result<HostCpuUsage> {
     if line.next() == Some("cpu") {
         let user_millis_str = line
             .next()
-            .ok_or_else(|| internal_error!("Failed to read user CPU usage"))?;
+            .internal_error("Failed to read user CPU usage")?;
         let system_millis_str = line
             .nth(1)
-            .ok_or_else(|| internal_error!("Failed to read system CPU usage"))?;
+            .internal_error("Failed to read system CPU usage")?;
 
         return Ok(HostCpuUsage {
             user_millis: user_millis_str.parse::<u64>()?,

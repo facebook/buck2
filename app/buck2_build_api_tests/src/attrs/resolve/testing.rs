@@ -21,7 +21,7 @@ use buck2_build_api::interpreter::rule_defs::provider::registration::register_bu
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::attrs::coerce;
@@ -226,7 +226,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 .deps
                 .get(target)
                 .duped()
-                .ok_or_else(|| internal_error!("missing dep"))?
+                .internal_error("missing dep")?
                 .add_heap_ref(self.module.heap()))
         }
 

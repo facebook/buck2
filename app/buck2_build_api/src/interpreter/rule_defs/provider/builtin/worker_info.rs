@@ -17,8 +17,8 @@ use std::sync::atomic::AtomicU64;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 use either::Either;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
@@ -129,9 +129,9 @@ fn iter_env<'v>(
     let env = env.iter().collect::<Vec<_>>();
 
     Either::Right(env.into_iter().map(|(key, value)| {
-        let key = key
-            .unpack_str()
-            .ok_or_else(|| internal_error!("Invalid key in `env`: Expected a str, got: `{key}`"))?;
+        let key = key.unpack_str().with_internal_error(|| {
+            format!("Invalid key in `env`: Expected a str, got: `{key}`")
+        })?;
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(value)
             .with_buck_error_context(|| format!("Invalid value in `env` for key `{key}`"))?

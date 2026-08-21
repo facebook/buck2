@@ -10,7 +10,7 @@
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_execute_local::CommandEvent;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_resource_control::OrphanProcessInfo;
@@ -110,7 +110,7 @@ where
             })
             .collect();
 
-        let event = match e.data.ok_or_else(|| internal_error!("Missing `data`"))? {
+        let event = match e.data.internal_error("Missing `data`")? {
             Data::Stdout(buck2_forkserver_proto::StreamEvent { data }) => {
                 CommandEvent::Stdout(data.into())
             }
@@ -137,7 +137,7 @@ where
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => CommandEvent::Exit(
                 GatherOutputStatus::TimedOut(
                     duration
-                        .ok_or_else(|| internal_error!("Missing `duration`"))?
+                        .internal_error("Missing `duration`")?
                         .try_into_duration()
                         .buck_error_context("Invalid `duration`")?,
                 ),

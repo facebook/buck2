@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -286,7 +286,7 @@ impl<'a> CellPathRef<'a> {
     pub fn testing_new(path: &str) -> CellPathRef<'_> {
         let (cell, path) = path
             .split_once("//")
-            .ok_or_else(|| internal_error!("invalid path: `{path}`"))
+            .with_internal_error(|| format!("invalid path: `{path}`"))
             .unwrap();
         CellPathRef {
             cell: CellName::testing_new(cell),

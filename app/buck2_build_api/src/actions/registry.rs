@@ -28,6 +28,7 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::NoDigest;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -371,7 +372,7 @@ impl RecordedActions {
         self.actions
             .get(key.action_index().0 as usize)
             .duped()
-            .ok_or_else(|| internal_error!("action key missing in recorded actions {key}"))
+            .with_internal_error(|| format!("action key missing in recorded actions {key}"))
     }
 
     /// Iterates over the actions created in this analysis.

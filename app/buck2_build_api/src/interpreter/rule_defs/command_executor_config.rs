@@ -36,6 +36,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -250,7 +251,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             } else {
                 let re_use_case = remote_execution_use_case
                     .unpack_str()
-                    .ok_or_else(|| internal_error!("remote_execution_use_case is not a string"))?;
+                    .internal_error("remote_execution_use_case is not a string")?;
                 Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
             };
 

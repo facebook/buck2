@@ -18,6 +18,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use display_container::display_pair;
@@ -238,7 +239,7 @@ impl<'v> TransitiveSet<'v> {
             .operations()
             .projections
             .get_index(projection)
-            .ok_or_else(|| internal_error!("Invalid projection id"))?
+            .internal_error("Invalid projection id")?
             .0
             .as_str())
     }
@@ -253,7 +254,7 @@ impl<'v> TransitiveSet<'v> {
                 *node
                     .projections
                     .get(projection)
-                    .ok_or_else(|| internal_error!("Invalid projection id"))?,
+                    .internal_error("Invalid projection id")?,
             )),
         }
     }
@@ -296,8 +297,7 @@ impl<'v> TransitiveSet<'v> {
 
         // Reuse the same projection for children sets.
         for v in self.children.iter() {
-            let v = TransitiveSet::from_value(v.to_value())
-                .ok_or_else(|| internal_error!("Invalid deferred"))?;
+            let v = TransitiveSet::from_value(v.to_value()).internal_error("Invalid deferred")?;
             sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
                 TransitiveSetProjectionWrapper::new(
                     TransitiveSetProjectionKey {
@@ -362,7 +362,7 @@ impl<'v> TransitiveSet<'v> {
         if let Some(v) = iter.peek() {
             v.projections
                 .get(projection)
-                .ok_or_else(|| internal_error!("Invalid projection"))?;
+                .internal_error("Invalid projection")?;
         }
 
         Ok(Box::new(iter.map(move |node| {
@@ -449,7 +449,7 @@ impl<'v> TransitiveSet<'v> {
                     c.reductions
                         .get(idx)
                         .copied()
-                        .ok_or_else(|| internal_error!("Child {c} is missing reduction {idx}"))
+                        .with_internal_error(|| format!("Child {c} is missing reduction {idx}"))
                 })?;
                 let children_values = eval.heap().alloc(AllocList(children_values));
 
@@ -528,7 +528,7 @@ impl<'v> TransitiveSet<'v> {
                     let projection = node
                         .projections
                         .get(idx)
-                        .ok_or_else(|| internal_error!("Invalid projection id"))?;
+                        .internal_error("Invalid projection id")?;
 
                     let mut visitor = InputVisitor::new(target_platform);
                     match spec.kind {
@@ -686,7 +686,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .reductions
             .get(index)
             .copied()
-            .ok_or_else(|| internal_error!("Missing reduction {index}"))?)
+            .with_internal_error(|| format!("Missing reduction {index}"))?)
     }
 
     fn traverse<'v>(

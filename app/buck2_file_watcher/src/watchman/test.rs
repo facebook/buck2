@@ -17,8 +17,8 @@ use std::time::Duration;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 use buck2_util::process::async_background_command;
 use gazebo::prelude::*;
 use tokio::io::AsyncWriteExt;
@@ -99,7 +99,7 @@ impl WatchmanInstance {
         let child = self
             .child
             .as_mut()
-            .ok_or_else(|| internal_error!("Watchman was already shutdown"))?;
+            .internal_error("Watchman was already shutdown")?;
 
         child
             .kill()

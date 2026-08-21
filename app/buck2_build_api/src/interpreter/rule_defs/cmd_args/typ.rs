@@ -21,7 +21,7 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckIndexSet;
 use buck2_util::size_assert;
 use display_container::display_pair;
@@ -913,7 +913,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
                 None,
                 (*out
                     .allocate_new_output_artifact_for(heap)
-                    .ok_or_else(|| internal_error!("Expecting artifact to be output artifact"))?)
+                    .internal_error("Expecting artifact to be output artifact")?)
                 .dupe(),
                 AssociatedArtifacts::new(),
             ));

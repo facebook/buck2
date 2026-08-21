@@ -26,7 +26,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -92,7 +92,7 @@ async fn targets_show_outputs(
         request
             .target_cfg
             .as_ref()
-            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx.ctx(),
     )

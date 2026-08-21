@@ -28,7 +28,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -105,7 +105,7 @@ impl BxlKey {
     ) -> buck2_error::Result<Self> {
         BxlDynamicKey::from_base_deferred_key_dyn_impl(key)
             .map(|k| BxlKey(k.0.key.dupe()))
-            .ok_or_else(|| internal_error!("Not BxlKey"))
+            .internal_error("Not BxlKey")
     }
 
     pub(crate) fn global_cfg_options(&self) -> &GlobalCfgOptions {
@@ -190,8 +190,7 @@ impl BxlDynamicKey {
     pub(crate) fn from_base_deferred_key_dyn_impl_err(
         key: BaseDeferredKeyBxl,
     ) -> buck2_error::Result<Self> {
-        Self::from_base_deferred_key_dyn_impl(key)
-            .ok_or_else(|| internal_error!("Not BxlDynamicKey"))
+        Self::from_base_deferred_key_dyn_impl(key).internal_error("Not BxlDynamicKey")
     }
 }
 

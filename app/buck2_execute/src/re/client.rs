@@ -28,9 +28,9 @@ use buck2_data::ReQueueCancelled;
 use buck2_data::ReQueueNoWorkerAvailable;
 use buck2_data::ReQueueOverQuota;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_fs::error::IoResultExt;
@@ -1839,7 +1839,7 @@ impl RemoteExecutionClientImpl {
             .flat_map(|blobs| blobs.into_iter())
             .next()
             .map(|blob| (blob.blob, response.local_cache_stats))
-            .ok_or_else(|| internal_error!("No digest was returned in request for {digest}"))
+            .with_internal_error(|| format!("No digest was returned in request for {digest}"))
     }
 
     pub async fn upload_blob(

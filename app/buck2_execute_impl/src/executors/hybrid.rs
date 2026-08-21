@@ -20,7 +20,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_data::SchedulingMode;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -478,7 +478,7 @@ impl Claim for ReClaim {
         // An error here should only occur if local execution had started without the claim.
         self.released_liveliness_guard
             .restore()
-            .ok_or_else(|| internal_error!("Unable to restore CancelledLivelinessGuard!"))?
+            .internal_error("Unable to restore CancelledLivelinessGuard!")?
             .forget();
 
         self.claim.release()?;

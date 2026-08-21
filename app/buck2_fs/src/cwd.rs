@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 
 use crate::IoResultExt;
 use crate::fs_util;
@@ -136,7 +136,7 @@ static CWD: OnceLock<AbsPathBuf> = OnceLock::new();
 fn cwd_will_not_change(cwd: &AbsNormPath) -> buck2_error::Result<()> {
     CWD.set(cwd.as_abs_path().to_owned())
         .ok()
-        .ok_or_else(|| internal_error!("cwd_will_not_change was called twice"))?;
+        .internal_error("cwd_will_not_change was called twice")?;
     Ok(())
 }
 

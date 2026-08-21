@@ -13,7 +13,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::BuckMutMap;
 use buck2_query::query::traversal::NodeLookup;
@@ -138,7 +138,7 @@ impl NodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .ok_or_else(|| internal_error!("Invalid node: {label:?}"))
+            .with_internal_error(|| format!("Invalid node: {label:?}"))
     }
 }
 
@@ -151,7 +151,7 @@ impl AsyncNodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .ok_or_else(|| internal_error!("Invalid node: {label:?}"))
+            .with_internal_error(|| format!("Invalid node: {label:?}"))
     }
 }
 

@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::OrphanProcessInfo;
@@ -148,7 +148,7 @@ impl ProcessGroupImpl {
             .inner
             .id()
             .and_then(|id| id.try_into().ok())
-            .ok_or_else(|| internal_error!("PID does not fit a i32"))?;
+            .internal_error("PID does not fit a i32")?;
 
         // Always use process-group-based signaling first.
         if let Some(graceful_shutdown_timeout_s) = graceful_shutdown_timeout_s {

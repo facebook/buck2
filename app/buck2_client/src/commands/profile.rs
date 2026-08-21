@@ -35,8 +35,8 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 
 use super::bxl::BxlCommandOptions;
 
@@ -255,7 +255,7 @@ impl StreamingCommand for ProfileSubcommand {
         } = response;
 
         let elapsed = elapsed
-            .ok_or_else(|| internal_error!("Missing duration"))
+            .internal_error("Missing duration")
             .and_then(|d| {
                 Duration::try_from(d).map_err(|_| {
                     buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Duration is negative")

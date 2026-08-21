@@ -42,7 +42,7 @@ use buck2_core::soft_error;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -210,7 +210,7 @@ impl BxlServerCommand {
             self.req
                 .target_cfg
                 .as_ref()
-                .ok_or_else(|| internal_error!("target_cfg must be set"))?,
+                .internal_error("target_cfg must be set")?,
             server_ctx,
             &mut dice_ctx.ctx(),
         )

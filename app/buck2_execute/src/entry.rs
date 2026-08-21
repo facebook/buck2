@@ -22,7 +22,7 @@ use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
@@ -208,7 +208,7 @@ async fn build_dir_from_disk(
 
         let filename = filename
             .to_str()
-            .ok_or_else(|| internal_error!("Filename is not UTF-8"))
+            .internal_error("Filename is not UTF-8")
             .and_then(|f| FileNameBuf::try_from(f.to_owned()))
             .with_buck_error_context(|| {
                 format!("Invalid filename: {}", disk_path.clone().display())
@@ -300,7 +300,7 @@ fn create_symlink(
     if cfg!(windows) && symlink_target.is_relative() {
         let directory_path = path
             .parent()
-            .ok_or_else(|| internal_error!("failed to get parent of {}", path.display()))?;
+            .with_internal_error(|| format!("failed to get parent of {}", path.display()))?;
         let canonical_path = fs_util::canonicalize(directory_path)
             .categorize_internal()
             .buck_error_context(format!(
@@ -310,14 +310,14 @@ fn create_symlink(
         if !canonical_path.starts_with(project_root) {
             let normalized_target = symlink_target
                 .to_str()
-                .ok_or_else(|| internal_error!("can't convert path to str"))?
+                .internal_error("can't convert path to str")?
                 .replace('\\', "/");
             let target_abspath =
                 canonical_path.join_normalized(RelativePath::unchecked_new(&normalized_target))?;
             // Recalculate symlink target if it points from symlinked buck-out to the files inside project root.
             if target_abspath.starts_with(project_root) {
                 symlink_target = diff_paths(target_abspath, directory_path)
-                    .ok_or_else(|| internal_error!("can't calculate relative path"))?;
+                    .internal_error("can't calculate relative path")?;
             }
         }
     }

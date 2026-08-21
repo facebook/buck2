@@ -11,7 +11,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
@@ -64,9 +64,9 @@ impl<'v> InterpreterExtraValue<'v> {
     pub(crate) fn get(module: &Module<'v>) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
         Ok(&module
             .extra_value()
-            .ok_or_else(|| internal_error!("Extra value is missing"))?
+            .internal_error("Extra value is missing")?
             .downcast_ref::<StarlarkAnyComplex<InterpreterExtraValue>>()
-            .ok_or_else(|| internal_error!("Extra value had wrong type"))?
+            .internal_error("Extra value had wrong type")?
             .value)
     }
 }
@@ -81,10 +81,10 @@ impl FrozenInterpreterExtraValue<'_> {
     ) -> buck2_error::Result<OwnedFrozenInterpreterExtraValue> {
         module
             .extra_value_owned()
-            .ok_or_else(|| internal_error!("Extra value is missing"))?
+            .internal_error("Extra value is missing")?
             .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenInterpreterExtraValue>>, _>(
                 |v| ValueTyped::new(v),
             )
-            .ok_or_else(|| internal_error!("Extra value had wrong type"))
+            .internal_error("Extra value had wrong type")
     }
 }

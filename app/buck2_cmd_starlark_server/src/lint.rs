@@ -19,7 +19,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashSet;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -82,7 +82,7 @@ async fn lint_file(
     let content = io
         .read_file_if_exists(proj_path)
         .await?
-        .ok_or_else(|| internal_error!("File not found: `{path_str}`"))?;
+        .with_internal_error(|| format!("File not found: `{path_str}`"))?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cache.get_names(path).await?))),
         Err(err) => {

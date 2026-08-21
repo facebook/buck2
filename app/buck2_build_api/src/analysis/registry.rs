@@ -23,6 +23,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -761,7 +762,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?
+            .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
             .as_ref()
             .maybe_map::<ValueTyped<'static, TransitiveSet<'static>>, _>(|v| {
                 v.as_ref()
@@ -770,7 +771,7 @@ impl RecordedAnalysisValues {
                     .get(key.index().0 as usize)
                     .map(|v| v.to_value_typed())
             })
-            .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))?
+            .with_internal_error(|| format!("Missing transitive set `{key}`"))?
             .to_owned())
     }
 
@@ -796,7 +797,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("missing analysis storage"))?
+            .internal_error("missing analysis storage")?
             .as_ref()
             .map::<&'static FrozenAnalysisValueStorage<'static>, _>(|v| &v.as_ref().value))
     }
@@ -816,14 +817,14 @@ impl RecordedAnalysisValues {
         let inner = self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("missing analysis storage"))?
+            .internal_error("missing analysis storage")?
             .as_ref()
             .try_map::<FrozenValueTyped<'static, ProviderCollection<'static>>, buck2_error::Error, _>(
                 |v| {
                     v.as_ref()
                         .value
                         .result_value
-                        .ok_or_else(|| internal_error!("missing provider collection"))
+                        .internal_error("missing provider collection")
                 },
             )?;
         Ok(FrozenProviderCollectionValueRef::from_inner(inner))
@@ -833,7 +834,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .ok_or_else(|| internal_error!("missing analysis storage"))?
+            .internal_error("missing analysis storage")?
             .owner()
             .allocated_bytes())
     }

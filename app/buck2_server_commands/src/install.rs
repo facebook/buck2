@@ -68,8 +68,8 @@ use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
-use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -300,7 +300,7 @@ async fn collect_install_request_data(
         request
             .target_cfg
             .as_ref()
-            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx.ctx(),
     )

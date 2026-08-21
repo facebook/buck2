@@ -17,8 +17,8 @@ use std::sync::LazyLock;
 use allocative::Allocative;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
-use buck2_error::internal_error;
 use buck2_util::process::async_background_command;
 use regex::RegexSet;
 use tokio::io::AsyncBufReadExt;
@@ -231,7 +231,7 @@ fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDeta
     let v: Vec<&str> = output.trim().splitn(3, '\n').collect();
     let mergebase = v
         .first()
-        .ok_or_else(|| internal_error!("Failed to parse mergebase"))?
+        .internal_error("Failed to parse mergebase")?
         .to_string();
     let timestamp = v
         .get(1)

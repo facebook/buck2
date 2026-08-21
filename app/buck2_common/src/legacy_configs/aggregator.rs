@@ -20,7 +20,7 @@ use buck2_core::cells::instance;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashMap;
 use instance::CellInstance;
@@ -123,7 +123,7 @@ impl CellsAggregator {
         let info = self
             .cell_infos
             .get_mut(&cell)
-            .ok_or_else(|| internal_error!("cell name is not a cell"))?;
+            .internal_error("cell name is not a cell")?;
         if info.external.is_some() {
             return Err(CellError::DuplicateExternalCell(cell).into());
         }

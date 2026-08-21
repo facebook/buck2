@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_hash::BuckIndexMap;
@@ -313,9 +314,9 @@ pub(super) fn iter_test_env<'v>(
     let env = env.iter().collect::<Vec<_>>();
 
     Either::Right(env.into_iter().map(|(key, value)| {
-        let key = key
-            .unpack_str()
-            .ok_or_else(|| internal_error!("Invalid key in `env`: Expected a str, got: `{key}`"))?;
+        let key = key.unpack_str().with_internal_error(|| {
+            format!("Invalid key in `env`: Expected a str, got: `{key}`")
+        })?;
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(value)
             .with_buck_error_context(|| format!("Invalid value in `env` for key `{key}`"))?
@@ -345,7 +346,7 @@ pub(super) fn iter_opt_str_list<'v>(
     Either::Right(iterable.map(move |item| {
         let item = item
             .unpack_str()
-            .ok_or_else(|| internal_error!("Invalid item in `{name}`: {item}"))?;
+            .with_internal_error(|| format!("Invalid item in `{name}`: {item}"))?;
 
         Ok(item)
     }))
@@ -479,14 +480,14 @@ fn validate_external_runner_test_info<'v>(
         internal_error!("`use_project_relative_paths` must be a bool if provided")
     })?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.get())?
-        .ok_or_else(|| internal_error!("`run_from_project_root` must be a bool if provided"))?;
+        .internal_error("`run_from_project_root` must be a bool if provided")?;
     NoneOr::<bool>::unpack_value(info.supports_test_execution_caching.get())?.ok_or_else(|| {
         internal_error!("`supports_test_execution_caching` must be a bool if provided")
     })?;
     info.test_type
         .get()
         .unpack_str()
-        .ok_or_else(|| internal_error!("`type` must be a str"))?;
+        .internal_error("`type` must be a str")?;
     Ok(())
 }
 

@@ -31,8 +31,8 @@ use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_hash::IntentionallyStdHashMap;
@@ -164,10 +164,9 @@ impl Uploader {
 
                 fn next(&mut self) -> Option<buck2_error::Result<(&'a TrackedFileDigest, i64)>> {
                     let digest = self.inner.next()?;
-                    let digest_ttl = self
-                        .ttls
-                        .get(digest)
-                        .ok_or_else(|| internal_error!("Did not get a TTL for digest: {}", digest));
+                    let digest_ttl = self.ttls.get(digest).with_internal_error(|| {
+                        format!("Did not get a TTL for digest: {}", digest)
+                    });
                     Some(digest_ttl.map(|ttl| (digest, *ttl)))
                 }
             }

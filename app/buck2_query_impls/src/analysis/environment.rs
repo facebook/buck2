@@ -31,7 +31,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -429,7 +429,7 @@ pub(crate) async fn get_from_template_placeholder_info(
                         queue.push_back(tset_value.to_value());
                         while let Some(v) = queue.pop_front() {
                             let as_tset = TransitiveSet::from_value(v)
-                                .ok_or_else(|| internal_error!("invalid tset structure"))?;
+                                .internal_error("invalid tset structure")?;
 
                             // Visit the projection value itself. As this is an opaque cmdargs-like thing, it may contain more top-level tset node
                             // references that need to be pushed into the outer queue.
@@ -469,7 +469,7 @@ pub(crate) async fn get_from_template_placeholder_info(
                             // Enqueue any children we haven't yet seen (and mark them seen).
                             for child in as_tset.children.iter() {
                                 let child_as_tset = TransitiveSet::from_value(*child)
-                                    .ok_or_else(|| internal_error!("Invalid deferred"))?;
+                                    .internal_error("Invalid deferred")?;
                                 let projection_key =
                                     child_as_tset.get_projection_key(tset_key.projection);
                                 if seen.insert(projection_key) {

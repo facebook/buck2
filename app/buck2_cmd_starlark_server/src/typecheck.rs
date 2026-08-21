@@ -19,8 +19,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 use buck2_hash::BuckMutMap;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -100,7 +100,7 @@ impl Cache<'_> {
             .io
             .read_file_if_exists(proj_path)
             .await?
-            .ok_or_else(|| internal_error!("File not found: `{path_str}`"))?;
+            .with_internal_error(|| format!("File not found: `{path_str}`"))?;
 
         let mut dice = self.dice.ctx();
         let interp = dice

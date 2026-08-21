@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -615,7 +616,7 @@ mod state_machine {
 
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
@@ -633,7 +634,7 @@ mod state_machine {
 
             let _ignore = dm
                 .materialize_artifact(&path2, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path2.clone())]);
 
@@ -1108,7 +1109,7 @@ mod state_machine {
             assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await
                 .map_err(|_| {
                     buck2_error!(
@@ -1169,7 +1170,7 @@ mod state_machine {
             // Materialize the symlink, at this point the target is not in the tree so it's ignored
             let res = dm
                 .materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
 
             let logs = dm.io.take_log();
@@ -1190,7 +1191,7 @@ mod state_machine {
             // This time, we don't re-materialize the symlink as that's already been done.
             // But we still materialize the target as that has not been materialized yet.
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await
                 .map_err(|_| {
                     buck2_error!(
@@ -1389,7 +1390,7 @@ mod state_machine {
             // Now we check that materialization fails. This needs to wait on the previous clean.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -1432,7 +1433,7 @@ mod state_machine {
                 symlink_value.clone(),
             );
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await
                 .map_err(|err| buck2_error!(buck2_error::ErrorTag::MaterializationError, "error materializing {:?}", err))?;
             assert_eq!(
@@ -1467,7 +1468,7 @@ mod state_machine {
             dm.io.set_fail_on(vec![target_path.clone()]);
             let res = dm
                 .materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
             assert_matches!(
             res,
@@ -1486,7 +1487,7 @@ mod state_machine {
             // Request symlink again, target is materialized and symlink materialization succeeds
             dm.io.set_fail_on(vec![]);
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await
                 .map_err(|err| buck2_error!(buck2_error::ErrorTag::MaterializationError, "error materializing 2 {:?}", err))?;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()), ]);
@@ -1512,7 +1513,7 @@ mod state_machine {
             // Materializing it fails.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -1526,7 +1527,7 @@ mod state_machine {
             // Rejoining the existing future fails.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -1548,7 +1549,7 @@ mod state_machine {
             // Materializing works now:
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .ok_or_else(|| internal_error!("Expected a future"))?
+                .internal_error("Expected a future")?
                 .await;
 
             assert_matches!(res, Ok(()));

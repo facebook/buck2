@@ -50,6 +50,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::find::find;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -1110,7 +1111,7 @@ impl DepFileBundle {
         let computed_filtered_fingerprints = self
             .shared_declared_inputs
             .clone()
-            .ok_or_else(|| buck2_error::internal_error!("Dep files should have been declared"))?
+            .internal_error("Dep files should have been declared")?
             .unshare()
             .filter(dep_files, fs)?
             .fingerprint(digest_config);
@@ -1994,7 +1995,7 @@ async fn eagerly_compute_fingerprints(
 ) -> buck2_error::Result<StoredFingerprints> {
     let dep_files = read_dep_files(false, declared_dep_files, result, artifact_fs, materializer)
         .await?
-        .ok_or_else(|| internal_error!("Dep file not found"))?;
+        .internal_error("Dep file not found")?;
 
     let fingerprints = compute_fingerprints(
         shared_declared_inputs.clone().unshare(),

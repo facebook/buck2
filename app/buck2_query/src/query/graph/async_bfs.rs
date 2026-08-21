@@ -10,6 +10,7 @@
 
 use std::future;
 
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use futures::StreamExt;
 use futures::future::Either;
@@ -38,7 +39,7 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
         let node = self
             .visited
             .remove(last)
-            .ok_or_else(|| internal_error!("missing node {last}"))?;
+            .with_internal_error(|| format!("missing node {last}"))?;
         if node.node.is_some() {
             return Err(internal_error!("duplicate node {}", last));
         }
@@ -47,10 +48,10 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
             let node = self
                 .visited
                 .remove(&key)
-                .ok_or_else(|| internal_error!("missing node {key}"))?;
+                .with_internal_error(|| format!("missing node {key}"))?;
             item(
                 node.node
-                    .ok_or_else(|| internal_error!("missing node {key}"))?,
+                    .with_internal_error(|| format!("missing node {key}"))?,
             );
             parent_key = node.parent;
         }
@@ -145,7 +146,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                 let prev = visited
                     .visited
                     .get_mut(&key)
-                    .ok_or_else(|| internal_error!("missing node {key}"))?
+                    .with_internal_error(|| format!("missing node {key}"))?
                     .node
                     .replace(node);
                 if prev.is_some() {

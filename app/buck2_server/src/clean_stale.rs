@@ -10,6 +10,7 @@
 
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -58,7 +59,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
 
                 let extension = deferred_materializer
                     .as_deferred_materializer_extension()
-                    .ok_or_else(|| internal_error!("Deferred materializer is not in use"))?;
+                    .internal_error("Deferred materializer is not in use")?;
 
                 let keep_since_time = jiff::Timestamp::from_second(self.req.keep_since_time)
                     .map_err(|_| internal_error!("Invalid timestamp"))?;

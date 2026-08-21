@@ -20,6 +20,7 @@ use buck2_build_api::dynamic::storage::FrozenDynamicLambdaParamsStorageBox;
 use buck2_core::deferred::dynamic::DynamicLambdaIndex;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use pagable::PagableDeserialize;
@@ -94,7 +95,7 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
             .lambda_params
             .as_any_mut()
             .downcast_mut()
-            .ok_or_else(|| internal_error!("Wrong type for lambda params storage"))
+            .internal_error("Wrong type for lambda params storage")
     }
 
     pub fn next_dynamic_actions_key(&self) -> buck2_error::Result<DynamicLambdaResultsKey> {
@@ -135,10 +136,10 @@ impl FrozenDynamicLambdaParamsStorageImpl<'_> {
             s.lambda_params
                 .as_any()
                 .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
-                .ok_or_else(|| internal_error!("Wrong type for lambda params storage"))?
+                .internal_error("Wrong type for lambda params storage")?
                 .lambda_params
                 .get(key)
-                .ok_or_else(|| internal_error!("missing lambda `{key}`"))
+                .with_internal_error(|| format!("missing lambda `{key}`"))
         })
     }
 }

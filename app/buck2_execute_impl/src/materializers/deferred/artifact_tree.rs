@@ -22,6 +22,7 @@ use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -471,7 +472,7 @@ impl ArtifactTree {
     ) {
         match self
             .prefix_get_mut(&mut artifact_path.iter())
-            .ok_or_else(|| internal_error!("Path is vacant"))
+            .internal_error("Path is vacant")
         {
             Ok(info) => {
                 if info.processing.current_version() > version {

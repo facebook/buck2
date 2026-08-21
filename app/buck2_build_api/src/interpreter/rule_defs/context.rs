@@ -20,6 +20,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
@@ -117,7 +118,7 @@ impl<'v> AnalysisActions<'v> {
             .buck_error_context("AnalysisActions.state is already borrowed")?;
         RefMut::filter_map(state, |x| x.as_mut())
             .ok()
-            .ok_or_else(|| internal_error!("state to be present during execution"))
+            .internal_error("state to be present during execution")
     }
 
     pub async fn run_promises<'a, 'e: 'a>(

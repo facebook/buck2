@@ -28,6 +28,7 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -252,11 +253,8 @@ fn is_paranoid_enabled(path: &AbsPath) -> buck2_error::Result<bool> {
         .buck_error_context("Invalid data ")?;
 
     let now = SystemTime::now();
-    let expires_at = SystemTime::try_from(
-        info.expires_at
-            .ok_or_else(|| internal_error!("Missing expires_at"))?,
-    )
-    .buck_error_context("Invalid expires_at")?;
+    let expires_at = SystemTime::try_from(info.expires_at.internal_error("Missing expires_at")?)
+        .buck_error_context("Invalid expires_at")?;
     Ok(now < expires_at)
 }
 

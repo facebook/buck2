@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -547,7 +548,7 @@ fn validate_internal_runner_test_info<'v>(
         internal_error!("`use_project_relative_paths` must be a bool if provided")
     })?;
     NoneOr::<bool>::unpack_value(info.run_from_project_root.get())?
-        .ok_or_else(|| internal_error!("`run_from_project_root` must be a bool if provided"))?;
+        .internal_error("`run_from_project_root` must be a bool if provided")?;
 
     // Both parse_test_listing and parse_test_result are required callables.
     let ptl = info.parse_test_listing.get();
@@ -558,7 +559,7 @@ fn validate_internal_runner_test_info<'v>(
         ));
     }
     NoneOr::<StarlarkCallable>::unpack_value(ptl)?
-        .ok_or_else(|| internal_error!("`parse_test_listing` must be a callable"))?;
+        .internal_error("`parse_test_listing` must be a callable")?;
 
     let ptr = info.parse_test_result.get();
     if ptr.is_none() {
@@ -568,12 +569,12 @@ fn validate_internal_runner_test_info<'v>(
         ));
     }
     NoneOr::<StarlarkCallable>::unpack_value(ptr)?
-        .ok_or_else(|| internal_error!("`parse_test_result` must be a callable"))?;
+        .internal_error("`parse_test_result` must be a callable")?;
 
     info.test_type
         .get()
         .unpack_str()
-        .ok_or_else(|| internal_error!("`type` must be a str"))?;
+        .internal_error("`type` must be a str")?;
     Ok(())
 }
 

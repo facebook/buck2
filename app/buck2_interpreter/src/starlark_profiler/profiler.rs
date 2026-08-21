@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use starlark::environment::FrozenModule;
@@ -108,16 +109,12 @@ impl ProfilerData {
         };
 
         Ok(Some(Arc::new(StarlarkProfileDataAndStats {
-            initialized_at: self
-                .initialized_at
-                .ok_or_else(|| internal_error!("did not initialize"))?,
-            finalized_at: self
-                .finalized_at
-                .ok_or_else(|| internal_error!("did not finalize"))?,
+            initialized_at: self.initialized_at.internal_error("did not initialize")?,
+            finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes,
             profile_data: self
                 .profile_data
-                .ok_or_else(|| internal_error!("profile_data not initialized"))??,
+                .internal_error("profile_data not initialized")??,
             targets: vec![target],
         })))
     }

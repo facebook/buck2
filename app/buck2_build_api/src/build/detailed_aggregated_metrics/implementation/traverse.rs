@@ -15,7 +15,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dupe::Dupe;
 use starlark::values::OwnedFrozen;
@@ -153,7 +153,7 @@ impl<'a> Graph<'a> {
                             projection: proj_node.projection,
                             tset: proj_node.tset.dupe().try_map(|v| {
                                 ValueTyped::new(v.children[idx])
-                                    .ok_or_else(|| internal_error!("tset children should be tsets"))
+                                    .internal_error("tset children should be tsets")
                             })?,
                         },
                     ))

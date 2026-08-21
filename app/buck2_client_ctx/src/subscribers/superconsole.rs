@@ -1744,7 +1744,7 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
-    use buck2_error::internal_error;
+    use buck2_error::BuckErrorOptionContext;
     use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_events::span::SpanId;
     use dupe::Dupe;
@@ -1911,7 +1911,7 @@ mod tests {
                 .test_output_mut()
                 .frames
                 .pop()
-                .ok_or_else(|| internal_error!("No frame was emitted"))?,
+                .internal_error("No frame was emitted")?,
             StatefulSuperConsole::Finalized(_) => {
                 panic!("Console was downgraded");
             }
@@ -2105,7 +2105,7 @@ mod tests {
                 .test_output_mut()
                 .frames
                 .pop()
-                .ok_or_else(|| internal_error!("No frame was emitted"))?,
+                .internal_error("No frame was emitted")?,
             StatefulSuperConsole::Finalized(_) => {
                 panic!("Console was downgraded");
             }

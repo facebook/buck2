@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckDashMap;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use dupe::Dupe;
@@ -78,7 +78,7 @@ impl TestSession {
         let res = self
             .labels
             .get(&id)
-            .ok_or_else(|| internal_error!("Invalid id provided to TestSession: {id:?}"))?;
+            .with_internal_error(|| format!("Invalid id provided to TestSession: {id:?}"))?;
 
         Ok(res.clone())
     }

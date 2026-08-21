@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_hash::BuckMutMap;
@@ -188,7 +188,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .ok_or_else(|| internal_error!("Invalid subscription: {index}"))
+                    .with_internal_error(|| format!("Invalid subscription: {index}"))
                     .unwrap();
 
                 for path in paths_to_report {
@@ -204,7 +204,7 @@ where
                     .subscriptions
                     .active
                     .get_mut(&index)
-                    .ok_or_else(|| internal_error!("Invalid subscription: {index}"))
+                    .with_internal_error(|| format!("Invalid subscription: {index}"))
                     .unwrap();
 
                 for path in &paths {

@@ -36,8 +36,8 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ExitCode;
-use buck2_error::internal_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::working_dir::AbsWorkingDir;
@@ -451,35 +451,35 @@ impl StreamingCommand for TestCommand {
         let listing_failed = statuses
             .listing_failed
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `listing_failed`"))?;
+            .internal_error("Missing `listing_failed`")?;
         let passed = statuses
             .passed
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `passed`"))?;
+            .internal_error("Missing `passed`")?;
         let failed = statuses
             .failed
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `failed`"))?;
+            .internal_error("Missing `failed`")?;
         let timeout = statuses
             .timed_out
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `timed_out`"))?;
+            .internal_error("Missing `timed_out`")?;
         let fatals = statuses
             .fatals
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `fatals`"))?;
+            .internal_error("Missing `fatals`")?;
         let skipped = statuses
             .skipped
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `skipped`"))?;
+            .internal_error("Missing `skipped`")?;
         let omitted = statuses
             .omitted
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `omitted`"))?;
+            .internal_error("Missing `omitted`")?;
         let infra_failure = statuses
             .infra_failure
             .as_ref()
-            .ok_or_else(|| internal_error!("Missing `infra failure`"))?;
+            .internal_error("Missing `infra failure`")?;
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;

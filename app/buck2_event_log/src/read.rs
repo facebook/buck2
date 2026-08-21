@@ -22,7 +22,7 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_cli_proto::*;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::BuckEvent;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
@@ -244,7 +244,7 @@ impl EventLogPathBuf {
             .next_line()
             .await
             .buck_error_context("Error reading header line")?
-            .ok_or_else(|| internal_error!("No header line"))?;
+            .internal_error("No header line")?;
         let invocation = Invocation::parse_json_line(&header)?;
 
         let events = LinesStream::new(log_lines).map(|line| {
@@ -272,7 +272,7 @@ impl EventLogPathBuf {
         let invocation = stream
             .try_next()
             .await?
-            .ok_or_else(|| internal_error!("No invocation found"))?;
+            .internal_error("No invocation found")?;
         let invocation = buck2_data::Invocation::decode_length_delimited(invocation)
             .buck_error_context("Invalid Invocation")?;
         let invocation = Invocation::from_proto(invocation);

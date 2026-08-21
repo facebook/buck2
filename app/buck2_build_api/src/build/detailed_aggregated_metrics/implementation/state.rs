@@ -15,7 +15,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 
@@ -185,7 +185,7 @@ impl DetailedAggregatedMetricsStateTracker {
             let ev = self
                 .analysis_nodes
                 .get(&DeferredHolderKey::for_analysis(target.dupe()))
-                .ok_or_else(|| internal_error!("analysis missing for output"))?;
+                .internal_error("analysis missing for output")?;
             let metrics = AnalysisMetrics {
                 actions: ev.analysis_values().iter_actions().count(),
                 retained_memory: ev.analysis_values().retained_memory().expect("todo!()"),

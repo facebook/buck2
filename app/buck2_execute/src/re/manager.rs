@@ -27,8 +27,8 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use dupe::Dupe;
@@ -336,7 +336,7 @@ impl UnconfiguredRemoteExecutionClient {
     fn lock(&self) -> buck2_error::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
         self.data
             .upgrade()
-            .ok_or_else(|| internal_error!("Internal error: the underlying RE connection has terminated because the corresponding guard has been dropped."))
+            .internal_error("Internal error: the underlying RE connection has terminated because the corresponding guard has been dropped.")
     }
 
     pub async fn get_session_id(&self) -> buck2_error::Result<String> {

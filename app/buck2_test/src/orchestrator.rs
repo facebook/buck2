@@ -85,6 +85,7 @@ use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
@@ -2100,13 +2101,13 @@ fn make_visit_arg_artifacts<'v>(
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                 let arg = cli_args_for_interpolation
                     .get(h.0)
-                    .ok_or_else(|| internal_error!("Invalid ArgHandle: {h:?}"))?;
+                    .with_internal_error(|| format!("Invalid ArgHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                 let arg = env_for_interpolation
                     .get(h.0.as_str())
-                    .ok_or_else(|| internal_error!("Invalid EnvHandle: {h:?}"))?;
+                    .with_internal_error(|| format!("Invalid EnvHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::DeclaredOutput(_) | ArgValueContent::ExternalRunnerSpecValue(_) => {}
@@ -2169,13 +2170,13 @@ impl<'a> Execute2RequestExpander<'a> {
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                 let arg = cli_args_for_interpolation
                     .get(h.0)
-                    .ok_or_else(|| internal_error!("Invalid ArgHandle: {h:?}"))?;
+                    .with_internal_error(|| format!("Invalid ArgHandle: {h:?}"))?;
                 arg.add_to_command_line(fmt)?;
             }
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                 let arg = env_for_interpolation
                     .get(h.0.as_str())
-                    .ok_or_else(|| internal_error!("Invalid EnvHandle: {h:?}"))?;
+                    .with_internal_error(|| format!("Invalid EnvHandle: {h:?}"))?;
                 arg.add_to_command_line(fmt)?;
             }
             ArgValueContent::DeclaredOutput(output) => {

@@ -12,6 +12,7 @@ use std::mem;
 use std::process::Output;
 use std::process::Stdio;
 
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use tokio::io::AsyncReadExt;
 use tokio::process::Child;
@@ -28,16 +29,9 @@ impl ProperlyReapedChild {
     pub async fn output(mut self) -> buck2_error::Result<Output> {
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
-        let mut child =
-            mem::take(&mut self.child).ok_or_else(|| internal_error!("child field must be set"))?;
-        let mut stdout_pipe = child
-            .stdout
-            .take()
-            .ok_or_else(|| internal_error!("stdout is not piped"))?;
-        let mut stderr_pipe = child
-            .stderr
-            .take()
-            .ok_or_else(|| internal_error!("stderr is not piped"))?;
+        let mut child = mem::take(&mut self.child).internal_error("child field must be set")?;
+        let mut stdout_pipe = child.stdout.take().internal_error("stdout is not piped")?;
+        let mut stderr_pipe = child.stderr.take().internal_error("stderr is not piped")?;
         let (stdout_error, stderr_error, status) = tokio::join!(
             stdout_pipe.read_to_end(&mut stdout),
             stderr_pipe.read_to_end(&mut stderr),

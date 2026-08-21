@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -98,8 +98,8 @@ starlark_complex_value_branded!(pub TransitiveSetTraversal);
 #[starlark_value(type = "TransitiveSetIterator")]
 impl<'v> StarlarkValue<'v> for TransitiveSetTraversal<'v> {
     fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
-        let tset = TransitiveSet::from_value(self.inner.to_value())
-            .ok_or_else(|| internal_error!("Invalid inner"))?;
+        let tset =
+            TransitiveSet::from_value(self.inner.to_value()).internal_error("Invalid inner")?;
         Ok(tset.iter_values(self.ordering)?.collect())
     }
 }
@@ -131,7 +131,7 @@ starlark_complex_value_branded!(pub TransitiveSetProjectionTraversal);
 impl<'v> StarlarkValue<'v> for TransitiveSetProjectionTraversal<'v> {
     fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
-            .ok_or_else(|| internal_error!("Invalid inner"))?;
+            .internal_error("Invalid inner")?;
         Ok(set
             .iter_projection_values(self.ordering, self.projection)?
             .collect())

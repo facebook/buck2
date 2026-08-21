@@ -18,8 +18,8 @@ use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -261,7 +261,7 @@ async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
         true => Cow::Owned(
             dst.join(
                 src.file_name()
-                    .ok_or_else(|| internal_error!("Failed getting output name"))?,
+                    .internal_error("Failed getting output name")?,
             ),
         ),
         false => Cow::Borrowed(dst),
@@ -274,10 +274,10 @@ async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
         Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) => {
             let dir = dest_path
                 .parent()
-                .ok_or_else(|| internal_error!("Output path has no parent"))?;
+                .internal_error("Output path has no parent")?;
             let mut tmp_name = dest_path
                 .file_name()
-                .ok_or_else(|| internal_error!("Output path has no file name"))?
+                .internal_error("Output path has no file name")?
                 .to_owned();
             tmp_name.push(".buck2.tmp");
             let tmp_path = dir.join(tmp_name);

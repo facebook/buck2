@@ -22,6 +22,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -101,7 +102,7 @@ async fn generate_profile_loading(
     let starlark_profile = &eval_result
         .starlark_profile
         .as_ref()
-        .ok_or_else(|| internal_error!("profile result must be set"))?;
+        .internal_error("profile result must be set")?;
     Ok(StarlarkProfileDataAndStats::downcast(&***starlark_profile)?.clone())
 }
 
@@ -151,7 +152,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                     &opts.target_patterns,
                     opts.target_cfg
                         .as_ref()
-                        .ok_or_else(|| internal_error!("target_cfg not set"))?,
+                        .internal_error("target_cfg not set")?,
                     &opts.target_universe,
                     action,
                     &profile_mode,

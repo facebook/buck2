@@ -17,9 +17,9 @@ use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::retrying;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -133,7 +133,7 @@ impl HealthCheckRpcClient {
         let exe = exe.as_abs_path();
         let exe_dir = exe
             .parent()
-            .ok_or_else(|| internal_error!("Buck2 executable directory has no parent"))?;
+            .internal_error("Buck2 executable directory has no parent")?;
 
         let ext = if cfg!(windows) { ".exe" } else { "" };
         let cli_name = format!("{CLI_NAME}{ext}");

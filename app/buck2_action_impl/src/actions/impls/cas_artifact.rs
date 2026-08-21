@@ -32,6 +32,7 @@ use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
@@ -276,7 +277,7 @@ impl Action for CasArtifactAction {
                             trees
                                 .into_iter()
                                 .next()
-                                .ok_or_else(|| internal_error!("RE response was empty"))
+                                .internal_error("RE response was empty")
                         })
                         .with_buck_error_context(|| {
                             format!("Error downloading tree: {}", self.inner.digest)
@@ -292,7 +293,7 @@ impl Action for CasArtifactAction {
                             .and_then(|dirs| {
                                 dirs.into_iter()
                                     .next()
-                                    .ok_or_else(|| internal_error!("RE response was empty"))
+                                    .internal_error("RE response was empty")
                             })
                             .with_buck_error_context(|| {
                                 format!("Error downloading dir: {}", self.inner.digest)

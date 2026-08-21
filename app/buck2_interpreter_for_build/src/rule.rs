@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::plugins::PluginKind;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -508,7 +508,7 @@ unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkRule
 fn unpack_frozen_rule<'v>(
     rule: Value<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
-    ValueTyped::new(rule).ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
+    ValueTyped::new(rule).internal_error("Expecting FrozenRuleCallable")
 }
 
 /// The `AttributeSpec` of a frozen `rule()` / `anon_rule()` / `bxl.anon_rule()` value.

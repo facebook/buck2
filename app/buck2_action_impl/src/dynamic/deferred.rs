@@ -38,6 +38,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
@@ -620,7 +621,7 @@ fn new_attr_value<'v>(
         DynamicAttrValue::DynamicValue(v) => {
             let v = resolved_dynamic_values
                 .get(v)
-                .ok_or_else(|| internal_error!("Missing resolved dynamic value"))?;
+                .internal_error("Missing resolved dynamic value")?;
             Ok(env.heap().alloc(StarlarkResolvedDynamicValue {
                 value: v.add_heap_ref(env.heap()),
             }))

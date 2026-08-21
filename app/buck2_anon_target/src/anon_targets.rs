@@ -63,6 +63,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
@@ -234,7 +235,7 @@ impl AnonTargetKey {
             key.into_any()
                 .downcast()
                 .ok()
-                .ok_or_else(|| internal_error!("Expecting AnonTarget"))?,
+                .internal_error("Expecting AnonTarget")?,
         ))
     }
 
@@ -582,8 +583,8 @@ impl AnonTargetKey {
                     .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
             })?;
 
-            let res = ValueTyped::new(res)
-                .ok_or_else(|| internal_error!("Just allocated the provider collection"))?;
+            let res =
+                ValueTyped::new(res).internal_error("Just allocated the provider collection")?;
 
             // Pull the ctx object back out, and steal ctx.action's state back
             let analysis_registry = ctx.take_state();

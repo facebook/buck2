@@ -13,7 +13,7 @@ use std::fmt::Display;
 use std::iter;
 
 use allocative::Allocative;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -87,7 +87,7 @@ impl<'v> Display for TransitiveSetJsonProjection<'v> {
 impl<'v> TransitiveSetJsonProjection<'v> {
     fn projection_name(&self) -> buck2_error::Result<&'v str> {
         TransitiveSet::from_value(self.transitive_set.get().to_value())
-            .ok_or_else(|| internal_error!("Invalid transitive_set"))?
+            .internal_error("Invalid transitive_set")?
             .projection_name(self.projection)
     }
 
@@ -95,7 +95,7 @@ impl<'v> TransitiveSetJsonProjection<'v> {
         &self,
     ) -> buck2_error::Result<TransitiveSetProjectionWrapper> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
-            .ok_or_else(|| internal_error!("Invalid transitive_set"))?;
+            .internal_error("Invalid transitive_set")?;
 
         Ok(TransitiveSetProjectionWrapper::new(
             TransitiveSetProjectionKey {
@@ -117,7 +117,7 @@ impl<'v> TransitiveSetJsonProjection<'v> {
         'v: 'a,
     {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
-            .ok_or_else(|| internal_error!("Invalid transitive_set"))?;
+            .internal_error("Invalid transitive_set")?;
         set.iter_projection_values(self.ordering, self.projection)
     }
 }

@@ -22,6 +22,7 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -166,16 +167,14 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
-    let client_ctx = context
-        .as_ref()
-        .ok_or_else(|| internal_error!("No client context"))?;
+    let client_ctx = context.as_ref().internal_error("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
     let global_cfg_options = global_cfg_options_from_client_context(
         target_cfg
             .as_ref()
-            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx.ctx(),
     )
@@ -200,7 +199,7 @@ async fn cquery(
         .await?;
 
     if let Some(profile_mode) = profile_mode {
-        let universes = universes.ok_or_else(|| internal_error!("No universes"))?;
+        let universes = universes.internal_error("No universes")?;
         if universes.is_empty() {
             // Sanity check.
             return Err(internal_error!("Empty universes list"));

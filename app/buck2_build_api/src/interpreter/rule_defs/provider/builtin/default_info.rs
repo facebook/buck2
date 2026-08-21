@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -214,7 +215,7 @@ impl<'v> DefaultInfo<'v> {
         name: &str,
     ) -> buck2_error::Result<Option<ValueTyped<'v, ProviderCollection<'v>>>> {
         DictRef::from_value(self.sub_targets.get())
-            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?
+            .internal_error("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
                 ValueTyped::new_err(v).buck_error_context(
@@ -235,7 +236,7 @@ impl<'v> DefaultInfo<'v> {
         &self,
     ) -> buck2_error::Result<impl Iterator<Item = buck2_error::Result<StarlarkArtifact>> + '_> {
         let list = ListRef::from_value(self.default_outputs.get())
-            .ok_or_else(|| internal_error!("Should be list of artifacts"))?;
+            .internal_error("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
             Ok(
@@ -262,14 +263,14 @@ impl<'v> DefaultInfo<'v> {
         &self,
     ) -> buck2_error::Result<SmallMap<&'v str, ValueTyped<'v, ProviderCollection<'v>>>> {
         let sub_targets = DictRef::from_value(self.sub_targets.get())
-            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?;
+            .internal_error("sub_targets should be a dict-like object")?;
 
         sub_targets
             .iter()
             .map(|(k, v)| {
                 buck2_error::Ok((
                     k.unpack_str()
-                        .ok_or_else(|| internal_error!("sub_targets should have string keys"))?,
+                        .internal_error("sub_targets should have string keys")?,
                     ValueTyped::new(v).ok_or_else(|| {
                         internal_error!(
                             "Values inside of `sub_targets` should be provider collections",

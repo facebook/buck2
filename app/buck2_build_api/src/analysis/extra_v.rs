@@ -11,8 +11,8 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
@@ -87,7 +87,7 @@ impl<'v> AnalysisExtraValue<'v> {
                     .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-        Self::get(module)?.ok_or_else(|| internal_error!("extra_value must be set"))
+        Self::get(module)?.internal_error("extra_value must be set")
     }
 }
 
@@ -103,11 +103,11 @@ impl FrozenAnalysisExtraValue<'_> {
     pub fn get(module: &FrozenModule) -> buck2_error::Result<OwnedFrozenAnalysisExtraValue> {
         module
             .extra_value_owned()
-            .ok_or_else(|| internal_error!("extra_value not set"))?
+            .internal_error("extra_value not set")?
             .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisExtraValue>>, _>(
                 |v| ValueTyped::new(v),
             )
-            .ok_or_else(|| internal_error!("extra_value has the wrong type"))
+            .internal_error("extra_value has the wrong type")
     }
 
     pub fn analysis_value_storage(
@@ -117,7 +117,7 @@ impl FrozenAnalysisExtraValue<'_> {
             v.as_ref()
                 .value
                 .analysis_value_storage
-                .ok_or_else(|| internal_error!("analysis_value_storage not set"))
+                .internal_error("analysis_value_storage not set")
         })
     }
 }

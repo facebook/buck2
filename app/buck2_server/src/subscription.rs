@@ -11,7 +11,7 @@
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -42,7 +42,7 @@ pub(crate) async fn run_subscription_server_command(
 
             let materializer = materializer
                 .as_deferred_materializer_extension()
-                .ok_or_else(|| internal_error!("Subscriptions only work with the deferred materializer"))?;
+                .internal_error("Subscriptions only work with the deferred materializer")?;
 
             let mut materializer_subscription = materializer
                 .create_subscription()
@@ -59,8 +59,8 @@ pub(crate) async fn run_subscription_server_command(
                     message = req.message().fuse() => {
                         use buck2_subscription_proto::subscription_request::Request;
 
-                        let message = message?.request.ok_or_else(|| internal_error!("Empty subscription message"));
-                        let request = message?.request.ok_or_else(|| internal_error!("Empty subscription request"))?;
+                        let message = message?.request.internal_error("Empty subscription message");
+                        let request = message?.request.internal_error("Empty subscription request")?;
                         match request {
                             Request::Disconnect(disconnect) => {
                                 break disconnect;
@@ -79,7 +79,7 @@ pub(crate) async fn run_subscription_server_command(
                         }
                     }
                     path = materializer_subscription.next_materialization().fuse() => {
-                        let path = path.ok_or_else(|| internal_error!("Materializer hung up"))?;
+                        let path = path.internal_error("Materializer hung up")?;
                         partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
                             response: Some(buck2_subscription_proto::SubscriptionResponse {
                                 response: Some(buck2_subscription_proto::Materialized { path: path.to_string() }.into())

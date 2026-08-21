@@ -28,7 +28,7 @@ use buck2_critical_path::VertexData;
 use buck2_critical_path::VertexId;
 use buck2_critical_path::VertexKeys;
 use buck2_critical_path::compute_critical_path_potentials;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
@@ -281,15 +281,15 @@ fn compute_critical_paths(
                     .map(|a| {
                         let idx = keys
                             .get(a)
-                            .ok_or_else(|| internal_error!("Cannot find artifact: {a}"))?;
+                            .with_internal_error(|| format!("Cannot find artifact: {a}"))?;
                         critical_path_accessor
                             .critical_path_for_vertex(idx)
-                            .ok_or_else(|| internal_error!("Invalid index for artifact: {a}"))
+                            .with_internal_error(|| format!("Invalid index for artifact: {a}"))
                     })
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .max_by_key(|p| p.0)
-                    .ok_or_else(|| internal_error!("No critical path"))?;
+                    .internal_error("No critical path")?;
 
                 buck2_error::Result::Ok(Duration::from_micros(path_cost.runtime))
             })();

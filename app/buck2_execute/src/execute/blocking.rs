@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::span::SpanId;
@@ -67,7 +67,7 @@ impl dyn BlockingExecutor {
         }))
         .await
         .tag(buck2_error::ErrorTag::IoBlockingExecutor)?;
-        res.ok_or_else(|| internal_error!("Inline I/O did not execute"))
+        res.internal_error("Inline I/O did not execute")
     }
 }
 

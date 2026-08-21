@@ -22,6 +22,7 @@ use buck2_common::manifold::ManifoldClient;
 use buck2_common::manifold::Ttl;
 use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use dupe::Dupe;
@@ -489,9 +490,7 @@ where
         &mut self,
         client: &mut Option<WatchmanClient>,
     ) -> buck2_error::Result<WatchmanSyncResult> {
-        let client = client
-            .as_mut()
-            .ok_or_else(|| internal_error!("No Watchman connection"))?;
+        let client = client.as_mut().internal_error("No Watchman connection")?;
 
         let make_query = |last_clock, last_mergebase| {
             let mut query = self.query.clone();
@@ -611,7 +610,7 @@ where
         async move {
             tx_res
                 .ok()
-                .ok_or_else(|| internal_error!("SyncableQueryHandler has exited"))?;
+                .internal_error("SyncableQueryHandler has exited")?;
 
             let out = sync_done_rx
                 .await

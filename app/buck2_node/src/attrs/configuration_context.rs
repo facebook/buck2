@@ -22,7 +22,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
@@ -97,7 +97,7 @@ pub trait AttrConfigurationContext {
         let cfg = self
             .resolved_transitions()?
             .get(tr)
-            .ok_or_else(|| internal_error!("internal error: no resolved transition"))?;
+            .internal_error("internal error: no resolved transition")?;
         Ok(label.configure(cfg.single()?.dupe()))
     }
 
@@ -109,7 +109,7 @@ pub trait AttrConfigurationContext {
         let cfg = self
             .resolved_transitions()?
             .get(tr)
-            .ok_or_else(|| internal_error!("internal error: no resolved transition"))?;
+            .internal_error("internal error: no resolved transition")?;
         let split = cfg.split()?;
         Ok(split
             .iter()

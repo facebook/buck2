@@ -27,6 +27,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -239,7 +240,7 @@ async fn targets_with_output(
                     request
                         .target_cfg
                         .as_ref()
-                        .ok_or_else(|| internal_error!("target_cfg must be set"))?,
+                        .internal_error("target_cfg must be set")?,
                     server_ctx,
                     &mut dice.ctx(),
                 )

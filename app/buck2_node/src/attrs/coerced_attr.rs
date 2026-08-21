@@ -24,6 +24,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::error::ErrorTag;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
@@ -542,9 +543,7 @@ impl CoercedAttr {
             }
 
             CoercedAttrWithType::OneOf(l, i, t) => {
-                let item_type =
-                    t.xs.get(i as usize)
-                        .ok_or_else(|| internal_error!("invalid enum"))?;
+                let item_type = t.xs.get(i as usize).internal_error("invalid enum")?;
                 l.traverse(item_type, pkg, traversal)
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
@@ -784,9 +783,7 @@ impl CoercedAttr {
                     configured.push(item.configure(t, ctx, attr_name)?);
                 }
                 let mut iter = configured.into_iter();
-                let first = iter
-                    .next()
-                    .ok_or_else(|| internal_error!("concat with no items"))?;
+                let first = iter.next().internal_error("concat with no items")?;
                 if singleton {
                     first
                 } else {

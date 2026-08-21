@@ -34,6 +34,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
@@ -222,7 +223,7 @@ impl DocsCache {
         let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
         let abs_path = fs.resolve(&relative_path);
         Uri::from_file_path(&abs_path)
-            .ok_or_else(|| internal_error!("Failed to convert path to file URI: {}", abs_path))?
+            .with_internal_error(|| format!("Failed to convert path to file URI: {}", abs_path))?
             .try_into()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
     }
@@ -400,9 +401,7 @@ impl<'a> BuckLspContext<'a> {
             )
             .await?;
 
-        let path_str = path
-            .to_str()
-            .ok_or_else(|| internal_error!("Path is not UTF-8"))?;
+        let path_str = path.to_str().internal_error("Path is not UTF-8")?;
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
             path_str.strip_prefix('/').unwrap_or(path_str),

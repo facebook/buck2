@@ -35,10 +35,10 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -520,11 +520,11 @@ impl<'a> BuckdLifecycle<'a> {
         let mut stdout_taken = child
             .stdout
             .take()
-            .ok_or_else(|| internal_error!("Child should have its stdout piped"))?;
+            .internal_error("Child should have its stdout piped")?;
         let mut stderr_taken = child
             .stderr
             .take()
-            .ok_or_else(|| internal_error!("Child should have its stderr piped"))?;
+            .internal_error("Child should have its stderr piped")?;
 
         let status_fut = async {
             let result = timeout(timeout_secs, child.wait()).await;
@@ -1145,7 +1145,7 @@ pub fn get_daemon_exe() -> buck2_error::Result<PathBuf> {
         let ext = if cfg!(windows) { ".exe" } else { "" };
         Ok(exe
             .parent()
-            .ok_or_else(|| internal_error!("Expected current exe to be in a directory"))?
+            .internal_error("Expected current exe to be in a directory")?
             .join(format!("buck2-daemon{ext}")))
     } else {
         Ok(exe)
@@ -1394,6 +1394,8 @@ fn is_nested_invocation(
 
 #[cfg(test)]
 mod tests {
+    use buck2_error::internal_error;
+
     use super::*;
 
     fn constraints(trace_io_enabled: bool) -> buck2_cli_proto::DaemonConstraints {

@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use starlark::eval::ProfileData;
 
@@ -52,7 +53,7 @@ impl StarlarkProfileDataAndStats {
         let mut iter = datas.iter().copied();
         let first = iter
             .next()
-            .ok_or_else(|| internal_error!("empty collection of profile data"))?;
+            .internal_error("empty collection of profile data")?;
         let mut total_retained_bytes = first.total_retained_bytes;
         let mut initialized_at = first.initialized_at;
         let mut finalized_at = first.finalized_at;

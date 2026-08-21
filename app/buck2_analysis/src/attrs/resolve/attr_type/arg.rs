@@ -19,7 +19,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_node::attrs::attr_type::arg::ConfiguredMacro;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacrosPart;
@@ -126,7 +126,7 @@ fn resolve_configured_macro<'v>(
                 .as_ref()
                 .default_info()?
                 .unpack_frozen()
-                .ok_or_else(|| internal_error!("dep provider collections are frozen"))?;
+                .internal_error("dep provider collections are frozen")?;
             Ok(ResolvedMacro::Location(default_info))
         }
         ConfiguredMacro::Exe { label, .. } => {

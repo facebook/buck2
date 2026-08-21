@@ -11,7 +11,7 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use buck2_error::internal_error;
+use buck2_error::BuckErrorOptionContext;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -101,12 +101,12 @@ impl FileWritingProfileEventListener {
 
         let subpath = subpath
             .parent()
-            .ok_or_else(|| internal_error!("profiling path has no parent"))?
+            .internal_error("profiling path has no parent")?
             .join(FileName::new(&format!(
                 "{}{}",
                 subpath
                     .file_name()
-                    .ok_or_else(|| internal_error!("profiling path has no filename"))?,
+                    .internal_error("profiling path has no filename")?,
                 suffix,
             ))?);
 
