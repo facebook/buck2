@@ -65,6 +65,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.jetbrains.annotations.Nullable;
@@ -93,6 +94,9 @@ public class AdbHelper implements AndroidDevicesHelper {
    */
   static final String SERIAL_NUMBER_ENV = "ANDROID_SERIAL";
 
+  private static final String ABI_PROPERTY = "ro.product.cpu.abi";
+  private static final String ABI_LIST_PROPERTY = "ro.product.cpu.abilist";
+
   static final int NUM_TRIES = 5;
   static final int RETRY_DELAY_MS = 1000;
 
@@ -107,6 +111,7 @@ public class AdbHelper implements AndroidDevicesHelper {
   private final boolean restartAdbOnFailure;
   // Caches the list of android devices for this execution
   private final Supplier<GetDevicesResult> devicesSupplier;
+  private final Supplier<ImmutableMap<String, ImmutableSet<String>>> deviceAbisSupplier;
   private final boolean skipMetadataIfNoInstalls;
   private final AndroidInstallPrinter androidPrinter;
   private final SetDebugAppMode setDebugAppMode;
@@ -154,6 +159,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     this.adbExecutionContext = adbExecutionContext;
     this.restartAdbOnFailure = restartAdbOnFailure;
     this.devicesSupplier = MoreSuppliers.memoize(this::getDevicesImpl);
+    this.deviceAbisSupplier = MoreSuppliers.memoize(this::deviceAbisBySerialImpl);
     this.androidPrinter = androidPrinter;
     this.skipMetadataIfNoInstalls = skipMetadataIfNoInstalls;
     this.setDebugAppMode = setDebugAppMode;
@@ -352,10 +358,9 @@ public class AdbHelper implements AndroidDevicesHelper {
             // Need to call both ro.product.cpu.abi and ro.product.cpu.abilist
             // as sticking to ro.product.cpu.abi helped fixing the issue of
             // exopackage install when the app was already installed in the device.
-            String abi = device.getProperty("ro.product.cpu.abi");
+            String abi = device.getProperty(ABI_PROPERTY);
             Set<String> abiList =
-                new HashSet<>(
-                    Arrays.asList(device.getProperty("ro.product.cpu.abilist").split(",")));
+                new HashSet<>(Arrays.asList(device.getProperty(ABI_LIST_PROPERTY).split(",")));
             String locale = getDeviceLocale(device);
             String buildFingerprint = device.getProperty("ro.build.fingerprint");
             String dpi = getDeviceDpi(device);
@@ -388,6 +393,53 @@ public class AdbHelper implements AndroidDevicesHelper {
         },
         true);
     return deviceInfos;
+  }
+
+  /**
+   * What each targeted device can run, by serial, read through the configured adb rather than
+   * whatever `adb` is on the path. A device that will not say is left out rather than recorded as
+   * running nothing, so callers can tell "cannot run this" from "would not answer".
+   *
+   * <p>Answered once per helper: these are boot-time properties of a fixed set of devices, and the
+   * check that reads them is offered every time an artifact arrives.
+   */
+  public ImmutableMap<String, ImmutableSet<String>> deviceAbisBySerial() {
+    return deviceAbisSupplier.get();
+  }
+
+  private ImmutableMap<String, ImmutableSet<String>> deviceAbisBySerialImpl() {
+    ImmutableMap.Builder<String, ImmutableSet<String>> abis = ImmutableMap.builder();
+    for (AndroidDevice device : getDevices(true)) {
+      // Both properties, trimmed, blanks dropped: the list is comma separated and devices do put
+      // spaces after the commas. Read separately so a device that answers one still contributes
+      // it.
+      ImmutableSet<String> forDevice =
+          Stream.concat(
+                  readProperty(device, ABI_PROPERTY).stream(),
+                  readProperty(device, ABI_LIST_PROPERTY).stream()
+                      .flatMap(list -> Arrays.stream(list.split(","))))
+              .map(String::trim)
+              .filter(abi -> !abi.isEmpty())
+              .collect(ImmutableSet.toImmutableSet());
+      if (!forDevice.isEmpty()) {
+        abis.put(device.getSerialNumber(), forDevice);
+      }
+    }
+    ImmutableMap<String, ImmutableSet<String>> bySerial = abis.build();
+    if (bySerial.isEmpty()) {
+      LOG.info("No targeted device would report an ABI");
+    }
+    return bySerial;
+  }
+
+  /** One property of one device, or empty if the device will not answer for it. */
+  private Optional<String> readProperty(AndroidDevice device, String property) {
+    try {
+      return Optional.ofNullable(device.getProperty(property));
+    } catch (Exception e) {
+      LOG.warn(e, "Could not read %s of %s", property, device.getSerialNumber());
+      return Optional.empty();
+    }
   }
 
   public void throwIfIncompatibleAbi(

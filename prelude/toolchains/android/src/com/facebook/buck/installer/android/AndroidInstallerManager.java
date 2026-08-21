@@ -22,25 +22,21 @@ import com.facebook.buck.installer.InstallResult;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
-import java.util.stream.Collectors;
 
 /**
  * Coordinates an Android Install of an APK. We need three artifacts: the apk,
@@ -52,15 +48,13 @@ class AndroidInstallerManager implements InstallCommand {
   private final AndroidCommandLineOptions options;
   private final AndroidInstallErrorClassifier errorClassifier =
       AndroidInstallErrorClassifier.INSTANCE;
-  private final Map<InstallId, AndroidArtifacts> installIdToFutureMap = new HashMap<>();
+  private final Map<InstallId, AndroidArtifacts> artifactsByInstall = new HashMap<>();
   // Resolved once the install options arrive, and reused for everything that follows.
   private final Map<InstallId, AdbHelper> targetDevices = new ConcurrentHashMap<>();
 
-  private final Map<String, String> SHORT_TO_FULL_ABI_MAP =
-      new HashMap<>(
-          Map.of("armv7", "armeabi-v7a", "arm64", "arm64-v8a", "x86", "x86", "x86_64", "x86_64"));
-
-  private final Set<String> ABI_64s = new HashSet<>(Arrays.asList("arm64-v8a", "x86_64"));
+  private static final ImmutableMap<String, String> SHORT_TO_FULL_ABI_MAP =
+      ImmutableMap.of(
+          "armv7", "armeabi-v7a", "arm64", "arm64-v8a", "x86", "x86", "x86_64", "x86_64");
 
   AndroidInstallerManager(AndroidCommandLineOptions options) {
     this.options = options;
@@ -77,17 +71,18 @@ class AndroidInstallerManager implements InstallCommand {
       AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
       long arrivedAt = System.currentTimeMillis();
 
-      if (artifactName.equals("cpu_filters")) {
-        androidArtifacts.recordFileArrival(artifactName, arrivedAt);
-        return checkAbiCompatibility(AbsPath.of(artifactPath));
-      }
+      // Path before arrival: an artifact counted as arrived while its path is still unset reads as
+      // usable to anyone judging readiness from arrivals. Delivery is all this records -- what the
+      // install then makes of the artifact is not the artifact's business.
       recordArtifactPath(androidArtifacts, artifactName, artifactPath);
-      // After the path, never before: an artifact counted as arrived while its path is still unset
-      // reads as usable to anyone judging readiness from arrivals. Delivery is all this records --
-      // what the install then makes of the artifact is not the artifact's business.
       androidArtifacts.recordFileArrival(artifactName, arrivedAt);
+
       if (artifactName.equals("options")) {
         resolveDevices(installId, androidArtifacts);
+      }
+      Optional<InstallError> incompatible = checkAbiCompatibility(installId);
+      if (incompatible.isPresent()) {
+        return InstallResult.error(incompatible.get());
       }
 
       return InstallResult.success();
@@ -111,9 +106,8 @@ class AndroidInstallerManager implements InstallCommand {
       AndroidArtifacts androidArtifacts, String artifactName, Path artifactPath) {
     switch (artifactName) {
       case "cpu_filters":
-        // Read on the host rather than stored, so it has no path to record. Falling through to the
-        // default would install the cpu filter list as the apk.
-        throw new IllegalArgumentException("cpu_filters is read by the caller, not recorded");
+        androidArtifacts.setApkAbis(readApkAbis(artifactPath));
+        break;
       case "options":
         try {
           androidArtifacts.setApkOptions(
@@ -318,108 +312,72 @@ class AndroidInstallerManager implements InstallCommand {
   }
 
   private AndroidArtifacts getOrMakeAndroidArtifacts(InstallId install_id) {
-    synchronized (installIdToFutureMap) {
-      return installIdToFutureMap.computeIfAbsent(install_id, ignore -> new AndroidArtifacts());
+    synchronized (artifactsByInstall) {
+      return artifactsByInstall.computeIfAbsent(install_id, ignore -> new AndroidArtifacts());
     }
   }
 
-  private InstallResult checkAbiCompatibility(AbsPath apkAbiPath) {
+  /**
+   * The ABIs the apk carries native code for, from the cpu filters buck sent.
+   *
+   * <p>Empty when the filters name nothing this installer recognises, or cannot be read at all.
+   * Either way the check has nothing to compare and the install goes ahead -- an ABI we cannot
+   * determine is not treated as incompatible.
+   */
+  private static ImmutableSet<String> readApkAbis(Path cpuFiltersPath) {
     try {
-      Set<String> apkAbis =
-          Files.readAllLines(apkAbiPath.getPath()).stream()
-              .map(abi -> SHORT_TO_FULL_ABI_MAP.get(abi.trim()))
-              .collect(Collectors.toSet());
-      Set<String> deviceAbis = getDeviceAbis();
-      if (deviceAbis.isEmpty()) {
-        // we couldn't determine the device ABI, so returning success.
-        return InstallResult.success();
-      }
-      Set<String> commonAbis =
-          apkAbis.stream().filter(deviceAbis::contains).collect(Collectors.toSet());
-      if (commonAbis.isEmpty()) {
-        String message =
-            String.format(
-                "You are trying to install an APK with incompatible native libraries - "
-                    + "the APK has native libraries built for %s, but the device has CPU %s.",
-                String.join(",", apkAbis), String.join(",", deviceAbis));
-        return InstallResult.error(
-            new InstallError(message, AndroidInstallErrorTag.INCOMPATIBLE_NATIVE_LIB));
-      }
+      // A filter this installer does not know is dropped rather than carried through as null: it
+      // would never match a device ABI, and would reach the user as the word "null".
+      return Files.readAllLines(cpuFiltersPath).stream()
+          .map(abi -> SHORT_TO_FULL_ABI_MAP.get(abi.trim()))
+          .filter(Objects::nonNull)
+          .collect(ImmutableSet.toImmutableSet());
     } catch (IOException e) {
-      // unable to determine if we should fail early. no-op
+      LOG.log(Level.WARNING, "Could not read the apk cpu filters; skipping the ABI check", e);
+      return ImmutableSet.of();
     }
-    return InstallResult.success();
   }
 
-  private Set<String> getDeviceAbis() {
-    // Unless serial is specified,
-    // use first device from -d or -e flag
-    Set<String> abis = new HashSet<>();
-    String serialNumber = options.serialNumber;
-    if (serialNumber == null) {
-      try {
-        String command = "adb devices";
-        Process process = Runtime.getRuntime().exec(command);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-          String[] output = line.split("\t");
-          String currentSerialNumber = output[0].trim();
-          if (output.length == 2 && output[1].trim().equals("device")) {
-            if (!options.useEmulatorsOnlyMode && !options.useRealDevicesOnlyMode) {
-              serialNumber = currentSerialNumber;
-              break;
-            }
-            if (options.useEmulatorsOnlyMode && currentSerialNumber.startsWith("emulator")) {
-              serialNumber = currentSerialNumber;
-              break;
-            }
-            if (options.useRealDevicesOnlyMode && !currentSerialNumber.startsWith("emulator")) {
-              serialNumber = currentSerialNumber;
-              break;
-            }
-          }
-        }
-      } catch (Exception _e) {
-        // no op
-      }
+  /**
+   * Fails early when the apk has no native code the targeted devices can run.
+   *
+   * <p>Offered every arrival and answers for itself: it needs the cpu filters and the devices,
+   * which turn up in either order, and does nothing until both are there. Empty means compatible,
+   * or that no device would report an ABI -- unknown is not treated as incompatible.
+   */
+  private Optional<InstallError> checkAbiCompatibility(InstallId installId) {
+    AndroidArtifacts androidArtifacts = getOrMakeAndroidArtifacts(installId);
+    ImmutableSet<String> apkAbis = androidArtifacts.getApkAbis();
+    AdbHelper adbHelper = targetDevices.get(installId);
+    if (apkAbis == null || adbHelper == null) {
+      return Optional.empty();
     }
-
-    try {
-      // get default abi
-      String abiCommand = String.format("adb -s %s shell getprop ro.product.cpu.abi", serialNumber);
-      Process abiProcess = Runtime.getRuntime().exec(abiCommand);
-      BufferedReader abiReader =
-          new BufferedReader(new InputStreamReader(abiProcess.getInputStream()));
-      String abi = abiReader.readLine();
-      if (abi != null) {
-        abis.add(abi.trim());
-      }
-    } catch (Exception _e) {
-      // no op
+    if (apkAbis.isEmpty()) {
+      // No native code this installer recognises, so there is nothing a device could be wrong for.
+      return Optional.empty();
     }
-
-    if (!Sets.intersection(abis, ABI_64s).isEmpty()) {
-      // Need to call both ro.product.cpu.abi and ro.product.cpu.abilist
-      // as sticking to ro.product.cpu.abi helped fixing the issue of
-      // exopackage install when the app was already installed in the device.
-      try {
-        // add 32bit abi if device supports it
-        String abiCommand =
-            String.format("adb -s %s shell getprop ro.product.cpu.abilist", serialNumber);
-        Process abiProcess = Runtime.getRuntime().exec(abiCommand);
-        BufferedReader abiReader =
-            new BufferedReader(new InputStreamReader(abiProcess.getInputStream()));
-        Set<String> abiList =
-            Arrays.stream(abiReader.readLine().split(","))
-                .map(String::trim)
-                .collect(Collectors.toSet());
-        abis.addAll(abiList);
-      } catch (Exception _e) {
-        // no op
-      }
+    ImmutableMap<String, ImmutableSet<String>> abisByDevice = adbHelper.deviceAbisBySerial();
+    if (abisByDevice.isEmpty()) {
+      return Optional.empty();
     }
-
-    return abis;
+    // Every device, not their union: an install reaches all of them, so one that cannot run the
+    // apk fails it, and failing here is the point -- the alternative is finding out after the
+    // build.
+    ImmutableList<String> incompatible =
+        abisByDevice.entrySet().stream()
+            .filter(device -> Sets.intersection(apkAbis, device.getValue()).isEmpty())
+            .map(device -> device.getKey() + " (" + String.join(",", device.getValue()) + ")")
+            .sorted()
+            .collect(ImmutableList.toImmutableList());
+    if (incompatible.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new InstallError(
+            String.format(
+                "You are trying to install an APK with native libraries built for %s, onto "
+                    + "device(s) that cannot run any of them: %s.",
+                String.join(",", apkAbis), String.join("; ", incompatible)),
+            AndroidInstallErrorTag.INCOMPATIBLE_NATIVE_LIB));
   }
 }

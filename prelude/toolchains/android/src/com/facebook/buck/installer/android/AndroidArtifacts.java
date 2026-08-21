@@ -12,6 +12,7 @@ package com.facebook.buck.installer.android;
 
 import com.facebook.buck.android.exopackage.InstallTimings;
 import com.facebook.buck.core.filesystems.AbsPath;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,6 +36,7 @@ class AndroidArtifacts implements InstallTimings {
   private AbsPath androidManifestPath;
   private AndroidInstallApkOptions apkOptions;
   private AbsPath apk;
+  private ImmutableSet<String> apkAbis;
   private Optional<AbsPath> secondaryDexExopackageInfoDirectory = Optional.empty();
   private Optional<AbsPath> secondaryDexExopackageInfoMetadata = Optional.empty();
   private Optional<AbsPath> nativeLibraryExopackageInfoDirectory = Optional.empty();
@@ -314,6 +316,19 @@ class AndroidArtifacts implements InstallTimings {
 
   public synchronized AndroidInstallApkOptions getApkOptions() {
     return this.apkOptions;
+  }
+
+  /**
+   * The ABIs the apk carries native code for, or null until buck has sent the cpu filters. Empty
+   * means the filters named nothing this installer recognises.
+   */
+  @Nullable
+  public synchronized ImmutableSet<String> getApkAbis() {
+    return apkAbis;
+  }
+
+  public synchronized void setApkAbis(ImmutableSet<String> apkAbis) {
+    this.apkAbis = apkAbis;
   }
 
   public synchronized AbsPath getApk() {
