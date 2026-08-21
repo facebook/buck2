@@ -65,6 +65,11 @@ from .read_provisioning_profile_command_factory import (
     DefaultReadProvisioningProfileCommandFactory,
     IReadProvisioningProfileCommandFactory,
 )
+from .signing_context_types import (
+    AdhocSigningContext,
+    selection_profile_context_from_signing_context,
+    SigningContextWithProfileSelection,
+)
 
 _default_read_provisioning_profile_command_factory = (
     DefaultReadProvisioningProfileCommandFactory()
@@ -253,36 +258,6 @@ def _select_best_provisioning_profile(
     )
 
 
-@dataclass
-class SigningContextWithProfileSelection:
-    info_plist_source: Path
-    info_plist_destination: Path
-    info_plist_metadata: InfoPlistMetadata
-    selected_profile_info: SelectedProvisioningProfileInfo
-
-
-@dataclass
-class AdhocSigningContext:
-    codesign_identity: str
-    profile_selection_context: Optional[SigningContextWithProfileSelection]
-
-    def __init__(
-        self,
-        codesign_identity: Optional[str] = None,
-        profile_selection_context: Optional[SigningContextWithProfileSelection] = None,
-    ) -> None:
-        self.codesign_identity = codesign_identity or "-"
-        self.profile_selection_context = profile_selection_context
-
-    def identity(self) -> CodeSigningIdentity:
-        if self.profile_selection_context:
-            return self.profile_selection_context.selected_profile_info.identity
-        return CodeSigningIdentity(
-            fingerprint=self.codesign_identity,
-            subject_common_name="",
-        )
-
-
 def signing_context_with_profile_selection(
     info_plist_source: Path,
     info_plist_destination: Path,
@@ -337,23 +312,6 @@ def write_empty_codesign_manifest(codesign_manifest_path: Path, bundle_path: Pat
             bundle_path, codesign_invocations=[]
         )
         json.dump(codesign_manifest, codesign_manifest_file, indent=4)
-
-
-def selection_profile_context_from_signing_context(
-    signing_context: Optional[
-        Union[AdhocSigningContext, SigningContextWithProfileSelection]
-    ],
-) -> Optional[SigningContextWithProfileSelection]:
-    if signing_context:
-        if isinstance(signing_context, SigningContextWithProfileSelection):
-            selection_profile_context = signing_context
-        elif isinstance(signing_context, AdhocSigningContext):
-            selection_profile_context = signing_context.profile_selection_context
-        else:
-            raise RuntimeError(
-                f"Unexpected type of signing context `{type(signing_context)}`"
-            )
-        return selection_profile_context
 
 
 def _postprocess_entitlements_if_needed_for_adhoc_signed_bundle(
