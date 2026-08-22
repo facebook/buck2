@@ -472,6 +472,64 @@ async fn compute_execution_platforms(
     ))))
 }
 
+/// Computes the configuration an exec dep is built in: the execution platform's configuration
+/// with the exec dep's modifiers (package-level + target-level + exec platform) applied.
+///
+/// This is a DICE key because execution platform resolution asks the same question for the same
+/// (exec dep, candidate platform) pair once per `ExecutionPlatformResolutionKey` that shares the
+/// exec dep — the target node fetch and cfg constructor invocation only need to happen once.
+/// Both fields are interned, so key hashing and comparison are cheap.
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("ExecDepCfg({}, {})", exec_dep, execution_platform_cfg)]
+#[pagable_typetag(dice::DiceKeyDyn)]
+struct ExecDepCfgKey {
+    exec_dep: TargetLabel,
+    execution_platform_cfg: ConfigurationData,
+}
+
+#[async_trait]
+impl Key for ExecDepCfgKey {
+    type Value = buck2_error::Result<ConfigurationData>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let (node, super_package) = ctx
+            .get_target_node_with_super_package(&self.exec_dep)
+            .await?;
+        CFG_CONSTRUCTOR_CALCULATION_IMPL
+            .get()?
+            .eval_cfg_constructor(
+                ctx,
+                node.as_ref(),
+                &super_package,
+                self.execution_platform_cfg.dupe(),
+                CfgConstructorModifiers::ExecPlatform,
+                node.rule_type(),
+            )
+            .await
+            .with_buck_error_context(|| {
+                format!(
+                    "Resolving modifiers for exec dep target `{}`",
+                    self.exec_dep
+                )
+            })
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        })
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
+}
+
 /// Configure an exec_dep with modifiers applied from the execution platform.
 /// This function is used in two places:
 /// 1. During execution platform selection (check_execution_platform) - to check target_compatible_with
@@ -481,8 +539,6 @@ pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
     exec_dep: &TargetLabel,
     execution_platform_cfg: &ConfigurationData,
 ) -> ResultMaybeCompatible<&'d ConfiguredTargetNode> {
-    let (node, super_package) = ctx.get_target_node_with_super_package(exec_dep).await?;
-
     if !execution_platform_cfg.is_bound() {
         // No valid execution platform was resolved (e.g., all candidates were incompatible
         // and fallback is UseUnspecifiedExec). We cannot apply modifiers without a bound
@@ -494,21 +550,13 @@ pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
             .await;
     }
 
-    // Evaluate cfg_constructor to apply modifiers (package-level + target-level + exec platform)
-    let cfg_config = CFG_CONSTRUCTOR_CALCULATION_IMPL
-        .get()?
-        .eval_cfg_constructor(
-            ctx,
-            node.as_ref(),
-            &super_package,
-            execution_platform_cfg.dupe(),
-            CfgConstructorModifiers::ExecPlatform,
-            node.rule_type(),
-        )
-        .await
-        .with_buck_error_context(|| {
-            format!("Resolving modifiers for exec dep target `{}`", exec_dep)
-        })?;
+    let cfg_config = ctx
+        .compute(&ExecDepCfgKey {
+            exec_dep: exec_dep.dupe(),
+            execution_platform_cfg: execution_platform_cfg.dupe(),
+        })
+        .await?
+        .dupe()?;
 
     // Create configuration pair with modifiers applied
     let cfg_pair = Configuration::new(cfg_config, None);
