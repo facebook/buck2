@@ -188,6 +188,9 @@ mod tests {
         assert!(!restored.0.matches_dyn(Value::new_bool(true)));
     }
 
+    // Generic monomorphizations register through program constructors, which
+    // wasm does not support, so generic tags cannot be deserialized there.
+    #[cfg(not(target_family = "wasm"))]
     #[test]
     fn test_round_trip_generic_1_inner() {
         // Generic wrapper with 1 inner; the monomorphization registers
@@ -201,6 +204,8 @@ mod tests {
         });
     }
 
+    // See `test_round_trip_generic_1_inner` for why this is not run on wasm.
+    #[cfg(not(target_family = "wasm"))]
     #[test]
     fn test_round_trip_generic_2_inner() {
         // 2-generic wrapper with DISTINCT inners; the monomorphization

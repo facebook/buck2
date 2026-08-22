@@ -128,6 +128,22 @@ macro_rules! __pagable_emit_generic_typetag_registration {
     };
 }
 
+#[cfg(target_family = "wasm")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pagable_emit_generic_typetag_registration {
+    ($register:path) => {
+        // Wasm offers no inline assembly to emit a constructor record and no
+        // loader to run one, so generic instantiations cannot be registered
+        // eagerly. They are not registered at all: deserializing a generic
+        // typetag on wasm fails with "Unknown type tag". Reference the
+        // helper so the monomorphization is not flagged as dead code.
+        {
+            let _ = $register;
+        }
+    };
+}
+
 #[cfg(not(any(
     all(
         any(target_os = "linux", target_os = "macos"),
@@ -137,13 +153,14 @@ macro_rules! __pagable_emit_generic_typetag_registration {
         target_os = "windows",
         any(target_arch = "x86_64", target_arch = "aarch64"),
     ),
+    target_family = "wasm",
 )))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __pagable_emit_generic_typetag_registration {
     ($register:path) => {
         compile_error!(
-            "generic pagable typetag registration supports only 64-bit Linux/macOS and x86_64/aarch64 Windows"
+            "generic pagable typetag registration supports only 64-bit Linux/macOS, x86_64/aarch64 Windows, and wasm (unregistered)"
         );
     };
 }

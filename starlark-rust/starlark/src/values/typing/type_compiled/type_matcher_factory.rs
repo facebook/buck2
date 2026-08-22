@@ -130,6 +130,9 @@ mod tests {
         assert!(!m.0.matches_dyn(Value::new_bool(true)));
     }
 
+    // Generic monomorphizations register through program constructors, which
+    // wasm does not support, so generic tags cannot be deserialized there.
+    #[cfg(not(target_family = "wasm"))]
     #[test]
     fn test_round_trip_generic_2_inner() {
         // Factory wrapping a 2-generic matcher.
