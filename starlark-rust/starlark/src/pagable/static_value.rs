@@ -22,6 +22,7 @@
 
 mod get_static_value_id;
 mod registry;
+mod static_heaps;
 mod static_starlark_value;
 mod static_string;
 mod static_type_compiled;
@@ -32,6 +33,9 @@ pub(crate) use get_static_value_id::get_frozen_value_by_static_id;
 pub(crate) use get_static_value_id::get_static_value_id;
 pub use registry::StaticHeapEntry;
 pub use registry::StaticValueEntry;
+pub(crate) use static_heaps::StaticHeapId;
+pub(crate) use static_heaps::get_static_heap_by_id;
+pub(crate) use static_heaps::get_static_heap_id;
 pub use static_starlark_value::StaticValueRegistered;
 pub(crate) use static_type_compiled::TypeCompiledStaticRegistered;
 pub(crate) use static_type_compiled::static_type_compiled;

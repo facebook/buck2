@@ -1756,6 +1756,123 @@ fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
+fn colliding_static_heap_a() -> &'static FrozenHeapRef {
+    starlark::globals_static!(
+        COLLIDING_STATIC_GLOBALS = |globals| {
+            globals.set(
+                "a_value",
+                SimpleData {
+                    flag: true,
+                    count: 41,
+                },
+            );
+        }
+    );
+    COLLIDING_STATIC_GLOBALS.globals().heap()
+}
+
+fn colliding_static_heap_b() -> &'static FrozenHeapRef {
+    starlark::globals_static!(
+        COLLIDING_STATIC_GLOBALS = |globals| {
+            globals.set(
+                "b_value",
+                SimpleData {
+                    flag: false,
+                    count: 42,
+                },
+            );
+        }
+    );
+    COLLIDING_STATIC_GLOBALS.globals().heap()
+}
+
+/// Distinct static heaps can share a name (`<module_path>::<NAME>`, here via
+/// two `globals_static!` in different `fn` bodies of this module). References
+/// are by `StaticHeapId`, not by name, so each resolves to its own live heap.
+#[test]
+fn test_same_named_static_heaps_round_trip_to_distinct_heaps() -> crate::Result<()> {
+    let heap_a = colliding_static_heap_a();
+    let heap_b = colliding_static_heap_b();
+    assert_eq!(
+        heap_a.name().map(|n| n.to_string()),
+        heap_b.name().map(|n| n.to_string()),
+        "test premise: the two static heaps share a name"
+    );
+    assert!(
+        *heap_a != *heap_b,
+        "test premise: the two static heaps are distinct allocations"
+    );
+
+    let restored_a = round_trip_heap_ref(heap_a)?;
+    let restored_b = round_trip_heap_ref(heap_b)?;
+    assert!(
+        restored_a == *heap_a,
+        "ref to heap A should resolve to heap A's live allocation"
+    );
+    assert!(
+        restored_b == *heap_b,
+        "ref to heap B should resolve to heap B's live allocation"
+    );
+    Ok(())
+}
+
+/// A serialized reference to a registered static heap resolves back to the
+/// live heap, not a reconstructed copy under the same name.
+#[test]
+fn test_static_heap_ref_round_trip_is_identity() -> crate::Result<()> {
+    let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap();
+    let restored = round_trip_heap_ref(static_heap)?;
+    assert!(
+        restored == *static_heap,
+        "static heap ref should resolve to the live heap"
+    );
+    Ok(())
+}
+
+/// Paging a graph that references a static heap must not poison the shared
+/// arc for other serialization consumers.
+///
+/// Before static heaps were referenced by name, `page_out_item` stamped a
+/// `DataKey` on the process-wide `PartialPagableArc`, and any later inline
+/// (testing) serialization of a graph referencing the same static heap failed
+/// with "cannot serialize the inner value of a PartialPagableArc backed by
+/// DataKey(..)" — an order-dependent failure across tests sharing statics
+/// like `REGISTER_LIST_STATICS`.
+#[test]
+fn test_static_heap_paging_does_not_poison_inline_serialization() -> crate::Result<()> {
+    let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap();
+
+    // Page a graph referencing the static heap through the real storage impls.
+    let heap = FrozenHeap::new();
+    heap.add_reference(static_heap);
+    let root = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 31,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("paged_static_heap_user"));
+    // SAFETY: `heap_ref` owns the arena hosting `root`.
+    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+    let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
+    assert!(
+        restored.owner().refs().any(|r| *r == *static_heap),
+        "restored heap should reference the live static heap"
+    );
+
+    // Inline serialization of another graph referencing the same static heap
+    // must still succeed afterwards.
+    let heap = FrozenHeap::new();
+    heap.add_reference(static_heap);
+    let root = heap.alloc_simple(SimpleData {
+        flag: false,
+        count: 32,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("inline_static_heap_user"));
+    let restored = round_trip_owned(heap_ref, root)?;
+    let data: &SimpleData = restored.as_ref().value().downcast_ref().unwrap();
+    assert_eq!(data.count, 32);
+    Ok(())
+}
+
 /// Phantom type used only as the `T` of `StarlarkValueAsType<T>` in the
 /// round-trip test below. Never allocated on a heap.
 #[derive(

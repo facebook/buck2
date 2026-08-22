@@ -68,6 +68,9 @@ use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
+use crate::pagable::static_value::StaticHeapId;
+use crate::pagable::static_value::get_static_heap_by_id;
+use crate::pagable::static_value::get_static_heap_id;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
@@ -738,17 +741,31 @@ impl PagableSerialize for FrozenFrozenHeap {
     }
 }
 
+/// Wire tags for a serialized [`FrozenHeapRef`].
+const HEAP_REF_TAG_NONE: u8 = 0;
+const HEAP_REF_TAG_ARC: u8 = 1;
+const HEAP_REF_TAG_STATIC: u8 = 2;
+
 /// PagableSerialize for FrozenHeapRef — serializes the inner Arc via pagable arc mechanism.
+///
+/// Registered static heaps (`globals_static!` / `methods_static!`) are
+/// referenced by `StaticHeapId` instead: their values serialize as
+/// `StaticValueId`s, so the body is never needed on page-in, and paging the
+/// process-wide arc would stamp a `DataKey` on shared state that other
+/// serialization consumers cannot inline afterwards.
 impl PagableSerialize for FrozenHeapRef {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        let is_some = self.0.is_some();
-        is_some.pagable_serialize(serializer)?;
-        if let Some(ref arc) = self.0 {
-            let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-            state.ensure_chunk_index_registered(self)?;
-            serializer.serialize_arc(arc)?;
+        let Some(arc) = &self.0 else {
+            return HEAP_REF_TAG_NONE.pagable_serialize(serializer);
+        };
+        if let Some(id) = get_static_heap_id(self) {
+            HEAP_REF_TAG_STATIC.pagable_serialize(serializer)?;
+            return id.pagable_serialize(serializer);
         }
-        Ok(())
+        HEAP_REF_TAG_ARC.pagable_serialize(serializer)?;
+        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        state.ensure_chunk_index_registered(self)?;
+        serializer.serialize_arc(arc)
     }
 }
 
@@ -758,27 +775,45 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let is_some = bool::pagable_deserialize(deserializer)?;
-        if !is_some {
-            return Ok(FrozenHeapRef::default());
+        let tag = u8::pagable_deserialize(deserializer)?;
+        match tag {
+            HEAP_REF_TAG_NONE => Ok(FrozenHeapRef::default()),
+            HEAP_REF_TAG_ARC => {
+                let arc_box = deserializer.deserialize_arc(
+                    std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
+                    deserialize_heap_arc_with_recipe,
+                )?;
+                let arc = arc_box
+                    .as_arc_any()
+                    .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
+                    .ok_or_else(|| {
+                        pagable::Error::msg(
+                            "FrozenHeapRef: type mismatch downcasting PartialPagableArc<FrozenFrozenHeap>",
+                        )
+                    })?
+                    .clone();
+                let heap = FrozenHeapRef(Some(arc));
+                heap.register_in_deser_scope(deserializer.as_dyn())?;
+                Ok(heap)
+            }
+            HEAP_REF_TAG_STATIC => {
+                let id = StaticHeapId::pagable_deserialize(deserializer)?;
+                let heap = get_static_heap_by_id(id)
+                    .ok_or_else(|| {
+                        pagable::Error::msg(format!(
+                            "FrozenHeapRef: static heap {id:?} is not registered in this process"
+                        ))
+                    })?
+                    .dupe();
+                // Publish the live heap graph so cross-heap `FrozenValue`
+                // pointers into it (or its dependencies) resolve.
+                heap.register_in_deser_scope(deserializer.as_dyn())?;
+                Ok(heap)
+            }
+            _ => Err(pagable::Error::msg(format!(
+                "FrozenHeapRef: invalid wire tag {tag}"
+            ))),
         }
-
-        let arc_box = deserializer.deserialize_arc(
-            std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
-            deserialize_heap_arc_with_recipe,
-        )?;
-        let arc = arc_box
-            .as_arc_any()
-            .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
-            .ok_or_else(|| {
-                pagable::Error::msg(
-                    "FrozenHeapRef: type mismatch downcasting PartialPagableArc<FrozenFrozenHeap>",
-                )
-            })?
-            .clone();
-        let heap = FrozenHeapRef(Some(arc));
-        heap.register_in_deser_scope(deserializer.as_dyn())?;
-        Ok(heap)
     }
 }
 

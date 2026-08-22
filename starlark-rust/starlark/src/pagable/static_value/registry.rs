@@ -25,6 +25,8 @@
 //! We use the inventory crate to collect all registered static values at
 //! compile time and build lookup tables at runtime.
 
+use itertools::Itertools;
+
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 
@@ -80,3 +82,12 @@ pub struct StaticHeapEntry {
 }
 
 inventory::collect!(StaticHeapEntry);
+
+impl StaticHeapEntry {
+    /// All registered entries, in deterministic (file, line) order — the
+    /// order that assigns dense static ids, so serializer and deserializer
+    /// in the same binary agree on them.
+    pub(crate) fn iter_sorted() -> impl Iterator<Item = &'static StaticHeapEntry> {
+        inventory::iter::<StaticHeapEntry>().sorted_by_key(|e| (e.file, e.line))
+    }
+}

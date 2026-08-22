@@ -95,9 +95,7 @@ fn get_static_values() -> impl Iterator<Item = FrozenValue> {
 }
 
 fn get_static_heap_values() -> impl Iterator<Item = FrozenValue> {
-    inventory::iter::<StaticHeapEntry>()
-        .sorted_by_key(|v| (&v.file, &v.line))
-        .flat_map(|e| (e.get_heap)().iter_values())
+    StaticHeapEntry::iter_sorted().flat_map(|e| (e.get_heap)().iter_values())
 }
 
 /// Look up a `FrozenValue` by its `StaticValueId`.
