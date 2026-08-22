@@ -21,6 +21,7 @@ use buck2_error::internal_error;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
+use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_node::metadata::value::MetadataValue;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule_type::RuleType;
@@ -102,9 +103,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         target: TargetNodeRef<'_>,
         super_package: &SuperPackage,
         cfg: ConfigurationData,
-        cli_modifiers: &Arc<Vec<String>>,
+        modifiers: CfgConstructorModifiers,
         rule_type: &RuleType,
-        configuring_exec_dep: bool,
     ) -> buck2_error::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
         #[display("CfgConstructorInvocationKey")]
@@ -113,9 +113,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             package_cfg_modifiers: Option<MetadataValue>,
             target_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
-            cli_modifiers: Arc<Vec<String>>,
+            modifiers: CfgConstructorModifiers,
             rule_type: RuleType,
-            configuring_exec_dep: bool,
         }
 
         #[async_trait]
@@ -131,15 +130,16 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                     get_cfg_constructor(ctx).await?.as_ref().ok_or_else(|| {
                         internal_error!("Global cfg constructor instance should exist")
                     })?;
+                let highest_priority_modifiers = self.modifiers.render(&self.cfg)?;
                 cfg_constructor
                     .eval(
                         ctx,
                         &self.cfg,
                         self.package_cfg_modifiers.as_ref(),
                         self.target_cfg_modifiers.as_ref(),
-                        &self.cli_modifiers,
+                        &highest_priority_modifiers,
                         &self.rule_type,
-                        self.configuring_exec_dep,
+                        self.modifiers.configuring_exec_dep(),
                         cancellation,
                     )
                     .await
@@ -191,7 +191,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         // TODO(scottcao): This is just for rollout purpose. Remove once modifier is rolled out
         if package_cfg_modifiers.is_none()
             && target_cfg_modifiers.is_none()
-            && cli_modifiers.is_empty()
+            && modifiers.is_empty(&cfg)?
         {
             return Ok(cfg);
         }
@@ -200,9 +200,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             package_cfg_modifiers,
             target_cfg_modifiers,
             cfg,
-            cli_modifiers: cli_modifiers.dupe(),
+            modifiers,
             rule_type: rule_type.dupe(),
-            configuring_exec_dep,
         };
         Ok(ctx.compute(&key).await?.dupe()?)
     }

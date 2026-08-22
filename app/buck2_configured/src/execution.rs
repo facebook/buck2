@@ -73,6 +73,7 @@ use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_core::configuration::pair::Configuration;
 
 #[derive(Debug, buck2_error::Error)]
@@ -493,23 +494,6 @@ pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
             .await;
     }
 
-    // Extract constraints from the execution platform to use as high-priority modifiers.
-    //
-    // Execution platform constraints have the highest priority and cannot be
-    // overridden by package-level or target-level modifiers on the exec dep.
-    //
-    // We pass these as cli_modifiers to eval_cfg_constructor because cli_modifiers
-    // have the highest priority in modifier resolution. This is an implementation
-    // detail - these are NOT actual user-provided CLI modifier.
-    let exec_platform_constraints = Arc::new(
-        execution_platform_cfg
-            .data()?
-            .constraints
-            .values()
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>(),
-    );
-
     // Evaluate cfg_constructor to apply modifiers (package-level + target-level + exec platform)
     let cfg_config = CFG_CONSTRUCTOR_CALCULATION_IMPL
         .get()?
@@ -518,10 +502,8 @@ pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
             node.as_ref(),
             &super_package,
             execution_platform_cfg.dupe(),
-            &exec_platform_constraints, // passed as cli_modifiers parameter for highest priority
+            CfgConstructorModifiers::ExecPlatform,
             node.rule_type(),
-            // is configuring exec deps
-            true,
         )
         .await
         .with_buck_error_context(|| {

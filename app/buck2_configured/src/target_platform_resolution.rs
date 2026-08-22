@@ -20,6 +20,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
+use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
@@ -158,11 +159,10 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     node.as_ref(),
                     super_package,
                     current_cfg,
-                    &global_cfg_options.cli_modifiers,
+                    CfgConstructorModifiers::TargetPlatform(
+                        global_cfg_options.cli_modifiers.dupe(),
+                    ),
                     node.rule_type(),
-                    // configuring_exec_dep: false because this is configuring a regular target,
-                    // not an execution dependency.
-                    false,
                 )
                 .await
                 .with_buck_error_context(|| format!("Resolving modifiers for target `{target}`"))
