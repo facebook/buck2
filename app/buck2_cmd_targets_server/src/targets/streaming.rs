@@ -16,6 +16,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::pattern::package_roots::find_package_roots_stream;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::bzl::ImportPath;
@@ -155,6 +156,7 @@ pub(crate) async fn targets_streaming(
     let mut stats = Stats::default();
     let mut needs_separator = false;
     let mut package_files_seen = SmallSet::new();
+    let cell_resolver = dice.ctx().get_cell_resolver().await?;
 
     // Process package results and finally output the result
     while let Some(res) = packages.next().await {
@@ -205,10 +207,18 @@ pub(crate) async fn targets_streaming(
                     write_str(outputter, &mut buffer)?;
                     imported.lock().unwrap().extend(imports.into_iter());
                 }
-                // TODO(nga): we should cross cell boundary:
-                //   This is what we do when we evaluate `PACKAGE` files.
-                //   https://fburl.com/code/qxl59b64
-                path = x.parent()?;
+                // A `PACKAGE` file in an enclosing cell applies to this
+                // package too, so the walk crosses cell boundaries the same
+                // way `PACKAGE` file evaluation does.
+                path = match x.parent()? {
+                    Some(parent) => Some(parent),
+                    None => match cell_resolver.resolve_path(x.as_cell_path())?.parent() {
+                        None => None,
+                        Some(parent) => Some(PackageLabel::from_cell_path(
+                            cell_resolver.get_cell_path(parent).as_ref(),
+                        )?),
+                    },
+                };
             }
         }
     }
