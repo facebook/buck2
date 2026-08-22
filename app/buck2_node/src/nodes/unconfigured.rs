@@ -548,9 +548,9 @@ impl<'a> TargetNodeRef<'a> {
                 Some(x) => Some(CoercedAttr::String(StringLiteral(ArcStr::from(x)))),
             },
             PACKAGE_CFG_MODIFIERS => match self.package_cfg_modifiers() {
-                Some(x) => Some(CoercedAttr::TargetModifiers(TargetModifiersValue::new(
-                    x.to_value(),
-                ))),
+                Some(x) => Some(CoercedAttr::TargetModifiers(
+                    TargetModifiersValue::from_package_modifiers(x),
+                )),
                 None => Some(CoercedAttr::None),
             },
             _ => None,

@@ -165,8 +165,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         let modifier_key = cfg_constructor.key();
         let package_cfg_modifiers = super_package
             .cfg_modifiers()
-            .map(|m| m.to_value())
-            .map(MetadataValue::new);
+            .map(|m| MetadataValue(m.as_json()));
 
         // metadata["buck.cfg_modifiers"] is no longer supported. Fail loudly so the developer
         // knows the modifier they wrote won't be applied.

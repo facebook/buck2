@@ -20,6 +20,7 @@ use starlark_map::vec2::Vec2;
 use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
+use crate::modifiers::PackageCfgModifiersValue;
 
 /// Attribute values sorted by [`AttributeId`].
 ///
@@ -130,6 +131,12 @@ pub struct TargetModifiersValue(Arc<serde_json::Value>);
 impl TargetModifiersValue {
     pub fn new(v: serde_json::Value) -> Self {
         Self(Arc::new(v))
+    }
+
+    /// Exposes package-level modifiers as a `target_modifiers` attribute value, sharing the
+    /// underlying JSON.
+    pub fn from_package_modifiers(m: &PackageCfgModifiersValue) -> Self {
+        Self(m.as_json())
     }
 
     pub fn to_value(&self) -> serde_json::Value {

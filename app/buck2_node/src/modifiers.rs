@@ -24,7 +24,9 @@ impl PackageCfgModifiersValue {
         Self(Arc::new(v))
     }
 
-    pub fn to_value(&self) -> serde_json::Value {
-        (*self.0).clone()
+    /// The underlying JSON, shared. Consumers that store or compare this value should hold on
+    /// to the returned `Arc` so that equality checks can short-circuit on pointer identity.
+    pub fn as_json(&self) -> Arc<serde_json::Value> {
+        self.0.dupe()
     }
 }
