@@ -100,19 +100,50 @@ macro_rules! __pagable_emit_generic_typetag_registration {
     };
 }
 
+#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pagable_emit_generic_typetag_registration {
+    ($register:path) => {
+        // SAFETY: This assembly emits one pointer-sized `.CRT$XCU` record
+        // that relocates to the monomorphized registration helper; the CRT
+        // calls the helper once during image initialization. No instructions
+        // are emitted at the expansion site.
+        unsafe {
+            core::arch::asm!(
+                concat!(
+                    ".pushsection .CRT$XCU,\"dr\"\n",
+                    ".p2align 3\n",
+                    ".quad {register}\n",
+                    ".popsection",
+                ),
+                register = sym $register,
+                // Unlike the x86_64 arm, no `att_syntax` here: that option is
+                // rejected outside x86, and the `$$`-consuming Intel
+                // inline-asm printer it works around is x86-only, so `$XCU`
+                // survives as written.
+                options(nostack, preserves_flags),
+            );
+        }
+    };
+}
+
 #[cfg(not(any(
     all(
         any(target_os = "linux", target_os = "macos"),
         target_pointer_width = "64",
     ),
-    all(target_os = "windows", target_arch = "x86_64"),
+    all(
+        target_os = "windows",
+        any(target_arch = "x86_64", target_arch = "aarch64"),
+    ),
 )))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __pagable_emit_generic_typetag_registration {
     ($register:path) => {
         compile_error!(
-            "generic pagable typetag registration supports only 64-bit Linux/macOS and x86_64 Windows"
+            "generic pagable typetag registration supports only 64-bit Linux/macOS and x86_64/aarch64 Windows"
         );
     };
 }
