@@ -23,6 +23,7 @@ use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_node::metadata::value::MetadataValue;
+use buck2_node::modifiers::PackageCfgModifiersValue;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule_type::RuleType;
 use buck2_node::super_package::SuperPackage;
@@ -110,7 +111,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         #[display("CfgConstructorInvocationKey")]
         #[pagable_typetag(dice::DiceKeyDyn)]
         struct CfgConstructorInvocationKey {
-            package_cfg_modifiers: Option<MetadataValue>,
+            package_cfg_modifiers: Option<PackageCfgModifiersValue>,
             target_cfg_modifiers: Option<MetadataValue>,
             cfg: ConfigurationData,
             modifiers: CfgConstructorModifiers,
@@ -163,9 +164,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             return Ok(cfg);
         };
         let modifier_key = cfg_constructor.key();
-        let package_cfg_modifiers = super_package
-            .cfg_modifiers()
-            .map(|m| MetadataValue(m.as_json()));
+        let package_cfg_modifiers = super_package.cfg_modifiers().duped();
 
         // metadata["buck.cfg_modifiers"] is no longer supported. Fail loudly so the developer
         // knows the modifier they wrote won't be applied.

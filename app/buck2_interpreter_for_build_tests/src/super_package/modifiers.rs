@@ -49,7 +49,7 @@ async fn test_set_package_cfg_modifiers() {
     let cfg_modifiers = target_node
         .package_cfg_modifiers()
         .unwrap()
-        .as_json()
+        .json()
         .to_string();
     assert_eq!("[\"aaabbbccc\"]", cfg_modifiers);
 }
@@ -85,7 +85,7 @@ async fn test_get_parent_package_cfg_modifiers() {
     let cfg_modifiers = target_node
         .package_cfg_modifiers()
         .unwrap()
-        .as_json()
+        .json()
         .to_string();
     assert_eq!("[\"aaaa\",\"bbb\"]", cfg_modifiers);
 }

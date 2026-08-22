@@ -48,11 +48,11 @@ impl MetadataValue {
 
 impl Hash for MetadataValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        hash_value(&self.0, state);
+        hash_json_value(&self.0, state);
     }
 }
 
-fn hash_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
+pub(crate) fn hash_json_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
     use serde_json::Value;
 
     match v {
@@ -84,7 +84,7 @@ fn hash_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
             state.write_u8(4);
             state.write_usize(vals.len());
             for v in vals {
-                hash_value(v, state);
+                hash_json_value(v, state);
             }
         }
         Value::Object(vals) => {
@@ -92,7 +92,7 @@ fn hash_value<H: Hasher>(v: &serde_json::Value, state: &mut H) {
             state.write_usize(vals.len());
             for (k, v) in vals {
                 k.hash(state);
-                hash_value(v, state);
+                hash_json_value(v, state);
             }
         }
     }

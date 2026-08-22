@@ -36,6 +36,7 @@ use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::value::MetadataValue;
+use buck2_node::modifiers::PackageCfgModifiersValue;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::rule_type::RuleType;
@@ -75,7 +76,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
     cfg_constructor_pre_constraint_analysis: Value<'v>,
     reentrant_eval: &mut ReentrantStarlarkEvaluator<'v, 'a, '_>,
     cfg: &ConfigurationData,
-    package_cfg_modifiers: Option<&MetadataValue>,
+    package_cfg_modifiers: Option<&PackageCfgModifiersValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
@@ -96,7 +97,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
         };
 
         let package_cfg_modifiers = eval.heap().alloc(match package_cfg_modifiers {
-            Some(v) => NoneOr::Other(v.as_json()),
+            Some(v) => NoneOr::Other(v.json()),
             None => NoneOr::None,
         });
         let target_cfg_modifiers = eval.heap().alloc(match target_cfg_modifiers {
@@ -215,7 +216,7 @@ async fn eval_underlying(
     cfg_constructor: &CfgConstructor,
     ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
-    package_cfg_modifiers: Option<&MetadataValue>,
+    package_cfg_modifiers: Option<&PackageCfgModifiersValue>,
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
@@ -281,7 +282,7 @@ impl CfgConstructorImpl for CfgConstructor {
         &'a self,
         ctx: &'a mut DiceComputations,
         cfg: &'a ConfigurationData,
-        package_cfg_modifiers: Option<&'a MetadataValue>,
+        package_cfg_modifiers: Option<&'a PackageCfgModifiersValue>,
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,

@@ -8,7 +8,12 @@
  * above-listed licenses.
  */
 
+use std::hash::Hash;
 use std::hash::Hasher;
+
+use allocative::Allocative;
+use dupe::Dupe;
+use pagable::Pagable;
 
 #[derive(Default)]
 pub struct Blake3StrongHasher(blake3::Hasher);
@@ -20,6 +25,25 @@ impl Blake3StrongHasher {
 
     pub fn finalize(&self) -> blake3::Hash {
         self.0.finalize()
+    }
+
+    pub fn finalize128(&self) -> StrongHash128 {
+        StrongHash128(
+            self.0.finalize().as_bytes()[..16]
+                .try_into()
+                .expect("blake3 output should be 32 bytes"),
+        )
+    }
+}
+
+/// 128-bit truncation of a strong hash. Stored as bytes (alignment 1) so that embedding it in a
+/// struct adds no padding, unlike a `u128` field which is 16-byte aligned.
+#[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq, Allocative, Pagable)]
+pub struct StrongHash128([u8; 16]);
+
+impl Hash for StrongHash128 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u128(u128::from_le_bytes(self.0));
     }
 }
 
