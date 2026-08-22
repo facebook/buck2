@@ -10,6 +10,7 @@
 
 
 import asyncio
+import contextlib
 import json
 import platform
 import re
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import daemon_is_alive
@@ -266,3 +268,77 @@ async def test_prev_daemon_dir(buck: Buck) -> None:
     assert extract_pid(new_daemon_stderr) != extract_pid(killed_daemon_stderr)
 
     assert "triggered shutdown: `buck kill` was invoked" in killed_daemon_stderr
+
+
+@buck_test()
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+@env("BUCKD_STARTUP_INIT_TIMEOUT", "20")
+async def test_recovers_promptly_after_inactivity_shutdown(buck: Buck) -> None:
+    # A daemon that retires on its inactivity timeout leaves buckd.info behind
+    # naming a pid that is gone. The next invocation must notice that quickly and
+    # start a fresh daemon; it used to be suspected of spending the whole startup
+    # budget here, which would turn an idle daemon into a 90s CLIENT_STARTUP_TIMEOUT.
+    status = await buck.server("--status")
+    pid = json.loads(status.stdout)["process_info"]["pid"]
+    daemon_dir = await buck.get_daemon_dir()
+
+    for _ in range(20):
+        time.sleep(1)
+        if not daemon_is_alive(pid):
+            break
+    else:
+        raise AssertionError(f"Server with pid {pid} did not die in 20 seconds")
+
+    assert "inactivity timeout elapsed" in (daemon_dir / "buckd.stderr").read_text()
+    assert (daemon_dir / "buckd.info").exists(), "stale buckd.info is the point"
+
+    start = time.time()
+    result = await buck.targets("//:rule")
+    elapsed = time.time() - start
+
+    assert "buck2 daemon is not running" in result.stderr, result.stderr
+    # Well inside the 20s budget. A regression into the timeout path fails the
+    # command outright, so this only guards against getting slow but succeeding.
+    assert elapsed < 15.0, f"took {elapsed:.2f}s to recover"
+
+
+@buck_test()
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+async def test_inactivity_shutdown_exits_with_a_command_in_flight(buck: Buck) -> None:
+    # The inactivity timer is only reset when a command *starts*, so a long lived
+    # streaming command lets the timeout fire underneath itself. The daemon then
+    # cannot finish draining while the client holds the stream open, and it used
+    # to sit alive forever - still accepting connections it would never answer,
+    # so every later invocation on this isolation dir burned its startup budget.
+    status = await buck.server("--status")
+    pid = json.loads(status.stdout)["process_info"]["pid"]
+    daemon_dir = await buck.get_daemon_dir()
+
+    subscriber = await buck.subscribe()
+    try:
+        for _ in range(20):
+            time.sleep(1)
+            if (
+                "inactivity timeout elapsed"
+                in (daemon_dir / "buckd.stderr").read_text()
+            ):
+                break
+        else:
+            raise AssertionError("daemon never reached its inactivity timeout")
+
+        for _ in range(15):
+            if not daemon_is_alive(pid):
+                break
+            time.sleep(1)
+        else:
+            raise AssertionError(
+                f"daemon {pid} announced shutdown but is still alive with a command in flight"
+            )
+
+        assert "Shutdown deadline exceeded" in (daemon_dir / "buckd.stderr").read_text()
+    finally:
+        # Exiting tears the stream down under the subscriber, so it reports a
+        # broken connection. That is the deliberate trade: the command is
+        # terminated rather than the daemon being left alive and unusable.
+        with contextlib.suppress(BuckException):
+            await subscriber.__aexit__(None, None, None)

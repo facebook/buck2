@@ -15,7 +15,6 @@ use std::process;
 use std::sync::Arc;
 use std::time::Duration;
 
-use allocative::Allocative;
 #[cfg(all(fbcode_build, target_os = "linux"))]
 use bpfjailer_client_rs::SOCK_PATHS as BPFJAILER_SOCK_PATHS;
 use buck2_cli_proto::DaemonProcessInfo;
@@ -41,7 +40,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
-use buck2_server::daemon::server::BuckdServerDelegate;
 use buck2_server::daemon::server::BuckdServerInitPreferences;
 use buck2_util::threads::thread_spawn;
 use buck2_util::tokio_runtime::new_tokio_runtime;
@@ -441,25 +439,6 @@ impl DaemonCommand {
             // Once any item is received on the hard_shutdown_receiver, the daemon process will exit immediately.
             let (hard_shutdown_sender, mut hard_shutdown_receiver) = mpsc::unbounded();
 
-            #[derive(Allocative)]
-            struct Delegate {
-                #[allocative(skip)]
-                hard_shutdown_sender: UnboundedSender<String>,
-            }
-
-            impl BuckdServerDelegate for Delegate {
-                fn force_shutdown_with_timeout(&self, reason: String, timeout: Duration) {
-                    let sender = self.hard_shutdown_sender.clone();
-                    tokio::spawn(async move {
-                        tokio::time::sleep(timeout).await;
-                        sender.unbounded_send(reason).expect("Shouldn't happen.");
-                    });
-                }
-            }
-
-            let delegate = Box::new(Delegate {
-                hard_shutdown_sender: hard_shutdown_sender.clone(),
-            });
             let daemon_dir = paths.daemon_dir()?;
             let project_root = paths.project_root().root().as_path().to_path_buf();
 
@@ -492,9 +471,9 @@ impl DaemonCommand {
                 fb,
                 log_reload_handle,
                 paths,
-                delegate,
                 server_init_ctx,
                 process_info,
+                in_process,
                 prepped_cgroups,
                 daemon_constraints,
                 Box::pin(listener),
@@ -731,9 +710,7 @@ impl DaemonCommand {
 #[cfg(test)]
 mod tests {
     use std::process;
-    use std::time::Duration;
 
-    use allocative::Allocative;
     use buck2_cli_proto::DaemonProcessInfo;
     use buck2_cli_proto::KillRequest;
     use buck2_cli_proto::PingRequest;
@@ -750,7 +727,6 @@ mod tests {
     use buck2_fs::paths::file_name::FileNameBuf;
     use buck2_server::daemon::daemon_tcp::create_listener;
     use buck2_server::daemon::server::BuckdServer;
-    use buck2_server::daemon::server::BuckdServerDelegate;
     use buck2_server::daemon::server::BuckdServerInitPreferences;
     use dupe::Dupe;
     use rand::Rng as _;
@@ -793,13 +769,6 @@ mod tests {
             )
             .unwrap();
 
-        #[derive(Allocative)]
-        struct Delegate;
-
-        impl BuckdServerDelegate for Delegate {
-            fn force_shutdown_with_timeout(&self, _reason: String, _timeout: Duration) {}
-        }
-
         let process_info = DaemonProcessInfo {
             endpoint: endpoint.to_string(),
             pid: process::id() as i64,
@@ -813,7 +782,6 @@ mod tests {
             fbinit,
             <dyn LogConfigurationReloadHandle>::noop(),
             invocation_paths,
-            Box::new(Delegate),
             BuckdServerInitPreferences {
                 detect_cycles: None,
                 enable_trace_io: false,
@@ -822,6 +790,9 @@ mod tests {
                 daemon_originating_cgroup: None,
             },
             process_info.clone(),
+            // In process: there is no daemon here, just the test binary's own process, and a
+            // watchdog would `_exit` it out from under the remaining tests.
+            true,
             None,
             gen_daemon_constraints(&DaemonStartupConfig::testing_empty(), &daemon_id).unwrap(),
             Box::pin(listener),

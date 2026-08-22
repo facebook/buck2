@@ -18,7 +18,6 @@ from typing import Any, Optional
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.api.fixtures import Fixture, Span
 from buck2.tests.e2e_util.api.lsp import LSPResponseError
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
@@ -166,7 +165,10 @@ async def test_lsp_stdin_eof_clears_server_command(
 
 @buck_test()
 @env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
-async def test_lsp_does_not_exit_when_daemon_times_out(buck: Buck) -> None:
+async def test_lsp_exits_when_daemon_times_out(buck: Buck) -> None:
+    # The inactivity timer only resets when a command *starts*, so it fires while the
+    # lsp is still connected. The daemon cannot drain that stream, so it exits on its
+    # shutdown deadline instead of waiting, and the lsp follows its daemon down.
     await buck.server()
     status = await buck.status()
     pid = json.loads(status.stdout)["process_info"]["pid"]
@@ -175,15 +177,16 @@ async def test_lsp_does_not_exit_when_daemon_times_out(buck: Buck) -> None:
 
     lsp = await buck.lsp()
     try:
-        exited = await _wait_for_exit(lsp.process, timeout=10)
-        assert not exited
         saw_inactivity_timeout = await _wait_for_file_to_contain(
             daemon_stderr,
             "inactivity timeout elapsed",
             timeout=20,
         )
         assert saw_inactivity_timeout
-        assert daemon_is_alive(pid)
+
+        exited = await _wait_for_exit(lsp.process, timeout=20)
+        assert exited
+        assert not daemon_is_alive(pid)
     finally:
         await _kill_if_alive(lsp.process)
 
@@ -191,9 +194,13 @@ async def test_lsp_does_not_exit_when_daemon_times_out(buck: Buck) -> None:
 @buck_test(skip_for_os=["windows"])
 @env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
 @env("BUCKD_STARTUP_TIMEOUT", "90")
-async def test_lsp_daemon_inactivity_shutdown_currently_times_out_before_recovering_different_user_version(
+async def test_lsp_daemon_inactivity_shutdown_recovers_with_different_version(
     buck: Buck,
 ) -> None:
+    # `buckd.info` outlives the daemon, and a version mismatch in it is what sends the
+    # client down the connect-to-the-existing-daemon path. That used to cost the full
+    # `BUCKD_STARTUP_TIMEOUT`, because the daemon accepted the connection and then
+    # never answered it. Now there is nothing listening and the client replaces it.
     await buck.server()
     status = await buck.status()
     original_pid = json.loads(status.stdout)["process_info"]["pid"]
@@ -203,29 +210,28 @@ async def test_lsp_daemon_inactivity_shutdown_currently_times_out_before_recover
 
     lsp = await buck.lsp()
     try:
-        exited = await _wait_for_exit(lsp.process, timeout=10)
-        assert not exited
-
         saw_inactivity_timeout = await _wait_for_file_to_contain(
             daemon_stderr,
             "inactivity timeout elapsed",
             timeout=20,
         )
         assert saw_inactivity_timeout
-        assert daemon_is_alive(original_pid)
+
+        exited = await _wait_for_exit(lsp.process, timeout=20)
+        assert exited
+        assert not daemon_is_alive(original_pid)
 
         info = json.loads(daemon_info.read_text())
         info["version"] = "different-version"
         daemon_info.write_text(json.dumps(info))
 
         start = asyncio.get_running_loop().time()
-        with pytest.raises(BuckException) as exc:
-            await buck.server()
+        await buck.server()
         elapsed = asyncio.get_running_loop().time() - start
 
-        assert elapsed >= 90
-        assert "Failed to connect to buck daemon." in exc.value.stderr
-        assert "version: different-version" in exc.value.stderr
+        # Well inside the 90s budget this used to consume in full.
+        assert elapsed < 30, f"took {elapsed:.2f}s to recover"
+        assert json.loads(daemon_info.read_text())["pid"] != original_pid
     finally:
         await _kill_if_alive(lsp.process)
 

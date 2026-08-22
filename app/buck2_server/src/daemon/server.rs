@@ -10,6 +10,7 @@
 
 use std::future;
 use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -17,6 +18,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
+use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -136,16 +138,18 @@ use crate::version_control_revision;
 // TODO(cjhopman): Figure out a reasonable value for this.
 static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
 
-static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
+/// Extra time past `shutdown_deadline` before the watchdog kills the process.
+///
+/// Only reached if a client still holds a connection open, since `shutdown_deadline` already
+/// covers the drain and the `dice.wait_for_idle()` after it. Just the return and the exit logs
+/// can still be outstanding, so this is small - and it adds directly to how long `buck2 kill`
+/// takes when the drain cannot finish.
+static SHUTDOWN_WATCHDOG_GRACE: Duration = Duration::from_secs(1);
 
-pub trait BuckdServerDelegate: Allocative + Send + Sync {
-    fn force_shutdown_with_timeout(&self, reason: String, timeout: Duration);
-}
+static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
 
 #[derive(Allocative)]
 struct DaemonShutdown {
-    delegate: Box<dyn BuckdServerDelegate>,
-
     /// This channel is used to trigger a graceful shutdown of the grpc server. After
     /// an item is sent on this channel, the server will start rejecting new requests
     /// and once current requests are finished the server will shutdown. The item is
@@ -155,8 +159,8 @@ struct DaemonShutdown {
 }
 
 impl DaemonShutdown {
-    /// Trigger a graceful server shutdown with a timeout. After the timeout expires, a hard shutdown
-    /// will be triggered.
+    /// Trigger a graceful server shutdown with a timeout. Once the timeout expires,
+    /// `spawn_shutdown_watchdog` takes the process down whether or not the drain finished.
     ///
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
@@ -171,8 +175,6 @@ impl DaemonShutdown {
 
         // Ignore errors on shutdown_channel as that would mean we've already started shutdown;
         let _ = self.shutdown_channel.unbounded_send(shutdown_deadline);
-        self.delegate
-            .force_shutdown_with_timeout(reason.to_string(), timeout);
     }
 }
 
@@ -273,9 +275,9 @@ impl BuckdServer {
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         paths: InvocationPaths,
-        delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
+        in_process: bool,
         prepped_cgroups: Option<PreppedBuckCgroups>,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
@@ -358,10 +360,7 @@ impl BuckdServer {
                 nanos: now.subsec_nanos() as i32,
             },
             start_instant: Instant::now(),
-            daemon_shutdown: DaemonShutdown {
-                delegate,
-                shutdown_channel,
-            },
+            daemon_shutdown: DaemonShutdown { shutdown_channel },
             daemon_state,
             cert_state,
             command_channel,
@@ -369,8 +368,12 @@ impl BuckdServer {
             rt,
         }));
 
-        let (shutdown, shutdown_deadline) =
-            server_shutdown_signal(command_receiver, shutdown_receiver, daemon_idle_timeout_s)?;
+        let (shutdown, shutdown_deadline) = server_shutdown_signal(
+            command_receiver,
+            shutdown_receiver,
+            daemon_idle_timeout_s,
+            in_process,
+        )?;
         let server = Server::builder()
             .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
                 auth_token,
@@ -1770,6 +1773,7 @@ fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<tokio::time::Instant>,
     daemon_idle_timeout_s: Option<u64>,
+    in_process: bool,
 ) -> buck2_error::Result<(
     impl Future<Output = ()>,
     oneshot::Receiver<tokio::time::Instant>,
@@ -1799,10 +1803,57 @@ fn server_shutdown_signal(
             futures::future::Either::Right((shutdown_deadline, _)) => shutdown_deadline
                 .unwrap_or_else(|| tokio::time::Instant::now() + DEFAULT_KILL_TIMEOUT),
         };
+        // The clock starts at the decision to shut down, not once the drain returns, so that the
+        // deadline bounds the drain as well as the teardown that follows it.
+        spawn_shutdown_watchdog(in_process, shutdown_deadline);
+
         let _ = shutdown_deadline_sender.send(shutdown_deadline);
     };
 
     Ok((shutdown, shutdown_deadline_receiver))
+}
+
+/// Guarantee that a daemon which has announced its shutdown actually exits.
+///
+/// The graceful path waits for in-flight gRPC connections to drain, and a long lived streaming
+/// command such as `buck2 lsp` holds one open for as long as its client lives - the inactivity
+/// timer is only reset when a command *starts*, so it can fire underneath one. While the daemon
+/// waits, its listener still accepts connections that are never answered, which is worse for
+/// clients than being dead: a refused connection costs them milliseconds, an unanswered one costs
+/// them their whole startup budget.
+///
+/// Runs on its own thread, so neither the drain nor a runtime that has stopped making progress
+/// can starve it.
+///
+/// Does nothing for an in-process daemon, which has no process of its own to end: `--no-buckd`
+/// runs it on a thread inside the client, and tests run it inside the test binary. Note this is
+/// not the same as `--dont-daemonize`, which still gets a process to itself.
+fn spawn_shutdown_watchdog(in_process: bool, deadline: tokio::time::Instant) {
+    if in_process {
+        return;
+    }
+
+    let deadline = deadline.into_std() + SHUTDOWN_WATCHDOG_GRACE;
+    // Panicking is the point rather than a way of giving up on it: nothing else bounds the drain,
+    // and the daemon's panic hook `_exit`s, so a daemon that cannot arm its watchdog dies now
+    // instead of becoming one that hangs forever.
+    thread_spawn("buck2-shutdown-watchdog", move || {
+        thread::sleep(deadline.saturating_duration_since(std::time::Instant::now()));
+
+        // Clients read `buckd.stderr` to explain why the daemon went away, so make sure the
+        // reason is on disk before we go.
+        tracing::warn!("Shutdown deadline exceeded, exiting");
+        let _ignored = io::stderr().flush();
+        buck2_util::pgo::flush_pgo_profile();
+
+        // `_exit` rather than `exit`: the atexit chain runs alongside the threads we are
+        // abandoning, so it can block on a lock one of them holds, and a watchdog that can hang
+        // is no watchdog. It skips stdio flushing, hence the flushes above.
+        // SAFETY: `_exit` is async-signal-safe and does not return. It ends the process without
+        // touching state that this or any other thread may be using.
+        unsafe { libc::_exit(1) }
+    })
+    .expect("Failed to spawn shutdown watchdog thread");
 }
 
 async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
@@ -1936,6 +1987,11 @@ mod tests {
 
     use super::*;
 
+    /// These tests drive the shutdown signal to completion inside the test binary, under
+    /// `tokio::time::pause`. A watchdog would sleep against the wall clock the paused deadline has
+    /// no relation to, and then `_exit` the test binary out from under the other tests.
+    const IN_PROCESS: bool = true;
+
     #[tokio::test]
     async fn test_server_shutdown_custom_idle_timeout() {
         tokio::time::pause();
@@ -1944,7 +2000,7 @@ mod tests {
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
         let (shutdown_future, shutdown_deadline) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, Some(2)).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, Some(2), IN_PROCESS).unwrap();
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(1), &mut shutdown_future).await;
@@ -1965,7 +2021,8 @@ mod tests {
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
-        let (shutdown_future, _) = server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
+        let (shutdown_future, _) =
+            server_shutdown_signal(cmd_rx, shutdown_rx, None, IN_PROCESS).unwrap();
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(3600), &mut shutdown_future).await;
@@ -1979,7 +2036,8 @@ mod tests {
         let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
-        let (shutdown_future, _) = server_shutdown_signal(cmd_rx, shutdown_rx, Some(3)).unwrap();
+        let (shutdown_future, _) =
+            server_shutdown_signal(cmd_rx, shutdown_rx, Some(3), IN_PROCESS).unwrap();
         futures::pin_mut!(shutdown_future);
 
         tokio::time::advance(Duration::from_secs(2)).await;
@@ -2002,7 +2060,7 @@ mod tests {
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (shutdown_tx, shutdown_rx) = mpsc::unbounded();
         let (shutdown_future, shutdown_deadline) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, None, IN_PROCESS).unwrap();
         let expected_deadline = tokio::time::Instant::now() + Duration::from_secs(7);
 
         shutdown_tx.unbounded_send(expected_deadline).unwrap();
