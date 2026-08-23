@@ -332,7 +332,7 @@ impl RelativePathBuf {
     /// Windows, this naturally converts `\` separators to `/` because
     /// [`Path::components`] splits on the platform separator; on Unix, a
     /// literal backslash inside a component is rejected with
-    /// [`FromSystemPathError::Backslash`] so that the resulting
+    /// [`PathErrorKind::Backslash`] so that the resulting
     /// `RelativePathBuf` upholds the no-`\` invariant. `.` components are
     /// stripped; `..` components are preserved literally.
     ///
@@ -349,9 +349,7 @@ impl RelativePathBuf {
     /// );
     /// assert!(RelativePathBuf::from_system_path(Path::new("/abs")).is_err());
     /// ```
-    pub fn from_system_path<P: AsRef<Path>>(
-        path: P,
-    ) -> Result<RelativePathBuf, FromSystemPathError> {
+    pub fn from_system_path<P: AsRef<Path>>(path: P) -> Result<RelativePathBuf, PathError> {
         use std::path::Component::CurDir;
         use std::path::Component::Normal;
         use std::path::Component::ParentDir;
@@ -363,16 +361,22 @@ impl RelativePathBuf {
         for c in path.components() {
             match c {
                 Prefix(_) | RootDir => {
-                    return Err(FromSystemPathError::NonRelative(path.display().to_string()));
+                    return Err(PathError::new(
+                        PathErrorKind::NotRelative,
+                        path.display().to_string(),
+                    ));
                 }
                 CurDir => continue,
                 ParentDir => buf.push(RelativePath::unchecked_new(PARENT_STR)),
                 Normal(s) => {
-                    let s = s
-                        .to_str()
-                        .ok_or_else(|| FromSystemPathError::NonUtf8(path.display().to_string()))?;
+                    let s = s.to_str().ok_or_else(|| {
+                        PathError::new(PathErrorKind::NotUtf8, path.display().to_string())
+                    })?;
                     if memchr::memchr(b'\\', s.as_bytes()).is_some() {
-                        return Err(FromSystemPathError::Backslash(path.display().to_string()));
+                        return Err(PathError::new(
+                            PathErrorKind::Backslash,
+                            path.display().to_string(),
+                        ));
                     }
                     buf.push(RelativePath::unchecked_new(s));
                 }
@@ -578,32 +582,41 @@ impl<'a> DoubleEndedIterator for Components<'a> {
     }
 }
 
-/// Error returned by [`RelativePathBuf::from_system_path`].
-#[derive(buck2_error::Error, Debug)]
-#[buck2(input)]
-#[buck2(tag = RelativePath)]
-pub enum FromSystemPathError {
-    #[error("Path is not relative: `{0}`")]
-    NonRelative(String),
-    #[error("Path is not UTF-8: `{0}`")]
-    NonUtf8(String),
-    #[error("Path contains a backslash: `{0}`")]
-    Backslash(String),
+/// Why a path does not meet the relative path requirements.
+#[derive(derive_more::Display, Debug, PartialEq)]
+pub enum PathErrorKind {
+    #[display("expected a relative path but got an absolute path instead")]
+    NotRelative,
+    #[display("Path is not UTF-8")]
+    NotUtf8,
+    #[display("Relative path contains a backslash")]
+    Backslash,
+    #[display("Relative path contains an empty path component")]
+    EmptyPathComponent,
+    #[display("expected a normalized path but got an un-normalized path instead")]
+    NotNormalized,
 }
 
-/// Error returned by [`RelativePath::new`] / [`RelativePathBuf::new`].
+/// A path that does not meet the relative path requirements.
+///
+/// Raised both when parsing a string, by [`RelativePath::new`] and friends, and when converting
+/// a native path, by [`RelativePathBuf::from_system_path`].
 #[derive(buck2_error::Error, Debug)]
+#[error("{kind}: `{path}`")]
 #[buck2(input)]
 #[buck2(tag = RelativePath)]
-enum RelativePathError {
-    #[error("expected a relative path but got an absolute path instead: `{0}`")]
-    PathNotRelative(String),
-    #[error("Relative path contains a backslash: `{0}`")]
-    Backslash(String),
-    #[error("Relative path contains an empty path component: `{0}`")]
-    EmptyPathComponent(String),
-    #[error("expected a normalized path but got an un-normalized path instead: `{0}`")]
-    PathNotNormalized(String),
+pub struct PathError {
+    kind: PathErrorKind,
+    path: String,
+}
+
+impl PathError {
+    fn new(kind: PathErrorKind, path: impl Into<String>) -> Self {
+        PathError {
+            kind,
+            path: path.into(),
+        }
+    }
 }
 
 pub(super) fn verify_relative_path(
@@ -615,10 +628,10 @@ pub(super) fn verify_relative_path(
         return Ok(());
     }
     if bytes[0] == b'/' {
-        return Err(RelativePathError::PathNotRelative(rel_path.to_owned()).into());
+        return Err(PathError::new(PathErrorKind::NotRelative, rel_path).into());
     }
     if memchr::memchr(b'\\', bytes).is_some() {
-        return Err(RelativePathError::Backslash(rel_path.to_owned()).into());
+        return Err(PathError::new(PathErrorKind::Backslash, rel_path).into());
     }
 
     let mut i = 0;
@@ -633,16 +646,16 @@ pub(super) fn verify_relative_path(
         }
         if i == j {
             // Double slashes or trailing slash.
-            return Err(RelativePathError::EmptyPathComponent(rel_path.to_owned()).into());
+            return Err(PathError::new(PathErrorKind::EmptyPathComponent, rel_path).into());
         }
         if expect_forward {
             if j == i + 1 && bytes[i] == b'.' {
                 // Current directory.
-                return Err(RelativePathError::PathNotNormalized(rel_path.to_owned()).into());
+                return Err(PathError::new(PathErrorKind::NotNormalized, rel_path).into());
             }
             if j == i + 2 && bytes[i] == b'.' && bytes[i + 1] == b'.' {
                 // Parent directory.
-                return Err(RelativePathError::PathNotNormalized(rel_path.to_owned()).into());
+                return Err(PathError::new(PathErrorKind::NotNormalized, rel_path).into());
             }
         }
         if j == bytes.len() {
@@ -797,10 +810,7 @@ mod tests {
         // `/abs` is rejected on every platform because `Path::components` yields
         // a `RootDir` component first.
         let err = RelativePathBuf::from_system_path(Path::new("/abs")).unwrap_err();
-        assert!(
-            matches!(err, FromSystemPathError::NonRelative(_)),
-            "{err:?}"
-        );
+        assert!(err.kind == PathErrorKind::NotRelative, "{err:?}");
     }
 
     #[cfg(unix)]
@@ -812,7 +822,7 @@ mod tests {
         let bad = OsStr::from_bytes(&[0x80]);
         let path = Path::new(bad);
         let err = RelativePathBuf::from_system_path(path).unwrap_err();
-        assert!(matches!(err, FromSystemPathError::NonUtf8(_)), "{err:?}");
+        assert!(err.kind == PathErrorKind::NotUtf8, "{err:?}");
     }
 
     #[cfg(unix)]
@@ -821,7 +831,7 @@ mod tests {
         // On Unix, `\` is just a normal character in a path component. We
         // reject it because `RelativePath` itself bans backslashes.
         let err = RelativePathBuf::from_system_path(Path::new("foo\\bar")).unwrap_err();
-        assert!(matches!(err, FromSystemPathError::Backslash(_)), "{err:?}");
+        assert!(err.kind == PathErrorKind::Backslash, "{err:?}");
     }
 
     #[test]
@@ -850,10 +860,7 @@ mod tests {
                 .as_str()
         );
         let err = RelativePathBuf::from_system_path(Path::new("C:\\foo")).unwrap_err();
-        assert!(
-            matches!(err, FromSystemPathError::NonRelative(_)),
-            "{err:?}"
-        );
+        assert!(err.kind == PathErrorKind::NotRelative, "{err:?}");
     }
 
     #[test]

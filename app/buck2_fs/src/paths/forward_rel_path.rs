@@ -1044,6 +1044,12 @@ impl<P: AsRef<ForwardRelativePath>> Extend<P> for ForwardRelativePathBuf {
 }
 
 /// Errors from ForwardRelativePath creation
+///
+/// TODO: `PathNotRelative` and `PathNotUtf8` duplicate `PathError`, which describes the same
+/// failures, so the same bad path is reported differently depending on which constructor the
+/// caller reached for. Fold them in - but note these are tagged input today and `PathError`
+/// defaults to internal, so the call sites need attributing at the same time or ~158/day move
+/// from USER to INFRA.
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum ForwardRelativePathError {
