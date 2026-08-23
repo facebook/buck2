@@ -144,10 +144,15 @@ enum ErrorTag {
   MATERIALIZATION_ERROR = 26;
   // Materialization was cancelled
   MATERIALIZATION_CANCELLED = 2600;
+  // A path was missing while copying a file into buck-out during
+  // materialization.
+  MATERIALIZE_COPY_MISSING_FILE = 2601;
   // Could not find buck project root
   NO_BUCK_ROOT = 27;
   // Project root directory no longer exists on disk
   MISSING_PROJECT_ROOT = 2700;
+  // The invoking user's home directory no longer exists on disk
+  MISSING_HOME_DIR = 2702;
 
   // Functionality not implemented in Buck2
   UNIMPLEMENTED = 29;
@@ -357,6 +362,8 @@ enum ErrorTag {
   CLEAN_STALE = 280;
   // Clean stale command was interrupted
   CLEAN_INTERRUPT = 28;
+  // Errors while removing buck-out in `buck2 clean`
+  CLEAN_BUCK_OUT = 281;
 
   INVALID_ERROR_REPORT = 6002;
   INVALID_EVENT = 6003;
@@ -387,6 +394,10 @@ enum ErrorTag {
   EVENT_LOG_NOT_OPEN = 8037;
   EVENT_LOG_EOF = 8039;
   EVENT_LOG_INDEX_OUT_OF_BOUNDS = 8040;
+  // The event log to be read does not exist on disk
+  EVENT_LOG_NOT_FOUND = 8041;
+  // Downloading an event log that is not available locally
+  EVENT_LOG_DOWNLOAD = 8042;
 
   CACHE_UPLOAD_FAILED = 906;
   SYMLINK_PARENT_MISSING = 909;
@@ -397,6 +408,8 @@ enum ErrorTag {
 
   CLEAN_OUTPUTS = 8017;
   COPY_OUTPUTS = 8029;
+  // Creating the unhashed (`buck-out/v2/gen`) symlink for a build output
+  UNHASHED_OUTPUT_SYMLINK = 8043;
   LOG_FILTER = 8030;
 
   WINDOWS_UNSUPPORTED = 8007;
@@ -433,6 +446,10 @@ enum ErrorTag {
   INTERPRETER = 20000;
   KILL_ALL = 21000;
   BUILD_REPORT = 11100;
+  // Reading a buckconfig file from disk
+  BUCKCONFIG_READ = 23004;
+  // Reading the result file produced by a validation
+  VALIDATION_RESULT_READ = 24000;
 
   // Misc error conversions
   CLAP = 9001;

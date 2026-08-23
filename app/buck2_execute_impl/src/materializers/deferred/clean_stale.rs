@@ -671,7 +671,7 @@ pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error
                 *skipped_unreadable += 1;
                 return Ok(0);
             }
-            Err(e) => return Err(e.categorize_internal()),
+            Err(e) => return Err(e.categorize_tagged(ErrorTag::CleanStale)),
         };
         for entry in read_dir {
             let entry = match entry {

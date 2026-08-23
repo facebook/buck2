@@ -12,6 +12,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::ErrorTag;
 use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -163,7 +164,8 @@ where
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) => {
             if let Some(src) = file_src(dest) {
-                fs_util::copy(src, &dest).categorize_internal()?;
+                fs_util::copy(src, &dest)
+                    .categorize_tagged(ErrorTag::MaterializeCopyMissingFile)?;
                 if let Some(executable_bit_override) = executable_bit_override {
                     fs_util::set_executable(&dest, executable_bit_override)
                         .categorize_internal()?;

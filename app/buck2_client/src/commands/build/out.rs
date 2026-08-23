@@ -19,6 +19,7 @@ use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
@@ -140,7 +141,7 @@ pub(super) async fn copy_to_out(
             OutputDestinationArg::Stream => {
                 let mut file = async_fs_util::open(&to_be_copied.from_path)
                     .await
-                    .categorize_internal()?;
+                    .categorize_tagged(ErrorTag::CopyOutputs)?;
                 tokio::io::copy(&mut file, &mut tokio::io::stdout())
                     .await
                     .map_err(convert_broken_pipe_error)?;
@@ -150,7 +151,7 @@ pub(super) async fn copy_to_out(
                 if to_be_copied.is_dir {
                     let context = CopyContext {
                         relative_symlink_boundary: fs_util::canonicalize(&to_be_copied.from_path)
-                            .categorize_internal()?,
+                            .categorize_tagged(ErrorTag::CopyOutputs)?,
                     };
                     copy_directory(&to_be_copied.from_path, &path, &context).await?;
                 } else {
@@ -170,13 +171,13 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
 ) -> buck2_error::Result<()> {
     // Make symlinks overwrite items which were already present at destination path
     fs_util::remove_all(&dst_path)
-        .categorize_internal()
+        .categorize_tagged(ErrorTag::CopyOutputs)
         .buck_error_context(format!(
             "Removing pre-existing item at path {:?}",
             src_path.as_ref()
         ))?;
     let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref())
-        .categorize_internal()
+        .categorize_tagged(ErrorTag::CopyOutputs)
         .buck_error_context(format!(
             "Resolving symlink to be copied {:?}",
             src_path.as_ref()
@@ -187,7 +188,7 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
             // Symlink is not pointing outside the original output we are copying.
             // Just keep it as it is.
             fs_util::read_link(&src_path)
-                .categorize_internal()
+                .categorize_tagged(ErrorTag::CopyOutputs)
                 .buck_error_context(format!(
                     "Reading value of a symlink to be copied {:?}",
                     src_path.as_ref()
@@ -198,7 +199,7 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
         }
     };
     fs_util::symlink(&symlink_target, &dst_path)
-        .categorize_internal()
+        .categorize_tagged(ErrorTag::CopyOutputs)
         .buck_error_context(format!(
             "Creating symlink at {:?} pointing to {:?}",
             dst_path.as_ref(),

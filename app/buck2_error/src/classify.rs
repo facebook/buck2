@@ -222,6 +222,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InvalidBuckOut => rank!(environment),
         ErrorTag::BuckdExeDeleted => rank!(environment),
         ErrorTag::MissingProjectRoot => rank!(environment),
+        ErrorTag::MissingHomeDir => rank!(environment),
         ErrorTag::ActionOom => rank!(environment),
         ErrorTag::SaplingNotFound => rank!(environment),
         ErrorTag::SaplingNetwork => rank!(environment),
@@ -358,6 +359,17 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::EventLogUpload => rank!(tier0),
         ErrorTag::EventLogEof => rank!(tier0),
         ErrorTag::EventLogNotOpen => rank!(tier0),
+        ErrorTag::EventLogDownload => rank!(tier0),
+
+        ErrorTag::UnhashedOutputSymlink => rank!(tier0),
+        // Validations declare their result as an output, so buck2 having materialized it and
+        // then not finding it is a buck2 bug.
+        ErrorTag::ValidationResultRead => rank!(tier0),
+        // buck-out is also removed by concurrent `buck2 clean` invocations, which buck2 could
+        // serialize.
+        ErrorTag::CleanBuckOut => rank!(tier0),
+        // These files are not tracked by the file watcher, so they can change mid-command.
+        ErrorTag::BuckconfigRead => rank!(tier0),
 
         ErrorTag::MallocStats => rank!(tier0),
         ErrorTag::Mallctl => rank!(tier0),
@@ -422,6 +434,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // Could not determine the BuckVersion
         ErrorTag::BuckVersionError => rank!(tier0),
         ErrorTag::MaterializationCancelled => rank!(tier0),
+        ErrorTag::MaterializeCopyMissingFile => rank!(tier0),
 
         // Input errors
         ErrorTag::ClapMatch => rank!(input),
@@ -464,6 +477,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
         ErrorTag::EventLogIndexOutOfBounds => rank!(input),
+        ErrorTag::EventLogNotFound => rank!(input),
         ErrorTag::ReResourceExhausted => rank!(input),
         ErrorTag::ReUserQuota => rank!(input),
         // Test runner hit fatal errors during test execution

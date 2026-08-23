@@ -32,6 +32,7 @@ use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -259,7 +260,8 @@ async fn clean(
                 buck_out_dir.display(),
                 trash_target.display()
             ))?;
-            fs_util::rename(&buck_out_dir, &trash_target).categorize_internal()?;
+            fs_util::rename(&buck_out_dir, &trash_target)
+                .categorize_tagged(ErrorTag::CleanBuckOut)?;
         }
 
         // Clean the daemon_dir first
@@ -333,7 +335,7 @@ fn collect_paths_to_clean(
         return Ok(vec![]);
     }
     let mut paths_to_clean = vec![];
-    let dir = fs_util::read_dir(buck_out_path).categorize_internal()?;
+    let dir = fs_util::read_dir(buck_out_path).categorize_tagged(ErrorTag::CleanBuckOut)?;
     for entry in dir {
         let entry = entry?;
         let path = entry.path();
@@ -496,7 +498,7 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
                 // The wlak gives us back absolute paths since we give it absolute paths.
                 let res = AbsPath::new(dir_entry.path()).and_then(|p| {
                     fs_util::remove_file(p)
-                        .categorize_internal()
+                        .categorize_tagged(ErrorTag::CleanBuckOut)
                         .map_err(Into::into)
                 });
 
@@ -527,11 +529,11 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
     // Buck's cwd is typically the directory that is passed in here, which means that on Windows we
     // often fail to delete this if we don't clean up all our child processes. Leaving zombies
     // around isn't great though...
-    let dir = fs_util::read_dir(path).categorize_internal()?;
+    let dir = fs_util::read_dir(path).categorize_tagged(ErrorTag::CleanBuckOut)?;
     for entry in dir {
         let entry = entry?;
         let path = entry.path();
-        fs_util::remove_dir_all(path).categorize_internal()?;
+        fs_util::remove_dir_all(path).categorize_tagged(ErrorTag::CleanBuckOut)?;
     }
     Ok(())
 }

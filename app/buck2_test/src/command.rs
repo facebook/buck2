@@ -1886,7 +1886,7 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
                 ));
             }
             let exe = fs_util::canonicalize(&exe)
-                .categorize_internal()
+                .categorize_tagged(ErrorTag::BuckdExeDeleted)
                 .buck_error_context(
                     "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
                 )?;

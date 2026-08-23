@@ -16,6 +16,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
 use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::IoError;
@@ -129,7 +130,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
             .lines()
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| IoError::new_with_path("read_line", path, e))
-            .categorize_internal()?;
+            .categorize_tagged(ErrorTag::BuckconfigRead)?;
 
         Ok(Some(lines))
     }

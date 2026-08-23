@@ -15,6 +15,7 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_fs::async_fs_util;
@@ -97,7 +98,7 @@ impl Key for SingleValidationKey {
 
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
-            .categorize_internal()
+            .categorize_tagged(ErrorTag::ValidationResultRead)
             .buck_error_context("Reading validation result")?;
 
         match parse_validation_result(&content) {

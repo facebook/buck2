@@ -23,6 +23,7 @@ use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_cli_proto::*;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
 use buck2_events::BuckEvent;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
@@ -368,7 +369,7 @@ impl EventLogPathBuf {
 
         let file = async_fs_util::open(&self.path)
             .await
-            .categorize_internal()?;
+            .categorize_tagged(ErrorTag::EventLogNotFound)?;
         let file: Box<dyn AsyncRead + Send + Sync + Unpin> = match tail {
             Some(tail) => Box::new(TailReader::new(file, tail)),
             None => Box::new(file),

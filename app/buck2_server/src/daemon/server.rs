@@ -50,6 +50,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::Event;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
@@ -297,6 +298,7 @@ impl BuckdServer {
 
         // Create buck-out and potentially chdir to there.
         fs_util::create_dir_all(paths.buck_out_path())
+            .tag(ErrorTag::InvalidBuckOut)
             .buck_error_context("Error creating buck_out_path")?;
 
         let cwd = {

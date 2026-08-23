@@ -72,6 +72,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use std::os::unix::fs::MetadataExt;
 
     use buck2_core::soft_error;
+    use buck2_error::ErrorTag;
     use buck2_error::internal_error;
     use buck2_fs::error::IoResultExt;
     use buck2_fs::fs_util;
@@ -85,7 +86,8 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     if nix::unistd::geteuid().is_root() {
         let home_dir = dirs::home_dir().ok_or_else(|| internal_error!("home dir not found"))?;
         if let Ok(home_dir) = AbsPath::new(&home_dir) {
-            let home_dir_metadata = fs_util::metadata(home_dir).categorize_internal()?;
+            let home_dir_metadata =
+                fs_util::metadata(home_dir).categorize_tagged(ErrorTag::MissingHomeDir)?;
             if home_dir_metadata.uid() != 0 {
                 soft_error!("root_not_allowed", RootError.into(), error_on_oss: true)?;
             }
