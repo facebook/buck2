@@ -105,6 +105,9 @@ enum ErrorTag {
   BUCK_VERSION_ERROR = 518;
   // The daemon request stream ended without returning a CommandResult.
   MISSING_COMMAND_RESULT = 520;
+  // The daemon's working directory was replaced underneath it, so the daemon
+  // needs restarting
+  DAEMON_STALE_WORKING_DIR = 521;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.
@@ -450,6 +453,10 @@ enum ErrorTag {
   BUCKCONFIG_READ = 23004;
   // Reading the result file produced by a validation
   VALIDATION_RESULT_READ = 24000;
+
+  // `buck2 subscribe`
+  // A `SubscriptionRequest` read from the client's stdin had no request set
+  SUBSCRIPTION_EMPTY_REQUEST = 25000;
 
   // Misc error conversions
   CLAP = 9001;

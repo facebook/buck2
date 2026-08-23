@@ -223,6 +223,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuckdExeDeleted => rank!(environment),
         ErrorTag::MissingProjectRoot => rank!(environment),
         ErrorTag::MissingHomeDir => rank!(environment),
+        // Typically a checkout replaced the directory the daemon was started in.
+        ErrorTag::DaemonStaleWorkingDir => rank!(environment),
         ErrorTag::ActionOom => rank!(environment),
         ErrorTag::SaplingNotFound => rank!(environment),
         ErrorTag::SaplingNetwork => rank!(environment),
@@ -426,6 +428,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::InstallerUnknown => rank!(tier0),
         ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
         ErrorTag::InternalError => rank!(tier0),
+        ErrorTag::SubscriptionEmptyRequest => rank!(tier0),
         ErrorTag::CriticalPathError => rank!(tier0),
         ErrorTag::Environment => rank!(environment).hidden(),
         ErrorTag::Tier0 => rank!(tier0).hidden(),

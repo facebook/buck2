@@ -12,6 +12,8 @@ use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -60,7 +62,12 @@ pub(crate) async fn run_subscription_server_command(
                         use buck2_subscription_proto::subscription_request::Request;
 
                         let message = message?.request.internal_error("Empty subscription message");
-                        let request = message?.request.internal_error("Empty subscription request")?;
+                        let request = message?.request.ok_or_else(|| {
+                            buck2_error!(
+                                ErrorTag::SubscriptionEmptyRequest,
+                                "Empty subscription request"
+                            )
+                        })?;
                         match request {
                             Request::Disconnect(disconnect) => {
                                 break disconnect;
