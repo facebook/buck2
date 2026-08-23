@@ -39,6 +39,7 @@ impl IoError {
             tags: Vec::new(),
             is_eden: false,
             is_input_path: None,
+            not_found_tag: None,
         }
     }
 
@@ -115,11 +116,7 @@ impl IoError {
                 }
             }
             if e.kind() == io::ErrorKind::NotFound {
-                match self.is_input_path {
-                    Some(true) => tags.push(ErrorTag::MissingInputPath),
-                    Some(false) => tags.push(ErrorTag::MissingInternalPath),
-                    None => {}
-                }
+                tags.extend(self.not_found_tag);
             }
             if e.kind() == io::ErrorKind::NotADirectory {
                 if self.is_input_path == Some(true) {
@@ -141,12 +138,22 @@ impl IoError {
         result
     }
 
+    /// Convert to a buck2_error::Error, applying `tag` if the path was missing.
+    ///
+    /// The tag names a path that was not there, so it is only meaningful for `NotFound`. Other
+    /// error kinds from the same call - permission denied and friends - keep the categorization
+    /// they already have rather than being labelled missing.
+    pub fn categorize_tagged(mut self, tag: ErrorTag) -> buck2_error::Error {
+        self.not_found_tag = Some(tag);
+        self.convert_to_buck2_error()
+    }
+
     /// Convert to a buck2_error::Error and tag as an input error if a path is missing.
     /// This should be used if the path was user provided,
     /// from a source file, configuration or CLI argument.
     pub fn categorize_input(mut self) -> buck2_error::Error {
         self.is_input_path = Some(true);
-        self.convert_to_buck2_error()
+        self.categorize_tagged(ErrorTag::MissingInputPath)
     }
 
     /// Convert to a buck2_error::Error and tag as a tier0 error if a path is missing.
@@ -156,7 +163,7 @@ impl IoError {
     /// with kind==ErrorKind::NotFound, such as *_if_exists functions.
     pub fn categorize_internal(mut self) -> buck2_error::Error {
         self.is_input_path = Some(false);
-        self.convert_to_buck2_error()
+        self.categorize_tagged(ErrorTag::MissingInternalPath)
     }
 
     /// Convert to a buck2_error::Error with no tags, new code should only use this in tests
@@ -172,15 +179,21 @@ pub struct IoError {
     pub(crate) tags: Vec<ErrorTag>,
     pub(crate) is_eden: bool,
     pub(crate) is_input_path: Option<bool>,
+    pub(crate) not_found_tag: Option<ErrorTag>,
 }
 
 pub trait IoResultExt<T> {
     fn categorize_input(self) -> buck2_error::Result<T>;
     fn categorize_internal(self) -> buck2_error::Result<T>;
+    /// See [`IoError::categorize_tagged`].
+    fn categorize_tagged(self, tag: ErrorTag) -> buck2_error::Result<T>;
     fn uncategorized(self) -> buck2_error::Result<T>;
 }
 
 impl<T> IoResultExt<T> for Result<T, IoError> {
+    fn categorize_tagged(self, tag: ErrorTag) -> buck2_error::Result<T> {
+        self.map_err(|e| e.categorize_tagged(tag))
+    }
     fn categorize_input(self) -> buck2_error::Result<T> {
         self.map_err(|e| e.categorize_input())
     }
