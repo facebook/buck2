@@ -495,20 +495,13 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 is_executable,
             };
 
-            // NOTE: The zstd crate doesn't release extra capacity of its encoding buffer so it's
-            // important to do so here (or the compressed Vec is the same capacity as the input!).
-            let compressed_data = zstd::bulk::compress(&content, 0)
-                .with_buck_error_context(|| format!("Error compressing {} bytes", content.len()))?
-                .into_boxed_slice();
-
             paths.push(path);
             configuration_paths.push(configuration_path);
             values.push(ArtifactValue::file(meta));
-            methods.push(ArtifactMaterializationMethod::Write(Arc::new(WriteFile {
-                compressed_data,
-                decompressed_size: content.len(),
+            methods.push(ArtifactMaterializationMethod::Write(WriteFile::try_new(
+                content,
                 is_executable,
-            })));
+            )?));
         }
 
         for ((path, cfg_path), (value, method)) in std::iter::zip(
@@ -926,4 +919,20 @@ pub struct WriteFile {
     compressed_data: Box<[u8]>,
     decompressed_size: usize,
     is_executable: bool,
+}
+
+impl WriteFile {
+    pub(crate) fn try_new(content: Vec<u8>, is_executable: bool) -> buck2_error::Result<Arc<Self>> {
+        // NOTE: The zstd crate doesn't release extra capacity of its encoding buffer so it's
+        // important to do so here (or the compressed Vec is the same capacity as the input!).
+        let compressed_data = zstd::bulk::compress(&content, 0)
+            .with_buck_error_context(|| format!("Error compressing {} bytes", content.len()))?
+            .into_boxed_slice();
+
+        Ok(Arc::new(Self {
+            compressed_data,
+            decompressed_size: content.len(),
+            is_executable,
+        }))
+    }
 }
