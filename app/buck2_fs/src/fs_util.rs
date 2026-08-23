@@ -24,6 +24,7 @@ use std::path::PathBuf;
 pub use buck2_env::soft_error::soft_error;
 #[cfg(unix)]
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 #[cfg(unix)]
 use buck2_error::internal_error;
@@ -37,6 +38,7 @@ use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
 use crate::paths::abs_path::AbsPath;
+use crate::paths::abs_path::AbsPathBuf;
 
 fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos")
@@ -548,6 +550,22 @@ pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Option<
     let _guard = IoCounterKey::Read.guard();
     with_retries(|| if_exists(fs::read(path.as_ref().as_maybe_relativized())))
         .map_err(|e| IoError::new_with_path("read_if_exists", path, e).categorize_internal())
+}
+
+/// `std::env::current_dir`, reported like every other filesystem operation.
+///
+/// Worth going through here rather than calling `std::env` directly: this is the call that fails
+/// when the working directory has been deleted, so it is the only place that can attribute that,
+/// and on its own `std::env::current_dir` produces a bare `No such file or directory (os error 2)`
+/// with nothing to say which path it meant. The path is always the working directory, so the tag
+/// belongs here rather than at each caller.
+pub fn current_dir() -> buck2_error::Result<AbsPathBuf> {
+    let _guard = IoCounterKey::Stat.guard();
+    env::current_dir()
+        .map_err(IoErrorSource::from)
+        .and_then(|path| AbsPathBuf::new(path).map_err(IoErrorSource::Internal))
+        .map_err(|e| IoError::new(e).context("current_dir()"))
+        .categorize_tagged(ErrorTag::MissingWorkingDir)
 }
 
 pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> Result<AbsNormPathBuf, IoError> {

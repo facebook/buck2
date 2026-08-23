@@ -121,9 +121,7 @@ pub struct RepositoryMetadata {
 
 impl RepositoryMetadata {
     pub fn from_cwd() -> buck2_error::Result<Self> {
-        Self::from_path(
-            std::env::current_dir().buck_error_context("Error getting current directory")?,
-        )
+        Self::from_path(fs_util::current_dir()?)
     }
 
     pub fn from_path<P: AsRef<Path>>(path: P) -> buck2_error::Result<Self> {
@@ -144,7 +142,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    hg_in(std::env::current_dir()?, args)
+    hg_in(fs_util::current_dir()?, args)
 }
 
 fn hg_in<I, S, P>(path: P, args: I) -> buck2_error::Result<String>

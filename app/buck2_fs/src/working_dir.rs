@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::env;
 use std::path::Path;
 
 use crate::IoResultExt;
@@ -33,7 +32,7 @@ impl AbsWorkingDir {
     }
 
     pub fn current_dir() -> buck2_error::Result<AbsWorkingDir> {
-        let current_dir = AbsPathBuf::new(env::current_dir()?)?;
+        let current_dir = fs_util::current_dir()?;
 
         #[derive(Debug, buck2_error::Error)]
         #[buck2(tier0)]
