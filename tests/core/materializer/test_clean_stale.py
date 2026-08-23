@@ -13,11 +13,12 @@ import asyncio
 import re
 import shutil
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
 
 
@@ -64,11 +65,16 @@ async def audit_entry(buck: Buck, artifact_name: str) -> str:
     return entry
 
 
+def golden_audit_entries(*, entries: list[str], rel_path: str) -> None:
+    output = re.sub(r"ts=[^,)]*", "ts=<TIMESTAMP>", "\n".join(entries))
+    golden(output=sanitize_hashes(output), rel_path=rel_path)
+
+
 @buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_artifact_access_time(buck: Buck) -> None:
     # drop microseconds to match 1s precision from materializer
-    start = datetime.utcnow().replace(microsecond=0)
+    start = datetime.now(UTC).replace(microsecond=0)
     target = "root//:copy"
     result = await buck.build(target)
     assert result.get_build_report().output_for_target(target).exists()
@@ -86,7 +92,9 @@ async def test_artifact_access_time(buck: Buck) -> None:
     def parse_entry_ts(entry: str) -> datetime:
         match = re.search("\tmaterialized \\(ts=([^ ,]*)", entry)
         assert match
-        timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%SZ")
+        timestamp = datetime.strptime(match.group(1), "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=UTC
+        )
         assert timestamp, match.group(1)
         return timestamp
 
@@ -431,19 +439,21 @@ async def test_adaptive_unmaterializes_active_remote_intermediate(
     )
     output = result.get_build_report().output_for_target("root//:consume_remote")
     assert output.exists()
-    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+    audit_entries = [await audit_entry(buck, "__download_deferred__")]
 
     await asyncio.sleep(30)
-    assert "\tdeclared: http download" in await audit_entry(
-        buck, "__download_deferred__"
-    )
+    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
 
     remote = await buck.build("root//:download_deferred")
     await expect_exec_count(buck, 0)
     assert (
         remote.get_build_report().output_for_target("root//:download_deferred").exists()
     )
-    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
+    golden_audit_entries(
+        entries=audit_entries,
+        rel_path="golden/test_adaptive_unmaterializes_active_remote_intermediate.golden.txt",
+    )
 
 
 @buck_test(skip_for_os=["windows"])
@@ -455,10 +465,14 @@ async def test_adaptive_does_not_unmaterialize_active_local_intermediate(
         "root//:consume_local", "--local-only", "--no-remote-cache"
     )
     assert result.get_build_report().output_for_target("root//:consume_local").exists()
-    assert "\tmaterialized" in await audit_entry(buck, "__write__")
+    audit_entries = [await audit_entry(buck, "__write__")]
 
     await asyncio.sleep(30)
-    assert "\tmaterialized" in await audit_entry(buck, "__write__")
+    audit_entries.append(await audit_entry(buck, "__write__"))
+    golden_audit_entries(
+        entries=audit_entries,
+        rel_path="golden/test_adaptive_does_not_unmaterialize_active_local_intermediate.golden.txt",
+    )
 
 
 @buck_test(skip_for_os=["windows"])
@@ -470,7 +484,10 @@ async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -
     )
 
     await asyncio.sleep(30)
-    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+    golden_audit_entries(
+        entries=[await audit_entry(buck, "__download_deferred__")],
+        rel_path="golden/test_adaptive_does_not_unmaterialize_active_final_output.golden.txt",
+    )
 
 
 @buck_test(skip_for_os=["windows"])
@@ -480,7 +497,11 @@ async def test_adaptive_does_not_unmaterialize_when_disabled(buck: Buck) -> None
         "root//:consume_remote", "--local-only", "--no-remote-cache"
     )
     assert result.get_build_report().output_for_target("root//:consume_remote").exists()
-    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+    audit_entries = [await audit_entry(buck, "__download_deferred__")]
 
     await asyncio.sleep(30)
-    assert "\tmaterialized" in await audit_entry(buck, "__download_deferred__")
+    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
+    golden_audit_entries(
+        entries=audit_entries,
+        rel_path="golden/test_adaptive_does_not_unmaterialize_when_disabled.golden.txt",
+    )
