@@ -43,6 +43,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::client_metadata::parse_client_metadata;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::version::BuckVersion;
@@ -237,8 +238,10 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let matches = match clap.try_get_matches_from(argv.expanded_argv.args()) {
         Ok(matches) => matches,
         Err(e) => {
-            // Print colorized output, ExitResult::report will not colorize
-            e.print()?;
+            // Print colorized output, ExitResult::report will not colorize.
+            // `ClientIoError` so that a closed stdout exits quietly instead of as a buck2 failure,
+            // e.g. `buck2 build --help | head`.
+            e.print().map_err(ClientIoError::from)?;
             return if e.exit_code() == 0 {
                 ExitResult::success()
             } else {

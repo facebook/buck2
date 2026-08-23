@@ -21,6 +21,7 @@ use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
+use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use superconsole::Line;
 
@@ -162,8 +163,20 @@ where
     let mut w = LineWriter::new(file);
     match f(&mut w).await {
         Ok(()) => {}
-        Err(e) => return Err(e.into()),
+        Err(e) => {
+            return Err(as_client_io_error(e.into()));
+        }
     }
-    w.flush()?;
+    w.flush().map_err(ClientIoError::from)?;
     Ok(())
+}
+
+/// Assumes a broken pipe error in F passed to print_with_writer is from writing to the (stdout/stderr) writer
+/// and tags it as `IoClientBrokenPipe` (treated as a cancelled command).
+fn as_client_io_error(e: buck2_error::Error) -> buck2_error::Error {
+    if e.has_tag(ErrorTag::IoBrokenPipe) {
+        e.tag([ErrorTag::IoClientBrokenPipe])
+    } else {
+        e
+    }
 }
