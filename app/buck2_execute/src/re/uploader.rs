@@ -125,6 +125,7 @@ impl Uploader {
         let mut upload_blobs = Vec::new();
         let mut missing_digests = BuckMutSet::default();
         add_injected_missing_digests(&input_digests, &mut missing_digests)?;
+        let input_digests = input_digests.into_iter().collect::<Vec<_>>();
 
         let digests_and_ttls_iterator = if deduplicate_get_digests_ttl_calls {
             let (fut, reqs, new) = {
@@ -180,8 +181,6 @@ impl Uploader {
             let metadata = use_case.metadata(identity);
             let digests = input_digests.iter().map(|d| d.to_re()).collect();
             let digests_ttl = client.get_digests_ttl(digests, &metadata, true).await;
-
-            let input_digests = input_digests.iter().copied().collect();
 
             Either::Right(process_get_digest_ttls_response(
                 input_digests,
