@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
+import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -45,6 +46,7 @@ import org.jetbrains.kotlin.ir.types.isString
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.getAnnotation
 import org.jetbrains.kotlin.ir.util.isEnumClass
 import org.jetbrains.kotlin.ir.util.isEnumEntry
 import org.jetbrains.kotlin.ir.util.isFileClass
@@ -67,6 +69,7 @@ import org.jetbrains.kotlin.name.Name
  * - val properties of stable types: stable
  * - var properties (non-delegated): unstable
  * - Primitives, String, Unit, enums, function types: stable
+ * - A class is no more stable than its superclass
  * - Unrecognised types: conservatively not-known-stable
  *
  * The two outputs use different encodings. $stable carries StabilityBits: 0 when known stable,
@@ -81,6 +84,8 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
         ClassId(FqName("androidx.compose.runtime"), Name.identifier("Composer"))
     private val STABILITY_INFERRED_CLASS_ID =
         ClassId(FqName("androidx.compose.runtime.internal"), Name.identifier("StabilityInferred"))
+    private val STABILITY_INFERRED_FQ_NAME =
+        FqName("androidx.compose.runtime.internal.StabilityInferred")
 
     // Known stable FQNs beyond primitives/String/Unit
     private val KNOWN_STABLE_FQNS = setOf(
@@ -113,11 +118,31 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
   // Lazily resolved — null if compose-runtime is not on the classpath
   private var stabilityInferredClass: IrClassSymbol? = null
 
+  // FQNs declared in the module under compilation. A superclass in this set has not had its
+  // @StabilityInferred attached yet (this transformer is what attaches it, and visit order does not
+  // follow the inheritance graph), so its stability must be recomputed rather than read back.
+  private val moduleClassFqns = mutableSetOf<String>()
+
   fun transform(moduleFragment: IrModuleFragment) {
     // No-op when Compose runtime is not on the classpath.
     pluginContext.referenceClass(COMPOSER_CLASS_ID) ?: return
     stabilityInferredClass = pluginContext.referenceClass(STABILITY_INFERRED_CLASS_ID)
+    // Carrying FQNs across fragments would route a compiled dependency down the recompute branch
+    // instead of the external-annotation one.
+    moduleClassFqns.clear()
+    moduleFragment.accept(ModuleClassCollector(), null)
     moduleFragment.accept(StabilityVisitor(), null)
+  }
+
+  private inner class ModuleClassCollector : IrElementVisitorVoidCompat() {
+    override fun visitElement(element: IrElement) {
+      element.acceptChildren(this, null)
+    }
+
+    override fun visitClass(declaration: IrClass) {
+      declaration.classFqName()?.let { moduleClassFqns.add(it) }
+      super.visitClass(declaration)
+    }
   }
 
   private inner class StabilityVisitor : IrElementVisitorVoidCompat() {
@@ -276,8 +301,44 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
       }
     }
 
+    // A subclass holds every field its superclass declares, so it can be no more stable than that
+    // superclass. Skipping this let a class with no stored state of its own be called stable while
+    // the real compiler called it unstable — e.g. `object EmptyPainter : Painter()`, where all the
+    // mutable state lives in Painter. Over-asserting stability makes a consumer skip recomposition
+    // for a value that did change, so this is deliberately the pessimistic direction.
+    if (knownStable && !superclassKnownStable(irClass)) {
+      knownStable = false
+    }
+
     if (classFqn != null) analyzing.remove(classFqn)
     return Stability(mask, knownStable)
+  }
+
+  /**
+   * Whether [irClass]'s superclass permits it to be known stable. Interfaces and [Any] are ignored:
+   * neither contributes stored state.
+   */
+  private fun superclassKnownStable(irClass: IrClass): Boolean {
+    val superClass =
+        irClass.superTypes.mapNotNull { it.classOrNull?.owner }.firstOrNull { !it.isInterface }
+            ?: return true
+    val superFqn = superClass.classFqName() ?: return false
+    if (superFqn == "kotlin.Any") return true
+    if (superFqn in moduleClassFqns) {
+      return computeStability(superClass).knownStable
+    }
+    // Compiled dependency: trust its @StabilityInferred, and treat an absent one as unstable. A
+    // class outside a Compose-enabled compilation carries no stability information, and its private
+    // state may be stripped from the ABI jar, so its declarations cannot be inspected instead.
+    return externalClassKnownStable(superClass)
+  }
+
+  private fun externalClassKnownStable(irClass: IrClass): Boolean {
+    val annotation = irClass.getAnnotation(STABILITY_INFERRED_FQ_NAME) ?: return false
+    val parameters = (annotation.getValueArgument(0) as? IrConst)?.value as? Int ?: return false
+    val typeParamCount = irClass.typeParameters.size
+    if (typeParamCount >= 32) return false
+    return (parameters and (1 shl typeParamCount)) != 0
   }
 
   // True only when the type IS one of the class's own type parameters, e.g. `val value: T`. Such a
