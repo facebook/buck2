@@ -63,6 +63,9 @@ def run_dwp_action(
         prefer_remote = action_execution_properties.prefer_remote,
         local_only = action_execution_properties.local_only,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
+        # dwp merges the debug info of the corpus the link consumed and its
+        # memory scales the same way, so share the link's local-slot weight.
+        weight = toolchain.linker_info.link_weight,
     )
 
 def dwp(
