@@ -31,23 +31,21 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
   }
 
   override fun doAnalysis(project: Project, configuration: CompilerConfiguration): Boolean {
-    try {
-      // Use the compiler's canonical source collection, which recognizes Kotlin sources by file
-      // type (including .kts) and reports an error for missing source roots. Mirrors the approach
-      // used by K2JvmAbiFirAnalysisHandlerExtension and replaces the deprecated
-      // KotlinCoreEnvironment-based K1 source lookup.
-      val ktFiles =
-          createSourceFilesFromSourceRoots(configuration, project, configuration.kotlinSourceRoots)
-      StubsGenAPI( // @oss-enable
-      // @oss-disable: StubsGenApiImpl(
-          stubsDumpDir,
-          stubsClassOutputDir,
-          classPaths,
-      )
-          .generateStubs(ktFiles, configuration, project)
-    } finally {
-      throw RuntimeException("Terminating compilation. We're done with Stubgen.")
-    }
+    // Use the compiler's canonical source collection, which recognizes Kotlin sources by file
+    // type (including .kts) and reports an error for missing source roots. Mirrors the approach
+    // used by K2JvmAbiFirAnalysisHandlerExtension and replaces the deprecated
+    // KotlinCoreEnvironment-based K1 source lookup.
+    val ktFiles =
+        createSourceFilesFromSourceRoots(configuration, project, configuration.kotlinSourceRoots)
+    StubsGenAPI( // @oss-enable
+    // @oss-disable: StubsGenApiImpl(
+        stubsDumpDir,
+        stubsClassOutputDir,
+        classPaths,
+    )
+        .generateStubs(ktFiles, configuration, project)
+
+    throw RuntimeException("Terminating compilation. We're done with Stubgen.")
 
     return true
   }
