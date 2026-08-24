@@ -120,11 +120,14 @@ impl QueryTarget for ConfiguredGraphNodeRef {
     }
 
     fn deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        self.0.deps().map(ConfiguredGraphNodeRef::ref_cast)
+        self.0.deps().iter().map(ConfiguredGraphNodeRef::ref_cast)
     }
 
     fn exec_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        self.0.exec_deps().map(ConfiguredGraphNodeRef::ref_cast)
+        self.0
+            .exec_deps()
+            .iter()
+            .map(ConfiguredGraphNodeRef::ref_cast)
     }
 
     fn target_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {

@@ -356,8 +356,8 @@ impl ConfiguredTargetNode {
     /// - toolchain deps
     /// - configuration deps
     // TODO(cjhopman): Should this include configuration deps? Should it include the configuration deps that were inspected resolving selects?
-    pub fn deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.all_deps.all_deps.iter()
+    pub fn deps(&self) -> &[ConfiguredTargetNode] {
+        &self.0.all_deps.all_deps
     }
 
     pub fn configuration_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
@@ -399,8 +399,8 @@ impl ConfiguredTargetNode {
             .filter(|x| x.rule_kind() == RuleKind::Normal)
     }
 
-    pub fn exec_deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
-        self.0.all_deps.exec_deps().iter()
+    pub fn exec_deps(&self) -> &[ConfiguredTargetNode] {
+        self.0.all_deps.exec_deps()
     }
 
     /// Return the `tests` declared for this target configured in same target platform as this target.
@@ -666,8 +666,8 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     }
 
     #[inline]
-    pub fn deps(self) -> impl ExactSizeIterator<Item = &'a ConfiguredTargetNode> {
-        self.0.get().all_deps.all_deps.iter()
+    pub fn deps(self) -> &'a [ConfiguredTargetNode] {
+        &self.0.get().all_deps.all_deps
     }
 
     #[inline]
@@ -707,6 +707,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             ))),
             DEPS => Some(ConfiguredAttr::List(
                 self.deps()
+                    .iter()
                     .map(|t| {
                         ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
                             t.label().dupe(),

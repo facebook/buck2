@@ -162,6 +162,7 @@ fn target_to_fbs<'a>(
     let deps = {
         let res = &node
             .deps()
+            .iter()
             .map(|d| get_target_label(builder, d))
             .collect::<Vec<WIPOffset<fbs::ConfiguredTargetLabel>>>();
         builder.create_vector(res)

@@ -56,11 +56,13 @@ impl QueryTarget for ConfiguredTargetNode {
     }
 
     fn deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        ConfiguredTargetNode::deps(self).map(|v| v.label())
+        ConfiguredTargetNode::deps(self).iter().map(|v| v.label())
     }
 
     fn exec_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        ConfiguredTargetNode::exec_deps(self).map(|v| v.label())
+        ConfiguredTargetNode::exec_deps(self)
+            .iter()
+            .map(|v| v.label())
     }
 
     fn target_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {

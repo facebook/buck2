@@ -754,6 +754,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(AllocList(
             this.0
                 .deps()
+                .iter()
                 .map(|node| StarlarkConfiguredTargetNode(node.dupe())),
         ))
     }

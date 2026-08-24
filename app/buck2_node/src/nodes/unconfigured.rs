@@ -356,12 +356,12 @@ impl TargetNode {
     }
 
     #[inline]
-    pub fn target_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn target_deps(&self) -> &[TargetLabel] {
         self.as_ref().target_deps()
     }
 
     #[inline]
-    pub fn exec_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn exec_deps(&self) -> &[TargetLabel] {
         self.as_ref().exec_deps()
     }
 
@@ -370,7 +370,7 @@ impl TargetNode {
         self.as_ref().get_configuration_deps()
     }
     #[inline]
-    pub fn toolchain_deps(&self) -> impl Iterator<Item = &TargetLabel> {
+    pub fn toolchain_deps(&self) -> &[TargetLabel] {
         self.as_ref().toolchain_deps()
     }
 
@@ -596,16 +596,16 @@ impl<'a> TargetNodeRef<'a> {
             .transpose()
     }
 
-    pub fn target_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
-        self.0.get().deps_cache.deps.iter()
+    pub fn target_deps(self) -> &'a [TargetLabel] {
+        &self.0.get().deps_cache.deps
     }
 
-    pub fn exec_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
-        self.0.get().deps_cache.exec_deps.iter()
+    pub fn exec_deps(self) -> &'a [TargetLabel] {
+        &self.0.get().deps_cache.exec_deps
     }
 
-    pub fn toolchain_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
-        self.0.get().deps_cache.toolchain_deps.iter()
+    pub fn toolchain_deps(self) -> &'a [TargetLabel] {
+        &self.0.get().deps_cache.toolchain_deps
     }
 
     pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ProvidersLabel> {

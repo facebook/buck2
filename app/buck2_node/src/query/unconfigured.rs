@@ -50,11 +50,11 @@ impl QueryTarget for TargetNode {
     }
 
     fn exec_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        TargetNode::exec_deps(self)
+        TargetNode::exec_deps(self).iter()
     }
 
     fn target_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        TargetNode::target_deps(self)
+        TargetNode::target_deps(self).iter()
     }
 
     fn configuration_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
@@ -62,7 +62,7 @@ impl QueryTarget for TargetNode {
     }
 
     fn toolchain_deps(&self) -> impl Iterator<Item = &Self::Key> + Send + '_ {
-        TargetNode::toolchain_deps(self)
+        TargetNode::toolchain_deps(self).iter()
     }
     fn tests(&self) -> Option<impl Iterator<Item = Self::Key> + Send + '_> {
         Some(self.tests().map(|t| t.target().dupe()))

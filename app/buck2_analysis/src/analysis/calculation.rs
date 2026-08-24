@@ -161,7 +161,7 @@ async fn resolve_queries_impl(
     configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> buck2_error::Result<BuckMutMap<String, Arc<AnalysisQueryResult>>> {
-    let deps: TargetSet<_> = configured_node.deps().duped().collect();
+    let deps: TargetSet<_> = configured_node.deps().iter().duped().collect();
     let queries: Vec<_> = queries.into_iter().collect();
     let query_results = ctx
         .try_compute_join(
@@ -423,7 +423,7 @@ fn all_deps(nodes: &[ConfiguredTargetNode]) -> LabelIndexedSet<ConfiguredTargetN
                 }
             }
 
-            stack.extend(node.deps().duped());
+            stack.extend(node.deps().iter().duped());
         }
     }
     result

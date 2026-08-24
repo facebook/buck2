@@ -240,7 +240,7 @@ pub(crate) async fn explain(
         let mut visited = LabelIndexedSet::new();
         while let Some(node) = stack.pop() {
             if visited.insert(node.dupe()) {
-                stack.extend(node.deps().duped());
+                stack.extend(node.deps().iter().duped());
             }
         }
         visited.into_iter().collect::<Vec<ConfiguredTargetNode>>()
