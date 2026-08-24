@@ -236,23 +236,20 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
   }
 
   override fun visitClass(declaration: IrClass): IrStatement {
-    // Strip PRIVATE supertypes from the class's implemented interfaces.
-    // Internal supertypes are kept because source-only ABI is consumed within the same
+    // Strip supertypes whose class file the ABI jar will not contain, since the reference would
+    // dangle. Internal supertypes are kept because source-only ABI is consumed within the same
     // module, where internal types are accessible. Stripping them would cause Java consumers
     // to see "incompatible types" errors when a public class implements an internal interface.
-
-    // First, collect the supertypes that will be stripped (private only)
     val strippedSupertypes =
         declaration.superTypes.filter { superType ->
           val superClass = superType.classOrNull?.owner ?: return@filter false
-          isClassPrivate(superClass)
+          isClassAbsentFromAbi(superClass)
         }
 
-    // Strip the private supertypes
     declaration.superTypes =
         declaration.superTypes.filter { superType ->
           val superClass = superType.classOrNull?.owner ?: return@filter true
-          !isClassPrivate(superClass)
+          !isClassAbsentFromAbi(superClass)
         }
 
     // For each stripped supertype that was an interface, convert fake override methods
@@ -280,13 +277,13 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
       if (!decl.isFakeOverride) continue
       if (!decl.visibility.isPublicAPI) continue
 
-      // Check if any of the overridden symbols is from a class that implements a non-public
-      // interface
+      // Materialize only when the declaring class is gone from the ABI. If it survives -- any
+      // nested private class does -- the fake override still resolves, and emitting a body here
+      // would add a method the library jar does not have.
       val shouldMaterialize =
           decl.overriddenSymbols.any { overriddenSymbol ->
-            val overridden = overriddenSymbol.owner
-            val overriddenParent = overridden.parent as? IrClass
-            overriddenParent != null && !isClassPubliclyAccessible(overriddenParent)
+            val overriddenParent = overriddenSymbol.owner.parent as? IrClass
+            overriddenParent != null && isClassAbsentFromAbi(overriddenParent)
           }
 
       if (shouldMaterialize) {
@@ -359,33 +356,22 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     }
   }
 
-  // Check if a class is publicly accessible (it and all its containing classes are public)
-  private fun isClassPubliclyAccessible(irClass: IrClass): Boolean {
-    var current: IrClass? = irClass
-    while (current != null) {
-      if (!current.visibility.isPublicAPI) {
-        return false
-      }
-      // Get the containing class, if any
-      current = current.parent as? IrClass
-    }
-    return true
-  }
-
-  // Check if a class or any of its containing classes is private/local (not internal or public).
-  // Internal classes are accessible within the same module (source-only ABI scope).
-  private fun isClassPrivate(irClass: IrClass): Boolean {
-    var current: IrClass? = irClass
-    while (current != null) {
-      val visibility = current.visibility
-      if (
-          visibility == DescriptorVisibilities.PRIVATE || visibility == DescriptorVisibilities.LOCAL
-      ) {
+  // True when removeNonPublicApi will drop this class from the ABI, which is the only reason a
+  // supertype has to leave a supertype list. Only top-level private classes are dropped; a nested
+  // private class is kept, so a `private sealed class`/`sealed interface` and everything nested
+  // under it stays referenceable and must keep appearing as a supertype.
+  private fun isClassAbsentFromAbi(irClass: IrClass): Boolean {
+    var current: IrClass = irClass
+    while (true) {
+      if (current.visibility == DescriptorVisibilities.LOCAL) {
         return true
       }
-      current = current.parent as? IrClass
+      val outer = current.parent as? IrClass
+      if (outer == null) {
+        return current.visibility == DescriptorVisibilities.PRIVATE
+      }
+      current = outer
     }
-    return false
   }
 
   override fun visitField(declaration: IrField): IrStatement {

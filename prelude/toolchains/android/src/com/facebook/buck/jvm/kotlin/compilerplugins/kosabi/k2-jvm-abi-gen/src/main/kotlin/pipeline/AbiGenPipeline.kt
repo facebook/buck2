@@ -675,22 +675,31 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
                   session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
                       ?: return false
 
-              if (isClassPrivate(classSymbol)) {
+              if (classSymbol.resolvedStatus.visibility == Visibilities.Local) {
                 return true
               }
 
-              var outerClassId = classId.outerClassId
-              while (outerClassId != null) {
-                val outerSymbol =
-                    session.symbolProvider.getClassLikeSymbolByClassId(outerClassId)
-                        as? FirClassSymbol<*>
-                if (outerSymbol != null && isClassPrivate(outerSymbol)) {
-                  return true
-                }
-                outerClassId = outerClassId.outerClassId
+              // Only a top-level private class is dropped from the ABI; nested private classes
+              // are kept so their InnerClasses references resolve. So what matters is whether the
+              // outermost enclosing class is private, not whether any enclosing class is. Walk the
+              // classId chain by name -- which needs no symbol resolution -- and resolve only the
+              // outermost class. Resolving each intermediate enclosing symbol would let one that
+              // fails to resolve mask a top-level-private outermost class and leave the supertype
+              // dangling.
+              var outermostClassId = classId
+              while (outermostClassId.outerClassId != null) {
+                outermostClassId = outermostClassId.outerClassId!!
               }
 
-              return false
+              val outermost =
+                  if (outermostClassId == classId) {
+                    classSymbol
+                  } else {
+                    session.symbolProvider.getClassLikeSymbolByClassId(outermostClassId)
+                        as? FirClassSymbol<*> ?: return false
+                  }
+
+              return isClassPrivate(outermost)
             } catch (e: Exception) {
               return false
             }
@@ -1179,8 +1188,10 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
       )
     }
 
-    // Assertion 4: no private supertype survived into the emitted IR. Unlike the checks above this
-    // one is verifiable from the module itself, so it is checked directly rather than trusted.
+    // Assertion 4: no supertype survived that the ABI jar will not contain a class file for.
+    // Nested private classes are kept in the ABI, so only a top-level private supertype dangles.
+    // Unlike the checks above this one is verifiable from the module itself, so it is checked
+    // directly rather than trusted.
     val leakedSupertypes = mutableListOf<String>()
     moduleFragment.accept(
         object : IrElementVisitorVoidCompat() {
@@ -1194,8 +1205,9 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
                   (superType as? org.jetbrains.kotlin.ir.types.IrSimpleType)?.classifier?.owner
                       as? IrClass ?: continue
               if (
-                  superClass.visibility ==
-                      org.jetbrains.kotlin.descriptors.DescriptorVisibilities.PRIVATE
+                  superClass.parent !is IrClass &&
+                      superClass.visibility ==
+                          org.jetbrains.kotlin.descriptors.DescriptorVisibilities.PRIVATE
               ) {
                 leakedSupertypes.add(
                     "${declaration.kotlinFqName.asString()} -> ${superClass.kotlinFqName.asString()}",
@@ -1210,7 +1222,7 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
     for (leaked in leakedSupertypes) {
       messageCollector.report(
           severity,
-          "Kosabi ABI validation: private supertype survived stripping: $leaked",
+          "Kosabi ABI validation: dangling private supertype survived stripping: $leaked",
       )
     }
   }
