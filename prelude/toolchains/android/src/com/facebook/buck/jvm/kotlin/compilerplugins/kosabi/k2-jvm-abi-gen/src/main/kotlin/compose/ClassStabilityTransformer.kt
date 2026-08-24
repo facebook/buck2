@@ -67,8 +67,11 @@ import org.jetbrains.kotlin.name.Name
  * - val properties of stable types: stable
  * - var properties (non-delegated): unstable
  * - Primitives, String, Unit, enums, function types: stable
- * - Type parameters: encoded in the bitmask
- * - Everything else: conservatively unstable (0)
+ * - Unrecognised types: conservatively not-known-stable
+ *
+ * The two outputs use different encodings. $stable carries StabilityBits: 0 when known stable,
+ * UNSTABLE.bitsForSlot(0) = 8 otherwise. @StabilityInferred(parameters) carries the type-parameter
+ * bitmask plus a known-stable high bit at (1 shl typeParameters.size).
  */
 @OptIn(UnsafeDuringIrConstructionAPI::class)
 internal class ClassStabilityTransformer(private val pluginContext: IrPluginContext) {
@@ -97,6 +100,11 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
         "kotlinx.collections.immutable.PersistentMap",
         "dagger.Lazy",
     )
+
+    // androidx StabilityBits: STABLE 0b000, UNSTABLE 0b100, bitsForSlot(n) = bits shl (1 + n*3).
+    // Written as the derivation rather than 8 so the slot-0 substitution stays visible.
+    private const val STABLE_BITS = 0
+    private const val UNSTABLE_BITS_SLOT0 = 0b100 shl 1
   }
 
   // Classes currently being analyzed (cycle detection)
@@ -159,7 +167,8 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
   }
 
   private fun addStabilityField(irClass: IrClass) {
-    val stableValue = computeStabilityValue(irClass)
+    val stability = computeStability(irClass)
+    val stableValue = if (stability.knownStable) STABLE_BITS else UNSTABLE_BITS_SLOT0
 
     // Add static final $stable: Int field
     val stableField =
@@ -180,7 +189,19 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
     stableField.initializer = pluginContext.irFactory.createExpressionBody(-1, -1, constExpr)
     irClass.declarations.add(stableField)
 
-    addStabilityInferredAnnotation(irClass, stableValue)
+    // Not the same encoding as $stable: a bitmask over the class's type parameters, plus a high
+    // bit at (1 shl typeParameters.size) meaning "known stable regardless of its parameters".
+    // The `< 32` bound mirrors Compose exactly (ClassStabilityTransformer.kt:161 emits it,
+    // Stability.kt:246 reads it). At 31 params both sides use `1 shl 31` = Int.MIN_VALUE and
+    // compare with `and`, so the sign bit is correct; tightening to `< 31` would emit 0 here
+    // while the consumer still looks for that bit, silently losing "known stable".
+    val knownStableBit =
+        if (stability.knownStable && irClass.typeParameters.size < 32) {
+          1 shl irClass.typeParameters.size
+        } else {
+          0
+        }
+    addStabilityInferredAnnotation(irClass, stability.typeParamMask or knownStableBit)
   }
 
   private fun addStabilityInferredAnnotation(irClass: IrClass, parametersValue: Int) {
@@ -195,37 +216,60 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
             )
           }
         }
-    irClass.annotations += annotation
+    // Register via metadataDeclarationRegistrar so HAS_ANNOTATIONS is set in Kotlin metadata.
+    // Without it, consumers cannot see the emulated annotation and fold stability constants
+    // instead of deferring to runtime.
+    pluginContext.metadataDeclarationRegistrar.addMetadataVisibleAnnotationsToElement(
+        irClass,
+        annotation,
+    )
   }
 
-  // Compute the $stable field value.
-  // 0 = all stable, non-zero encodes which type parameters affect stability.
-  // For simplicity in ABI emulation, we compute based on property analysis.
-  private fun computeStabilityValue(irClass: IrClass): Int {
+  /** Type-parameter bitmask plus whether the class itself is known stable. */
+  private data class Stability(val typeParamMask: Int, val knownStable: Boolean)
+
+  // Deliberately conservative: an unrecognised member type yields not-known-stable, so consumers
+  // resolve stability at runtime rather than assume the wrong answer.
+  private fun computeStability(irClass: IrClass): Stability {
     val classFqn = irClass.classFqName()
     if (classFqn != null && analyzing.contains(classFqn)) {
-      return 0 // Cycle — treat as stable to avoid infinite recursion
+      // Cycle — do not claim knowledge we do not have.
+      return Stability(0, knownStable = false)
     }
     if (classFqn != null) analyzing.add(classFqn)
 
-    var result = 0
+    var mask = 0
+    var knownStable = true
     for (declaration in irClass.declarations) {
       when (declaration) {
         is IrProperty -> {
-          // var (non-delegated) → unstable
           if (declaration.isVar && declaration.isDelegated != true) {
             if (classFqn != null) analyzing.remove(classFqn)
-            return 0 // Unstable class gets $stable = 0 (correct — means "evaluate at runtime")
+            return Stability(0, knownStable = false)
           }
-          // Check backing field type for type parameter dependency
+          // Only stored state counts. A computed getter has no backing field and is skipped,
+          // which is what the real StabilityInferencer does - it reaches members through
+          // `member.backingField?.let { ... }`.
           val backingField = declaration.backingField
           if (backingField != null) {
-            result = result or typeParamBits(backingField.type, irClass)
+            mask = mask or typeParamBits(backingField.type, irClass)
+            if (
+                !isStabilityDelegatedToTypeParam(backingField.type, irClass) &&
+                    !isKnownStableType(backingField.type)
+            ) {
+              knownStable = false
+            }
           }
         }
         is IrField -> {
           if (!declaration.isStatic) {
-            result = result or typeParamBits(declaration.type, irClass)
+            mask = mask or typeParamBits(declaration.type, irClass)
+            if (
+                !isStabilityDelegatedToTypeParam(declaration.type, irClass) &&
+                    !isKnownStableType(declaration.type)
+            ) {
+              knownStable = false
+            }
           }
         }
         else -> {}
@@ -233,7 +277,16 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
     }
 
     if (classFqn != null) analyzing.remove(classFqn)
-    return result
+    return Stability(mask, knownStable)
+  }
+
+  // True only when the type IS one of the class's own type parameters, e.g. `val value: T`. Such a
+  // member's stability is carried by its bit in the mask and resolved by the consumer, so it must
+  // not clear knownStable. A container that merely mentions T, e.g. `List<T>`, is not delegated:
+  // List is unstable whatever T is, and must clear knownStable.
+  private fun isStabilityDelegatedToTypeParam(type: IrType, irClass: IrClass): Boolean {
+    val classifier = (type as? IrSimpleType)?.classifier ?: return false
+    return irClass.typeParameters.any { classifier == it.symbol }
   }
 
   // Determine which type parameter bits are affected by a given type.
@@ -302,8 +355,16 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
       if (owner.isEnumClass) return true
     }
 
-    // Known stable types
-    if (fqn in KNOWN_STABLE_FQNS) return true
+    // Known stable types. The container-shaped ones are only as stable as their arguments:
+    // `Pair<String, MutableList<Int>>` matches on FQN alone but is not stable, and claiming it is
+    // makes a consumer skip a recomposition it needed. A star projection or a type-parameter
+    // argument is not known stable here either — that stability is carried by the type-parameter
+    // mask, which is a separate signal from this one.
+    if (fqn in KNOWN_STABLE_FQNS) {
+      return (type as? IrSimpleType)?.arguments.orEmpty().all {
+        it is org.jetbrains.kotlin.ir.types.IrTypeProjection && isKnownStableType(it.type)
+      }
+    }
 
     // SDK types (java.*, kotlin.* excluding collections interfaces)
     // Kotlin collections interfaces (List, Set, Map) are NOT stable — they're interfaces
