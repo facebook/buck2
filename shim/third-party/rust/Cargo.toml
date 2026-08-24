@@ -176,7 +176,7 @@ rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
 ref-cast = "1.0.26"
 regex = "1.13.1"
-relative-path = { version = "1.7.0", features = ["serde"] }
+relative-path = { version = "2.0.1", features = ["serde"] }
 ring = "0.17.14"
 ruff_formatter = "0.0.6"
 ruff_python_ast = "0.0.6"
