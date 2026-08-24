@@ -72,7 +72,7 @@ class AndroidInstallerManager implements InstallCommand {
       // Path before arrival: an artifact counted as arrived while its path is still unset reads as
       // usable to anyone judging readiness from arrivals. Delivery is all this records -- what the
       // install then makes of the artifact is not the artifact's business.
-      recordArtifactPath(androidArtifacts, artifactName, artifactPath);
+      recordArtifactPath(installState(installId), artifactName, artifactPath);
       androidArtifacts.recordFileArrival(artifactName, arrivedAt);
 
       if (artifactName.equals("options")) {
@@ -106,7 +106,8 @@ class AndroidInstallerManager implements InstallCommand {
    * field.
    */
   private void recordArtifactPath(
-      AndroidArtifacts androidArtifacts, String artifactName, Path artifactPath) {
+      InstallState installState, String artifactName, Path artifactPath) {
+    AndroidArtifacts androidArtifacts = installState.artifacts();
     switch (artifactName) {
       case "cpu_filters":
         androidArtifacts.setApkAbis(readApkAbis(artifactPath));
@@ -123,6 +124,9 @@ class AndroidInstallerManager implements InstallCommand {
         break;
       case "manifest":
         androidArtifacts.setAndroidManifestPath(AbsPath.of(artifactPath));
+        // Read now rather than when a later stage wants it: a manifest that cannot be parsed names
+        // no package, and no part of the install can proceed without one.
+        installState.setPackageName(AdbHelper.tryToExtractPackageNameFromManifest(artifactPath));
         break;
       case "secondary_dex_exopackage_info_directory":
         androidArtifacts.setSecondaryDexExopackageInfoDirectory(

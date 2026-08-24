@@ -69,14 +69,10 @@ class AndroidInstall {
     List<Map<String, String>> deviceInfos = new ArrayList();
     try {
       if (cliOptions.cleanUp) {
-        String appId =
-            AdbHelper.tryToExtractPackageNameFromManifest(apkInfo.getManifestPath().getPath());
-        adbHelper.uninstallApp(appId, cliOptions.keepUserData);
+        adbHelper.uninstallApp(state.packageName(), cliOptions.keepUserData);
       } else {
         if (cliOptions.uninstallFirst) {
-          String appId =
-              AdbHelper.tryToExtractPackageNameFromManifest(apkInfo.getManifestPath().getPath());
-          adbHelper.uninstallApp(appId, cliOptions.keepUserData);
+          adbHelper.uninstallApp(state.packageName(), cliOptions.keepUserData);
         }
         logger.info(String.format("Attempting install of %s", apkInfo.getApkPath()));
         Instant start = Instant.now();
@@ -109,7 +105,8 @@ class AndroidInstall {
             rootPath,
             installViaSd,
             /* quiet= */ false,
-            installId.getValue());
+            installId.getValue(),
+            state.packageName());
         state.metrics().recordDeviceWork(deviceWorkStart, System.currentTimeMillis());
 
         // Only now are the stage timings complete, so the metrics cannot be gathered any earlier.
@@ -122,8 +119,7 @@ class AndroidInstall {
                 apkInfo.getApkPath().getFileName(),
                 Duration.between(start, Instant.now()).getSeconds()));
 
-        String packageName =
-            AdbHelper.tryToExtractPackageNameFromManifest(apkInfo.getManifestPath().getPath());
+        String packageName = state.packageName();
 
         // Determine if app links should be enabled based on command line option or allowlist
         boolean shouldEnableAppLinks = false;

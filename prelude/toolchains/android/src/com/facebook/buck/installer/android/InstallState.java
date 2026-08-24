@@ -27,12 +27,26 @@ final class InstallState {
   // that is talking to adb.
   @Nullable private volatile AdbHelper adbHelper;
 
+  // Read when the manifest arrives, because the manifest does not change during an install and
+  // several stages of one ask for the package.
+  @Nullable private volatile String packageName;
+
   AndroidArtifacts artifacts() {
     return artifacts;
   }
 
   InstallMetrics metrics() {
     return metrics;
+  }
+
+  /** The package this install is for, or null until the manifest has arrived. */
+  @Nullable
+  String packageName() {
+    return packageName;
+  }
+
+  void setPackageName(String packageName) {
+    this.packageName = packageName;
   }
 
   /** Bound to the devices this install targets, or null until its options have arrived. */

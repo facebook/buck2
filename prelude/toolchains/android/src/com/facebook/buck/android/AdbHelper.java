@@ -315,10 +315,9 @@ public class AdbHelper implements AndroidDevicesHelper {
       AbsPath rootPath,
       boolean installViaSd,
       boolean quiet,
-      String fullyQualifiedName)
+      String fullyQualifiedName,
+      String packageName)
       throws InterruptedException {
-    String packageName =
-        tryToExtractPackageNameFromManifest(isolatedApkInfo.getManifestPath().getPath());
     Optional<String> buck2BuildUuid =
         Optional.ofNullable(EnvVariablesProvider.getSystemEnv().get("BUCK2_UUID"));
 
