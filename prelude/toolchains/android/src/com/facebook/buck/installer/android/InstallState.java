@@ -21,6 +21,7 @@ import javax.annotation.Nullable;
 final class InstallState {
   private final AndroidArtifacts artifacts = new AndroidArtifacts();
   private final InstallMetrics metrics = new InstallMetrics();
+  private final StreamedPushes streamedPushes = new StreamedPushes();
 
   // Written once, under this object's monitor; read without it, from the threads delivering
   // artifacts. Those reads happen on every arrival, so they must not queue behind a resolution
@@ -47,6 +48,11 @@ final class InstallState {
 
   void setPackageName(String packageName) {
     this.packageName = packageName;
+  }
+
+  /** What has already been sent ahead of this install, so no payload is sent twice. */
+  StreamedPushes streamedPushes() {
+    return streamedPushes;
   }
 
   /** Bound to the devices this install targets, or null until its options have arrived. */

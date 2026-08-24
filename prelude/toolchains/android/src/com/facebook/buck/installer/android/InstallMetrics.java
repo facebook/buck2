@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * How long each stage of one install took, and what that says about the time it spent waiting.
@@ -37,6 +38,7 @@ final class InstallMetrics implements InstallTimings {
   private long deviceSetupMillis;
   private long apkInstallMillis;
   private long deviceWorkMillis;
+  private long deviceWorkStartMillis;
 
   @Override
   public synchronized void recordDeviceSetup(long startMillis, long endMillis) {
@@ -57,6 +59,8 @@ final class InstallMetrics implements InstallTimings {
 
   @Override
   public synchronized void recordDeviceWork(long startMillis, long endMillis) {
+    deviceWorkStartMillis =
+        deviceWorkStartMillis == 0L ? startMillis : Math.min(deviceWorkStartMillis, startMillis);
     deviceWorkMillis += endMillis - startMillis;
   }
 
@@ -130,7 +134,14 @@ final class InstallMetrics implements InstallTimings {
     // have a saving.
     long modelled = deviceSetupMillis + apkInstallMillis;
     for (List<long[]> windows : pushWindows.values()) {
-      modelled += unionMillis(windows);
+      // Only the pushes the install itself made. A streamed push finished before the device phase
+      // began, so it is not part of deviceWorkMillis, and subtracting it would cancel the whole
+      // correction out for any install that streamed anything.
+      modelled +=
+          unionMillis(
+              windows.stream()
+                  .filter(window -> window[0] >= deviceWorkStartMillis)
+                  .collect(Collectors.toList()));
     }
     clock += Math.max(0L, deviceWorkMillis - modelled);
 

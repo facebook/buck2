@@ -19,12 +19,14 @@ import com.facebook.buck.installer.InstallCommand;
 import com.facebook.buck.installer.InstallError;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -35,6 +37,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
 
@@ -49,6 +53,12 @@ class AndroidInstallerManager implements InstallCommand {
   private final AndroidInstallErrorClassifier errorClassifier =
       AndroidInstallErrorClassifier.INSTANCE;
   private final Map<InstallId, InstallState> installs = new ConcurrentHashMap<>();
+
+  private static final AbsPath ROOT_PATH = AbsPath.of(Paths.get(".").normalize().toAbsolutePath());
+
+  private static final ExecutorService STREAM_EXECUTOR =
+      Executors.newCachedThreadPool(
+          new ThreadFactoryBuilder().setNameFormat("exopackage-stream-%d").setDaemon(true).build());
 
   private static final ImmutableMap<String, String> SHORT_TO_FULL_ABI_MAP =
       ImmutableMap.of(
@@ -82,7 +92,7 @@ class AndroidInstallerManager implements InstallCommand {
       if (incompatible.isPresent()) {
         return InstallResult.error(incompatible.get());
       }
-
+      maybeStreamReadyPayloads(installId, androidArtifacts);
       return InstallResult.success();
     } catch (Exception err) {
       String errMsg = Throwables.getStackTraceAsString(err);
@@ -168,6 +178,11 @@ class AndroidInstallerManager implements InstallCommand {
     try {
       AndroidArtifacts androidArtifacts = installState(installId).artifacts();
 
+      // Before anything else, and before any path can return: a push cannot be stopped once it has
+      // started, so the install waits it out rather than leaving one writing into the directories
+      // it is about to write itself.
+      installState(installId).streamedPushes().sealAndAwait();
+
       ImmutableSet<String> undelivered = androidArtifacts.undeliveredArtifacts();
       if (!undelivered.isEmpty()) {
         LOG.log(
@@ -197,11 +212,12 @@ class AndroidInstallerManager implements InstallCommand {
       }
 
       Optional<IsolatedExopackageInfo> isolatedExopackageInfo =
-          buildExopackageInfo(androidArtifacts);
+          buildExopackageInfo(androidArtifacts, AndroidArtifacts.ArtifactClass.EXOPACKAGE_PAYLOADS);
+
       AndroidInstall androidInstaller =
           new AndroidInstall(
               LOG,
-              AbsPath.of(Paths.get(".").normalize().toAbsolutePath()),
+              ROOT_PATH,
               options,
               IsolatedApkInfo.of(
                   androidArtifacts.getAndroidManifestPath(), androidArtifacts.getApk()),
@@ -218,43 +234,137 @@ class AndroidInstallerManager implements InstallCommand {
     }
   }
 
-  /** Assembles the exopackage payloads from the artifacts that have arrived. */
-  private static Optional<IsolatedExopackageInfo> buildExopackageInfo(
-      AndroidArtifacts androidArtifacts) {
+  /**
+   * Starts pushing exopackage payloads as soon as they are complete, rather than waiting for the
+   * apk.
+   *
+   * <p>Payloads finish at different points in the build, so the device would otherwise sit idle
+   * until the last of them. Readiness is judged per payload, so one that finishes early does not
+   * wait behind one that finishes late; payloads that are ready together go in a single push, which
+   * pays for the device setup once rather than once each.
+   */
+  private void maybeStreamReadyPayloads(InstallId installId, AndroidArtifacts androidArtifacts) {
+    if (options.cleanUp) {
+      // This install only uninstalls, so nothing it sends would ever be read -- and the payload
+      // would outlive the app it belongs to.
+      return;
+    }
+    // Check if it is too early to start streaming.
+    AdbHelper adbHelper = installState(installId).adbHelper();
+    if (androidArtifacts.getAndroidManifestPath() == null || adbHelper == null) {
+      // No package name, or no devices to reach yet. Before anything is claimed, because a claim
+      // is permanent: claiming a payload that cannot be sent leaves it to the install to push.
+      return;
+    }
+    // Check if it is too late to start streaming.
+    if (androidArtifacts.allArtifactsArrived()) {
+      // Nothing left to wait for, so there is no idle device time to fill.
+      return;
+    }
+    Set<AndroidArtifacts.ArtifactClass> ready =
+        AndroidArtifacts.ArtifactClass.EXOPACKAGE_PAYLOADS.stream()
+            .filter(androidArtifacts::hasAllArtifactsFor)
+            .collect(ImmutableSet.toImmutableSet());
+    installState(installId)
+        .streamedPushes()
+        .dispatch(
+            ready,
+            pending ->
+                STREAM_EXECUTOR.submit(
+                    () -> streamPayloads(installState(installId), adbHelper, pending)));
+  }
+
+  private void streamPayloads(
+      InstallState state, AdbHelper adbHelper, Set<AndroidArtifacts.ArtifactClass> payloads) {
+    try {
+      Optional<IsolatedExopackageInfo> exopackageInfo =
+          buildExopackageInfo(state.artifacts(), payloads);
+      if (exopackageInfo.isEmpty()) {
+        return;
+      }
+      // Read here rather than where the push is dispatched: an unreadable manifest is this
+      // method's problem to swallow, not a reason to fail the artifact that triggered it.
+      String packageName = state.packageName();
+      if (packageName == null) {
+        LOG.log(Level.WARNING, "No package name in the manifest; leaving the payloads to install");
+        return;
+      }
+      // The devices the install itself will use, so a payload never streams somewhere the install
+      // is not going. Counted like any other push: whatever lands here the install then finds
+      // already present, so no payload is recorded twice.
+      adbHelper.streamExopackagePayloads(ROOT_PATH, exopackageInfo.get(), packageName);
+    } catch (InterruptedException e) {
+      // Only reachable through adbCall's signature; nothing interrupts these threads. Rethrown so
+      // the future carries the failure rather than reporting a push that did not happen.
+      LOG.log(Level.WARNING, String.format("Streaming %s was interrupted", payloads), e);
+      throw new RuntimeException(e);
+    } catch (Exception e) {
+      // Best effort. Whatever did not make it is pushed by the install, which lists the directory
+      // and so sees exactly what is missing.
+      LOG.log(
+          Level.WARNING,
+          String.format("Could not stream %s; the install will push instead", payloads),
+          e);
+    }
+  }
+
+  /**
+   * Assembles the payloads named in {@code payloads} from the artifacts that have arrived.
+   *
+   * <p>A payload left out is reported absent rather than empty, so the caller pushes only what it
+   * asked for. Only payloads known to be complete may be named: a half-delivered one fails the
+   * pairing checks below.
+   */
+  @VisibleForTesting
+  static Optional<IsolatedExopackageInfo> buildExopackageInfo(
+      AndroidArtifacts androidArtifacts, Set<AndroidArtifacts.ArtifactClass> payloads) {
+    boolean includeSecondaryDex = payloads.contains(AndroidArtifacts.ArtifactClass.SECONDARY_DEX);
+    boolean includeNativeLibrary = payloads.contains(AndroidArtifacts.ArtifactClass.NATIVE_LIBRARY);
+    boolean includeResources = payloads.contains(AndroidArtifacts.ArtifactClass.RESOURCES);
     Optional<AbsPath> secondaryDexExopackageInfoDirectory =
-        androidArtifacts.getSecondaryDexExopackageInfoDirectory();
+        includeSecondaryDex
+            ? androidArtifacts.getSecondaryDexExopackageInfoDirectory()
+            : Optional.empty();
     Optional<AbsPath> secondaryDexExopackageInfoMetadata =
-        androidArtifacts.getSecondaryDexExopackageInfoMetadata();
+        includeSecondaryDex
+            ? androidArtifacts.getSecondaryDexExopackageInfoMetadata()
+            : Optional.empty();
     Optional<AbsPath> nativeLibraryExopackageInfoDirectory =
-        androidArtifacts.getNativeLibraryExopackageInfoDirectory();
+        includeNativeLibrary
+            ? androidArtifacts.getNativeLibraryExopackageInfoDirectory()
+            : Optional.empty();
     Optional<AbsPath> nativeLibraryExopackageInfoMetadata =
-        androidArtifacts.getNativeLibraryExopackageInfoMetadata();
+        includeNativeLibrary
+            ? androidArtifacts.getNativeLibraryExopackageInfoMetadata()
+            : Optional.empty();
     ImmutableList.Builder<IsolatedExopackageInfo.IsolatedExopackagePathAndHash> pathAndHashBuilder =
         ImmutableList.builder();
-    // Assets are optional for a build, but a resource and its hash always ship together. Without
-    // this, a half-delivered pair is indistinguishable from a build that has no assets at all.
-    Preconditions.checkState(
-        androidArtifacts.getResourcesExopackageInfoAssets().isPresent()
-            == androidArtifacts.getResourcesExopackageInfoAssetsHash().isPresent(),
-        "Exopackage resource assets and their hash must be present together");
-    Preconditions.checkState(
-        androidArtifacts.getResourcesExopackageInfoRes().isPresent()
-            == androidArtifacts.getResourcesExopackageInfoResHash().isPresent(),
-        "Exopackage resources and their hash must be present together");
-    androidArtifacts
-        .getResourcesExopackageInfoAssets()
-        .ifPresent(
-            assets ->
-                pathAndHashBuilder.add(
-                    new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
-                        assets, androidArtifacts.getResourcesExopackageInfoAssetsHash().get())));
-    androidArtifacts
-        .getResourcesExopackageInfoRes()
-        .ifPresent(
-            res ->
-                pathAndHashBuilder.add(
-                    new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
-                        res, androidArtifacts.getResourcesExopackageInfoResHash().get())));
+    if (includeResources) {
+      // Assets are optional for a build, but a resource and its hash always ship together. Without
+      // this, a half-delivered pair is indistinguishable from a build that has no assets at all.
+      Preconditions.checkState(
+          androidArtifacts.getResourcesExopackageInfoAssets().isPresent()
+              == androidArtifacts.getResourcesExopackageInfoAssetsHash().isPresent(),
+          "Exopackage resource assets and their hash must be present together");
+      Preconditions.checkState(
+          androidArtifacts.getResourcesExopackageInfoRes().isPresent()
+              == androidArtifacts.getResourcesExopackageInfoResHash().isPresent(),
+          "Exopackage resources and their hash must be present together");
+      androidArtifacts
+          .getResourcesExopackageInfoAssets()
+          .ifPresent(
+              assets ->
+                  pathAndHashBuilder.add(
+                      new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
+                          assets, androidArtifacts.getResourcesExopackageInfoAssetsHash().get())));
+      androidArtifacts
+          .getResourcesExopackageInfoRes()
+          .ifPresent(
+              res ->
+                  pathAndHashBuilder.add(
+                      new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
+                          res, androidArtifacts.getResourcesExopackageInfoResHash().get())));
+    }
     ImmutableList<IsolatedExopackageInfo.IsolatedExopackagePathAndHash> exopackageResources =
         pathAndHashBuilder.build();
 

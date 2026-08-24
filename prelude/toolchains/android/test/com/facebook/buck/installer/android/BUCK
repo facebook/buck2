@@ -17,6 +17,7 @@ buck_kotlin_test(
     ),
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:utils_api",
+        "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/installer:installer_server",
         "prelude//toolchains/android/src/com/facebook/buck/installer/android:installer_android_lib",
         "prelude//toolchains/android/third-party:junit",

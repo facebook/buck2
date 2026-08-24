@@ -13,6 +13,7 @@ package com.facebook.buck.installer.android;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -121,6 +122,10 @@ class AndroidArtifacts {
     ArtifactClass(String metricName) {
       this.metricName = metricName;
     }
+
+    /** The classes that are exopackage payloads, each pushable to the device on its own. */
+    static final ImmutableSet<ArtifactClass> EXOPACKAGE_PAYLOADS =
+        Sets.immutableEnumSet(SECONDARY_DEX, NATIVE_LIBRARY, RESOURCES);
 
     /** The class whose arrival gates pushing {@code pushGroup}, or null if it is derived. */
     @Nullable

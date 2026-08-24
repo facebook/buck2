@@ -11,10 +11,14 @@
 package com.facebook.buck.android.exopackage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -98,6 +102,32 @@ public class ExopackageShardingTest {
     assertEquals(List.of(List.of("huge.so")), contents(shard(100L, "huge.so")));
   }
 
+  /** The lock file belongs to no payload, so reclaiming must never take it. */
+  @Test
+  public void theLockFileIsNeverUnwanted() {
+    ImmutableSortedSet<Path> present =
+        ImmutableSortedSet.of(Paths.get("lock"), Paths.get("resources/old.apk"));
+
+    assertEquals(
+        ImmutableSortedSet.of(Paths.get("resources/old.apk")),
+        ExopackageInstaller.filesToDelete(present, ImmutableList.of()));
+  }
+
+  @Test
+  public void whatAPayloadWantsIsNotUnwanted() throws Exception {
+    ImmutableSortedSet<Path> present =
+        ImmutableSortedSet.of(Paths.get("resources/keep.apk"), Paths.get("resources/drop.apk"));
+
+    assertEquals(
+        ImmutableSortedSet.of(Paths.get("resources/drop.apk")),
+        ExopackageInstaller.filesToDelete(
+            present,
+            ImmutableList.of(
+                payload(
+                    ImmutableMap.of(Paths.get("resources/keep.apk"), Paths.get("src/keep.apk")),
+                    ImmutableMap.of()))));
+  }
+
   @Test
   public void anEmptyPayloadProducesNoShards() throws Exception {
     assertEquals(List.of(), contents(shard(100L)));
@@ -113,5 +143,54 @@ public class ExopackageShardingTest {
     assertEquals("native_library", only.filesType);
     assertEquals(DATA_ROOT.resolve("a.so"), only.installPaths.keySet().iterator().next());
     assertEquals(root().resolve("a.so").getPath(), only.installPaths.values().iterator().next());
+  }
+
+  /** A payload with the given content and metadata, for the delete-set arithmetic below. */
+  private static ExopackageInstaller.ResolvedExoPayload payload(
+      ImmutableMap<Path, Path> filesToInstall, ImmutableMap<Path, String> metadataToInstall)
+      throws IOException {
+    return new ExopackageInstaller.ResolvedExoPayload(
+        new ExoHelper() {
+          @Override
+          public ImmutableMap<Path, Path> getFilesToInstall() {
+            return filesToInstall;
+          }
+
+          @Override
+          public ImmutableMap<Path, String> getMetadataToInstall() {
+            return metadataToInstall;
+          }
+
+          @Override
+          public String getType() {
+            return "resources";
+          }
+        });
+  }
+
+  /** Only what the device is missing is sent; what it already holds is left alone. */
+  @Test
+  public void onlyFilesTheDeviceDoesNotHaveArePushed() {
+    ImmutableSortedSet<Path> present = ImmutableSortedSet.of(Paths.get("resources/have.apk"));
+
+    assertEquals(
+        ImmutableSortedMap.of(Paths.get("resources/want.apk"), Paths.get("src/want.apk")),
+        ExopackageInstaller.filesToPush(
+            present,
+            ImmutableMap.of(
+                Paths.get("resources/have.apk"), Paths.get("src/have.apk"),
+                Paths.get("resources/want.apk"), Paths.get("src/want.apk"))));
+  }
+
+  /** A payload the device already has in full sends nothing. */
+  @Test
+  public void aPayloadAlreadyOnTheDevicePushesNothing() {
+    ImmutableSortedSet<Path> present = ImmutableSortedSet.of(Paths.get("resources/have.apk"));
+
+    assertTrue(
+        ExopackageInstaller.filesToPush(
+                present,
+                ImmutableMap.of(Paths.get("resources/have.apk"), Paths.get("src/have.apk")))
+            .isEmpty());
   }
 }

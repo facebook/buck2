@@ -850,6 +850,33 @@ public class AdbHelper implements AndroidDevicesHelper {
     }
   }
 
+  /**
+   * Pushes exopackage payloads to the matching devices ahead of the install itself.
+   *
+   * <p>Only pushes content. Metadata, collection of stale files and the apk all need the complete
+   * artifact set, so they stay in {@link ExopackageInstaller#doInstall}, which lists the directory
+   * again and skips whatever landed here.
+   */
+  public void streamExopackagePayloads(
+      AbsPath rootPath, IsolatedExopackageInfo isolatedExopackageInfo, String packageName)
+      throws InterruptedException {
+    adbCall(
+        "push exopackage files",
+        device -> {
+          new ExopackageInstaller(
+                  isolatedExopackageInfo,
+                  androidPrinter,
+                  rootPath,
+                  packageName,
+                  device,
+                  Optional.empty(),
+                  timings)
+              .streamPayloads();
+          return true;
+        },
+        /* quiet= */ true);
+  }
+
   private void installApkExopackage(
       AbsPath rootPath,
       IsolatedExopackageInfo isolatedExopackageInfo,

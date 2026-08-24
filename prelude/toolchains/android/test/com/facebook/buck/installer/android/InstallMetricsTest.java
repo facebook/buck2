@@ -286,4 +286,29 @@ public class InstallMetricsTest {
     assertEquals("30.000", metrics.get("critical_path_s"));
     assertEquals("0.000", metrics.get("potential_saving_s"));
   }
+
+  /**
+   * A streamed push finished before the install's device phase began, so it is not part of the
+   * device work already accounted for. Counting it would cancel out the correction that charges
+   * whatever the replay does not model, and every streaming install would look free.
+   */
+  @Test
+  public void aPushMadeBeforeTheDevicePhaseIsNotCountedAgainstDeviceWork() {
+    AndroidArtifacts artifacts = new AndroidArtifacts();
+    InstallMetrics timings = new InstallMetrics();
+    artifacts.recordFileArrival("resources_exopackage_res", T0);
+    artifacts.recordFileArrival("apk", T0);
+
+    // Streamed while the build ran, then the install's own device phase.
+    timings.recordPush("resources", T0, T0 + 10_000L);
+    timings.recordDeviceWork(T0 + 20_000L, T0 + 40_000L);
+    timings.recordPush("secondary_dex", T0 + 22_000L, T0 + 27_000L);
+    timings.recordApkInstall(T0 + 30_000L, T0 + 35_000L);
+
+    Map<String, String> metrics = timings.summarise(T0 + 40_000L, artifacts.arrivals());
+
+    // modelled counts the apk install and the in-phase push only: 5s + 5s. The other 10s of device
+    // work is unmodelled and must still be charged, so it survives on the critical path.
+    assertEquals("30.000", metrics.get("critical_path_s"));
+  }
 }
