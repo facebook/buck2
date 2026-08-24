@@ -431,7 +431,11 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     # dsyms
     dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, binary_outputs, primary_binary_path_arg)
     binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, dsym_input_binary_arg)
-    dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
+    # The same dSYM can reach a bundle through multiple dependency paths.
+    dep_dsym_artifacts = set()
+    for info in deps_debuggable_infos:
+        dep_dsym_artifacts.update(info.dsyms)
+    dep_dsym_artifacts = list(dep_dsym_artifacts)
 
     dsym_artifacts = binary_dsym_artifacts + dep_dsym_artifacts
     if dsym_artifacts:
