@@ -137,7 +137,7 @@ md-5 = "0.10"
 memchr = "2.8.3"
 memmap2 = "0.9.11"
 mimalloc = { version = "0.1.52", default-features = false }
-multimap = "0.9.1"
+multimap = "0.10.1"
 native-tls = "0.2.18"
 nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
 nom = "8"
