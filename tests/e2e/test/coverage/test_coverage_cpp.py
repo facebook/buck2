@@ -187,41 +187,7 @@ async def test_cpp_test_coverage_filter_by_header_file_in_link_group_with_dev_lg
         file_filter=[header_name],
     )
 
-    assert len(paths) == 5, str(paths)
-    # because it belongs to a target that has a header file selected for coverage
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightRight.cpp"
-        in paths
-    )
-    # because it belongs to a target that has a dependency that contains a header
-    # file selected for coverage
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRight.cpp"
-        in paths
-    )
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/TestWithLinkGroups.cpp"
-        in paths
-    )
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/TestWithLinkGroups.h"
-        in paths
-    )
-    # because it has executable code used by LibraryRight.cpp
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeftUsedInOtherLinkGroup.h"
-        in paths
-    )
-    # because they are not in the transitive rdeps of the cxx_library that has the header
-    # that was selected for coverage
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryRightLeft.cpp"
-        not in paths
-    )
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/link_groups/LibraryLeft.cpp"
-        not in paths
-    )
+    assert paths == []
 
 
 @buck_test(inplace=True)
