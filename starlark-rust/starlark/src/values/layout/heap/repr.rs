@@ -137,15 +137,20 @@ impl AValueForward {
     }
 }
 
-/// Object on the heap, either a real object or a forward.
+/// First word of an object on the heap, which tells whether it is a real object or a forward.
+///
+/// This must stay exactly one word wide, even though `AValueForward` is two words: statically
+/// allocated values with a zero-sized payload (such as `None`) are only one word long, and a
+/// wider type would make every reference to them extend past the end of the object.
 #[repr(C)]
 pub(crate) union AValueOrForward {
     // We intentionally do not implement `Copy` for these types
     // to avoid accidentally copying them.
     header: ManuallyDrop<AValueHeader>,
-    forward: ManuallyDrop<AValueForward>,
     flags: usize,
 }
+
+const _: () = assert!(mem::size_of::<AValueOrForward>() == mem::size_of::<AValueHeader>());
 
 impl AValueOrForward {
     /// Is this pointer a value or forward?
@@ -156,7 +161,11 @@ impl AValueOrForward {
 
     pub(crate) fn unpack(&self) -> AValueOrForwardUnpack<'_> {
         if self.is_forward() {
-            AValueOrForwardUnpack::Forward(unsafe { &self.forward })
+            // Only objects in the arena are ever overwritten with a forward, and those are at
+            // least `MIN_ALLOC` bytes, so the whole `AValueForward` is within the object.
+            AValueOrForwardUnpack::Forward(unsafe {
+                &*(self as *const AValueOrForward as *const AValueForward)
+            })
         } else {
             AValueOrForwardUnpack::Header(unsafe { &self.header })
         }
