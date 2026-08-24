@@ -380,7 +380,7 @@ nom-language = "0.1"
 notify = "8.2.0"
 num-bigint = { version = "0.5.1", features = ["rand_0_10", "serde"] }
 num_enum = "0.7.6"
-object = { version = "0.37.3", features = ["read", "write"] }
+object = { version = "0.38.1", features = ["read", "write"] }
 os_str_bytes = { version = "7.2.1", features = ["conversions"] }
 pagable = { path = "pagable", features = ["tokio"] }
 pagable_storage = { path = "pagable_storage", features = ["tokio"] }
