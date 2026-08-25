@@ -256,6 +256,7 @@ pub use crate::dice::PagableNodeCounts;
 pub use crate::dice::PagableStatus;
 pub use crate::dice::PagableTypeStat;
 pub use crate::dice::PageOutCancel;
+pub use crate::dice::StorageIoSnapshot;
 pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::key::DiceKeyDyn;

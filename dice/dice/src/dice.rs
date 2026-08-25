@@ -123,6 +123,15 @@ impl Dice {
             .unwrap_or_default()
     }
 
+    /// Cumulative DataKey page-out / page-in totals since daemon start, or `None` if
+    /// pagable storage is not configured — these get logged, so "paging is off" must
+    /// not look like "paging moved nothing".
+    pub fn storage_io_metrics(&self) -> Option<StorageIoSnapshot> {
+        self.pagable_storage
+            .as_ref()
+            .map(|storage| storage.storage_io_snapshot())
+    }
+
     /// Last measured on-disk size in bytes of the pagable store, or `None` if
     /// pagable storage is not configured. `Some(Err)` if the measurement walk failed.
     /// Cached at page-out (the store is append-only), so this is cheap.
@@ -320,6 +329,21 @@ impl Dice {
     pub async fn pagable_node_counts(&self) -> PagableNodeCounts {
         self.state_handle.pagable_node_counts().await
     }
+}
+
+/// Cumulative DataKey page-out / page-in totals. `bytes_*` sum each DataKey's
+/// serialized value payload, a proxy for allocated in-memory bytes moved (not RSS),
+/// so `bytes_out - bytes_in` approximates the bytes currently offloaded.
+///
+/// This is I/O volume, not freed memory: an arc shared with a still-resident value
+/// is serialized without being dropped, so `bytes_out` over-counts under partial
+/// page-out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StorageIoSnapshot {
+    pub data_keys_out: u64,
+    pub bytes_out: u64,
+    pub data_keys_in: u64,
+    pub bytes_in: u64,
 }
 
 /// Resident, paged-out, and page-out-candidate DICE node counts. `candidates` is the

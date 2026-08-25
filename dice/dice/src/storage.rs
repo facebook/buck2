@@ -22,6 +22,8 @@ use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use allocative::Allocative;
@@ -31,10 +33,13 @@ use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
 use pagable::DataKey;
 use pagable::StorageContext;
+use pagable::arc_erase::ArcEraseDyn;
+use pagable::storage::data::PagableData;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::noop::NoopPagableStorage;
 use pagable::storage::support::SerializerForPaging;
 use pagable::storage::traits::ArcSerCache;
+use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::storage::traits::PageOutError;
 use pagable_storage::storage::sled::SledBackedPagableStorage;
@@ -45,6 +50,7 @@ use serde::Serialize;
 use crate::HashMap;
 use crate::core::state::CoreStateHandle;
 use crate::dice::PageOutCancel;
+use crate::dice::StorageIoSnapshot;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
@@ -128,6 +134,10 @@ pub struct DiceStorage {
     // instead of each cloning a separate map.
     #[allocative(skip)]
     page_in_metrics: Arc<PageInMetrics>,
+    /// Shared with the `MeteredPagableStorage` wrapping `storage`, so every
+    /// `store_data` / `fetch_data` is tallied.
+    #[allocative(skip)]
+    io_metrics: Arc<StorageIoMetrics>,
     /// On-disk root of the store, for measuring its size. `None` when constructed
     /// without a path (`new`, e.g. tests), which never has an on-disk footprint to
     /// measure. `Arc<Path>` keeps `DiceStorage` cheap to `dupe`.
@@ -143,9 +153,11 @@ pub struct DiceStorage {
 impl DiceStorage {
     /// Construct a `DiceStorage` from any [`PagableStorage`] backend.
     pub fn new(storage: Arc<dyn PagableStorage>) -> Self {
+        let io_metrics = Arc::new(StorageIoMetrics::default());
         Self {
-            storage,
+            storage: Arc::new(MeteredPagableStorage::new(storage, io_metrics.dupe())),
             page_in_metrics: Arc::new(PageInMetrics::default()),
+            io_metrics,
             path: None,
             cached_db_size_bytes: Arc::new(ArcSwap::new(Arc::new(Ok(0)))),
         }
@@ -163,6 +175,12 @@ impl DiceStorage {
 
     pub(crate) fn storage_handle(&self) -> PagableStorageHandle {
         PagableStorageHandle::new(self.storage.dupe())
+    }
+
+    /// Cumulative DataKey-level page-out / page-in totals since this `DiceStorage`
+    /// was created.
+    pub(crate) fn storage_io_snapshot(&self) -> StorageIoSnapshot {
+        self.io_metrics.snapshot()
     }
 
     /// The last measured on-disk store size in bytes, or `None` if this storage has
@@ -449,6 +467,96 @@ impl PageInMetrics {
     }
 }
 
+/// Cumulative DataKey tallies maintained by [`MeteredPagableStorage`]. `bytes_*` sum
+/// each DataKey's serialized value payload (`PagableData::data`).
+#[derive(Default)]
+struct StorageIoMetrics {
+    data_keys_out: AtomicU64,
+    bytes_out: AtomicU64,
+    data_keys_in: AtomicU64,
+    bytes_in: AtomicU64,
+}
+
+impl StorageIoMetrics {
+    fn record_out(&self, bytes: u64) {
+        self.data_keys_out.fetch_add(1, Ordering::Relaxed);
+        self.bytes_out.fetch_add(bytes, Ordering::Relaxed);
+    }
+
+    fn record_in(&self, bytes: u64) {
+        self.data_keys_in.fetch_add(1, Ordering::Relaxed);
+        self.bytes_in.fetch_add(bytes, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> StorageIoSnapshot {
+        StorageIoSnapshot {
+            data_keys_out: self.data_keys_out.load(Ordering::Relaxed),
+            bytes_out: self.bytes_out.load(Ordering::Relaxed),
+            data_keys_in: self.data_keys_in.load(Ordering::Relaxed),
+            bytes_in: self.bytes_in.load(Ordering::Relaxed),
+        }
+    }
+}
+
+/// [`PagableStorage`] decorator tallying every DataKey blob written and read into
+/// shared [`StorageIoMetrics`].
+///
+/// Counting at the trait boundary rather than in `page_out_value` / `hydrate` is what
+/// captures nested `PagableArc` sub-values, which route back through here. Arc-cache
+/// hits never reach `fetch_data`, so resident values aren't counted as paged in.
+struct MeteredPagableStorage {
+    inner: Arc<dyn PagableStorage>,
+    metrics: Arc<StorageIoMetrics>,
+}
+
+impl MeteredPagableStorage {
+    fn new(inner: Arc<dyn PagableStorage>, metrics: Arc<StorageIoMetrics>) -> Self {
+        Self { inner, metrics }
+    }
+}
+
+#[async_trait::async_trait]
+impl PagableStorage for MeteredPagableStorage {
+    fn arc_cache(&self) -> &DeserializedArcCache {
+        self.inner.arc_cache()
+    }
+
+    fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        let data = self.inner.fetch_data_blocking(key)?;
+        self.metrics.record_in(data.data.len() as u64);
+        Ok(data)
+    }
+
+    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        let data = self.inner.fetch_data(key).await?;
+        self.metrics.record_in(data.data.len() as u64);
+        Ok(data)
+    }
+
+    fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>) {
+        self.inner.schedule_for_paging(arc)
+    }
+
+    fn storage_context(&self) -> &StorageContext {
+        self.inner.storage_context()
+    }
+
+    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+        let bytes = data.data.len() as u64;
+        let key = self.inner.store_data(data)?;
+        self.metrics.record_out(bytes);
+        Ok(key)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.inner.flush()
+    }
+
+    fn release_memory(&self) {
+        self.inner.release_memory()
+    }
+}
+
 fn env_concurrency(var: &str) -> usize {
     std::env::var(var)
         .ok()
@@ -479,7 +587,21 @@ fn dir_size_bytes(path: &Path) -> std::io::Result<u64> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use dupe::Dupe;
+    use pagable::PagableDeserialize;
+    use pagable::PagableSerialize;
+    use pagable::storage::data::PagableData;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+    use pagable::storage::traits::ArcSerCache;
+    use pagable::storage::traits::PagableStorage;
+
+    use crate::storage::MeteredPagableStorage;
     use crate::storage::PageInMetrics;
+    use crate::storage::StorageIoMetrics;
 
     #[test]
     fn page_in_metrics_breakdown() {
@@ -495,5 +617,114 @@ mod tests {
         assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 15, 25, 150));
         let b = snap.get("B").expect("B was recorded");
         assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (1, 1, 2, 3));
+    }
+
+    #[test]
+    fn metered_storage_counts_datakey_io() {
+        let metrics = Arc::new(StorageIoMetrics::default());
+        // Kept in scope: dropping it invalidates the backing cache.
+        let backing = InMemoryPagableStorage::new();
+        let storage = MeteredPagableStorage::new(backing.handle(), metrics.dupe());
+
+        let a = storage
+            .store_data(PagableData {
+                data: vec![0u8; 10],
+                arcs: vec![],
+            })
+            .unwrap();
+        let b = storage
+            .store_data(PagableData {
+                data: vec![1u8; 20],
+                arcs: vec![],
+            })
+            .unwrap();
+        // Only the value payload counts — not the `DataKey` (a 16-byte hash) nor the
+        // on-disk arc-key list: this store adds 5, not 5 + 2*16.
+        storage
+            .store_data(PagableData {
+                data: vec![2u8; 5],
+                arcs: vec![a, b],
+            })
+            .unwrap();
+
+        let snap = metrics.snapshot();
+        assert_eq!(
+            (
+                snap.data_keys_out,
+                snap.bytes_out,
+                snap.data_keys_in,
+                snap.bytes_in
+            ),
+            (3, 35, 0, 0),
+            "each store_data counts one DataKey and its value-payload bytes"
+        );
+
+        // Reads count the same value-payload bytes, so a value read back nets to
+        // zero (`bytes_out - bytes_in`) for that DataKey.
+        storage.fetch_data_blocking(&a).unwrap();
+        storage.fetch_data_blocking(&b).unwrap();
+        let snap = metrics.snapshot();
+        assert_eq!(
+            (snap.data_keys_in, snap.bytes_in),
+            (2, 30),
+            "each fetch counts one DataKey and its value-payload bytes"
+        );
+    }
+
+    /// Nested `PagableArc` sub-values get their own `DataKey` and are counted too —
+    /// the property that justifies decorating the trait rather than counting in
+    /// `page_out_value` / `hydrate`.
+    #[test]
+    fn metered_storage_counts_nested_arc_sub_values() -> anyhow::Result<()> {
+        const NESTED_LEN: usize = 1000;
+
+        let metrics = Arc::new(StorageIoMetrics::default());
+        // Kept in scope: dropping it invalidates the backing cache.
+        let backing = InMemoryPagableStorage::new();
+        let storage: Arc<dyn PagableStorage> =
+            Arc::new(MeteredPagableStorage::new(backing.handle(), metrics.dupe()));
+
+        // Arc-heavy shape: tiny parent blob, payload in the sub-value.
+        let nested: Arc<Vec<u8>> = Arc::new(vec![0xAB; NESTED_LEN]);
+        let storage_context = storage.storage_context();
+        let mut serializer = SerializerForPaging::new(storage_context);
+        7u8.pagable_serialize(&mut serializer)?;
+        nested.pagable_serialize(&mut serializer)?;
+        let (data, arcs) = serializer.finish();
+        let parent_key = storage
+            .page_out_item(data, arcs, &ArcSerCache::new(), storage_context)
+            .map_err(anyhow::Error::from)?;
+        storage.flush()?;
+
+        let snap = metrics.snapshot();
+        assert_eq!(
+            snap.data_keys_out, 2,
+            "the parent and its nested arc are separate DataKeys",
+        );
+        assert!(
+            snap.bytes_out > NESTED_LEN as u64,
+            "bytes_out {} must cover the nested arc's {NESTED_LEN}-byte payload, \
+             which the parent blob does not contain",
+            snap.bytes_out,
+        );
+
+        // While it is alive, page-in reuses the allocation via the arc cache and
+        // never reads the sub-value back.
+        drop(nested);
+
+        let root = storage.fetch_data_blocking(&parent_key)?;
+        let handle = PagableStorageHandle::new(storage.dupe());
+        let mut deserializer = handle.root_deserializer(parent_key, &root);
+        assert_eq!(u8::pagable_deserialize(&mut deserializer)?, 7);
+        let restored = Arc::<Vec<u8>>::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(restored.len(), NESTED_LEN);
+
+        let snap = metrics.snapshot();
+        assert_eq!(
+            (snap.data_keys_in, snap.bytes_in),
+            (snap.data_keys_out, snap.bytes_out),
+            "reading the value back nets every DataKey and byte written",
+        );
+        Ok(())
     }
 }
