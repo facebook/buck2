@@ -173,6 +173,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::CertExpired => rank!(environment),
         ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::IoMaterializerFileBusy => rank!(environment),
+        ErrorTag::IoEdenDaemonRestarted => rank!(environment),
         ErrorTag::IoClientBrokenPipe => rank!(environment).exit_code(ExitCode::ClientIoBrokenPipe),
         ErrorTag::IoReadOnlyFilesystem => rank!(environment),
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),

@@ -116,6 +116,8 @@ impl EdenIoProvider {
             tracing::warn!("You are using a development version of Eden, enabling Eden I/O");
         }
 
+        manager.capture_identity().await;
+
         Ok(Some(Self {
             manager,
             fs: FsIoProvider::new(fs.dupe(), cas_digest_config, true),
