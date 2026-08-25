@@ -1911,8 +1911,37 @@ mod tests {
         events.wait_for(is_tag_event("concurrency-tainted")).await?;
 
         assert!(
+            !events
+                .recorded()
+                .iter()
+                .any(is_tag_event("concurrency-previously-tainted")),
+            "the command that causes the taint should not also report inheriting it"
+        );
+
+        assert!(
             concurrency.data.lock().await.previously_tainted,
             "Taint should latch for subsequent commands"
+        );
+
+        // The latch is only observable through the next command: taint is reported once by the
+        // command that caused it, and thereafter as `concurrency-previously-tainted` by every
+        // command that inherits the tainted state.
+        let later = TestEvents::new();
+        TestCommand::new()
+            .dispatcher(later.dupe())
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        later
+            .wait_for(is_tag_event("concurrency-previously-tainted"))
+            .await?;
+
+        assert!(
+            !later
+                .recorded()
+                .iter()
+                .any(is_tag_event("concurrency-tainted")),
+            "A command inheriting taint should not report itself as the cause"
         );
 
         Ok(())
