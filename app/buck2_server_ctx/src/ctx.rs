@@ -42,7 +42,10 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 
+use crate::concurrency::CommandEventSink;
+use crate::concurrency::CommandEvents;
 use crate::concurrency::CommandTransactionObserver;
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
@@ -100,6 +103,33 @@ impl LockedPreviousCommandData {
         Arc::new(LockedPreviousCommandData {
             data: Mutex::new(PreviousCommandData { data: None }),
         })
+    }
+}
+
+#[derive(Clone, Dupe)]
+pub struct DispatcherEvents(pub EventDispatcher);
+
+impl CommandEventSink for DispatcherEvents {
+    fn instant(&self, data: buck2_data::instant_event::Data) {
+        self.0.instant_event(data);
+    }
+
+    fn trace_id(&self) -> &TraceId {
+        self.0.trace_id()
+    }
+}
+
+impl CommandEvents for DispatcherEvents {
+    fn span<'a, R: Send + 'a>(
+        &self,
+        start: buck2_data::span_start_event::Data,
+        fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
+    ) -> BoxFuture<'a, R> {
+        Box::pin(self.0.span_async(start, fut))
+    }
+
+    fn sink(&self) -> Arc<dyn CommandEventSink> {
+        Arc::new(self.dupe())
     }
 }
 
@@ -297,7 +327,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                 (
                     dice_handler
                         .enter(
-                            self.events().dupe(),
+                            DispatcherEvents(self.events().dupe()),
                             &*setup,
                             |dice, early_command_timing| async move {
                                 let events = self.events().dupe();

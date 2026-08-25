@@ -35,7 +35,6 @@ use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_events::dispatch::EventDispatcher;
 use buck2_util::early_command_timing::EXCLUSIVE_COMMAND_WAIT;
 use buck2_util::early_command_timing::EarlyCommandTimingBuilder;
 use buck2_util::truncate::truncate;
@@ -281,30 +280,6 @@ pub trait CommandEvents: CommandEventSink + Dupe {
     ) -> BoxFuture<'a, R>;
 
     fn sink(&self) -> Arc<dyn CommandEventSink>;
-}
-
-impl CommandEventSink for EventDispatcher {
-    fn instant(&self, data: buck2_data::instant_event::Data) {
-        EventDispatcher::instant_event(self, data);
-    }
-
-    fn trace_id(&self) -> &TraceId {
-        EventDispatcher::trace_id(self)
-    }
-}
-
-impl CommandEvents for EventDispatcher {
-    fn span<'a, R: Send + 'a>(
-        &self,
-        start: buck2_data::span_start_event::Data,
-        fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
-    ) -> BoxFuture<'a, R> {
-        Box::pin(self.span_async(start, fut))
-    }
-
-    fn sink(&self) -> Arc<dyn CommandEventSink> {
-        Arc::new(self.dupe())
-    }
 }
 
 #[async_trait]
@@ -864,12 +839,6 @@ mod tests {
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use buck2_core::is_open_source;
-    use buck2_events::BuckEvent;
-    use buck2_events::create_source_sink_pair;
-    use buck2_events::daemon_id::DaemonId;
-    use buck2_events::sink::null::NullEventSink;
-    use buck2_events::source::ChannelEventSource;
-    use buck2_events::span::SpanId;
     use buck2_util::early_command_timing::EXCLUSIVE_COMMAND_WAIT;
     use buck2_util::early_command_timing::FILE_WATCHER_WAIT;
     use derivative::Derivative;
@@ -892,9 +861,120 @@ mod tests {
 
     use super::*;
 
-    /// Creates a new null Event Dispatcher with trace ID that accepts events but does not write them anywhere.
-    fn null_sink_with_trace(trace_id: TraceId) -> EventDispatcher {
-        EventDispatcher::new(trace_id, DaemonId::new(), NullEventSink::new())
+    /// Recording stand-in for `EventDispatcher`. The real one lives in `buck2_events`, which this
+    /// crate deliberately does not depend on — including in `test_deps`, since those are linked
+    /// into the `-unittest` binary that coverage instruments.
+    #[derive(Clone, Dupe)]
+    struct TestEvents(Arc<TestEventsInner>);
+
+    struct TestEventsInner {
+        trace_id: TraceId,
+        recorded: Mutex<Vec<RecordedEvent>>,
+    }
+
+    #[derive(Clone, Debug)]
+    enum RecordedEvent {
+        Instant(buck2_data::instant_event::Data),
+        SpanStart(buck2_data::span_start_event::Data),
+        SpanEnd(buck2_data::span_end_event::Data),
+    }
+
+    impl TestEvents {
+        fn new() -> Self {
+            Self::with_trace(TraceId::new())
+        }
+
+        fn with_trace(trace_id: TraceId) -> Self {
+            Self(Arc::new(TestEventsInner {
+                trace_id,
+                recorded: Mutex::new(Vec::new()),
+            }))
+        }
+
+        fn recorded(&self) -> Vec<RecordedEvent> {
+            self.0.recorded.lock().clone()
+        }
+
+        /// Waits for a recorded event matching `pred`. Bounded, because a regression should fail in
+        /// seconds rather than hang the harness.
+        async fn wait_for<F>(&self, pred: F) -> buck2_error::Result<RecordedEvent>
+        where
+            F: Fn(&RecordedEvent) -> bool,
+        {
+            self.wait_from(&mut 0, pred).await
+        }
+
+        /// As [`Self::wait_for`], but resumes from `cursor` and advances it past the match, so a
+        /// sequence of waits observes distinct events the way reading from a channel did.
+        async fn wait_from<F>(
+            &self,
+            cursor: &mut usize,
+            pred: F,
+        ) -> buck2_error::Result<RecordedEvent>
+        where
+            F: Fn(&RecordedEvent) -> bool,
+        {
+            // Short timeouts are too flaky in OD environments under load.
+            let (idx, event) = tokio::time::timeout(Duration::from_secs(10), async {
+                loop {
+                    let recorded = self.recorded();
+                    if let Some((i, e)) = recorded
+                        .iter()
+                        .enumerate()
+                        .skip(*cursor)
+                        .find(|(_, e)| pred(e))
+                    {
+                        break (i, e.clone());
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .buck_error_context("Timed out waiting for a matching event")?;
+            *cursor = idx + 1;
+            Ok(event)
+        }
+    }
+
+    impl CommandEventSink for TestEvents {
+        fn instant(&self, data: buck2_data::instant_event::Data) {
+            self.0.recorded.lock().push(RecordedEvent::Instant(data));
+        }
+
+        fn trace_id(&self) -> &TraceId {
+            &self.0.trace_id
+        }
+    }
+
+    impl CommandEvents for TestEvents {
+        /// Records only: no span parenting, poll timing, or `SpanCancelled` on drop.
+        fn span<'a, R: Send + 'a>(
+            &self,
+            start: buck2_data::span_start_event::Data,
+            fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
+        ) -> BoxFuture<'a, R> {
+            self.0.recorded.lock().push(RecordedEvent::SpanStart(start));
+            let this = self.dupe();
+            Box::pin(async move {
+                let (r, end) = fut.await;
+                this.0.recorded.lock().push(RecordedEvent::SpanEnd(end));
+                r
+            })
+        }
+
+        fn sink(&self) -> Arc<dyn CommandEventSink> {
+            Arc::new(self.dupe())
+        }
+    }
+
+    /// Matches a recorded `TagEvent` carrying `tag`.
+    fn is_tag_event(tag: &'static str) -> impl Fn(&RecordedEvent) -> bool {
+        move |e: &RecordedEvent| match e {
+            RecordedEvent::Instant(buck2_data::instant_event::Data::TagEvent(t)) => {
+                t.tags.iter().any(|it| it == tag)
+            }
+            _ => false,
+        }
     }
 
     /// The production observer emits buckconfig telemetry; concurrency behaviour does not depend
@@ -965,7 +1045,7 @@ mod tests {
     /// arguments of which most tests care about one or two. Defaults describe a plain command:
     /// not nested, not exclusive, never preemptible, never exiting early.
     struct TestCommand {
-        dispatcher: EventDispatcher,
+        dispatcher: TestEvents,
         preemptible: PreemptibleWhen,
         exit_when: ExitWhen,
         is_nested_invocation: bool,
@@ -974,14 +1054,14 @@ mod tests {
     impl TestCommand {
         fn new() -> Self {
             Self {
-                dispatcher: EventDispatcher::null(),
+                dispatcher: TestEvents::new(),
                 preemptible: PreemptibleWhen::Never,
                 exit_when: ExitWhen::ExitNever,
                 is_nested_invocation: false,
             }
         }
 
-        fn dispatcher(mut self, dispatcher: EventDispatcher) -> Self {
+        fn dispatcher(mut self, dispatcher: TestEvents) -> Self {
             self.dispatcher = dispatcher;
             self
         }
@@ -1038,16 +1118,6 @@ mod tests {
         .buck_error_context("Timed out waiting for finished commands to be deregistered")
     }
 
-    /// Matches an instant `TagEvent` carrying `tag`.
-    fn is_tag_event(tag: &'static str) -> impl Fn(&BuckEvent) -> bool {
-        move |e: &BuckEvent| match e.data() {
-            buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
-                data: Some(buck2_data::instant_event::Data::TagEvent(t)),
-            }) => t.tags.iter().any(|it| it == tag),
-            _ => false,
-        }
-    }
-
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
         // FIXME: This times out on open source, and we don't know why
@@ -1064,7 +1134,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = concurrency.enter(
-            null_sink_with_trace(traces1),
+            TestEvents::with_trace(traces1),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1082,7 +1152,7 @@ mod tests {
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
         let fut2 = concurrency.enter(
-            null_sink_with_trace(traces2),
+            TestEvents::with_trace(traces2),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1100,7 +1170,7 @@ mod tests {
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
         let fut3 = concurrency.enter(
-            null_sink_with_trace(traces3),
+            TestEvents::with_trace(traces3),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1136,7 +1206,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(2));
 
         let fut1 = concurrency.enter(
-            null_sink_with_trace(traces1),
+            TestEvents::with_trace(traces1),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1155,7 +1225,7 @@ mod tests {
         );
 
         let fut2 = concurrency.enter(
-            null_sink_with_trace(traces2),
+            TestEvents::with_trace(traces2),
             &CtxDifferent,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1194,7 +1264,7 @@ mod tests {
         let barrier = Arc::new(Barrier::new(3));
 
         let fut1 = concurrency.enter(
-            null_sink_with_trace(traces1),
+            TestEvents::with_trace(traces1),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1212,7 +1282,7 @@ mod tests {
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
         let fut2 = concurrency.enter(
-            null_sink_with_trace(traces2),
+            TestEvents::with_trace(traces2),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1230,7 +1300,7 @@ mod tests {
             EarlyCommandTimingBuilder::new(Instant::now()),
         );
         let fut3 = concurrency.enter(
-            null_sink_with_trace(traces3),
+            TestEvents::with_trace(traces3),
             &NoChanges,
             |_, _timing| {
                 let b = barrier.dupe();
@@ -1283,7 +1353,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1310,7 +1380,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces2),
+                        TestEvents::with_trace(traces2),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1340,7 +1410,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces_different),
+                        TestEvents::with_trace(traces_different),
                         &CtxDifferent,
                         |_, _timing| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1406,7 +1476,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1433,7 +1503,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces2),
+                        TestEvents::with_trace(traces2),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1463,7 +1533,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces_different),
+                        TestEvents::with_trace(traces_different),
                         &CtxDifferent,
                         |_, _timing| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1534,7 +1604,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1561,7 +1631,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces2),
+                        TestEvents::with_trace(traces2),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -1591,7 +1661,7 @@ mod tests {
                 barrier.wait().await;
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces_different),
+                        TestEvents::with_trace(traces_different),
                         &CtxDifferent,
                         |_, _timing| async move {
                             arrived.store(true, Ordering::Relaxed);
@@ -1750,55 +1820,39 @@ mod tests {
         let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice);
 
-        let (mut first_source, first_sink) = create_source_sink_pair();
+        let first = TestEvents::new();
         TestCommand::new()
-            .dispatcher(EventDispatcher::new(
-                TraceId::new(),
-                DaemonId::new(),
-                first_sink,
-            ))
+            .dispatcher(first.dupe())
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
 
-        wait_for_event(
-            &mut first_source,
-            Box::new(|e: &BuckEvent| {
+        first
+            .wait_for(|e| {
                 matches!(
-                    e.data(),
-                    buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
-                        data: Some(buck2_data::instant_event::Data::NoActiveDiceState(..)),
-                    })
+                    e,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::NoActiveDiceState(..))
                 )
-            }),
-        )
-        .await?;
+            })
+            .await?;
 
         // The active DICE version is not cleared when a command exits, so the next command with an
         // equivalent state reuses it rather than installing a new one.
-        let (mut second_source, second_sink) = create_source_sink_pair();
+        let second = TestEvents::new();
         TestCommand::new()
-            .dispatcher(EventDispatcher::new(
-                TraceId::new(),
-                DaemonId::new(),
-                second_sink,
-            ))
+            .dispatcher(second.dupe())
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
 
-        wait_for_event(
-            &mut second_source,
-            Box::new(|e: &BuckEvent| {
+        second
+            .wait_for(|e| {
                 matches!(
-                    e.data(),
-                    buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
-                        data: Some(buck2_data::instant_event::Data::DiceEqualityCheck(
-                            DiceEqualityCheck { is_equal: true }
-                        )),
-                    })
+                    e,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::DiceEqualityCheck(
+                        DiceEqualityCheck { is_equal: true }
+                    ))
                 )
-            }),
-        )
-        .await?;
+            })
+            .await?;
 
         // Deliberately not asserted: whether a *different* state command emits
         // `DiceEqualityCheck { is_equal: false }` before blocking depends on whether the previous
@@ -1847,14 +1901,14 @@ mod tests {
         );
 
         let concurrency = ConcurrencyHandler::new(dice);
-        let (mut source, sink) = create_source_sink_pair();
+        let events = TestEvents::new();
 
         TestCommand::new()
-            .dispatcher(EventDispatcher::new(TraceId::new(), DaemonId::new(), sink))
+            .dispatcher(events.dupe())
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
 
-        wait_for_event(&mut source, Box::new(is_tag_event("concurrency-tainted"))).await?;
+        events.wait_for(is_tag_event("concurrency-tainted")).await?;
 
         assert!(
             concurrency.data.lock().await.previously_tainted,
@@ -1916,7 +1970,7 @@ mod tests {
 
         concurrency
             .enter(
-                EventDispatcher::null(),
+                TestEvents::new(),
                 &NoChanges,
                 |dice, _timing| async move {
                     let compute = dice.compute(key).fuse();
@@ -1954,7 +2008,7 @@ mod tests {
 
         concurrency
             .enter(
-                EventDispatcher::null(),
+                TestEvents::new(),
                 &NoChanges,
                 |_dice, _timing| async move {
                     // The key should still be evaluating by now.
@@ -1975,7 +2029,7 @@ mod tests {
 
         concurrency
             .enter(
-                EventDispatcher::null(),
+                TestEvents::new(),
                 &CtxDifferent,
                 |_dice, _timing| async move {
                     assert!(!key.is_executing.is_locked());
@@ -1994,73 +2048,46 @@ mod tests {
         Ok(())
     }
 
-    async fn wait_for_event<F>(
-        source: &mut ChannelEventSource,
-        matcher: Box<F>,
-    ) -> buck2_error::Result<BuckEvent>
-    where
-        F: Fn(&BuckEvent) -> bool + Send,
-    {
-        // Short timeouts are too flaky in OD environments under load.
-        tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                if let Some(event) = source.try_receive() {
-                    if let Some(event) = event.unpack_buck() {
-                        if matcher(event) {
-                            break event.clone();
-                        }
-                    }
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .buck_error_context("Time out waiting for matching buck event")
-    }
-
+    /// Waits for the start of an `ExclusiveCommandWait` span reporting `cmd` as the current owner.
     async fn wait_for_exclusive_span_start(
-        source: &mut ChannelEventSource,
+        events: &TestEvents,
+        cursor: &mut usize,
         cmd: Option<&str>,
-    ) -> buck2_error::Result<Option<SpanId>> {
+    ) -> buck2_error::Result<()> {
         let cmd = cmd.map(|c| c.to_owned());
-        Ok(wait_for_event(
-            source,
-            Box::new(|e: &BuckEvent| {
-                if let Some(span_start) = &e.span_start_event() {
-                    if let Some(buck2_data::span_start_event::Data::ExclusiveCommandWait(data)) =
-                        &span_start.data
-                    {
-                        let ExclusiveCommandWaitStart {
+        events
+            .wait_from(cursor, |e| match e {
+                RecordedEvent::SpanStart(
+                    buck2_data::span_start_event::Data::ExclusiveCommandWait(
+                        ExclusiveCommandWaitStart {
                             command_name: event_cmd,
-                        } = data;
-                        return event_cmd == &cmd;
-                    }
-                }
-                false
-            }),
-        )
-        .await?
-        .span_id())
+                        },
+                    ),
+                ) => event_cmd == &cmd,
+                _ => false,
+            })
+            .await?;
+        Ok(())
     }
 
+    /// Waits for the next `ExclusiveCommandWait` span end after `cursor`. The channel-based version
+    /// of this test paired ends to starts by span id; the fake has no ids, so ordering after the
+    /// cursor stands in for that pairing.
     async fn wait_for_exclusive_span_end(
-        source: &mut ChannelEventSource,
-        span_id: Option<SpanId>,
-    ) -> buck2_error::Result<BuckEvent> {
-        wait_for_event(
-            source,
-            Box::new(|e: &BuckEvent| {
-                if let Some(span_end) = &e.span_end_event() {
-                    if let Some(buck2_data::span_end_event::Data::ExclusiveCommandWait(_)) =
-                        &span_end.data
-                    {
-                        return e.span_id() == span_id || span_id.is_none();
-                    }
-                }
-                false
-            }),
-        )
-        .await
+        events: &TestEvents,
+        cursor: &mut usize,
+    ) -> buck2_error::Result<()> {
+        events
+            .wait_from(cursor, |e| {
+                matches!(
+                    e,
+                    RecordedEvent::SpanEnd(buck2_data::span_end_event::Data::ExclusiveCommandWait(
+                        _
+                    ))
+                )
+            })
+            .await?;
+        Ok(())
     }
 
     #[tokio::test]
@@ -2068,14 +2095,14 @@ mod tests {
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
         let dice = make_default_dice();
         let concurrency = ConcurrencyHandler::new(dice.dupe());
-        let (mut source, sink) = create_source_sink_pair();
-        let dispatcher = EventDispatcher::new(TraceId::new(), DaemonId::new(), sink);
+        let events = TestEvents::new();
+        let mut cursor = 0usize;
 
         let mutex = Arc::new(Mutex::new(()));
         let command = |exclusive_cmd: Option<&str>, barriers: Option<&Arc<(Barrier, Barrier)>>| {
             tokio::spawn({
                 let concurrency = concurrency.dupe();
-                let dispatcher = dispatcher.dupe();
+                let dispatcher = events.dupe();
                 let barriers = barriers.map(|b| b.dupe());
                 let exclusive_cmd = exclusive_cmd.map(|b| b.to_owned());
                 let mutex = mutex.dupe();
@@ -2111,32 +2138,29 @@ mod tests {
         let non_exclusive_fut = command(None, Some(&non_exclusive_barriers.dupe()));
         non_exclusive_barriers.0.wait().await;
 
-        let span_id_non_exclusive = wait_for_exclusive_span_start(&mut source, None).await?;
-        wait_for_exclusive_span_end(&mut source, span_id_non_exclusive).await?;
+        wait_for_exclusive_span_start(&events, &mut cursor, None).await?;
+        wait_for_exclusive_span_end(&events, &mut cursor).await?;
 
         let command_barriers = Arc::new((Barrier::new(2), Barrier::new(2)));
         // Start exclusive command, blocked by non_exclusive
         let exclusive_fut_1 = command(Some("exclusive_1"), Some(&command_barriers.dupe()));
 
-        let span_id_exclusive_1 = wait_for_exclusive_span_start(&mut source, None).await?;
+        wait_for_exclusive_span_start(&events, &mut cursor, None).await?;
 
         // Finish non_exclusive, enter exclusive_1 critical section
         non_exclusive_barriers.1.wait().await;
         non_exclusive_fut.await??;
         command_barriers.0.wait().await;
 
-        wait_for_exclusive_span_end(&mut source, span_id_exclusive_1).await?;
+        wait_for_exclusive_span_end(&events, &mut cursor).await?;
 
         // Start series of exclusive commands and another second non_exclusive
         let exclusive_fut_2 = command(Some("exclusive_2"), None);
-        let span_id_exclusive_2 =
-            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+        wait_for_exclusive_span_start(&events, &mut cursor, Some("exclusive_1")).await?;
         let exclusive_fut_3 = command(Some("exclusive_3"), None);
-        let span_id_exclusive_3 =
-            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+        wait_for_exclusive_span_start(&events, &mut cursor, Some("exclusive_1")).await?;
         let non_exclusive_fut = command(None, None);
-        let span_id_non_exclusive =
-            wait_for_exclusive_span_start(&mut source, Some("exclusive_1")).await?;
+        wait_for_exclusive_span_start(&events, &mut cursor, Some("exclusive_1")).await?;
 
         // Unblock first exclusive command, remaining commands are unblocked
         command_barriers.1.wait().await;
@@ -2145,9 +2169,9 @@ mod tests {
         exclusive_fut_3.await??;
         non_exclusive_fut.await??;
 
-        wait_for_exclusive_span_end(&mut source, span_id_exclusive_2).await?;
-        wait_for_exclusive_span_end(&mut source, span_id_exclusive_3).await?;
-        wait_for_exclusive_span_end(&mut source, span_id_non_exclusive).await?;
+        wait_for_exclusive_span_end(&events, &mut cursor).await?;
+        wait_for_exclusive_span_end(&events, &mut cursor).await?;
+        wait_for_exclusive_span_end(&events, &mut cursor).await?;
         Ok(())
     }
 
@@ -2162,7 +2186,7 @@ mod tests {
         let tasks = (0..3).map(|_i| async {
             concurrency
                 .enter(
-                    EventDispatcher::null(),
+                    TestEvents::new(),
                     &CtxDifferent,
                     |dice, _timing| async move {
                         // NOTE: We need to actually compute something for DICE to be not-idle.
@@ -2224,7 +2248,7 @@ mod tests {
             allow_exit: AtomicBool::new(false),
         };
         let fut1 = concurrency.enter(
-            EventDispatcher::null(),
+            TestEvents::new(),
             &updater1,
             |_dice, _timing| async move {
                 tokio::task::yield_now().await;
@@ -2247,7 +2271,7 @@ mod tests {
             allow_exit: AtomicBool::new(true),
         };
         let fut2 = concurrency.enter(
-            EventDispatcher::null(),
+            TestEvents::new(),
             &updater2,
             |_dice, _timing| async move {
                 tokio::task::yield_now().await;
@@ -2311,7 +2335,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2336,7 +2360,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &NoChanges,
                     |_, _timing| async move {
                         // Should never reach here
@@ -2393,7 +2417,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2418,7 +2442,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &CtxDifferent, // Different state
                     |_, _timing| async move {
                         // Should never reach here
@@ -2479,7 +2503,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2504,7 +2528,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &NoChanges,
                     |_, _timing| async move {
                         panic!("Should not execute");
@@ -2524,7 +2548,7 @@ mod tests {
         let fut3 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces3),
+                    TestEvents::with_trace(traces3),
                     &NoChanges,
                     |_, _timing| async move {
                         panic!("Should not execute");
@@ -2587,7 +2611,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2614,7 +2638,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &NoChanges,
                     |_, _timing| async move {
                         // Should never reach here
@@ -2680,7 +2704,7 @@ mod tests {
             async move {
                 let result = concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2719,7 +2743,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &NoChanges,
                     |_, _timing| async move {
                         // Just a quick task
@@ -2777,7 +2801,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -2802,7 +2826,7 @@ mod tests {
         let fut2 = tokio::spawn(buck2_util::async_move_clone!(concurrency, {
             concurrency
                 .enter(
-                    null_sink_with_trace(traces2),
+                    TestEvents::with_trace(traces2),
                     &CtxDifferent,
                     |_, _timing| async move {
                         // Just a quick task
@@ -2851,7 +2875,7 @@ mod tests {
         // First command runs to completion
         concurrency
             .enter(
-                null_sink_with_trace(traces1),
+                TestEvents::with_trace(traces1),
                 &NoChanges,
                 |_, _timing| async move {
                     // Quick task that finishes
@@ -2874,7 +2898,7 @@ mod tests {
         // Second command with --exit-when=notidle and same state should succeed
         let result = concurrency
             .enter(
-                null_sink_with_trace(traces2),
+                TestEvents::with_trace(traces2),
                 &NoChanges, // Same state as first command
                 |_, _timing| async move {
                     // Quick task
@@ -2914,7 +2938,7 @@ mod tests {
         // First command runs to completion with NoChanges state
         concurrency
             .enter(
-                null_sink_with_trace(traces1),
+                TestEvents::with_trace(traces1),
                 &NoChanges,
                 |_, _timing| async move {
                     // Quick task that finishes
@@ -2937,7 +2961,7 @@ mod tests {
         // Second command with --exit-when=notidle and different state should succeed
         let result = concurrency
             .enter(
-                null_sink_with_trace(traces2),
+                TestEvents::with_trace(traces2),
                 &CtxDifferent, // Different state than first command
                 |_, _timing| async move {
                     // Quick task
@@ -3012,7 +3036,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces1),
+                        TestEvents::with_trace(traces1),
                         &NoChanges,
                         |_, _timing| async move {
                             barrier.wait().await;
@@ -3041,7 +3065,7 @@ mod tests {
             async move {
                 concurrency
                     .enter(
-                        null_sink_with_trace(traces2),
+                        TestEvents::with_trace(traces2),
                         &NoChanges,
                         |_, timing| {
                             *duration_captured.lock() =
@@ -3096,7 +3120,7 @@ mod tests {
         // Run a non-exclusive command (None for exclusive_cmd parameter)
         concurrency
             .enter(
-                null_sink_with_trace(traces),
+                TestEvents::with_trace(traces),
                 &NoChanges,
                 |_, timing| {
                     *duration_captured.lock() =
@@ -3156,7 +3180,7 @@ mod tests {
 
         concurrency
             .enter(
-                null_sink_with_trace(traces),
+                TestEvents::with_trace(traces),
                 &UpdaterWithDelay,
                 |_, timing| {
                     let duration_captured = file_watcher_duration_captured.dupe();
@@ -3207,7 +3231,7 @@ mod tests {
         let traces_init = TraceId::new();
         concurrency
             .enter(
-                null_sink_with_trace(traces_init),
+                TestEvents::with_trace(traces_init),
                 &NoChanges,
                 |_, _timing| async move {
                     // Just establish the initial state
@@ -3259,7 +3283,7 @@ mod tests {
 
         concurrency
             .enter(
-                null_sink_with_trace(traces),
+                TestEvents::with_trace(traces),
                 &updater,
                 |_, timing| {
                     *file_watcher_duration_captured.lock() =

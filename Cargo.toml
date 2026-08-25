@@ -64,6 +64,7 @@ members = [
   "app/buck2_cmd_starlark_server",
   "app/buck2_cmd_targets_server",
   "app/buck2_common",
+  "app/buck2_concurrency",
   "app/buck2_configured",
   "app/buck2_core",
   "app/buck2_critical_path",
@@ -225,6 +226,7 @@ buck2_cmd_starlark_client = { path = "app/buck2_cmd_starlark_client" }
 buck2_cmd_starlark_server = { path = "app/buck2_cmd_starlark_server" }
 buck2_cmd_targets_server = { path = "app/buck2_cmd_targets_server" }
 buck2_common = { path = "app/buck2_common" }
+buck2_concurrency = { path = "app/buck2_concurrency" }
 buck2_configured = { path = "app/buck2_configured" }
 buck2_core = { path = "app/buck2_core" }
 buck2_critical_path = { path = "app/buck2_critical_path" }
