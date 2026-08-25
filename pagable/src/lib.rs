@@ -40,6 +40,7 @@ pub mod arc_erase;
 pub mod context;
 pub mod deser_recipe;
 pub mod flavors;
+mod hashers;
 mod impls;
 mod pagable_arc;
 mod page_in_scope;

@@ -53,7 +53,6 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::BuildHasherDefault;
-use std::hash::Hasher;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
@@ -62,6 +61,7 @@ use std::sync::RwLock;
 use crate::Pagable;
 use crate::PagableDeserializer;
 use crate::PagableSerializer;
+use crate::hashers::TypeIdHasher;
 
 mod platform;
 
@@ -117,33 +117,6 @@ macro_rules! impl_stable_name_wrapper {
 }
 
 impl_stable_name_wrapper!(Arc, Box, Option, Vec);
-
-/// Passes the already-uniform `TypeId` bits through instead of re-hashing
-/// them with SipHash on every lookup of the stable-name map.
-#[derive(Default)]
-struct TypeIdHasher(u64);
-
-impl Hasher for TypeIdHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-
-    // Fallback for `Hash` impls that feed raw bytes; `TypeId`'s bits are
-    // hash-derived already, so byte folding is enough.
-    fn write(&mut self, bytes: &[u8]) {
-        for &byte in bytes {
-            self.0 = self.0.rotate_left(8) ^ u64::from(byte);
-        }
-    }
-
-    fn write_u64(&mut self, n: u64) {
-        self.0 = n;
-    }
-
-    fn write_u128(&mut self, n: u128) {
-        self.0 = n as u64;
-    }
-}
 
 /// Build (once per monomorphization per process) and cache the composed
 /// stable name for `T`. Each distinct `T` leaks exactly one `String`.
