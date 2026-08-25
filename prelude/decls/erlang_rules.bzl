@@ -10,11 +10,7 @@ load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
 load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo")
 load(":common.bzl", "buck", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
-
-def re_test_args():
-    # remove reference to fbcode targets
-    args = re_test_common.test_args()
-    return {"remote_execution": args["remote_execution"]}
+load(":test_common.bzl", "test_common")
 
 common_attributes = (
     buck.labels_arg()
@@ -513,7 +509,8 @@ rules_attributes = {
         ),
     }
     | common_shell_attributes
-    | re_test_args(),
+    | test_common.attributes()
+    | re_test_common.test_args(),
 }
 
 attributes = {name: dict(rules_attributes[name], **common_attributes) for name in rules_attributes}

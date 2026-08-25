@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//tests:re_utils.bzl", "get_re_executors_from_props")
 load(
     ":erlang_build.bzl",
     "erlang_build",
@@ -188,7 +189,8 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
         additional_args = additional_shell_args,
     )
 
-    re_executor = get_re_executor_from_props(ctx)
+    # Setup RE executors based on the `remote_execution` param.
+    re_executors = get_re_executors_from_props(ctx)
     external_runner_info = ExternalRunnerTestInfo(
         type = "erlang_test",
         command = [cmd],
@@ -197,7 +199,8 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
-        default_executor = re_executor,
+        default_executor = re_executors.default_executor,
+        executor_overrides = re_executors.executor_overrides,
     )
     test_info = ErlangTestInfo(
         name = suite_name,
@@ -323,30 +326,3 @@ def is_target(suite: str) -> bool:
     if suite.find("//") != -1:
         return True
     return False
-
-def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, None]:
-    """
-    Convert the `remote_execution` properties param into a `CommandExecutorConfig`
-    to use with test providers.
-    """
-
-    re_props = ctx.attrs.remote_execution
-    if re_props == None:
-        return None
-
-    re_props_copy = dict(re_props)
-    capabilities = re_props_copy.pop("capabilities")
-    use_case = re_props_copy.pop("use_case")
-    remote_cache_enabled = re_props_copy.pop("remote_cache_enabled", None)
-    if re_props_copy:
-        unexpected_props = ", ".join(re_props_copy.keys())
-        fail("found unexpected re props: " + unexpected_props)
-
-    return CommandExecutorConfig(
-        local_enabled = False,
-        remote_enabled = True,
-        remote_execution_properties = capabilities,
-        remote_execution_use_case = use_case or "tpx-default",
-        remote_cache_enabled = remote_cache_enabled,
-        remote_execution_action_key = None,
-    )
