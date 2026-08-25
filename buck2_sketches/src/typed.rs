@@ -277,8 +277,10 @@ fn sketch_from_bytes(bytes: &[u8]) -> Result<SetSketch, String> {
         return Err(format!("Expected 8192 bytes, got {}", bytes.len()));
     }
     let registers: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|c| u16::from_ne_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|chunk| u16::from_ne_bytes(*chunk))
         .collect();
     Ok(SetSketch::from_recommended_registers(registers))
 }

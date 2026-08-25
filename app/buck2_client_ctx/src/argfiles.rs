@@ -521,8 +521,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 "--inline1 inline".to_owned(),
-                format!("--magic @root//foo/bar/arg2.txt@root//foo/bar/arg1.txt"),
-                format!("--other-arg @root//foo/bar/arg1.txt"),
+                "--magic @root//foo/bar/arg2.txt@root//foo/bar/arg1.txt".to_owned(),
+                "--other-arg @root//foo/bar/arg1.txt".to_owned(),
                 "--inline2 inline".to_owned()
             ]
         )

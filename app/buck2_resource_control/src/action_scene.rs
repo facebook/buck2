@@ -39,6 +39,7 @@ pub(crate) struct ActionScene {
 }
 
 impl ActionScene {
+    #[allow(clippy::result_large_err)]
     async fn new(cgroup: CgroupLeaf) -> Result<Self, (buck2_error::Error, CgroupLeaf)> {
         let (memory_initial, swap_initial) =
             match tokio::try_join!(cgroup.read_memory_current(), cgroup.read_swap_current(),) {

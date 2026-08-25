@@ -267,6 +267,7 @@ impl LocalExecutor {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     async fn exec_once(
         &self,
         action_digest: &ActionDigest,
@@ -392,6 +393,7 @@ impl LocalExecutor {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     async fn exec_with_resource_control(
         &self,
         action_digest: &ActionDigest,

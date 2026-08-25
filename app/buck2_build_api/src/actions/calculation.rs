@@ -870,16 +870,14 @@ pub async fn command_details(
 
     let signed_exit_code = command.exit_code;
 
-    let stdout;
-    let stderr;
-
-    if omit_details {
-        stdout = Default::default();
-        stderr = command.std_streams.to_lossy_stderr().await;
+    let (stdout, stderr) = if omit_details {
+        (
+            Default::default(),
+            command.std_streams.to_lossy_stderr().await,
+        )
     } else {
         let pair = command.std_streams.to_lossy().await;
-        stdout = pair.stdout;
-        stderr = pair.stderr;
+        (pair.stdout, pair.stderr)
     };
 
     let command_kind = command
