@@ -1300,6 +1300,38 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.candidate_node_count),
+            paging_data_keys_out: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_data_keys_out),
+            paging_data_key_bytes_out: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_data_key_bytes_out),
+            paging_data_keys_in: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_data_keys_in),
+            paging_data_key_bytes_in: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_data_key_bytes_in),
+            paging_daemon_data_keys_out: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_daemon_data_keys_out),
+            paging_daemon_data_key_bytes_out: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_daemon_data_key_bytes_out),
+            paging_daemon_data_keys_in: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_daemon_data_keys_in),
+            paging_daemon_data_key_bytes_in: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_daemon_data_key_bytes_in),
             repo_path: self.repo_path.take(),
         };
 

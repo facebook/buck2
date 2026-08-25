@@ -233,6 +233,19 @@ message PageOutSummary {
   /// Estimated bytes retained by Starlark serialization bookkeeping after the
   /// page-out. Absent if pagable storage is not configured.
   optional uint64 starlark_serialization_state_bytes_after = 13;
+  /// Daemon-lifetime running totals as of this page-out finishing. Includes
+  /// nested PagableArc sub-values; `out - in` approximates the bytes currently
+  /// offloaded daemon-wide.
+  optional uint64 daemon_data_keys_out = 14;
+  optional uint64 daemon_data_key_bytes_out = 15;
+  optional uint64 daemon_data_keys_in = 16;
+  optional uint64 daemon_data_key_bytes_in = 17;
+  /// The same four attributed to this page-out alone. The `..._in` pair is
+  /// normally zero — a page-out only writes — unless a page-in overlapped it.
+  optional uint64 data_keys_out = 18;
+  optional uint64 data_key_bytes_out = 19;
+  optional uint64 data_keys_in = 20;
+  optional uint64 data_key_bytes_in = 21;
 }
 
 // An event that represents a single point in time.
@@ -547,6 +560,18 @@ message PagingSummary {
   // Whether a background idle page-out was started at the end of this command,
   // or the reason it wasn't.
   optional PageOutStarted page_out_started = 6;
+  // Attributed to this command (delta vs the command-start baseline). Absent if
+  // pagable storage is not configured.
+  optional uint64 paging_data_keys_out = 7;
+  optional uint64 paging_data_key_bytes_out = 8;
+  optional uint64 paging_data_keys_in = 9;
+  optional uint64 paging_data_key_bytes_in = 10;
+  // The same four as daemon-lifetime running totals, whose `out - in` gives the
+  // bytes currently offloaded daemon-wide.
+  optional uint64 paging_daemon_data_keys_out = 11;
+  optional uint64 paging_daemon_data_key_bytes_out = 12;
+  optional uint64 paging_daemon_data_keys_in = 13;
+  optional uint64 paging_daemon_data_key_bytes_in = 14;
 }
 
 message RemoteExecutionSessionCreated {
@@ -3181,6 +3206,21 @@ message InvocationRecord {
 
   // Total DICE page-in time on the critical path.
   google.protobuf.Duration critical_path_page_in = 449;
+
+  // DataKeys written to / read from pagable storage during this invocation, and
+  // their serialized value bytes. Unlike `page_in_*` above (per-DICE-value,
+  // top-level blob only) these count every DataKey, including nested PagableArc
+  // sub-values. Absent, not zero, if pagable storage is not configured.
+  optional uint64 paging_data_keys_out = 453;
+  optional uint64 paging_data_key_bytes_out = 454;
+  optional uint64 paging_data_keys_in = 455;
+  optional uint64 paging_data_key_bytes_in = 456;
+  // The same four as daemon-lifetime running totals, whose `out - in`
+  // approximates the bytes currently offloaded. Compare across rows, never sum.
+  optional uint64 paging_daemon_data_keys_out = 457;
+  optional uint64 paging_daemon_data_key_bytes_out = 458;
+  optional uint64 paging_daemon_data_keys_in = 459;
+  optional uint64 paging_daemon_data_key_bytes_in = 460;
 
   // Distribution of how many actions were executing concurrently during this
   // invocation (execution-only intervals; cache hits excluded), computed by the

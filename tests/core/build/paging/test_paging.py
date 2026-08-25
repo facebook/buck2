@@ -425,3 +425,77 @@ async def test_idle_page_out_rollout_config_allows_multiple_runs(buck: Buck) -> 
         second.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
     ), "expected the rollout config to allow a second idle page-out"
     await _wait_for_page_out_idle(buck)
+
+
+def _data_key_io(result: BuildResult, prefix: str) -> dict[str, int]:
+    # These tests configure pagable storage, so a missing field is a real failure.
+    record = result.invocation_record()
+    fields = {}
+    for suffix in (
+        "data_keys_out",
+        "data_key_bytes_out",
+        "data_keys_in",
+        "data_key_bytes_in",
+    ):
+        value = record.get(f"{prefix}{suffix}")
+        assert value is not None, (
+            f"`{prefix}{suffix}` missing from the invocation record"
+        )
+        fields[suffix] = int(value)
+    return fields
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_data_key_io_in_invocation_record(buck: Buck) -> None:
+    # Two views reach the record: `paging_data_key_*` is this command's own work,
+    # `paging_daemon_data_key_*` the daemon's running total.
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    await _build(buck)
+    # Settle the fixture's idle page-out so only this test moves the counters.
+    await _wait_for_page_out_idle(buck)
+    await buck.debug("hydration", "page-out")
+    assert await _paged_out_count(buck) > 0, "expected values to be paged out"
+
+    # The rebuild pages those values back in. Page-out happened in earlier
+    # commands, so only the running totals see bytes going out — which is exactly
+    # what makes the two views non-redundant.
+    rebuild = await _build(buck)
+    delta = _data_key_io(rebuild, "paging_")
+    cumulative = _data_key_io(rebuild, "paging_daemon_")
+
+    assert delta["data_keys_in"] > 0 and delta["data_key_bytes_in"] > 0, (
+        f"the rebuild should have read DataKeys back, got {delta}"
+    )
+    assert cumulative["data_key_bytes_out"] > 0, (
+        f"the earlier page-out should show in the running totals, got {cumulative}"
+    )
+    # DataKeys are content-addressed, so nothing can be read that was not written
+    # first: net offloaded bytes are never negative.
+    assert cumulative["data_key_bytes_out"] >= cumulative["data_key_bytes_in"], (
+        f"paged-in bytes exceed paged-out bytes in the running totals: {cumulative}"
+    )
+    # DataKey accounting is a superset of the per-DICE-value page-in bytes, which
+    # miss nested PagableArc sub-values. Both are deltas for this same command.
+    page_in_bytes = int(rebuild.invocation_record().get("page_in_bytes") or 0)
+    assert delta["data_key_bytes_in"] >= page_in_bytes, (
+        f"DataKey page-in bytes {delta['data_key_bytes_in']} should cover "
+        f"per-value {page_in_bytes}"
+    )
+
+    # Everything is resident again, so a no-op rebuild moves nothing. Its delta
+    # going to zero while the running totals hold steady is what distinguishes the
+    # two views — a cumulative value reported in the delta fields would not.
+    settled = await _build(buck)
+    assert _data_key_io(settled, "paging_") == {
+        "data_keys_out": 0,
+        "data_key_bytes_out": 0,
+        "data_keys_in": 0,
+        "data_key_bytes_in": 0,
+    }, "a build that pages nothing should report no DataKey I/O of its own"
+    settled_cumulative = _data_key_io(settled, "paging_daemon_")
+    assert all(
+        settled_cumulative[field] >= value for field, value in cumulative.items()
+    ), (
+        f"the running totals must carry the earlier commands' work forward, "
+        f"got {settled_cumulative} after {cumulative}"
+    )

@@ -346,6 +346,19 @@ pub struct StorageIoSnapshot {
     pub bytes_in: u64,
 }
 
+impl StorageIoSnapshot {
+    /// The I/O between `earlier` and this snapshot. Saturating: counters only grow
+    /// within one `DiceStorage`, so a regression means mismatched snapshots.
+    pub fn since(self, earlier: StorageIoSnapshot) -> StorageIoSnapshot {
+        StorageIoSnapshot {
+            data_keys_out: self.data_keys_out.saturating_sub(earlier.data_keys_out),
+            bytes_out: self.bytes_out.saturating_sub(earlier.bytes_out),
+            data_keys_in: self.data_keys_in.saturating_sub(earlier.data_keys_in),
+            bytes_in: self.bytes_in.saturating_sub(earlier.bytes_in),
+        }
+    }
+}
+
 /// Resident, paged-out, and page-out-candidate DICE node counts. `candidates` is the
 /// subset of `resident` never paged out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
