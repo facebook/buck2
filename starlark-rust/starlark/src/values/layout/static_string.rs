@@ -18,6 +18,7 @@
 //! Statically allocated strings.
 
 use std::mem;
+use std::ptr;
 use std::sync::atomic::AtomicU32;
 
 use crate::values::FrozenStringValue;
@@ -81,6 +82,10 @@ impl<const N: usize> StarlarkStrNRepr<N> {
 
     /// Obtain the [`FrozenValue`] for a [`StarlarkStrNRepr`].
     pub fn unpack(&'static self) -> FrozenValue {
+        // The value is reached by casting the tagged integer inside `FrozenValue` back to a
+        // pointer, and `StarlarkStr::get_hash` writes the memoised hash through it. Expose the
+        // whole object, because the header alone is neither large enough nor writable.
+        let _ = ptr::from_ref(self).expose_provenance();
         FrozenValue::new_ptr(&self.repr.header, true)
     }
 
