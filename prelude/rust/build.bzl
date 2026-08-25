@@ -1763,7 +1763,18 @@ def _rustc_invoke(
 
     # None defers the choice to the `buck2.default_allow_cache_upload` config; an
     # explicit False overrides it. Actions without a preference pass None.
-    if allow_cache_upload:
+    if incremental_enabled:
+        # Incremental compilation should not publish any action output to a shared cache:
+        # 1. the incremental compilation state is not useful for any other user. unfortunately,
+        #    there is no mechanism in buck2 that allows for uploading part of an action output
+        #    and not another.
+        # 2. even if there were, the rlib is not byte-for-byte reproducible
+        #    under `-Cincremental`, even if the source binary is unchanged, because of
+        #    https://github.com/rust-lang/rust/pull/139453.
+        # For additional context, please see this zulip conversation:
+        # https://rust-lang.zulipchat.com/#narrow/channel/131828-t-compiler/topic/Possible.20Reproducibility.20Bug.20in.20Soundness.20Fix.3F/with/616729102.
+        action_allow_cache_upload = False
+    elif allow_cache_upload:
         action_allow_cache_upload = True
     elif is_clippy:
         # Clippy never uploads.
