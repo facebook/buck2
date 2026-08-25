@@ -342,9 +342,10 @@ impl CommonBuildConfigurationOptions {
         }
     }
     pub fn host_arch_override(&self) -> HostArchOverride {
-        match &self.fake_arch {
-            Some(v) => *v,
-            None => HostArchOverride::Default,
+        match (&self.fake_arch, &self.fake_host) {
+            (Some(v), _) => *v,
+            (None, Some(HostPlatformOverride::MacOs)) => HostArchOverride::AArch64,
+            (None, _) => HostArchOverride::Default,
         }
     }
     pub fn host_xcode_version_override(&self) -> Option<String> {
