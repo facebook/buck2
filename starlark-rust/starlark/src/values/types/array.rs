@@ -67,7 +67,13 @@ pub(crate) struct Array<'v> {
     //     and iterator object holds the capacity.
     #[allocative(skip)]
     iter_count: UnsafeCell<u32>,
-    content: [Value<'v>; 0],
+    /// Elements, which continue past the end of this struct into the arena.
+    ///
+    /// `UnsafeCell` because the array is mutated through a shared reference: without it, any
+    /// pointer reaching the elements would be derived from a shared reference to freeze-able
+    /// memory, and writing through such a pointer is undefined behaviour.
+    #[allocative(skip)]
+    content: [UnsafeCell<Value<'v>>; 0],
 }
 
 impl<'v> Debug for Array<'v> {
@@ -160,21 +166,19 @@ impl<'v> Array<'v> {
     /// This is memory-safe, because we never overwrite content with
     /// invalid `Value` values.
     pub(crate) fn content(&self) -> &[Value<'v>] {
-        unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len()) }
+        unsafe { slice::from_raw_parts(self.ptr_at(0), self.len()) }
     }
 
     pub(crate) fn content_mut(&mut self) -> &mut [Value<'v>] {
-        unsafe { slice::from_raw_parts_mut(self.content.as_mut_ptr(), self.len()) }
+        unsafe { slice::from_raw_parts_mut(self.ptr_at(0), self.len()) }
     }
 
     /// Pointer to an element at given offset.
-    fn ptr_at(&self, index: usize) -> *const Value<'v> {
-        unsafe { self.content.as_ptr().add(index) }
-    }
-
-    /// Pointer to an element at given offset.
-    fn mut_ptr_at(&self, index: usize) -> *mut Value<'v> {
-        self.ptr_at(index) as *mut Value
+    ///
+    /// Goes through the `UnsafeCell` so the result is valid to write through, which the
+    /// mutating operations rely on since they only hold a shared reference.
+    fn ptr_at(&self, index: usize) -> *mut Value<'v> {
+        unsafe { UnsafeCell::raw_get(self.content.as_ptr().add(index)) }
     }
 
     unsafe fn get_unchecked(&self, index: usize) -> Value<'v> {
@@ -188,7 +192,7 @@ impl<'v> Array<'v> {
         debug_assert!(!self.iter_count_is_non_zero());
         assert!(index < self.len());
         unsafe {
-            *self.mut_ptr_at(index) = value;
+            *self.ptr_at(index) = value;
         }
     }
 
@@ -224,10 +228,10 @@ impl<'v> Array<'v> {
         unsafe {
             ptr::copy(
                 self.ptr_at(index),
-                self.mut_ptr_at(index + 1),
+                self.ptr_at(index + 1),
                 self.len() - index,
             );
-            *self.mut_ptr_at(index) = value;
+            *self.ptr_at(index) = value;
             *self.len.get() += 1;
         }
     }
@@ -235,7 +239,7 @@ impl<'v> Array<'v> {
     pub(crate) fn push(&self, value: Value<'v>) {
         assert!(self.remaining_capacity() >= 1);
         unsafe {
-            *self.mut_ptr_at(self.len()) = value;
+            *self.ptr_at(self.len()) = value;
             *self.len.get() += 1;
         }
     }
@@ -244,7 +248,7 @@ impl<'v> Array<'v> {
     pub(crate) fn double(&self) {
         assert!(self.remaining_capacity() >= self.len());
         unsafe {
-            ptr::copy_nonoverlapping(self.ptr_at(0), self.mut_ptr_at(self.len()), self.len());
+            ptr::copy_nonoverlapping(self.ptr_at(0), self.ptr_at(self.len()), self.len());
             *self.len.get() *= 2;
         }
     }
@@ -266,7 +270,7 @@ impl<'v> Array<'v> {
     pub(crate) fn extend_from_slice(&self, slice: &[Value<'v>]) {
         assert!(self.remaining_capacity() >= slice.len());
         unsafe {
-            ptr::copy_nonoverlapping(slice.as_ptr(), self.mut_ptr_at(self.len()), slice.len());
+            ptr::copy_nonoverlapping(slice.as_ptr(), self.ptr_at(self.len()), slice.len());
             *self.len.get() += slice.len() as u32;
         }
     }
@@ -285,7 +289,7 @@ impl<'v> Array<'v> {
             let r = self.get_unchecked(index);
             ptr::copy(
                 self.ptr_at(index + 1),
-                self.mut_ptr_at(index),
+                self.ptr_at(index),
                 self.len() - 1 - index,
             );
             *self.len.get() -= 1;
