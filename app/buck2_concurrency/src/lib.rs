@@ -251,12 +251,6 @@ impl ConcurrencyHandlerData {
 
         self.dice_status = DiceStatus::idle();
     }
-
-    fn notify_tainted(&self) {
-        for command in self.active_commands.values() {
-            command.notify_tainted()
-        }
-    }
 }
 
 /// Object-safe half of the event interface: what a *registered* command needs. Stored per command,
@@ -690,8 +684,17 @@ impl ConcurrencyHandler {
         }
 
         if tainted {
+            // Only the current command is notified, because there is never another one to tell.
+            // Taint is only set on the branch that installs a fresh `ActiveDice`, which requires
+            // `dice_status` to be `Available { active: None }`. That state implies an empty
+            // `active_commands`: the only route back to it is `transition_to_idle`, reachable only
+            // from `Cleanup`, and `transition_to_cleanup` refuses to enter `Cleanup` unless
+            // `has_no_active_commands()`. Relaxing that guard would make this assertion fire.
+            debug_assert!(
+                data.has_no_active_commands(),
+                "taint implies no registered commands; see transition_to_cleanup's guard"
+            );
             command_data.notify_tainted();
-            data.notify_tainted();
             data.previously_tainted = true;
         }
 
