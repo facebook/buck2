@@ -117,6 +117,10 @@ impl CommandEventSink for DispatcherEvents {
     fn trace_id(&self) -> &TraceId {
         self.0.trace_id()
     }
+
+    fn console_warning(&self, message: String) {
+        self.0.console_warning(message);
+    }
 }
 
 impl CommandEvents for DispatcherEvents {

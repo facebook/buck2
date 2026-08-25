@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Duration;
 
 use allocative::Allocative;
 use async_condvar_fair::Condvar;
@@ -62,6 +63,7 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::RecvError;
+use tokio::time::timeout;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -275,6 +277,8 @@ impl ConcurrencyHandlerData {
 pub trait CommandEventSink: Send + Sync + 'static {
     fn instant(&self, data: buck2_data::instant_event::Data);
     fn trace_id(&self) -> &TraceId;
+    /// Show a warning on the command's console.
+    fn console_warning(&self, message: String);
 }
 
 /// Full event interface, including span wrapping. Not object-safe, because the span method is
@@ -488,6 +492,14 @@ impl ConcurrencyHandler {
     // of unlocking this mutex, this mutex is actually essentially never held across awaits.
     // The async condvar will handle properly allowing under threads to proceed, avoiding
     // starvation.
+    /// How long a command may block before its user is first told what it is queued
+    /// behind. Short, so that a wedged blocking command is identifiable quickly.
+    const BLOCKED_COMMAND_FIRST_WARNING: Duration = Duration::from_secs(60);
+
+    /// How often to repeat the warning after the first one. Longer, so a legitimately
+    /// slow blocking command doesn't flood the console.
+    const BLOCKED_COMMAND_WARNING_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
     async fn wait_for_others<E: CommandEvents>(
         self: &Arc<Self>,
         updates: &dyn DiceUpdater,
@@ -668,12 +680,38 @@ impl ConcurrencyHandler {
                                     .span(
                                         DiceBlockConcurrentCommandStart {
                                             current_active_trace_id: trace_id.to_string(),
-                                            cmd_args: argv,
+                                            cmd_args: argv.clone(),
                                         }
                                         .into(),
                                         Box::pin(async {
+                                            // This wait can last arbitrarily long (and forever if
+                                            // the blocking command is wedged, e.g. on stale Eden
+                                            // handles), so periodically tell the user what they
+                                            // are actually waiting on.
+                                            let wait = self.cond.wait((data, &self.data));
+                                            pin_mut!(wait);
+                                            let mut waited = Duration::ZERO;
+                                            let mut next_warning =
+                                                Self::BLOCKED_COMMAND_FIRST_WARNING;
+                                            let data = loop {
+                                                match timeout(next_warning, &mut wait).await {
+                                                    Ok(data) => break data,
+                                                    Err(_elapsed) => {
+                                                        waited += next_warning;
+                                                        next_warning =
+                                                            Self::BLOCKED_COMMAND_WARNING_INTERVAL;
+                                                        events.console_warning(format!(
+                                                            "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
+                                                             If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
+                                                            format_elapsed(waited),
+                                                            argv,
+                                                            trace_id,
+                                                        ));
+                                                    }
+                                                }
+                                            };
                                             (
-                                                self.cond.wait((data, &self.data)).await,
+                                                data,
                                                 DiceBlockConcurrentCommandEnd {
                                                     ending_active_trace_id: trace_id.to_string(),
                                                 }
@@ -785,6 +823,16 @@ impl ConcurrencyHandler {
         }
 
         Ok(())
+    }
+}
+
+/// Formats an elapsed wait in whole minutes, or seconds while under a minute, so the
+/// message stays meaningful for any `BLOCKED_COMMAND_WARNING_INTERVAL`.
+fn format_elapsed(elapsed: Duration) -> String {
+    if elapsed.as_secs() < 60 {
+        format!("{}s", elapsed.as_secs())
+    } else {
+        format!("{}m", elapsed.as_secs() / 60)
     }
 }
 
@@ -963,6 +1011,10 @@ mod tests {
 
         fn trace_id(&self) -> &TraceId {
             &self.0.trace_id
+        }
+
+        fn console_warning(&self, _message: String) {
+            // User-facing chrome only; no test asserts on it.
         }
     }
 
