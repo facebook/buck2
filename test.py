@@ -223,7 +223,6 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
 RUSTC_ALLOW = {
     # These are not in the shared-with-buck2 lists because they only appear in third-party deps.
     # Normally cargo would suppress those, but we do vendored builds and so it doesn't.
-    "tail-call-track-caller",  # Listed by Rust 1.98, but gated behind `explicit_tail_calls`.
     "unfulfilled-lint-expectations",
     "unknown-lints",
     # This is not *actually* a  warning but rather a warning level.

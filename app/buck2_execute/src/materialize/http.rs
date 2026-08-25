@@ -165,7 +165,7 @@ enum HttpDownloadError {
         expected: String,
         obtained: String,
         url: String,
-        debug: Box<MaybeResponseDebugInfo>,
+        debug: MaybeResponseDebugInfo,
     },
 
     #[error(
@@ -176,7 +176,7 @@ enum HttpDownloadError {
         want: String,
         got: String,
         url: String,
-        debug: Box<MaybeResponseDebugInfo>,
+        debug: MaybeResponseDebugInfo,
     },
 
     #[error(transparent)]
@@ -387,12 +387,12 @@ async fn copy_and_hash(
         };
 
         if expected != obtained {
-            let debug = Box::new(MaybeResponseDebugInfo {
+            let debug = MaybeResponseDebugInfo {
                 bytes_seen: buff.bytes_seen,
                 buff: buff.to_utf8().map(ToOwned::to_owned),
                 head,
                 is_final: false,
-            });
+            };
 
             if is_vpnless {
                 return Err(HttpDownloadError::MaybeNotAllowedOnVpnless {
