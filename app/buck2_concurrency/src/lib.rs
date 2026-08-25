@@ -15,6 +15,7 @@
 //! concurrently. Otherwise, `buck2` will block waiting for other commands to finish.
 
 use std::collections::VecDeque;
+use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -194,9 +195,25 @@ enum DiceStatus {
     },
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Debug)]
 struct ActiveDice {
     version: DiceEquality,
+}
+
+/// Hand-written only to elide the cleanup future. Deriving would print
+/// `Shared { inner: .., waker_key: .. }`, which is noise in every log line and assertion failure.
+impl fmt::Debug for DiceStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DiceStatus::Available { active } => {
+                f.debug_struct("Available").field("active", active).finish()
+            }
+            DiceStatus::Cleanup { epoch, .. } => f
+                .debug_struct("Cleanup")
+                .field("epoch", epoch)
+                .finish_non_exhaustive(),
+        }
+    }
 }
 
 impl DiceStatus {
@@ -1042,6 +1059,37 @@ mod tests {
     /// telemetry needed is now the observer's concern, and tests use `NoTelemetry`.
     fn make_default_dice() -> Arc<Dice> {
         Dice::builder().build(DetectCycles::Enabled)
+    }
+
+    /// The `Debug` impl is hand-written, so it needs its own check — in particular that it elides
+    /// the cleanup future, which is the only reason it is not derived.
+    #[tokio::test]
+    async fn debug_reports_the_state_and_elides_the_cleanup_future() {
+        let idle = format!("{:?}", DiceStatus::idle());
+        assert!(idle.contains("Available"), "{idle}");
+        assert!(idle.contains("None"), "{idle}");
+
+        let dice = make_default_dice();
+        let active = format!(
+            "{:?}",
+            DiceStatus::active(dice.updater().commit().await.equality_token())
+        );
+        assert!(active.contains("Available"), "{active}");
+        assert!(active.contains("ActiveDice"), "{active}");
+
+        let cleanup = format!(
+            "{:?}",
+            DiceStatus::Cleanup {
+                future: futures::future::ready(()).boxed().shared(),
+                epoch: 4,
+            }
+        );
+        assert!(cleanup.contains("Cleanup"), "{cleanup}");
+        assert!(cleanup.contains('4'), "epoch should be visible: {cleanup}");
+        assert!(
+            !cleanup.contains("waker_key"),
+            "the cleanup future should be elided, not printed: {cleanup}"
+        );
     }
 
     /// Builder for a test call to [`ConcurrencyHandler::enter`], which otherwise takes twelve
