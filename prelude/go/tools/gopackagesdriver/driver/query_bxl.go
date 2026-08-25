@@ -31,7 +31,14 @@ const cgoGoTypesFileName = "_cgo_gotypes.go"
 const cgoGenFileNameExt = ".cgo1.go"
 
 // queryBXL is a wrapper around query that will use BXL to resolve the targets
-func queryBXL(ctx context.Context, req *packages.DriverRequest, bucker Bucker, platform Platform, patterns []string, files []string) (*packages.DriverResponse, error) {
+func queryBXL(
+	ctx context.Context,
+	req *packages.DriverRequest,
+	bucker Bucker,
+	platform Platform,
+	patterns []string,
+	files []string,
+) (*packages.DriverResponse, error) {
 	if len(patterns) == 0 && len(files) == 0 {
 		return &packages.DriverResponse{}, nil
 	}
