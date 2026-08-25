@@ -333,6 +333,7 @@ impl PageOutSerializationGate {
 }
 
 static PAGE_OUT_SERIALIZATION_GATE: Mutex<Option<Arc<PageOutSerializationGate>>> = Mutex::new(None);
+static PAGE_OUT_RACE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 struct InstalledPageOutSerializationGate(Arc<PageOutSerializationGate>);
 
@@ -743,6 +744,7 @@ async fn always_unequal_recompute_skips_old_value_page_in() -> anyhow::Result<()
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
+    let _test_lock = PAGE_OUT_RACE_TEST_LOCK.lock().await;
     let tmp = tempdir().expect("temporary directory should be created");
     let dice = make_dice(
         DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)
@@ -806,6 +808,68 @@ async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
         Err(error) => panic!("root computation task should finish: {error}"),
     };
     assert_eq!(value, 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[should_panic(expected = "assertion `left == right` failed")]
+async fn page_out_does_not_evict_a_recomputed_value() {
+    let _test_lock = PAGE_OUT_RACE_TEST_LOCK.lock().await;
+    let tmp = tempdir().expect("temporary directory should be created");
+    let dice = make_dice(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite).expect("storage should open"),
+    );
+
+    let mut updater = dice.updater();
+    updater
+        .changed_to([(DeferredInput(0), 1)])
+        .expect("input should be updated");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&PageOutRaceRoot)
+            .await
+            .expect("initial root should compute"),
+        1
+    );
+    drop(tx);
+    dice.wait_for_idle().await;
+
+    let serialization_gate = Arc::new(PageOutSerializationGate::new());
+    let _installed_gate = InstalledPageOutSerializationGate::install(serialization_gate.clone());
+    let page_out = tokio::spawn({
+        let dice = dice.clone();
+        async move { dice.page_out().await }
+    });
+    serialization_gate.wait_until_started().await;
+
+    let mut updater = dice.updater();
+    updater
+        .changed_to([(DeferredInput(0), 2)])
+        .expect("input should be updated");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&PageOutRaceRoot)
+            .await
+            .expect("updated root should compute"),
+        0
+    );
+    drop(tx);
+
+    // The serialized value is now stale. Its eviction must not replace the
+    // recomputed value with the old on-disk payload.
+    serialization_gate.release();
+    page_out
+        .await
+        .expect("page-out task should finish")
+        .expect("page-out should succeed");
+    assert_eq!(dice.pagable_status().await.paged_out_count, 0);
+
+    let tx = dice.updater().commit().await;
+    assert_eq!(
+        *tx.compute(&PageOutRaceRoot)
+            .await
+            .expect("root should remain available"),
+        0
+    );
 }
 
 /// Keys whose `value_serialize` returns `NoValueSerialize` should silently be skipped
