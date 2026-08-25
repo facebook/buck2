@@ -87,7 +87,7 @@ fbinit = "0.2"
 flate2 = { version = "1.0.33", features = ["rust_backend"], default-features = false }
 fnv = "1.0"
 form_urlencoded = "1.2.1"
-fs4 = { version = "0.12.0", features = ["sync"] }
+fs4 = { version = "0.13.1", features = ["sync"] }
 futures = { version = "0.3.34", features = ["async-await", "compat"] }
 futures-intrusive = "0.5.0"
 fxhash = "0.2.1"
