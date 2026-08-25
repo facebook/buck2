@@ -54,7 +54,10 @@ use crate::dice::StorageIoSnapshot;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
+use crate::metrics::AllocWindow;
 use crate::metrics::PageInKeyTypeMetrics;
+use crate::metrics::PagingMemoryMetrics;
+use crate::metrics::PagingMemorySnapshot;
 use crate::value::DiceValidValue;
 
 /// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
@@ -138,6 +141,9 @@ pub struct DiceStorage {
     /// `store_data` / `fetch_data` is tallied.
     #[allocative(skip)]
     io_metrics: Arc<StorageIoMetrics>,
+    /// Shared with the core state thread, which measures the page-out side.
+    #[allocative(skip)]
+    paging_memory: Arc<PagingMemoryMetrics>,
     /// On-disk root of the store, for measuring its size. `None` when constructed
     /// without a path (`new`, e.g. tests), which never has an on-disk footprint to
     /// measure. `Arc<Path>` keeps `DiceStorage` cheap to `dupe`.
@@ -158,6 +164,7 @@ impl DiceStorage {
             storage: Arc::new(MeteredPagableStorage::new(storage, io_metrics.dupe())),
             page_in_metrics: Arc::new(PageInMetrics::default()),
             io_metrics,
+            paging_memory: Arc::new(PagingMemoryMetrics::default()),
             path: None,
             cached_db_size_bytes: Arc::new(ArcSwap::new(Arc::new(Ok(0)))),
         }
@@ -181,6 +188,17 @@ impl DiceStorage {
     /// was created.
     pub(crate) fn storage_io_snapshot(&self) -> StorageIoSnapshot {
         self.io_metrics.snapshot()
+    }
+
+    /// Shared with the core state thread so it can charge the memory that
+    /// evicting values actually releases.
+    pub(crate) fn paging_memory_metrics(&self) -> Arc<PagingMemoryMetrics> {
+        self.paging_memory.dupe()
+    }
+
+    /// Cumulative memory paging has moved, measured from the allocator.
+    pub(crate) fn paging_memory_snapshot(&self) -> Option<PagingMemorySnapshot> {
+        self.paging_memory.snapshot()
     }
 
     /// The last measured on-disk store size in bytes, or `None` if this storage has
@@ -425,14 +443,31 @@ impl DiceStorage {
         // pagable_deserialize_value lazily fetches nested `PagableArc` sub-values,
         // so deser_us also covers that nested I/O, not just CPU.
         let deser_start = Instant::now();
-        let handle = self.storage_handle();
-        let mut deserializer = handle.root_deserializer(data_key, &data);
-        let arc = match key_dyn {
-            DiceKeyErased::Key(k) => k.pagable_deserialize_value(&mut deserializer)?,
-            DiceKeyErased::Projection(p) => {
-                p.proj().pagable_deserialize_value(&mut deserializer)?
+        // Rebuilding the value is where page-in adds memory, and it happens on this
+        // thread. No await inside the window, so tokio cannot move us to another
+        // thread mid-measurement and read a different thread's counters. An arc
+        // reused from the cache allocates nothing and so costs nothing here.
+        //
+        // The handle and deserializer are scoped so they are dropped before the
+        // reading: they are freed right after, but only what is still live at the
+        // measurement counts as restored, so leaving them alive would charge every
+        // page-in for them.
+        //
+        // A `?` below skips the recording, which is correct: a page-in that fails
+        // hands back no value, so whatever it allocated is dropped rather than
+        // retained, and charging it would count memory paging is not holding.
+        let window = AllocWindow::open();
+        let arc = {
+            let handle = self.storage_handle();
+            let mut deserializer = handle.root_deserializer(data_key, &data);
+            match key_dyn {
+                DiceKeyErased::Key(k) => k.pagable_deserialize_value(&mut deserializer)?,
+                DiceKeyErased::Projection(p) => {
+                    p.proj().pagable_deserialize_value(&mut deserializer)?
+                }
             }
         };
+        self.paging_memory.record_restored(window.net_allocated());
         let deser_us = deser_start.elapsed().as_micros() as u64;
 
         self.page_in_metrics

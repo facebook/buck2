@@ -355,6 +355,24 @@ impl DaemonCommand {
         // https://github.com/jemalloc/jemalloc/blob/dev/TUNING.md#notable-runtime-options-for-performance-tuning
         memory::enable_background_threads()?;
 
+        // Lets DICE attribute the memory paging actually moves, by reading the
+        // allocator's per-thread counters around the work that frees and rebuilds
+        // values. Without a reader installed the totals stay zero.
+        //
+        // Not on Windows: `mem_frag` reaches jemalloc through bare
+        // `__attribute__((weak))` symbols, which need linker support it only has
+        // on ELF and Mach-O. Linking it into a Windows build makes the binary
+        // fault on startup, so the BUCK dep is gated to match this `cfg`.
+        //
+        // The runtime check is still needed where jemalloc is simply not the
+        // allocator, such as `mode/dev`. It is the precondition itself rather
+        // than a proxy for one: folly establishes it by reading
+        // `thread.allocatedp`, the very counter the reader goes on to use.
+        #[cfg(all(fbcode_build, not(windows)))]
+        if memory::is_using_jemalloc() {
+            dice::set_thread_alloc_counters(mem_frag::thread_alloc_counters);
+        }
+
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         if cfg!(target_os = "linux") {

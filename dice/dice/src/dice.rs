@@ -29,6 +29,7 @@ use crate::introspection::graph::GraphIntrospectable;
 use crate::key_index::DiceKeyIndex;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
+use crate::metrics::PagingMemorySnapshot;
 use crate::storage::DiceStorage;
 use crate::updater::TransactionUpdater;
 
@@ -84,7 +85,11 @@ impl DiceDataBuilder {
 
 impl Dice {
     pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> StdArc<Self> {
-        let state_handle = init_state();
+        let state_handle = init_state(
+            pagable_storage
+                .as_ref()
+                .map(|storage| storage.paging_memory_metrics()),
+        );
 
         StdArc::new(Dice {
             key_index: Default::default(),
@@ -130,6 +135,18 @@ impl Dice {
         self.pagable_storage
             .as_ref()
             .map(|storage| storage.storage_io_snapshot())
+    }
+
+    /// Cumulative memory paging has moved since daemon start, measured from the
+    /// allocator rather than inferred from serialized sizes.
+    ///
+    /// `None` if pagable storage is not configured, or if the allocator counters
+    /// cannot be read — without them the totals would sit at zero, which reads as
+    /// "paging moved nothing" rather than "nothing was measured".
+    pub fn paging_memory_metrics(&self) -> Option<PagingMemorySnapshot> {
+        self.pagable_storage
+            .as_ref()
+            .and_then(|storage| storage.paging_memory_snapshot())
     }
 
     /// Last measured on-disk size in bytes of the pagable store, or `None` if

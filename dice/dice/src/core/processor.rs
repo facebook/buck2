@@ -16,6 +16,7 @@ use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
 use crate::epoch::evaluator::VersionEpochState;
+use crate::metrics::PagingMemoryMetrics;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -26,9 +27,9 @@ pub(super) struct StateProcessor {
 }
 
 impl StateProcessor {
-    pub(super) fn spawn() -> CoreStateHandle {
+    pub(super) fn spawn(paging_memory: Option<Arc<PagingMemoryMetrics>>) -> CoreStateHandle {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let state = CoreState::new();
+        let state = CoreState::new(paging_memory);
         let counters = Arc::new(QueueCounters::new());
 
         let processor_counters = counters.clone();
@@ -159,7 +160,8 @@ impl StateProcessor {
                 use std::sync::Arc;
 
                 let (complete_tx, complete_rx) = tokio::sync::oneshot::channel();
-                let state = std::mem::replace(&mut self.state, CoreState::new());
+                // Placeholder, swapped back below, so it needs no metrics.
+                let state = std::mem::replace(&mut self.state, CoreState::new(None));
                 let arc_state = Arc::new(state);
                 drop(resp.send((Arc::clone(&arc_state), complete_tx)));
                 drop(complete_rx.blocking_recv());

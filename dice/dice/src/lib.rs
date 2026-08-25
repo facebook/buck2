@@ -261,6 +261,8 @@ pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::key::DiceKeyDyn;
 pub use crate::key::DiceProjectionDyn;
+pub use crate::metrics::PagingMemorySnapshot;
+pub use crate::metrics::set_thread_alloc_counters;
 pub use crate::opaque::OpaqueValue;
 pub use crate::storage::DiceStorage;
 pub use crate::storage::PagableStorageBackend;

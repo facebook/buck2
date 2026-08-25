@@ -80,6 +80,12 @@ mod imp {
         memory::is_using_jemalloc()
     }
 
+    /// Whether jemalloc is the allocator in this build. False on platforms it is
+    /// not used on, notably Windows, even though those are `fbcode_build` too.
+    pub fn is_using_jemalloc() -> bool {
+        memory::is_using_jemalloc()
+    }
+
     /// Force jemalloc to return dirty and muzzy pages to the OS immediately.
     pub fn purge_jemalloc() -> buck2_error::Result<()> {
         if !memory::is_using_jemalloc() {
@@ -118,6 +124,10 @@ mod imp {
         false
     }
 
+    pub fn is_using_jemalloc() -> bool {
+        false
+    }
+
     pub fn purge_jemalloc() -> buck2_error::Result<()> {
         Ok(())
     }
@@ -126,5 +136,6 @@ mod imp {
 pub use imp::allocator_stats;
 pub use imp::enable_background_threads;
 pub use imp::has_jemalloc_stats;
+pub use imp::is_using_jemalloc;
 pub use imp::purge_jemalloc;
 pub use imp::write_heap_to_file;

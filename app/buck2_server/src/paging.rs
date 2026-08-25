@@ -95,6 +95,7 @@ impl PagingManager {
         // The delta is this command's work, matching the `page_in_*` fields beside
         // it; the cumulative totals are a daemon-wide gauge.
         let cumulative = dice.storage_io_metrics();
+        let memory = dice.paging_memory_metrics();
         let delta = cumulative.map(|c| c.since(self.data_key_io_baseline.unwrap_or(c)));
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
@@ -114,6 +115,8 @@ impl PagingManager {
             paging_daemon_data_key_bytes_out: cumulative.map(|c| c.bytes_out),
             paging_daemon_data_keys_in: cumulative.map(|c| c.data_keys_in),
             paging_daemon_data_key_bytes_in: cumulative.map(|c| c.bytes_in),
+            paging_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
+            paging_memory_restored_bytes: memory.map(|m| m.bytes_restored),
         }
     }
 
@@ -456,6 +459,7 @@ async fn page_out_on_idle(
             u64::try_from(starlark_serialization_state_retained_bytes(storage)).ok()
         });
     let daemon_io = dice.storage_io_metrics();
+    let memory = dice.paging_memory_metrics();
     let io_delta = daemon_io
         .zip(io_before)
         .map(|(after, before)| after.since(before));
@@ -496,6 +500,8 @@ async fn page_out_on_idle(
         data_key_bytes_out: io_delta.map(|d| d.bytes_out),
         data_keys_in: io_delta.map(|d| d.data_keys_in),
         data_key_bytes_in: io_delta.map(|d| d.bytes_in),
+        daemon_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
+        daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
     });
     result.map(|_| ())
 }

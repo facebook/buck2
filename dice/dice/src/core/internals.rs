@@ -30,7 +30,9 @@ use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
+use crate::metrics::AllocWindow;
 use crate::metrics::Metrics;
+use crate::metrics::PagingMemoryMetrics;
 use crate::updater::ChangeType;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
@@ -43,6 +45,10 @@ pub(super) struct CoreState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
     pending_termination_tasks: Vec<DiceTask>,
+    /// Shared with `DiceStorage`, which measures the page-in side. `None` when
+    /// pagable storage is not configured and there is nothing to account for.
+    #[allocative(skip)]
+    paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>,
 }
 
 /// `CoreState::pagable_status` result. Holds raw `DiceKey`s; the caller resolves
@@ -58,11 +64,12 @@ pub(crate) struct PagableStatusRaw {
 }
 
 impl CoreState {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>) -> Self {
         Self {
             version_tracker: VersionTracker::new(),
             graph: VersionedGraph::new(),
             pending_termination_tasks: Vec::new(),
+            paging_memory,
         }
     }
 
@@ -148,12 +155,20 @@ impl CoreState {
     /// Evict in-memory values for the given nodes, marking them as paged out
     /// with their `DataKey`s. Skips nodes that are missing, vacant, or injected.
     pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, DataKey)>) {
+        // The graph holds the last reference to each value — `page_out_value`
+        // consumed and dropped the worker's copy before this eviction was even
+        // queued — so the drops below are where the memory is actually released,
+        // and jemalloc charges a free to the thread performing it.
+        let window = AllocWindow::open();
         for (key, data_key) in keys {
             if let Some(mut node) = self.graph.node_mut(key) {
                 if let VersionedGraphNode::Occupied(occ) = &mut *node {
                     occ.set_paged_out(data_key);
                 }
             }
+        }
+        if let Some(metrics) = &self.paging_memory {
+            metrics.record_offloaded(window.net_freed());
         }
     }
 
@@ -318,7 +333,7 @@ mod tests {
 
     #[test]
     fn update_state_gets_next_version() {
-        let mut core = CoreState::new();
+        let mut core = CoreState::new(None);
 
         assert_eq!(
             core.update_state([(
@@ -341,7 +356,7 @@ mod tests {
 
     #[test]
     fn state_ctx_at_version() {
-        let mut core = CoreState::new();
+        let mut core = CoreState::new(None);
         let v = VersionNumber::new(1);
 
         let (epoch, ctx) = core.ctx_at_version(v);
@@ -367,7 +382,7 @@ mod tests {
 
     #[test]
     fn non_pageable_nodes_are_not_page_out_candidates() {
-        let mut core = CoreState::new();
+        let mut core = CoreState::new(None);
         let v = VersionNumber::FIRST;
         let (epoch, _ctx) = core.ctx_at_version(v);
 
@@ -486,7 +501,7 @@ mod tests {
 
     #[tokio::test]
     async fn state_tracks_pending_cancellation() {
-        let mut core = CoreState::new();
+        let mut core = CoreState::new(None);
         let v = VersionNumber::new(1);
 
         let (_epoch, cache) = core.ctx_at_version(v);

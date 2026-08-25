@@ -41,6 +41,7 @@ use crate::epoch::evaluator::VersionEpochState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
+use crate::metrics::PagingMemoryMetrics;
 use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::value::DiceComputedValue;
@@ -352,8 +353,10 @@ impl Allocative for CoreStateHandle {
 impl Dupe for CoreStateHandle {}
 
 /// Start processing state
-pub(crate) fn init_state() -> CoreStateHandle {
-    StateProcessor::spawn()
+pub(crate) fn init_state(
+    paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>,
+) -> CoreStateHandle {
+    StateProcessor::spawn(paging_memory)
 }
 
 /// Core state is accessed via message passing to a single threaded processor

@@ -1332,6 +1332,14 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_daemon_data_key_bytes_in),
+            paging_memory_offloaded_bytes: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_memory_offloaded_bytes),
+            paging_memory_restored_bytes: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_memory_restored_bytes),
             repo_path: self.repo_path.take(),
         };
 

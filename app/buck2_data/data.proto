@@ -246,6 +246,15 @@ message PageOutSummary {
   optional uint64 data_key_bytes_out = 19;
   optional uint64 data_keys_in = 20;
   optional uint64 data_key_bytes_in = 21;
+  /// Cumulative memory paging has moved since daemon start, measured from the
+  /// allocator where values are actually dropped and rebuilt rather than
+  /// inferred from serialized sizes. An arc still shared with a resident value
+  /// is never freed and so contributes nothing, which the byte counts above
+  /// cannot express. `offloaded - restored` is an upper bound on what paging is
+  /// currently saving: it does not subtract values that were paged out and
+  /// later invalidated, whose memory would have been reclaimed regardless.
+  optional int64 daemon_memory_offloaded_bytes = 22;
+  optional int64 daemon_memory_restored_bytes = 23;
 }
 
 // An event that represents a single point in time.
@@ -572,6 +581,11 @@ message PagingSummary {
   optional uint64 paging_daemon_data_key_bytes_out = 12;
   optional uint64 paging_daemon_data_keys_in = 13;
   optional uint64 paging_daemon_data_key_bytes_in = 14;
+  // Cumulative memory paging has moved since daemon start, measured from the
+  // allocator where values are dropped and rebuilt. `offloaded - restored` is
+  // an upper bound on what paging is currently saving.
+  optional int64 paging_memory_offloaded_bytes = 15;
+  optional int64 paging_memory_restored_bytes = 16;
 }
 
 message RemoteExecutionSessionCreated {
@@ -3221,6 +3235,12 @@ message InvocationRecord {
   optional uint64 paging_daemon_data_key_bytes_out = 458;
   optional uint64 paging_daemon_data_keys_in = 459;
   optional uint64 paging_daemon_data_key_bytes_in = 460;
+  // Cumulative memory paging has moved since daemon start, measured from the
+  // allocator at the points values are actually dropped and rebuilt rather than
+  // inferred from serialized sizes. `offloaded - restored` is an upper bound on
+  // the memory paging is currently saving.
+  optional int64 paging_memory_offloaded_bytes = 461;
+  optional int64 paging_memory_restored_bytes = 462;
 
   // Distribution of how many actions were executing concurrently during this
   // invocation (execution-only intervals; cache hits excluded), computed by the
