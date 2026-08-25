@@ -148,7 +148,8 @@ impl CommandId {
 struct CommandData {
     trace_id: TraceId,
     argv: Vec<String>,
-    dispatcher: EventDispatcher,
+    #[allocative(skip)]
+    events: Arc<dyn CommandEventSink>,
     preemption_setting: PreemptibleWhen,
     #[allocative(skip)]
     preempt: Option<oneshot::Sender<()>>,
@@ -165,15 +166,21 @@ impl CommandData {
     }
 
     fn notify_tainted(&self) {
-        self.dispatcher.instant_event(buck2_data::TagEvent {
-            tags: vec!["concurrency-tainted".to_owned()],
-        });
+        self.events.instant(
+            buck2_data::TagEvent {
+                tags: vec!["concurrency-tainted".to_owned()],
+            }
+            .into(),
+        );
     }
 
     fn notify_previously_tainted(&self) {
-        self.dispatcher.instant_event(buck2_data::TagEvent {
-            tags: vec!["concurrency-previously-tainted".to_owned()],
-        });
+        self.events.instant(
+            buck2_data::TagEvent {
+                tags: vec!["concurrency-previously-tainted".to_owned()],
+            }
+            .into(),
+        );
     }
 }
 
@@ -250,6 +257,53 @@ impl ConcurrencyHandlerData {
         for command in self.active_commands.values() {
             command.notify_tainted()
         }
+    }
+}
+
+/// Object-safe half of the event interface: what a *registered* command needs. Stored per command,
+/// so it must not be generic.
+pub trait CommandEventSink: Send + Sync + 'static {
+    fn instant(&self, data: buck2_data::instant_event::Data);
+    fn trace_id(&self) -> &TraceId;
+}
+
+/// Full event interface, including span wrapping. Not object-safe, because the span method is
+/// generic over the wrapped future's output, so callers take it as a type parameter.
+///
+/// `span` must preserve span-entering semantics: spans created inside `fut` parent to this span,
+/// and poll time accumulates into the end event. Delegating to an implementation built on
+/// `EventDispatcher::span_async` does this; starting a span, awaiting, then ending it does not.
+pub trait CommandEvents: CommandEventSink + Dupe {
+    fn span<'a, R: Send + 'a>(
+        &self,
+        start: buck2_data::span_start_event::Data,
+        fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
+    ) -> BoxFuture<'a, R>;
+
+    fn sink(&self) -> Arc<dyn CommandEventSink>;
+}
+
+impl CommandEventSink for EventDispatcher {
+    fn instant(&self, data: buck2_data::instant_event::Data) {
+        EventDispatcher::instant_event(self, data);
+    }
+
+    fn trace_id(&self) -> &TraceId {
+        EventDispatcher::trace_id(self)
+    }
+}
+
+impl CommandEvents for EventDispatcher {
+    fn span<'a, R: Send + 'a>(
+        &self,
+        start: buck2_data::span_start_event::Data,
+        fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
+    ) -> BoxFuture<'a, R> {
+        Box::pin(self.span_async(start, fut))
+    }
+
+    fn sink(&self) -> Arc<dyn CommandEventSink> {
+        Arc::new(self.dupe())
     }
 }
 
@@ -361,9 +415,9 @@ impl ConcurrencyHandler {
 
     /// Enters a critical section that requires concurrent command synchronization,
     /// and runs the given `exec` function in the critical section.
-    pub async fn enter<F, Fut, R>(
+    pub async fn enter<F, Fut, R, E>(
         self: &Arc<Self>,
-        event_dispatcher: EventDispatcher,
+        events: E,
         updates: &dyn DiceUpdater,
         exec: F,
         is_nested_invocation: bool,
@@ -378,13 +432,15 @@ impl ConcurrencyHandler {
     where
         F: FnOnce(DiceTransaction, EarlyCommandTimingBuilder) -> Fut,
         Fut: Future<Output = R> + Send,
+        E: CommandEvents,
     {
-        let _exclusive_command_guard = event_dispatcher
-            .span_async(
+        let _exclusive_command_guard = events
+            .span(
                 ExclusiveCommandWaitStart {
                     command_name: self.exclusive_command_lock.owning_command(),
-                },
-                {
+                }
+                .into(),
+                Box::pin({
                     let early_command_timing = &mut early_command_timing;
                     async move {
                         let guard = if let Some(cmd_name) = exclusive_cmd {
@@ -396,25 +452,25 @@ impl ConcurrencyHandler {
                         } else {
                             self.exclusive_command_lock.shared_lock().await
                         };
-                        (guard, ExclusiveCommandWaitEnd {})
+                        (guard, ExclusiveCommandWaitEnd {}.into())
                     }
-                },
+                }),
             )
             .await;
 
-        let events = event_dispatcher.dupe();
-        let (_guard, transaction, preempt_receiver) = event_dispatcher
-            .span_async(DiceSynchronizeSectionStart {}, {
+        let inner_events = events.dupe();
+        let (_guard, transaction, preempt_receiver) = events
+            .span(DiceSynchronizeSectionStart {}.into(), {
                 let early_command_timing = &mut early_command_timing;
 
-                async move {
+                Box::pin(async move {
                     (
                         cancellations
                             .critical_section(|| {
                                 self.wait_for_others(
                                     updates,
                                     early_command_timing,
-                                    events,
+                                    inner_events,
                                     is_nested_invocation,
                                     sanitized_argv,
                                     preemptible,
@@ -423,9 +479,9 @@ impl ConcurrencyHandler {
                                 )
                             })
                             .await,
-                        DiceSynchronizeSectionEnd {},
+                        DiceSynchronizeSectionEnd {}.into(),
                     )
-                }
+                })
             })
             .await?;
 
@@ -436,7 +492,7 @@ impl ConcurrencyHandler {
         match future::select(result, preempt_receiver).await {
             Either::Left((result, _)) => Ok(result),
             Either::Right((_preemption, _)) => {
-                event_dispatcher.instant_event(CommandPreempted {});
+                events.instant(CommandPreempted {}.into());
                 Err(ConcurrencyHandlerError::ExitOnPreemption.into())
             }
         }
@@ -446,11 +502,11 @@ impl ConcurrencyHandler {
     // of unlocking this mutex, this mutex is actually essentially never held across awaits.
     // The async condvar will handle properly allowing under threads to proceed, avoiding
     // starvation.
-    async fn wait_for_others(
+    async fn wait_for_others<E: CommandEvents>(
         self: &Arc<Self>,
         updates: &dyn DiceUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
-        event_dispatcher: EventDispatcher,
+        events: E,
         is_nested_invocation: bool,
         sanitized_argv: Vec<String>,
         preemptible: PreemptibleWhen,
@@ -459,12 +515,12 @@ impl ConcurrencyHandler {
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
-        impl Future<Output = Result<(), RecvError>> + use<>,
+        impl Future<Output = Result<(), RecvError>> + use<E>,
     )> {
         // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
         #![allow(clippy::await_holding_invalid_type)]
 
-        let trace = event_dispatcher.trace_id().dupe();
+        let trace = events.trace_id().dupe();
 
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
         // FIXME(JakobDegen): Clippy points out that tracing won't know when this future gets
@@ -480,7 +536,7 @@ impl ConcurrencyHandler {
         let command_data = CommandData {
             trace_id: trace.dupe(),
             argv: sanitized_argv,
-            dispatcher: event_dispatcher.dupe(),
+            events: events.sink(),
             preemption_setting: preemptible,
             preempt: Some(preempt_sender),
         };
@@ -494,10 +550,12 @@ impl ConcurrencyHandler {
 
                     // block while dice cleans up
                     drop(data);
-                    event_dispatcher
-                        .span_async(
-                            buck2_data::DiceCleanupStart { epoch: epoch as _ },
-                            async move { (future.await, buck2_data::DiceCleanupEnd {}) },
+                    events
+                        .span(
+                            buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
+                            Box::pin(async move {
+                                (future.await, buck2_data::DiceCleanupEnd {}.into())
+                            }),
                         )
                         .await;
                     data = self.data.lock().await;
@@ -519,18 +577,21 @@ impl ConcurrencyHandler {
                         let (transaction, user_data) =
                             updates.update(updater, early_timings).await?;
 
-                        let transaction = event_dispatcher
-                            .span_async(buck2_data::DiceStateUpdateStart {}, async {
-                                (
-                                    async {
-                                        let transaction =
-                                            transaction.commit_with_data(user_data).await;
-                                        buck2_error::Ok(transaction)
-                                    }
-                                    .await,
-                                    buck2_data::DiceStateUpdateEnd {},
-                                )
-                            })
+                        let transaction = events
+                            .span(
+                                buck2_data::DiceStateUpdateStart {}.into(),
+                                Box::pin(async {
+                                    (
+                                        async {
+                                            let transaction =
+                                                transaction.commit_with_data(user_data).await;
+                                            buck2_error::Ok(transaction)
+                                        }
+                                        .await,
+                                        buck2_data::DiceStateUpdateEnd {}.into(),
+                                    )
+                                }),
+                            )
                             .await?;
                         buck2_error::Ok(transaction)
                     }
@@ -567,9 +628,12 @@ impl ConcurrencyHandler {
 
                         tracing::debug!("ActiveDice has an active_transaction");
 
-                        event_dispatcher.instant_event(DiceEqualityCheck {
-                            is_equal: is_same_state,
-                        });
+                        events.instant(
+                            DiceEqualityCheck {
+                                is_equal: is_same_state,
+                            }
+                            .into(),
+                        );
 
                         let bypass_semaphore =
                             self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
@@ -614,27 +678,29 @@ impl ConcurrencyHandler {
                                 let trace_id = active_command.trace_id.dupe();
                                 let argv = active_command.format_argv();
 
-                                data = event_dispatcher
-                                    .span_async(
+                                data = events
+                                    .span(
                                         DiceBlockConcurrentCommandStart {
                                             current_active_trace_id: trace_id.to_string(),
                                             cmd_args: argv,
-                                        },
-                                        async {
+                                        }
+                                        .into(),
+                                        Box::pin(async {
                                             (
                                                 self.cond.wait((data, &self.data)).await,
                                                 DiceBlockConcurrentCommandEnd {
                                                     ending_active_trace_id: trace_id.to_string(),
-                                                },
+                                                }
+                                                .into(),
                                             )
-                                        },
+                                        }),
                                     )
                                     .await;
                             }
                         }
                     } else {
                         tracing::debug!("ActiveDice has no active_transaction");
-                        event_dispatcher.instant_event(NoActiveDiceState {});
+                        events.instant(NoActiveDiceState {}.into());
                         data.dice_status = DiceStatus::active(transaction.equality_token());
                         break (transaction, !dice_was_idle);
                     }
