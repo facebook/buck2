@@ -605,11 +605,18 @@ fn env_entries(_env: &[(OsString, OsString)]) -> Vec<EnvironmentEntry> {
 }
 
 impl WorkerHandle {
+    /// Send a command to the worker and wait for its response.
+    ///
+    /// Returns early, without a response, if `liveliness_observer` reports the
+    /// command is no longer alive (cancellation, or `--overall-timeout`
+    /// expiring). The worker is not told to stop and may still be running the
+    /// command.
     pub async fn exec_cmd(
         &self,
         args: &[String],
         env: Vec<(OsString, OsString)>,
         timeout: Option<Duration>,
+        liveliness_observer: &dyn LivelinessObserver,
     ) -> CommandResult {
         tracing::info!(
             "Sending worker command:\nExecuteCommand {{ argv: {:?}, env: {:?} }}\n",
@@ -627,6 +634,13 @@ impl WorkerHandle {
 
         let mut client = self.client.clone();
         let (status, stdout, stderr) = tokio::select! {
+            // Ordered most-informative first, because the default random order
+            // would sometimes discard the better outcome. A real response beats
+            // everything; worker death beats cancellation because `SpawnFailed`
+            // names the worker's stdout/stderr logs and says *why* the command
+            // ended, where `Cancelled` only says that it did.
+            biased;
+
             response = client.execute(request) => {
                 match response {
                     Ok(exec_response) => {
@@ -670,6 +684,9 @@ impl WorkerHandle {
                     vec![],
                 )
             }
+            _ = liveliness_observer.while_alive() => {
+                (GatherOutputStatus::Cancelled, vec![], vec![])
+            }
         };
 
         CommandResult {
@@ -702,10 +719,10 @@ mod tests {
 
     use super::WorkerClient;
 
-    struct MockWorker {
-        attempts: Arc<AtomicU32>,
-        fail_until: u32,
-        fail_code: tonic::Code,
+    pub(super) struct MockWorker {
+        pub(super) attempts: Arc<AtomicU32>,
+        pub(super) fail_until: u32,
+        pub(super) fail_code: tonic::Code,
     }
 
     #[tonic::async_trait]
@@ -734,8 +751,9 @@ mod tests {
         }
     }
 
-    async fn start_mock_server(
-        worker: MockWorker,
+    /// Serve `worker` on a loopback port and return a client connected to it.
+    pub(super) async fn start_server<W: Worker + 'static>(
+        worker: W,
     ) -> (
         worker_client::WorkerClient<Channel>,
         tokio::task::JoinHandle<()>,
@@ -766,7 +784,7 @@ mod tests {
     #[tokio::test]
     async fn test_retry_succeeds_immediately() {
         let attempts = Arc::new(AtomicU32::new(0));
-        let (mut client, _server) = start_mock_server(MockWorker {
+        let (mut client, _server) = start_server(MockWorker {
             attempts: attempts.clone(),
             fail_until: 0,
             fail_code: tonic::Code::Unavailable,
@@ -780,7 +798,7 @@ mod tests {
     #[tokio::test]
     async fn test_retry_recovers_after_transient_unavailable() {
         let attempts = Arc::new(AtomicU32::new(0));
-        let (mut client, _server) = start_mock_server(MockWorker {
+        let (mut client, _server) = start_server(MockWorker {
             attempts: attempts.clone(),
             fail_until: 1,
             fail_code: tonic::Code::Unavailable,
@@ -794,7 +812,7 @@ mod tests {
     #[tokio::test]
     async fn test_retry_does_not_retry_non_unavailable_errors() {
         let attempts = Arc::new(AtomicU32::new(0));
-        let (mut client, _server) = start_mock_server(MockWorker {
+        let (mut client, _server) = start_server(MockWorker {
             attempts: attempts.clone(),
             fail_until: 100,
             fail_code: tonic::Code::Internal,
@@ -812,7 +830,7 @@ mod tests {
     #[tokio::test]
     async fn test_retry_gives_up_after_max_retries() {
         let attempts = Arc::new(AtomicU32::new(0));
-        let (mut client, _server) = start_mock_server(MockWorker {
+        let (mut client, _server) = start_server(MockWorker {
             attempts: attempts.clone(),
             fail_until: 100,
             fail_code: tonic::Code::Unavailable,
@@ -824,6 +842,132 @@ mod tests {
             attempts.load(Ordering::SeqCst),
             6,
             "initial attempt + 5 retries"
+        );
+    }
+}
+
+/// Tests that drive a [`WorkerHandle`].
+///
+/// Unix-only, because workers are: `spawn_via_forkserver` and `env_entries` are
+/// both `unreachable!()` off unix, and `AbsNormPathBuf` rejects the `/tmp` paths
+/// these use. Kept apart from `tests` so neither needs per-item `cfg` attributes.
+#[cfg(all(test, unix))]
+mod worker_handle_tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicU32;
+
+    use buck2_common::liveliness_observer::LivelinessGuard;
+    use buck2_execute_local::GatherOutputStatus;
+    use buck2_execute_local::StdRedirectPaths;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_worker_proto::ExecuteCommand;
+    use buck2_worker_proto::ExecuteEvent;
+    use buck2_worker_proto::ExecuteResponse;
+    use buck2_worker_proto::worker_client;
+    use buck2_worker_proto::worker_server::Worker;
+    use tonic::Request;
+    use tonic::Response;
+    use tonic::Status;
+    use tonic::transport::Channel;
+
+    use super::WorkerClient;
+    use super::WorkerHandle;
+    use super::tests::MockWorker;
+    use super::tests::start_server;
+
+    /// A worker that accepts the request and then never answers — the shape that
+    /// pins a buck2 command for the whole of its Sandcastle step.
+    struct HangingWorker;
+
+    #[tonic::async_trait]
+    impl Worker for HangingWorker {
+        async fn execute(
+            &self,
+            _req: Request<ExecuteCommand>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            // `pending`, not `sleep`: must hang even under a paused clock.
+            std::future::pending().await
+        }
+
+        async fn exec(
+            &self,
+            _req: Request<tonic::Streaming<ExecuteEvent>>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            unimplemented!()
+        }
+    }
+
+    /// A `WorkerHandle` over `client`, with a live child so the
+    /// `child_exited_observer` arm of `exec_cmd` cannot fire — leaving the arm
+    /// under test racing only the worker's response.
+    fn worker_handle(
+        client: worker_client::WorkerClient<Channel>,
+    ) -> (WorkerHandle, LivelinessGuard) {
+        let (child_exited_observer, child_alive_guard) = LivelinessGuard::create();
+        let (_, handle_guard) = LivelinessGuard::create();
+        let path = |name: &str| {
+            AbsNormPathBuf::from(format!("/tmp/buck2_worker_test/{name}")).expect("absolute path")
+        };
+        let handle = WorkerHandle::new(
+            WorkerClient::Single(client),
+            child_exited_observer,
+            StdRedirectPaths {
+                stdout: path("stdout"),
+                stderr: path("stderr"),
+            },
+            handle_guard,
+        );
+        (handle, child_alive_guard)
+    }
+
+    #[tokio::test]
+    async fn test_exec_cmd_returns_cancelled_when_liveliness_expires() {
+        // `--overall-timeout` firing (or any cancellation) must get the command
+        // back. Without the liveliness arm this call never returns and the whole
+        // buck2 command hangs until its caller SIGKILLs it.
+        let (client, _server) = start_server(HangingWorker).await;
+        let (handle, _child_alive) = worker_handle(client);
+
+        let (cancelled_observer, guard) = LivelinessGuard::create();
+        drop(guard);
+
+        let result = handle
+            .exec_cmd(&[], vec![], None, cancelled_observer.as_ref())
+            .await;
+
+        assert!(
+            matches!(result.status, GatherOutputStatus::Cancelled),
+            "expected Cancelled, got {:?}",
+            result.status
+        );
+    }
+
+    #[tokio::test]
+    async fn test_exec_cmd_returns_the_response_while_the_observer_is_alive() {
+        // The counterpart to the test above: while the command is still alive the
+        // liveliness arm must not fire, and a worker that answers must have its
+        // answer returned. Without this, an arm that resolved eagerly — or a
+        // `while_alive()` that reported dead immediately — would pass the suite.
+        let attempts = Arc::new(AtomicU32::new(0));
+        let (client, _server) = start_server(MockWorker {
+            attempts,
+            fail_until: 0,
+            fail_code: tonic::Code::Unavailable,
+        })
+        .await;
+        let (handle, _child_alive) = worker_handle(client);
+
+        let (observer, _alive_guard) = LivelinessGuard::create();
+
+        let result = handle.exec_cmd(&[], vec![], None, observer.as_ref()).await;
+
+        assert!(
+            matches!(
+                result.status,
+                GatherOutputStatus::Finished { exit_code: 0, .. }
+            ),
+            "expected the worker's response, got {:?}",
+            result.status
         );
     }
 }

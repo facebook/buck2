@@ -359,7 +359,7 @@ impl LocalExecutor {
                         .map(|(k, v)| (OsString::from(k), v.to_owned()))
                         .collect();
                     Ok(worker
-                        .exec_cmd(request.args(), env, request.timeout())
+                        .exec_cmd(request.args(), env, request.timeout(), &liveliness_observer)
                         .await)
                 } else {
                     self.exec(
