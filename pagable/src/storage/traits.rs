@@ -9,6 +9,8 @@
  */
 
 use std::any::TypeId;
+use std::collections::HashMap;
+use std::hash::BuildHasherDefault;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -21,6 +23,7 @@ use once_cell::sync::OnceCell;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::WeakEraseDyn;
+use crate::hashers::TypeIdHasher;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
@@ -35,48 +38,69 @@ pub struct DeserializedArcCache {
     resident: DashMap<(TypeId, DataKey), Box<dyn WeakEraseDyn>>,
 }
 
+/// Per-allocation serialization slots for one type view.
+type IdentityDashMap = DashMap<usize, Arc<ArcSerSlot>>;
+
 /// Completed and in-progress Arc serializations shared across page-out workers.
 pub struct ArcSerCache {
     /// One allocation can be serialized through multiple type views, such as
     /// `Arc<T>` and `Arc<dyn Trait>`. They share a pointer identity but have
     /// different wire formats, so each view needs a distinct slot. Partitioning
     /// by type also avoids storing a `TypeId` in every per-allocation key.
-    by_type: DashMap<TypeId, Arc<DashMap<usize, Arc<ArcSerSlot>>>>,
+    by_type: DashMap<TypeId, Arc<IdentityDashMap>, BuildHasherDefault<TypeIdHasher>>,
 }
 
 impl ArcSerCache {
     pub fn new() -> Self {
         Self {
-            by_type: DashMap::new(),
+            by_type: DashMap::default(),
         }
     }
 
-    fn get_or_insert(&self, arc: &dyn ArcEraseDyn) -> Arc<ArcSerSlot> {
-        let type_id = arc.as_arc_any().type_id();
-        let by_identity = match self.by_type.get(&type_id) {
+    fn by_identity(&self, type_id: TypeId) -> Arc<IdentityDashMap> {
+        match self.by_type.get(&type_id) {
             Some(entry) => entry.dupe(),
             None => self
                 .by_type
                 .entry(type_id)
-                .or_insert_with(|| Arc::new(DashMap::new()))
+                .or_insert_with(|| Arc::new(IdentityDashMap::default()))
                 .dupe(),
-        };
-        by_identity
-            .entry(arc.identity())
-            .or_insert_with(|| Arc::new(ArcSerSlot::new()))
-            .dupe()
-    }
-
-    fn get(&self, arc: &dyn ArcEraseDyn) -> Option<Arc<ArcSerSlot>> {
-        let by_identity = self
-            .by_type
-            .get(&arc.as_arc_any().type_id())
-            .map(|entry| entry.dupe())?;
-        by_identity.get(&arc.identity()).map(|entry| entry.dupe())
+        }
     }
 
     pub fn len(&self) -> usize {
         self.by_type.iter().map(|entry| entry.value().len()).sum()
+    }
+}
+
+/// One worker's view of a shared [`ArcSerCache`].
+///
+/// Memoizes the `TypeId` → per-type map resolution: per-type maps are only
+/// ever inserted into `by_type`, never replaced, so a resolved handle stays
+/// valid for the life of the cache and repeat lookups for a type skip the
+/// concurrent outer map (and the refcount traffic of duping its `Arc`).
+struct ArcSerCacheLocal<'a> {
+    shared: &'a ArcSerCache,
+    by_type: HashMap<TypeId, Arc<IdentityDashMap>, BuildHasherDefault<TypeIdHasher>>,
+}
+
+impl<'a> ArcSerCacheLocal<'a> {
+    fn new(shared: &'a ArcSerCache) -> Self {
+        Self {
+            shared,
+            by_type: HashMap::default(),
+        }
+    }
+
+    fn get_or_insert(&mut self, arc: &dyn ArcEraseDyn) -> Arc<ArcSerSlot> {
+        let type_id = arc.as_arc_any().type_id();
+        let Self { shared, by_type } = self;
+        by_type
+            .entry(type_id)
+            .or_insert_with(|| shared.by_identity(type_id))
+            .entry(arc.identity())
+            .or_insert_with(|| Arc::new(ArcSerSlot::new()))
+            .dupe()
     }
 }
 
@@ -282,19 +306,39 @@ pub trait PagableStorage: Send + Sync + 'static {
         storage_context: &StorageContext,
     ) -> Result<DataKey, PageOutError> {
         enum Task {
-            Start(Box<dyn ArcEraseDyn>),
-            Finish((Box<dyn ArcEraseDyn>, Vec<u8>, Vec<Box<dyn ArcEraseDyn>>)),
+            Start {
+                arc: Box<dyn ArcEraseDyn>,
+                slot: Arc<ArcSerSlot>,
+            },
+            Finish {
+                arc: Box<dyn ArcEraseDyn>,
+                slot: Arc<ArcSerSlot>,
+                data: Vec<u8>,
+                child_slots: Vec<Arc<ArcSerSlot>>,
+            },
         }
+
+        // Slots resolve once per graph edge — here and where child arcs are
+        // extracted below — and then travel with their task, keeping the
+        // claim, finish, and resolve stages free of concurrent map probes.
+        let mut cache = ArcSerCacheLocal::new(finished);
+        let item_slots: Vec<Arc<ArcSerSlot>> = item_arcs
+            .iter()
+            .map(|arc| cache.get_or_insert(&**arc))
+            .collect();
 
         let mut tasks: Vec<Task> = item_arcs
             .iter()
-            .map(|arc| Task::Start(arc.clone_dyn()))
+            .zip(&item_slots)
+            .map(|(arc, slot)| Task::Start {
+                arc: arc.clone_dyn(),
+                slot: slot.dupe(),
+            })
             .collect();
 
         while let Some(task) = tasks.pop() {
             match task {
-                Task::Start(v) => {
-                    let slot = finished.get_or_insert(&*v);
+                Task::Start { arc, slot } => {
                     if !slot.try_claim() {
                         if slot.wait().is_none() {
                             return Err(PageOutError::AlreadyFailed);
@@ -302,14 +346,14 @@ pub trait PagableStorage: Send + Sync + 'static {
                         continue;
                     }
 
-                    if let Some(key) = v.data_key() {
-                        self.associate_arc_with_data_key(&*v, key);
+                    if let Some(key) = arc.data_key() {
+                        self.associate_arc_with_data_key(&*arc, key);
                         slot.set_success(key);
                         continue;
                     }
 
                     let mut serializer = SerializerForPaging::new(storage_context);
-                    let (data, arcs) = match v.serialize(&mut serializer) {
+                    let (data, arcs) = match arc.serialize(&mut serializer) {
                         Ok(_) => serializer.finish(),
                         Err(e) => {
                             slot.set_failed();
@@ -317,54 +361,54 @@ pub trait PagableStorage: Send + Sync + 'static {
                         }
                     };
 
+                    let child_slots: Vec<Arc<ArcSerSlot>> =
+                        arcs.iter().map(|arc| cache.get_or_insert(&**arc)).collect();
                     let subtasks: Vec<_> = arcs
                         .iter()
-                        .filter(|arc| {
-                            finished
-                                .get((*arc).as_ref())
-                                .is_none_or(|s| s.result.get().copied().flatten().is_none())
+                        .zip(&child_slots)
+                        .filter(|(_, s)| s.result.get().copied().flatten().is_none())
+                        .map(|(arc, s)| Task::Start {
+                            arc: arc.clone_dyn(),
+                            slot: s.dupe(),
                         })
-                        .map(|arc| Task::Start(arc.clone_dyn()))
                         .collect();
 
-                    tasks.push(Task::Finish((v, data, arcs)));
+                    tasks.push(Task::Finish {
+                        arc,
+                        slot,
+                        data,
+                        child_slots,
+                    });
                     tasks.extend(subtasks);
                 }
-                Task::Finish((arc, data, child_arcs)) => {
-                    let slot = finished.get(&*arc).expect("slot should exist");
-                    match resolve_and_store(self, data, &child_arcs, finished) {
-                        Ok(key) => {
-                            self.associate_arc_with_data_key(&*arc, key);
-                            slot.set_success(key);
-                        }
-                        Err(e) => {
-                            slot.set_failed();
-                            return Err(e);
-                        }
+                Task::Finish {
+                    arc,
+                    slot,
+                    data,
+                    child_slots,
+                } => match resolve_and_store(self, data, &child_slots) {
+                    Ok(key) => {
+                        self.associate_arc_with_data_key(&*arc, key);
+                        slot.set_success(key);
                     }
-                }
+                    Err(e) => {
+                        slot.set_failed();
+                        return Err(e);
+                    }
+                },
             }
         }
 
-        resolve_and_store(self, item_data, &item_arcs, finished)
+        resolve_and_store(self, item_data, &item_slots)
     }
 }
 
 fn resolve_and_store(
     storage: &(impl PagableStorage + ?Sized),
     data: Vec<u8>,
-    child_arcs: &[Box<dyn ArcEraseDyn>],
-    finished: &ArcSerCache,
+    child_slots: &[Arc<ArcSerSlot>],
 ) -> Result<DataKey, PageOutError> {
-    let keys: Option<Vec<DataKey>> = child_arcs
-        .iter()
-        .map(|a| {
-            finished
-                .get(&**a)
-                .expect("arc should have been serialized")
-                .wait()
-        })
-        .collect();
+    let keys: Option<Vec<DataKey>> = child_slots.iter().map(|slot| slot.wait()).collect();
     let Some(keys) = keys else {
         return Err(PageOutError::AlreadyFailed);
     };
