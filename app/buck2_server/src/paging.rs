@@ -449,6 +449,7 @@ async fn page_out_on_idle(
     let (resident_bytes_before, allocated_bytes_before, db_size_bytes_before) =
         page_out_memory_snapshot(&dice);
     let io_before = dice.storage_io_metrics();
+    let memory_before = dice.paging_memory_metrics();
     let start = Instant::now();
     let result = page_out(&dice, page_out_cancelled).await;
     let duration_ms = (Instant::now() - start).as_millis() as u64;
@@ -462,6 +463,9 @@ async fn page_out_on_idle(
     let memory = dice.paging_memory_metrics();
     let io_delta = daemon_io
         .zip(io_before)
+        .map(|(after, before)| after.since(before));
+    let memory_delta = memory
+        .zip(memory_before)
         .map(|(after, before)| after.since(before));
     let (paged_out_count, error) = match &result {
         Ok(n) => (*n as u64, None),
@@ -502,6 +506,8 @@ async fn page_out_on_idle(
         data_key_bytes_in: io_delta.map(|d| d.bytes_in),
         daemon_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
         daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
+        memory_offloaded_bytes: memory_delta.map(|d| d.bytes_offloaded),
+        memory_restored_bytes: memory_delta.map(|d| d.bytes_restored),
     });
     result.map(|_| ())
 }

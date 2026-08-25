@@ -169,3 +169,16 @@ pub struct PagingMemorySnapshot {
     pub bytes_offloaded: i64,
     pub bytes_restored: i64,
 }
+
+impl PagingMemorySnapshot {
+    /// The memory moved between `earlier` and this snapshot. Either total may be
+    /// lower than in `earlier` — the underlying measurements are signed, so a
+    /// window that netted an allocation moves a total backwards — and a negative
+    /// result is a real one, not a sign of mismatched snapshots.
+    pub fn since(self, earlier: PagingMemorySnapshot) -> PagingMemorySnapshot {
+        PagingMemorySnapshot {
+            bytes_offloaded: self.bytes_offloaded.saturating_sub(earlier.bytes_offloaded),
+            bytes_restored: self.bytes_restored.saturating_sub(earlier.bytes_restored),
+        }
+    }
+}

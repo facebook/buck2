@@ -255,6 +255,10 @@ message PageOutSummary {
   /// later invalidated, whose memory would have been reclaimed regardless.
   optional int64 daemon_memory_offloaded_bytes = 22;
   optional int64 daemon_memory_restored_bytes = 23;
+  /// The same pair attributed to this page-out alone. `restored` is normally
+  /// zero — a page-out only evicts — unless a page-in overlapped it.
+  optional int64 memory_offloaded_bytes = 24;
+  optional int64 memory_restored_bytes = 25;
 }
 
 // An event that represents a single point in time.
