@@ -2011,6 +2011,7 @@ def rust_link_binary(
     dwo_output_directory: Artifact | None,
     output: Artifact,
     identifier: str | None,
+    allow_cache_upload: bool,
 ) -> CxxLinkResult:
     """Link an executable from the objects that a bin-crate `Emit("rlib")`
     `rust_compile` extracted, plus the link args of the dependency graph."""
@@ -2163,5 +2164,6 @@ def rust_link_binary(
             category_suffix = "rust_binary",
             identifier = identifier,
             enable_distributed_thinlto = dist_thinlto,
+            allow_cache_upload = allow_cache_upload,
         ),
     )

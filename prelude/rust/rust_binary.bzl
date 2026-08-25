@@ -403,6 +403,7 @@ def _rust_binary_common(
             dwo_output_directory = link.compile_output.dwo_output_directory,
             output = predeclared_output,
             identifier = name,
+            allow_cache_upload = allow_cache_upload,
         )
         final_output = link_result.linked_object.output
         dwp_output = link_result.linked_object.dwp
