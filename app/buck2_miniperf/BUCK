@@ -1,5 +1,6 @@
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//xplat/third-party/zstd:defs.bzl", "zstd_compress")
 
 oncall("build_infra")
 
@@ -21,12 +22,10 @@ rust_binary(
     # Must be statically linked because the binary is embedded in the forkserver
     # and written to disk without its shared library dependencies.
     link_style = "static",
-    # Keep this dep set small and slow-moving. The binary is embedded into
-    # `buck2` as a linkable symbol (`buck2_forkserver:buck2_miniperf_data`), so
-    # anything that invalidates this target's link also re-links `buck2` -- a
-    # minute-plus local action that is never served from the cache. A dep that
-    # churns with ordinary buck2 development therefore costs two extra rust
-    # links on every such change.
+    # Keep this dep set small and slow-moving. Anything that invalidates this
+    # target's link also re-compresses the binary and re-runs the `objcopy` that
+    # embeds it into `buck2` (see `elf_sections` on `//buck2/app/buck2:buck2-bin`),
+    # a local action over the whole executable.
     deps = [
         "fbsource//third-party/rust:anyhow",
     ] + select({
@@ -40,6 +39,14 @@ rust_binary(
             "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         ],
     }),
+)
+
+# The payload of the `buck2_miniperf` ELF section in `buck2`; the forkserver
+# decompresses it back to disk before exec'ing it.
+zstd_compress(
+    name = "embedded_section",
+    src = ":buck2_miniperf",
+    visibility = ["PUBLIC"],
 )
 
 # TODO

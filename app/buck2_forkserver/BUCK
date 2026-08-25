@@ -1,5 +1,4 @@
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//tools/build_defs:rust_linkable_symbol.bzl", "rust_linkable_symbol")
 
 oncall("build_infra")
 
@@ -37,12 +36,7 @@ rust_library(
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "fbsource//third-party/rust:nix",
-            ":buck2_miniperf_data",
+            "//buck2/app/buck2_embedded_section:buck2_embedded_section",
         ],
     }),
-)
-
-rust_linkable_symbol(
-    name = "buck2_miniperf_data",
-    content_bytes = "//buck2/app/buck2_miniperf:buck2_miniperf",
 )

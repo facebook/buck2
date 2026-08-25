@@ -9,9 +9,10 @@
  */
 
 use std::ffi::OsStr;
+#[cfg(all(fbcode_build, target_os = "linux"))]
 use std::fs::OpenOptions;
-use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+#[cfg(all(fbcode_build, target_os = "linux"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -36,7 +37,9 @@ use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
+#[cfg(all(fbcode_build, target_os = "linux"))]
 use buck2_fs::error::IoResultExt;
+#[cfg(all(fbcode_build, target_os = "linux"))]
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -400,52 +403,59 @@ struct MiniperfContainer {
 }
 
 impl MiniperfContainer {
+    /// Must match the section key in `//buck2/app/buck2:buck2-bin`.
+    #[cfg(all(fbcode_build, target_os = "linux"))]
+    const SECTION_NAME: &'static str = "buck2_miniperf";
+
     fn new(forkserver_state_dir: &AbsNormPath) -> buck2_error::Result<Option<Self>> {
-        let miniperf_bin: Option<&'static [u8]>;
+        #[cfg(not(all(fbcode_build, target_os = "linux")))]
+        {
+            let _ = forkserver_state_dir;
+            return Ok(None);
+        };
 
         #[cfg(all(fbcode_build, target_os = "linux"))]
         {
-            miniperf_bin = Some(buck2_miniperf_data::get());
+            let miniperf =
+                forkserver_state_dir.join(ForwardRelativePath::unchecked_new("miniperf"));
+            let output_dir = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("out"));
+
+            fs_util::remove_all(&miniperf).categorize_internal()?;
+            fs_util::remove_all(&output_dir).categorize_internal()?;
+            fs_util::create_dir_all(&output_dir)?;
+
+            let mut opts = OpenOptions::new();
+            opts.create_new(true);
+            opts.write(true);
+
+            opts.mode(0o755);
+
+            let mut miniperf_writer = opts
+                .open(miniperf.as_path())
+                .with_buck_error_context(|| format!("Error opening: `{}`", miniperf.display()))?;
+
+            let section = buck2_embedded_section::EmbeddedSection {
+                name: Self::SECTION_NAME,
+                encoding: buck2_embedded_section::SectionEncoding::Zstd,
+            };
+
+            if let Err(e) = section
+                .copy_to(&mut miniperf_writer)
+                .with_buck_error_context(|| {
+                    format!("Error writing miniperf to `{}`", miniperf.display())
+                })
+            {
+                let _ignored = buck2_core::soft_error!("miniperf_embedded_section_load_failed", e);
+                let _ignored = fs_util::remove_all(&miniperf).categorize_internal();
+                let _ignored = fs_util::remove_all(&output_dir).categorize_internal();
+                return Ok(None);
+            }
+
+            Ok(Some(Self {
+                miniperf,
+                output_dir,
+            }))
         }
-
-        #[cfg(not(all(fbcode_build, target_os = "linux")))]
-        {
-            miniperf_bin = None;
-        }
-
-        let miniperf_bin = match miniperf_bin {
-            Some(m) => m,
-            None => return Ok(None),
-        };
-
-        let miniperf = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("miniperf"));
-        let output_dir = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("out"));
-
-        fs_util::remove_all(&miniperf).categorize_internal()?;
-        fs_util::remove_all(&output_dir).categorize_internal()?;
-        fs_util::create_dir_all(&output_dir)?;
-
-        let mut opts = OpenOptions::new();
-        opts.create_new(true);
-        opts.write(true);
-
-        opts.mode(0o755);
-
-        let mut miniperf_writer = opts
-            .open(miniperf.as_path())
-            .with_buck_error_context(|| format!("Error opening: `{}`", miniperf.display()))?;
-
-        miniperf_writer
-            .write_all(miniperf_bin)
-            .and_then(|()| miniperf_writer.flush())
-            .with_buck_error_context(|| {
-                format!("Error writing miniperf to `{}`", miniperf.display())
-            })?;
-
-        Ok(Some(Self {
-            miniperf,
-            output_dir,
-        }))
     }
 
     fn allocate_output_path(&self) -> AbsNormPathBuf {
