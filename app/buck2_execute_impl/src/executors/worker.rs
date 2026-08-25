@@ -604,13 +604,24 @@ fn env_entries(_env: &[(OsString, OsString)]) -> Vec<EnvironmentEntry> {
     unreachable!("worker should not exist off unix")
 }
 
+/// How long buck2 waits past a command's timeout before enforcing it itself.
+///
+/// The worker receives the timeout unchanged and is expected to enforce it:
+/// killing the command, collecting its stderr and answering with
+/// `timed_out_after_s`. That response is the better diagnostic, so buck2's own
+/// backstop deliberately comes second and only fires when the worker does not
+/// answer at all. Short because it only has to cover a kill and a reply, not
+/// the command itself.
+const WORKER_TIMEOUT_GRACE: Duration = Duration::from_secs(5);
+
 impl WorkerHandle {
     /// Send a command to the worker and wait for its response.
     ///
     /// Returns early, without a response, if `liveliness_observer` reports the
     /// command is no longer alive (cancellation, or `--overall-timeout`
-    /// expiring). The worker is not told to stop and may still be running the
-    /// command.
+    /// expiring), or if `timeout` passes without the worker enforcing it. The
+    /// worker is not told to stop on the early-return paths and may still be
+    /// running the command.
     pub async fn exec_cmd(
         &self,
         args: &[String],
@@ -629,16 +640,31 @@ impl WorkerHandle {
         let request = ExecuteCommand {
             argv,
             env,
-            timeout_s: timeout.map(|v| v.as_secs()),
+            timeout_s: timeout.map(|t| t.as_secs()),
+        };
+
+        // The worker has the same deadline and is expected to reach it first,
+        // answering with the command's stderr. This only fires when it does not,
+        // hence the grace: the result then carries no output, but a reported
+        // timeout beats waiting forever. It reports the timeout that was
+        // exceeded, not the grace-extended wait.
+        let timeout_backstop = async move {
+            match timeout {
+                Some(timeout) => {
+                    tokio::time::sleep(timeout.saturating_add(WORKER_TIMEOUT_GRACE)).await;
+                    timeout
+                }
+                None => std::future::pending().await,
+            }
         };
 
         let mut client = self.client.clone();
         let (status, stdout, stderr) = tokio::select! {
             // Ordered most-informative first, because the default random order
             // would sometimes discard the better outcome. A real response beats
-            // everything; worker death beats cancellation because `SpawnFailed`
-            // names the worker's stdout/stderr logs and says *why* the command
-            // ended, where `Cancelled` only says that it did.
+            // everything; worker death names the worker's stdout/stderr logs, so
+            // it says *why* the command ended; this command blowing its own
+            // budget is more specific than the whole run going away.
             biased;
 
             response = client.execute(request) => {
@@ -683,6 +709,9 @@ impl WorkerHandle {
                     vec![],
                     vec![],
                 )
+            }
+            timeout = timeout_backstop => {
+                (GatherOutputStatus::TimedOut(timeout), vec![], vec![])
             }
             _ = liveliness_observer.while_alive() => {
                 (GatherOutputStatus::Cancelled, vec![], vec![])
@@ -855,8 +884,12 @@ mod tests {
 mod worker_handle_tests {
     use std::sync::Arc;
     use std::sync::atomic::AtomicU32;
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
+    use std::time::Duration;
 
     use buck2_common::liveliness_observer::LivelinessGuard;
+    use buck2_common::liveliness_observer::NoopLivelinessObserver;
     use buck2_execute_local::GatherOutputStatus;
     use buck2_execute_local::StdRedirectPaths;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -968,6 +1001,86 @@ mod worker_handle_tests {
             ),
             "expected the worker's response, got {:?}",
             result.status
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn test_exec_cmd_times_out_when_worker_never_responds() {
+        // `timeout_s` is only advisory to the worker, so buck2 has to enforce it
+        // too — otherwise a worker that never replies (e.g. one blocked acquiring
+        // a device) outlives every timeout in the stack, including the tpx
+        // listing timeout that should have ended the command minutes earlier.
+        let (client, _server) = start_server(HangingWorker).await;
+        let (handle, _child_alive) = worker_handle(client);
+
+        let timeout = Duration::from_secs(60);
+        let result = handle
+            .exec_cmd(
+                &[],
+                vec![],
+                Some(timeout),
+                NoopLivelinessObserver::create().as_ref(),
+            )
+            .await;
+
+        assert!(
+            matches!(result.status, GatherOutputStatus::TimedOut(d) if d == timeout),
+            "expected TimedOut({timeout:?}), got {:?}",
+            result.status
+        );
+    }
+
+    /// Records the `timeout_s` it was handed, then answers successfully.
+    struct TimeoutRecordingWorker {
+        seen_timeout_s: Arc<AtomicU64>,
+    }
+
+    #[tonic::async_trait]
+    impl Worker for TimeoutRecordingWorker {
+        async fn execute(
+            &self,
+            req: Request<ExecuteCommand>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            self.seen_timeout_s
+                .store(req.into_inner().timeout_s.unwrap_or(0), Ordering::SeqCst);
+            Ok(Response::new(ExecuteResponse {
+                exit_code: 0,
+                stderr: String::new(),
+                timed_out_after_s: None,
+            }))
+        }
+
+        async fn exec(
+            &self,
+            _req: Request<tonic::Streaming<ExecuteEvent>>,
+        ) -> Result<Response<ExecuteResponse>, Status> {
+            unimplemented!()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_exec_cmd_sends_the_worker_the_configured_timeout() {
+        // The worker enforces the timeout it is given, and buck2's backstop only
+        // covers the case where it does not answer at all. So the worker has to see
+        // the configured value exactly -- buck2 buys itself room by waiting longer,
+        // not by asking for less.
+        let seen_timeout_s = Arc::new(AtomicU64::new(0));
+        let (client, _server) = start_server(TimeoutRecordingWorker {
+            seen_timeout_s: seen_timeout_s.clone(),
+        })
+        .await;
+        let (handle, _child_alive) = worker_handle(client);
+        let (observer, _alive_guard) = LivelinessGuard::create();
+
+        let timeout = Duration::from_secs(60);
+        handle
+            .exec_cmd(&[], vec![], Some(timeout), observer.as_ref())
+            .await;
+
+        assert_eq!(
+            seen_timeout_s.load(Ordering::SeqCst),
+            timeout.as_secs(),
+            "the worker must be given the timeout unchanged"
         );
     }
 }
