@@ -535,8 +535,14 @@ impl InterpreterForDir {
 
                     match eval.eval_module(ast, globals) {
                         Ok(_) => {
-                            let cpu_instruction_count =
-                                instruction_counter.and_then(|c| c.collect().ok());
+                            // Undersampled counts are mostly extrapolation
+                            // (the PMU was contended); report nothing rather
+                            // than a number that is largely a guess.
+                            let cpu_instruction_count = instruction_counter
+                                .and_then(|c| c.collect().ok())
+                                .flatten()
+                                .filter(|c| c.get_sampling_ratio() >= 0.5)
+                                .map(|c| c.count);
                             let starlark_tick_count = eval.get_total_tick_count();
                             Ok((
                                 cpu_instruction_count,
