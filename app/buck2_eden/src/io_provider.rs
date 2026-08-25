@@ -526,6 +526,10 @@ impl IoProvider for EdenIoProvider {
         Ok(self.manager.get_eden_version().await?)
     }
 
+    async fn verify_eden_identity(&self) -> buck2_error::Result<()> {
+        self.manager.verify_identity().await
+    }
+
     fn project_root(&self) -> &ProjectRoot {
         self.fs.project_root()
     }

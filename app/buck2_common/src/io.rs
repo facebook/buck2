@@ -93,6 +93,14 @@ pub trait IoProvider: Allocative + Send + Sync {
     /// Returns the Eden version of the underlying system of the IoProvider, if available.
     async fn eden_version(&self) -> buck2_error::Result<Option<String>>;
 
+    /// Verify that the Eden daemon backing this I/O provider has not restarted since the
+    /// provider was created. A restart invalidates cached state and file handles, so commands
+    /// should fail fast rather than silently hang on them. Providers that don't cache state
+    /// against an Eden daemon have nothing to verify.
+    async fn verify_eden_identity(&self) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
     fn project_root(&self) -> &ProjectRoot;
 
     fn as_any(&self) -> &dyn std::any::Any;

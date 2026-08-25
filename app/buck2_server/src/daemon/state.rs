@@ -183,6 +183,11 @@ pub struct DaemonStateData {
     /// the daemon when we hit an error.
     pub enable_restarter: bool,
 
+    /// Whether to verify on each command that the Eden daemon has not restarted underneath this
+    /// daemon. A restart invalidates cached state and file handles, so affected commands fail
+    /// fast instead of hanging.
+    pub detect_eden_restart: bool,
+
     /// Http client used for materializer and RunAction implementations.
     pub http_client: HttpClient,
 
@@ -708,6 +713,14 @@ impl DaemonState {
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll();
 
+            // Default off while the new fail-fast behavior is rolled out.
+            let detect_eden_restart = root_config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "detect_eden_restart",
+                })?
+                .unwrap_or(false);
+
             let paranoid = if init_ctx.daemon_startup_config.paranoid {
                 Some(ParanoidDownloader::new(
                     fs.clone(),
@@ -792,6 +805,7 @@ impl DaemonState {
                 create_unhashed_outputs_lock,
                 materializer_state_identity,
                 enable_restarter,
+                detect_eden_restart,
                 http_client,
                 paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
@@ -920,9 +934,22 @@ impl DaemonState {
         });
 
         // Sync any FS changes and invalidate DICE state if necessary.  Get the Eden
-        // version of the underlying system in parallel if available.
-        let (_, eden_version) =
-            futures::future::try_join(data.io.settle(), data.io.eden_version()).await?;
+        // version of the underlying system in parallel if available, and fail fast if the
+        // Eden daemon restarted underneath us (which leaves cached state and file handles
+        // stale and would otherwise surface as a silent hang).
+        let verify_eden_identity = async {
+            if data.detect_eden_restart {
+                data.io.verify_eden_identity().await
+            } else {
+                Ok(())
+            }
+        };
+        let (_, eden_version, ()) = futures::future::try_join3(
+            data.io.settle(),
+            data.io.eden_version(),
+            verify_eden_identity,
+        )
+        .await?;
 
         dispatcher.instant_event(buck2_data::IoProviderInfo { eden_version });
 

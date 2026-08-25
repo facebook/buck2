@@ -180,6 +180,10 @@ impl IoProvider for TracingIoProvider {
         self.io.eden_version().await
     }
 
+    async fn verify_eden_identity(&self) -> buck2_error::Result<()> {
+        self.io.verify_eden_identity().await
+    }
+
     fn project_root(&self) -> &ProjectRoot {
         self.io.project_root()
     }
