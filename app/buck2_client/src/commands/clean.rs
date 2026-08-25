@@ -60,6 +60,26 @@ pub struct CleanCommand {
     )]
     dry_run: bool,
 
+    #[clap(
+        long = "background",
+        help = "Run the clean operation in the background"
+    )]
+    background: bool,
+
+    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
+    #[clap(flatten)]
+    _target_cfg: TargetCfgUnusedOptions,
+
+    #[clap(flatten)]
+    clean_stale_opts: CleanStaleOptions,
+
+    #[clap(flatten)]
+    common_opts: CommonCommandOptions,
+}
+
+#[derive(Debug, clap::Parser)]
+#[clap(next_help_heading = "Clean Stale Options")]
+struct CleanStaleOptions {
     // TODO(scottcao): Make stale duration be specified on a separate flag so that
     // there is no potential confusion in behavior between `--stale` and `--stale=7d`
     #[clap(
@@ -111,19 +131,6 @@ policy or the specified duration, without killing the daemon",
         requires = "adaptive_low_disk_threshold"
     )]
     adaptive_unmaterialize_active: bool,
-
-    #[clap(
-        long = "background",
-        help = "Run the clean operation in the background"
-    )]
-    background: bool,
-
-    /// Command doesn't need these flags, but they are used in mode files, so we need to keep them.
-    #[clap(flatten)]
-    _target_cfg: TargetCfgUnusedOptions,
-
-    #[clap(flatten)]
-    common_opts: CommonCommandOptions,
 }
 
 impl CleanCommand {
@@ -133,9 +140,11 @@ impl CleanCommand {
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        if let Some(mut keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)?
-        {
-            if let Some(t) = self.adaptive_low_disk_threshold {
+        if let Some(mut keep_since_arg) = parse_clean_stale_args(
+            self.clean_stale_opts.stale,
+            self.clean_stale_opts.keep_since_time,
+        )? {
+            if let Some(t) = self.clean_stale_opts.adaptive_low_disk_threshold {
                 if !(0.0..=100.0).contains(&t) || t.is_nan() {
                     return ExitResult::bail(format!(
                         "`--adaptive-low-disk-threshold` must be between 0.0 and 100.0, got `{t}`"
@@ -154,10 +163,10 @@ impl CleanCommand {
                 common_opts: self.common_opts,
                 keep_since_arg,
                 dry_run: self.dry_run,
-                tracked_only: self.tracked_only,
-                adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
-                adaptive_min_ttl: Some(self.adaptive_min_ttl.into()),
-                adaptive_unmaterialize_active: self.adaptive_unmaterialize_active,
+                tracked_only: self.clean_stale_opts.tracked_only,
+                adaptive_low_disk_threshold: self.clean_stale_opts.adaptive_low_disk_threshold,
+                adaptive_min_ttl: Some(self.clean_stale_opts.adaptive_min_ttl.into()),
+                adaptive_unmaterialize_active: self.clean_stale_opts.adaptive_unmaterialize_active,
             };
             ctx.exec(cmd, matches, events_ctx)
         } else {
@@ -174,7 +183,10 @@ impl CleanCommand {
     }
 
     pub fn command_name(&self) -> &'static str {
-        if let Ok(Some(_)) = parse_clean_stale_args(self.stale, self.keep_since_time) {
+        if let Ok(Some(_)) = parse_clean_stale_args(
+            self.clean_stale_opts.stale,
+            self.clean_stale_opts.keep_since_time,
+        ) {
             "clean-stale"
         } else {
             "clean"

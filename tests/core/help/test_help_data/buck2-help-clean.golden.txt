@@ -10,6 +10,16 @@ Options:
       --dry-run
           Performs a dry-run and prints the paths that would be removed.
 
+      --background
+          Run the clean operation in the background
+
+  -m, --modifier <VALUE>
+          This option is not used
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+Clean Stale Options:
       --stale [<DURATION>]
           Delete artifacts from buck-out using the configured clean-stale
           policy or the specified duration, without killing the daemon
@@ -36,15 +46,6 @@ Options:
       --adaptive-unmaterialize-active
           Allow adaptive cleaning to unmaterialize active remote-backed intermediate artifacts as a
           final escalation step
-
-      --background
-          Run the clean operation in the background
-
-  -m, --modifier <VALUE>
-          This option is not used
-
-  -h, --help
-          Print help (see a summary with '-h')
 
 Buckconfig Options:
   -c, --config <SECTION.OPTION=VALUE>
