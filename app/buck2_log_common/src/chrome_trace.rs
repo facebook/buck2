@@ -682,6 +682,14 @@ impl AverageRateOfChangeCounters {
         }
     }
 
+    /// Set a rate-of-change series directly, for values that are already
+    /// instantaneous rather than cumulative. This lets one counter group
+    /// mix instantenous rate-of-change values with computed-from-derivitive
+    /// ones.
+    fn set(&mut self, timestamp: SystemTime, key: &str, amount: u64) -> buck2_error::Result<()> {
+        self.counters.set(timestamp, key, amount)
+    }
+
     fn set_average_rate_of_change_per_s(
         &mut self,
         timestamp: SystemTime,
@@ -853,6 +861,9 @@ struct ChromeTraceWriter {
     allprocs_memory_max: CgroupMemoryMax,
     forkserver_actions_memory_max: CgroupMemoryMax,
     rate_of_change_counters: AverageRateOfChangeCounters,
+    // Aggregate counters derived from InstantEvent.Data.DiceStateSnapshot,
+    // grouped under a single "dice" counter name.
+    dice_counters: AverageRateOfChangeCounters,
     // Distribution stats per entry of BUILD_PHASES.
     build_phases: [BuildPhaseStats; BUILD_PHASES.len()],
     // First/last snapshot timestamp at which each DICE key type's counters
@@ -961,6 +972,7 @@ impl ChromeTraceWriter {
             allprocs_memory_max: CgroupMemoryMax::default(),
             forkserver_actions_memory_max: CgroupMemoryMax::default(),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
+            dice_counters: AverageRateOfChangeCounters::new("dice"),
             build_phases: Default::default(),
             dice_activity: BuckMutMap::default(),
             dice_prev_key_states: BuckMutMap::default(),
@@ -1265,6 +1277,9 @@ impl ChromeTraceWriter {
         self.process_memory_counters
             .flush_all_to(&mut self.trace_events)?;
         self.rate_of_change_counters
+            .counters
+            .flush_all_to(&mut self.trace_events)?;
+        self.dice_counters
             .counters
             .flush_all_to(&mut self.trace_events)?;
         self.write_build_phases()?;
@@ -1683,7 +1698,11 @@ impl ChromeTraceWriter {
                         )?;
                 }
                 buck2_data::instant_event::Data::DiceStateSnapshot(dice) => {
+                    let mut total_check_deps: u64 = 0;
+                    let mut total_computes: u64 = 0;
                     for (key_type, state) in &dice.key_states {
+                        total_check_deps += state.check_deps_finished as u64;
+                        total_computes += state.compute_finished as u64;
                         if self.dice_prev_key_states.get(key_type) != Some(state) {
                             self.dice_prev_key_states.insert(key_type.clone(), *state);
                             let timestamp = event.timestamp();
@@ -1693,6 +1712,26 @@ impl ChromeTraceWriter {
                                 .or_insert((timestamp, timestamp));
                         }
                     }
+                    self.dice_counters.set_average_rate_of_change_per_s(
+                        event.timestamp(),
+                        "check_deps_per_s",
+                        total_check_deps,
+                    )?;
+                    self.dice_counters.set_average_rate_of_change_per_s(
+                        event.timestamp(),
+                        "computes_per_s",
+                        total_computes,
+                    )?;
+                    self.dice_counters.set(
+                        event.timestamp(),
+                        "core_state_queue_depth",
+                        dice.core_state_queue_depth,
+                    )?;
+                    self.dice_counters.set_average_rate_of_change_per_s(
+                        event.timestamp(),
+                        "core_state_processed_per_s",
+                        dice.core_state_processed_requests,
+                    )?;
                 }
                 buck2_data::instant_event::Data::ResourceControlEvent(events) => {
                     self.snapshot_counters.set(

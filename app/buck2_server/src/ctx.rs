@@ -142,6 +142,7 @@ use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
+use crate::dice_tracker::CoreStateQueueSample;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
 use crate::paging::PagingManager;
@@ -937,7 +938,10 @@ impl DiceCommandUpdater<'_, '_> {
             data,
             tracker: Arc::new(BuckDiceTracker::new(
                 self.cmd_ctx.events().dupe(),
-                Box::new(move || dice.core_state_queue_depth() as u64),
+                Box::new(move || CoreStateQueueSample {
+                    depth: dice.core_state_queue_depth() as u64,
+                    processed_requests: dice.core_state_processed_requests() as u64,
+                }),
             )?),
             cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),

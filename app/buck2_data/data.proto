@@ -470,6 +470,10 @@ message DiceStateSnapshot {
   // submitting state requests faster than the single core-state thread can
   // process them.
   uint64 core_state_queue_depth = 2;
+  // Total number of requests the dice core-state thread has dequeued since
+  // the DICE instance was created. Monotonic (spans commands on the same
+  // daemon); diff successive snapshots for the core-state throughput.
+  uint64 core_state_processed_requests = 3;
 }
 
 message DiceKeyState {

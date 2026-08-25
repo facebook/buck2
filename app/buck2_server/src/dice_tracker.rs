@@ -26,9 +26,17 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 
-/// Closure used to sample the dice core-state queue depth at each snapshot
-/// tick. Boxed so that BuckDiceTracker doesn't need a generic parameter.
-type QueueDepthFn = Box<dyn Fn() -> u64 + Send + Sync + 'static>;
+/// Sample of the dice core-state queue taken at each snapshot tick.
+pub struct CoreStateQueueSample {
+    /// Current depth of the queue feeding the core-state thread.
+    pub depth: u64,
+    /// Total requests dequeued so far; monotonic across commands.
+    pub processed_requests: u64,
+}
+
+/// Closure used to sample the dice core-state queue at each snapshot tick.
+/// Boxed so that BuckDiceTracker doesn't need a generic parameter.
+type CoreStateQueueSampleFn = Box<dyn Fn() -> CoreStateQueueSample + Send + Sync + 'static>;
 
 /// The BuckDiceTracker keeps track of the started/finished events for a dice computation and periodically sends a snapshot to the client.
 ///
@@ -45,7 +53,10 @@ pub struct BuckDiceTracker {
 }
 
 impl BuckDiceTracker {
-    pub fn new(events: EventDispatcher, queue_depth_fn: QueueDepthFn) -> buck2_error::Result<Self> {
+    pub fn new(
+        events: EventDispatcher,
+        core_state_queue_sample_fn: CoreStateQueueSampleFn,
+    ) -> buck2_error::Result<Self> {
         let (event_forwarder, receiver) = mpsc::unbounded();
         let snapshot_interval =
             buck2_env!("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", type=u64, default = 500)
@@ -58,7 +69,12 @@ impl BuckDiceTracker {
                 .unwrap();
             runtime.block_on(with_dispatcher_async(
                 events.dupe(),
-                Self::run_task(events, receiver, snapshot_interval, queue_depth_fn),
+                Self::run_task(
+                    events,
+                    receiver,
+                    snapshot_interval,
+                    core_state_queue_sample_fn,
+                ),
             ))
         })
         .unwrap();
@@ -70,7 +86,7 @@ impl BuckDiceTracker {
         events: EventDispatcher,
         mut receiver: UnboundedReceiver<DiceEvent>,
         snapshot_interval: Duration,
-        queue_depth_fn: QueueDepthFn,
+        core_state_queue_sample_fn: CoreStateQueueSampleFn,
     ) {
         let mut needs_update = false;
         let mut states = BuckMutMap::default();
@@ -119,12 +135,14 @@ impl BuckDiceTracker {
                 _ = interval.tick() => {
                     if needs_update {
                         needs_update = false;
+                        let queue_sample = core_state_queue_sample_fn();
                         events.instant_event(DiceStateSnapshot {
                             key_states: states
                                 .iter()
                                 .map(|(k, v)| ((*k).to_owned(), *v))
                                 .collect(),
-                            core_state_queue_depth: queue_depth_fn(),
+                            core_state_queue_depth: queue_sample.depth,
+                            core_state_processed_requests: queue_sample.processed_requests,
                         });
                     }
                 }

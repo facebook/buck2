@@ -119,6 +119,7 @@ mod tests {
                 map
             },
             core_state_queue_depth: 0,
+            core_state_processed_requests: 0,
         });
     }
 

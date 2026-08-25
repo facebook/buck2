@@ -155,6 +155,14 @@ impl Dice {
         self.state_handle.queue_depth()
     }
 
+    /// Total number of requests the dice core-state thread has processed since
+    /// this DICE instance was created. Monotonic; sampling it at intervals
+    /// yields the core-state throughput. Like `core_state_queue_depth`, does
+    /// not itself enqueue a request.
+    pub fn core_state_processed_requests(&self) -> usize {
+        self.state_handle.processed_requests()
+    }
+
     pub fn to_introspectable(&self) -> GraphIntrospectable {
         let (graph_introspectable, version_introspectable) = self.state_handle.introspection();
         // a bit subtle, but make sure we introspect the key_index after we get the graphs as

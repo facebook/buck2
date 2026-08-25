@@ -91,6 +91,10 @@ impl QueueCounters {
         // momentarily yield retired > enqueued; saturate to 0 in that case.
         enqueued.saturating_sub(retired)
     }
+
+    fn retired_count(&self) -> usize {
+        self.retired.0.load(Ordering::Relaxed)
+    }
 }
 
 /// A handle to the core state that allows sending requests
@@ -129,6 +133,13 @@ impl CoreStateHandle {
     /// it, but does not itself enqueue a request.
     pub(crate) fn queue_depth(&self) -> usize {
         self.counters.approx_depth()
+    }
+
+    /// Total number of requests the dice core-state thread has dequeued so
+    /// far. Monotonic; sampling it at intervals yields the core-state
+    /// throughput. Like `queue_depth`, does not itself enqueue a request.
+    pub(crate) fn processed_requests(&self) -> usize {
+        self.counters.retired_count()
     }
 
     fn call<T>(
