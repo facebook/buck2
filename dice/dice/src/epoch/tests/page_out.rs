@@ -811,7 +811,6 @@ async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[should_panic(expected = "assertion `left == right` failed")]
 async fn page_out_does_not_evict_a_recomputed_value() {
     let _test_lock = PAGE_OUT_RACE_TEST_LOCK.lock().await;
     let tmp = tempdir().expect("temporary directory should be created");

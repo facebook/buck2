@@ -16,6 +16,7 @@ use std::sync::Arc as StdArc;
 use allocative::Allocative;
 use dupe::Dupe;
 use mini_vec::packed_ptr::PackedPtr;
+use pagable::DataKey;
 
 use crate::Key;
 use crate::ProjectionKey;
@@ -56,6 +57,21 @@ impl DiceValidValue {
     pub(crate) fn from_arc(arc: std::sync::Arc<dyn DiceValueDyn>) -> Self {
         Self(arc)
     }
+
+    /// Whether both wrappers own the same erased value allocation.
+    #[allow(ambiguous_wide_pointer_comparisons)]
+    pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+/// Successful serialization of one page-out candidate.
+///
+/// `serialized_value` keeps the exact allocation alive so the core can reject
+/// this result if the graph installs a different value before serialization finishes.
+pub(crate) struct PageOutResult {
+    pub(crate) serialized_value: DiceValidValue,
+    pub(crate) data_key: DataKey,
 }
 
 /// Type erased value that may be transient, or whose dependencies are transient

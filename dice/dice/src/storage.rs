@@ -59,6 +59,7 @@ use crate::metrics::PageInKeyTypeMetrics;
 use crate::metrics::PagingMemoryMetrics;
 use crate::metrics::PagingMemorySnapshot;
 use crate::value::DiceValidValue;
+use crate::value::PageOutResult;
 
 /// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
 #[derive(
@@ -330,8 +331,14 @@ impl DiceStorage {
             if cancelled() {
                 break;
             }
-            if let Some(data_key) = self.page_out_value(&key_dyn, value, finished)? {
-                pending_evictions.push((dice_key, data_key));
+            if let Some(data_key) = self.page_out_value(&key_dyn, &value, finished)? {
+                pending_evictions.push((
+                    dice_key,
+                    PageOutResult {
+                        serialized_value: value,
+                        data_key,
+                    },
+                ));
                 if pending_evictions.len() >= EVICT_BATCH_SIZE {
                     state_handle.evict_keys(std::mem::replace(
                         &mut pending_evictions,
@@ -339,7 +346,7 @@ impl DiceStorage {
                     ));
                 }
             } else {
-                non_pageable.push(dice_key);
+                non_pageable.push((dice_key, value));
             }
         }
         self.storage.flush()?;
@@ -355,7 +362,7 @@ impl DiceStorage {
     fn page_out_value(
         &self,
         key_dyn: &DiceKeyErased,
-        value: DiceValidValue,
+        value: &DiceValidValue,
         finished: &ArcSerCache,
     ) -> anyhow::Result<Option<DataKey>> {
         let storage_context = self.storage.storage_context();

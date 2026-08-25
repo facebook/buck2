@@ -46,6 +46,7 @@ use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -290,16 +291,16 @@ impl CoreStateHandle {
         self.call(StateRequest::KeysToPageOut { resp }, recv)
     }
 
-    /// Evict in-memory values for the given nodes, marking them as paged out.
+    /// Evict in-memory values that still match the serialized page-out snapshot.
     /// Fire-and-forget; any subsequent state requests are guaranteed to see
     /// the evicted state because state requests are processed FIFO.
-    pub(crate) fn evict_keys(&self, keys: Vec<(DiceKey, DataKey)>) {
+    pub(crate) fn evict_keys(&self, keys: Vec<(DiceKey, PageOutResult)>) {
         self.request(StateRequest::EvictKeys { keys })
     }
 
     /// Mark nodes that page-out could not serialize so they are not offered as
     /// candidates again. Fire-and-forget (FIFO, as with `evict_keys`).
-    pub(crate) fn mark_non_pageable(&self, keys: Vec<DiceKey>) {
+    pub(crate) fn mark_non_pageable(&self, keys: Vec<(DiceKey, DiceValidValue)>) {
         self.request(StateRequest::MarkNonPageable { keys })
     }
 
@@ -427,10 +428,12 @@ pub(super) enum StateRequest {
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
-    /// Mark nodes as paged out, dropping their in-memory values.
-    EvictKeys { keys: Vec<(DiceKey, DataKey)> },
+    /// Mark unchanged page-out snapshots as paged out, dropping their in-memory values.
+    EvictKeys { keys: Vec<(DiceKey, PageOutResult)> },
     /// Mark nodes that page-out could not serialize.
-    MarkNonPageable { keys: Vec<DiceKey> },
+    MarkNonPageable {
+        keys: Vec<(DiceKey, DiceValidValue)>,
+    },
     /// Replace the paged-out value at `key` with its hydrated form.
     Rehydrate { key: DiceKey, value: DiceValidValue },
     /// Collect metrics

@@ -36,6 +36,7 @@ use crate::metrics::PagingMemoryMetrics;
 use crate::updater::ChangeType;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -152,18 +153,32 @@ impl CoreState {
         self.graph.clear();
     }
 
-    /// Evict in-memory values for the given nodes, marking them as paged out
-    /// with their `DataKey`s. Skips nodes that are missing, vacant, or injected.
-    pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, DataKey)>) {
+    /// Evict values that still share the exact allocation serialized by page-out.
+    /// A recomputation may replace the graph value while serialization runs; its
+    /// stale `DataKey` must not evict that newer value.
+    pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) {
         // The graph holds the last reference to each value — `page_out_value`
         // consumed and dropped the worker's copy before this eviction was even
         // queued — so the drops below are where the memory is actually released,
         // and jemalloc charges a free to the thread performing it.
         let window = AllocWindow::open();
-        for (key, data_key) in keys {
+        for (
+            key,
+            PageOutResult {
+                serialized_value,
+                data_key,
+            },
+        ) in keys
+        {
             if let Some(mut node) = self.graph.node_mut(key) {
                 if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    occ.set_paged_out(data_key);
+                    if occ
+                        .val()
+                        .as_hydrated()
+                        .is_some_and(|current| current.ptr_eq(&serialized_value))
+                    {
+                        occ.set_paged_out(data_key);
+                    }
                 }
             }
         }
@@ -173,12 +188,19 @@ impl CoreState {
     }
 
     /// Mark nodes that page-out considered but could not serialize, so they are
-    /// not offered as page-out candidates again (including after a recompute).
-    pub(super) fn mark_non_pageable(&mut self, keys: Vec<DiceKey>) {
-        for key in keys {
+    /// not offered as page-out candidates again. Ignore stale results if a
+    /// recomputation replaced the value while page-out was inspecting it.
+    pub(super) fn mark_non_pageable(&mut self, keys: Vec<(DiceKey, DiceValidValue)>) {
+        for (key, inspected_value) in keys {
             if let Some(mut node) = self.graph.node_mut(key) {
                 if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    occ.mark_non_pageable();
+                    if occ
+                        .val()
+                        .as_hydrated()
+                        .is_some_and(|current| current.ptr_eq(&inspected_value))
+                    {
+                        occ.mark_non_pageable();
+                    }
                 }
             }
         }
@@ -417,7 +439,12 @@ mod tests {
         // Marking one non-pageable (its value can't be serialized) drops it from
         // the candidate set, so page-out won't keep retrying it; the other is
         // unaffected.
-        core.mark_non_pageable(vec![DiceKey { index: 0 }]);
+        let value = core
+            .keys_to_page_out()
+            .into_iter()
+            .find_map(|(key, value)| (key.index == 0).then_some(value))
+            .expect("key 0 should be a page-out candidate");
+        core.mark_non_pageable(vec![(DiceKey { index: 0 }, value)]);
         assert_eq!(candidates(&core), vec![1]);
     }
 
