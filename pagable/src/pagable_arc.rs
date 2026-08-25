@@ -810,7 +810,7 @@ impl<T: Pagable> PagableArcInner<T> {
                 data.pin(value);
             }
 
-            self.pinned_count.fetch_add(1, Ordering::Relaxed);
+            self.pinned_count.fetch_add(1, Ordering::Release);
 
             Ok(())
         }
@@ -836,7 +836,7 @@ impl<T: Pagable> PagableArcInner<T> {
     fn try_alloc_pinned(&self) -> bool {
         if self
             .pinned_count
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+            .fetch_update(Ordering::Acquire, Ordering::Relaxed, |v| {
                 if v == 0 { None } else { Some(v + 1) }
             })
             .is_ok()
@@ -848,7 +848,7 @@ impl<T: Pagable> PagableArcInner<T> {
             let _lock = self.lock.lock();
             let data = unsafe { &mut *self.data.get() };
             if data.try_pin() {
-                self.pinned_count.fetch_add(1, Ordering::Relaxed);
+                self.pinned_count.fetch_add(1, Ordering::Release);
                 return true;
             }
         }
@@ -871,7 +871,8 @@ impl<T: Pagable> PagableArcInner<T> {
     /// - Thread B: try_alloc_pinned slow path, acquires lock, increments count to 1
     /// - Thread A: acquires lock, but count is now 1, so we must NOT transition
     fn release_pin(ptr: &triomphe::Arc<Self>) {
-        if ptr.pinned_count.fetch_sub(1, Ordering::Relaxed) == 1 {
+        if ptr.pinned_count.fetch_sub(1, Ordering::Release) == 1 {
+            std::sync::atomic::fence(Ordering::Acquire);
             let _lock = ptr.lock.lock();
             if ptr.pinned_count.load(Ordering::Relaxed) == 0 {
                 let data: &mut _ = unsafe { &mut *ptr.data.get() };
