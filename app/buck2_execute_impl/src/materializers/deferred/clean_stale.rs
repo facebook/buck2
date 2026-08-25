@@ -63,6 +63,8 @@ use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
 use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
+pub const DEFAULT_CLEAN_STALE_TTL_DAYS: u64 = 7;
+
 #[derive(Debug, Clone)]
 pub struct CleanStaleArtifactsCommand {
     pub keep_since_time: Timestamp,
@@ -1099,7 +1101,7 @@ impl Default for CleanStaleConfig {
     fn default() -> Self {
         Self {
             schedule: None,
-            artifact_ttl: Duration::from_secs(7 * 24 * 60 * 60),
+            artifact_ttl: Duration::from_secs(DEFAULT_CLEAN_STALE_TTL_DAYS * 24 * 60 * 60),
             dry_run: false,
             low_disk: None,
         }
@@ -1158,7 +1160,7 @@ impl CleanStaleConfig {
                 section: "buck2",
                 property: "clean_stale_artifact_ttl_hours",
             })?
-            .unwrap_or(24.0 * 7.0);
+            .unwrap_or(24.0 * DEFAULT_CLEAN_STALE_TTL_DAYS as f64);
         let clean_stale_period_hours = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",

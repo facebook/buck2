@@ -23,6 +23,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
+use buck2_execute_impl::materializers::deferred::clean_stale::DEFAULT_CLEAN_STALE_TTL_DAYS;
 use buck2_execute_impl::sqlite::dep_file_state_db::DEP_FILE_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::dep_file_state_db::DepFileStateSqliteDb;
 use buck2_execute_impl::sqlite::incremental_state_db::INCREMENTAL_DB_SCHEMA_VERSION;
@@ -261,13 +262,13 @@ pub(crate) async fn maybe_initialize_dep_file_sqlite_db(
     )?;
 
     // Bound the db across sessions. TTL (0 disables age-based pruning) mirrors the materializer's
-    // 7-day `clean_stale_artifact_ttl_hours`; `max_entries` is an optional hard cap.
+    // default `clean_stale_artifact_ttl_hours`; `max_entries` is an optional hard cap.
     let ttl_days: u64 = root_config
         .parse(BuckconfigKeyRef {
             section: "buck2",
             property: "sqlite_dep_file_state_ttl_days",
         })?
-        .unwrap_or(7);
+        .unwrap_or(DEFAULT_CLEAN_STALE_TTL_DAYS);
     let prune_cutoff = if ttl_days == 0 {
         None
     } else {
