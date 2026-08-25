@@ -958,6 +958,9 @@ message CleanStaleRequest {
   // Allow active remote-backed intermediate artifacts to be unmaterialized
   // after the earlier adaptive cleanup passes are insufficient.
   bool adaptive_unmaterialize_active = 7;
+  // Resolve the cleanup TTL and low-disk behavior from the daemon's clean-stale
+  // buckconfig. Explicit cleanup policy fields above are ignored when set.
+  bool use_configured_policy = 8;
 }
 
 message CleanStaleResponse {

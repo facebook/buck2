@@ -61,21 +61,27 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                     .as_deferred_materializer_extension()
                     .internal_error("Deferred materializer is not in use")?;
 
-                let keep_since_time = jiff::Timestamp::from_second(self.req.keep_since_time)
-                    .map_err(|_| internal_error!("Invalid timestamp"))?;
-
-                let adaptive_min_ttl = self
-                    .req
-                    .adaptive_min_ttl_seconds
-                    .map(|s| std::time::Duration::from_secs(s.max(0) as u64));
-                extension
-                    .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                let policy = if self.req.use_configured_policy {
+                    buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy::Configured
+                } else {
+                    let keep_since_time = jiff::Timestamp::from_second(self.req.keep_since_time)
+                        .map_err(|_| internal_error!("Invalid timestamp"))?;
+                    let adaptive_min_ttl = self
+                        .req
+                        .adaptive_min_ttl_seconds
+                        .map(|s| std::time::Duration::from_secs(s.max(0) as u64));
+                    buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy::Explicit {
                         keep_since_time,
-                        dry_run: self.req.dry_run,
-                        tracked_only: self.req.tracked_only,
                         adaptive_low_disk_threshold: self.req.adaptive_low_disk_threshold,
                         adaptive_min_ttl,
                         adaptive_unmaterialize_active: self.req.adaptive_unmaterialize_active,
+                    }
+                };
+                extension
+                    .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                        policy,
+                        dry_run: self.req.dry_run,
+                        tracked_only: self.req.tracked_only,
                     })
                     .await
                     .buck_error_context("Failed to clean stale artifacts.")

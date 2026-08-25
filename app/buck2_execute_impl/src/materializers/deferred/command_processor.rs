@@ -131,9 +131,9 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     daemon_dispatcher: EventDispatcher,
     disable_eager_write_dispatch: bool,
     pub(super) eager_materializations: EagerMaterializations<T>,
-    /// Filesystem root used for `disk_space_stats` lookups during the
-    /// scheduled clean-stale loop.
+    /// Filesystem root used for clean-stale `disk_space_stats` lookups.
     pub(super) root_abs_path: Option<Arc<AbsPathBuf>>,
+    pub(super) clean_stale_config: CleanStaleConfig,
     /// Minimum remaining CAS TTL required before local contents may be discarded.
     /// `None` when periodic TTL refresh cannot preserve a remotely-backed artifact.
     pub(super) rematerialization_ttl: Option<SignedDuration>,
@@ -424,6 +424,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         verbose_materializer_log: bool,
         daemon_dispatcher: EventDispatcher,
         disable_eager_write_dispatch: bool,
+        clean_stale_config: CleanStaleConfig,
         rematerialization_ttl: Option<SignedDuration>,
     ) -> Self {
         let subscriptions = MaterializerSubscriptions::new();
@@ -451,6 +452,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             disable_eager_write_dispatch,
             eager_materializations,
             root_abs_path,
+            clean_stale_config,
             rematerialization_ttl,
         }
     }
@@ -510,6 +512,27 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     unmaterialize_active,
                 }),
             ),
+        }
+    }
+
+    pub(super) fn configured_clean_stale_command(
+        &self,
+        dispatcher: EventDispatcher,
+        dry_run: bool,
+        tracked_only: bool,
+    ) -> CleanStaleArtifactsCommand {
+        let config = &self.clean_stale_config;
+        let (artifact_ttl, adaptive_low_disk) =
+            self.resolve_clean_stale_params(config.low_disk.as_ref(), config.artifact_ttl);
+        CleanStaleArtifactsCommand {
+            keep_since_time: Timestamp::now()
+                .checked_sub(artifact_ttl)
+                .unwrap_or(Timestamp::MIN),
+            dry_run: dry_run || config.dry_run,
+            tracked_only,
+            dispatcher,
+            adaptive_low_disk,
+            root_abs_path: self.root_abs_path.dupe(),
         }
     }
 
@@ -612,7 +635,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         commands: MaterializerReceiver<T>,
         ttl_refresh: TtlRefreshConfiguration,
         access_time_updates: AccessTimesUpdates,
-        clean_stale_config: Option<CleanStaleConfig>,
     ) {
         let MaterializerReceiver {
             high_priority,
@@ -629,10 +651,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             None
         };
 
-        let clean_stale_ticker = clean_stale_config.as_ref().map(|clean_stale_config| {
+        let clean_stale_ticker = self.clean_stale_config.schedule.as_ref().map(|schedule| {
             tokio::time::interval_at(
-                tokio::time::Instant::now() + clean_stale_config.start_offset,
-                clean_stale_config.clean_period,
+                tokio::time::Instant::now() + schedule.start_offset,
+                schedule.clean_period,
             )
         });
 
@@ -701,35 +723,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     };
                 }
                 Op::CleanStaleRequest => {
-                    if let Some(config) = clean_stale_config.as_ref() {
-                        let dispatcher = self.daemon_dispatcher.dupe();
-
-                        let (artifact_ttl, adaptive_low_disk) = self.resolve_clean_stale_params(
-                            config.low_disk.as_ref(),
-                            config.artifact_ttl,
-                        );
-
-                        let daemon_id = dispatcher.daemon_id().dupe();
-                        let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: Timestamp::now()
-                                .checked_sub(artifact_ttl)
-                                .unwrap_or(Timestamp::MIN),
-                            dry_run: config.dry_run,
-                            tracked_only: false,
-                            dispatcher,
-                            adaptive_low_disk,
-                            root_abs_path: self.root_abs_path.dupe(),
-                        };
-                        stream.clean_stale_fut =
-                            Some(cmd.create_clean_fut(&mut self, None, daemon_id));
-                    } else {
-                        // This should never happen
-                        let _unused = soft_error!(
-                            "clean_stale_no_config",
-                            buck2_error!(buck2_error::ErrorTag::Tier0, "clean scheduled without being configured"),
-                            quiet: true
-                        );
-                    }
+                    let dispatcher = self.daemon_dispatcher.dupe();
+                    let daemon_id = dispatcher.daemon_id().dupe();
+                    let cmd = self.configured_clean_stale_command(dispatcher, false, false);
+                    stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None, daemon_id));
                 }
             }
         }

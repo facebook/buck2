@@ -97,9 +97,19 @@ pub struct AdaptiveLowDiskParams {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct CleanStaleArtifactsExtensionCommand {
-    pub cmd: CleanStaleArtifactsCommand,
+    pub kind: CleanStaleArtifactsExtensionCommandKind,
     #[derivative(Debug = "ignore")]
     pub sender: Sender<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
+}
+
+#[derive(Debug)]
+pub enum CleanStaleArtifactsExtensionCommandKind {
+    Configured {
+        dispatcher: EventDispatcher,
+        dry_run: bool,
+        tracked_only: bool,
+    },
+    Explicit(CleanStaleArtifactsCommand),
 }
 
 #[derive(Clone)]
@@ -176,11 +186,17 @@ fn create_result(
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
-        let trace_id = self.cmd.dispatcher.trace_id().clone();
-        let daemon_id = self.cmd.dispatcher.daemon_id().clone();
-        let fut = self
-            .cmd
-            .create_clean_fut(processor, Some(trace_id), daemon_id);
+        let cmd = match self.kind {
+            CleanStaleArtifactsExtensionCommandKind::Configured {
+                dispatcher,
+                dry_run,
+                tracked_only,
+            } => processor.configured_clean_stale_command(dispatcher, dry_run, tracked_only),
+            CleanStaleArtifactsExtensionCommandKind::Explicit(cmd) => cmd,
+        };
+        let trace_id = cmd.dispatcher.trace_id().clone();
+        let daemon_id = cmd.dispatcher.daemon_id().clone();
+        let fut = cmd.create_clean_fut(processor, Some(trace_id), daemon_id);
         let _ignored = self.sender.send(fut);
     }
 }
@@ -1065,16 +1081,32 @@ fn apply_adaptive_low_disk(
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct CleanStaleConfig {
-    // Time before running first clean, after daemon start
-    pub start_offset: Duration,
-    pub clean_period: Duration,
+    pub schedule: Option<CleanStaleSchedule>,
     pub artifact_ttl: Duration,
     pub dry_run: bool,
     pub low_disk: Option<LowDiskCleanConfig>,
 }
 
-/// Configures how the scheduled clean reacts to low free disk space.
+#[derive(Debug, Clone)]
+pub struct CleanStaleSchedule {
+    pub start_offset: Duration,
+    pub clean_period: Duration,
+}
+
+impl Default for CleanStaleConfig {
+    fn default() -> Self {
+        Self {
+            schedule: None,
+            artifact_ttl: Duration::from_secs(7 * 24 * 60 * 60),
+            dry_run: false,
+            low_disk: None,
+        }
+    }
+}
+
+/// Configures how clean-stale reacts to low free disk space.
 #[derive(Debug, Clone)]
 pub struct LowDiskCleanConfig {
     /// Free disk space (as a percentage of total) at or below which the
@@ -1114,7 +1146,7 @@ fn duration_from_config_hours(hours: f64, property: &str) -> buck2_error::Result
 }
 
 impl CleanStaleConfig {
-    pub fn from_buck_config(root_config: &LegacyBuckConfig) -> buck2_error::Result<Option<Self>> {
+    pub fn from_buck_config(root_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         let clean_stale_enabled = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",
@@ -1197,27 +1229,29 @@ impl CleanStaleConfig {
             threshold_percent,
             mode: low_disk_mode,
         });
-        let clean_stale_config = if clean_stale_enabled {
-            Some(Self {
+        let schedule = if clean_stale_enabled {
+            Some(CleanStaleSchedule {
                 clean_period: duration_from_config_hours(
                     clean_stale_period_hours,
                     "clean_stale_period_hours",
-                )?,
-                artifact_ttl: duration_from_config_hours(
-                    clean_stale_artifact_ttl_hours,
-                    "clean_stale_artifact_ttl_hours",
                 )?,
                 start_offset: duration_from_config_hours(
                     clean_stale_start_offset_hours,
                     "clean_stale_start_offset_hours",
                 )?,
-                low_disk,
-                dry_run: clean_stale_dry_run,
             })
         } else {
             None
         };
-        Ok(clean_stale_config)
+        Ok(Self {
+            schedule,
+            artifact_ttl: duration_from_config_hours(
+                clean_stale_artifact_ttl_hours,
+                "clean_stale_artifact_ttl_hours",
+            )?,
+            low_disk,
+            dry_run: clean_stale_dry_run,
+        })
     }
 
     pub fn suppress_unmaterialize_without_ttl_refresh(&mut self, ttl_refresh_enabled: bool) {

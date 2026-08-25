@@ -847,10 +847,18 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
 
 #[derive(Debug, Clone)]
 pub struct CleanStaleArtifactsArgs {
-    pub keep_since_time: Timestamp,
+    pub policy: CleanStaleArtifactsPolicy,
     pub dry_run: bool,
     pub tracked_only: bool,
-    pub adaptive_low_disk_threshold: Option<f64>,
-    pub adaptive_min_ttl: Option<std::time::Duration>,
-    pub adaptive_unmaterialize_active: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum CleanStaleArtifactsPolicy {
+    Configured,
+    Explicit {
+        keep_since_time: Timestamp,
+        adaptive_low_disk_threshold: Option<f64>,
+        adaptive_min_ttl: Option<std::time::Duration>,
+        adaptive_unmaterialize_active: bool,
+    },
 }

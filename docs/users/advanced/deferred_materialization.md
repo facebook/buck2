@@ -99,6 +99,8 @@ clean_stale_start_offset_hours = 12
   clean events.
 - `clean_stale_artifact_ttl_hours` determines how long artifacts should be kept
   in buck-out before cleaning them.
+- `clean_stale_dry_run` (default false) reports what would be cleaned without
+  deleting it.
 - `clean_stale_low_disk_threshold` (percent of total disk free, e.g. `10.0`)
   enables more aggressive cleaning when free disk drops at or below it. The
   low-disk behavior below never engages unless this is set.
@@ -126,5 +128,12 @@ after the next scheduled period, but it should be able to make gradual progress
 and prevent long term accumulation of artifacts.
 
 If needed, a clean can be manually triggered by calling `buck2 clean --stale`.
-The equivalent manual escalation is `--adaptive-unmaterialize-active`, which
-requires `--adaptive-low-disk-threshold` and the same TTL-refresh support.
+With no cleanup-policy flags, the command uses the configured artifact TTL,
+dry-run setting, and fixed or adaptive low-disk policy. These settings apply to
+manual cleanup even when `clean_stale_enabled` is false; that setting only
+controls periodic scheduling.
+
+An explicit duration or adaptive low-disk flag selects an explicit command-line
+policy instead. The equivalent explicit manual escalation is
+`--adaptive-unmaterialize-active`, which requires
+`--adaptive-low-disk-threshold` and the same TTL-refresh support.

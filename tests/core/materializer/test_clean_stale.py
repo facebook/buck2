@@ -58,6 +58,12 @@ clean_stale_low_disk_adaptive_unmaterialize_active = {str(enabled).lower()}
         )
 
 
+def configure_clean_stale(buck: Buck, settings: str) -> None:
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(f"[buck2]\n{settings}")
+
+
 async def audit_entry(buck: Buck, artifact_name: str) -> str:
     entries = (await buck.audit("deferred-materializer", "list")).stdout.splitlines()
     entry = next(entry for entry in entries if artifact_name in entry)
@@ -218,6 +224,77 @@ async def test_clean_stale_actions(buck: Buck) -> None:
     await buck.clean("--stale")
     for output in outputs:
         assert output.exists()
+
+
+@buck_test()
+async def test_clean_stale_uses_configured_ttl_when_scheduling_disabled(
+    buck: Buck,
+) -> None:
+    configure_clean_stale(buck, "clean_stale_artifact_ttl_hours = 0\n")
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+
+    await buck.kill()
+    await buck.clean("--stale")
+    assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_uses_configured_adaptive_policy(buck: Buck) -> None:
+    configure_clean_stale(
+        buck,
+        """clean_stale_artifact_ttl_hours = 8
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_adaptive_enabled = true
+clean_stale_low_disk_adaptive_min_ttl_hours = 0
+""",
+    )
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+
+    await buck.kill()
+    await buck.clean("--stale")
+    assert not output.exists()
+
+
+@buck_test()
+async def test_clean_stale_uses_configured_dry_run(buck: Buck) -> None:
+    configure_clean_stale(
+        buck,
+        """clean_stale_artifact_ttl_hours = 0
+clean_stale_dry_run = true
+""",
+    )
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+
+    await buck.kill()
+    await buck.clean("--stale")
+    assert output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_explicit_clean_stale_duration_ignores_configured_adaptive_policy(
+    buck: Buck,
+) -> None:
+    configure_clean_stale(
+        buck,
+        """clean_stale_artifact_ttl_hours = 0
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_adaptive_enabled = true
+clean_stale_low_disk_adaptive_min_ttl_hours = 0
+""",
+    )
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+
+    await buck.kill()
+    await buck.clean("--stale=10000d")
+    assert output.exists()
 
 
 @buck_test()

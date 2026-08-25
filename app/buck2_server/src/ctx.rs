@@ -1032,9 +1032,9 @@ impl DiceCommandUpdater<'_, '_> {
                 self.cmd_ctx.base_context.daemon.page_out_on_idle.is_some()
             ),
         ];
-        tags.extend(CleanStaleConfig::adaptive_telemetry_tags(
-            clean_stale_config.as_ref(),
-        ));
+        tags.extend(CleanStaleConfig::adaptive_telemetry_tags(Some(
+            &clean_stale_config,
+        )));
         self.cmd_ctx
             .events()
             .instant_event(buck2_data::TagEvent { tags });

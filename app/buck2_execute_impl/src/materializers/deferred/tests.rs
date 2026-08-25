@@ -18,6 +18,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
@@ -155,6 +156,7 @@ mod state_machine {
     use super::*;
     use crate::materializers::deferred::artifact_tree::Processing;
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
+    use crate::materializers::deferred::clean_stale::CleanStaleSchedule;
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
     use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
     use crate::materializers::deferred::subscriptions::SubscriptionHandle;
@@ -493,6 +495,7 @@ mod state_machine {
                 true,
                 daemon_dispatcher,
                 true,
+                CleanStaleConfig::default(),
                 None,
             ),
             command_sender,
@@ -523,6 +526,7 @@ mod state_machine {
     ) {
         let (mut processor, command_sender, command_receiver, daemon_dispatcher_events) =
             make_processor_for_io(io.dupe());
+        processor.clean_stale_config = clean_stale_config.unwrap_or_default();
         let stats = processor.stats.dupe();
 
         let handle = {
@@ -546,7 +550,6 @@ mod state_machine {
                         enabled: false,
                     },
                     AccessTimesUpdates::Disabled,
-                    clean_stale_config,
                 ));
             }
         })
@@ -1575,12 +1578,14 @@ mod state_machine {
 
             let res = dm
                 .clean_stale_artifacts(CleanStaleArtifactsArgs {
-                    keep_since_time: jiff::Timestamp::MAX,
+                    policy: CleanStaleArtifactsPolicy::Explicit {
+                        keep_since_time: jiff::Timestamp::MAX,
+                        adaptive_low_disk_threshold: None,
+                        adaptive_min_ttl: None,
+                        adaptive_unmaterialize_active: false,
+                    },
                     dry_run: false,
                     tracked_only: false,
-                    adaptive_low_disk_threshold: None,
-                    adaptive_min_ttl: None,
-                    adaptive_unmaterialize_active: false,
                 })
                 .await?;
 
@@ -1642,12 +1647,14 @@ mod state_machine {
 
             let res = dm
                 .clean_stale_artifacts(CleanStaleArtifactsArgs {
-                    keep_since_time: jiff::Timestamp::MAX,
+                    policy: CleanStaleArtifactsPolicy::Explicit {
+                        keep_since_time: jiff::Timestamp::MAX,
+                        adaptive_low_disk_threshold: None,
+                        adaptive_min_ttl: None,
+                        adaptive_unmaterialize_active: false,
+                    },
                     dry_run: false,
                     tracked_only: false,
-                    adaptive_low_disk_threshold: None,
-                    adaptive_min_ttl: None,
-                    adaptive_unmaterialize_active: false,
                 })
                 .await;
 
@@ -1706,12 +1713,14 @@ mod state_machine {
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
             let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
-                keep_since_time: jiff::Timestamp::MAX,
+                policy: CleanStaleArtifactsPolicy::Explicit {
+                    keep_since_time: jiff::Timestamp::MAX,
+                    adaptive_low_disk_threshold: None,
+                    adaptive_min_ttl: None,
+                    adaptive_unmaterialize_active: false,
+                },
                 dry_run: false,
                 tracked_only: false,
-                adaptive_low_disk_threshold: None,
-                adaptive_min_ttl: None,
-                adaptive_unmaterialize_active: false,
             });
             thread::spawn(move || {
                 // Wait until a read_dir request is about to execute
@@ -1750,12 +1759,14 @@ mod state_machine {
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
             let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
-                keep_since_time: jiff::Timestamp::MAX,
+                policy: CleanStaleArtifactsPolicy::Explicit {
+                    keep_since_time: jiff::Timestamp::MAX,
+                    adaptive_low_disk_threshold: None,
+                    adaptive_min_ttl: None,
+                    adaptive_unmaterialize_active: false,
+                },
                 dry_run: false,
                 tracked_only: false,
-                adaptive_low_disk_threshold: None,
-                adaptive_min_ttl: None,
-                adaptive_unmaterialize_active: false,
             });
             thread::spawn(move || {
                 // Wait until a single clean request is about to execute
@@ -1797,9 +1808,11 @@ mod state_machine {
             let project_root = temp_root();
             // dry run because it's easier and since this is only testing that cleans are triggered by the materializer
             let clean_stale_config = CleanStaleConfig {
-                clean_period: std::time::Duration::from_secs(1),
+                schedule: Some(CleanStaleSchedule {
+                    clean_period: std::time::Duration::from_secs(1),
+                    start_offset: std::time::Duration::from_secs(0),
+                }),
                 artifact_ttl: std::time::Duration::from_secs(0),
-                start_offset: std::time::Duration::from_secs(0),
                 low_disk: None,
                 dry_run: true,
             };

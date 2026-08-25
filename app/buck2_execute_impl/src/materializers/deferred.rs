@@ -202,7 +202,7 @@ pub struct DeferredMaterializerConfigs {
     pub ttl_refresh: TtlRefreshConfiguration,
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
-    pub clean_stale_config: Option<CleanStaleConfig>,
+    pub clean_stale_config: CleanStaleConfig,
     pub disable_eager_write_dispatch: bool,
     pub eager_materialization_enabled: bool,
 }
@@ -777,6 +777,7 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
                     configs.verbose_materializer_log,
                     daemon_dispatcher,
                     configs.disable_eager_write_dispatch,
+                    configs.clean_stale_config.clone(),
                     rematerialization_ttl,
                 )
             }
@@ -795,7 +796,6 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
                     command_receiver,
                     configs.ttl_refresh,
                     configs.update_access_times,
-                    configs.clean_stale_config,
                 ));
             }
         })
@@ -876,7 +876,7 @@ impl DeferredMaterializerAccessor<NoDiskIoHandler> {
                 },
                 update_access_times: AccessTimesUpdates::Disabled,
                 verbose_materializer_log: false,
-                clean_stale_config: None,
+                clean_stale_config: CleanStaleConfig::default(),
                 disable_eager_write_dispatch: true,
                 eager_materialization_enabled: false,
             },

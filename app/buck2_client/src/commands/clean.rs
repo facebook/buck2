@@ -60,10 +60,12 @@ pub struct CleanCommand {
     )]
     dry_run: bool,
 
+    // TODO(scottcao): Make stale duration be specified on a separate flag so that
+    // there is no potential confusion in behavior between `--stale` and `--stale=7d`
     #[clap(
         long = "stale",
-        help = "Delete artifacts from buck-out older than 1 week or older than
-the specified duration, without killing the daemon",
+        help = "Delete artifacts from buck-out using the configured clean-stale
+policy or the specified duration, without killing the daemon",
         value_name = "DURATION"
     )]
     stale: Option<Option<humantime::Duration>>,
@@ -131,12 +133,21 @@ impl CleanCommand {
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
+        if let Some(mut keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)?
+        {
             if let Some(t) = self.adaptive_low_disk_threshold {
                 if !(0.0..=100.0).contains(&t) || t.is_nan() {
                     return ExitResult::bail(format!(
                         "`--adaptive-low-disk-threshold` must be between 0.0 and 100.0, got `{t}`"
                     ));
+                }
+                if matches!(
+                    keep_since_arg,
+                    crate::commands::clean_stale::KeepSinceArg::Configured
+                ) {
+                    keep_since_arg = crate::commands::clean_stale::KeepSinceArg::Duration(
+                        jiff::SignedDuration::from_hours(24 * 7),
+                    );
                 }
             }
             let cmd = CleanStaleCommand {

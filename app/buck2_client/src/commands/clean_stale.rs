@@ -49,6 +49,7 @@ pub struct CleanStaleCommand {
 
 /// Specifies the maximum age of artifacts to keep
 pub enum KeepSinceArg {
+    Configured,
     Duration(SignedDuration),
     Time(i64),
 }
@@ -63,7 +64,7 @@ pub fn parse_clean_stale_args(
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDuration))?;
             Some(KeepSinceArg::Duration(duration))
         }
-        (Some(None), None) => Some(KeepSinceArg::Duration(SignedDuration::from_hours(24 * 7))),
+        (Some(None), None) => Some(KeepSinceArg::Configured),
         (None, Some(time)) => Some(KeepSinceArg::Time(time)),
         (Some(_), Some(_)) => unreachable!("keep-since-time conflicts_with stale"),
         (None, None) => None,
@@ -125,7 +126,13 @@ impl StreamingCommand for CleanStaleCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let keep_since_time = match self.keep_since_arg {
+        let (keep_since_time, use_configured_policy) = match self.keep_since_arg {
+            KeepSinceArg::Configured => {
+                buck2_client_ctx::eprintln!(
+                    "Cleaning artifacts using the configured clean-stale policy"
+                )?;
+                (Timestamp::UNIX_EPOCH, true)
+            }
             KeepSinceArg::Duration(duration) => {
                 let keep_since_time = Timestamp::now()
                     .checked_sub(duration)
@@ -143,12 +150,16 @@ impl StreamingCommand for CleanStaleCommand {
                 )?;
                 // Round up to next second since timestamp below is rounded down
                 // (this way clean --stale=0s immediately after a build deletes the result)
-                keep_since_time
+                let keep_since_time = keep_since_time
                     .checked_add(SignedDuration::from_secs(1))
-                    .map_err(|_| internal_error!("Timestamp overflow"))?
+                    .map_err(|_| internal_error!("Timestamp overflow"))?;
+                (keep_since_time, false)
             }
-            KeepSinceArg::Time(timestamp) => Timestamp::from_second(timestamp)
-                .map_err(|_| internal_error!("Invalid timestamp"))?,
+            KeepSinceArg::Time(timestamp) => (
+                Timestamp::from_second(timestamp)
+                    .map_err(|_| internal_error!("Invalid timestamp"))?,
+                false,
+            ),
         };
 
         if let Some(threshold) = self.adaptive_low_disk_threshold {
@@ -175,6 +186,7 @@ impl StreamingCommand for CleanStaleCommand {
                     adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
                     adaptive_min_ttl_seconds: self.adaptive_min_ttl.map(|d| d.as_secs() as i64),
                     adaptive_unmaterialize_active: self.adaptive_unmaterialize_active,
+                    use_configured_policy,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

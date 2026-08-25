@@ -486,10 +486,7 @@ impl DaemonState {
                     .unwrap_or(false);
 
                 let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
-                if let Some(clean_stale_config) = clean_stale_config.as_mut() {
-                    clean_stale_config
-                        .suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
-                }
+                clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
 
                 let disable_eager_write_dispatch = root_config
                     .parse::<RolloutPercentage>(BuckconfigKeyRef {
