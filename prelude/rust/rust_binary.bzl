@@ -17,7 +17,8 @@ load(
     "create_resource_db",
     "gather_resources",
 )
-load("@prelude//cxx:cxx_bolt.bzl", "PRE_BOLT_SUFFIX", "cxx_use_bolt")
+load("@prelude//cxx:cxx_bolt.bzl", "cxx_use_bolt")
+load("@prelude//cxx:cxx_executable.bzl", "get_cxx_post_link_suffix")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
@@ -44,6 +45,7 @@ load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
 )
+load("@prelude//linking:add_elf_sections.bzl", "get_elf_sections")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
@@ -60,7 +62,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info", "stamp_build_info")
+load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
@@ -224,6 +226,12 @@ def _rust_binary_common(
             "`bolt_profile` is set, but BOLT runs as part of the cxx link. "
             + "This target links via rustc; BOLT requires `advanced_unstable_linking` on the Rust toolchain."
         )
+    elf_sections = get_elf_sections(ctx)
+    if elf_sections and not links_via_cxx:
+        fail(
+            "`elf_sections` is set, but the sections are added as part of the cxx link. "
+            + "This target links via rustc; `elf_sections` requires `advanced_unstable_linking` on the Rust toolchain."
+        )
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
     unstamped_name = None
@@ -336,14 +344,10 @@ def _rust_binary_common(
     exe_content_based = content_based_output and not needs_shlib_tree and not use_bolt
     if links_via_cxx:
         # cxx performs the terminal link (see `rust_link_binary` below) and its
-        # own post-link processing (BOLT, late build-info stamping); we must not
-        # stamp again. Each stage strips the suffix it owns, outermost first,
-        # mirroring `get_cxx_executable_product_name`: the linker emits
-        # `<name>-pre_stamped-wrapper`, BOLT strips `-wrapper`, and the stamp
-        # strips `-pre_stamped` to land back on `name`.
-        suffix = (PRE_STAMPED_SUFFIX if enable_late_build_info_stamping else "") + (PRE_BOLT_SUFFIX if use_bolt else "")
+        # own post-link processing, so the output has to be named the way those
+        # stages expect; we must not stamp again here.
         predeclared_output = ctx.actions.declare_output(
-            output_filename(compile_ctx, simple_crate, Emit("link"), params, suffix),
+            output_filename(compile_ctx, simple_crate, Emit("link"), params, get_cxx_post_link_suffix(ctx)),
             has_content_based_path = exe_content_based,
         )
 

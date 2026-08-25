@@ -63,6 +63,7 @@ load(
     "XcodeDataInfo",
     "generate_xcode_data",
 )
+load("@prelude//linking:add_elf_sections.bzl", "PRE_ADD_ELF_SECTIONS_SUFFIX", "get_elf_sections")
 load(
     "@prelude//linking:link_groups.bzl",
     "gather_link_group_libs",
@@ -1178,14 +1179,24 @@ def _link_into_executable(
         extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
     )
 
-def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
-    name = ctx.label.name
+def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
+    """
+    The suffix the linker's output must carry so that each post-link stage of
+    `cxx_link_into` can strip the part it owns, leaving the canonical name.
+
+    Appended in reverse of the order the stages run, so the outermost suffix
+    belongs to the stage that runs first.
+    """
+    suffix = ""
     if cxx_stamp_build_info(ctx):
-        # build_info_stamping is executed after BOLT, make sure the prestamp flag is the innermost prefix
-        name += PRE_STAMPED_SUFFIX
+        suffix += PRE_STAMPED_SUFFIX
+    if get_elf_sections(ctx):
+        suffix += PRE_ADD_ELF_SECTIONS_SUFFIX
     if has_hip_device_debug and hip_debug_extract_available(get_cxx_toolchain_info(ctx)):
-        # Pre-suffix so hip_debug_extract can strip back to canonical name.
-        name += PRE_EXTRACT_SUFFIX
+        suffix += PRE_EXTRACT_SUFFIX
     if cxx_use_bolt(ctx):
-        name += PRE_BOLT_SUFFIX
-    return name
+        suffix += PRE_BOLT_SUFFIX
+    return suffix
+
+def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
+    return ctx.label.name + get_cxx_post_link_suffix(ctx, has_hip_device_debug)

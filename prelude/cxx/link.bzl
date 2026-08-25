@@ -32,6 +32,7 @@ load(
     "@prelude//cxx/dist_lto/darwin:dist_lto.bzl",
     "cxx_darwin_dist_link",
 )
+load("@prelude//linking:add_elf_sections.bzl", "add_elf_sections_to_executable")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
@@ -536,6 +537,7 @@ def cxx_link_into(
         output = renamed
 
     if is_result_executable:
+        output = add_elf_sections_to_executable(ctx, output)
         output = stamp_build_info(ctx, output, links = opts.links)
 
     linked_object = LinkedObject(

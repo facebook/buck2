@@ -7,11 +7,11 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
+load("@prelude//linking:add_elf_sections.bzl", "add_elf_sections")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
@@ -58,26 +58,11 @@ def stamp_build_info(
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
             stamped_output = ctx.actions.declare_output(name + ext, has_content_based_path = has_content_based_path)
 
-        # This can be run remotely, but it's often cheaper to do this locally for large
-        # binaries, especially on CI using limited hybrid
-        prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
-        toolchain = get_cxx_toolchain_info(ctx)
-
-        ctx.actions.run(
-            cmd_args([
-                toolchain.binary_utilities_info.objcopy,
-                "--add-section",
-                cmd_args(build_info_json, format = "fb_build_info={}"),
-                obj,
-                stamped_output.as_output(),
-            ]),
-            identifier = obj.short_path,
+        return add_elf_sections(
+            ctx,
+            obj,
+            {"fb_build_info": build_info_json},
+            stamped_output,
             category = "stamp_build_info",
-            # This can be run remotely, but it's often cheaper to do this locally for large
-            # binaries, especially on CI using limited hybrid.
-            prefer_local = prefer_local,
-            prefer_remote = not prefer_local,
-            allow_cache_upload = toolchain.cxx_compiler_info.allow_cache_upload,
         )
-        return stamped_output
     return obj
