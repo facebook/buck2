@@ -1575,33 +1575,44 @@ mod tests {
 
         let block = Arc::new(RwLock::new(()));
         let blocked = block.write().await;
-        let entered = Arc::new(Barrier::new(2));
+        let entered = Arc::new(AtomicBool::new(false));
 
-        let preemptible = tokio::spawn({
-            let concurrency = concurrency.dupe();
-            let entered = entered.dupe();
-            let block = block.dupe();
+        let updater = NoChanges;
+        let preemptible = TestCommand::new()
+            .preemptible(PreemptibleWhen::OnDifferentState)
+            .run(&concurrency, &updater, {
+                let entered = entered.dupe();
+                let block = block.dupe();
+                |_, _timing| async move {
+                    entered.store(true, Ordering::Relaxed);
+                    let _g = block.read().await;
+                }
+            });
+        pin_mut!(preemptible);
 
-            async move {
-                TestCommand::new()
-                    .preemptible(PreemptibleWhen::OnDifferentState)
-                    .run(&concurrency, &NoChanges, |_, _timing| async move {
-                        entered.wait().await;
-                        let _g = block.read().await;
-                    })
-                    .await
-            }
-        });
-
-        entered.wait().await;
+        // Drive it until it is inside `exec` and therefore registered as active.
+        while !entered.load(Ordering::Relaxed) {
+            assert_matches!(poll!(&mut preemptible), Poll::Pending);
+            tokio::task::yield_now().await;
+        }
 
         // A command with the same state runs concurrently and completes.
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
 
+        // Still blocked on the guard, so it cannot have completed normally. Had it been preempted,
+        // `enter`'s select would resolve with `DaemonPreempted` regardless of `exec` being stuck —
+        // so staying pending is what proves it was not preempted.
+        //
+        // Asserting this *before* releasing the guard is load-bearing. Releasing first lets the
+        // command finish normally in the same window, and `future::select` polls `exec` ahead of
+        // the preempt channel, so a real preemption would be discarded and the test would pass
+        // whether or not preemption fired.
+        assert_matches!(poll!(&mut preemptible), Poll::Pending);
+
         drop(blocked);
-        preemptible.await??;
+        preemptible.await?;
 
         Ok(())
     }
