@@ -742,7 +742,6 @@ async fn always_unequal_recompute_skips_old_value_page_in() -> anyhow::Result<()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-#[should_panic(expected = "PagableNodeValue::expect_hydrated called on a paged-out value")]
 async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
     let tmp = tempdir().expect("temporary directory should be created");
     let dice = make_dice(

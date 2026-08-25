@@ -221,10 +221,14 @@ impl VersionedGraphNode {
             fn(DiceValidValue) -> PagableNodeValue,
         ) = match self {
             VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
+                // Page-out can replace the graph value after a worker captured it for
+                // dependency validation. Active demand wins that race: restore the exact
+                // value the worker validated before returning it from the graph.
+                entry.rehydrate(value);
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(
                     key.v,
-                    "is_reusable returned true, which only happens for hydrated entries",
+                    "a reusable entry is resident or was restored from the worker's value",
                 );
                 return (ret, false);
             }
