@@ -11,8 +11,11 @@
 //! End-to-end tests for `Dice::page_out` and the worker's page-in step.
 
 use std::sync::Arc;
+use std::sync::Condvar;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -20,8 +23,14 @@ use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use pagable::pagable_typetag;
 use tempfile::tempdir;
+use tokio::sync::Notify;
+use tokio::time::timeout;
 
 use crate::DiceKeyDyn;
 use crate::DiceStorage;
@@ -279,6 +288,200 @@ impl Key for AlwaysUnequalPagableKey {
     }
 }
 
+struct PageOutSerializationGate {
+    started: Notify,
+    released: Mutex<bool>,
+    released_cv: Condvar,
+}
+
+impl PageOutSerializationGate {
+    fn new() -> Self {
+        Self {
+            started: Notify::new(),
+            released: Mutex::new(false),
+            released_cv: Condvar::new(),
+        }
+    }
+
+    async fn wait_until_started(&self) {
+        timeout(Duration::from_secs(10), self.started.notified())
+            .await
+            .expect("page-out serialization should start");
+    }
+
+    fn block_serialization(&self) {
+        self.started.notify_one();
+        let mut released = self
+            .released
+            .lock()
+            .expect("gate lock should not be poisoned");
+        while !*released {
+            released = self
+                .released_cv
+                .wait(released)
+                .expect("gate lock should not be poisoned");
+        }
+    }
+
+    fn release(&self) {
+        *self
+            .released
+            .lock()
+            .expect("gate lock should not be poisoned") = true;
+        self.released_cv.notify_all();
+    }
+}
+
+static PAGE_OUT_SERIALIZATION_GATE: Mutex<Option<Arc<PageOutSerializationGate>>> = Mutex::new(None);
+
+struct InstalledPageOutSerializationGate(Arc<PageOutSerializationGate>);
+
+impl InstalledPageOutSerializationGate {
+    fn install(gate: Arc<PageOutSerializationGate>) -> Self {
+        let previous = PAGE_OUT_SERIALIZATION_GATE
+            .lock()
+            .expect("gate lock should not be poisoned")
+            .replace(gate.clone());
+        assert!(
+            previous.is_none(),
+            "only one page-out gate may be installed"
+        );
+        Self(gate)
+    }
+}
+
+impl Drop for InstalledPageOutSerializationGate {
+    fn drop(&mut self) {
+        self.0.release();
+        let mut installed = PAGE_OUT_SERIALIZATION_GATE
+            .lock()
+            .expect("gate lock should not be poisoned");
+        if installed
+            .as_ref()
+            .is_some_and(|gate| Arc::ptr_eq(gate, &self.0))
+        {
+            installed.take();
+        }
+    }
+}
+
+struct BlockingPagableValueSerialize;
+
+impl ValueSerialize for BlockingPagableValueSerialize {
+    type Value = u64;
+
+    fn pagable_serialize_value(
+        &self,
+        value: &Self::Value,
+        serializer: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        let gate = PAGE_OUT_SERIALIZATION_GATE
+            .lock()
+            .expect("gate lock should not be poisoned")
+            .clone();
+        if let Some(gate) = gate {
+            gate.block_serialization();
+        }
+        Some(value.pagable_serialize(serializer))
+    }
+
+    fn pagable_deserialize_value<'de, D: PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deserializer: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        u64::pagable_deserialize(deserializer)
+    }
+}
+
+#[derive(Clone, Dupe)]
+struct DependencyComputeGate {
+    started: Arc<Notify>,
+    released: Arc<Notify>,
+}
+
+impl DependencyComputeGate {
+    fn new() -> Self {
+        Self {
+            started: Arc::new(Notify::new()),
+            released: Arc::new(Notify::new()),
+        }
+    }
+
+    async fn wait_until_started(&self) {
+        timeout(Duration::from_secs(10), self.started.notified())
+            .await
+            .expect("dependency recomputation should start");
+    }
+
+    fn release(&self) {
+        self.released.notify_one();
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct PageOutRaceDependency;
+
+#[async_trait]
+impl Key for PageOutRaceDependency {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        if let Ok(gate) = ctx
+            .per_transaction_data()
+            .data
+            .get::<DependencyComputeGate>()
+        {
+            gate.started.notify_one();
+            gate.released.notified().await;
+        }
+
+        ctx.compute(&DeferredInput(0))
+            .await
+            .expect("injected modulo input should compute")
+            % 2
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct PageOutRaceRoot;
+
+#[async_trait]
+impl Key for PageOutRaceRoot {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        *ctx.compute(&PageOutRaceDependency)
+            .await
+            .expect("race dependency should compute")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        BlockingPagableValueSerialize
+    }
+}
+
 fn make_dice(storage: DiceStorage) -> Arc<Dice> {
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
@@ -294,6 +497,12 @@ fn user_data_with_counter(counter: &ComputeCounter) -> UserComputationData {
 fn user_data_with_deferred_counts(counts: &DeferredComputeCounts) -> UserComputationData {
     let mut data = UserComputationData::new();
     data.data.set(counts.dupe());
+    data
+}
+
+fn user_data_with_dependency_gate(gate: &DependencyComputeGate) -> UserComputationData {
+    let mut data = UserComputationData::new();
+    data.data.set(gate.dupe());
     data
 }
 
@@ -530,6 +739,74 @@ async fn always_unequal_recompute_skips_old_value_page_in() -> anyhow::Result<()
     );
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[should_panic(expected = "PagableNodeValue::expect_hydrated called on a paged-out value")]
+async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
+    let tmp = tempdir().expect("temporary directory should be created");
+    let dice = make_dice(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)
+            .expect("paging storage should open"),
+    );
+
+    let mut updater = dice.updater();
+    updater
+        .changed_to([(DeferredInput(0), 1)])
+        .expect("input should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&PageOutRaceRoot)
+            .await
+            .expect("initial root should compute"),
+        1
+    );
+    drop(tx);
+    dice.wait_for_idle().await;
+
+    let serialization_gate = Arc::new(PageOutSerializationGate::new());
+    let _installed_gate = InstalledPageOutSerializationGate::install(serialization_gate.clone());
+    let page_out = tokio::spawn({
+        let dice = dice.clone();
+        async move { dice.page_out().await }
+    });
+    serialization_gate.wait_until_started().await;
+
+    let dependency_gate = DependencyComputeGate::new();
+    let mut updater = dice.updater_with_data(user_data_with_dependency_gate(&dependency_gate));
+    updater
+        .changed_to([(DeferredInput(0), 3)])
+        .expect("input should be updated");
+    let tx = updater.commit().await;
+    let compute = tokio::spawn(async move {
+        let value = tx.compute(&PageOutRaceRoot).await?;
+        anyhow::Ok(*value)
+    });
+    dependency_gate.wait_until_started().await;
+
+    // The root's `CheckDeps` lookup now owns its resident value. Let the stale
+    // page-out snapshot replace the graph entry before dependency validation finishes.
+    serialization_gate.release();
+    page_out
+        .await
+        .expect("page-out task should finish")
+        .expect("page-out should succeed");
+    assert_eq!(dice.pagable_status().await.paged_out_count, 1);
+
+    dependency_gate.release();
+    let value = match timeout(Duration::from_secs(10), compute)
+        .await
+        .expect("root computation should finish")
+    {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => panic!(
+            "PagableNodeValue::expect_hydrated called on a paged-out value: \
+             computation failed after the processor panic: {error:#}"
+        ),
+        Err(error) if error.is_panic() => std::panic::resume_unwind(error.into_panic()),
+        Err(error) => panic!("root computation task should finish: {error}"),
+    };
+    assert_eq!(value, 1);
 }
 
 /// Keys whose `value_serialize` returns `NoValueSerialize` should silently be skipped
