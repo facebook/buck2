@@ -245,7 +245,7 @@ impl PagableStorage for SledBackedPagableStorage {
         SledBackedPagableStorage::fetch_data_blocking(self, key)
     }
 
-    #[cfg(any(feature = "tokio", test))]
+    #[cfg(feature = "tokio")]
     async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         let db = self.db.clone();
         let key = *key;
@@ -258,7 +258,7 @@ impl PagableStorage for SledBackedPagableStorage {
         .await?
     }
 
-    #[cfg(not(any(feature = "tokio", test)))]
+    #[cfg(not(feature = "tokio"))]
     async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         Err(anyhow::anyhow!("sled backend requires tokio feature"))
     }
