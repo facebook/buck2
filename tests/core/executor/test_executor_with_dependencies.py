@@ -32,7 +32,7 @@ async def test_executor_with_dependencies(buck: Buck) -> None:
             f"test.cache_buster={random_string()}",
         ),
         # Full error message looks like this: P1217423393
-        stderr_regex='facebook::remote_execution::scheduler::TaskCancelledException: Error acquiring dependency TaskDependencyRequest { dependency: TDependency { smc_tier: "buck2_smoke_test_tier", id: "dep_a"',
+        stderr_regex='facebook::remote_execution::scheduler::TaskCancelledException: Error acquiring dependency DependencyAcquisitionRequest { dependency: TDependency { smc_tier: "buck2_smoke_test_tier", id: "dep_a"',
     )
 
 
