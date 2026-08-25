@@ -13,6 +13,8 @@ package driver
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -64,6 +66,20 @@ func TestBuckRoot(t *testing.T) {
 	root, err := bucker.Root(ctx)
 	requireNoError(t, err)
 	requireEqual(t, "/data/users/user1/fbcode", root)
+}
+
+func TestFixRePathTruncatesFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "generated.go")
+	original := "//line ../../../../long/path/to/source.go:1:1\npackage example\n"
+	requireNoError(t, os.WriteFile(path, []byte(original), 0644))
+
+	platform := &realPlatform{projectDir: "/repo"}
+	requireNoError(t, fixRePath(platform, path))
+
+	got, err := os.ReadFile(path)
+	requireNoError(t, err)
+	want := "//line /long/path/to/source.go:1:1\npackage example\n"
+	requireEqual(t, want, string(got))
 }
 
 func TestFixupRelPathLine(t *testing.T) {

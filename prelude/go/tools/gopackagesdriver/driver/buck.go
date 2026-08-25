@@ -88,25 +88,28 @@ func fixRePath(platform Platform, file string) error {
 
 	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
-		l := scanner.Text()
-		pp := lineRe.FindStringSubmatch(l)
-		if len(pp) == 2 {
-			slog.Debug("fixing up", "file", file, "line", pp[1])
-			nl := fixupRelPathLine(platform.ProjectDir(), pp[1])
-			if nl != "" {
-				fmt.Fprintf(buf, "//line %s:1:1\n", nl)
+		origLine := scanner.Text()
+		matches := lineRe.FindStringSubmatch(origLine)
+		if len(matches) == 2 {
+			srcPath := matches[1]
+			slog.Debug("fixing up", "file", file, "line", srcPath)
+			absSrcPath := fixupRelPathLine(platform.ProjectDir(), srcPath)
+			if absSrcPath != "" {
+				fmt.Fprintf(buf, "//line %s:1:1\n", absSrcPath)
 			} else {
-				slog.Warn("unsuccessful fixup", "line", l)
-				buf.WriteString(l + "\n")
+				slog.Warn("unsuccessful fixup", "line", origLine)
+				buf.WriteString(origLine)
+				buf.WriteString("\n")
 			}
 		} else {
-			buf.WriteString(l + "\n")
+			buf.WriteString(origLine)
+			buf.WriteString("\n")
 		}
 	}
 	if err = scanner.Err(); err != nil {
 		return err
 	}
-	dst, err := os.OpenFile(file, os.O_RDWR, 0644)
+	dst, err := os.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
