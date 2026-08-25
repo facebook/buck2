@@ -1888,6 +1888,8 @@ mod eden_health {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::soft_error;
     use buck2_eden::connection::EdenConnectionManager;
+    use buck2_eden::connection::EdenDaemonIdentity;
+    use buck2_eden::error::EdenDaemonRestarted;
     use buck2_eden::error::ErrorFromHangingMount;
     use buck2_eden::semaphore;
     use buck2_error::buck2_error;
@@ -1899,6 +1901,11 @@ mod eden_health {
                 "spawned EdenFS health check that runs every {} seconds",
                 HEALTH_CHECK_INTERVAL
             );
+            // The Eden daemon identity from the previous iteration. An identity change means
+            // Eden restarted underneath this daemon, invalidating cached state and file
+            // handles. This catches restarts on any daemon with an Eden repo, including ones
+            // whose I/O provider doesn't go through Eden's Thrift interface.
+            let mut last_identity: Option<EdenDaemonIdentity> = None;
             loop {
                 tokio::time::sleep(Duration::from_secs(HEALTH_CHECK_INTERVAL)).await;
                 match EdenConnectionManager::new(fb, &root, Some(semaphore::buck2_default())) {
@@ -1910,6 +1917,26 @@ mod eden_health {
                             })
                             .await;
                         match info {
+                            Ok(info) => {
+                                tracing::debug!("check determined EdenFS is not hanging");
+                                let identity = EdenDaemonIdentity::from_daemon_info(&info);
+                                if let Some(last) = &last_identity {
+                                    if !last.is_same_daemon(&identity) {
+                                        soft_error!(
+                                            "eden_restart_detected",
+                                            EdenDaemonRestarted {
+                                                old_pid: last.pid(),
+                                                old_start_time: last.start_time(),
+                                                new_pid: identity.pid(),
+                                                new_start_time: identity.start_time(),
+                                            }
+                                            .into()
+                                        )
+                                        .ok();
+                                    }
+                                }
+                                last_identity = Some(identity);
+                            }
                             Err(e) if e.is_caused_by_hanging_mount() => {
                                 tracing::error!(
                                     "check hit an EdenFS error caused by a hanging mount: {:#}",
@@ -1922,8 +1949,8 @@ mod eden_health {
                                 )
                                 .ok();
                             }
-                            _ => {
-                                tracing::debug!("check determined EdenFS is not hanging");
+                            Err(e) => {
+                                tracing::debug!("check failed with a non-hanging error: {:#}", e);
                             }
                         }
                     }
