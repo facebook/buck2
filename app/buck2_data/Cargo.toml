@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 allocative.workspace = true
 buck2_host_sharing_proto.workspace = true
+buck2_miniperf_proto.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 gazebo.workspace = true

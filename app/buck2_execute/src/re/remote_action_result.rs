@@ -215,8 +215,8 @@ fn convert_perf_counts(
         buck2_data::CommandExecutionStats {
             cpu_instructions_user: userspace_counter.map(|p| p.adjusted_count()),
             cpu_instructions_kernel: kernel_counter.map(|p| p.adjusted_count()),
-            userspace_events: userspace_counter.map(|p| p.to_proto()),
-            kernel_events: kernel_counter.map(|p| p.to_proto()),
+            userspace_events: userspace_counter.map(Into::into),
+            kernel_events: kernel_counter.map(Into::into),
             memory_peak: Some(meta.max_used_mem as u64),
         }
     })

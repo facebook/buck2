@@ -11,6 +11,8 @@
 use std::borrow::Cow;
 use std::fmt;
 
+use buck2_miniperf_proto::MiniperfCounter;
+
 pub mod action_key_owner;
 pub mod agent_context_keys;
 
@@ -136,6 +138,19 @@ pub trait ToProtoMessage {
     fn as_proto(&self) -> Self::Message;
 }
 
+// Lives here rather than on `MiniperfCounter` because the orphan rule allows
+// only these two crates, and `buck2_miniperf_proto` deliberately has no
+// `buck2_data` dep; see `buck2_miniperf_proto/BUCK`.
+impl From<MiniperfCounter> for CpuCounter {
+    fn from(counter: MiniperfCounter) -> Self {
+        CpuCounter {
+            count: counter.count,
+            time_enabled: counter.time_enabled,
+            time_running: counter.time_running,
+        }
+    }
+}
+
 impl fmt::Display for DaemonShutdown {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}, caller:", self.reason)?;
@@ -229,5 +244,23 @@ pub mod serialize_duration_as_micros {
                 assert_eq!(to_micros(&from_micros(v)), v);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cpu_counter_from_miniperf_counter() {
+        let counter = CpuCounter::from(MiniperfCounter {
+            count: 123,
+            time_enabled: 100,
+            time_running: 50,
+        });
+
+        assert_eq!(counter.count, 123);
+        assert_eq!(counter.time_enabled, 100);
+        assert_eq!(counter.time_running, 50);
     }
 }

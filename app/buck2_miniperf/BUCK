@@ -13,9 +13,20 @@ rust_binary(
     # JEMalloc isn't super lean (and we don't actually allocate anything here),
     # so dont use it.
     default_strip_mode = "full",
+    # Under `build_info=full` the linker would otherwise stamp revision/time/user
+    # straight into the binary, making the link non-hermetic and so ineligible
+    # for cache upload. Late stamping moves that into a separate action and
+    # leaves the link itself reproducible.
+    late_build_info_stamping = True,
     # Must be statically linked because the binary is embedded in the forkserver
     # and written to disk without its shared library dependencies.
     link_style = "static",
+    # Keep this dep set small and slow-moving. The binary is embedded into
+    # `buck2` as a linkable symbol (`buck2_forkserver:buck2_miniperf_data`), so
+    # anything that invalidates this target's link also re-links `buck2` -- a
+    # minute-plus local action that is never served from the cache. A dep that
+    # churns with ordinary buck2 development therefore costs two extra rust
+    # links on every such change.
     deps = [
         "fbsource//third-party/rust:anyhow",
     ] + select({
