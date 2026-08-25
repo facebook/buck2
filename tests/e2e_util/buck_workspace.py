@@ -394,6 +394,24 @@ def _setup_eden(
     )
 
 
+def eden_restart(
+    eden_dir: Path,
+    env: Dict[str, str],
+) -> None:
+    """Gracefully restart the EdenFS daemon (the mount survives via takeover, but the
+    daemon process changes)."""
+    subprocess.check_call(
+        _eden_base_cmd(eden_dir)
+        + [
+            "restart",
+            "--graceful",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+    )
+
+
 def eden_remove(
     eden_dir: Path,
     project_dir: Path,
