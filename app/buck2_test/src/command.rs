@@ -126,7 +126,8 @@ use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
 
 struct TestOutcome {
-    errors: Vec<buck2_data::ErrorReport>,
+    build_errors: Vec<buck2_data::ErrorReport>,
+    test_errors: Vec<buck2_data::ErrorReport>,
     executor_report: ExecutorReport,
     executor_stdout: String,
     executor_stderr: String,
@@ -299,16 +300,9 @@ impl ServerCommandTemplate for TestServerCommand {
     type PartialResult = NoPartialResult;
 
     fn build_result(&self, response: &Self::Response) -> Option<BuildResult> {
-        let build_completed =
-            if let Some(buck2_cli_proto::test_response::TestStatuses { build_errors, .. }) =
-                response.test_statuses
-            {
-                build_errors == 0
-            } else {
-                false
-            };
-
-        Some(BuildResult { build_completed })
+        Some(BuildResult {
+            build_completed: response.build_errors.is_empty(),
+        })
     }
 
     fn end_event(&self, _response: &buck2_error::Result<Self::Response>) -> Self::EndEvent {
@@ -515,17 +509,6 @@ async fn test(
     // TODO(bobyf) remap exit code for buck reserved exit code
     let executor_exit_code = test_outcome.exit_code()?;
 
-    // Filtering out individual types might not be best here. While we just have 1 non-build
-    // error that seems OK, but if we add more we should reconsider (we could add a type on all
-    // the build errors, but that seems potentially confusing if we only do that in the test
-    // command).
-    let build_errors_count: u64 = test_outcome
-        .errors
-        .iter()
-        .filter(|e| !e.tags().any(|t| t == ErrorTag::TestDeadlineExpired))
-        .count()
-        .try_into()?;
-
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
             test_outcome
@@ -590,7 +573,6 @@ async fn test(
                 .timed_out
                 .into_cli_proto_counter(),
         ),
-        build_errors: build_errors_count,
     };
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
@@ -625,7 +607,8 @@ async fn test(
 
     Ok(TestResponse {
         executor_exit_code,
-        errors: test_outcome.errors,
+        build_errors: test_outcome.build_errors,
+        test_errors: test_outcome.test_errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
@@ -900,20 +883,22 @@ async fn test_targets(
         .await
         .buck_error_context("Failed to collect executor report")??;
 
-    let mut errors = convert_error(&build_target_result)
+    let build_errors = convert_error(&build_target_result)
         .iter()
         .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect::<Vec<_>>();
 
+    let mut test_errors = Vec::new();
     if let Some(timeout_observer) = timeout_observer {
         if !timeout_observer.is_alive().await {
-            errors.push(buck2_data::ErrorReport::from(&DeadlineExpired.into()));
+            test_errors.push(buck2_data::ErrorReport::from(&DeadlineExpired.into()));
         }
     }
 
     Ok(TestOutcome {
-        errors,
+        build_errors,
+        test_errors,
         executor_stdout: executor_output.stdout,
         executor_stderr: executor_output.stderr,
         executor_report,

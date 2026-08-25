@@ -200,7 +200,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
         let errors = match v {
             Result::Error(error) => vec![error],
             Result::BuildResponse(v) => v.errors,
-            Result::TestResponse(v) => v.errors,
+            Result::TestResponse(v) => v.build_errors.into_iter().chain(v.test_errors).collect(),
             Result::BxlResponse(v) => v.errors,
             _ => Vec::new(),
         };

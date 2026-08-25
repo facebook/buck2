@@ -26,6 +26,7 @@ from buck2.tests.e2e_util.buck_workspace import (
     get_mode_from_platform,
     is_deployed_buck2,
 )
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 MAC_AND_WINDOWS = ["darwin", "windows"]
 
@@ -832,7 +833,7 @@ if not is_deployed_buck2():
         We're OK with that, we will report how many OMITs there were.
         The caller is expected to be aware of how this feature works.
         """
-        buck.test(
+        await buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:timeout",
             "--local-only",
             "--no-remote-cache",
@@ -842,6 +843,43 @@ if not is_deployed_buck2():
             "--env",
             "SLOW_DURATION=60",
         )
+
+    @buck_test(inplace=True, skip_for_os=["windows"])
+    async def test_overall_timeout_keeps_test_executor_exit_code(buck: Buck) -> None:
+        """
+        A test that fails before the deadline fires still owns the exit code. Tpx's
+        exit code carries information we cannot reconstruct from the errors -- it
+        reserves values to request follow-up runs -- so an expired deadline must not
+        replace it.
+        """
+        # Build first so the deadline only has to cover execution, not compilation.
+        await buck.build(
+            "fbcode//buck2/tests/targets/rules/python/test:test_fail",
+            "fbcode//buck2/tests/targets/rules/python/test:timeout",
+            "--local-only",
+            "--no-remote-cache",
+        )
+
+        result = await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:test_fail",
+                "fbcode//buck2/tests/targets/rules/python/test:timeout",
+                "--local-only",
+                "--no-remote-cache",
+                "--overall-timeout",
+                "30s",
+                "--",
+                "--env",
+                "SLOW_DURATION=120",
+            )
+        )
+        assert "1 TESTS FAILED" in remove_ansi_escape_sequences(result.stderr)
+
+        [executor_exit_code] = await filter_events(
+            buck, "Result", "result", "test_response", "executor_exit_code"
+        )
+        assert executor_exit_code != 0, "Expected Tpx to report the failing test"
+        assert result.process.returncode == executor_exit_code
 
 
 @buck_test(inplace=True, skip_for_os=["windows"])

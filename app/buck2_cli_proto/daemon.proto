@@ -658,19 +658,25 @@ message CounterWithExamples {
 }
 
 message TestResponse {
-  reserved 101;
+  reserved 101, 102;
   int32 executor_exit_code = 1;
   optional string serialized_build_report = 100;
-  repeated buck.data.ErrorReport errors = 102;
+  // Errors from building the test targets. These take precedence over
+  // `executor_exit_code` when producing the exit code.
+  repeated buck.data.ErrorReport build_errors = 103;
+  // Errors from the test run itself, such as an expired `--overall-timeout`.
+  // The test executor stays in charge of the exit code when these are the only
+  // errors, so keep them apart from `build_errors` rather than filtering them
+  // back out downstream.
+  repeated buck.data.ErrorReport test_errors = 104;
   message TestStatuses {
-    reserved 1 to 6;
+    reserved 1 to 6, 16;
     CounterWithExamples passed = 10;
     CounterWithExamples skipped = 11;
     CounterWithExamples failed = 12;
     CounterWithExamples fatals = 13;
     CounterWithExamples listing_success = 14;
     CounterWithExamples listing_failed = 15;
-    uint64 build_errors = 16;
     CounterWithExamples infra_failure = 17;
     CounterWithExamples omitted = 18;
     CounterWithExamples timed_out = 19;

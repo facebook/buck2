@@ -482,10 +482,12 @@ impl StreamingCommand for TestCommand {
             .internal_error("Missing `infra failure`")?;
 
         let console = self.common_opts.console_opts.final_console();
-        print_build_result(&console, &response.errors)?;
+        print_build_result(&console, &response.build_errors)?;
+        print_build_result(&console, &response.test_errors)?;
 
-        if statuses.build_errors != 0 {
-            console.print_error(&format!("{} BUILDS FAILED", statuses.build_errors))?;
+        let build_error_count: u64 = response.build_errors.len().try_into()?;
+        if build_error_count != 0 {
+            console.print_error(&format!("{} BUILDS FAILED", build_error_count))?;
         }
 
         print_buck_ui(&console, ctx, events_ctx.used_superconsole)?;
@@ -509,7 +511,7 @@ impl StreamingCommand for TestCommand {
             line.push(column.to_span_from_test_statuses(statuses)?);
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(statuses.build_errors)?);
+        line.push(span_from_build_failure_count(build_error_count)?);
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
@@ -549,11 +551,11 @@ impl StreamingCommand for TestCommand {
             buck2_client_ctx::println!("{}", build_report)?;
         }
 
-        let exit_result = if !response.errors.is_empty() {
+        let exit_result = if !response.build_errors.is_empty() {
             // If we had build errors return their exit code.
-            ExitResult::from_command_result_errors(response.errors)
+            ExitResult::from_command_result_errors(response.build_errors)
         } else {
-            let mut errors = response.errors;
+            let mut errors = response.test_errors;
             // Create an error if executor returned non-zero exit code.
             // Error is for tagging and categorization only, not shown to user.
             if let Some(error) = test_executor_error(response.executor_exit_code, statuses) {
