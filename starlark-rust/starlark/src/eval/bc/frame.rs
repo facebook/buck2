@@ -210,7 +210,7 @@ impl<'v> BcFrame<'v> {
                 // * zeros, which would be interpreted as uninitialized if copied to a local
                 let byte = 0xef;
 
-                let start = self.stack_uninit().as_ptr() as *mut u8;
+                let start = self.stack_uninit().as_mut_ptr() as *mut u8;
                 ptr::write_bytes(
                     start,
                     byte,
