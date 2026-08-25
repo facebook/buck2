@@ -164,6 +164,9 @@ def cxx_gnu_dist_link(
     normalized_identifier = identifier.replace("[", "_").replace("]", "_").replace(" ", "_") if identifier != None else None
 
     enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
+
+    # Unlike the plain link, a `None` (no preference) narrows to `False` here,
+    # because this also feeds `bolt` and `strip_object`, which take a plain bool.
     enable_cache_upload = opts.allow_cache_upload or enable_late_build_info_stamping
 
     link_action_execution_properties = get_action_execution_attributes(opts.link_execution_preference)

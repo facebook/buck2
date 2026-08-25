@@ -457,6 +457,14 @@ def cxx_link_into(
 
     enable_late_build_info_stamping = is_result_executable and cxx_stamp_build_info(ctx)
 
+    if is_incremental_link:
+        allow_cache_upload = False
+    elif enable_late_build_info_stamping:
+        allow_cache_upload = True
+    else:
+        # Preserves `None`: no preference, as opposed to a decision not to upload.
+        allow_cache_upload = opts.allow_cache_upload
+
     ctx.actions.run(
         command,
         prefer_local = action_execution_properties.prefer_local and not is_incremental_link,
@@ -466,7 +474,7 @@ def cxx_link_into(
         category = category,
         identifier = opts.identifier,
         force_full_hybrid_if_capable = action_execution_properties.full_hybrid,
-        allow_cache_upload = (opts.allow_cache_upload or enable_late_build_info_stamping) and not is_incremental_link,
+        allow_cache_upload = allow_cache_upload,
         error_handler = opts.error_handler,
         no_outputs_cleanup = is_incremental_link,
         eager_materialization_enabled = True,

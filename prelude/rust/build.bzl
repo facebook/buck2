@@ -1995,6 +1995,8 @@ def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link
             links = link_args,
             link_execution_preference = LinkExecutionPreference("any"),
             category_suffix = "rust_shared",
+            # `rust_library` has no `allow_cache_upload` attribute
+            allow_cache_upload = None,
         ),
         name = compile_ctx.soname,
     ).linked_object

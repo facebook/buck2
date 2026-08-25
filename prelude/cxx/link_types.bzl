@@ -52,7 +52,8 @@ LinkOptions = record(
     # A function/lambda which will generate the strip args using the ctx.
     strip_args_factory = [typing.Callable, None],
     import_library = Artifact | None,
-    allow_cache_upload = bool,
+    # `None` expresses no preference, leaving the choice to buck2
+    allow_cache_upload = [bool, None],
     cxx_toolchain = [CxxToolchainInfo, None],
     # Force callers to use link_options() or merge_link_options() to create.
     __private_use_link_options_function_to_construct = None,
@@ -80,7 +81,7 @@ def link_options(
     strip: bool = False,
     strip_args_factory = None,
     import_library: Artifact | None = None,
-    allow_cache_upload: bool = False,
+    allow_cache_upload: [bool, None] = False,
     cxx_toolchain: [CxxToolchainInfo, None] = None,
     error_handler: [typing.Callable, None] = None,
     extra_linker_outputs_factory: typing.Callable | None = None,
@@ -138,7 +139,7 @@ def merge_link_options(
     strip: [bool, _NotProvided] = _NOT_PROVIDED,
     strip_args_factory = _NOT_PROVIDED,
     import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
-    allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED,
+    allow_cache_upload: [bool, None, _NotProvided] = _NOT_PROVIDED,
     cxx_toolchain: [CxxToolchainInfo, _NotProvided] = _NOT_PROVIDED,
     incremental_link: [bool, _NotProvided] = _NOT_PROVIDED,
 ) -> LinkOptions:
