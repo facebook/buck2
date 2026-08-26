@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::any::type_name;
 use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -190,7 +191,8 @@ where
     fn serialize_inner(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         if let Some(key) = self.data_key() {
             return Err(anyhow::anyhow!(
-                "cannot serialize the inner value of a PartialPagableArc backed by {key:?}",
+                "attempted to serialize the inner value of PartialPagableArc<{}> after it was associated with {key:?}; reuse the existing DataKey because the inner value may be only partially deserialized",
+                type_name::<T>(),
             ));
         }
         self.inner.value.pagable_serialize(serializer)
