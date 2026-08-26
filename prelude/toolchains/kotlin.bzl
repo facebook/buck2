@@ -32,7 +32,7 @@ def kotlincd_toolchain(name, java_binary_for_kotlincd = None, visibility = None)
             "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
         ],
         kotlinc = "prelude//toolchains/android/third-party:kotlin-compiler-binary",
-        kotlincd = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
+        kotlincd = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool-main",
         kotlinc_protocol = "kotlincd",
         kotlincd_main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDMain",
         visibility = visibility,
