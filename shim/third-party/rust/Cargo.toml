@@ -121,7 +121,7 @@ inventory = "0.3.24"
 ipnetwork = { version = "0.21.1", features = ["serde"] }
 is_proc_translated = "0.1.1"
 itertools = "0.15.0"
-jemallocator = { package = "tikv-jemallocator", version = "0.6.1" }
+jemallocator = { package = "tikv-jemallocator", version = "0.7.0" }
 jiff = { version = "0.2.35", features = ["serde"] }
 libc = "0.2.186"
 libfuzzer-sys = "0.4.13"
