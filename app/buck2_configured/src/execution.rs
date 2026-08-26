@@ -697,7 +697,7 @@ async fn resolve_execution_platform_from_constraints(
             Ok(ExecutionPlatformResolutionPartial::new(None, skipped))
         }
         ExecutionPlatformFallback::Error => {
-            Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped)).into())
+            Err(ExecutionPlatformError::NoCompatiblePlatform(skipped.len()).into())
         }
         ExecutionPlatformFallback::Platform(platform) => Ok(
             ExecutionPlatformResolutionPartial::new(Some(platform.dupe()), skipped),

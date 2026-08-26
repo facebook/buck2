@@ -18,3 +18,15 @@ from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
 async def test_audit_execition_platform_resolution(buck: Buck) -> None:
     result = await buck.audit("execution-platform-resolution", "//:target")
     golden_replace_cfg_hash(output=result.stdout, rel_path="out.txt.golden")
+
+
+@buck_test()
+async def test_audit_execution_platform_resolution_no_compatible_platform(
+    buck: Buck,
+) -> None:
+    result = await buck.audit(
+        "execution-platform-resolution", "//:no_compatible_platform"
+    )
+    golden_replace_cfg_hash(
+        output=result.stdout, rel_path="no_compatible_platform.txt.golden"
+    )

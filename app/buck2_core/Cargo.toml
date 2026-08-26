@@ -26,7 +26,6 @@ futures.workspace = true
 gazebo.workspace = true
 hex.workspace = true
 hostname.workspace = true
-indent_write.workspace = true
 itertools.workspace = true
 lock_free_hashtable.workspace = true
 memchr.workspace = true

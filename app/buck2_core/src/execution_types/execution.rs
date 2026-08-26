@@ -12,8 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use indent_write::indentable::Indentable;
-use itertools::Itertools;
 use pagable::Pagable;
 use starlark_map::ordered_map::OrderedMap;
 
@@ -148,9 +146,24 @@ impl std::fmt::Display for ExecutionPlatformIncompatibleReason {
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 pub enum ExecutionPlatformError {
-    // .indented() losing the alternate flag that we want to use to format the reason so we need to explicitly do that.
-    #[error("No compatible execution platform.\n{}", .0.iter().map(|(id, reason)| format!("  `{}` skipped because:\n{}", id, format!("{reason:#}").indented("    "))).join("\n"))]
-    NoCompatiblePlatform(Arc<Vec<(String, ExecutionPlatformIncompatibleReason)>>),
+    // Deliberately carries only the candidate count, not the skipped platforms: there can be
+    // thousands of candidates, the message is materialized eagerly on conversion to
+    // `buck2_error::Error`, and failed resolutions are routine in large graphs where
+    // incompatible subtrees are expected — formatting every entry was a measurable share of
+    // cold configuration time. The audit command reconstructs the reasons on demand.
+    #[error(
+        "No compatible execution platform; {0} candidates were skipped. Run `buck2 audit \
+         execution-platform-resolution` on the target, with `--reuse-current-config` and a \
+         `--target-universe` matching the failing command, to see why each was skipped"
+    )]
+    NoCompatiblePlatform(usize),
+    #[error(
+        "Execution platform resolution was not performed: this target was configured in the \
+         unspecified execution platform state, which is used while gathering dependencies \
+         (before resolution runs) and for nodes that are never resolved against an execution \
+         platform"
+    )]
+    ResolutionNotPerformed,
 }
 
 /// Base data shared between Partial and Resolved states.
@@ -184,10 +197,9 @@ impl ExecutionPlatformResolutionBase {
     fn platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
         match &self.platform {
             Some(v) => Ok(v),
-            None => Err(ExecutionPlatformError::NoCompatiblePlatform(
-                self.skipped_platforms.dupe(),
-            )
-            .into()),
+            None => Err(
+                ExecutionPlatformError::NoCompatiblePlatform(self.skipped_platforms.len()).into(),
+            ),
         }
     }
 
@@ -316,7 +328,7 @@ impl ExecutionPlatformResolution {
     pub fn platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
         match self.base() {
             Some(base) => base.platform(),
-            None => Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(Vec::new())).into()),
+            None => Err(ExecutionPlatformError::ResolutionNotPerformed.into()),
         }
     }
 
@@ -330,7 +342,7 @@ impl ExecutionPlatformResolution {
     pub fn executor_config(&self) -> buck2_error::Result<&Arc<CommandExecutorConfig>> {
         match self.base() {
             Some(base) => base.executor_config(),
-            None => Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(Vec::new())).into()),
+            None => Err(ExecutionPlatformError::ResolutionNotPerformed.into()),
         }
     }
 

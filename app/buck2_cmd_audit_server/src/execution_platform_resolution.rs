@@ -94,12 +94,14 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                             for config_dep in configured_node.configuration_deps() {
                                 writeln!(stdout, "      {}", config_dep.label())?;
                             }
-                            for (label, reason) in resolution.skipped() {
-                                writeln!(stdout, "    Skipped {label}")?;
-                                writeln!(IndentWriter::new("      ", &mut stdout), "{reason:#}")?;
-                            }
                         }
-                        Err(e) => writeln!(stdout, "{e}")?,
+                        Err(e) => writeln!(stdout, "  {e}")?,
+                    }
+                    // The error message deliberately does not include the skipped platforms;
+                    // this is where they get reported.
+                    for (label, reason) in resolution.skipped() {
+                        writeln!(stdout, "    Skipped {label}")?;
+                        writeln!(IndentWriter::new("      ", &mut stdout), "{reason:#}")?;
                     }
                 }
 
