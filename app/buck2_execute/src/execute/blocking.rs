@@ -19,6 +19,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::span::SpanId;
+use buck2_util::threads::directory_mutation_parallelism;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
@@ -92,18 +93,17 @@ pub struct BuckBlockingExecutor {
 impl BuckBlockingExecutor {
     /// We choose the default concurrency as follows:
     ///
-    /// - For operations executed by the thread pool, we choose a fairly low concurrency level.
-    ///   This is because those operations do exclusively I/O work, and that work consists of
-    ///   modifying the directory structure of the FS, which scales negatively as soon as you add
-    ///   more than 4 threads on all systems we care about (sometimes it does so earlier, but for now
-    ///   4 is the one-size-fits-all solution we have). D33922298 has benchmark details.
+    /// - For operations executed by the thread pool, we use `directory_mutation_parallelism()`:
+    ///   those operations do exclusively I/O work that modifies the directory structure of
+    ///   the FS, which scales negatively past a small number of concurrent workers.
     ///
     /// - For operations that primarily write data, we default to the number of threads on the
     ///   host. This is because those operations often have to do CPU bound work to generate the data
     ///   they are trying to write, and writing to multiple files doesn't have the negative scaling
     ///   issues modifying the directory structure does.
     pub fn default_concurrency(fs: ProjectRoot) -> buck2_error::Result<Self> {
-        let io_threads = buck2_env!("BUCK2_IO_THREADS", type=usize, default=4)?;
+        let io_threads =
+            buck2_env!("BUCK2_IO_THREADS", type=usize, default=directory_mutation_parallelism())?;
         let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=buck2_util::threads::available_parallelism())?;
 
         let (command_sender, command_receiver) = unbounded();

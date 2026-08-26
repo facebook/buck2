@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -33,10 +34,12 @@ use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_fs::error::IoError;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_util::threads::directory_mutation_parallelism;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use superconsole::Line;
@@ -368,33 +371,70 @@ fn collect_paths_to_clean(
     Ok(paths_to_clean)
 }
 
-/// In Windows, we've observed the buck-out clean immediately after killing
-/// the daemon can fail with this error: `The process cannot access the
-/// file because it is being used by another process.`. To get around this,
-/// add a single retry.
+/// Upper bound on whole-tree removal passes. A pass attempts every remaining entry exactly
+/// once; a later pass re-walks whatever could not be removed plus anything created since
+/// (e.g. by stray processes left over from killed builds, or — on Windows — files the
+/// just-killed daemon still held open, failing with `The process cannot access the file
+/// because it is being used by another process`).
+const CLEAN_PASSES: usize = 3;
+
+/// Minimum spacing between pass starts, so a process that is still writing gets a moment to
+/// finish before the tree is re-walked.
+const CLEAN_PASS_SPACING: Duration = Duration::from_secs(1);
+
 fn clean_buck_out_with_retry(
     path: &AbsNormPathBuf,
     console_type: ConsoleType,
 ) -> buck2_error::Result<()> {
-    let mut result = clean_buck_out(path, console_type);
-    match result {
-        Ok(_) => {
-            return result;
+    let state = Arc::new(CleanProgressState::new());
+
+    // Show progress using superconsole, respecting the --console option.
+    // Use the same console_builder() as other buck2 commands to ensure consistent behavior.
+    let _progress_handle = match console_type {
+        ConsoleType::None
+        | ConsoleType::Simple
+        | ConsoleType::SimpleNoTty
+        | ConsoleType::SimpleTty => None,
+        ConsoleType::Auto | ConsoleType::Super => StatefulSuperConsole::console_builder()
+            .build()
+            .ok()
+            .flatten()
+            .map(|console| CleanProgressHandle::new(state.dupe(), console)),
+    };
+
+    let mut pass = 0;
+    loop {
+        pass += 1;
+        let pass_start = Instant::now();
+        let removed_before = state.files_deleted() + state.dirs_deleted();
+        let outcome = clean_buck_out_pass(path, &state);
+        let removed = state.files_deleted() + state.dirs_deleted() - removed_before;
+
+        let Some(e) = outcome.first_error else {
+            return Ok(());
+        };
+        // Even a pass that removed nothing is worth retrying: a file that was merely in
+        // use (e.g. still held by the just-killed daemon on Windows) or contended by a
+        // racing process may be removable a moment later.
+        if pass >= CLEAN_PASSES {
+            return Err(e);
         }
-        Err(e) => {
-            tracing::info!(
-                "Retrying buck-out clean, first attempted failed with: {:#}",
-                e
-            );
-            result = clean_buck_out(path, console_type);
+        tracing::info!(
+            "Retrying buck-out clean: {} paths could not be removed ({} removed this pass): {:#}",
+            outcome.failed,
+            removed,
+            e
+        );
+        if let Some(remaining) = CLEAN_PASS_SPACING.checked_sub(Instant::now() - pass_start) {
+            std::thread::sleep(remaining);
         }
     }
-    result
 }
 
-/// State shared between the progress display and the file deletion threads.
+/// State shared between the progress display and the deletion threads.
 struct CleanProgressState {
     files_deleted: Arc<AtomicUsize>,
+    dirs_deleted: Arc<AtomicUsize>,
     start_time: Instant,
 }
 
@@ -402,23 +442,33 @@ impl CleanProgressState {
     fn new() -> Self {
         Self {
             files_deleted: Arc::new(AtomicUsize::new(0)),
+            dirs_deleted: Arc::new(AtomicUsize::new(0)),
             start_time: Instant::now(),
         }
     }
 
-    fn counter(&self) -> Arc<AtomicUsize> {
+    fn file_counter(&self) -> Arc<AtomicUsize> {
         self.files_deleted.dupe()
+    }
+
+    fn dir_counter(&self) -> Arc<AtomicUsize> {
+        self.dirs_deleted.dupe()
     }
 
     fn files_deleted(&self) -> usize {
         self.files_deleted.load(Ordering::Relaxed)
     }
 
+    fn dirs_deleted(&self) -> usize {
+        self.dirs_deleted.load(Ordering::Relaxed)
+    }
+
     fn format_message(&self) -> Line {
         let elapsed = Instant::now() - self.start_time;
         Line::sanitized(&format!(
-            "Cleaning buck-out: {} files deleted ({}s)",
+            "Cleaning buck-out: {} files and {} directories deleted ({}s)",
             self.files_deleted(),
+            self.dirs_deleted(),
             elapsed.as_secs()
         ))
     }
@@ -426,8 +476,9 @@ impl CleanProgressState {
     fn format_final_message(&self) -> Line {
         let elapsed = Instant::now() - self.start_time;
         Line::sanitized(&format!(
-            "Cleaned {} files in {:.1}s",
+            "Cleaned {} files and {} directories in {:.1}s",
             self.files_deleted(),
+            self.dirs_deleted(),
             elapsed.as_secs_f64()
         ))
     }
@@ -485,78 +536,280 @@ impl Drop for CleanProgressHandle {
     }
 }
 
-fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_error::Result<()> {
-    let walk = WalkDir::new(path);
-    let thread_pool = ThreadPool::new(buck2_util::threads::available_parallelism());
-    let error = Arc::new(Mutex::new(None));
+/// Failures within a pass are counted and the first error kept; nothing aborts mid-pass, so
+/// everything removable is removed before the pass reports.
+struct CleanFailures {
+    first_error: Mutex<Option<buck2_error::Error>>,
+    failed: AtomicUsize,
+}
 
-    let state = Arc::new(CleanProgressState::new());
-    let counter = state.counter();
-
-    // Show progress using superconsole, respecting the --console option.
-    // Use the same console_builder() as other buck2 commands to ensure consistent behavior.
-    let _progress_handle = match console_type {
-        ConsoleType::None
-        | ConsoleType::Simple
-        | ConsoleType::SimpleNoTty
-        | ConsoleType::SimpleTty => None,
-        ConsoleType::Auto | ConsoleType::Super => StatefulSuperConsole::console_builder()
-            .build()
-            .ok()
-            .flatten()
-            .map(|console| CleanProgressHandle::new(state, console)),
-    };
-
-    for dir_entry in walk.into_iter().flatten() {
-        let file_type = dir_entry.file_type();
-        // As in the daemon, heavily parallel writes to directories in btrfs perform really poorly,
-        // so we only parallelize file deletions and do the rest synchronously.
-        //
-        // FIXME(JakobDegen): The parallelism cap for file deletions in the daemon is much smaller
-        // than it is here. Change that or write a comment justifying it.
-        if !file_type.is_dir() && !file_type.is_symlink() {
-            let error = error.dupe();
-            let counter = counter.dupe();
-            thread_pool.execute(move || {
-                // The wlak gives us back absolute paths since we give it absolute paths.
-                let res = AbsPath::new(dir_entry.path()).and_then(|p| {
-                    fs_util::remove_file(p)
-                        .categorize_tagged(ErrorTag::CleanBuckOut)
-                        .map_err(Into::into)
-                });
-
-                match res {
-                    Ok(_) => {
-                        counter.fetch_add(1, Ordering::Relaxed);
-                    }
-                    Err(e) => {
-                        let mut error = error.lock().unwrap();
-                        if error.is_none() {
-                            *error = Some(e);
-                        }
-                    }
-                }
-            })
+impl CleanFailures {
+    fn new() -> Self {
+        Self {
+            first_error: Mutex::new(None),
+            failed: AtomicUsize::new(0),
         }
     }
 
-    thread_pool.join();
+    fn record(&self, e: buck2_error::Error) {
+        self.failed.fetch_add(1, Ordering::Relaxed);
+        let mut error = self.first_error.lock().unwrap();
+        if error.is_none() {
+            *error = Some(e);
+        }
+    }
+}
 
-    // Drop the progress handle to stop the display and show final message
-    drop(_progress_handle);
+/// What a single removal pass ran into; `first_error` is `None` when nothing failed.
+struct CleanPassOutcome {
+    failed: usize,
+    first_error: Option<buck2_error::Error>,
+}
 
-    if let Some(e) = error.lock().unwrap().take() {
-        return Err(e);
+/// A removal that finds nothing to remove has achieved its goal: something else got there first.
+fn ok_if_not_found(res: Result<(), IoError>) -> buck2_error::Result<()> {
+    match res {
+        Err(e) if e.io_error_kind() == Some(io::ErrorKind::NotFound) => Ok(()),
+        res => res
+            .categorize_tagged(ErrorTag::CleanBuckOut)
+            .map_err(Into::into),
+    }
+}
+
+/// Chooses disjoint subtrees whose removal can proceed in parallel.
+///
+/// Starting from the top-level directories, descends level by level until at least `target_units`
+/// subtree roots are available or the tree runs out. Returns the directories that were descended
+/// past, in top-down order — they can only be removed after the subtrees below them — and the
+/// subtree roots.
+///
+/// Generic over the directory representation so the logic can be tested without a filesystem;
+/// `list_child_dirs` enumerates the immediate sub-directories of a directory.
+fn split_into_subtree_roots<T>(
+    top_level_dirs: Vec<T>,
+    target_units: usize,
+    mut list_child_dirs: impl FnMut(&T) -> Vec<T>,
+) -> (Vec<T>, Vec<T>) {
+    let mut above_split = Vec::new();
+    let mut frontier = top_level_dirs;
+    while frontier.len() < target_units {
+        let next: Vec<T> = frontier.iter().flat_map(&mut list_child_dirs).collect();
+        if next.is_empty() {
+            break;
+        }
+        above_split.append(&mut frontier);
+        frontier = next;
+    }
+    (above_split, frontier)
+}
+
+/// One removal pass over the whole tree: every remaining entry gets exactly one removal
+/// attempt; failures are counted and left for the caller to decide whether another pass is
+/// worthwhile.
+fn clean_buck_out_pass(path: &AbsNormPathBuf, state: &Arc<CleanProgressState>) -> CleanPassOutcome {
+    let failures = Arc::new(CleanFailures::new());
+
+    let file_counter = state.file_counter();
+    let dir_counter = state.dir_counter();
+
+    // Errors here are tolerated the same way walk errors are below: anything missed is picked up
+    // by a later pass.
+    let list_child_dirs = |dir: &AbsNormPathBuf| match fs_util::read_dir(dir) {
+        Ok(entries) => entries
+            .flatten()
+            .filter(|entry| entry.file_type().is_ok_and(|t| t.is_dir()))
+            .map(|entry| entry.path())
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+
+    // Note that the root itself is never removed: buck's cwd is typically the directory that is
+    // passed in here, which means that on Windows we often fail to delete it if we don't clean up
+    // all our child processes. Leaving zombies around isn't great though...
+    //
+    // Aim for several subtrees per worker so that uneven subtree sizes still balance out.
+    let (above_split, subtree_roots) = split_into_subtree_roots(
+        list_child_dirs(path),
+        directory_mutation_parallelism() * 4,
+        list_child_dirs,
+    );
+
+    let pool = ThreadPool::new(directory_mutation_parallelism());
+    for subtree_root in subtree_roots {
+        let failures = failures.dupe();
+        let dir_counter = dir_counter.dupe();
+        let file_counter = file_counter.dupe();
+        pool.execute(move || {
+            // `contents_first` yields every directory after its contents, so each directory can
+            // be removed the moment it is reached: its files were just unlinked and its
+            // subdirectories already removed.
+            let walk = WalkDir::new(&subtree_root).contents_first(true);
+            for dir_entry in walk.into_iter().flatten() {
+                let is_dir = dir_entry.file_type().is_dir();
+                // The walk gives us back absolute paths since we give it absolute paths.
+                let res = AbsPath::new(dir_entry.path()).and_then(|p| {
+                    if is_dir {
+                        ok_if_not_found(fs_util::remove_dir(p))
+                    } else {
+                        ok_if_not_found(fs_util::remove_file(p))
+                    }
+                });
+
+                match res {
+                    Ok(()) => {
+                        let counter = if is_dir { &dir_counter } else { &file_counter };
+                        counter.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(e) => failures.record(e),
+                }
+            }
+        })
+    }
+    pool.join();
+
+    // From here on, errors are still only counted, never returned immediately: undeletable
+    // entries (e.g. root-owned files left by tests) should not stop everything else from being
+    // removed.
+
+    // These only become removable once the subtrees below them are gone. The subtree walks
+    // cover only the split roots' subtrees, so a descended-past directory still owns its
+    // direct non-directory entries (e.g. `v2/forkserver`'s socket); unlink those before
+    // removing the directory itself.
+    for dir in above_split.iter().rev() {
+        if let Ok(entries) = fs_util::read_dir(dir) {
+            for entry in entries.flatten() {
+                if entry.file_type().is_ok_and(|t| t.is_dir()) {
+                    continue;
+                }
+                match ok_if_not_found(fs_util::remove_file(entry.path())) {
+                    Ok(()) => {
+                        file_counter.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(e) => failures.record(e),
+                }
+            }
+        }
+        match ok_if_not_found(fs_util::remove_dir(dir)) {
+            Ok(()) => {
+                dir_counter.fetch_add(1, Ordering::Relaxed);
+            }
+            Err(e) => failures.record(e),
+        }
     }
 
-    // Buck's cwd is typically the directory that is passed in here, which means that on Windows we
-    // often fail to delete this if we don't clean up all our child processes. Leaving zombies
-    // around isn't great though...
-    let dir = fs_util::read_dir(path).categorize_tagged(ErrorTag::CleanBuckOut)?;
-    for entry in dir {
-        let entry = entry?;
-        let path = entry.path();
-        fs_util::remove_dir_all(path).categorize_tagged(ErrorTag::CleanBuckOut)?;
+    // Sweeps up what the subtree walks don't cover: non-directory entries in the root itself,
+    // and directories that appeared after the split enumeration. Anything deeper that failed
+    // above is re-walked by the next pass, not retried here.
+    match fs_util::read_dir(path).categorize_tagged(ErrorTag::CleanBuckOut) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                // `file_type()` can fail transiently; re-stat rather than miscounting a
+                // directory as a file in the progress totals.
+                let is_dir = match entry.file_type() {
+                    Ok(t) => t.is_dir(),
+                    Err(_) => std::fs::symlink_metadata(entry.path())
+                        .is_ok_and(|m| m.file_type().is_dir()),
+                };
+                let res = if is_dir {
+                    ok_if_not_found(fs_util::remove_dir(entry.path()))
+                } else {
+                    ok_if_not_found(fs_util::remove_file(entry.path()))
+                };
+                match res {
+                    Ok(()) => {
+                        let counter = if is_dir { &dir_counter } else { &file_counter };
+                        counter.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(e) => failures.record(e),
+                }
+            }
+        }
+        Err(e) => failures.record(e.into()),
     }
-    Ok(())
+
+    CleanPassOutcome {
+        failed: failures.failed.load(Ordering::Relaxed),
+        first_error: failures.first_error.lock().unwrap().take(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::*;
+
+    fn fixture<'a>(
+        children: &'a BTreeMap<&'static str, Vec<&'static str>>,
+    ) -> impl FnMut(&&'static str) -> Vec<&'static str> + 'a {
+        move |dir| children.get(dir).cloned().unwrap_or_default()
+    }
+
+    #[test]
+    fn test_split_descends_until_enough_subtree_roots() {
+        let children = BTreeMap::from([("a", vec!["a/b", "a/c"]), ("d", vec!["d/e"])]);
+        let (above_split, roots) = split_into_subtree_roots(vec!["a", "d"], 3, fixture(&children));
+        assert_eq!(
+            above_split,
+            vec!["a", "d"],
+            "descended-past directories are removed after the subtrees below them"
+        );
+        assert_eq!(
+            roots,
+            vec!["a/b", "a/c", "d/e"],
+            "3 roots meet the target of 3"
+        );
+    }
+
+    #[test]
+    fn test_split_stops_at_top_level_when_wide_enough() {
+        let children = BTreeMap::from([("a", vec!["a/b"])]);
+        let (above_split, roots) =
+            split_into_subtree_roots(vec!["a", "b", "c"], 2, fixture(&children));
+        assert!(above_split.is_empty(), "no descent needed, nothing above");
+        assert_eq!(
+            roots,
+            vec!["a", "b", "c"],
+            "top level already meets the target of 2"
+        );
+    }
+
+    #[test]
+    fn test_split_narrow_chain_descends_to_the_bottom() {
+        let children = BTreeMap::from([("a", vec!["a/b"]), ("a/b", vec!["a/b/c"])]);
+        let (above_split, roots) = split_into_subtree_roots(vec!["a"], 4, fixture(&children));
+        assert_eq!(
+            above_split,
+            vec!["a", "a/b"],
+            "the whole chain above the deepest level is descended past, in top-down order"
+        );
+        assert_eq!(
+            roots,
+            vec!["a/b/c"],
+            "a chain never widens, so descent stops at the leaf"
+        );
+    }
+
+    #[test]
+    fn test_split_leaf_directories_move_above_when_descending() {
+        // `d` has no children; descending past it must still keep it for later removal.
+        let children = BTreeMap::from([("a", vec!["a/b", "a/c", "a/x"])]);
+        let (above_split, roots) = split_into_subtree_roots(vec!["a", "d"], 4, fixture(&children));
+        assert_eq!(
+            above_split,
+            vec!["a", "d"],
+            "the childless `d` is kept in the above-split list"
+        );
+        assert_eq!(roots, vec!["a/b", "a/c", "a/x"]);
+    }
+
+    #[test]
+    fn test_split_empty() {
+        let (above_split, roots) =
+            split_into_subtree_roots(Vec::<&str>::new(), 4, |_: &&str| -> Vec<&str> {
+                unreachable!("there are no directories to list")
+            });
+        assert!(above_split.is_empty(), "no directories, nothing above");
+        assert!(roots.is_empty(), "no directories, no subtree roots");
+    }
 }
