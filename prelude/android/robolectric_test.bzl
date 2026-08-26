@@ -16,6 +16,11 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//utils:expect.bzl", "expect")
 
+def _target_build_file_path(target):
+    cell = "" if target.cell in ["", "fbsource"] else target.cell + "/"
+    package = target.package + "/" if target.package else ""
+    return cell + package + "BUCK"
+
 def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
@@ -52,13 +57,37 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         manifest_entries = ctx.attrs.manifest_entries,
     )
 
+    resource_source_map = None
+    resource_source_map_jar = ctx.attrs.env.get("ROBOLECTRIC_RESOURCE_SOURCE_MAP_JAR")
+    if resource_source_map_jar:
+        resource_infos = [resource for resource in resources_info.unfiltered_resource_infos if resource.res != None]
+        resource_dirs = [cmd_args([resource.res, _target_build_file_path(resource.raw_target)], delimiter = "\t") for resource in resource_infos]
+        resource_dirs_file = ctx.actions.write("resource_source_map_resource_dirs", resource_dirs, has_content_based_path = False)
+        resource_source_map = ctx.actions.declare_output("resource_source_map.tsv", has_content_based_path = False)
+        resource_source_map_cmd = cmd_args([
+            ctx.attrs._java_toolchain[JavaToolchainInfo].java[RunInfo],
+            "-jar",
+            resource_source_map_jar,
+            "--resource-dirs",
+            resource_dirs_file,
+            "--output",
+            resource_source_map.as_output(),
+        ])
+        resource_source_map_cmd.add(cmd_args(hidden = [resource.res for resource in resource_infos]))
+        ctx.actions.run(resource_source_map_cmd, category = "robolectric_resource_source_map", allow_cache_upload = True)
+
     test_config_properties_file = ctx.actions.write(
         "test_config.properties",
         [
             # Replace \ with \\ for Windows compatibility
             cmd_args(["android_resource_apk", resources_info.primary_resources_apk], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
             cmd_args(["android_merged_manifest", resources_info.manifest], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\")),
-        ],
+        ]
+        + (
+            [cmd_args(["robolectric_resource_source_map", resource_source_map], delimiter = "=", replace_regex = ("\\\\\\b", "\\\\"))]
+            if resource_source_map
+            else []
+        ),
         has_content_based_path = False,
     )
 
@@ -76,12 +105,14 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ".",
     ])
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
-    extra_cmds.append(cmd_args(hidden = [resources_info.primary_resources_apk, resources_info.manifest]))
+    extra_cmds.append(cmd_args(hidden = [resources_info.primary_resources_apk, resources_info.manifest] + ([resource_source_map] if resource_source_map else [])))
 
     r_dot_javas = [r_dot_java.library_info.library_output for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
     expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
 
     extra_sub_targets = {}
+    if resource_source_map:
+        extra_sub_targets["resource_source_map"] = [DefaultInfo(default_output = resource_source_map)]
     if r_dot_javas:
         r_dot_java = r_dot_javas[0]
         extra_sub_targets["r_dot_java"] = [DefaultInfo(default_output = r_dot_java.full_library)]
