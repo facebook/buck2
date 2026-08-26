@@ -493,14 +493,6 @@ impl DaemonState {
                 let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
                 clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
 
-                let disable_eager_write_dispatch = root_config
-                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "disable_eager_write_dispatch",
-                    })?
-                    .unwrap_or_else(RolloutPercentage::never)
-                    .roll();
-
                 let eager_materialization_enabled = root_config
                     .parse::<RolloutPercentage>(BuckconfigKeyRef {
                         section: "buck2",
@@ -523,12 +515,9 @@ impl DaemonState {
                     update_access_times,
                     verbose_materializer_log,
                     clean_stale_config,
-                    disable_eager_write_dispatch,
                     eager_materialization_enabled,
                 }
             };
-            let disable_eager_write_dispatch =
-                deferred_materializer_configs.disable_eager_write_dispatch;
             let eager_materialization_enabled =
                 deferred_materializer_configs.eager_materialization_enabled;
 
@@ -759,10 +748,7 @@ impl DaemonState {
                     "respect-file-symlinks:{}",
                     static_metadata.respect_file_symlinks
                 ),
-                format!(
-                    "disable-eager-write-dispatch-v2:{}",
-                    disable_eager_write_dispatch,
-                ),
+                "disable-eager-write-dispatch-v2:true".to_owned(),
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),

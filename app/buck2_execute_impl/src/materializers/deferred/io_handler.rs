@@ -59,7 +59,6 @@ use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
-use futures::future::TryFutureExt;
 use gazebo::prelude::VecExt;
 use jiff::SignedDuration;
 use jiff::Timestamp;
@@ -77,7 +76,6 @@ use crate::materializers::deferred::MaterializeEntryError;
 use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::Version;
-use crate::materializers::deferred::WriteFile;
 use crate::materializers::deferred::artifact_tree::MaterializationMethodToProto;
 use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
 use crate::materializers::immediate;
@@ -124,15 +122,6 @@ struct MaterializationStat {
 
 #[async_trait]
 pub trait IoHandler: Sized + Sync + Send + 'static {
-    fn write<'a>(
-        self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
-        write: Arc<WriteFile>,
-        version: Version,
-        command_sender: Arc<MaterializerSender<Self>>,
-        cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
-
     async fn immediate_write<'a>(
         self: &Arc<Self>,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -351,28 +340,6 @@ impl DefaultIoHandler {
 
 #[async_trait]
 impl IoHandler for DefaultIoHandler {
-    fn write<'a>(
-        self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
-        write: Arc<WriteFile>,
-        version: Version,
-        command_sender: Arc<MaterializerSender<Self>>,
-        cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
-        self.io_executor
-            .execute_io(
-                Box::new(WriteIoRequest {
-                    path,
-                    write,
-                    version,
-                    command_sender,
-                }),
-                cancellations,
-            )
-            .map_err(SharedMaterializingError::Error)
-            .boxed()
-    }
-
     async fn immediate_write<'a>(
         self: &Arc<Self>,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -505,28 +472,6 @@ impl IoHandler for DefaultIoHandler {
 
 #[async_trait]
 impl IoHandler for NoDiskIoHandler {
-    fn write<'a>(
-        self: &Arc<Self>,
-        path: ProjectRelativePathBuf,
-        _write: Arc<WriteFile>,
-        version: Version,
-        command_sender: Arc<MaterializerSender<Self>>,
-        _cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
-        async move {
-            let _ignored = command_sender.send_low_priority(
-                LowPriorityMaterializerCommand::MaterializationFinished {
-                    path,
-                    timestamp: Timestamp::now(),
-                    version,
-                    result: Ok(()),
-                },
-            );
-            Ok(())
-        }
-        .boxed()
-    }
-
     async fn immediate_write<'a>(
         self: &Arc<Self>,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -755,42 +700,6 @@ pub(super) fn create_ttl_refresh(
     });
 
     Some(fut)
-}
-
-struct WriteIoRequest {
-    path: ProjectRelativePathBuf,
-    write: Arc<WriteFile>,
-    version: Version,
-    command_sender: Arc<MaterializerSender<DefaultIoHandler>>,
-}
-
-impl WriteIoRequest {
-    fn execute_inner(&self, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
-        let data =
-            zstd::bulk::decompress(&self.write.compressed_data, self.write.decompressed_size)
-                .buck_error_context("Error decompressing data")?;
-        locked_write(project_fs, &self.path, &data, self.write.is_executable)
-    }
-}
-
-impl IoRequest for WriteIoRequest {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
-        // NOTE: No spans here! We should perhaps add one, but this needs to be considered
-        // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = self.execute_inner(project_fs);
-
-        // If the materializer has shut down, we ignore this.
-        let _ignored = self.command_sender.send_low_priority(
-            LowPriorityMaterializerCommand::MaterializationFinished {
-                path: self.path,
-                timestamp: Timestamp::now(),
-                version: self.version,
-                result: res.dupe().map_err(SharedMaterializingError::Error),
-            },
-        );
-
-        res
-    }
 }
 
 struct CleanIoRequest {

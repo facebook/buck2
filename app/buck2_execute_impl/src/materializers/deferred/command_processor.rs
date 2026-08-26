@@ -129,7 +129,6 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     access_times_buffer: Option<BuckMutSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
     daemon_dispatcher: EventDispatcher,
-    disable_eager_write_dispatch: bool,
     pub(super) eager_materializations: EagerMaterializations<T>,
     /// Filesystem root used for clean-stale `disk_space_stats` lookups.
     pub(super) root_abs_path: Option<Arc<AbsPathBuf>>,
@@ -423,7 +422,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         access_times_buffer: Option<BuckMutSet<ProjectRelativePathBuf>>,
         verbose_materializer_log: bool,
         daemon_dispatcher: EventDispatcher,
-        disable_eager_write_dispatch: bool,
         clean_stale_config: CleanStaleConfig,
         rematerialization_ttl: Option<SignedDuration>,
     ) -> Self {
@@ -449,7 +447,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             access_times_buffer,
             verbose_materializer_log,
             daemon_dispatcher,
-            disable_eager_write_dispatch,
             eager_materializations,
             root_abs_path,
             clean_stale_config,
@@ -1217,38 +1214,16 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let method = Arc::from(method);
 
-        // Dispatch Write actions eagerly if possible. We can do this if no cleanup is required. We
-        // also check that there are no deps, though for writes there should never be deps.
-        // NOTE: This is causing perf issues because the writes are still dispatched eagerly and that
-        // is flooding our IO executor queue and blocking materializations.
-        // This is a temporary workaround. The proper fix should be to dispatch writes at a lower priority.
-        let can_use_write_fast_path = !cfg!(target_os = "macos")
-            && existing_futs.is_empty()
-            && value.deps().is_none()
-            && !self.disable_eager_write_dispatch;
-
-        let future = match &*method {
-            ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {
-                let materialize = self.io.write(
-                    path.to_owned(),
-                    write.dupe(),
-                    version,
-                    self.command_sender.dupe(),
-                    self.cancellations,
-                );
-                ProcessingFuture::Materializing(materialize.shared())
-            }
-            _ => ProcessingFuture::Cleaning(clean_path(
-                &self.io,
-                path.to_owned(),
-                version,
-                self.command_sender.dupe(),
-                existing_futs,
-                &self.rt,
-                self.cancellations,
-                event_dispatcher,
-            )),
-        };
+        let future = ProcessingFuture::Cleaning(clean_path(
+            &self.io,
+            path.to_owned(),
+            version,
+            self.command_sender.dupe(),
+            existing_futs,
+            &self.rt,
+            self.cancellations,
+            event_dispatcher,
+        ));
 
         let data = Box::new(ArtifactMaterializationData {
             deps: value.deps().duped(),

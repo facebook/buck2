@@ -257,29 +257,6 @@ mod state_machine {
 
     #[async_trait]
     impl IoHandler for StubIoHandler {
-        fn write<'a>(
-            self: &Arc<Self>,
-            path: ProjectRelativePathBuf,
-            write: Arc<WriteFile>,
-            version: Version,
-            command_sender: Arc<MaterializerSender<Self>>,
-            _cancellations: &'a CancellationContext,
-        ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
-            self.actually_write(&path, &write);
-            async move {
-                let _ignored = command_sender.send_low_priority(
-                    LowPriorityMaterializerCommand::MaterializationFinished {
-                        path,
-                        timestamp: jiff::Timestamp::now(),
-                        version,
-                        result: Ok(()),
-                    },
-                );
-                Ok(())
-            }
-            .boxed()
-        }
-
         async fn immediate_write<'a>(
             self: &Arc<Self>,
             _gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -494,7 +471,6 @@ mod state_machine {
                 Default::default(),
                 true,
                 daemon_dispatcher,
-                true,
                 CleanStaleConfig::default(),
                 None,
             ),
