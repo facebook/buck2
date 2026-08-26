@@ -18,7 +18,7 @@ annotate-snippets = { version = "0.9.0", features = [] }
 anyhow = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
-logos = "0.15"
+logos = "0.16.1"
 lsp-types = "0.97.0"
 memchr = { workspace = true }
 num-bigint = { workspace = true }

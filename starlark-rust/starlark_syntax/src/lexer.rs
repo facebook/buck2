@@ -1220,7 +1220,7 @@ pub enum FStringConv {
 pub enum Token {
     /// Comment as token.
     /// Span includes the leading `#`, but the content does not.
-    #[regex(r#"#[^\r\n]*"#, |lex| lex.slice()[1..].to_owned())]
+    #[regex(r#"#[^\r\n]*"#, |lex| lex.slice()[1..].to_owned(), allow_greedy = true)]
     Comment(String),
 
     #[regex("\t+")] // Tabs (might be an error)
