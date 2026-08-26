@@ -17,6 +17,7 @@ use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
@@ -53,6 +54,7 @@ pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
     pub content: Vec<u8>,
     pub is_executable: bool,
+    pub path_kind: BuckOutPathKind,
     /// For content-based artifacts, the configuration-based path used for eager materialization lookups.
     pub configuration_path: Option<ProjectRelativePathBuf>,
 }

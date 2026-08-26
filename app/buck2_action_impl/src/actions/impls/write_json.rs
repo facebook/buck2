@@ -266,6 +266,7 @@ impl Action for WriteJsonAction {
                     path,
                     content,
                     is_executable: false,
+                    path_kind: self.output.get_path().path_resolution_method(),
                     configuration_path,
                 }])
             }))

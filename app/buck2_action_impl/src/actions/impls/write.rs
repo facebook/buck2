@@ -302,6 +302,7 @@ impl Action for WriteAction {
                     path,
                     content,
                     is_executable: self.inner.is_executable,
+                    path_kind: self.output.get_path().path_resolution_method(),
                     configuration_path,
                 }])
             }))

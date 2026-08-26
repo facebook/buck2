@@ -27,6 +27,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::directory_digest::DirectoryDigest;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::builder::DirectoryBuilder;
 use buck2_directory::directory::directory::Directory;
@@ -432,6 +433,7 @@ async fn declare_all_source_artifacts(
             path,
             content: entry.contents.to_vec(),
             is_executable: entry.metadata.is_executable,
+            path_kind: BuckOutPathKind::Configuration,
             configuration_path: None,
         });
     }

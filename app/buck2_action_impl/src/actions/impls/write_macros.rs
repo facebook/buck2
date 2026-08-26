@@ -232,6 +232,7 @@ impl Action for WriteMacrosToFileAction {
                             path,
                             content,
                             is_executable: false,
+                            path_kind: output.get_path().path_resolution_method(),
                             configuration_path,
                         })
                     })

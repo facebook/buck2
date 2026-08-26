@@ -1016,6 +1016,7 @@ impl RunAction {
                         path: project_rel_path.clone(),
                         content: data.0.0,
                         is_executable: false,
+                        path_kind: path.path_resolution_method(),
                         configuration_path,
                     }])
                 }))

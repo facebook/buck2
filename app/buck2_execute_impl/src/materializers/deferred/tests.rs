@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
@@ -413,6 +414,7 @@ mod state_machine {
                 path: path.clone(),
                 content: contents.to_vec(),
                 is_executable: false,
+                path_kind: BuckOutPathKind::Configuration,
                 configuration_path: None,
             }])
         }))

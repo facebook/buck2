@@ -481,6 +481,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             path,
             content,
             is_executable,
+            path_kind: _,
             configuration_path,
         } in contents
         {

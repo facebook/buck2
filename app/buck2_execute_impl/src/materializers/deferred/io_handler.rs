@@ -79,7 +79,6 @@ use crate::materializers::deferred::Version;
 use crate::materializers::deferred::artifact_tree::MaterializationMethodToProto;
 use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
 use crate::materializers::immediate;
-use crate::materializers::immediate::locked_write;
 use crate::materializers::io::MaterializeTreeStructure;
 use crate::materializers::io::materialize_files;
 
@@ -327,7 +326,7 @@ impl DefaultIoHandler {
                             zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
                                 .buck_error_context("Error decompressing data")?;
                         stat.total_bytes = write.decompressed_size as u64;
-                        locked_write(&self.fs, &path, &data, write.is_executable)
+                        self.fs.write_file(&path, data, write.is_executable)
                     })
                     .await?;
             }
