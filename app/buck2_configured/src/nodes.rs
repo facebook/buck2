@@ -737,12 +737,47 @@ fn verify_transitioned_attrs(
     Ok(())
 }
 
-/// Compute configured target node ignoring transition for this node.
-async fn compute_configured_target_node_no_transition(
+/// The prefix of configuring a target that must run before execution platform resolution:
+/// configuration-dep matching, the compatibility check, platform cfgs, transition resolution,
+/// and dependency gathering. Shared between the real configuration path and the audit
+/// diagnostic re-traversal.
+pub(crate) struct ConfiguredNodePreamble<'d> {
+    pub(crate) resolved_configuration: &'d MatchedConfigurationSettingKeysWithCfg,
+    pub(crate) platform_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
+    pub(crate) resolved_transitions: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    pub(crate) gathered_deps: GatheredDeps,
+    pub(crate) errors_and_incompats: ErrorsAndIncompatibilities,
+}
+
+/// The attr configuration context as it exists before execution platform resolution has run:
+/// exec-dep and toolchain-dep cfgs from it are placeholders that callers replace with the
+/// resolved exec cfg. Sole constructor for this context; the placeholder resolution and owner
+/// label are supplied in here, so construction sites cannot drift apart in them.
+pub(crate) fn unspecified_attr_cfg_ctx<'v>(
     target_label: &ConfiguredTargetLabel,
-    target_node: TargetNode,
-    ctx: &mut DiceComputations<'_>,
-) -> ResultMaybeCompatible<ConfiguredTargetNode> {
+    resolved_configuration: &'v MatchedConfigurationSettingKeysWithCfg,
+    resolved_transitions: &'v OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
+    platform_cfgs: &'v OrderedMap<TargetLabel, ConfigurationData>,
+) -> AttrConfigurationContextImpl<'v> {
+    // A `static` rather than a promoted `&Unspecified` rvalue: the enum's other variant has
+    // drop glue, which rules out static promotion.
+    static UNSPECIFIED_RESOLUTION: ExecutionPlatformResolution =
+        ExecutionPlatformResolution::Unspecified;
+    AttrConfigurationContextImpl::new(
+        target_label.dupe(),
+        resolved_configuration,
+        &UNSPECIFIED_RESOLUTION,
+        resolved_transitions,
+        platform_cfgs,
+        Some(target_label.unconfigured().dupe()),
+    )
+}
+
+pub(crate) async fn compute_configured_node_preamble<'d>(
+    ctx: &mut DiceComputations<'d>,
+    target_label: &ConfiguredTargetLabel,
+    target_node: &TargetNode,
+) -> ResultMaybeCompatible<ConfiguredNodePreamble<'d>> {
     let partial_target_label =
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
     let target_cfg = target_label.cfg();
@@ -771,7 +806,7 @@ async fn compute_configured_target_node_no_transition(
     let attrs = resolve_transition_input_attrs(
         target_label,
         target_node.transition_deps().map(|(_, tr)| tr.as_ref()),
-        &target_node,
+        target_node,
         resolved_configuration,
         &platform_cfgs,
         ctx,
@@ -788,20 +823,14 @@ async fn compute_configured_target_node_no_transition(
 
     // We need to collect deps and to ensure that all attrs can be successfully
     // configured so that we don't need to support propagate configuration errors on attr access.
-    let unspecified_resolution = ExecutionPlatformResolution::unspecified();
-    let attr_cfg_ctx = AttrConfigurationContextImpl::new(
-        target_label.dupe(),
+    let attr_cfg_ctx = unspecified_attr_cfg_ctx(
+        target_label,
         resolved_configuration,
-        // We have not yet done exec platform resolution so for now we just use `unspecified`
-        // here. We only use this when collecting exec deps and toolchain deps. In both of those
-        // cases, we replace the exec cfg later on in this function with the "proper" exec cfg.
-        &unspecified_resolution,
         &resolved_transitions,
         &platform_cfgs,
-        Some(target_label.unconfigured().dupe()),
     );
 
-    let (gathered_deps, mut errors_and_incompats) = gather_deps(
+    let (gathered_deps, errors_and_incompats) = gather_deps(
         partial_target_label,
         target_node.as_ref(),
         &attr_cfg_ctx,
@@ -810,9 +839,44 @@ async fn compute_configured_target_node_no_transition(
     .boxed()
     .await?;
 
+    ResultMaybeCompatible::Compatible(ConfiguredNodePreamble {
+        resolved_configuration,
+        platform_cfgs,
+        resolved_transitions,
+        gathered_deps,
+        errors_and_incompats,
+    })
+}
+
+/// Compute configured target node ignoring transition for this node.
+async fn compute_configured_target_node_no_transition(
+    target_label: &ConfiguredTargetLabel,
+    target_node: TargetNode,
+    ctx: &mut DiceComputations<'_>,
+) -> ResultMaybeCompatible<ConfiguredTargetNode> {
+    let target_cfg = target_label.cfg();
+    // Destructured immediately and the attr context rebuilt from the pieces: keeping the whole
+    // preamble alive across the awaits below grows this future past its size assert.
+    let ConfiguredNodePreamble {
+        resolved_configuration,
+        platform_cfgs,
+        resolved_transitions,
+        gathered_deps,
+        mut errors_and_incompats,
+    } = compute_configured_node_preamble(ctx, target_label, &target_node)
+        .boxed()
+        .await?;
+
     check_plugin_deps(ctx, target_label, &gathered_deps.plugin_lists)
         .boxed()
         .await?;
+
+    let attr_cfg_ctx = unspecified_attr_cfg_ctx(
+        target_label,
+        resolved_configuration,
+        &resolved_transitions,
+        &platform_cfgs,
+    );
 
     let execution_platform_partial = if target_cfg.is_unbound() {
         // The unbound configuration is used when evaluation configuration nodes.
@@ -895,6 +959,11 @@ async fn compute_configured_target_node_no_transition(
     let mut deps = gathered_deps.deps;
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());
 
+    // Derived here rather than at the top of the function: it is only needed after the last
+    // await, and deriving it early would keep the label value saved across every suspension
+    // point above.
+    let partial_target_label =
+        &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
     for dep in toolchain_dep_results {
         errors_and_incompats.unpack_dep_into(
             partial_target_label,

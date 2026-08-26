@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -25,7 +26,6 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
-use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
@@ -37,7 +37,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use dice_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
@@ -72,6 +71,7 @@ use crate::configuration::get_matched_cfg_keys_for_node;
 use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
+use crate::nodes::unspecified_attr_cfg_ctx;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
 use buck2_node::cfg_constructor::CfgConstructorModifiers;
 use buck2_core::configuration::pair::Configuration;
@@ -243,14 +243,11 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         // But we pass `resolved_transitions` here to prevent breakages in the future
         // if something here changes.
         let resolved_transitions = OrderedMap::new();
-        let unspecified_resolution = ExecutionPlatformResolution::unspecified();
-        let cfg_ctx = AttrConfigurationContextImpl::new(
-            self.target.inner().dupe(),
+        let cfg_ctx = unspecified_attr_cfg_ctx(
+            self.target.inner(),
             matched_cfg_keys,
-            &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
-            Some(self.target.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
             gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx)
@@ -337,14 +334,11 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
     } else {
         let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
         let resolved_transitions = OrderedMap::new();
-        let unspecified_resolution = ExecutionPlatformResolution::unspecified();
-        let cfg_ctx = AttrConfigurationContextImpl::new(
-            target_label.inner().dupe(),
+        let cfg_ctx = unspecified_attr_cfg_ctx(
+            target_label.inner(),
             matched_cfg_keys,
-            &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
-            Some(target_label.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
             gather_deps(target_label, target_node, &cfg_ctx, ctx)
@@ -660,17 +654,80 @@ async fn get_execution_platforms_enabled(
     }
 }
 
-async fn resolve_execution_platform_from_constraints(
+/// Compile-time mode for the execution platform candidate traversal: modes share the
+/// traversal and differ in accumulation and stop semantics.
+pub(crate) trait ResolutionMode {
+    type Accumulator: Default;
+    type Output;
+
+    /// One candidate's outcome. `Break` ends the traversal with the final output; `Continue`
+    /// hands the accumulator back for the next candidate.
+    fn visit(
+        accumulator: Self::Accumulator,
+        platform: &ExecutionPlatform,
+        outcome: Result<(), ExecutionPlatformIncompatibleReason>,
+    ) -> ControlFlow<Self::Output, Self::Accumulator>;
+
+    /// Every candidate was visited without a `Break`.
+    fn finish(
+        accumulator: Self::Accumulator,
+        fallback: &ExecutionPlatformFallback,
+    ) -> buck2_error::Result<Self::Output>;
+}
+
+/// Real resolution: stop at the first compatible platform, accumulating the skipped ones.
+pub(crate) struct Resolve;
+
+impl ResolutionMode for Resolve {
+    type Accumulator = Vec<(String, ExecutionPlatformIncompatibleReason)>;
+    type Output = ExecutionPlatformResolutionPartial;
+
+    fn visit(
+        mut skipped: Self::Accumulator,
+        platform: &ExecutionPlatform,
+        outcome: Result<(), ExecutionPlatformIncompatibleReason>,
+    ) -> ControlFlow<Self::Output, Self::Accumulator> {
+        match outcome {
+            Ok(()) => ControlFlow::Break(ExecutionPlatformResolutionPartial::new(
+                Some(platform.dupe()),
+                skipped,
+            )),
+            Err(reason) => {
+                skipped.push((platform.id(), reason));
+                ControlFlow::Continue(skipped)
+            }
+        }
+    }
+
+    fn finish(
+        skipped: Self::Accumulator,
+        fallback: &ExecutionPlatformFallback,
+    ) -> buck2_error::Result<Self::Output> {
+        match fallback {
+            ExecutionPlatformFallback::UseUnspecifiedExec => {
+                Ok(ExecutionPlatformResolutionPartial::new(None, skipped))
+            }
+            ExecutionPlatformFallback::Error => {
+                Err(ExecutionPlatformError::NoCompatiblePlatform(skipped.len()).into())
+            }
+            ExecutionPlatformFallback::Platform(platform) => Ok(
+                ExecutionPlatformResolutionPartial::new(Some(platform.dupe()), skipped),
+            ),
+        }
+    }
+}
+
+pub(crate) async fn resolve_execution_platform_candidates<M: ResolutionMode>(
     ctx: &mut DiceComputations<'_>,
     target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     toolchain_deps: &[TargetConfiguredTargetLabel],
-) -> buck2_error::Result<ExecutionPlatformResolutionPartial> {
-    let mut skipped = Vec::new();
+) -> buck2_error::Result<M::Output> {
     let execution_platforms = get_execution_platforms_enabled(ctx).await?;
+    let mut accumulator = M::Accumulator::default();
     for exec_platform in execution_platforms.candidates() {
-        match check_execution_platform(
+        let outcome = check_execution_platform(
             ctx,
             target_node_cell,
             exec_compatible_with,
@@ -678,31 +735,13 @@ async fn resolve_execution_platform_from_constraints(
             exec_platform,
             toolchain_deps,
         )
-        .await?
-        {
-            Ok(()) => {
-                return Ok(ExecutionPlatformResolutionPartial::new(
-                    Some(exec_platform.dupe()),
-                    skipped,
-                ));
-            }
-            Err(reason) => {
-                skipped.push((exec_platform.id(), reason));
-            }
-        }
+        .await?;
+        accumulator = match M::visit(accumulator, exec_platform, outcome) {
+            ControlFlow::Break(output) => return Ok(output),
+            ControlFlow::Continue(accumulator) => accumulator,
+        };
     }
-
-    match execution_platforms.fallback() {
-        ExecutionPlatformFallback::UseUnspecifiedExec => {
-            Ok(ExecutionPlatformResolutionPartial::new(None, skipped))
-        }
-        ExecutionPlatformFallback::Error => {
-            Err(ExecutionPlatformError::NoCompatiblePlatform(skipped.len()).into())
-        }
-        ExecutionPlatformFallback::Platform(platform) => Ok(
-            ExecutionPlatformResolutionPartial::new(Some(platform.dupe()), skipped),
-        ),
-    }
+    M::finish(accumulator, execution_platforms.fallback())
 }
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -759,7 +798,7 @@ impl Key for ExecutionPlatformResolutionKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        resolve_execution_platform_from_constraints(
+        resolve_execution_platform_candidates::<Resolve>(
             ctx,
             self.target_node_cell,
             &self.exec_compatible_with,
