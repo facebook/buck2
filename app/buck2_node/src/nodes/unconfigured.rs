@@ -18,6 +18,7 @@ use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
@@ -33,6 +34,7 @@ use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
+use crate::attrs::coerced_deps_collector::DepPackagesCollector;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::spec::AttributeId;
@@ -239,6 +241,13 @@ impl TargetNode {
     #[inline]
     pub fn deps(&self) -> impl Iterator<Item = &TargetLabel> {
         self.as_ref().deps()
+    }
+
+    /// Returns the deduplicated packages of this node's deps. See
+    /// [`TargetNodeRef::dep_packages`].
+    #[inline]
+    pub fn dep_packages(&self) -> impl Iterator<Item = PackageLabel> + '_ {
+        self.as_ref().dep_packages()
     }
 
     /// Deps which are to be transitioned to other configuration using transition function.
@@ -649,6 +658,20 @@ impl<'a> TargetNodeRef<'a> {
         &self.0.get().rule.uses_plugins
     }
 
+    /// Returns the deduplicated packages of this node's deps — the same deps reported by
+    /// [`Self::deps`] (target/transition/exec/toolchain/plugin deps, excluding configuration deps).
+    /// Unlike [`Self::deps`], this runs an on-demand attribute traversal and does not read
+    /// `deps_cache`, so callers that only need dep package labels don't force that cache to
+    /// materialize.
+    pub fn dep_packages(self) -> impl Iterator<Item = PackageLabel> + 'a {
+        let mut traversal = DepPackagesCollector::new();
+        for a in self.attrs(AttrInspectOptions::All) {
+            a.traverse(self.label().pkg(), &mut traversal)
+                .expect("dep_packages collector shouldn't return errors");
+        }
+        traversal.packages.into_iter()
+    }
+
     pub fn inputs(self) -> impl Iterator<Item = CellPath> + 'a {
         struct InputsCollector {
             inputs: Vec<CellPath>,
@@ -788,5 +811,109 @@ pub mod testing {
             })
             .collect::<buck2_error::Result<Map<String, Value>>>()?;
         Ok(Value::from(map))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::bzl::ImportPath;
+    use buck2_core::plugins::PluginKindSet;
+
+    use super::*;
+    use crate::attrs::attr::Attribute;
+    use crate::attrs::attr_type::AttrType;
+    use crate::bzl_or_bxl_path::BzlOrBxlPath;
+    use crate::nodes::unconfigured::testing::TargetNodeExt;
+    use crate::provider_id_set::ProviderIdSet;
+    use crate::rule_type::StarlarkRuleType;
+
+    /// `dep_packages()` (used by build-signal load enrichment) must collect exactly the
+    /// packages that `deps()` reports — every dep bucket (regular/exec/toolchain) except
+    /// configuration deps. This is the invariant `enrich_load` relies on when it swaps
+    /// `deps().map(|t| t.pkg())` for `dep_packages()`. Guards against a future dep bucket
+    /// being added to `deps()` without also being reflected here.
+    #[test]
+    fn dep_packages_matches_deps_across_buckets() {
+        let label = TargetLabel::testing_parse("root//pkg:foo");
+        let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
+            path: BzlOrBxlPath::Bzl(ImportPath::testing_new("root//rules:defs.bzl")),
+            name: "my_rule".to_owned(),
+        }));
+
+        let dep_label = ProvidersLabel::default_for(TargetLabel::testing_parse("root//dep:d"));
+        let exec_label = ProvidersLabel::default_for(TargetLabel::testing_parse("root//exec:e"));
+        let tc_label = ProvidersLabel::default_for(TargetLabel::testing_parse("root//tc:t"));
+        let cfg_label = ProvidersLabel::default_for(TargetLabel::testing_parse("root//cfg:c"));
+
+        // Capture expected packages before the labels are moved into the attrs.
+        let dep_pkg = dep_label.target().pkg();
+        let exec_pkg = exec_label.target().pkg();
+        let tc_pkg = tc_label.target().pkg();
+        let cfg_pkg = cfg_label.target().pkg();
+
+        // The dep BUCKET is determined by the AttrType's transition, not the CoercedAttr variant:
+        // regular/exec/toolchain deps all use CoercedAttr::Dep; only the AttrType differs.
+        let attrs = vec![
+            (
+                "dep",
+                Attribute::new_const(
+                    None,
+                    "",
+                    AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
+                ),
+                CoercedAttr::Dep(dep_label),
+            ),
+            (
+                "exec_dep",
+                Attribute::new_const(None, "", AttrType::exec_dep(ProviderIdSet::EMPTY)),
+                CoercedAttr::Dep(exec_label),
+            ),
+            (
+                "toolchain_dep",
+                Attribute::new_const(None, "", AttrType::toolchain_dep(ProviderIdSet::EMPTY)),
+                CoercedAttr::Dep(tc_label),
+            ),
+            (
+                "configuration_dep",
+                Attribute::new_const(
+                    None,
+                    "",
+                    AttrType::configuration_dep(ConfigurationDepKind::SelectKey),
+                ),
+                CoercedAttr::ConfigurationDep(cfg_label),
+            ),
+        ];
+
+        let node = TargetNode::testing_new(label, rule_type, attrs, None);
+
+        let dedup = |mut v: Vec<PackageLabel>| {
+            v.sort();
+            v.dedup();
+            v
+        };
+        let from_packages = dedup(node.as_ref().dep_packages().collect());
+        let from_deps = dedup(node.as_ref().deps().map(|t| t.pkg()).collect());
+        assert_eq!(
+            from_packages, from_deps,
+            "dep_packages() must equal the packages of deps() across all dep buckets"
+        );
+
+        // Regular/exec/toolchain dep packages included; configuration dep package excluded.
+        assert!(
+            from_packages.contains(&dep_pkg),
+            "regular dep package missing"
+        );
+        assert!(
+            from_packages.contains(&exec_pkg),
+            "exec dep package missing"
+        );
+        assert!(
+            from_packages.contains(&tc_pkg),
+            "toolchain dep package missing"
+        );
+        assert!(
+            !from_packages.contains(&cfg_pkg),
+            "configuration dep package must be excluded"
+        );
     }
 }

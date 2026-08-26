@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
@@ -157,5 +158,166 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
 
     fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
         Ok(())
+    }
+}
+
+/// Collects just the *packages* of a target's deps, deduplicated. Unlike [`CoercedDepsCollector`]
+/// it stores no per-target dep data and covers the same buckets as `TargetNode::deps`
+/// (target/transition/exec/toolchain/plugin deps) — i.e. it excludes configuration deps. Used
+/// where only dep package labels are needed (e.g. build-signal load enrichment) so the caller
+/// doesn't have to materialize a node's full `deps_cache`.
+#[derive(Debug)]
+pub struct DepPackagesCollector {
+    pub packages: OrderedSet<PackageLabel>,
+}
+
+impl DepPackagesCollector {
+    pub fn new() -> Self {
+        Self {
+            packages: OrderedSet::new(),
+        }
+    }
+}
+
+impl<'a> CoercedAttrTraversal<'a> for DepPackagesCollector {
+    fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
+        self.packages.insert(dep.target().pkg());
+        Ok(())
+    }
+
+    // `deps()` excludes configuration deps, so exclude them here too. The trait's default routes
+    // `configuration_dep` through `dep`, so this override is required for equivalence with `deps()`.
+    fn configuration_dep(
+        &mut self,
+        _dep: &ProvidersLabel,
+        _kind: ConfigurationDepKind,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::provider::label::ProvidersLabel;
+    use buck2_core::target::label::label::TargetLabel;
+
+    use super::*;
+
+    /// Drive a collector across every dep bucket. `TargetNode::deps` chains
+    /// regular/transition/exec/toolchain/plugin (split-transition lands in the transition
+    /// bucket), excluding configuration; every non-configuration bucket reaches the collector
+    /// through the `CoercedAttrTraversal` trait defaults routing to `dep`.
+    fn drive_all_buckets<'a, T: CoercedAttrTraversal<'a>>(
+        c: &mut T,
+        dep: &'a ProvidersLabel,
+        exec: &'a ProvidersLabel,
+        toolchain: &'a ProvidersLabel,
+        transition: &'a ProvidersLabel,
+        split: &'a ProvidersLabel,
+        plugin: &'a TargetLabel,
+        cfg: &'a ProvidersLabel,
+        tr_id: &Arc<TransitionId>,
+        plugin_kind: &PluginKind,
+    ) {
+        c.dep(dep).unwrap();
+        c.exec_dep(exec).unwrap();
+        c.toolchain_dep(toolchain).unwrap();
+        c.transition_dep(transition, tr_id).unwrap();
+        c.split_transition_dep(split, tr_id).unwrap();
+        c.plugin_dep(plugin, plugin_kind).unwrap();
+        c.configuration_dep(cfg, ConfigurationDepKind::SelectKey)
+            .unwrap();
+    }
+
+    /// `DepPackagesCollector` must collect the packages of exactly the buckets `TargetNode::deps`
+    /// reports — regular/exec/toolchain/transition/split-transition/plugin — and exclude
+    /// configuration deps. Driving every bucket guards against a future bucket whose trait default
+    /// does not route to `dep` (which would silently diverge `dep_packages()` from `deps()`).
+    #[test]
+    fn dep_packages_matches_deps_buckets_and_excludes_configuration() {
+        let dep = ProvidersLabel::default_for(TargetLabel::testing_parse("root//dep:d"));
+        let exec = ProvidersLabel::default_for(TargetLabel::testing_parse("root//exec:e"));
+        let toolchain = ProvidersLabel::default_for(TargetLabel::testing_parse("root//tc:t"));
+        let transition = ProvidersLabel::default_for(TargetLabel::testing_parse("root//tr:x"));
+        let split = ProvidersLabel::default_for(TargetLabel::testing_parse("root//split:s"));
+        let plugin = TargetLabel::testing_parse("root//plugin:p");
+        let cfg = ProvidersLabel::default_for(TargetLabel::testing_parse("root//cfg:c"));
+
+        let tr_id = Arc::new(TransitionId::Target(ProvidersLabel::default_for(
+            TargetLabel::testing_parse("root//tr:id"),
+        )));
+        let plugin_kind =
+            PluginKind::new("p".to_owned(), CellPath::testing_new("root//plugins:kind"));
+
+        let dedup = |mut v: Vec<PackageLabel>| {
+            v.sort();
+            v.dedup();
+            v
+        };
+
+        let mut dep_packages = DepPackagesCollector::new();
+        drive_all_buckets(
+            &mut dep_packages,
+            &dep,
+            &exec,
+            &toolchain,
+            &transition,
+            &split,
+            &plugin,
+            &cfg,
+            &tr_id,
+            &plugin_kind,
+        );
+        let got = dedup(dep_packages.packages.into_iter().collect());
+
+        // Reference: the packages of exactly the buckets `TargetNode::deps` chains.
+        let mut full = CoercedDepsCollector::new();
+        drive_all_buckets(
+            &mut full,
+            &dep,
+            &exec,
+            &toolchain,
+            &transition,
+            &split,
+            &plugin,
+            &cfg,
+            &tr_id,
+            &plugin_kind,
+        );
+        let full = CoercedDeps::from(full);
+        let expected = dedup(
+            full.deps
+                .iter()
+                .chain(full.transition_deps.iter().map(|(d, _)| d))
+                .chain(full.exec_deps.iter())
+                .chain(full.toolchain_deps.iter())
+                .chain(full.plugin_deps.iter())
+                .map(|t| t.pkg())
+                .collect(),
+        );
+
+        assert_eq!(
+            got, expected,
+            "DepPackagesCollector must match the packages of deps()'s buckets across all bucket types"
+        );
+        assert!(
+            !got.contains(&cfg.target().pkg()),
+            "configuration dep package must be excluded to match deps()"
+        );
+        for pkg in [
+            dep.target().pkg(),
+            exec.target().pkg(),
+            toolchain.target().pkg(),
+            transition.target().pkg(),
+            split.target().pkg(),
+            plugin.pkg(),
+        ] {
+            assert!(got.contains(&pkg), "missing dep package `{pkg}`");
+        }
     }
 }

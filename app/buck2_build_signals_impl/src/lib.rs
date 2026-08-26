@@ -69,9 +69,9 @@ use dice::PageInPhase;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
-use itertools::Itertools;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
+use starlark_map::ordered_set::OrderedSet;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -1056,12 +1056,14 @@ where
         };
 
         if let NodeExtraData::Load(Some(load_result)) = &evaluation.extra_data {
-            let deps_pkg = load_result
+            // Only the dep *package* labels are needed here. Use `dep_packages()` (an on-demand
+            // attribute traversal) rather than `deps()` so we don't force every loaded target's
+            // `deps_cache` to materialize on every build.
+            let deps_pkg: OrderedSet<PackageLabel> = load_result
                 .targets()
                 .values()
-                .flat_map(|target| target.deps().map(|t| t.pkg()))
-                .unique()
-                .map(|pkg| pkg.dupe());
+                .flat_map(|target| target.dep_packages())
+                .collect();
 
             for dep_pkg in deps_pkg {
                 if dep_pkg == *pkg {

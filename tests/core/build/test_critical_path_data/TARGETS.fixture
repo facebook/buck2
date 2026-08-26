@@ -20,3 +20,8 @@ tset_write(name = "tset_top", deps = [":tset_leaf"])
 
 # Anon target test: uses_anon creates an anon target and then uses its output
 uses_anon(name = "anon_step")
+
+# Cross-package dep: `cross_pkg` (in root//) depends on `root//sub:leaf` (a different
+# package). Building it exercises enrich_load's cross-package load-edge enrichment, which
+# the single-package targets above never hit.
+cp(name = "cross_pkg", dep = "//sub:leaf")

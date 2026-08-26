@@ -466,6 +466,44 @@ async def test_critical_path_tset_final_materialization(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_cross_package_load_edge(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as f:
+        f.write("[buck2]\n")
+        f.write("critical_path_backend2 = logging\n")
+
+    await buck.build("//:cross_pkg", "--no-remote-cache")
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "UnstableE2eData",
+    )
+    nodes = {
+        json.loads(ev["data"])["key"]: json.loads(ev["data"])
+        for ev in events
+        if ev["key"] == "critical_path_logging_node"
+    }
+
+    # Both package loads must be present: root// (holds cross_pkg) and root//sub (loaded to
+    # resolve the cross-package dep //sub:leaf).
+    assert "InterpreterResultsKey(root//)" in nodes
+    assert "InterpreterResultsKey(root//sub)" in nodes, (
+        "root//sub should be loaded to resolve the cross-package dep"
+    )
+
+    # root// is loaded first and its cross_pkg target references root//sub, so enrich_load
+    # records first_edge_to_load[root//sub] = root//, giving root//sub's load a dependency on
+    # root//'s load. That cross-package load edge is exactly what this test guards.
+    sub_load_deps = nodes["InterpreterResultsKey(root//sub)"]["deps"]
+    assert "InterpreterResultsKey(root//)" in sub_load_deps, (
+        "expected cross-package load edge (root//sub load depends on root// load), "
+        f"got deps: {sub_load_deps}"
+    )
+
+
+@buck_test()
 async def test_critical_path_anon_targets(buck: Buck) -> None:
     """Test that anon target nodes appear on the critical path with correct
     splitting when anon targets themselves have anon target dependencies.
