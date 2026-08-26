@@ -11,6 +11,8 @@
 package com.facebook.buck.testrunner
 
 import java.io.File
+import java.util.ServiceConfigurationError
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Rule
@@ -81,6 +83,104 @@ class PerTestJUnitCoverageRunListenerTest {
     } catch (e: ClassNotFoundException) {
       // Expected: JaCoCo agent is not on the test classpath
     }
+  }
+
+  @Test
+  fun `coverage extensions follow the per-test listener lifecycle`() {
+    val outputDir = tempDir.newFolder("coverage")
+    val events = ArrayList<String>()
+    val extension =
+        object : PerTestCoverageExtension {
+          override fun initialize(outputDir: File) {
+            events.add("initialize:${outputDir.name}")
+          }
+
+          override fun testStarted(testName: String) {
+            events.add("started:$testName")
+          }
+
+          override fun testFinished(testName: String) {
+            events.add("finished:$testName")
+          }
+
+          override fun close() {
+            events.add("close")
+          }
+        }
+    val listener = PerTestJUnitCoverageRunListener(
+        outputDir,
+        FakeCoverageAgent(byteArrayOf(1)),
+        PerTestCoverageExtensionManager(listOf(extension)),
+    )
+    val test = Description.createTestDescription("Example", "test")
+    listener.testStarted(test)
+    listener.testFinished(test)
+    listener.close()
+
+    assertEquals(
+        listOf(
+            "initialize:coverage",
+            "started:test (Example)",
+            "finished:test (Example)",
+            "close",
+        ),
+        events,
+    )
+  }
+
+  @Test
+  fun `coverage extension failures do not fail primary coverage`() {
+    val outputDir = tempDir.newFolder("coverage")
+    val extension =
+        object : PerTestCoverageExtension {
+          override fun initialize(outputDir: File) {
+            throw IllegalStateException("optional collector unavailable")
+          }
+
+          override fun testStarted(testName: String) {
+            throw IllegalStateException("optional collector unavailable")
+          }
+        }
+    val listener = PerTestJUnitCoverageRunListener(
+        outputDir,
+        FakeCoverageAgent(byteArrayOf(1)),
+        PerTestCoverageExtensionManager(listOf(extension)),
+    )
+    val test = Description.createTestDescription("Example", "test")
+
+    listener.testStarted(test)
+    listener.testFinished(test)
+    listener.close()
+
+    assertTrue("Extension failure does not set coverageError", listener.coverageError == null)
+    assertTrue(File(outputDir, "test_(Example).exec").exists())
+  }
+
+  @Test
+  fun `provider discovery continues after a provider fails`() {
+    val events = ArrayList<String>()
+    val extension =
+        object : PerTestCoverageExtension {
+          override fun initialize(outputDir: File) {
+            events.add("initialized")
+          }
+        }
+    var providerIndex = 0
+    val providers =
+        object : Iterator<PerTestCoverageExtension> {
+          override fun hasNext(): Boolean = providerIndex < 2
+
+          override fun next(): PerTestCoverageExtension {
+            providerIndex += 1
+            if (providerIndex == 1) throw ServiceConfigurationError("broken provider")
+            return extension
+          }
+        }
+
+    val manager = PerTestCoverageExtensionManager.load(providers)
+    manager.initialize(tempDir.newFolder("coverage"))
+
+    assertEquals(listOf("initialized"), events)
   }
 
   /** Fake [BasePerTestCoverageRunListener.CoverageAgent] returning fixed data. */

@@ -55,7 +55,11 @@ buck_kotlin_library(
 
 fb_native.kotlin_library(
     name = "per_test_coverage_base",
-    srcs = ["BasePerTestCoverageRunListener.kt"],
+    srcs = [
+        "BasePerTestCoverageRunListener.kt",
+        "PerTestCoverageExtension.kt",
+        "PerTestCoverageExtensionManager.kt",
+    ],
     # Uses fb_native.kotlin_library (not buck_kotlin_library) with kotlin-stdlib in provided_deps:
     # both consumers (prelude :junit, fbandroid :instrumentation) already package kotlin-stdlib at
     # different Buck target paths, and shipping ours too breaks Android APK D8 dexing with
@@ -76,6 +80,7 @@ fb_native.kotlin_library(
     ],
     visibility = [
         "fbsource//fbandroid/java/com/facebook/testing/instrumentation/...",
+        "fbsource//fbandroid/java/com/facebook/testing/robolectric/resourceusage:resourceusage",
         "fbsource//fbandroid/javatests/com/facebook/testing/instrumentation/...",
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:per_test_coverage_base_test",

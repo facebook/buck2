@@ -78,12 +78,15 @@ abstract class BasePerTestCoverageRunListener(
   }
 
   override fun testFinished(description: Description) {
-    val className = description.className ?: return
-    val methodName = description.methodName ?: return
-    // TPX-format test name — matches what the standard output listener emits, so TPX can attach
-    // this entry to the right test row without a translation step.
-    val testName = "$methodName ($className)"
+    val testName = coverageTestName(description) ?: return
     dumpExec(testName = testName, baseFileName = testName)
+  }
+
+  /** TPX-format name shared with coverage extensions and `manifest.jsonl`. */
+  protected fun coverageTestName(description: Description): String? {
+    val className = description.className ?: return null
+    val methodName = description.methodName ?: return null
+    return "$methodName ($className)"
   }
 
   override fun testRunFinished(result: Result?) {
