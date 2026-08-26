@@ -578,6 +578,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // Phase 4: Code generation
     val result = generateCodeFromIrCompat(irInput, compilerEnvironment)
 
+    // Phase 5: Validation. Runs before the write below so that the stage which judges the ABI
+    // can eventually refuse it; validating afterwards can only ever describe a jar that already
+    // exists.
+    pipeline.validator.validate(
+        irInput.irModuleFragment,
+        messageCollector,
+        AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE)),
+    )
+
     // Write bytecode from generationState.factory to disk.
     // Apply bytecode post-processing (strip @Throws annotations and private metadata)
     // in-memory before writing to avoid a separate read-back pass.
@@ -594,13 +603,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         file.writeBytes(bytes)
       }
     }
-
-    // Phase 6: Validation
-    pipeline.validator.validate(
-        irInput.irModuleFragment,
-        messageCollector,
-        AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE)),
-    )
 
     // Generate .kotlin_module file
     generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)
