@@ -14,6 +14,7 @@ import platform
 from typing import Iterable
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -101,6 +102,20 @@ def _assert_all_paths_do_not_exist(paths: Iterable[str]) -> None:
             assert len(os.listdir(path)) == 1
         else:
             assert os.path.exists(path) is False
+
+
+@buck_test()
+async def test_isolation_dir_reserved_prefix_rejected(buck: Buck) -> None:
+    buck.set_isolation_prefix("._buck2_anything")
+    try:
+        await expect_failure(
+            buck.build("root//:trivial_build"),
+            stderr_regex="reserved for buck2",
+        )
+    finally:
+        # The fixture teardown runs `buck clean`, which would itself trip the
+        # reserved-name rejection with the prefix still set.
+        buck.set_isolation_prefix("v2")
 
 
 @buck_test()

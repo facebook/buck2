@@ -223,15 +223,26 @@ impl InvocationPaths {
 
     /// Trash directory for background clean operations.
     /// Files moved here can be deleted asynchronously without blocking the main clean operation.
-    /// This points to buck-out/tmp/stale-buck-out which is used as the trash directory.
+    /// This points to buck-out/._buck2/trash which is used as the trash directory.
     pub fn trash_dir(&self) -> AbsNormPathBuf {
         self.roots
             .project_root
             .root()
             .join(Self::buck_out_dir_prefix())
-            .join(ForwardRelativePath::unchecked_new("tmp/stale-buck-out"))
+            .join(ForwardRelativePath::unchecked_new(RESERVED_BUCK_OUT_PREFIX))
+            .join(ForwardRelativePath::unchecked_new("trash"))
     }
 }
+
+/// Top-level names under `buck-out` share a namespace with isolation dirs. Names starting with
+/// this prefix are reserved for buck2's own bookkeeping (e.g. `trash_dir`) and are rejected as
+/// `--isolation-dir` values so the two can never collide.
+///
+/// One entry is set aside for tools other than buck2: `buck-out/._buck2/tmp` is scratch space
+/// for tooling (e.g. compiler wrappers invoked outside of a buck2 action) that needs a temp
+/// location under buck-out. Buck2 never stores its own state there, and `clean --all` deletes
+/// it like any other reserved entry, so contents must be disposable.
+pub const RESERVED_BUCK_OUT_PREFIX: &str = "._buck2";
 
 #[cfg(test)]
 mod tests {

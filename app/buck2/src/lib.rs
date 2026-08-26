@@ -53,6 +53,7 @@ use buck2_cmd_log_client::LogCommand;
 use buck2_cmd_rage_client::rage::RageCommand;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
+use buck2_common::invocation_paths::RESERVED_BUCK_OUT_PREFIX;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_common::settings::args::SettingOverride;
@@ -82,6 +83,12 @@ pub mod panic;
 pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> buck2_error::Result<FileNameBuf> {
+    if s.starts_with(RESERVED_BUCK_OUT_PREFIX) {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Isolation dir names starting with `{RESERVED_BUCK_OUT_PREFIX}` are reserved for buck2's internal use"
+        ));
+    }
     FileNameBuf::try_from(s.to_owned()).buck_error_context("isolation dir must be a directory name")
 }
 
