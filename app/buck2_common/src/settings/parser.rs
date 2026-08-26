@@ -483,16 +483,26 @@ mod tests {
 
         const REPO_URL: &str = "https://repo/";
 
-        fn compiled_version() -> u32 {
+        fn compiled_version(section_name: &str) -> u32 {
             ALL_SECTION_METADATA
                 .iter()
-                .find(|section| section.section_name == "log_download")
-                .expect("The production registry contains `log_download`")
+                .find(|section| section.section_name == section_name)
+                .expect("The production registry contains the requested section")
                 .section_version
         }
 
         fn rollout_toml(settings: &str) -> String {
-            format!("[log_download.{}]\n{settings}\n", compiled_version())
+            format!(
+                "[log_download.{}]\n{settings}\n",
+                compiled_version("log_download")
+            )
+        }
+
+        fn hydration_rollout_toml(settings: &str) -> String {
+            format!(
+                "[hydration.{}]\n{settings}\n",
+                compiled_version("hydration")
+            )
         }
 
         fn rollout_path(home: &ProjectRootTemp) -> AbsPathBuf {
@@ -567,7 +577,7 @@ mod tests {
 
         #[test]
         fn invalid_rollouts_fall_back_to_repo() -> buck2_error::Result<()> {
-            let version = compiled_version();
+            let version = compiled_version("log_download");
             let cases = [
                 ("invalid UTF-8", vec![0xff]),
                 ("invalid TOML", b"= broken".to_vec()),
@@ -642,6 +652,22 @@ mod tests {
                 startup_config_for(Some(&rollout_toml("log_url = \"https://before/\"")))?,
                 startup_config_for(Some(&rollout_toml("log_url = \"https://after/\"")))?
             );
+            Ok(())
+        }
+
+        #[test]
+        fn hydration_rollout_configures_startup() -> buck2_error::Result<()> {
+            let startup_config = startup_config_for(Some(&hydration_rollout_toml(
+                "enable_paging = true\npage_out_on_idle = true",
+            )))?;
+            assert_eq!(
+                startup_config.buck_settings.hydration.enable_paging(),
+                Some(true)
+            );
+            let hydration = startup_config
+                .hydration
+                .expect("The hydration rollout should enable idle page-out");
+            assert!(hydration.page_out_on_idle);
             Ok(())
         }
     }

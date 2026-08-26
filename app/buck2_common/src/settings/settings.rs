@@ -108,13 +108,44 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
     oss_default: Some(false),
 };
 
-pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] =
-    &[LOG_USE_MANIFOLD.metadata, LOG_URL.metadata];
+const HYDRATION_ENABLE_PAGING: SettingKey<bool> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "hydration",
+            name: "enable_paging",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    // Absence must remain distinct from `false` while legacy buckconfig is the fallback.
+    internal_default: None,
+    oss_default: None,
+};
+
+const HYDRATION_PAGE_OUT_ON_IDLE: SettingKey<bool> = SettingKey {
+    metadata: SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: "hydration",
+            name: "page_out_on_idle",
+        },
+        overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+    },
+    // Absence must remain distinct from `false` while legacy buckconfig is the fallback.
+    internal_default: None,
+    oss_default: None,
+};
+
+pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
+    HYDRATION_ENABLE_PAGING.metadata,
+    HYDRATION_PAGE_OUT_ON_IDLE.metadata,
+    LOG_USE_MANIFOLD.metadata,
+    LOG_URL.metadata,
+];
 #[cfg_attr(
     not(fbcode_build),
     expect(dead_code, reason = "Settings rollouts are internal-only")
 )]
-pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] = &[LogDownloadSection::METADATA];
+pub(crate) static ALL_SECTION_METADATA: &[SectionMetadata] =
+    &[HydrationSection::METADATA, LogDownloadSection::METADATA];
 
 pub(crate) fn find_setting_metadata<'a>(
     metadata: &'a [SettingKeyMetadata],
@@ -132,9 +163,51 @@ struct LogDownloadSectionData {
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
+struct HydrationSectionData {
+    enable_paging: Option<bool>,
+    page_out_on_idle: Option<bool>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     #[serde(default)]
+    hydration: HydrationSectionData,
+    #[serde(default)]
     log_download: LogDownloadSectionData,
+}
+
+/// Settings controlling hydration/paging behavior.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    Allocative
+)]
+#[serde(transparent)]
+pub struct HydrationSection(Arc<HydrationSectionData>);
+
+impl HydrationSection {
+    /// Bump when the section's settings schema or semantics change.
+    pub(crate) const METADATA: SectionMetadata = SectionMetadata {
+        section_name: "hydration",
+        section_version: 0,
+    };
+
+    /// Returns `None` when legacy buckconfig should determine the behavior.
+    pub fn enable_paging(&self) -> Option<bool> {
+        HYDRATION_ENABLE_PAGING.resolve(self.0.enable_paging)
+    }
+
+    /// Returns `None` when legacy buckconfig should determine the behavior.
+    pub fn page_out_on_idle(&self) -> Option<bool> {
+        HYDRATION_PAGE_OUT_ON_IDLE.resolve(self.0.page_out_on_idle)
+    }
 }
 
 #[derive(
@@ -174,12 +247,15 @@ impl LogDownloadSection {
 #[serde(deny_unknown_fields)]
 pub struct BuckSettings {
     #[serde(default)]
+    pub hydration: HydrationSection,
+    #[serde(default)]
     pub log_download: LogDownloadSection,
 }
 
 impl From<BuckSettingsData> for BuckSettings {
     fn from(data: BuckSettingsData) -> Self {
         Self {
+            hydration: HydrationSection(Arc::new(data.hydration)),
             log_download: LogDownloadSection(Arc::new(data.log_download)),
         }
     }
@@ -249,6 +325,23 @@ mod tests {
         let settings =
             resolve_setting_flags(vec![table("[log_download]\nlog_url = \"test.com\"")])?;
         assert_eq!(settings.log_download.log_url(), Some("test.com"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_default_hydration_settings() {
+        let hydration = BuckSettings::empty().hydration;
+        assert_eq!(hydration.enable_paging(), None);
+        assert_eq!(hydration.page_out_on_idle(), None);
+    }
+
+    #[test]
+    fn test_hydration_settings() -> buck2_error::Result<()> {
+        let settings = resolve_setting_flags(vec![table(
+            "[hydration]\nenable_paging = true\npage_out_on_idle = false",
+        )])?;
+        assert_eq!(settings.hydration.enable_paging(), Some(true));
+        assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
         Ok(())
     }
 

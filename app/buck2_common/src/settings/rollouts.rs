@@ -194,6 +194,30 @@ mod tests {
     }
 
     #[test]
+    fn accepts_valid_hydration_settings() -> buck2_error::Result<()> {
+        let selected = select_rollout_table(table(
+            r#"
+                [hydration.0]
+                enable_paging = true
+                page_out_on_idle = true
+            "#,
+        ))?
+        .expect("The hydration section version is present");
+
+        assert_eq!(
+            selected,
+            table(
+                r#"
+                    [hydration]
+                    enable_paging = true
+                    page_out_on_idle = true
+                "#,
+            ),
+        );
+        Ok(())
+    }
+
+    #[test]
     fn rejects_unknown_setting_in_selected_version() {
         select_rollout_table(table(
             r#"
