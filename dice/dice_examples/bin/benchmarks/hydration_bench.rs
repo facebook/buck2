@@ -13,6 +13,7 @@
 //! Creates N keys with large values, pages them out to SQLite, and optionally
 //! pages them back in. Emits JSON metrics per stage to stdout.
 
+use std::hint::black_box;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
@@ -30,6 +31,12 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use pagable::PageInState;
+use pagable::StorageState;
 use pagable::pagable_typetag;
 
 mod benchmark_utils;
@@ -71,6 +78,73 @@ impl InjectedKey for NumDepsKey {
 }
 
 #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("StateLookupsPerValueKey")]
+#[pagable_typetag(dice::DiceKeyDyn)]
+pub struct StateLookupsPerValueKey;
+
+impl InjectedKey for StateLookupsPerValueKey {
+    type Value = u32;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::PagableValueSerialize::<Self::Value>::new()
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+}
+
+#[derive(Allocative, Debug, Eq, PartialEq)]
+pub struct BenchValue {
+    data: Vec<u8>,
+    state_lookups: u32,
+}
+
+#[derive(Default)]
+struct BenchStorageState;
+
+impl StorageState for BenchStorageState {}
+
+#[derive(Default)]
+struct BenchPageInState;
+
+impl PageInState for BenchPageInState {}
+
+impl PagableSerialize for BenchValue {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        for _ in 0..self.state_lookups {
+            black_box(
+                serializer
+                    .storage_context()
+                    .get_or_init(BenchStorageState::default),
+            );
+        }
+        self.data.pagable_serialize(serializer)?;
+        self.state_lookups.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for BenchValue {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let data = Vec::<u8>::pagable_deserialize(deserializer)?;
+        let state_lookups = u32::pagable_deserialize(deserializer)?;
+        for _ in 0..state_lookups {
+            black_box(
+                deserializer
+                    .page_in_scope()
+                    .get_or_init(BenchPageInState::default),
+            );
+        }
+        Ok(Self {
+            data,
+            state_lookups,
+        })
+    }
+}
+
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("BenchKey({})", _0)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 pub struct BenchKey(u32);
@@ -102,8 +176,50 @@ impl Key for BenchKey {
 
         // Fill with the key index repeated as little-endian u32 bytes, truncated to size.
         let key_bytes = self.0.to_le_bytes();
-        let data: Vec<u8> = key_bytes.iter().copied().cycle().take(size).collect();
-        Arc::new(data)
+        Arc::new(key_bytes.iter().copied().cycle().take(size).collect())
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+}
+
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("StateLookupBenchKey({})", _0)]
+#[pagable_typetag(dice::DiceKeyDyn)]
+pub struct StateLookupBenchKey(u32);
+
+#[async_trait]
+impl Key for StateLookupBenchKey {
+    type Value = Arc<BenchValue>;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::PagableValueSerialize::<Self::Value>::new()
+    }
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let size = *ctx.compute(&ValueSizeKey).await.unwrap();
+        let num_deps = *ctx.compute(&NumDepsKey).await.unwrap();
+        let state_lookups = *ctx.compute(&StateLookupsPerValueKey).await.unwrap();
+
+        let start = self.0.saturating_sub(num_deps);
+        if start < self.0 {
+            ctx.compute_join(start..self.0, async |ctx, j| {
+                ctx.compute(&StateLookupBenchKey(j)).await.unwrap()
+            })
+            .await;
+        }
+
+        let key_bytes = self.0.to_le_bytes();
+        let data = key_bytes.iter().copied().cycle().take(size).collect();
+        Arc::new(BenchValue {
+            data,
+            state_lookups,
+        })
     }
 
     fn equality_behavior() -> EqualityBehavior<Self::Value> {
@@ -124,6 +240,9 @@ pub struct Cli {
     /// Number of predecessor keys each node depends on (forms a DAG).
     #[arg(long, default_value_t = 0)]
     num_deps: u32,
+    /// Number of typed storage/page-in state lookups performed per value.
+    #[arg(long, default_value_t = 0)]
+    state_lookups_per_value: u32,
     /// Dump jemalloc heap profiles to this path prefix.
     /// Requires MALLOC_CONF=prof:true.
     #[arg(long)]
@@ -143,6 +262,7 @@ async fn main() -> anyhow::Result<()> {
             "num_keys": cli.num_keys,
             "value_size": cli.value_size,
             "num_deps": cli.num_deps,
+            "state_lookups_per_value": cli.state_lookups_per_value,
             "storage": backend.to_string(),
         });
         let stdout = std::io::stdout();
@@ -163,16 +283,27 @@ async fn main() -> anyhow::Result<()> {
         let mut updater = dice.updater();
         updater.changed_to(vec![(ValueSizeKey, cli.value_size)])?;
         updater.changed_to(vec![(NumDepsKey, cli.num_deps)])?;
+        if cli.state_lookups_per_value != 0 {
+            updater.changed_to(vec![(StateLookupsPerValueKey, cli.state_lookups_per_value)])?;
+        }
         updater.commit().await;
     }
     let ctx = dice.updater().commit().await;
 
     let compute_start = Instant::now();
-    ctx.ctx()
-        .compute_join(0..cli.num_keys, async |ctx, i| {
-            ctx.compute(&BenchKey(i)).await.unwrap()
-        })
-        .await;
+    if cli.state_lookups_per_value == 0 {
+        ctx.ctx()
+            .compute_join(0..cli.num_keys, async |ctx, i| {
+                ctx.compute(&BenchKey(i)).await.unwrap()
+            })
+            .await;
+    } else {
+        ctx.ctx()
+            .compute_join(0..cli.num_keys, async |ctx, i| {
+                ctx.compute(&StateLookupBenchKey(i)).await.unwrap()
+            })
+            .await;
+    }
     let compute_elapsed = compute_start.elapsed();
     // Flush the state processor queue so the SharedCache (which holds Arc clones
     // of all computed values) is dropped before we measure memory.
