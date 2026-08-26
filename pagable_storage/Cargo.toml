@@ -10,6 +10,7 @@ version = "0.4.2"
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bytemuck = { version = "1.25" }
+bytesize = { workspace = true }
 dashmap = { workspace = true }
 either = { workspace = true }
 pagable = { version = "=0.4.2", path = "../pagable" }
