@@ -1670,6 +1670,71 @@ mod state_machine {
         .await
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_clean_scratch_sweep() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, _handle, _) = make_materializer(io.dupe(), None).await;
+
+            // Dead scratch is deleted regardless of age.
+            let dead = project_root.resolve(make_path("buck-out/v2/tmp/dead"));
+            let dead_file = project_root.resolve(make_path("buck-out/v2/tmp/dead/junk"));
+            fs_util::create_dir_all(&dead)?;
+            fs_util::write(&dead_file, b"xxxx")?;
+
+            // Unknown-age scratch (permission denied) is skipped, never deleted.
+            let unreadable = project_root.resolve(make_path("buck-out/v2/tmp/unreadable"));
+            let unreadable_file =
+                project_root.resolve(make_path("buck-out/v2/tmp/unreadable/junk"));
+            fs_util::create_dir(&unreadable)?;
+            fs_util::write(&unreadable_file, b"x")?;
+            fs_util::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o000))?;
+
+            let listable = project_root.resolve(make_path("buck-out/v2/tmp/listable"));
+            let listable_file = project_root.resolve(make_path("buck-out/v2/tmp/listable/junk"));
+            fs_util::create_dir(&listable)?;
+            fs_util::write(&listable_file, b"x")?;
+            fs_util::set_permissions(&listable, std::fs::Permissions::from_mode(0o444))?;
+
+            let res = dm.clean_scratch().await;
+
+            // Restore permissions so the temp dir can be deleted.
+            fs_util::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o755))?;
+            fs_util::set_permissions(&listable, std::fs::Permissions::from_mode(0o755))?;
+
+            let res = res?;
+            let &buck2_data::CleanStaleStats {
+                untracked_artifact_count,
+                cleaned_artifact_count,
+                cleaned_bytes,
+                skipped_unreadable_count,
+                ..
+            } = res
+                .stats
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}", res.message.unwrap()));
+            assert!(!fs_util::try_exists(&dead)?);
+            assert!(fs_util::try_exists(&unreadable_file)?);
+            assert!(fs_util::try_exists(&listable_file)?);
+            assert_eq!(
+                (
+                    untracked_artifact_count,
+                    cleaned_artifact_count,
+                    cleaned_bytes,
+                    skipped_unreadable_count
+                ),
+                (3, 1, 4, 4),
+                "the sweep deletes all dead scratch and skips what it cannot read or \
+                 delete — four skips total: sizing the unreadable dir, sizing the file \
+                 in the non-traversable dir, and the two failed deletions"
+            );
+            Ok(())
+        })
+        .await
+    }
+
     #[tokio::test]
     async fn test_clean_stale_interrupt() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {

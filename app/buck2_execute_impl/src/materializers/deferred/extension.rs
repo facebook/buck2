@@ -54,6 +54,7 @@ use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
+use crate::materializers::deferred::clean_stale::CleanScratchExtensionCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommandKind;
@@ -496,6 +497,16 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         self.command_sender
             .send(MaterializerCommand::Extension(Box::new(
                 CleanStaleArtifactsExtensionCommand { kind, sender },
+            )))?;
+        recv.await?.await.map(|res| res.into())
+    }
+
+    async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
+        let dispatcher = get_dispatcher();
+        let (sender, recv) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(Box::new(
+                CleanScratchExtensionCommand { dispatcher, sender },
             )))?;
         recv.await?.await.map(|res| res.into())
     }

@@ -838,6 +838,11 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
         args: CleanStaleArtifactsArgs,
     ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
 
+    /// Delete all local-action scratch (`buck-out/<iso>/tmp*`). Only sound while no
+    /// command is running actions: scratch liveness is command-scoped. Aborts as soon
+    /// as any other materializer command arrives.
+    async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
+
     async fn test_iter(&self, count: usize) -> buck2_error::Result<String>;
     async fn flush_all_access_times(&self) -> buck2_error::Result<String>;
 

@@ -235,6 +235,11 @@ pub struct DaemonStateData {
 
     /// Running more than one automatic idle page-out during this daemon's lifetime.
     pub(crate) allow_multiple_idle_page_outs: bool,
+
+    /// Whether a finishing command schedules a background sweep of the local-action
+    /// scratch dirs (`buck-out/<iso>/tmp*`) once the daemon is idle
+    /// (`buck2.clean_scratch_on_idle`).
+    pub(crate) clean_scratch_on_idle: bool,
 }
 
 impl DaemonStateData {
@@ -819,6 +824,13 @@ impl DaemonState {
                     .hydration
                     .as_ref()
                     .is_some_and(|h| h.allow_multiple_idle_page_outs),
+                clean_scratch_on_idle: root_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "clean_scratch_on_idle",
+                    })?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll(),
             }))
         };
         let daemon_listener_span = tracing::Span::current();

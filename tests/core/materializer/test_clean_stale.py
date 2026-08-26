@@ -582,3 +582,38 @@ async def test_adaptive_does_not_unmaterialize_when_disabled(buck: Buck) -> None
         entries=audit_entries,
         rel_path="golden/test_adaptive_does_not_unmaterialize_when_disabled.golden.txt",
     )
+
+
+@buck_test(skip_for_os=["windows", "darwin"])
+async def test_clean_scratch_on_idle(buck: Buck) -> None:
+    """Scratch (buck-out/<iso>/tmp) is swept once the daemon goes idle."""
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write("[buck2]\nclean_scratch_on_idle = true\n")
+
+    # Dead scratch from past actions: deleted regardless of age.
+    dead = (
+        buck.cwd / "buck-out" / "v2" / "tmp" / "root" / "aaaa" / "cat" / "dead_action"
+    )
+    dead.mkdir(parents=True)
+    (dead / "junk").write_text("x" * 16)
+
+    # A sibling scratch root the sweep cannot read: skipped, never deleted.
+    # (Kept out of `tmp/root` so its failed deletion cannot shadow `dead`'s.)
+    unreadable = buck.cwd / "buck-out" / "v2" / "tmp" / "unreadable"
+    unreadable.mkdir()
+    (unreadable / "junk").write_text("y")
+    unreadable.chmod(0o000)
+
+    try:
+        await buck.build("root//:copy")
+        # The sweep starts shortly after the command finishes, once the daemon
+        # is idle.
+        for _ in range(60):
+            if not dead.exists():
+                break
+            time.sleep(0.5)
+    finally:
+        unreadable.chmod(0o755)
+
+    assert not dead.exists()
+    assert (unreadable / "junk").exists()

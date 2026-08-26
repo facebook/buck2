@@ -675,6 +675,127 @@ impl IoRequest for CleanInvalidatedPathRequest {
     }
 }
 
+/// Deletes everything under the scratch roots (`tmp`, `tmp-anon`, `tmp-bxl`): the local
+/// actions' `BUCK_SCRATCH_PATH`s. Scratch liveness is command-scoped — a scratch dir is only
+/// in use while its action runs, and the local executor wipes it before the same action's
+/// next run — so with no command active, everything under the roots is dead. The daemon
+/// sends this when it goes idle after a command.
+///
+/// The sweep holds the same clean guard as `clean --stale`: the moment any other
+/// materializer command arrives, deletion stops between paths. Entries that cannot be read
+/// or deleted (permission denied) are counted and skipped, like the artifact scan.
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct CleanScratchExtensionCommand {
+    pub dispatcher: EventDispatcher,
+    #[derivative(Debug = "ignore")]
+    pub sender: Sender<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
+}
+
+impl<T: IoHandler> ExtensionCommand<T> for CleanScratchExtensionCommand {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let start_time = Instant::now();
+        let trace_id = self.dispatcher.trace_id().clone();
+        let daemon_id = self.dispatcher.daemon_id().clone();
+        let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
+        *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
+        let io = processor.io.dupe();
+        let cancellations = processor.cancellations;
+        let dispatcher = self.dispatcher;
+        let fut = async move {
+            let result = scratch_sweep(&io, cancellations, liveliness_observer).await;
+            let result_event: buck2_data::CleanStaleResult = create_result(
+                result.clone(),
+                Some(trace_id),
+                &daemon_id,
+                (Instant::now() - start_time).as_secs(),
+            );
+            dispatcher.instant_event(result_event);
+            result
+        }
+        .boxed();
+        let _ignored = self.sender.send(fut);
+    }
+}
+
+async fn scratch_sweep<T: IoHandler>(
+    io: &Arc<T>,
+    cancellations: &'static CancellationContext,
+    liveliness_observer: Arc<dyn LivelinessObserverSync>,
+) -> buck2_error::Result<CleanResult> {
+    let scan_start = Instant::now();
+    let mut stats = CleanStaleStats::default();
+    let mut found = Vec::new();
+    for dir_name in &["tmp", "tmp-anon", "tmp-bxl"] {
+        let dir_path = io
+            .buck_out_path()
+            .join(ProjectRelativePathBuf::unchecked_new(dir_name.to_string()));
+        let abs_dir = io.fs().resolve(&dir_path);
+        let read_dir = match io.read_dir(&abs_dir) {
+            Ok(read_dir) => read_dir,
+            // The root may not exist yet, or may vanish between listing and here.
+            Err(e) if e.has_tag(ErrorTag::IoNotFound) => continue,
+            Err(e) if e.has_tag(ErrorTag::IoPermissionDenied) => {
+                tracing::warn!("Skipping unreadable scratch root in scratch sweep: {e:#}");
+                stats.skipped_unreadable_count += 1;
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
+        for child in read_dir {
+            if !liveliness_observer.is_alive_sync() {
+                return Ok(CleanResult {
+                    kind: CleanStaleResultKind::Interrupted,
+                    stats,
+                });
+            }
+            let child = match child {
+                Ok(child) => child,
+                Err(e) if e.kind() == ErrorKind::PermissionDenied => {
+                    tracing::warn!("Skipping unreadable entry in scratch sweep: {e:#}");
+                    stats.skipped_unreadable_count += 1;
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
+            let file_name = child.file_name();
+            let Some(file_name) = file_name.to_str().and_then(|f| FileName::new(f).ok()) else {
+                tracing::warn!(
+                    "Skipping scratch entry with an invalid file name: `{}`",
+                    child.path().display()
+                );
+                stats.skipped_unreadable_count += 1;
+                continue;
+            };
+            // Sizes are for reporting only; `get_size` skips (and counts) what
+            // it cannot read rather than failing.
+            let size = get_size(&child.path(), &mut stats.skipped_unreadable_count)?;
+            stats.untracked_artifact_count += 1;
+            stats.untracked_bytes += size;
+            found.push((dir_path.join(file_name), size));
+        }
+    }
+    stats.scan_duration_s = (Instant::now() - scan_start).as_secs();
+
+    let clean_start = Instant::now();
+    let mut kind = CleanStaleResultKind::Finished;
+    for (path, size) in found {
+        match clean_artifact(path, size, cancellations, io, liveliness_observer.dupe()).await? {
+            CleanedPath::Cleaned(size) => {
+                stats.cleaned_artifact_count += 1;
+                stats.cleaned_bytes += size;
+            }
+            CleanedPath::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
+            CleanedPath::Interrupted => {
+                kind = CleanStaleResultKind::Interrupted;
+                break;
+            }
+        }
+    }
+    stats.clean_duration_s = (Instant::now() - clean_start).as_secs();
+    Ok(CleanResult { kind, stats })
+}
+
 /// Get file size or directory size, without following symlinks.
 /// Entries that cannot be read or statted due to insufficient permissions are
 /// skipped (and counted in `skipped_unreadable`) rather than treated as
@@ -685,7 +806,7 @@ pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error
         let read_dir = match fs_util::read_dir(path) {
             Ok(read_dir) => read_dir,
             Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
-                tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#?}");
+                tracing::warn!("Skipping unreadable directory when computing size: {e:#?}");
                 *skipped_unreadable += 1;
                 return Ok(0);
             }
@@ -695,7 +816,7 @@ pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
+                    tracing::warn!("Skipping unreadable entry when computing size: {e:#}");
                     *skipped_unreadable += 1;
                     continue;
                 }
@@ -707,7 +828,7 @@ pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error
         result = match path.symlink_metadata() {
             Ok(metadata) => metadata.len(),
             Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
+                tracing::warn!("Skipping unstatable entry when computing size: {e:#}");
                 *skipped_unreadable += 1;
                 0
             }

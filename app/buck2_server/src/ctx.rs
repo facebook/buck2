@@ -72,6 +72,7 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::soft_error;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::metadata;
 use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
@@ -548,6 +549,30 @@ impl<'a> ServerCommandContext<'a> {
                 triggers_idle_page_out,
             )
             .await;
+
+        // If enabled, sweep the local-action scratch dirs once the daemon is idle.
+        // The materializer's clean guard aborts the sweep the moment any other
+        // materializer command arrives, but it cannot protect a command that is
+        // already mid-build, so the sweep only starts when no command is active.
+        // Reuses the page-out trigger classification: the same command kinds that
+        // may have populated DICE are the ones that may have created scratch.
+        if triggers_idle_page_out && self.base_context.daemon.clean_scratch_on_idle {
+            let materializer = self.base_context.daemon.materializer.dupe();
+            let dispatcher = self.base_context.events.dupe();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                if !crate::active_commands::active_commands().is_empty() {
+                    return;
+                }
+                if let Some(extension) = materializer.as_deferred_materializer_extension() {
+                    if let Err(e) =
+                        with_dispatcher_async(dispatcher, extension.clean_scratch()).await
+                    {
+                        tracing::debug!("Idle scratch sweep failed: {e:#}");
+                    }
+                }
+            });
+        }
         Ok(())
     }
 }
