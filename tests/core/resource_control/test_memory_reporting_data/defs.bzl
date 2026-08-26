@@ -8,6 +8,8 @@
 
 _use_some_memory = read_config("use_some_memory", "path")
 
+_allocate_mb = read_config("use_some_memory", "allocate_mb")
+
 _cache_buster = read_config("test", "cache_buster", default = "")
 
 def _impl(ctx):
@@ -30,7 +32,7 @@ def _impl(ctx):
         "--allocate-count",
         "1",
         "--each-tick-allocate-memory",
-        "10",
+        _allocate_mb,
     )
 
     out = ctx.actions.declare_output("out", has_content_based_path = False)

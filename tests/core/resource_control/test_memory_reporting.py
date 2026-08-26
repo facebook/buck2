@@ -17,6 +17,15 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 
 
+# `memory_peak` is derived from the action cgroup's `memory.current`, which includes page
+# cache. Faulting in the ~14MB `use_some_memory` binary is charged to that cgroup whenever its
+# pages are not already resident, and the same holds for the interpreter and shared libraries.
+# The allocation has to dominate that variable overhead for the bounds below to hold.
+_ALLOCATE_MB: int = 100
+_MEMORY_PEAK_MIN: int = 100_000_000
+_MEMORY_PEAK_MAX: int = 130_000_000
+
+
 def _use_some_memory_args(buck: Buck) -> list[str]:
     return [
         "root//:use_some_memory",
@@ -26,6 +35,8 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
         f"test.cache_buster={random_string()}",
         "-c",
         f"use_some_memory.path={os.environ['USE_SOME_MEMORY_BIN']}",
+        "-c",
+        f"use_some_memory.allocate_mb={_ALLOCATE_MB}",
     ]
 
 
@@ -80,8 +91,8 @@ async def test_memory_reporting(buck: Buck) -> None:
     assert "OmittedLocalCommand" in details["command_kind"]["command"]
 
     memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
-    assert memory_peak > 10000000
-    assert memory_peak < 15000000
+    assert memory_peak > _MEMORY_PEAK_MIN
+    assert memory_peak < _MEMORY_PEAK_MAX
 
 
 @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
@@ -102,8 +113,8 @@ async def test_memory_reporting_in_test(buck: Buck) -> None:
     details = events[0]["command_report"]["details"]
 
     memory_peak = details["metadata"]["execution_stats"]["memory_peak"]
-    assert memory_peak > 10000000
-    assert memory_peak < 15000000
+    assert memory_peak > _MEMORY_PEAK_MIN
+    assert memory_peak < _MEMORY_PEAK_MAX
 
 
 @buck_test()
