@@ -250,6 +250,7 @@ impl Action for WriteMacrosToFileAction {
         Ok((
             ActionOutputs::new(output_values),
             ActionExecutionMetadata {
+                dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
                 input_files_bytes: None,

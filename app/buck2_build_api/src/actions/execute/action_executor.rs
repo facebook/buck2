@@ -150,6 +150,8 @@ pub struct ActionExecutionMetadata {
     pub timing: ActionExecutionTimingData,
     pub input_files_bytes: Option<u64>,
     pub waiting_data: WaitingData,
+    /// Dep-file cache entries this action queued for persisting.
+    pub dep_file_db_writes_queued: u64,
 }
 
 /// The *way* that a particular action was executed.
@@ -605,6 +607,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
                 let result = (
                     action_outputs,
                     ActionExecutionMetadata {
+                        dep_file_db_writes_queued: 0,
                         execution_kind: ActionExecutionKind::Command {
                             kind: Box::new(execution_kind.clone()),
                             prefers_local: executor_preference.prefers_local(),

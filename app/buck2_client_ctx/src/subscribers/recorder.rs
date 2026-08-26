@@ -124,6 +124,13 @@ pub struct InvocationRecorder {
     critical_path_page_in: Option<Duration>,
     tags: Vec<String>,
     run_local_count: u64,
+    /// Dep-file cache work for this command, summed from its own events.
+    dep_file_db_probes: u64,
+    dep_file_db_probe_duration_us: u64,
+    dep_file_db_fetches: u64,
+    dep_file_db_fetch_duration_us: u64,
+    dep_file_db_hits: u64,
+    dep_file_db_writes_queued: u64,
     run_remote_count: u64,
     run_action_cache_count: u64,
     run_remote_dep_file_cache_count: u64,
@@ -346,6 +353,12 @@ impl InvocationRecorder {
             critical_path_page_in: None,
             tags: vec![],
             run_local_count: 0,
+            dep_file_db_probes: 0,
+            dep_file_db_probe_duration_us: 0,
+            dep_file_db_fetches: 0,
+            dep_file_db_fetch_duration_us: 0,
+            dep_file_db_hits: 0,
+            dep_file_db_writes_queued: 0,
             run_remote_count: 0,
             run_action_cache_count: 0,
             run_remote_dep_file_cache_count: 0,
@@ -1120,6 +1133,12 @@ impl InvocationRecorder {
                 .time_to_last_action_execution_end
                 .and_then(duration_as_millis),
             isolation_dir: self.isolation_dir.take(),
+            dep_file_db_probes: Some(self.dep_file_db_probes),
+            dep_file_db_probe_duration_us: Some(self.dep_file_db_probe_duration_us),
+            dep_file_db_fetches: Some(self.dep_file_db_fetches),
+            dep_file_db_fetch_duration_us: Some(self.dep_file_db_fetch_duration_us),
+            dep_file_db_hits: Some(self.dep_file_db_hits),
+            dep_file_db_writes_queued: Some(self.dep_file_db_writes_queued),
             sink_success_count,
             sink_failure_count,
             sink_dropped_count,
@@ -1512,11 +1531,33 @@ impl InvocationRecorder {
 
         Ok(())
     }
+    /// Accumulates one dep-file lookup. The times are absent when the persisted store was not
+    /// consulted, which is the common case once the in-memory cache is warm.
+    fn handle_match_dep_files_end(
+        &mut self,
+        match_dep_files: &buck2_data::MatchDepFilesEnd,
+    ) -> buck2_error::Result<()> {
+        if let Some(probe_us) = match_dep_files.persisted_probe_us {
+            self.dep_file_db_probes += 1;
+            self.dep_file_db_probe_duration_us += probe_us;
+        }
+        if let Some(fetches) = match_dep_files.persisted_fetches {
+            self.dep_file_db_fetches += fetches;
+            self.dep_file_db_fetch_duration_us +=
+                match_dep_files.persisted_fetch_us.unwrap_or_default();
+        }
+        if match_dep_files.outcome == buck2_data::DepFileLookupOutcome::Persisted as i32 {
+            self.dep_file_db_hits += 1;
+        }
+        Ok(())
+    }
+
     fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
+        self.dep_file_db_writes_queued += action.dep_file_db_writes_queued.unwrap_or_default();
         // Decrement current in-progress actions counter
         self.current_in_progress_actions = self.current_in_progress_actions.saturating_sub(1);
 
@@ -2420,6 +2461,9 @@ impl InvocationRecorder {
                     buck2_data::span_end_event::Data::ActionExecution(action) => {
                         self.handle_action_execution_end(action, event)
                     }
+                    buck2_data::span_end_event::Data::MatchDepFiles(match_dep_files) => {
+                        self.handle_match_dep_files_end(match_dep_files)
+                    }
                     buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
                         self.handle_file_watcher_end(file_watcher, end.duration.as_ref(), event)
                     }
@@ -2783,6 +2827,7 @@ fn duration_as_millis(duration: Duration) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
+
     use std::ffi::OsString;
     use std::time::Duration;
     use std::time::SystemTime;

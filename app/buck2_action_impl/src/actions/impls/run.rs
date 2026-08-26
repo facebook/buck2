@@ -1094,6 +1094,7 @@ impl RunAction {
                     outcome: buck2_data::DepFileLookupOutcome::NotSet as i32,
                     persisted_probe_us: None,
                     persisted_fetch_us: None,
+                    persisted_fetches: None,
                 },
             )
             .await?;
@@ -1441,6 +1442,7 @@ impl RunAction {
             Ok(outputs) => Ok(Some((
                 outputs,
                 ActionExecutionMetadata {
+                    dep_file_db_writes_queued: 0,
                     execution_kind: ActionExecutionKind::Deferred,
                     timing: ActionExecutionTimingData::default(),
                     input_files_bytes: None,
@@ -1687,7 +1689,7 @@ impl Action for RunAction {
         }
 
         let was_locally_executed = result.was_locally_executed();
-        let (outputs, metadata) = ctx.unpack_command_execution_result(
+        let (outputs, mut metadata) = ctx.unpack_command_execution_result(
             executor_preference,
             result,
             allow_cache_upload,
@@ -1714,7 +1716,9 @@ impl Action for RunAction {
             }
         }
 
-        populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
+        let queued_write =
+            populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
+        metadata.dep_file_db_writes_queued = u64::from(queued_write);
 
         Ok((outputs, metadata))
     }

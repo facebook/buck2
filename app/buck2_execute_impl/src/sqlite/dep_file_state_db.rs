@@ -166,9 +166,10 @@ enum DepFileWrite {
     Flush(crossbeam_channel::Sender<()>),
 }
 
-fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
+/// Applies one write, returning what it did, or `None` for a `Flush`.
+fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) -> Option<WriteKind> {
     let table = db.dep_file_state_table();
-    let (result, category) = match write {
+    let (result, category, kind) = match write {
         DepFileWrite::Insert {
             logical_key,
             config_key,
@@ -176,6 +177,7 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
         } => (
             table.insert(logical_key, config_key, state),
             "insert_to_dep_file_db",
+            WriteKind::Insert,
         ),
         DepFileWrite::Delete {
             logical_key,
@@ -183,12 +185,13 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
         } => (
             table.delete(&logical_key, &config_key),
             "delete_from_dep_file_db",
+            WriteKind::Delete,
         ),
-        DepFileWrite::Clear => (table.clear(), "clear_dep_file_db"),
+        DepFileWrite::Clear => (table.clear(), "clear_dep_file_db", WriteKind::Clear),
         DepFileWrite::Flush(ack) => {
             // Dropping the sender would also wake the waiter, so the send result is irrelevant.
             let _ignored = ack.send(());
-            return;
+            return None;
         }
     };
     if let Err(e) = result {
@@ -202,6 +205,9 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) {
             quiet: true
         );
     }
+    // A failed write still took time and still happened; the soft error above is what says it did
+    // not land, so it is counted like any other.
+    Some(kind)
 }
 
 fn report_read_failure(e: buck2_error::Error) {
@@ -242,8 +248,10 @@ fn report_read_failure(e: buck2_error::Error) {
 /// worker. Readers take connections of their own, which is what WAL's concurrent readers need: a
 /// read does not wait on the transaction a write holds. The connection is released before rows are
 /// deserialized, and a read only runs when the in-memory cache misses.
-/// Writer-thread counters. Grouped so the thread takes one handle rather than one per counter, and
-/// so a new counter is added in one place.
+/// Writer-thread counters. Atomic despite a single writer: the writer thread increments them while
+/// the snapshot thread reads them once a second, so the sharing is across threads even though the
+/// writes themselves are serialized. Grouped so the thread takes one handle rather than one per
+/// counter, and so a new counter is added in one place.
 #[derive(Default)]
 struct WriteCounters {
     /// Writes accepted. Its difference from `applied` is the queue depth, reported per snapshot;
@@ -251,23 +259,43 @@ struct WriteCounters {
     queued: AtomicU64,
     /// Every message the writer handled, `Flush` included, so the difference above stays correct.
     applied: AtomicU64,
-    /// The subset that touched the database. `Flush` does none, so it is excluded here and from the
-    /// durations, which makes this the denominator that turns them into a mean.
-    db_writes: AtomicU64,
     /// Time spent applying writes, and the slowest single one: a total alone would only give a mean,
     /// and it is one slow write that stalls `flush` at the end of a command.
     duration_us: AtomicU64,
     max_us: AtomicU64,
+    /// The writes that reached the database, split by what they did, so a slow insert and a slow
+    /// prune-driven delete are distinguishable. The three counts sum to the writes `duration_us`
+    /// covers; `applied` also counts `Flush`, which does no database work.
+    inserts: AtomicU64,
+    insert_duration_us: AtomicU64,
+    deletes: AtomicU64,
+    delete_duration_us: AtomicU64,
+    clears: AtomicU64,
+    clear_duration_us: AtomicU64,
+}
+
+/// What an applied write did. `Flush` has no variant: it touches no table.
+#[derive(Copy, Clone)]
+enum WriteKind {
+    Insert,
+    Delete,
+    Clear,
 }
 
 impl WriteCounters {
-    /// Records one applied message. `elapsed` is `None` for a `Flush`, which does no database work.
-    fn record(&self, elapsed: Option<u64>) {
+    /// Records one applied message. `write` is `None` for a `Flush`, which does no database work.
+    fn record(&self, write: Option<(WriteKind, u64)>) {
         self.applied.fetch_add(1, Ordering::Relaxed);
-        if let Some(elapsed) = elapsed {
-            self.db_writes.fetch_add(1, Ordering::Relaxed);
+        if let Some((kind, elapsed)) = write {
             self.duration_us.fetch_add(elapsed, Ordering::Relaxed);
             self.max_us.fetch_max(elapsed, Ordering::Relaxed);
+            let (count, duration) = match kind {
+                WriteKind::Insert => (&self.inserts, &self.insert_duration_us),
+                WriteKind::Delete => (&self.deletes, &self.delete_duration_us),
+                WriteKind::Clear => (&self.clears, &self.clear_duration_us),
+            };
+            count.fetch_add(1, Ordering::Relaxed);
+            duration.fetch_add(elapsed, Ordering::Relaxed);
         }
     }
 }
@@ -336,11 +364,11 @@ impl PersistedDepFileStore {
         // exits; the drop path is what lets tests reclaim the thread.
         thread_spawn("buck2-dep-file-db", move || {
             for write in receiver.iter() {
-                let is_flush = matches!(write, DepFileWrite::Flush(_));
                 let started = Instant::now();
-                apply_write(&writer_db, write);
-                let elapsed = (!is_flush).then(|| (Instant::now() - started).as_micros() as u64);
-                writer_counters.record(elapsed);
+                let kind = apply_write(&writer_db, write);
+                let applied =
+                    kind.map(|kind| (kind, (Instant::now() - started).as_micros() as u64));
+                writer_counters.record(applied);
             }
         })
         .buck_error_context("Failed to spawn the dep-file db writer thread")?;
@@ -481,9 +509,14 @@ impl DepFileStore for PersistedDepFileStore {
     fn write_stats(&self) -> DepFileWriteStats {
         DepFileWriteStats {
             applied: self.write.applied.load(Ordering::Relaxed),
-            writes: self.write.db_writes.load(Ordering::Relaxed),
             duration_us: self.write.duration_us.load(Ordering::Relaxed),
             max_us: self.write.max_us.load(Ordering::Relaxed),
+            inserts: self.write.inserts.load(Ordering::Relaxed),
+            insert_duration_us: self.write.insert_duration_us.load(Ordering::Relaxed),
+            deletes: self.write.deletes.load(Ordering::Relaxed),
+            delete_duration_us: self.write.delete_duration_us.load(Ordering::Relaxed),
+            clears: self.write.clears.load(Ordering::Relaxed),
+            clear_duration_us: self.write.clear_duration_us.load(Ordering::Relaxed),
         }
     }
 

@@ -154,7 +154,12 @@ impl SnapshotCollector {
             snapshot.dep_file_db_queue_size = store.queue_size();
             let writes = store.write_stats();
             snapshot.dep_file_db_writes_applied = writes.applied;
-            snapshot.dep_file_db_writes = writes.writes;
+            snapshot.dep_file_db_inserts = writes.inserts;
+            snapshot.dep_file_db_insert_duration_us = writes.insert_duration_us;
+            snapshot.dep_file_db_deletes = writes.deletes;
+            snapshot.dep_file_db_delete_duration_us = writes.delete_duration_us;
+            snapshot.dep_file_db_clears = writes.clears;
+            snapshot.dep_file_db_clear_duration_us = writes.clear_duration_us;
             snapshot.dep_file_db_write_duration_us = writes.duration_us;
             snapshot.dep_file_db_write_max_us = writes.max_us;
             let reads = store.read_stats();

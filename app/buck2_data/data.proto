@@ -1255,10 +1255,11 @@ message Snapshot {
   // gives a mean and a single slow write is what would stall `flush` at the end
   // of a command.
   // Every message the writer handled, including `Flush`, so `queue_size` stays
-  // correct. Divide the duration below by `dep_file_db_writes` rather than by
-  // this: a flush does no database work and is excluded from the duration.
+  // correct. Divide the duration below by the sum of the per-kind counts below
+  // rather than by this: a flush does no database work and is excluded from the
+  // duration.
   uint64 dep_file_db_writes_applied = 443;
-  uint64 dep_file_db_writes = 457;
+  reserved 457; // dep_file_db_writes, now the sum of the per-kind counts
   uint64 dep_file_db_write_duration_us = 444;
   uint64 dep_file_db_write_max_us = 445;
   // Reads, counted the same way. `MatchDepFilesEnd` carries per-action probe
@@ -1282,6 +1283,15 @@ message Snapshot {
   uint64 dep_file_db_read_lock_wait_us = 452;
   uint64 dep_file_db_read_lock_wait_max_us = 453;
   uint64 dep_file_db_read_connections = 458;
+  // The write counts above, split by what the write did. `Flush` is in neither:
+  // it touches no table. Kept alongside the totals because a slow insert and a
+  // slow prune-driven delete call for different fixes.
+  uint64 dep_file_db_inserts = 459;
+  uint64 dep_file_db_insert_duration_us = 460;
+  uint64 dep_file_db_deletes = 461;
+  uint64 dep_file_db_delete_duration_us = 462;
+  uint64 dep_file_db_clears = 463;
+  uint64 dep_file_db_clear_duration_us = 464;
   // What the database held when this daemon opened it, after pruning. Constant
   // for the daemon's life. Write counts cannot substitute: they cannot tell an
   // insert from a replace, and say nothing about what survived the prune.
@@ -2081,6 +2091,11 @@ message ActionExecutionEnd {
   // Whether the action is expected to be eligible for deduplication across
   // configurations.
   ExpectedEligibleForDedupe expected_eligible_for_dedupe = 46;
+
+  // Dep-file cache entries this action queued for persisting. At most one, but
+  // carried as a count so summing it across a command's actions gives the
+  // command's total.
+  optional uint64 dep_file_db_writes_queued = 47;
 }
 
 enum IncrementalKind {
@@ -2628,6 +2643,9 @@ message MatchDepFilesEnd {
   // outputs and declared dep files.
   optional uint64 persisted_probe_us = 2;
   optional uint64 persisted_fetch_us = 3;
+  // How many candidates this lookup fetched. A lookup probes once but may fetch
+  // several times, so the duration above covers more work than one fetch.
+  optional uint64 persisted_fetches = 4;
 }
 
 // Returned when a Span is dropped before terminating.
@@ -3258,6 +3276,25 @@ message InvocationRecord {
   // Total wall-clock time in milliseconds during which at least one action was
   // executing.
   optional uint64 action_active_duration_ms = 452;
+
+  // Local dep-file (action) cache work done by this command, accumulated from
+  // this command's own events. Counts and totals
+  // are separate rather than means, so they stay summable across commands.
+  // Absent when the cache is off, which is distinct from zero.
+  //
+  // A probe reads only the scalar row of each candidate; a fetch reads its
+  // outputs and declared dep files, so the two are kept apart.
+  optional uint64 dep_file_db_probes = 753;
+  optional uint64 dep_file_db_probe_duration_us = 754;
+  optional uint64 dep_file_db_fetches = 755;
+  optional uint64 dep_file_db_fetch_duration_us = 756;
+  // Entries served: the row survived re-validation and its outputs were still
+  // materialized. No more than the fetches that found a row.
+  optional uint64 dep_file_db_hits = 757;
+  // Entries this command queued for persisting. Writes are applied off-thread
+  // and can outlive the command, so what they cost is a daemon-level figure and
+  // lives on `Snapshot`; only the queuing belongs to a command.
+  optional uint64 dep_file_db_writes_queued = 758;
 }
 
 enum InvocationOutcome {

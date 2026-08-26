@@ -240,6 +240,7 @@ impl Action for CopyAction {
         Ok((
             ActionOutputs::from_single(self.output().get_path().dupe(), value),
             ActionExecutionMetadata {
+                dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,

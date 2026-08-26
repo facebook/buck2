@@ -317,6 +317,7 @@ impl Action for WriteAction {
         Ok((
             ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
+                dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
                 input_files_bytes: None,

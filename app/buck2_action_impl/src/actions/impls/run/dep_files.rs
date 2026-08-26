@@ -967,6 +967,7 @@ impl DepFileBundle {
             (
                 o,
                 ActionExecutionMetadata {
+                    dep_file_db_writes_queued: 0,
                     execution_kind: ActionExecutionKind::LocalActionCache,
                     timing: Default::default(),
                     input_files_bytes: None,
@@ -1011,6 +1012,7 @@ impl DepFileBundle {
                     outcome: outcome as i32,
                     persisted_probe_us: None,
                     persisted_fetch_us: None,
+                    persisted_fetches: None,
                 };
                 (result, end)
             },
@@ -1021,6 +1023,7 @@ impl DepFileBundle {
             (
                 o,
                 ActionExecutionMetadata {
+                    dep_file_db_writes_queued: 0,
                     execution_kind: ActionExecutionKind::LocalDepFile,
                     timing: Default::default(),
                     input_files_bytes: None,
@@ -1679,6 +1682,7 @@ pub(crate) struct DepFileLookupStats {
     outcome: i32,
     probe_us: Option<u64>,
     fetch_us: Option<u64>,
+    fetches: Option<u64>,
 }
 
 impl DepFileLookupStats {
@@ -1702,6 +1706,7 @@ impl DepFileLookupStats {
 
     fn add_fetch(&mut self, d: Duration) {
         *self.fetch_us.get_or_insert(0) += d.as_micros() as u64;
+        *self.fetches.get_or_insert(0) += 1;
     }
 
     pub(crate) fn into_end_event(self) -> buck2_data::MatchDepFilesEnd {
@@ -1709,6 +1714,7 @@ impl DepFileLookupStats {
             outcome: self.outcome,
             persisted_probe_us: self.probe_us,
             persisted_fetch_us: self.fetch_us,
+            persisted_fetches: self.fetches,
         }
     }
 }
@@ -2008,12 +2014,13 @@ async fn eagerly_compute_fingerprints(
 }
 
 /// Post-process the dep files produced by an action.
+/// Returns whether an entry was queued for persisting.
 pub(crate) async fn populate_dep_files(
     ctx: &dyn ActionExecutionCtx,
     dep_file_bundle: DepFileBundle,
     result: &ActionOutputs,
     was_produced_locally: bool,
-) -> buck2_error::Result<()> {
+) -> buck2_error::Result<bool> {
     let DepFileBundle {
         declared_dep_files,
         dep_files_key,
@@ -2081,6 +2088,7 @@ pub(crate) async fn populate_dep_files(
     // to persist (an output's symlink destinations are *not* covered by "already on disk").
     let logical = dep_files_key.to_logical();
     let cfg = dep_files_key.configuration();
+    let mut queued_write = false;
     if was_produced_locally
         && let Ok(store) = DEP_FILE_STORE.get()
         && let Some(logical_key) = encode_logical_key(&logical)
@@ -2088,7 +2096,10 @@ pub(crate) async fn populate_dep_files(
         // Persisting is best-effort, per the `DepFileStore` contract: a failure to serialize costs a
         // cache miss in a later session and must not fail this build.
         match state.to_stored() {
-            Ok(Some(stored)) => store.insert(logical_key, encode_config_key(cfg.dupe()), stored),
+            Ok(Some(stored)) => {
+                store.insert(logical_key, encode_config_key(cfg.dupe()), stored);
+                queued_write = true;
+            }
             Ok(None) => {}
             Err(e) => tracing::debug!("Not persisting dep-file entry: {}", e),
         }
@@ -2101,7 +2112,7 @@ pub(crate) async fn populate_dep_files(
     // deps-free, but nothing in the schema enforces that, so the re-validation is what makes
     // leaving the row safe.
     DEP_FILES.insert(logical.dupe(), cfg, Arc::new(state));
-    Ok(())
+    Ok(queued_write)
 }
 
 /// Inputs partitioned by tag. `D` is the representation of the set of inputs.

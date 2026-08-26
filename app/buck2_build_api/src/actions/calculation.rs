@@ -357,11 +357,13 @@ async fn build_action_inner(
     let mut scheduling_mode = None;
     let mut incremental_kind = None;
     let mut waiting_data = None;
+    let mut dep_file_db_writes_queued = 0;
     let error_diagnostics = match execute_result {
         Ok((outputs, meta)) => {
             output_size = outputs.calc_output_count_and_bytes(false).bytes;
             action_result = Ok(outputs);
             execution_kind = Some(meta.execution_kind.as_enum());
+            dep_file_db_writes_queued = meta.dep_file_db_writes_queued;
             if matches!(
                 meta.execution_kind.as_enum(),
                 buck2_data::ActionExecutionKind::Local
@@ -536,6 +538,7 @@ async fn build_action_inner(
             allows_dep_file_cache_upload: allows_dep_file_cache_upload.unwrap_or_default(),
             dep_file_cache_upload_result: dep_file_cache_upload_result as i32,
             dep_file_key: dep_file_key.map(|d| d.to_string()),
+            dep_file_db_writes_queued: Some(dep_file_db_writes_queued),
             eligible_for_full_hybrid,
             buck2_revision,
             buck2_build_time,

@@ -152,6 +152,7 @@ impl CasArtifactAction {
         Ok((
             outputs,
             ActionExecutionMetadata {
+                dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Deferred,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
@@ -375,6 +376,7 @@ impl Action for CasArtifactAction {
         Ok((
             ActionOutputs::from_single(self.output.get_path().dupe(), value),
             ActionExecutionMetadata {
+                dep_file_db_writes_queued: 0,
                 execution_kind: ActionExecutionKind::Deferred,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,

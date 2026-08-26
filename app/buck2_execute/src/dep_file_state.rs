@@ -103,11 +103,17 @@ pub struct StoredDepFileIdentity {
 pub struct DepFileWriteStats {
     /// Every message the writer handled, including `Flush`. Counts the queue, not the database.
     pub applied: u64,
-    /// The subset that wrote to the database. `duration_us` excludes `Flush` for the same reason,
-    /// so this is the count those durations average over; `applied` is not.
-    pub writes: u64,
     pub duration_us: u64,
     pub max_us: u64,
+    /// The writes that reached the database, split by what they did. Their sum is the count
+    /// `duration_us` averages over -- `applied` is not, since it includes `Flush`, which does no
+    /// database work and is excluded from the duration.
+    pub inserts: u64,
+    pub insert_duration_us: u64,
+    pub deletes: u64,
+    pub delete_duration_us: u64,
+    pub clears: u64,
+    pub clear_duration_us: u64,
 }
 
 /// Cumulative cost of the persisted store's reads, reported per snapshot. `MatchDepFilesEnd`
