@@ -12,11 +12,11 @@ use std::any::Any;
 use std::any::TypeId;
 use std::sync::Arc;
 
-use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use dupe::Dupe;
 
 use crate::context::PagableDeserializerImpl;
+use crate::hashers::TypeIdDashMap;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
@@ -27,7 +27,7 @@ pub trait PageInState: Send + Sync + 'static {}
 /// Scope-local index that retains each state for the lifetime of its page-in.
 #[derive(Default)]
 struct PageInStateRegistry {
-    states: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    states: TypeIdDashMap<Arc<dyn Any + Send + Sync>>,
 }
 
 impl PageInStateRegistry {

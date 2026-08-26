@@ -23,6 +23,7 @@ use once_cell::sync::OnceCell;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::WeakEraseDyn;
+use crate::hashers::TypeIdDashMap;
 use crate::hashers::TypeIdHasher;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
@@ -47,13 +48,13 @@ pub struct ArcSerCache {
     /// `Arc<T>` and `Arc<dyn Trait>`. They share a pointer identity but have
     /// different wire formats, so each view needs a distinct slot. Partitioning
     /// by type also avoids storing a `TypeId` in every per-allocation key.
-    by_type: DashMap<TypeId, Arc<IdentityDashMap>, BuildHasherDefault<TypeIdHasher>>,
+    by_type: TypeIdDashMap<Arc<IdentityDashMap>>,
 }
 
 impl ArcSerCache {
     pub fn new() -> Self {
         Self {
-            by_type: DashMap::default(),
+            by_type: TypeIdDashMap::default(),
         }
     }
 

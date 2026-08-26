@@ -10,7 +10,18 @@
 
 //! Hashers for maps whose keys are already well-distributed hashes.
 
+use std::any::TypeId;
+use std::hash::BuildHasherDefault;
 use std::hash::Hasher;
+
+use dashmap::DashMap;
+
+/// A concurrent map specialized for `TypeId` keys.
+///
+/// `TypeId` is already hash-derived, so `TypeIdHasher` avoids redundant
+/// mixing. Fixing the key type in this alias also prevents the pass-through
+/// hasher from being paired with arbitrarily distributed keys.
+pub(crate) type TypeIdDashMap<V> = DashMap<TypeId, V, BuildHasherDefault<TypeIdHasher>>;
 
 /// Passes the already-uniform `TypeId` bits through instead of re-hashing
 /// them: the key is a compiler-generated hash, so further mixing is

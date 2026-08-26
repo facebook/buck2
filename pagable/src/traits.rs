@@ -22,11 +22,11 @@ use std::any::TypeId;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use dashmap::DashMap;
 
 use crate::PagableDeserializerRecipe;
 use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
+use crate::hashers::TypeIdDashMap;
 use crate::storage::handle::PagableStorageHandle;
 
 // ============================================================================
@@ -43,7 +43,7 @@ pub trait StorageState: Send + Sync + 'static {}
 /// concurrently without external locking.
 #[derive(Default)]
 pub struct StorageContext {
-    states: DashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    states: TypeIdDashMap<Arc<dyn Any + Send + Sync>>,
 }
 
 impl StorageContext {
@@ -362,6 +362,10 @@ static_assertions::assert_impl_all!(dyn PagableDeserializer<'static>: PagableDes
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Barrier;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
     use super::*;
 
     struct TestState(usize);
@@ -377,5 +381,41 @@ mod tests {
 
         assert_eq!(state.0, 1);
         assert!(Arc::ptr_eq(&state, &context.get_or_init(|| TestState(2)),));
+    }
+
+    #[test]
+    fn storage_context_initializes_state_once_concurrently() {
+        const THREADS: usize = 8;
+
+        let context = Arc::new(StorageContext::new());
+        let barrier = Arc::new(Barrier::new(THREADS));
+        let initialization_count = Arc::new(AtomicUsize::new(0));
+        let handles: Vec<_> = (0..THREADS)
+            .map(|_| {
+                let context = Arc::clone(&context);
+                let barrier = Arc::clone(&barrier);
+                let initialization_count = Arc::clone(&initialization_count);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    context.get_or_init(|| {
+                        initialization_count.fetch_add(1, Ordering::Relaxed);
+                        TestState(1)
+                    })
+                })
+            })
+            .collect();
+
+        let states: Vec<_> = handles
+            .into_iter()
+            .map(|handle| {
+                handle
+                    .join()
+                    .expect("state initialization thread should succeed")
+            })
+            .collect();
+        let first = &states[0];
+
+        assert_eq!(initialization_count.load(Ordering::Relaxed), 1);
+        assert!(states.iter().all(|state| Arc::ptr_eq(first, state)));
     }
 }
