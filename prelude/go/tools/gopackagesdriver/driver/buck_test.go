@@ -12,10 +12,14 @@ package driver
 
 import (
 	"context"
-	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
+
+	"golang.org/x/tools/go/packages"
 )
 
 // requireNoError fails the test if err is not nil
@@ -73,38 +77,99 @@ func TestFixRePathTruncatesFile(t *testing.T) {
 	original := "//line ../../../../long/path/to/source.go:1:1\npackage example\n"
 	requireNoError(t, os.WriteFile(path, []byte(original), 0644))
 
-	platform := &realPlatform{projectDir: "/repo"}
-	requireNoError(t, fixRePath(platform, path))
+	requireNoError(t, fixRePath(path, "/src/source.go"))
 
 	got, err := os.ReadFile(path)
 	requireNoError(t, err)
-	want := "//line /long/path/to/source.go:1:1\npackage example\n"
+	want := "//line /src/source.go:1:1\npackage example\n"
 	requireEqual(t, want, string(got))
 }
 
-func TestFixupRelPathLine(t *testing.T) {
-	projectDir := "/home/user1/repo_root"
-	tcs := []struct {
-		name string
-		in   string
-		want string
+func TestCgoPathRewrites(t *testing.T) {
+	testCases := []struct {
+		name    string
+		pkg     *packages.Package
+		want    map[string]string
+		wantErr string
 	}{
 		{
-			name: "already absolute path",
-			in:   "/home/user1/repo_root/foo/bar/baz.go",
-			want: "/home/user1/repo_root/foo/bar/baz.go",
+			name: "checked-in CGo source",
+			pkg: &packages.Package{
+				ID:              "cgo",
+				GoFiles:         []string{"/repo/plain.go", "/repo/cgo_file.go"},
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/cgo_file.cgo1.go"},
+			},
+			want: map[string]string{
+				"/buck-out/cgo_gen/cgo_file.cgo1.go": "/repo/cgo_file.go",
+			},
 		},
 		{
-			name: "existing path",
-			in:   "foo/bar/baz.go",
-			want: "/home/user1/repo_root/foo/bar/baz.go",
+			name: "generated SWIG source",
+			pkg: &packages.Package{
+				ID:              "swig",
+				GoFiles:         []string{"/buck-out/swig/out/swig_lib.go"},
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/swig_lib.cgo1.go"},
+			},
+			want: map[string]string{
+				"/buck-out/cgo_gen/swig_lib.cgo1.go": "/buck-out/swig/out/swig_lib.go",
+			},
+		},
+		{
+			name: "ignore CGo types file",
+			pkg: &packages.Package{
+				ID:              "cgo",
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/_cgo_gotypes.go"},
+			},
+		},
+		{
+			name: "missing source",
+			pkg: &packages.Package{
+				ID:              "cgo",
+				GoFiles:         []string{"/repo/other.go"},
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/cgo_file.cgo1.go"},
+			},
+			wantErr: "found 0",
+		},
+		{
+			name: "ambiguous source",
+			pkg: &packages.Package{
+				ID:              "cgo",
+				GoFiles:         []string{"/repo/one/cgo_file.go", "/repo/two/cgo_file.go"},
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/cgo_file.cgo1.go"},
+			},
+			wantErr: "found 2",
+		},
+		{
+			name: "relative source",
+			pkg: &packages.Package{
+				ID:              "cgo",
+				GoFiles:         []string{"cgo_file.go"},
+				CompiledGoFiles: []string{"/buck-out/cgo_gen/cgo_file.cgo1.go"},
+			},
+			wantErr: "is not absolute",
 		},
 	}
-	for _, tc := range tcs {
-		t.Run(fmt.Sprintf("%s with %q", tc.name, tc.in), func(t *testing.T) {
-			requireEqual(t, tc.want, fixupRelPathLine(projectDir, tc.in))
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := cgoPathRewrites(tc.pkg)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("Expected error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			requireNoError(t, err)
+			requireEqual(t, true, maps.Equal(tc.want, got))
 		})
 	}
+}
+
+func TestBuildBXLArgsRequestsGoFilesForCompiledGoFiles(t *testing.T) {
+	req := &packages.DriverRequest{Mode: packages.NeedCompiledGoFiles}
+	args := buildBXLArgs(req, nil, nil)
+	requireEqual(t, true, slices.Contains(args, "--need_files"))
+	requireEqual(t, true, slices.Contains(args, "--need_compiled_go_files"))
 }
 
 func TestFixQuery(t *testing.T) {
