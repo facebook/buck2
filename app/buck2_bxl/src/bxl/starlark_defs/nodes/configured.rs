@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::convert::Infallible;
 use std::fmt;
+use std::fmt::Display;
 use std::path::Path;
 
 use allocative::Allocative;

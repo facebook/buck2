@@ -11,6 +11,7 @@
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::fmt;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;

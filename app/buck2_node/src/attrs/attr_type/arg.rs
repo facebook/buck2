@@ -10,6 +10,8 @@
 
 pub mod parser;
 
+use std::fmt::Display;
+
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;

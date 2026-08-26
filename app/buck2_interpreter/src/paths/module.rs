@@ -40,7 +40,6 @@ use crate::paths::path::StarlarkPath;
     Eq,
     PartialEq
 )]
-#[display("{}", self.id())]
 pub enum StarlarkModulePath<'a> {
     /// a file to be imported
     LoadFile(&'a ImportPath),

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_common::dice::cycles::CycleAdapterDescriptor;

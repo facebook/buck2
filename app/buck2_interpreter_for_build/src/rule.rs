@@ -10,6 +10,7 @@
 
 use std::cell::RefCell;
 use std::fmt;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;

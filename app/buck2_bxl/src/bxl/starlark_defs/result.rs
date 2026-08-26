@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::fmt::Display;
+
 use allocative::Allocative;
 use derivative::Derivative;
 use derive_more::Display;

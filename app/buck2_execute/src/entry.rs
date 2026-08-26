@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::ops::Add as _;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::sync::LazyLock;

@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::convert::Infallible;
 use std::fmt;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::OnceLock;
 

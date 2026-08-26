@@ -17,6 +17,7 @@
 use std::cmp;
 use std::fmt;
 use std::fmt::Debug;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::num::NonZeroUsize;
 use std::ops::Bound;

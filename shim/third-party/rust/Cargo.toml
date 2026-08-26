@@ -70,7 +70,7 @@ ctor = "1.0.8"
 dashmap = { version = "6.2.1", features = ["rayon", "serde"] }
 debugserver-types = "0.5.0"
 derivative = "2.2"
-derive_more = { version = "1.0.0", features = ["full"] }
+derive_more = { version = "2.1.1", features = ["full"] }
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
 dirs = "6.0"
 dunce = "1.0.5"

@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::fmt::Display;
+
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -19,7 +21,6 @@ use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use serde::Serialize;

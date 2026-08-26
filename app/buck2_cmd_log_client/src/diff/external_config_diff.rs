@@ -9,6 +9,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::fmt::Display;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -16,7 +17,6 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_event_log::stream_value::StreamValue;
-use derive_more::Display;
 use futures::Stream;
 use futures::TryStreamExt;
 use serde::Serialize;

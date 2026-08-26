@@ -9,6 +9,7 @@
  */
 
 use std::borrow::Cow;
+use std::fmt::Display;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;

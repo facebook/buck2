@@ -19,6 +19,7 @@
 
 use std::cell::Cell;
 use std::fmt;
+use std::fmt::Display;
 
 use derive_more::Display;
 use dupe::Dupe;

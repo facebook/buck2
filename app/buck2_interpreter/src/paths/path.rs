@@ -28,7 +28,6 @@ use crate::paths::package::PackageFilePath;
 
 /// Path to file containing starlark that can be evaluated by the interpreter.
 #[derive(Display, Clone, Copy, Dupe, Debug, UnpackVariants, PartialEq, Eq, Hash)]
-#[display("{}", self.id())]
 pub enum StarlarkPath<'a> {
     /// a build file
     BuildFile(&'a BuildFilePath),

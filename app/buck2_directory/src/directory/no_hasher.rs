@@ -9,9 +9,9 @@
  */
 
 use std::fmt;
+use std::fmt::Display;
 
 use allocative::Allocative;
-use derive_more::Display;
 use dupe::Dupe;
 
 #[allow(unused)]

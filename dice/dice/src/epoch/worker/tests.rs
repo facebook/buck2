@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;

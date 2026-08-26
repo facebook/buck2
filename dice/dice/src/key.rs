@@ -10,6 +10,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;

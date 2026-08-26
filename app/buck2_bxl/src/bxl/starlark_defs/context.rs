@@ -11,6 +11,7 @@
 //! The context containing the available buck commands and query operations for `bxl` functions.
 
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::Arc;

@@ -9,6 +9,7 @@
  */
 
 use std::cell::RefCell;
+use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_data::ActionSubError;

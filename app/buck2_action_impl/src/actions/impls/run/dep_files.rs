@@ -9,6 +9,7 @@
  */
 
 use std::borrow::Cow;
+use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -93,7 +94,6 @@ use buck2_hash::BuckDashMap;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
-use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use futures::StreamExt;

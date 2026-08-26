@@ -15,7 +15,6 @@ use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckMutMap;
 use derivative::Derivative;
-use derive_more::From;
 use dupe::Dupe;
 use gazebo::prelude::IterExactSize;
 use linked_hash_map::LinkedHashMap;

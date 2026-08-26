@@ -10,6 +10,7 @@
 
 //! Command line arguments definition for bxl functions
 
+use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::path::Path;

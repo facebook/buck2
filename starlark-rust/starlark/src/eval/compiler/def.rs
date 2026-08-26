@@ -20,6 +20,7 @@
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Display;
 use std::fmt::Write;
 use std::ptr;
 

@@ -52,6 +52,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
+use std::fmt::Display;
 use dice::EqualityBehavior;
 use dice::DiceComputations;
 use dice::Key;
