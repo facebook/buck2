@@ -33,12 +33,14 @@ def _execution_platforms(ctx):
         DefaultInfo(),
         ExecutionPlatformRegistrationInfo(
             platforms = [p[ExecutionPlatformInfo] for p in ctx.attrs.platforms],
+            fallback = ctx.attrs.fallback,
         ),
     ]
 
 execution_platforms = rule(
     impl = _execution_platforms,
     attrs = {
+        "fallback": attrs.option(attrs.string(), default = None),
         "platforms": attrs.list(attrs.dep(providers = [ExecutionPlatformInfo])),
     },
 )

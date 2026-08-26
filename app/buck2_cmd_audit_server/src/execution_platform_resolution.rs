@@ -13,7 +13,10 @@ use std::io::Write;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_node::execution::EXECUTION_PLATFORMS_BUCKCONFIG;
+use buck2_node::execution::GET_EXECUTION_PLATFORMS;
 use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -69,10 +72,53 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     let configured_node = ctx
                         .ctx()
                         .get_internal_configured_target_node(&configured_target)
-                        .await
-                        .require_compatible()?
-                        .dupe();
+                        .await;
                     writeln!(stdout, "{configured_target}:")?;
+                    let configured_node = match configured_node {
+                        ResultMaybeCompatible::Err(e) => {
+                            // Resolution (or configuration) failed. The error deliberately does
+                            // not render the skipped platforms, so re-traverse the candidates to
+                            // report them.
+                            // `:#` renders the full context chain: the outermost context alone
+                            // ("Error looking up configured node ...") would hide the root cause.
+                            writeln!(stdout, "  Failed to configure: {e:#}")?;
+                            let target = TargetConfiguredTargetLabel::new_without_exec_cfg(
+                                configured_target.dupe(),
+                            );
+                            match GET_EXECUTION_PLATFORMS
+                                .get()?
+                                .diagnose_execution_platform_resolution(&mut ctx.ctx(), &target)
+                                .await
+                            {
+                                Ok(outcomes) => {
+                                    for (label, outcome) in outcomes {
+                                        match outcome {
+                                            Ok(()) => {
+                                                writeln!(stdout, "    Compatible {label}")?
+                                            }
+                                            Err(reason) => {
+                                                writeln!(stdout, "    Skipped {label}")?;
+                                                writeln!(
+                                                    IndentWriter::new("      ", &mut stdout),
+                                                    "{reason:#}"
+                                                )?;
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => writeln!(
+                                    stdout,
+                                    "  Could not reconstruct skipped platforms: {e}"
+                                )?,
+                            }
+                            continue;
+                        }
+                        ResultMaybeCompatible::Incompatible(reason) => {
+                            writeln!(stdout, "  Incompatible: {reason}")?;
+                            continue;
+                        }
+                        ResultMaybeCompatible::Compatible(node) => node.dupe(),
+                    };
                     let resolution = configured_node.execution_platform_resolution();
                     match resolution.platform() {
                         Ok(platform) => {

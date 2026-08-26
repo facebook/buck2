@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::mem;
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
@@ -70,6 +71,7 @@ use crate::configuration::compute_platform_cfgs;
 use crate::configuration::get_matched_cfg_keys_for_node;
 use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
+use crate::nodes::compute_configured_node_preamble;
 use crate::nodes::LookingUpConfiguredNodeContext;
 use crate::nodes::unspecified_attr_cfg_ctx;
 use buck2_node::cfg_constructor::CFG_CONSTRUCTOR_CALCULATION_IMPL;
@@ -848,6 +850,63 @@ impl Key for ExecutionPlatformsKey {
     }
 }
 
+/// Audit diagnosis: visit every candidate and report each outcome.
+struct Diagnose;
+
+impl ResolutionMode for Diagnose {
+    type Accumulator = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
+    type Output = Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>;
+
+    fn visit(
+        mut accumulator: Self::Accumulator,
+        platform: &ExecutionPlatform,
+        outcome: Result<(), ExecutionPlatformIncompatibleReason>,
+    ) -> ControlFlow<Self::Output, Self::Accumulator> {
+        accumulator.push((platform.id(), outcome));
+        ControlFlow::Continue(accumulator)
+    }
+
+    fn finish(
+        accumulator: Self::Accumulator,
+        _fallback: &ExecutionPlatformFallback,
+    ) -> buck2_error::Result<Self::Output> {
+        Ok(accumulator)
+    }
+}
+
+/// See `GetExecutionPlatformsImpl::diagnose_execution_platform_resolution`. Runs the same
+/// preamble and candidate traversal as real resolution, in `Diagnose` mode so the report covers
+/// every candidate instead of stopping at the first compatible one.
+///
+/// Mirrors the regular-target path only: toolchain rules resolve via
+/// `ToolchainExecutionPlatformCompatibilityKey`, whose pre-resolution steps (e.g. the
+/// transition-dep rejection) are not replayed here.
+async fn diagnose_execution_platform_resolution(
+    ctx: &mut DiceComputations<'_>,
+    target: &TargetConfiguredTargetLabel,
+) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+    let node = ctx.get_target_node(target.unconfigured()).await?;
+    let mut preamble = compute_configured_node_preamble(ctx, target.inner(), &node)
+        .await
+        .require_compatible()?;
+    mem::take(&mut preamble.errors_and_incompats)
+        .finalize()
+        .require_compatible()?;
+
+    let cfg_ctx = preamble.attr_cfg_ctx(target.inner());
+    let constraints =
+        ExecutionPlatformConstraints::new(node.as_ref(), &preamble.gathered_deps, &cfg_ctx)?;
+
+    resolve_execution_platform_candidates::<Diagnose>(
+        ctx,
+        CellNameForConfigurationResolution(target.pkg().cell_name()),
+        &constraints.exec_compatible_with,
+        &constraints.exec_deps,
+        &constraints.toolchain_deps,
+    )
+    .await
+}
+
 struct GetExecutionPlatformsInstance;
 
 #[async_trait]
@@ -883,6 +942,14 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         )
         .one_for_cell(dice, cell)
         .await
+    }
+
+    async fn diagnose_execution_platform_resolution(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        target: &TargetConfiguredTargetLabel,
+    ) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>> {
+        diagnose_execution_platform_resolution(dice, target).await
     }
 }
 

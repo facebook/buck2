@@ -749,6 +749,24 @@ pub(crate) struct ConfiguredNodePreamble<'d> {
     pub(crate) errors_and_incompats: ErrorsAndIncompatibilities,
 }
 
+impl ConfiguredNodePreamble<'_> {
+    /// The unspecified-exec attr configuration context, as used for dependency gathering.
+    /// Exec-dep and toolchain-dep cfgs from it are placeholders that callers replace once
+    /// execution platform resolution has run. The real configuration path builds this context
+    /// inline from the destructured pieces instead (see the size-assert comment there).
+    pub(crate) fn attr_cfg_ctx(
+        &self,
+        target_label: &ConfiguredTargetLabel,
+    ) -> AttrConfigurationContextImpl<'_> {
+        unspecified_attr_cfg_ctx(
+            target_label,
+            self.resolved_configuration,
+            &self.resolved_transitions,
+            &self.platform_cfgs,
+        )
+    }
+}
+
 /// The attr configuration context as it exists before execution platform resolution has run:
 /// exec-dep and toolchain-dep cfgs from it are placeholders that callers replace with the
 /// resolved exec cfg. Sole constructor for this context; the placeholder resolution and owner

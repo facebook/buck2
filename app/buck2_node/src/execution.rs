@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
 use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::target::label::label::TargetLabel;
@@ -46,6 +47,17 @@ pub trait GetExecutionPlatformsImpl: 'static + Send + Sync {
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         cell: CellNameForConfigurationResolution,
     ) -> buck2_error::Result<ExecutionPlatformResolutionPartial>;
+
+    /// Re-traverses the candidates for a target, collecting the outcome of every candidate
+    /// execution platform. Used by `buck2 audit execution-platform-resolution` to reconstruct
+    /// the reasons that `NoCompatiblePlatform` deliberately does not render. The per-candidate
+    /// checks are DICE-cached, so for a target whose resolution just failed this mostly reads
+    /// back the failed attempt.
+    async fn diagnose_execution_platform_resolution(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        target: &TargetConfiguredTargetLabel,
+    ) -> buck2_error::Result<Vec<(String, Result<(), ExecutionPlatformIncompatibleReason>)>>;
 }
 
 pub static GET_EXECUTION_PLATFORMS: LateBinding<&'static dyn GetExecutionPlatformsImpl> =
