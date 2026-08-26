@@ -189,7 +189,9 @@ impl InvalidationPath {
         }
     }
 
-    fn merge(&self, other: &InvalidationPath) -> InvalidationPath {
+    /// Always returns one of its arguments; callers rely on that to avoid reallocating when the
+    /// merge is a no-op.
+    fn merge<'a>(&'a self, other: &'a InvalidationPath) -> &'a InvalidationPath {
         match (self, other) {
             (InvalidationPath::Unknown, _) => self,
             // FIXME(JakobDegen): Why the asymmetric treatment? Bug?
@@ -207,7 +209,6 @@ impl InvalidationPath {
                 }
             }
         }
-        .dupe()
     }
 }
 
@@ -294,7 +295,19 @@ impl TrackedInvalidationPaths {
     pub(crate) fn update(&mut self, new_paths: &TrackedInvalidationPaths) {
         let (this_normal, this_high) = self.get();
         let (new_normal, new_high) = new_paths.get();
-        *self = Self::from_pair(this_normal.merge(new_normal), this_high.merge(new_high));
+        let normal = this_normal.merge(new_normal);
+        let high = this_high.merge(new_high);
+        // This runs once per recorded dependency, and dependency-heavy keys record hundreds of
+        // thousands, so avoid reallocating the heap in the common cases where one side wins both
+        // merges. `merge` always returns one of its arguments, so pointer identity detects that.
+        if std::ptr::eq(normal, this_normal) && std::ptr::eq(high, this_high) {
+            return;
+        }
+        if std::ptr::eq(normal, new_normal) && std::ptr::eq(high, new_high) {
+            *self = new_paths.dupe();
+            return;
+        }
+        *self = Self::from_pair(normal.dupe(), high.dupe());
     }
 
     pub(crate) fn get_normal(&self) -> InvalidationPath {
