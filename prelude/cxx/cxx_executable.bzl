@@ -121,7 +121,6 @@ load(
     "@prelude//xplugins:types.bzl",
     "XPluginsDebugArtifactsInfo",
 )
-load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(
     ":argsfiles.bzl",
     "ARGSFILES_SUBTARGET",
@@ -1033,11 +1032,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         sub_targets[additional_subtarget] = subtarget_providers
 
     sub_targets.update(link_result.extra_outputs)
-
-    # Propagate xplugins providers
-    xplugins_usage_info = get_xplugins_usage_info(ctx.actions, cxx_deps)
-    if xplugins_usage_info:
-        sub_targets.update(get_xplugins_usage_subtargets(ctx, xplugins_usage_info, link_group_info))
 
     xplugins_debug_artifacts_info = xplugins_get_debug_artifacts_info(ctx, cxx_deps)
 

@@ -128,7 +128,7 @@ load(
     "value_or",
 )
 load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info")
-load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info")
 load(":archive.bzl", "make_archive")
 load(
     ":argsfiles.bzl",
@@ -1383,11 +1383,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 )
             sub_targets["prefer-{}".format(linkage.value)] = linkage_providers
 
-    # Propagate xplugins providers
     xplugins_usage_info = get_xplugins_usage_info(ctx.actions, deps_all_non_exported_first)
     if xplugins_usage_info:
         providers.append(xplugins_usage_info)
-        sub_targets.update(get_xplugins_usage_subtargets(ctx, xplugins_usage_info, link_group_info))
 
     xplugins_debug_info = xplugins_get_debug_artifacts_info(
         ctx,
