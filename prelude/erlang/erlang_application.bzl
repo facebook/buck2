@@ -369,14 +369,14 @@ def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifa
 
 def _build_start_dependencies(ctx: AnalysisContext) -> list[StartDependencySet]:
     return build_apps_start_dependencies(
-        ctx,
+        ctx.actions,
         [(app, StartType("permanent")) for app in ctx.attrs.applications],
     ) + build_apps_start_dependencies(
-        ctx,
+        ctx.actions,
         [(app, StartType("load")) for app in ctx.attrs.included_applications],
     )
 
-def build_apps_start_dependencies(ctx: AnalysisContext, apps: list[(Dependency, StartType)]) -> list[StartDependencySet]:
+def build_apps_start_dependencies(actions: AnalysisActions, apps: list[(Dependency, StartType)]) -> list[StartDependencySet]:
     start_dependencies = []
     for app, start_type in apps[::-1]:
         app_spec = _build_start_spec(app[ErlangAppInfo], start_type)
@@ -386,7 +386,7 @@ def build_apps_start_dependencies(ctx: AnalysisContext, apps: list[(Dependency, 
         else:
             children = app[ErlangAppInfo].start_dependencies
 
-        app_set = ctx.actions.tset(
+        app_set = actions.tset(
             StartDependencySet,
             value = app_spec,
             children = children,

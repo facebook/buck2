@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as type
 load(
     ":erlang_application.bzl",
     "StartDependencySet",
@@ -29,42 +30,113 @@ load(
 
 # Erlang Releases according to https://www.erlang.org/doc/design_principles/release_structure.html
 
+ReleaseConfig = record(
+    # the target the release is built for, only used to point failures at it
+    label = Label,
+    name = str,
+    version = str,
+    # the applications the release starts, in order, with the type each is started with, and
+    # together with their transitive dependencies what `lib/` is drawn from
+    applications = list[(Dependency, StartType)],
+    toolchain = Toolchain,
+    # the environment every toolchain invocation runs with, `None` for the toolchain's own
+    os_env = field(dict[str, str] | None, None),
+    include_erts = bool,
+    is_executable = bool,
+    generate_default_bootscript = bool,
+    default_bootscript_name = str,
+    bootscript_builders = dict[str, cmd_args],
+    extra_bootscript_builder_args = list[ArgLike],
+    # the config files the launcher hands the emulator, in the order they are applied, so a later
+    # one overrides an earlier one. Each is a path from the release root without the `.config`
+    # extension, the form `-config` names a file with, and has to be part of the release.
+    config_paths = list[str],
+    # artifacts to install, mapping the directory they go into, from the release root, to their contents
+    overlays = dict[str, list[Artifact]],
+)
+
 def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
-    apps = flatten_dependencies(_dependencies(ctx))
+    config = _release_config(ctx)
 
-    all_outputs = _build_release(ctx, apps)
-    release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
-    providers = [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]
+    all_outputs = build_release(ctx.actions, config)
+    release_dir = _symlink_primary_toolchain_output(ctx.actions, config, all_outputs)
+    providers = [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = config.name)]
 
-    if ctx.attrs.is_executable:
-        launcher = release_dir.project(_launcher_path(ctx))
+    if config.is_executable:
+        launcher = release_dir.project(_launcher_path(config))
         providers.append(RunInfo(cmd_args(launcher)))
 
     return providers
 
-def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, Artifact]:
+def _release_config(ctx: AnalysisContext) -> ReleaseConfig:
+    applications = _applications(ctx)
     toolchain = get_toolchain(ctx)
+    overlays = {
+        target: [artifact for dep in deps for artifact in dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs]
+        for target, deps in ctx.attrs.overlays.items()
+    }
+
+    # an `erlang_release` is configured with the one `sys.config` the OTP layout gives it
+    sys_config = paths.join("releases", ctx.attrs.version, "sys")
+    config_paths = [sys_config] if sys_config + ".config" in _overlay_paths(overlays) else []
+
+    return ReleaseConfig(
+        label = ctx.label,
+        name = ctx.attrs.release_name if ctx.attrs.release_name else ctx.attrs.name,
+        version = ctx.attrs.version,
+        applications = applications,
+        toolchain = toolchain,
+        os_env = getattr(ctx.attrs, "os_env", None),
+        include_erts = ctx.attrs.include_erts,
+        is_executable = ctx.attrs.is_executable,
+        generate_default_bootscript = ctx.attrs.generate_default_bootscript,
+        default_bootscript_name = ctx.attrs.default_bootscript_name,
+        bootscript_builders = {script_name: builder[RunInfo].args for script_name, builder in ctx.attrs.bootscript_builders.items()},
+        extra_bootscript_builder_args = ctx.attrs.extra_bootscript_builder_args,
+        config_paths = config_paths,
+        overlays = overlays,
+    )
+
+def _applications(ctx: AnalysisContext) -> list[(Dependency, StartType)]:
+    """Extract the applications, with their start type, from the `applications` field, order preserving"""
+    applications = []
+    for dep in ctx.attrs.applications:
+        if type(dep) == "tuple":
+            applications.append((dep[0], StartType(dep[1])))
+        else:
+            applications.append((dep, StartType("permanent")))
+    return applications
+
+def build_release(actions: AnalysisActions, config: ReleaseConfig) -> dict[str, Artifact]:
+    """Build the contents of an OTP release, mapping each path from the release root to its artifact.
+
+    The output paths it declares are fixed, so one analysis can only build one release.
+    """
 
     # Validate include_erts configuration
-    _validate_include_erts(ctx, toolchain)
-    _validate_is_executable(ctx)
+    _validate_include_erts(config)
+    _validate_is_executable(config)
 
     # OTP base structure
-    lib_dir = build_lib_dir(ctx, apps)
+    lib_dir = _build_lib_dir(
+        actions,
+        flatten_dependencies([app for app, _ in config.applications]),
+        config.include_erts,
+    )
 
     # erts
-    maybe_erts = _build_erts(ctx, toolchain)
+    maybe_erts = _build_erts(actions, config)
 
-    maybe_boot_scripts = _build_boot_scripts(ctx, toolchain, lib_dir["lib"])
+    maybe_boot_scripts = _build_boot_scripts(actions, config, lib_dir["lib"])
 
     # start_erl.data for releases with bundled ERTS
-    maybe_start_erl_data = _build_start_erl_data(ctx, toolchain)
+    maybe_start_erl_data = _build_start_erl_data(actions, config)
 
     # release specific variables in bin/release_variables
-    release_variables = _build_release_variables(ctx, toolchain)
+    release_variables = _build_release_variables(actions, config)
 
     # Overlays
-    overlays = _build_overlays(ctx)
+    overlays = _build_overlays(config.overlays)
 
     # link output
     all_outputs = {}
@@ -79,10 +151,10 @@ def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, 
         all_outputs.update(outputs)
 
     # bin/<release_name> for runnable releases, last because it reads what the release contains
-    launcher = _build_launcher(ctx, toolchain, all_outputs)
+    launcher = _build_launcher(actions, config, all_outputs)
     for link_path in launcher:
         if link_path in all_outputs:
-            fail("the launcher of %s is installed at %s, which the release already contains" % (str(ctx.label), link_path))
+            fail("the launcher of %s is installed at %s, which the release already contains" % (str(config.label), link_path))
     all_outputs.update(launcher)
 
     return all_outputs
@@ -96,42 +168,44 @@ def build_lib_dir(ctx: AnalysisContext, all_apps: ErlAppDependencies) -> dict[st
     if "include_erts" in dir(ctx.attrs):
         include_erts = ctx.attrs.include_erts
 
+    return _build_lib_dir(ctx.actions, all_apps, include_erts)
+
+def _build_lib_dir(actions: AnalysisActions, all_apps: ErlAppDependencies, include_erts: bool) -> dict[str, Artifact]:
     link_spec = {
         (dep[ErlangAppInfo].name + "-" + dep[ErlangAppInfo].version): dep[ErlangAppInfo].app_folder
         for dep in all_apps.values()
         if ErlangAppInfo in dep and (include_erts or not dep[ErlangAppInfo].virtual)
     }
 
-    lib_dir = ctx.actions.symlinked_dir(
+    lib_dir = actions.symlinked_dir(
         paths.join(erlang_build.utils.BUILD_DIR, "lib"),
         link_spec,
         has_content_based_path = False,
     )
     return {"lib": lib_dir}
 
-def _build_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_dir: Artifact) -> dict[str, Artifact]:
+def _build_boot_scripts(actions: AnalysisActions, config: ReleaseConfig, lib_dir: Artifact) -> dict[str, Artifact]:
     link_spec = {}
 
-    if ctx.attrs.generate_default_bootscript:
-        maybe_default_boot_script = _build_default_boot_scripts(ctx, toolchain, lib_dir)
+    if config.generate_default_bootscript:
+        maybe_default_boot_script = _build_default_boot_scripts(actions, config, lib_dir)
         link_spec.update(maybe_default_boot_script)
 
     # write applications spec to file
-    data = [_app_info_to_data(app_info) for app_info in ctx.attrs.applications]
-    spec_file = ctx.actions.write_json(
+    data = [(app[ErlangAppInfo].name, start_type.value) for app, start_type in config.applications]
+    spec_file = actions.write_json(
         paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", "applications_json"),
         data,
         has_content_based_path = False,
     )
 
-    for script_name, builder in ctx.attrs.bootscript_builders.items():
-        builder_args = builder[RunInfo].args
-        custom_boot_script_spec = _build_custom_boot_scripts(ctx, toolchain, spec_file, script_name, builder_args, lib_dir)
+    for script_name, builder in config.bootscript_builders.items():
+        custom_boot_script_spec = _build_custom_boot_scripts(actions, config, spec_file, script_name, builder, lib_dir)
         link_spec.update(custom_boot_script_spec)
 
     return link_spec
 
-def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_dir: Artifact) -> dict[str, Artifact]:
+def _build_default_boot_scripts(actions: AnalysisActions, config: ReleaseConfig, lib_dir: Artifact) -> dict[str, Artifact]:
     """Build Name.rel, start.script, and start.boot in the release folder.
 
     Boot scripts are always generated regardless of include_erts setting.
@@ -139,20 +213,16 @@ def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_
     When include_erts=True, explicit versions from the toolchain are used and additional
     no_dot_erlang boot scripts are generated for the self-contained release.
     """
-    release_name = _relname(ctx)
+    release_name = config.name
 
-    start_type_mapping = _dependencies_with_start_types(ctx)
-    root_apps = _dependencies(ctx)
-    root_apps_names = [app[ErlangAppInfo].name for app in root_apps]
+    root_apps_names = [app[ErlangAppInfo].name for app, _ in config.applications]
+    start_dependencies = build_apps_start_dependencies(actions, config.applications)
 
-    root_apps_with_start_type = [(app, start_type_mapping[_app_name(app)]) for app in root_apps]
-    start_dependencies = build_apps_start_dependencies(ctx, root_apps_with_start_type)
-
-    root_set = ctx.actions.tset(
+    root_set = actions.tset(
         StartDependencySet,
         value = StartSpec(
             name = "__ignored__",
-            version = ctx.attrs.version,
+            version = config.version,
             start_type = StartType("permanent"),
             resolved = False,
         ),
@@ -188,17 +258,17 @@ def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_
         "apps": release_applications[::-1],
         "lib_dir": lib_dir,
         "name": release_name,
-        "version": ctx.attrs.version,
+        "version": config.version,
     }
 
-    spec_file = ctx.actions.write_json(paths.join(erlang_build.utils.BUILD_DIR, "boot_script_spec.json"), data, with_inputs = True, has_content_based_path = False)
+    spec_file = actions.write_json(paths.join(erlang_build.utils.BUILD_DIR, "boot_script_spec.json"), data, with_inputs = True, has_content_based_path = False)
 
-    scripts_dir = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "scripts", dir = True, has_content_based_path = False)
+    scripts_dir = actions.declare_output(erlang_build.utils.BUILD_DIR, "scripts", dir = True, has_content_based_path = False)
 
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        cmd_args(toolchain.boot_script_builder, spec_file, scripts_dir.as_output()),
+    _run_with_env(
+        actions,
+        config,
+        cmd_args(config.toolchain.boot_script_builder, spec_file, scripts_dir.as_output()),
         category = "build_boot_script",
         identifier = release_name,
     )
@@ -211,13 +281,13 @@ def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_
     ]
 
     # Only include no_dot_erlang boot scripts for self-contained releases with bundled ERTS
-    if ctx.attrs.include_erts:
+    if config.include_erts:
         boot_files.extend([
             "no_dot_erlang.script",
             "no_dot_erlang.boot",
         ])
 
-    result = {paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file) for file in boot_files}
+    result = {paths.join("releases", config.version, file): scripts_dir.project(file) for file in boot_files}
 
     # Place OTP's boot files in bin/ so erl can find them at ROOTDIR/bin/.
     # When erl runs from bundled ERTS (erts-VSN/bin/erl), it resolves ROOTDIR
@@ -227,105 +297,104 @@ def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_
     #   - `erl` bare gives a clean shell (uses bin/start.boot)
     #   - `erl -boot no_dot_erlang` works for ectl and other tools
     # mini_start explicitly uses releases/VERSION/start.boot for service startup.
-    if ctx.attrs.include_erts:
-        result[paths.join("bin", "start.boot")] = toolchain.erts_toolchain_info.otp_start_boot
-        result[paths.join("bin", "no_dot_erlang.boot")] = toolchain.erts_toolchain_info.otp_no_dot_erlang_boot
+    if config.include_erts:
+        result[paths.join("bin", "start.boot")] = config.toolchain.erts_toolchain_info.otp_start_boot
+        result[paths.join("bin", "no_dot_erlang.boot")] = config.toolchain.erts_toolchain_info.otp_no_dot_erlang_boot
 
     return result
 
 def _build_custom_boot_scripts(
-    ctx: AnalysisContext, toolchain: Toolchain, spec_file: Artifact, script_name: str, builder: cmd_args, lib_dir: Artifact
+    actions: AnalysisActions, config: ReleaseConfig, spec_file: Artifact, script_name: str, builder: cmd_args, lib_dir: Artifact
 ) -> dict[str, Artifact]:
-    boot_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name), has_content_based_path = False)
+    boot_script = actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name), has_content_based_path = False)
     raw_script_name = paths.replace_extension(script_name, ".script")
-    raw_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name), has_content_based_path = False)
+    raw_script = actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name), has_content_based_path = False)
 
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
+    _run_with_env(
+        actions,
+        config,
         cmd_args(
             builder,
             spec_file,
             lib_dir,
             boot_script.as_output(),
             raw_script.as_output(),
-            ctx.attrs.extra_bootscript_builder_args,
+            config.extra_bootscript_builder_args,
         ),
         category = "build_custom_boot_script",
         identifier = script_name,
     )
 
     return {
-        paths.join("releases", ctx.attrs.version, script_name): boot_script,
-        paths.join("releases", ctx.attrs.version, raw_script_name): raw_script,
+        paths.join("releases", config.version, script_name): boot_script,
+        paths.join("releases", config.version, raw_script_name): raw_script,
     }
 
-def _app_info_to_data(app_info: Dependency | (Dependency, str)) -> (str, str):
-    if type(app_info) == "tuple":
-        app_info, start_type = app_info
-    else:
-        start_type = "permanent"
-
-    erlang_app = app_info[ErlangAppInfo]
-    return (erlang_app.name, start_type)
-
-def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
+def _build_overlays(overlays: dict[str, list[Artifact]]) -> dict[str, Artifact]:
     installed = {}
-    for target, deps in ctx.attrs.overlays.items():
-        for dep in deps:
-            for artifact in dep[DefaultInfo].default_outputs + dep[DefaultInfo].other_outputs:
-                link_path = paths.normalize(paths.join(target, artifact.basename))
-                if link_path in installed:
-                    fail("multiple overlays defined for the same location: %s" % (link_path,))
-                installed[link_path] = artifact
+    for target, artifacts in overlays.items():
+        for artifact in artifacts:
+            link_path = _overlay_path(target, artifact)
+            if link_path in installed:
+                fail("multiple overlays defined for the same location: %s" % (link_path,))
+            installed[link_path] = artifact
     return installed
 
-def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
-    release_name = _relname(ctx)
+def _overlay_paths(overlays: dict[str, list[Artifact]]) -> list[str]:
+    return [_overlay_path(target, artifact) for target, artifacts in overlays.items() for artifact in artifacts]
+
+def _overlay_path(target: str, artifact: Artifact) -> str:
+    return paths.normalize(paths.join(target, artifact.basename))
+
+def _build_release_variables(actions: AnalysisActions, config: ReleaseConfig) -> dict[str, Artifact]:
+    release_name = config.name
 
     short_path = "bin/release_variables"
-    release_variables = ctx.actions.declare_output(
+    release_variables = actions.declare_output(
         erlang_build.utils.BUILD_DIR,
         "release_variables",
         has_content_based_path = False,
     )
 
-    spec_file = ctx.actions.write_json(
+    spec_file = actions.write_json(
         paths.join(erlang_build.utils.BUILD_DIR, "relvars.json"),
         {
             "REL_NAME": release_name,
-            "REL_VSN": ctx.attrs.version,
+            "REL_VSN": config.version,
         },
         has_content_based_path = False,
     )
 
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        cmd_args(toolchain.release_variables_builder, spec_file, release_variables.as_output()),
+    _run_with_env(
+        actions,
+        config,
+        cmd_args(config.toolchain.release_variables_builder, spec_file, release_variables.as_output()),
         category = "build_release_variables",
         identifier = release_name,
     )
     return {short_path: release_variables}
 
-def _build_launcher(ctx: AnalysisContext, toolchain: Toolchain, release_files: dict[str, Artifact]) -> dict[str, Artifact]:
+def _build_launcher(actions: AnalysisActions, config: ReleaseConfig, release_files: dict[str, Artifact]) -> dict[str, Artifact]:
     """Generate bin/<release_name>, a launcher booting the release with the bundled emulator.
 
     Everything the emulator is told is resolved here rather than at runtime: the erts version, so
-    the launcher addresses `erts-<version>` directly, and the boot script, `vm.args` and
-    `sys.config`, so the launcher does not depend on what it was invoked as. Every path is relative
-    to ROOTDIR, so the release stays relocatable. The tool name is still taken from the launcher's
-    own basename, so one release can serve several tools that differ only in the arguments they get.
+    the launcher addresses `erts-<version>` directly, and the boot script, `vm.args` and the config
+    files, so the launcher does not depend on what it was invoked as. Every path is relative to
+    ROOTDIR, so the release stays relocatable. The tool name is still taken from the launcher's own
+    basename, so one release can serve several tools that differ only in the arguments they get.
     """
-    if not ctx.attrs.is_executable:
+    if not config.is_executable:
         return {}
 
-    boot_script = paths.join("releases", ctx.attrs.version, ctx.attrs.default_bootscript_name)
+    boot_script = paths.join("releases", config.version, config.default_bootscript_name)
     vm_args = boot_script + ".vm.args"
-    sys_config = paths.join("releases", ctx.attrs.version, "sys")
+
+    for config_path in config.config_paths:
+        if config_path + ".config" not in release_files:
+            fail("%s is configured with `%s.config`, which none of its overlays installs" % (str(config.label), config_path))
 
     if boot_script + ".boot" not in release_files:
-        fail("%s boots with `%s.boot`, which the release does not contain" % (str(ctx.label), boot_script))
+        fail("%s boots with `%s.boot`, which the release does not contain" % (str(config.label), boot_script))
 
     lines = [
         "#!/usr/bin/env bash",
@@ -354,7 +423,7 @@ def _build_launcher(ctx: AnalysisContext, toolchain: Toolchain, release_files: d
         '        *) SELF="$SELFDIR/$SELF" ;;',
         "    esac",
         "done",
-        'BINDIR="$ROOTDIR/erts-{}/bin"'.format(toolchain.erts_toolchain_info.erts_version),
+        'BINDIR="$ROOTDIR/erts-{}/bin"'.format(config.toolchain.erts_toolchain_info.erts_version),
         'TOOL="$(basename "$0")"',
         "export ROOTDIR BINDIR",
         'exec "$BINDIR/erlexec" \\',
@@ -362,45 +431,45 @@ def _build_launcher(ctx: AnalysisContext, toolchain: Toolchain, release_files: d
     ]
     if vm_args in release_files:
         lines.append('    -args_file "$ROOTDIR/{}" \\'.format(vm_args))
-    if sys_config + ".config" in release_files:
-        # `-config` names the file without its extension, the form OTP's own start scripts use
-        lines.append('    -config "$ROOTDIR/{}" \\'.format(sys_config))
+    for config_path in config.config_paths:
+        lines.append('    -config "$ROOTDIR/{}" \\'.format(config_path))
     lines += [
         '    -extra "$TOOL" ${1+"$@"}',
         "",
     ]
 
-    launcher = ctx.actions.write(
-        paths.join(erlang_build.utils.BUILD_DIR, "launcher", _relname(ctx)),
+    launcher = actions.write(
+        paths.join(erlang_build.utils.BUILD_DIR, "launcher", config.name),
         lines,
         is_executable = True,
         has_content_based_path = False,
     )
 
-    return {_launcher_path(ctx): launcher}
+    return {_launcher_path(config): launcher}
 
-def _launcher_path(ctx: AnalysisContext) -> str:
-    return paths.join("bin", _relname(ctx))
+def _launcher_path(config: ReleaseConfig) -> str:
+    return paths.join("bin", config.name)
 
-def _build_erts(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
-    if not ctx.attrs.include_erts:
+def _build_erts(actions: AnalysisActions, config: ReleaseConfig) -> dict[str, Artifact]:
+    if not config.include_erts:
         return {}
 
-    release_name = _relname(ctx)
+    release_name = config.name
+    erts_version = config.toolchain.erts_toolchain_info.erts_version
 
-    erts_dir = ctx.actions.symlink_file(
+    erts_dir = actions.symlink_file(
         paths.join(
             erlang_build.utils.BUILD_DIR,
             release_name,
-            "erts-{}".format(toolchain.erts_toolchain_info.erts_version),
+            "erts-{}".format(erts_version),
         ),
-        toolchain.erts_toolchain_info.output,
+        config.toolchain.erts_toolchain_info.output,
         has_content_based_path = False,
     )
 
-    return {"erts-{}".format(toolchain.erts_toolchain_info.erts_version): erts_dir}
+    return {"erts-{}".format(erts_version): erts_dir}
 
-def _build_start_erl_data(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
+def _build_start_erl_data(actions: AnalysisActions, config: ReleaseConfig) -> dict[str, Artifact]:
     """Generate start_erl.data file for releases with bundled ERTS.
 
     This file contains the ERTS version and release version,
@@ -410,15 +479,15 @@ def _build_start_erl_data(ctx: AnalysisContext, toolchain: Toolchain) -> dict[st
     Format: <ERTS_VERSION> <RELEASE_VERSION>
     Example: 15.1 1.0.0
     """
-    if not ctx.attrs.include_erts:
+    if not config.include_erts:
         return {}
 
     content = "{} {}\n".format(
-        toolchain.erts_toolchain_info.erts_version,
-        ctx.attrs.version,
+        config.toolchain.erts_toolchain_info.erts_version,
+        config.version,
     )
 
-    start_erl_data = ctx.actions.write(
+    start_erl_data = actions.write(
         paths.join(erlang_build.utils.BUILD_DIR, "start_erl.data"),
         content,
         has_content_based_path = False,
@@ -426,52 +495,36 @@ def _build_start_erl_data(ctx: AnalysisContext, toolchain: Toolchain) -> dict[st
 
     return {"releases/start_erl.data": start_erl_data}
 
-def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
-    return ctx.actions.symlinked_dir(
-        _relname(ctx),
+def _run_with_env(actions: AnalysisActions, config: ReleaseConfig, args: cmd_args, **kwargs):
+    """run interface that injects the environment the release's toolchain invocations run with"""
+    env = config.os_env if config.os_env != None else config.toolchain.env
+
+    if "env" in kwargs:
+        kwargs["env"].update(env)
+    else:
+        kwargs["env"] = env
+
+    actions.run(args, **kwargs)
+
+def _symlink_primary_toolchain_output(actions: AnalysisActions, config: ReleaseConfig, artifacts: dict[str, Artifact]) -> Artifact:
+    return actions.symlinked_dir(
+        config.name,
         artifacts,
         has_content_based_path = False,
     )
 
-def _relname(ctx: AnalysisContext) -> str:
-    return ctx.attrs.release_name if ctx.attrs.release_name else ctx.attrs.name
-
-def _dependencies(ctx: AnalysisContext) -> list[Dependency]:
-    """Extract dependencies from `applications` field, order preserving"""
-    deps = []
-    for dep in ctx.attrs.applications:
-        if type(dep) == "tuple":
-            deps.append(dep[0])
-        else:
-            deps.append(dep)
-    return deps
-
-def _dependencies_with_start_types(ctx: AnalysisContext) -> dict[str, StartType]:
-    """Extract mapping from dependency to start type from `applications` field, this is not order preserving"""
-    deps = {}
-    for dep in ctx.attrs.applications:
-        if type(dep) == "tuple":
-            deps[_app_name(dep[0])] = StartType(dep[1])
-        else:
-            deps[_app_name(dep)] = StartType("permanent")
-    return deps
-
-def _app_name(app: Dependency) -> str:
-    """Helper to unwrap the name for an erlang application dependency"""
-    return app[ErlangAppInfo].name
-
-def _validate_is_executable(ctx: AnalysisContext) -> None:
+def _validate_is_executable(config: ReleaseConfig) -> None:
     """Validate that a runnable release ships the emulator its launcher runs"""
-    if ctx.attrs.is_executable and not ctx.attrs.include_erts:
-        fail("is_executable = True requires include_erts = True, the launcher runs the emulator from the release's own erts folder: %s" % (str(ctx.label),))
+    if config.is_executable and not config.include_erts:
+        fail("is_executable = True requires include_erts = True, the launcher runs the emulator from the release's own erts folder: %s" % (str(config.label),))
 
-def _validate_include_erts(ctx: AnalysisContext, toolchain: Toolchain) -> None:
+def _validate_include_erts(config: ReleaseConfig) -> None:
     """Validate that include_erts is properly configured with required version information"""
-    if not ctx.attrs.include_erts:
+    if not config.include_erts:
         return
 
     # Check if applications list is empty (dynamic mode)
-    if not toolchain.erts_toolchain_info.applications:
+    if not config.toolchain.erts_toolchain_info.applications:
         fail(
             """
 ERROR: include_erts=True requires explicit OTP application versions in your erlang_toolchain.
@@ -504,11 +557,11 @@ set include_erts=False (or remove it, as False is the default).
 
 Documentation: https://buck2.build/docs/prelude/erlang/
 Target: {target}
-""".format(target = str(ctx.label))
+""".format(target = str(config.label))
         )
 
     # Check if erts_version is still dynamic
-    if toolchain.erts_toolchain_info.erts_version == "dynamic":
+    if config.toolchain.erts_toolchain_info.erts_version == "dynamic":
         fail(
             """
 ERROR: include_erts=True requires an explicit erts_version in your erlang_toolchain.
@@ -522,5 +575,5 @@ Please ensure you've configured your erlang_toolchain with:
 See the error message above for how to generate the version configuration.
 
 Target: {target}
-""".format(target = str(ctx.label))
+""".format(target = str(config.label))
         )
