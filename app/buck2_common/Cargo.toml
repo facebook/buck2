@@ -33,7 +33,6 @@ digest.workspace = true
 dirs.workspace = true
 dupe.workspace = true
 fbinit.workspace = true
-fs4.workspace = true
 futures.workspace = true
 gazebo.workspace = true
 globset.workspace = true

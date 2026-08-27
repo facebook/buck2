@@ -173,7 +173,9 @@ impl BuildCountManager {
             Duration::from_millis(5),
             Duration::from_millis(100),
             Self::LOCK_TIMEOUT,
-            || async { buck2_error::Ok(fs4::fs_std::FileExt::try_lock_exclusive(fileref)?) },
+            // Contention (`WouldBlock`) must surface as an error here so the
+            // retry loop keeps polling until the lock is actually held.
+            || async { buck2_error::Ok(fileref.try_lock().map_err(std::io::Error::from)?) },
         )
         .await?;
         Ok(FileLockGuard { file })
@@ -213,7 +215,8 @@ struct FileLockGuard {
 
 impl Drop for FileLockGuard {
     fn drop(&mut self) {
-        fs4::fs_std::FileExt::unlock(&self.file)
+        self.file
+            .unlock()
             .expect("Unexpected failure to release a lock file for build count");
     }
 }

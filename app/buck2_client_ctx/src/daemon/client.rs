@@ -115,7 +115,9 @@ impl BuckdLifecycleLock {
                     "locking buckd lifecycle",
                     Duration::from_millis(5),
                     Duration::from_millis(100),
-                    || async { Ok(fs4::fs_std::FileExt::try_lock_exclusive(fileref)?) },
+                    // Contention (`WouldBlock`) must surface as an error here so the
+                    // retry loop keeps polling until the lock is actually held.
+                    || async { Ok(fileref.try_lock().map_err(std::io::Error::from)?) },
                 )
                 .await?;
 
@@ -176,7 +178,8 @@ impl BuckdLifecycleLock {
 
 impl Drop for BuckdLifecycleLock {
     fn drop(&mut self) {
-        fs4::fs_std::FileExt::unlock(&self.lock_file)
+        self.lock_file
+            .unlock()
             .expect("Unexpected failure to unlock buckd.lifecycle file.")
     }
 }
@@ -678,4 +681,41 @@ fn create_client_stream<
         request: Some(streaming_request::Request::Context(context)),
     };
     stream::once(async move { init_req }).chain(requests.map(|request| request.into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+
+    use super::*;
+    use crate::startup_deadline::StartupDeadline;
+
+    async fn try_lock(dir: &DaemonDir, timeout: Duration) -> Option<BuckdLifecycleLock> {
+        BuckdLifecycleLock::lock_with_timeout(
+            dir.clone(),
+            StartupDeadline::duration_from_now(timeout).unwrap(),
+        )
+        .await
+        .ok()
+    }
+
+    /// A second lock attempt must block until the holder releases, never
+    /// spuriously succeed while the lock is held (the fs4 0.13 regression).
+    #[tokio::test]
+    async fn test_lifecycle_lock_is_exclusive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = DaemonDir {
+            path: AbsNormPathBuf::new(tmp.path().to_owned()).unwrap(),
+        };
+
+        let held = try_lock(&dir, Duration::from_secs(10)).await.unwrap();
+        assert!(
+            try_lock(&dir, Duration::from_millis(300)).await.is_none(),
+            "acquired the lifecycle lock while another handle held it"
+        );
+        drop(held);
+        assert!(try_lock(&dir, Duration::from_secs(10)).await.is_some());
+    }
 }

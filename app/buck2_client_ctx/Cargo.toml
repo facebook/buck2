@@ -37,7 +37,6 @@ derivative.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 fbinit.workspace = true
-fs4.workspace = true
 futures.workspace = true
 games.workspace = true
 gazebo.workspace = true
