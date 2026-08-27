@@ -123,7 +123,8 @@ prepare(ExecutionDir, Tests, ArtifactAnnotationFunction) ->
 -doc """
 Use hardlinks inside RE which doesn't follow symlinks like local execution uploads.
 """.
--spec make_artifact_link(file:filename_all(), file:filename_all()) -> ok | {error, file:posix()}.
+-spec make_artifact_link(file:filename_all(), file:filename_all()) ->
+    ok | {error, badarg | file:posix()}.
 make_artifact_link(File, ArtifactPath) ->
     case os:getenv("INSIDE_RE_WORKER") of
         "1" -> file:make_link(File, ArtifactPath);
