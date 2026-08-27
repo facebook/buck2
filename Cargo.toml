@@ -368,7 +368,7 @@ linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.37", features = ["used_linker"] }
 lock_free_hashtable = { path = "shed/lock_free_hashtable", features = ["allocative"] }
 lock_free_vec = { path = "shed/lock_free_vec" }
-lru = { version = "0.16.4", default-features = false }
+lru = { version = "0.17.0", default-features = false }
 lsp-server = "0.7.9"
 lsp-types = "0.97"
 maplit = "1.0"
