@@ -229,7 +229,14 @@ def _build_custom_boot_scripts(
     erlang_build.utils.run_with_env(
         ctx,
         toolchain,
-        cmd_args(builder, spec_file, lib_dir, boot_script.as_output(), raw_script.as_output()),
+        cmd_args(
+            builder,
+            spec_file,
+            lib_dir,
+            boot_script.as_output(),
+            raw_script.as_output(),
+            ctx.attrs.extra_bootscript_builder_args,
+        ),
         category = "build_custom_boot_script",
         identifier = script_name,
     )

@@ -359,12 +359,23 @@ rules_attributes = {
             default = {},
             doc = """
                 The mapping listed here maps from boot script name (e.g. "start.boot") to a binary (e.g. "$(location ...)") generating the boot script.
-                The binary receives three input arguments:
+                The binary receives four input arguments:
                 1. path of to a json file containing the applications, i.e. `["app1", ("app2", "load"), ...]`
                 2. the location of the lib dir containing the `<app>_<version>` folders
                 3. the output location of the boot script
                 4. the output location of the script file
+                followed by the values of `extra_bootscript_builder_args`, if any.
                 """,
+        ),
+        "extra_bootscript_builder_args": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
+                Additional arguments that are appended, in order, to every `bootscript_builders` invocation
+                after the four positional arguments. This lets a custom boot script builder be parameterised
+                by the release that uses it. Macros such as `$(location //some:target)` are expanded, and the
+                targets they name are made available to the invocation.
+            """,
         ),
         "generate_default_bootscript": attrs.bool(
             default = True,
