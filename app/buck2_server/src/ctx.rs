@@ -33,7 +33,6 @@ use buck2_build_api::build_signals::create_build_signals;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
-use buck2_build_api::spawner::BuckSpawner;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
@@ -179,19 +178,15 @@ fn parse_concurrency(requested: u32) -> Option<usize> {
 pub struct BaseServerCommandContext {
     /// An fbinit token for using things that require fbinit. fbinit is initialized on daemon startup.
     pub _fb: fbinit::FacebookInit,
-    /// Absolute path to the project root.
-    pub project_root: ProjectRoot,
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
     /// State for the repo this command is operating on, resolved once when the context is built.
     /// Command-scoped code should read this rather than reaching through `daemon`.
     pub(crate) repo: Arc<RepoState>,
-    /// Underlying data that isn't command-level.
+    /// Underlying data that isn't command-level. Read `repo` instead for anything repo-scoped.
     pub(crate) daemon: Arc<DaemonStateData>,
     /// Removes this command from the set of active commands when dropped.
     pub _drop_guard: ActiveCommandDropGuard,
-    /// Spawner
-    pub spawner: Arc<BuckSpawner>,
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -290,7 +285,7 @@ impl<'a> ServerCommandContext<'a> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
         let working_dir_project_relative = working_dir
-            .strip_prefix(base_context.project_root.root())
+            .strip_prefix(base_context.repo.paths.project_root().root())
             .map_err(|_| {
                 Into::<buck2_error::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
                     client_context.working_dir.clone(),
@@ -584,7 +579,7 @@ impl ServerCommandContext<'_> {
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<BuckConfigBasedCells> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
-            &self.base_context.project_root,
+            self.base_context.repo.paths.project_root(),
             &self.config_overrides,
         )
         .await?;
@@ -709,7 +704,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         check_agent_host_guard(
             &cells_and_configs.root_config,
             &self.cmd_ctx.base_context.daemon,
-            &self.cmd_ctx.base_context.project_root,
+            self.cmd_ctx.base_context.repo.paths.project_root(),
             self.cmd_ctx.isolation_prefix.as_str(),
         )?;
 
@@ -1220,7 +1215,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     fn project_root(&self) -> &ProjectRoot {
-        &self.base_context.project_root
+        self.base_context.repo.paths.project_root()
     }
 
     fn materializer(&self) -> Arc<dyn Materializer> {

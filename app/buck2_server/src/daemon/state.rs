@@ -986,12 +986,10 @@ impl DaemonState {
 
         Ok(BaseServerCommandContext {
             _fb: self.fb,
-            project_root: self.data.repo.paths.project_root().clone(),
             events: dispatcher,
             repo: data.repo.dupe(),
-            daemon: data.dupe(), // FIXME: Remove the duplicative fields.
+            daemon: data.dupe(),
             _drop_guard: drop_guard,
-            spawner: data.spawner.dupe(),
         })
     }
 
