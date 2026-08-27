@@ -120,6 +120,16 @@ prepare(ExecutionDir, Tests, ArtifactAnnotationFunction) ->
         end
     ).
 
+-doc """
+Use hardlinks inside RE which doesn't follow symlinks like local execution uploads.
+""".
+-spec make_artifact_link(file:filename_all(), file:filename_all()) -> ok | {error, file:posix()}.
+make_artifact_link(File, ArtifactPath) ->
+    case os:getenv("INSIDE_RE_WORKER") of
+        "1" -> file:make_link(File, ArtifactPath);
+        _ -> file:make_symlink(filename:absname(File), ArtifactPath)
+    end.
+
 -spec link_to_artifact_dir(File, Root, ArtifactAnnotationMFA) -> ok when
     File :: file:filename_all(),
     Root :: file:filename_all(),
@@ -139,7 +149,7 @@ link_to_artifact_dir(File, Root, ArtifactAnnotationMFA) ->
                 unicode_characters_to_list(string:replace(RelativePath, "/", ".", all)),
             case filelib:is_file(File, ?raw_file_access) of
                 true ->
-                    file:make_symlink(filename:absname(File), join_paths(ArtifactDir, FullFileName)),
+                    make_artifact_link(File, join_paths(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName, ArtifactAnnotationMFA),
                     dump_annotation(Annotation, FullFileName);
                 _ ->
