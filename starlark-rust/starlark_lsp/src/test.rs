@@ -33,7 +33,6 @@ use lsp_server::Message;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
-use lsp_server::ResponseKind;
 use lsp_types::ClientCapabilities;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
@@ -547,13 +546,13 @@ impl TestServer {
 
             match self.responses.get(&id) {
                 Some(Response {
-                    response_kind: ResponseKind::Ok { result },
+                    response_result: Ok(result),
                     ..
                 }) => {
                     break Ok(serde_json::from_value::<T>(result.clone())?);
                 }
                 Some(Response {
-                    response_kind: ResponseKind::Err { error },
+                    response_result: Err(error),
                     ..
                 }) => {
                     break Err(TestServerError::ResponseError(error.clone()).into());
