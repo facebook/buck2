@@ -13,7 +13,6 @@ error: Parse error: unexpected new line, expected symbol ')'
   |
 1 | f(x = 1, 2
   |           ^
-  |
 
 
 Program:
@@ -25,7 +24,6 @@ error: Parse error: unexpected new line, expected symbol ')'
   |
 1 | def f(**x, y
   |             ^
-  |
 
 
 Program:
@@ -38,7 +36,6 @@ error: Parse error: unexpected symbol ')', expected expression
   |
 2 | )
   | ^
-  |
 
 
 Program:
@@ -52,4 +49,3 @@ error: Parse error: unexpected symbol ')', expected expression
   |
 3 | )
   | ^
-  |

@@ -13,7 +13,6 @@ error: Parse error: unfinished string literal
   |
 1 | x = "hello
   |     ^^^^^^
-  |
 
 
 Program:
@@ -25,4 +24,3 @@ error: Parse error: unfinished string literal
   |
 1 | x = 'hello
   |     ^^^^^^
-  |

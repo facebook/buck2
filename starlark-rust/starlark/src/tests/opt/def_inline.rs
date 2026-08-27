@@ -123,7 +123,6 @@ error: Value of type `list` is not hashable
   |
 1 | def f(): return {[]: 10}
   |                  ^^
-  |
 ",
         &format!("\n{error:#}")
     );

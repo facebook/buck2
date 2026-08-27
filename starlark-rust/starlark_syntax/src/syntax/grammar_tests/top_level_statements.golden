@@ -16,9 +16,8 @@ error: `if` cannot be used outside `def` in this dialect
   |
 2 | / if x == 1:
 3 | |   x = 2
-  | |________^
-4 |   x = 3
-  |
+4 | | x = 3
+  | |_^
 
 
 Program:
@@ -33,4 +32,3 @@ error: `for` cannot be used outside `def` in this dialect
 2 | / for x in []:
 3 | |    pass
   | |_______^
-  |

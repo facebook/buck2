@@ -14,7 +14,6 @@ error: Parse error: unfinished string literal
   |
 1 | raw = r'a
   |       ^^^
-  |
 
 
 Program:
@@ -26,4 +25,3 @@ error: Parse error: invalid string escape sequence `x-`
   |
 1 | s = "\x-0"
   |      ^^^
-  |

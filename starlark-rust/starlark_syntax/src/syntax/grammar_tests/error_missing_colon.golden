@@ -12,10 +12,10 @@ Error:
 error: Parse error: unexpected new line, expected symbol ':'
  --> error_missing_colon:1:8
   |
-1 | if True
-  |        ^
-2 |   pass
-  |
+1 |   if True
+  |  ________^
+2 | |   pass
+  | |_^
 
 
 Program:
@@ -26,10 +26,10 @@ Error:
 error: Parse error: unexpected new line, expected symbol ':'
  --> error_missing_colon:1:10
   |
-1 | def foo()
-  |          ^
-2 |   pass
-  |
+1 |   def foo()
+  |  __________^
+2 | |   pass
+  | |_^
 
 
 Program:
@@ -40,7 +40,7 @@ Error:
 error: Parse error: unexpected new line, expected symbol ':'
  --> error_missing_colon:1:12
   |
-1 | for x in []
-  |            ^
-2 |   pass
-  |
+1 |   for x in []
+  |  ____________^
+2 | |   pass
+  | |_^

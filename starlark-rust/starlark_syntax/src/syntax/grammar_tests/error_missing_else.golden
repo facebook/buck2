@@ -13,4 +13,3 @@ error: Parse error: unexpected new line, expected keyword 'else'
   |
 1 | _ = a if b
   |           ^
-  |

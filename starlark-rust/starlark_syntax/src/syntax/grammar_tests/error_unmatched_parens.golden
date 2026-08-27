@@ -13,7 +13,6 @@ error: Parse error: unexpected new line, expected symbol ')'
   |
 1 | (1 + 2
   |       ^
-  |
 
 
 Program:
@@ -25,7 +24,6 @@ error: Parse error: unexpected new line, expected symbol ')'
   |
 1 | f(x, y
   |       ^
-  |
 
 
 Program:
@@ -37,7 +35,6 @@ error: Parse error: unexpected new line, expected symbol ']'
   |
 1 | [1, 2, 3
   |         ^
-  |
 
 
 Program:
@@ -49,7 +46,6 @@ error: Parse error: unexpected new line, expected symbol '}'
   |
 1 | {1: 2
   |      ^
-  |
 
 
 Program:
@@ -63,4 +59,3 @@ error: Parse error: unexpected new line, expected symbol ')'
   |
 3 |   3
   |    ^
-  |

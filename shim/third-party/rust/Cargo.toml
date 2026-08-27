@@ -24,7 +24,7 @@ path = "top/main.rs"
 test = false
 
 [dependencies]
-annotate-snippets = "0.11.5"
+annotate-snippets = "0.12.16"
 anstyle-parse = "1.0.0"
 anyhow = "1.0.104"
 anymap3 = "1.1.0"

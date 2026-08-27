@@ -9,4 +9,3 @@ error: Parse error: f-string expression is missing closing `}`
   |
 1 | f'foo {bar'
   |           ^
-  |

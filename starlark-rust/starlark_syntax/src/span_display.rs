@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use annotate_snippets::Annotation;
+use annotate_snippets::AnnotationKind;
+use annotate_snippets::Group;
 use annotate_snippets::Level;
 use annotate_snippets::Renderer;
 use annotate_snippets::Snippet;
@@ -23,7 +26,7 @@ use crate::codemap::FileSpanRef;
 
 /// Gets annotated snippets.
 pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bool) -> String {
-    fn convert_span_to_snippet<'a>(span: FileSpanRef<'a>) -> Snippet<'a> {
+    fn convert_span_to_snippet<'a>(span: FileSpanRef<'a>) -> Snippet<'a, Annotation<'a>> {
         let region = span.resolve_span();
 
         // we want the source_span to capture any whitespace ahead of the diagnostic span to
@@ -48,14 +51,15 @@ pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bo
 
         Snippet::source(source)
             .line_start(1 + region.begin.line)
-            .origin(span.file.filename())
+            .path(span.file.filename())
             .fold(false)
-            .annotation(Level::Error.span(range_start_byte..range_start_byte + range_len))
+            .annotation(
+                AnnotationKind::Primary.span(range_start_byte..range_start_byte + range_len),
+            )
     }
 
-    let message = Level::Error
-        .title(annotation_label)
-        .snippets(span.map(convert_span_to_snippet));
+    let title = Level::ERROR.primary_title(annotation_label);
+    let message = Group::with_title(title).elements(span.map(convert_span_to_snippet));
 
     let renderer = if color {
         Renderer::styled()
@@ -63,5 +67,5 @@ pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bo
         Renderer::plain()
     };
 
-    renderer.render(message).to_string()
+    renderer.render(&[message]).to_string()
 }

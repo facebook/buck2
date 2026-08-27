@@ -14,7 +14,6 @@ error: Parse error: unexpected symbol ':', expected identifier
   |
 1 | def :
   |     ^
-  |
 
 
 Program:
@@ -27,7 +26,6 @@ error: Parse error: unexpected keyword 'pass', expected identifier
   |
 1 | def pass():
   |     ^^^^
-  |
 
 
 Program:
@@ -40,7 +38,6 @@ error: Parse error: unexpected keyword 'load', expected identifier
   |
 1 | def load():
   |     ^^^^
-  |
 
 
 Program:
@@ -53,7 +50,6 @@ error: Parse error: unexpected keyword 'load', expected identifier
   |
 1 | def f(load):
   |       ^^^^
-  |
 
 
 Program:
@@ -66,7 +62,6 @@ error: Parse error: unexpected symbol ':', expected symbol '('
   |
 1 | def f :
   |       ^
-  |
 
 
 Program:
@@ -79,7 +74,6 @@ error: Parse error: unexpected identifier 'y', expected symbol ')'
   |
 1 | def foo(x y):
   |           ^
-  |
 
 
 Program:
@@ -92,7 +86,6 @@ error: Parse error: unexpected symbol '-', expected symbol ')'
   |
 1 | def f(a, *-b, c):
   |           ^
-  |
 
 
 Program:
@@ -105,4 +98,3 @@ error: Parameter after kwargs
   |
 1 | def foo(**x, y):
   |              ^
-  |

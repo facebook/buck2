@@ -13,4 +13,3 @@ error: Parse error: unexpected identifier 'b', expected 'in' after 'not'
   |
 1 | _ = a not b
   |           ^
-  |

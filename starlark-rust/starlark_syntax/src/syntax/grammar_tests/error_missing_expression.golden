@@ -13,7 +13,6 @@ error: Parse error: unexpected new line, expected expression
   |
 1 | x =
   |    ^
-  |
 
 
 Program:
@@ -25,7 +24,6 @@ error: Parse error: unexpected new line, expected expression
   |
 1 | x +=
   |     ^
-  |
 
 
 Program:
@@ -36,10 +34,10 @@ Error:
 error: Parse error: unexpected new line, expected expression
  --> error_missing_expression:1:8
   |
-1 | x = 1 +
-  |        ^
-2 | 2
-  |
+1 |   x = 1 +
+  |  ________^
+2 | | 2
+  | |_^
 
 
 Program:
@@ -52,4 +50,3 @@ error: Parse error: unexpected new line, expected expression
   |
 2 | 1 +
   |    ^
-  |

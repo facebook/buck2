@@ -14,7 +14,6 @@ error: Parse error: cannot use reserved keyword `class`
   |
 1 | class Foo:
   | ^^^^^
-  |
 
 
 Program:
@@ -26,7 +25,6 @@ error: Parse error: cannot use reserved keyword `import`
   |
 1 | import os
   | ^^^^^^
-  |
 
 
 Program:
@@ -38,7 +36,6 @@ error: Parse error: cannot use reserved keyword `raise`
   |
 1 | raise ValueError
   | ^^^^^
-  |
 
 
 Program:
@@ -50,7 +47,6 @@ error: Parse error: unexpected symbol '=', expected symbol '('
   |
 1 | load = 1
   |      ^
-  |
 
 
 Program:
@@ -62,4 +58,3 @@ error: Parse error: unexpected keyword 'load', expected expression
   |
 1 | f(load())
   |   ^^^^
-  |

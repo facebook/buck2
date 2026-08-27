@@ -17,7 +17,6 @@ error: Parse error: incorrect indentation
   |  __________^
 3 | |   y = 2
   | |__^
-  |
 
 
 Program:
@@ -31,4 +30,3 @@ error: Parse error: unexpected new indentation block, expected expression
   |
 3 |     y = 2
   | ^^^^
-  |

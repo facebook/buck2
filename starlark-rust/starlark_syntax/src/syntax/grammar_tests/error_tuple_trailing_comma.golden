@@ -13,7 +13,6 @@ error: unparenthesized tuple with trailing comma
   |
 1 | _ = 1,
   |     ^^
-  |
 
 
 Program:
@@ -26,7 +25,6 @@ error: unparenthesized tuple with trailing comma
   |
 1 | for k, v, in dict.items():
   |     ^^^^^
-  |
 
 
 Program:
@@ -38,7 +36,6 @@ error: unparenthesized tuple with trailing comma
   |
 1 | _ = [(v, k) for k, v, in dict.items()]
   |                 ^^^^^
-  |
 
 
 Program:
@@ -50,7 +47,6 @@ error: unparenthesized tuple with trailing comma
   |
 1 | a, b, = 1, 2
   | ^^^^^
-  |
 
 
 Program:
@@ -62,4 +58,3 @@ error: unparenthesized tuple with trailing comma
   |
 1 | a, b = 1, 2,
   |        ^^^^^
-  |

@@ -6,7 +6,6 @@ error: rust failure
   |
 9 |      rust_failure()
   |      ^^^^^^^^^^^^^^
-  |
 Traceback (most recent call last):
   * assert.bzl:3, in <module>
       outer_fail()

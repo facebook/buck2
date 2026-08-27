@@ -14,7 +14,7 @@ repository = "https://github.com/facebook/starlark-rust"
 version = "0.14.2"
 
 [dependencies]
-annotate-snippets = "0.11.5"
+annotate-snippets = "0.12.16"
 anyhow = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }

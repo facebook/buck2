@@ -13,7 +13,6 @@ error: Parse error: unexpected symbol '<', expected end of expression (compariso
   |
 1 | 0 <= 1 < 2
   |        ^
-  |
 
 
 Program:
@@ -25,7 +24,6 @@ error: Parse error: unexpected symbol '==', expected end of expression (comparis
   |
 1 | 0 == 1 == 2
   |        ^^
-  |
 
 
 Program:
@@ -37,7 +35,6 @@ error: Parse error: unexpected symbol '!=', expected end of expression (comparis
   |
 1 | a == b != c
   |        ^^
-  |
 
 
 Program:
@@ -49,7 +46,6 @@ error: Parse error: unexpected symbol '>', expected end of expression (compariso
   |
 1 | a < b > c
   |       ^
-  |
 
 
 Program:
@@ -61,7 +57,6 @@ error: Parse error: unexpected keyword 'in', expected end of expression (compari
   |
 1 | a in b in c
   |        ^^
-  |
 
 
 Program:
@@ -73,4 +68,3 @@ error: Parse error: unexpected keyword 'not', expected end of expression (compar
   |
 1 | a in b not in c
   |        ^^^
-  |

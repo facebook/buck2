@@ -6,7 +6,6 @@ error: Error to be displayed in stacktrace
   |
 4 |      outer_rust_failure()
   |      ^^^^^^^^^^^^^^^^^^^^
-  |
 Traceback (most recent call last):
   * assert.bzl:3, in <module>
       outer_fail()
@@ -21,7 +20,6 @@ Caused by:
          |
        9 |      rust_failure()
          |      ^^^^^^^^^^^^^^
-         |
        Traceback (most recent call last):
          * assert.bzl:3, in <module>
              should_fail()

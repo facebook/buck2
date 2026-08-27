@@ -14,4 +14,3 @@ error: left-hand-side of assignment must take the form `a`, `a.b` or `a[b]`
   |
 1 | for x + y in []:
   |     ^^^^^
-  |

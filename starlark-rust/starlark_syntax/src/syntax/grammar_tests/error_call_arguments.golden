@@ -13,7 +13,6 @@ error: positional argument after non positional
   |
 1 | f(x = 1, 2)
   |          ^
-  |
 
 
 Program:
@@ -25,7 +24,6 @@ error: positional argument after non positional
   |
 1 | f(x = 1, y = 2, 3)
   |                 ^
-  |
 
 
 Program:
@@ -37,7 +35,6 @@ error: repeated named argument
   |
 1 | f(x = 1, x = 2)
   |          ^
-  |
 
 
 Program:
@@ -49,7 +46,6 @@ error: repeated named argument
   |
 1 | f(x = 1, x = 2, 3)
   |          ^
-  |
 
 
 Program:
@@ -61,7 +57,6 @@ error: named argument after *args or **kwargs
   |
 1 | f(*args, x = 1)
   |          ^^^^^
-  |
 
 
 Program:
@@ -73,7 +68,6 @@ error: Args array after another args or kwargs
   |
 1 | f(*args, *more_args)
   |          ^^^^^^^^^^
-  |
 
 
 Program:
@@ -85,4 +79,3 @@ error: Multiple kwargs dictionary in arguments
   |
 1 | f(**kwargs, **more_kwargs)
   |             ^^^^^^^^^^^^^
-  |

@@ -9,4 +9,3 @@ error: Parse error: unexpected identifier 'baz', expected f-string expression en
   |
 2 |  {bar baz}'''
   |       ^^^
-  |

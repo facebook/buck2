@@ -9,4 +9,3 @@ error: invalid f-string conversion specifier, expected 's' or 'r'
   |
 1 | f'{x!1}'
   |     ^
-  |
