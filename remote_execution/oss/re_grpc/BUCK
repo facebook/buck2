@@ -12,6 +12,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-compression",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:h2",
         "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:http-body",
         "fbsource//third-party/rust:http-body-util",
