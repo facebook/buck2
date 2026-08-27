@@ -555,12 +555,31 @@ impl BatchUploadReqAggregator {
     }
 }
 
+/// Returns true if an `io::Error` indicates a transport-level disruption that
+/// a fresh connection can recover from.
+fn is_transient_io_error(err: &std::io::Error) -> bool {
+    matches!(
+        err.kind(),
+        std::io::ErrorKind::BrokenPipe
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::ConnectionAborted
+            | std::io::ErrorKind::UnexpectedEof
+            | std::io::ErrorKind::TimedOut
+    )
+}
+
 /// Returns true if an error is a transient connection/transport error worth
 /// retrying. Walks the error chain checking for:
 ///   - `tonic::Status` with codes the gRPC retry policy treats as transient
 ///     (Unavailable, ResourceExhausted, Aborted, Cancelled)
 ///   - `io::Error` of a kind that indicates a transport-level disruption
 ///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
+///   - `h2::Error` wrapping such an `io::Error`. `h2::Error` does not
+///     implement `source()`, so the inner `io::Error` never appears as its
+///     own link in the chain; tonic also maps these errors to
+///     `Code::Unknown`. Body errors on an established connection (for
+///     example a TCP reset during a `BatchReadBlobs` response) take this
+///     path and need the explicit downcast.
 ///
 /// `tonic::transport::Error` is not matched directly — its transient subset
 /// surfaces as an `io::Error` somewhere in the chain, which we catch above.
@@ -578,13 +597,15 @@ fn is_retryable(err: &anyhow::Error) -> bool {
             }
         }
         if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
-            match io_err.kind() {
-                std::io::ErrorKind::BrokenPipe
-                | std::io::ErrorKind::ConnectionReset
-                | std::io::ErrorKind::ConnectionAborted
-                | std::io::ErrorKind::UnexpectedEof
-                | std::io::ErrorKind::TimedOut => return true,
-                _ => {}
+            if is_transient_io_error(io_err) {
+                return true;
+            }
+        }
+        if let Some(h2_err) = cause.downcast_ref::<h2::Error>() {
+            if let Some(io_err) = h2_err.get_io() {
+                if is_transient_io_error(io_err) {
+                    return true;
+                }
             }
         }
     }
