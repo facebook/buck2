@@ -23,6 +23,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use indoc::indoc;
+use starlark::environment::FrozenModule;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -102,6 +103,69 @@ pub(crate) fn new_transitive_set(
                 .downcast_starlark::<TransitiveSet<'static>>()
                 .map_err(buck2_error::Error::from)
         })
+    })
+}
+
+/// Freeze `code` as `root//:defs.bzl`. Two calls produce two allocations of every definition in it,
+/// which is what a page-out/page-in of one module heap can leave behind in a live daemon.
+fn freeze_defs_module(code: &str) -> buck2_error::Result<FrozenModule> {
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard()
+            .with(register_transitive_set)
+            .with(tset_factory)
+            .with(artifactory)
+            .build();
+
+        buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
+
+        env.freeze_named(Buck2TestHeapName::frozen_heap_name())
+            .freeze_error_context("Freeze failed")
+            .map_err(from_freeze_error)
+    })
+}
+
+/// A child whose definition is a different allocation of the same logical `FooSet` must still be
+/// accepted. Comparing definitions by pointer rejects it with an error whose `expected` and `got`
+/// render identically.
+#[test]
+fn test_child_definition_from_other_incarnation_is_accepted() -> buck2_error::Result<()> {
+    let _guard = TSET_TEST_LOCK.lock().unwrap();
+
+    let defs = "FooSet = transitive_set()";
+
+    let first = freeze_defs_module(defs)?;
+    let second = freeze_defs_module(defs)?;
+
+    let first_foo_set = first.get_owned("FooSet").expect("`FooSet` was not found");
+    let second_foo_set = second.get_owned("FooSet").expect("`FooSet` was not found");
+
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard()
+            .with(register_transitive_set)
+            .with(tset_factory)
+            .with(artifactory)
+            .build();
+
+        buck2_interpreter_for_build::attrs::coerce::testing::to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
+                def make(first_foo_set, second_foo_set):
+                    child = make_tset(first_foo_set, value = 1)
+                    return make_tset(second_foo_set, value = 2, children = [child])
+                "#
+            ),
+        );
+
+        let make = env.get("make").expect("`make` was not found");
+        let args = [
+            first_foo_set.as_ref().add_to_heap(env.heap()),
+            second_foo_set.as_ref().add_to_heap(env.heap()),
+        ];
+        Evaluator::new(&env).eval_function(make, &args, &[])?;
+
+        buck2_error::Ok(())
     })
 }
 

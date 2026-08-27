@@ -92,7 +92,7 @@ impl TypeMatcher for TransitiveSetMatcher {
             return false;
         };
         let exported = &tset.definition.as_ref().exported;
-        // TODO(nga): suboptimal: we could just compare to the pointer of the definition.
+        // Ids, not pointers: page-in can leave two allocations of one logical definition alive.
         exported.set_type_instance_id == self.type_instance_id
     }
 }
@@ -225,11 +225,14 @@ impl<'v> TransitiveSet<'v> {
         &self.key
     }
 
+    /// Compares ids, not pointers: page-in can leave two allocations of one logical frozen module
+    /// heap alive, so two definitions of the same `.bzl` variable need not share an address.
     fn matches_definition(
         &self,
         definition: FrozenValueTyped<'v, FrozenTransitiveSetDefinition<'v>>,
     ) -> bool {
-        definition.to_value().ptr_eq(self.definition.to_value())
+        definition.as_ref().exported.set_type_instance_id
+            == self.definition.as_ref().exported.set_type_instance_id
     }
 
     pub fn projection_name(&'v self, projection: usize) -> buck2_error::Result<&'v str> {
