@@ -369,7 +369,7 @@ linkme = { version = "0.3.37", features = ["used_linker"] }
 lock_free_hashtable = { path = "shed/lock_free_hashtable", features = ["allocative"] }
 lock_free_vec = { path = "shed/lock_free_vec" }
 lru = { version = "0.18.2", default-features = false }
-lsp-server = "0.7.9"
+lsp-server = "0.8.0"
 lsp-types = "0.97"
 maplit = "1.0"
 memchr = "2.8.3"
