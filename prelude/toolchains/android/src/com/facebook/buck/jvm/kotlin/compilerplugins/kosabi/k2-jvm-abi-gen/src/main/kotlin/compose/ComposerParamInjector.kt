@@ -36,12 +36,13 @@ import org.jetbrains.kotlin.name.Name
  * For every @Composable function (excluding constructors and expect functions), this adds:
  * - `$composer: Composer?` — the Composer instance threaded through composable calls
  * - `$changed: Int` (1 or more) — bitmask tracking parameter change state
- * - `$default: Int` (0 or more) — bitmask for default parameter values, only when defaults exist
+ * - `$default: Int` (0 or more) — bitmask for default parameter values, only on a concrete function
+ *   that has defaults
  *
  * Parameter counting follows the Compose compiler spec:
- * - changedParamCount = max(1, ceil((realValueParams + thisParams + 1) / SLOTS_PER_INT)) where +1
- *   accounts for the force bit in slot 0
- * - defaultParamCount = ceil(valueParams / BITS_PER_DEFAULT_INT), only if any param has a default
+ * - changedParamCount = max(1, ceil((realValueParams + thisParams) / SLOTS_PER_INT))
+ * - defaultParamCount = ceil(valueParams / BITS_PER_DEFAULT_INT), only if the function is concrete
+ *   and any param has a default
  * - thisParams = count of dispatch receiver + extension receiver (context receivers are value
  *   params)
  */
@@ -117,6 +118,12 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
     private fun shouldTransform(function: IrSimpleFunction): Boolean {
       if (!function.hasAnnotation(COMPOSABLE_FQ_NAME)) return false
       if (function.isExpect) return false
+      // Idempotence guard. A @Composable property getter is reached TWICE: once explicitly via
+      // visitProperty below, and again when super.visitProperty descends into the getter as an
+      // IrSimpleFunction. Without this check the synthetic params are injected twice, producing
+      // (..., Composer, int, Composer, int) -- a descriptor no consumer can link against. Only
+      // fires when @Composable is on the getter rather than the property, which is why it is rare.
+      if (function.valueParameters.any { it.name.asString() == "\$composer" }) return false
       return true
     }
 
@@ -137,13 +144,19 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
       val realValueParamCount = existingValueParams.size
       val totalSlottedParams = realValueParamCount + thisParamCount
 
-      // $changed count: ceil((totalSlottedParams + 1) / SLOTS_PER_INT), minimum 1.
-      // The +1 accounts for the force bit in slot 0.
-      val changedCount = maxOf(1, ceilDiv(totalSlottedParams + 1, SLOTS_PER_INT))
+      // Deliberately no "+1": the force bit shares int 0 with slots 0..9 rather than consuming a
+      // slot, and adding one emits a trailing `I` at every exact multiple of SLOTS_PER_INT.
+      val changedCount = maxOf(1, ceilDiv(totalSlottedParams, SLOTS_PER_INT))
 
-      // $default count: only present if any parameter has a default value.
+      // An abstract @Composable member gets no $default: Compose puts defaults handling in a
+      // nested ComposeDefaultImpls, so injecting it here adds a trailing `I` and changes the
+      // value-class mangled name, leaving a cross-target implementer overriding a signature the
+      // real ABI does not have. Keyed on having a body, not on modality, so bodiless fake
+      // overrides are treated alike.
+      val hasBody = function.body != null
       val hasDefaults = existingValueParams.any { it.defaultValue != null }
-      val defaultCount = if (hasDefaults) ceilDiv(realValueParamCount, BITS_PER_DEFAULT_INT) else 0
+      val defaultCount =
+          if (hasDefaults && hasBody) ceilDiv(realValueParamCount, BITS_PER_DEFAULT_INT) else 0
 
       // Build the new parameter list: existing + $composer + $changed[N] + $default[N]
       val newParams = mutableListOf<IrValueParameter>()

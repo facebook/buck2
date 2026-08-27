@@ -16,6 +16,8 @@ package com.facebook
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrConstructor
+import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
@@ -25,6 +27,7 @@ import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.hasAnnotation
@@ -57,6 +60,18 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
         ClassId(FqName("androidx.compose.runtime"), Name.identifier("Composer"))
     private val FUNCTION_FQ_PREFIX = "kotlin.Function"
 
+    /**
+     * Under K2 the Compose plugin registers its own function-type *kinds*
+     * (ComposeFirExtensions.registerKinds), so a `@Composable (P..) -> R` is classified as the
+     * synthetic class `androidx.compose.runtime.internal.(K)ComposableFunctionN` and carries no
+     * `@Composable` annotation on the type itself. Only deserialized dependency metadata still uses
+     * the legacy `kotlin.FunctionN` + annotation form.
+     */
+    private const val COMPOSABLE_FUNCTION_FQ_PREFIX =
+        "androidx.compose.runtime.internal.ComposableFunction"
+    private const val K_COMPOSABLE_FUNCTION_FQ_PREFIX =
+        "androidx.compose.runtime.internal.KComposableFunction"
+
     /** Each parameter uses 3 bits. 32 / 3 = 10 slots per Int. */
     private const val SLOTS_PER_INT = 10
   }
@@ -84,10 +99,36 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
       super.visitSimpleFunction(declaration)
     }
 
+    /**
+     * Constructors need their own override: [IrConstructor] extends IrFunction but NOT
+     * IrSimpleFunction, so [visitSimpleFunction] never sees one. Without this, a `class Foo(val
+     * content: @Composable () -> Unit)` keeps ComposableFunction0 in its `<init>` descriptor while
+     * its generated getter is rewritten correctly -- and every consumer of the class calls a
+     * constructor.
+     */
+    override fun visitConstructor(declaration: IrConstructor) {
+      rewriteFunctionSignatureTypes(declaration)
+      super.visitConstructor(declaration)
+    }
+
     override fun visitProperty(declaration: IrProperty) {
       declaration.getter?.let { rewriteFunctionSignatureTypes(it) }
       declaration.setter?.let { rewriteFunctionSignatureTypes(it) }
       super.visitProperty(declaration)
+    }
+
+    /**
+     * Backing fields are not reached via [visitSimpleFunction] or [visitProperty] either. These are
+     * private and so do not affect consumers, but leaving the synthetic ComposableFunctionN type in
+     * the stub jar leaves a dangling reference to a class that exists only inside a Compose-enabled
+     * compilation.
+     */
+    override fun visitField(declaration: IrField) {
+      val rewritten = rewriteTypeIfComposable(declaration.type)
+      if (rewritten !== declaration.type) {
+        declaration.type = rewritten
+      }
+      super.visitField(declaration)
     }
 
     override fun visitClass(declaration: IrClass) {
@@ -158,16 +199,34 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
     }
 
     /**
-     * Check if an IrSimpleType is a @Composable function type.
-     *
-     * A composable function type has:
-     * 1. A @Composable annotation on the type
-     * 2. A classifier that is kotlin.FunctionN
+     * Two representations reach IR: the K2 kind `(K)ComposableFunctionN` with no annotation
+     * (in-module source), and `kotlin.FunctionN` plus `@Composable` (read back from metadata).
      */
     private fun isComposableFunctionType(type: IrSimpleType): Boolean {
+      if (isSyntheticComposableFunction(type) || isKComposableFunction(type)) return true
       if (!type.hasAnnotation(COMPOSABLE_FQ_NAME)) return false
       val classFqn = type.classFqName?.asString() ?: return false
       return classFqn.startsWith(FUNCTION_FQ_PREFIX)
+    }
+
+    /** The non-reflect Compose kind, `androidx.compose.runtime.internal.ComposableFunctionN`. */
+    private fun isSyntheticComposableFunction(type: IrSimpleType): Boolean =
+        hasNumberedPrefix(type, COMPOSABLE_FUNCTION_FQ_PREFIX)
+
+    /** The reflect Compose kind, `androidx.compose.runtime.internal.KComposableFunctionN`. */
+    private fun isKComposableFunction(type: IrSimpleType): Boolean =
+        hasNumberedPrefix(type, K_COMPOSABLE_FUNCTION_FQ_PREFIX)
+
+    /**
+     * These classes are synthetic (declared nowhere) and unbounded in arity, so match on prefix +
+     * an all-digit suffix rather than enumerating. The two prefixes are disjoint:
+     * `...internal.KComposableFunction0` does not start with `...internal.ComposableFunction`.
+     */
+    private fun hasNumberedPrefix(type: IrSimpleType, prefix: String): Boolean {
+      val fqn = type.classFqName?.asString() ?: return false
+      if (!fqn.startsWith(prefix)) return false
+      val suffix = fqn.substring(prefix.length)
+      return suffix.isNotEmpty() && suffix.all { it.isDigit() }
     }
 
     // Rewrite a @Composable function type.
@@ -205,12 +264,16 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
       // Add return type.
       newTypeArgs.add(extractTypeFromArgument(returnTypeArg))
 
-      // Resolve the new FunctionN class.
-      val functionClassId = ClassId(FqName("kotlin"), Name.identifier("Function$newArity"))
-      val functionClass = pluginContext.referenceClass(functionClassId) ?: return type
+      // irBuiltIns.functionN/kFunctionN cannot fail, unlike referenceClass, whose `?: return type`
+      // silently left the type un-rewritten when the synthetic class was not in the symbol table.
+      val functionClass =
+          if (isKComposableFunction(type)) pluginContext.irBuiltIns.kFunctionN(newArity)
+          else pluginContext.irBuiltIns.functionN(newArity)
 
-      // Build the new type without @Composable annotation.
-      return functionClass.typeWith(newTypeArgs)
+      // typeWith() constructs NOT_SPECIFIED, so a declared-nullable type would come back non-null
+      // and be emitted @NotNull; Java interop and NullAway read those JVM annotations.
+      val rewritten = functionClass.typeWith(newTypeArgs)
+      return if (type.isMarkedNullable()) rewritten.makeNullable() else rewritten
     }
 
     private fun extractTypeFromArgument(
