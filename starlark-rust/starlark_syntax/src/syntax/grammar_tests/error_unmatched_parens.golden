@@ -12,7 +12,7 @@ error: Parse error: unexpected new line, expected symbol ')'
  --> error_unmatched_parens:1:7
   |
 1 | (1 + 2
-  |       
+  |       ^
   |
 
 
@@ -24,7 +24,7 @@ error: Parse error: unexpected new line, expected symbol ')'
  --> error_unmatched_parens:1:7
   |
 1 | f(x, y
-  |       
+  |       ^
   |
 
 
@@ -36,7 +36,7 @@ error: Parse error: unexpected new line, expected symbol ']'
  --> error_unmatched_parens:1:9
   |
 1 | [1, 2, 3
-  |         
+  |         ^
   |
 
 
@@ -48,7 +48,7 @@ error: Parse error: unexpected new line, expected symbol '}'
  --> error_unmatched_parens:1:6
   |
 1 | {1: 2
-  |      
+  |      ^
   |
 
 
@@ -62,5 +62,5 @@ error: Parse error: unexpected new line, expected symbol ')'
  --> error_unmatched_parens:3:4
   |
 3 |   3
-  |    
+  |    ^
   |

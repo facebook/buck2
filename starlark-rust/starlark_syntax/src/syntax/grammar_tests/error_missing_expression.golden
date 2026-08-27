@@ -12,7 +12,7 @@ error: Parse error: unexpected new line, expected expression
  --> error_missing_expression:1:4
   |
 1 | x =
-  |    
+  |    ^
   |
 
 
@@ -24,7 +24,7 @@ error: Parse error: unexpected new line, expected expression
  --> error_missing_expression:1:5
   |
 1 | x +=
-  |     
+  |     ^
   |
 
 
@@ -51,5 +51,5 @@ error: Parse error: unexpected new line, expected expression
  --> error_missing_expression:2:4
   |
 2 | 1 +
-  |    
+  |    ^
   |

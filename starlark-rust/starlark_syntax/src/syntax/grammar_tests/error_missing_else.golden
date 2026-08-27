@@ -12,5 +12,5 @@ error: Parse error: unexpected new line, expected keyword 'else'
  --> error_missing_else:1:11
   |
 1 | _ = a if b
-  |           
+  |           ^
   |

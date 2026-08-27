@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-use annotate_snippets::Annotation;
-use annotate_snippets::AnnotationType;
+use annotate_snippets::Level;
 use annotate_snippets::Renderer;
-use annotate_snippets::Slice;
 use annotate_snippets::Snippet;
-use annotate_snippets::SourceAnnotation;
 
 use crate::codemap::FileSpanRef;
-use crate::fast_string;
 
 /// Gets annotated snippets.
 pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bool) -> String {
-    fn convert_span_to_slice<'a>(span: FileSpanRef<'a>) -> Slice<'a> {
+    fn convert_span_to_snippet<'a>(span: FileSpanRef<'a>) -> Snippet<'a> {
         let region = span.resolve_span();
 
         // we want the source_span to capture any whitespace ahead of the diagnostic span to
@@ -41,33 +37,25 @@ pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bo
         // We want to highlight the span, which needs to be relative to source, and in
         // characters.
         // Our spans are in terms of bytes, but our resolved spans in terms of characters.
-        let range_start_chars = region.begin.column;
-        let range_len_chars = fast_string::len(span.source_span()).0;
+        let range_start_byte = span
+            .file
+            .source_span(first_line_span)
+            .chars()
+            .take(region.begin.column)
+            .map(char::len_utf8)
+            .sum::<usize>();
+        let range_len = span.source_span().len();
 
-        Slice {
-            source,
-            line_start: 1 + region.begin.line,
-            origin: Some(span.file.filename()),
-            fold: false,
-            annotations: vec![SourceAnnotation {
-                label: "",
-                annotation_type: AnnotationType::Error,
-                range: (range_start_chars, range_start_chars + range_len_chars),
-            }],
-        }
+        Snippet::source(source)
+            .line_start(1 + region.begin.line)
+            .origin(span.file.filename())
+            .fold(false)
+            .annotation(Level::Error.span(range_start_byte..range_start_byte + range_len))
     }
 
-    let slice = span.map(convert_span_to_slice);
-
-    let snippet = Snippet {
-        title: Some(Annotation {
-            label: Some(annotation_label),
-            id: None,
-            annotation_type: AnnotationType::Error,
-        }),
-        footer: Vec::new(),
-        slices: slice.map(|s| vec![s]).unwrap_or_default(),
-    };
+    let message = Level::Error
+        .title(annotation_label)
+        .snippets(span.map(convert_span_to_snippet));
 
     let renderer = if color {
         Renderer::styled()
@@ -75,5 +63,5 @@ pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bo
         Renderer::plain()
     };
 
-    renderer.render(snippet).to_string()
+    renderer.render(message).to_string()
 }

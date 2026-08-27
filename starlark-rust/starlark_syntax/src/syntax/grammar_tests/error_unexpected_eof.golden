@@ -12,7 +12,7 @@ error: Parse error: unexpected end of file, expected new indentation block
  --> error_unexpected_eof:1:9
   |
 1 | def f():
-  |         
+  |         ^
   |
 
 
@@ -24,7 +24,7 @@ error: Parse error: unexpected end of file, expected new indentation block
  --> error_unexpected_eof:1:9
   |
 1 | if True:
-  |         
+  |         ^
   |
 
 
@@ -38,7 +38,7 @@ error: Parse error: unexpected end of file, expected new indentation block
  --> error_unexpected_eof:3:6
   |
 3 | else:
-  |      
+  |      ^
   |
 
 
@@ -52,7 +52,7 @@ error: Parse error: unexpected end of file, expected new indentation block
  --> error_unexpected_eof:3:8
   |
 3 | elif x:
-  |        
+  |        ^
   |
 
 
@@ -64,5 +64,5 @@ error: Parse error: unexpected end of file, expected new indentation block
  --> error_unexpected_eof:1:13
   |
 1 | for x in xs:
-  |             
+  |             ^
   |

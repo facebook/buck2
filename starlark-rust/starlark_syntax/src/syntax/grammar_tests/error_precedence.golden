@@ -12,7 +12,7 @@ error: Parse error: unexpected new line, expected symbol ')'
  --> error_precedence:1:11
   |
 1 | f(x = 1, 2
-  |           
+  |           ^
   |
 
 
@@ -24,7 +24,7 @@ error: Parse error: unexpected new line, expected symbol ')'
  --> error_precedence:1:13
   |
 1 | def f(**x, y
-  |             
+  |             ^
   |
 
 
