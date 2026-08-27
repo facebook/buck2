@@ -472,6 +472,7 @@ fn test_test_list_in_index_expr() {
 
     parse_fail("list_in_index_expr", "x[1, 2] = 3");
 }
+
 #[test]
 fn test_error_unmatched_parens() {
     parse_fails(
@@ -849,6 +850,11 @@ fn test_error_tuple_trailing_comma() {
             "a, b = 1, 2,",
         ],
     );
+}
+
+#[test]
+fn test_non_ascii() {
+    parse_fails("error_non_ascii", &["(\"☃\", 1 +, 1)", "[\"☃\"] += 1"]);
 }
 
 pub fn parse(program: &str) -> String {
