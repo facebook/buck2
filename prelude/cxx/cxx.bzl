@@ -135,6 +135,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
     "LinkPreference",
+    "xcode_data_enabled",
 )
 load(":gcno.bzl", "GcnoFilesInfo")
 load(
@@ -241,7 +242,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
     if ctx.attrs._is_building_android_binary:
         sub_target_params, provider_params = _get_params_for_android_binary_cxx_library()
     else:
-        sub_target_params = CxxRuleSubTargetParams()
+        sub_target_params = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled())
         provider_params = CxxRuleProviderParams(
             third_party_build = True,
         )
@@ -324,6 +325,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     params = CxxRuleConstructorParams(
         rule_type = "cxx_binary",
+        generate_sub_targets = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled()),
         executable_name = ctx.attrs.executable_name,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
@@ -413,17 +415,23 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     # by another rule, such as by $(exe ...) or exec_dep.
     other_outputs = output.runtime_files + (output.external_debug_info_artifacts if get_cxx_toolchain_info(ctx).materialize_external_debug_info else [])
 
-    return [
-        DefaultInfo(
-            default_output = output.binary,
-            other_outputs = other_outputs,
-            sub_targets = output.sub_targets,
-        ),
-        RunInfo(args = cmd_args(output.binary, hidden = output.runtime_files)),
-        output.compilation_db,
-        output.xcode_data,
-        output.dist_info,
-    ] + extra_providers
+    return (
+        filter(
+            None,
+            [
+                DefaultInfo(
+                    default_output = output.binary,
+                    other_outputs = other_outputs,
+                    sub_targets = output.sub_targets,
+                ),
+                RunInfo(args = cmd_args(output.binary, hidden = output.runtime_files)),
+                output.compilation_db,
+                output.xcode_data,
+                output.dist_info,
+            ],
+        )
+        + extra_providers
+    )
 
 def _prebuilt_item(_ctx: AnalysisContext, item: [typing.Any, None]) -> [typing.Any, None]:
     """
@@ -1031,6 +1039,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # TODO(T110378115): have the runinfo contain the correct test running args
     params = CxxRuleConstructorParams(
         rule_type = "cxx_test",
+        generate_sub_targets = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled()),
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = get_srcs_with_flags(ctx),
         link_group_info = link_group_info,
@@ -1073,9 +1082,10 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
             sub_targets = output.sub_targets,
         ),
         output.compilation_db,
-        output.xcode_data,
         output.dist_info,
     ]
+    if output.xcode_data:
+        providers.append(output.xcode_data)
     providers.extend(
         inject_test_run_info(
             ctx,

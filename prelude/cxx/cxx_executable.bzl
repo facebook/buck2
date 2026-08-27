@@ -246,7 +246,7 @@ CxxExecutableOutput = record(
     # All link group links that were generated in the executable.
     auto_link_groups = field(dict[str, LinkedObject], {}),
     compilation_db = CxxCompilationDbInfo,
-    xcode_data = XcodeDataInfo,
+    xcode_data = [XcodeDataInfo, None],
     linker_map_data = [CxxLinkerMapData, None],
     gc_sections_data = [CxxGcSectionsData, None],
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
@@ -328,8 +328,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     if get_cxx_toolchain_info(ctx).gcno_files:
         gcno_files += flatten([dep[GcnoFilesInfo].gcno_files for dep in cxx_deps if GcnoFilesInfo in dep])
 
-    sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
-    sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
+    if impl_params.generate_sub_targets.argsfiles:
+        sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
+    if impl_params.generate_sub_targets.xcode_data:
+        sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
 
     if impl_params.generate_sub_targets and impl_params.generate_sub_targets.clang_traces:
@@ -779,16 +781,18 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     gc_sections_data = link_result.gc_sections_data
 
     # Define the xcode data sub target
-    xcode_data_default_info, xcode_data_info = generate_xcode_data(
-        ctx,
-        rule_type = impl_params.rule_type,
-        output = binary.output,
-        populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
-        srcs = impl_params.srcs + impl_params.additional.srcs,
-        argsfiles = compile_cmd_output.argsfiles.xcode,
-        product_name = get_cxx_executable_product_name(ctx, has_hip_device_debug),
-    )
-    sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
+    xcode_data_info = None
+    if impl_params.generate_sub_targets.xcode_data:
+        xcode_data_default_info, xcode_data_info = generate_xcode_data(
+            ctx,
+            rule_type = impl_params.rule_type,
+            output = binary.output,
+            populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
+            srcs = impl_params.srcs + impl_params.additional.srcs,
+            argsfiles = compile_cmd_output.argsfiles.xcode,
+            product_name = get_cxx_executable_product_name(ctx, has_hip_device_debug),
+        )
+        sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
     # Info about dynamic-linked libraries for fbpkg integration:
     # - the symlink dir that's part of RPATH

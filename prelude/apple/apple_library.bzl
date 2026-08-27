@@ -87,6 +87,7 @@ load(
     "CxxRuleConstructorParams",
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
+    "xcode_data_enabled",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
@@ -204,6 +205,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_library",
+                generate_sub_targets = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled()),
                 generate_providers = CxxRuleProviderParams(
                     java_packaging_info = False,
                     java_global_code_info = False,

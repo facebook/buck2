@@ -28,7 +28,7 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:cxx_types.bzl", "CxxRuleProviderParams", "CxxRuleSubTargetParams")
+load("@prelude//cxx:cxx_types.bzl", "CxxRuleProviderParams", "CxxRuleSubTargetParams", "xcode_data_enabled")
 load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
@@ -109,6 +109,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     compilation_database = True,
                     headers = False,
                     link_group_map = False,
+                    xcode_data = xcode_data_enabled(),
                 ),
                 generate_providers = CxxRuleProviderParams(
                     compilation_database = True,
@@ -227,13 +228,16 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
         return (
-            [
-                DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
-                _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
-                cxx_library_output.index_store_info,
-                cxx_library_output.xcode_data_info,
-                cxx_library_output.cxx_compilationdb_info,
-            ]
+            filter(
+                None,
+                [
+                    DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
+                    _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
+                    cxx_library_output.index_store_info,
+                    cxx_library_output.xcode_data_info,
+                    cxx_library_output.cxx_compilationdb_info,
+                ],
+            )
             + bundle_result.providers
             + cxx_providers
         )

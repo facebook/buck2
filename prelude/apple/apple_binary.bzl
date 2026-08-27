@@ -54,6 +54,8 @@ load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleAdditionalParams",
     "CxxRuleConstructorParams",
+    "CxxRuleSubTargetParams",
+    "xcode_data_enabled",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
@@ -162,6 +164,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
         constructor_params = CxxRuleConstructorParams(
             rule_type = "apple_binary",
+            generate_sub_targets = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled()),
             headers_layout = get_apple_cxx_headers_layout(ctx),
             extra_link_flags = extra_link_flags,
             extra_hidden = validation_deps_outputs,
@@ -287,18 +290,21 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         ]
 
         providers = (
-            [
-                DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
-                RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
-                AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
-                AppleDebuggableInfo(dsyms = [dsym_artifact], binaries = [unstripped_binary], debug_info_tset = cxx_output.external_debug_info),
-                cxx_output.xcode_data,
-                cxx_output.compilation_db,
-                merge_bundle_linker_maps_info(bundle_infos),
-                UnstrippedLinkOutputInfo(artifact = unstripped_binary),
-                index_store_info,
-                mod_dep_graph_info,
-            ]
+            filter(
+                None,
+                [
+                    DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
+                    RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
+                    AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
+                    AppleDebuggableInfo(dsyms = [dsym_artifact], binaries = [unstripped_binary], debug_info_tset = cxx_output.external_debug_info),
+                    cxx_output.xcode_data,
+                    cxx_output.compilation_db,
+                    merge_bundle_linker_maps_info(bundle_infos),
+                    UnstrippedLinkOutputInfo(artifact = unstripped_binary),
+                    index_store_info,
+                    mod_dep_graph_info,
+                ],
+            )
             + [resource_graph]
             + min_version_providers
             + link_command_providers

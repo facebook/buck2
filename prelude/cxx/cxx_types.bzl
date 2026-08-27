@@ -84,11 +84,15 @@ CxxRuleSubTargetParams = record(
     headers = field(bool, True),
     link_group_map = field(bool, True),
     link_style_outputs = field(bool, True),
-    xcode_data = field(bool, True),
+    xcode_data = field(bool, False),
     objects = field(bool, True),
     bitcode_bundle = field(bool, True),
     header_unit = field(bool, True),
 )
+
+def xcode_data_enabled() -> bool:
+    # Project generators must manually enable xcode data because it measurably increases memory usage.
+    return read_root_config("cxx", "enable_xcode_data", "false").lower() == "true"
 
 # Parameters to control which providers to define when processing Cxx rules.
 # By default, generates all providers.

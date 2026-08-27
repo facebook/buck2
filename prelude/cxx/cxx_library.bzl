@@ -586,6 +586,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     if impl_params.generate_sub_targets.argsfiles:
         sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.relative, ARGSFILES_SUBTARGET)]
+    if impl_params.generate_sub_targets.xcode_data:
         sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compiled_srcs.compile_cmds.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
 
     if impl_params.generate_sub_targets.clang_remarks:
