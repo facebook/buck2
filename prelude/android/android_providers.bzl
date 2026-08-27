@@ -58,6 +58,9 @@ AndroidBinaryNativeLibsInfo = record(
     native_libs_for_primary_apk = list[Artifact],
     generated_java_code = list[Artifact],
     unstripped_shared_libraries = [Artifact, None],
+    # Artifacts that must be produced for the binary to be valid. Threaded into
+    # the apk's validation_deps_outputs, so a failing check fails the build.
+    validation_outputs = list[Artifact],
 )
 
 AndroidBinaryResourcesInfo = record(

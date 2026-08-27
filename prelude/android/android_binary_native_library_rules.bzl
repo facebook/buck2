@@ -44,11 +44,13 @@ load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
+    "ArchiveLinkable",
     "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
     "LinkOrdering",
     "LinkedObject",
+    "ObjectsLinkable",
     "SharedLibLinkable",
     "get_lib_output_style",
     "set_link_info_link_whole",
@@ -169,6 +171,7 @@ def get_android_binary_native_library_info(
             non_root_module_native_lib_assets = [],
             generated_java_code = [],
             unstripped_shared_libraries = None,
+            validation_outputs = [],
         )
 
     native_libs = ctx.actions.declare_output("native_libs_symlink", has_content_based_path = False)
@@ -246,6 +249,11 @@ def get_android_binary_native_library_info(
             linkables_debug = ctx.actions.write("linkables." + platform, list(graph_node_map.keys()), has_content_based_path = False)
             enhance_ctx.debug_output("linkables." + platform, linkables_debug)
             linkable_nodes_by_platform[platform] = graph_node_map
+
+    jni_onload_check_report = None
+    if has_native_merging and ctx.attrs._android_toolchain[AndroidToolchainInfo].jni_onload_check:
+        jni_onload_check_report = ctx.actions.declare_output("jni_onload_check.json", has_content_based_path = False)
+        dynamic_outputs.append(jni_onload_check_report)
 
     relinked_libs_output = None
     relinked_libs_manifest = None
@@ -372,6 +380,7 @@ def get_android_binary_native_library_info(
             shared_object_targets = {}
             debug_info_by_platform = {}  # dict[str, MergedLinkablesDebugInfo]
             merged_shared_libs_by_platform = {}  # dict[str, dict[str, MergedSharedLibrary]]
+            jni_onload_check_inputs = [] if jni_onload_check_report else None
             for platform in original_shared_libs_by_platform:
                 merged_shared_libs, debug_info = _get_merged_linkables_for_platform(
                     ctx = ctx,
@@ -384,6 +393,7 @@ def get_android_binary_native_library_info(
                     merge_map = merge_map_by_platform[platform],
                     merge_linker_args = native_library_merge_linker_args or {},
                     apk_module_graph = get_module_from_target,
+                    jni_onload_check_inputs = jni_onload_check_inputs,
                 )
                 debug_info_by_platform[platform] = debug_info
                 merged_shared_libs_by_platform[platform] = merged_shared_libs
@@ -417,6 +427,17 @@ def get_android_binary_native_library_info(
                 native_library_merge_debug_outputs["jni_on_load_mappings.txt"] = jni_on_load_mappings
 
             ctx.actions.symlinked_dir(outputs[native_merge_debug], native_library_merge_debug_outputs)
+
+            if jni_onload_check_report:
+                # nm is the same across the android platforms in a binary, so
+                # any of them serves for a symbol-table read.
+                check_platform = list(original_shared_libs_by_platform.keys())[0]
+                _run_jni_onload_check(
+                    ctx,
+                    ctx.attrs._cxx_toolchain[check_platform][CxxToolchainInfo],
+                    jni_onload_check_inputs,
+                    outputs[jni_onload_check_report],
+                )
 
             # Merged libraries are assembled from the full linkable graph, so unlike the
             # non-merging path (which filters via get_default_shared_libs) they do not
@@ -624,6 +645,11 @@ def get_android_binary_native_library_info(
     if native_merge_debug:
         enhance_ctx.debug_output("native_merge_debug", native_merge_debug)
 
+    if jni_onload_check_report:
+        # Buildable on its own so the check can be run, and its report read,
+        # without building the whole apk.
+        enhance_ctx.debug_output("jni_onload_check", jni_onload_check_report)
+
     enhance_ctx.debug_output("linker_argsfiles", linker_argsfiles)
     enhance_ctx.debug_output("linker_commands", linker_commands)
     enhance_ctx.debug_output("unstripped_native_libraries", unstripped_native_libraries, other_outputs = [unstripped_native_libraries_files])
@@ -646,6 +672,7 @@ def get_android_binary_native_library_info(
         non_root_module_native_lib_assets = [non_root_module_metadata_assets, non_root_module_lib_assets],
         generated_java_code = generated_java_code,
         unstripped_shared_libraries = unstripped_native_libraries_files,
+        validation_outputs = [jni_onload_check_report] if jni_onload_check_report else [],
     )
 
 _NativeLibSubtargetArtifacts = record(
@@ -1502,6 +1529,69 @@ def _shared_lib_for_prebuilt_shared(
         label = target,
     )
 
+def _run_jni_onload_check(
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    check_inputs: list,
+    output: Artifact,
+):
+    """Verify that no input to a merged library defines JNI_OnLoad.
+
+    A constituent with allow_jni_merging = True has its JNI_OnLoad renamed by
+    jni_lib_merge.h, and the JNI_OnLoad symbol in the merged library is
+    manufactured by -Wl,--defsym. --defsym silently overrides a constituent's
+    own definition rather than colliding with it, so a constituent that has a
+    JNI_OnLoad but did not opt in has it discarded with no diagnostic and is
+    never registered on MergedSoMapping$Invoke_JNI_OnLoad -- an
+    UnsatisfiedLinkError at runtime and nothing at build time.
+
+    This has to inspect the link *inputs*: by the time the merged library
+    exists, --defsym has erased the evidence.
+    """
+    android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
+
+    # write_json renders each artifact as its path and, with with_inputs, makes
+    # the objects inputs of the action so they are materialized for the scan.
+    manifest = ctx.actions.write_json(
+        "jni_onload_check_inputs.json",
+        [{"artifact": obj, "merged_lib": soname, "target": target} for soname, target, obj in check_inputs],
+        with_inputs = True,
+        has_content_based_path = False,
+    )
+    ctx.actions.run(
+        cmd_args(
+            android_toolchain.jni_onload_check[RunInfo],
+            "--inputs",
+            manifest,
+            "--nm",
+            cxx_toolchain.binary_utilities_info.nm,
+            "--out",
+            output.as_output(),
+        ),
+        category = "jni_onload_check",
+        # Reads every object that goes into every merged library; running it
+        # remotely avoids shipping them back for a local scan.
+        prefer_remote = True,
+    )
+
+def _link_info_object_artifacts(link_info: LinkInfo) -> list[Artifact]:
+    """The compiled inputs a LinkInfo contributes, for symbol inspection.
+
+    Thin archives are represented by their member objects, which sidesteps the
+    fact that a thin archive's member paths are relative to the archive itself
+    and so cannot be read from an arbitrary working directory.
+    """
+    artifacts = []
+    for linkable in link_info.linkables:
+        if isinstance(linkable, ArchiveLinkable):
+            if linkable.archive.external_objects:
+                artifacts.extend(linkable.archive.external_objects)
+            else:
+                artifacts.append(linkable.archive.artifact)
+        elif isinstance(linkable, ObjectsLinkable):
+            artifacts.extend(linkable.objects or [])
+    return artifacts
+
 def _get_merged_linkables_for_platform(
     ctx: AnalysisContext,
     cxx_toolchain: CxxToolchainInfo,
@@ -1513,6 +1603,7 @@ def _get_merged_linkables_for_platform(
     merge_map: dict[str, [str, None]],
     merge_linker_args: dict[str, typing.Any],
     apk_module_graph: typing.Callable,
+    jni_onload_check_inputs: list | None = None,
 ) -> (dict[str, MergedSharedLibrary], MergedLinkablesDebugInfo):
     """
     This takes the merge mapping and constructs the resulting merged shared libraries.
@@ -1702,6 +1793,10 @@ def _get_merged_linkables_for_platform(
         solib_constituent_targets = []
         group_deps = []
         group_exported_deps = []
+        # (target, object) pairs for the JNI_OnLoad check. Collected here
+        # because the constituents' link infos are not retained anywhere else,
+        # and associated with the soname below once it is known.
+        check_objects = []
         for key in group_data.constituents:
             expect(target_to_link_group[key] == group)
             node = linkable_nodes[key]
@@ -1718,6 +1813,11 @@ def _get_merged_linkables_for_platform(
 
             node = linkable_nodes[key]
             link_info = node.link_infos[archive_output_style].default
+
+            if jni_onload_check_inputs != None:
+                target_str = str(key.raw_target())
+                for obj in _link_info_object_artifacts(link_info):
+                    check_objects.append((target_str, obj))
 
             # the propagated link info should already be wrapped with exported flags.
             link_info = wrap_link_info(
@@ -1739,6 +1839,12 @@ def _get_merged_linkables_for_platform(
         if not is_actually_merged:
             soname = linkable_nodes[group_data.constituents[0]].default_soname
             debug_info.with_default_soname.append((soname, group_data.constituents[0]))
+
+        # Only groups that are actually merged are checked. A group of one is a
+        # normal standalone library, where defining JNI_OnLoad is correct.
+        if jni_onload_check_inputs != None and is_actually_merged:
+            for target_str, obj in check_objects:
+                jni_onload_check_inputs.append((soname, target_str, obj))
 
         output_path = _platform_output_path(soname, platform)
 
