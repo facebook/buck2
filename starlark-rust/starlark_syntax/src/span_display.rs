@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-use std::fmt::Display;
-
-use annotate_snippets::display_list::DisplayList;
-use annotate_snippets::display_list::FormatOptions;
-use annotate_snippets::snippet::Annotation;
-use annotate_snippets::snippet::AnnotationType;
-use annotate_snippets::snippet::Slice;
-use annotate_snippets::snippet::Snippet;
-use annotate_snippets::snippet::SourceAnnotation;
+use annotate_snippets::Annotation;
+use annotate_snippets::AnnotationType;
+use annotate_snippets::Renderer;
+use annotate_snippets::Slice;
+use annotate_snippets::Snippet;
+use annotate_snippets::SourceAnnotation;
 
 use crate::codemap::FileSpanRef;
 use crate::fast_string;
 
 /// Gets annotated snippets.
-pub fn span_display<'a>(
-    span: Option<FileSpanRef<'a>>,
-    annotation_label: &'a str,
-    color: bool,
-) -> impl Display + 'a {
+pub fn span_display(span: Option<FileSpanRef>, annotation_label: &str, color: bool) -> String {
     fn convert_span_to_slice<'a>(span: FileSpanRef<'a>) -> Slice<'a> {
         let region = span.resolve_span();
 
@@ -74,11 +67,13 @@ pub fn span_display<'a>(
         }),
         footer: Vec::new(),
         slices: slice.map(|s| vec![s]).unwrap_or_default(),
-        opt: FormatOptions {
-            color,
-            ..Default::default()
-        },
     };
 
-    DisplayList::from(snippet)
+    let renderer = if color {
+        Renderer::styled()
+    } else {
+        Renderer::plain()
+    };
+
+    renderer.render(snippet).to_string()
 }
