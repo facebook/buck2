@@ -113,8 +113,6 @@ pub struct DaemonState {
     #[allocative(skip)]
     fb: fbinit::FacebookInit,
 
-    pub paths: InvocationPaths,
-
     /// This holds the main data shared across different commands.
     pub(crate) data: Arc<DaemonStateData>,
 
@@ -122,10 +120,15 @@ pub struct DaemonState {
     working_directory: WorkingDirectory,
 }
 
-/// DaemonStateData is the main shared data across all commands. It's lazily initialized on
-/// the first command that requires it.
+/// State scoped to one repository.
+///
+/// Everything here belongs to one repo, so none of it can be shared between repos. A daemon
+/// serving N repos holds N of these.
 #[derive(Allocative)]
-pub struct DaemonStateData {
+pub struct RepoState {
+    /// Where this repo lives on disk.
+    pub paths: InvocationPaths,
+
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
     ///
@@ -138,25 +141,12 @@ pub struct DaemonStateData {
     /// Settled every time we run a command.
     pub io: Arc<dyn IoProvider>,
 
-    /// The RE connection, managed such that all build commands that are concurrently active uses
-    /// the same connection. Once there are no active build commands, the connection will be
-    /// terminated
-    pub re_client_manager: Arc<ReConnectionManager>,
-
-    /// Executor responsible for coordinating and rate limiting I/O.
-    pub blocking_executor: Arc<dyn BlockingExecutor>,
-
     /// Most materializations go through the materializer, providing a single point
     /// where the most expensive network and fs IO operations are performed. It
     /// needs access to the `ReConnectionManager` to download from RE. It must
     /// live for the entire lifetime of the daemon, in order to allow deferred
     /// materializations to work properly between distinct build commands.
     pub(crate) materializer: Arc<dyn Materializer>,
-
-    pub(crate) forkserver: ForkserverAccess,
-
-    #[allocative(skip)]
-    pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
 
     /// Whether to consult the offline-cache buck-out dir for network action
     /// outputs prior to running them. If no cached output exists, the action
@@ -171,22 +161,67 @@ pub struct DaemonStateData {
     /// What buck2 state to store on disk, ex. materializer state on sqlite
     pub disk_state_options: DiskStateOptions,
 
-    pub start_time: Instant,
-
     #[allocative(skip)]
     pub create_unhashed_outputs_lock: Arc<Mutex<()>>,
 
     /// A unique identifier for the materializer state.
     pub materializer_state_identity: Option<SqliteIdentity>,
 
+    /// Tracks data about previous command (e.g. configs)
+    pub previous_command_data: Arc<LockedPreviousCommandData>,
+
+    /// State of the Incremental Action DB for content-based hash paths
+    #[allocative(skip)]
+    pub incremental_db_state: Arc<IncrementalDbState>,
+
+    pub buckconfig_metadata: StdBuckHashMap<String, String>,
+
+    /// Tags to be logged per command.
+    pub tags: Vec<String>,
+
+    /// Config used to display system warnings
+    pub system_warning_config: SystemWarningConfig,
+
+    /// Whether to verify on each command that the Eden daemon backing this repo's `io` has not
+    /// restarted underneath us. A restart invalidates cached state and file handles, so affected
+    /// commands fail fast instead of hanging (`buck2.detect_eden_restart`).
+    ///
+    /// Repo-scoped because the identity baseline it checks against is captured per `io`, from the
+    /// Eden socket named by this repo's checkout. Repos on one machine normally share an Eden
+    /// daemon, so the answer is usually the same for all of them, but nothing requires that.
+    pub detect_eden_restart: bool,
+
+    /// Whether a finishing command schedules a background sweep of the local-action
+    /// scratch dirs (`buck-out/<iso>/tmp*`) once the daemon is idle
+    /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
+    pub(crate) clean_scratch_on_idle: bool,
+}
+
+/// DaemonStateData is the main shared data across all commands and repos. It's lazily initialized
+/// on the first command that requires it.
+#[derive(Allocative)]
+pub struct DaemonStateData {
+    /// State for the repo this daemon serves.
+    pub repo: Arc<RepoState>,
+
+    /// The RE connection, managed such that all build commands that are concurrently active uses
+    /// the same connection. Once there are no active build commands, the connection will be
+    /// terminated
+    pub re_client_manager: Arc<ReConnectionManager>,
+
+    /// Executor responsible for coordinating and rate limiting I/O.
+    pub blocking_executor: Arc<dyn BlockingExecutor>,
+
+    pub(crate) forkserver: ForkserverAccess,
+
+    #[allocative(skip)]
+    pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
+
+    pub start_time: Instant,
+
     /// Whether to enable the restarter. This controls whether the client will attempt to restart
     /// the daemon when we hit an error.
     pub enable_restarter: bool,
-
-    /// Whether to verify on each command that the Eden daemon has not restarted underneath this
-    /// daemon. A restart invalidates cached state and file handles, so affected commands fail
-    /// fast instead of hanging.
-    pub detect_eden_restart: bool,
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: HttpClient,
@@ -197,22 +232,9 @@ pub struct DaemonStateData {
     /// Spawner
     pub spawner: Arc<BuckSpawner>,
 
-    /// Tags to be logged per command.
-    pub tags: Vec<String>,
-
-    /// Config used to display system warnings
-    pub system_warning_config: SystemWarningConfig,
-
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
     pub memory_tracker: Option<MemoryTrackerHandle>,
-
-    /// Tracks data about previous command (e.g. configs)
-    pub previous_command_data: Arc<LockedPreviousCommandData>,
-
-    /// State of the Incremental Action DB for content-based hash paths
-    #[allocative(skip)]
-    pub incremental_db_state: Arc<IncrementalDbState>,
 
     /// A unique identifier for this instance of the daemon
     pub daemon_id: DaemonId,
@@ -225,8 +247,6 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
-    pub buckconfig_metadata: StdBuckHashMap<String, String>,
-
     /// Idle page-out config: the resource-pressure thresholds, `Some` iff
     /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
     /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
@@ -235,16 +255,11 @@ pub struct DaemonStateData {
 
     /// Running more than one automatic idle page-out during this daemon's lifetime.
     pub(crate) allow_multiple_idle_page_outs: bool,
-
-    /// Whether a finishing command schedules a background sweep of the local-action
-    /// scratch dirs (`buck-out/<iso>/tmp*`) once the daemon is idle
-    /// (`buck2.clean_scratch_on_idle`).
-    pub(crate) clean_scratch_on_idle: bool,
 }
 
 impl DaemonStateData {
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
-        crate::daemon::dice_dump::dice_dump(self.dice_manager.unsafe_dice(), path, format)
+        crate::daemon::dice_dump::dice_dump(self.repo.dice_manager.unsafe_dice(), path, format)
     }
 
     pub async fn spawn_dice_dump(
@@ -252,8 +267,12 @@ impl DaemonStateData {
         path: &Path,
         format: DiceDumpFormat,
     ) -> buck2_error::Result<()> {
-        crate::daemon::dice_dump::dice_dump_spawn(self.dice_manager.unsafe_dice(), path, format)
-            .await
+        crate::daemon::dice_dump::dice_dump_spawn(
+            self.repo.dice_manager.unsafe_dice(),
+            path,
+            format,
+        )
+        .await
     }
 }
 
@@ -276,7 +295,7 @@ impl DaemonState {
     ) -> Result<Self, buck2_error::Error> {
         let data = Self::init_data(
             fb,
-            paths.clone(),
+            paths,
             init_ctx,
             rt,
             materializations,
@@ -295,7 +314,6 @@ impl DaemonState {
 
         let state = DaemonState {
             fb,
-            paths,
             data,
             working_directory,
         };
@@ -781,34 +799,46 @@ impl DaemonState {
             // about (potentially kicking off an initial crawl).
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
-            Ok(Arc::new(DaemonStateData {
+            let repo = Arc::new(RepoState {
+                paths,
                 dice_manager: ConcurrencyHandler::new(dice),
                 file_watcher,
                 io,
-                re_client_manager,
-                blocking_executor,
                 materializer,
-                forkserver,
-                scribe_sink,
                 use_network_action_output_cache,
                 disk_state_options,
-                start_time: std::time::Instant::now(),
                 create_unhashed_outputs_lock,
                 materializer_state_identity,
-                enable_restarter,
+                previous_command_data: LockedPreviousCommandData::new(),
+                incremental_db_state,
+                buckconfig_metadata: parse_buckconfig_metadata(root_config),
+                tags,
+                system_warning_config,
                 detect_eden_restart,
+                clean_scratch_on_idle: root_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "clean_scratch_on_idle",
+                    })?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll(),
+            });
+
+            Ok(Arc::new(DaemonStateData {
+                repo,
+                re_client_manager,
+                blocking_executor,
+                forkserver,
+                scribe_sink,
+                start_time: std::time::Instant::now(),
+                enable_restarter,
                 http_client,
                 paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
-                tags,
-                system_warning_config,
                 memory_tracker,
-                previous_command_data: LockedPreviousCommandData::new(),
-                incremental_db_state,
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                buckconfig_metadata: parse_buckconfig_metadata(root_config),
                 // `Some` (with thresholds) iff idle page-out is enabled; `None`
                 // otherwise. Defaults live in `HydrationConfig::from_config`, not here.
                 page_out_on_idle: init_ctx
@@ -824,13 +854,6 @@ impl DaemonState {
                     .hydration
                     .as_ref()
                     .is_some_and(|h| h.allow_multiple_idle_page_outs),
-                clean_scratch_on_idle: root_config
-                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "clean_scratch_on_idle",
-                    })?
-                    .unwrap_or_else(RolloutPercentage::never)
-                    .roll(),
             }))
         };
         let daemon_listener_span = tracing::Span::current();
@@ -928,7 +951,7 @@ impl DaemonState {
             .buck_error_context("Error validating buck-out mount")?;
 
         dispatcher.instant_event(buck2_data::TagEvent {
-            tags: data.tags.clone(),
+            tags: data.repo.tags.clone(),
         });
 
         // Sync any FS changes and invalidate DICE state if necessary.  Get the Eden
@@ -936,15 +959,15 @@ impl DaemonState {
         // Eden daemon restarted underneath us (which leaves cached state and file handles
         // stale and would otherwise surface as a silent hang).
         let verify_eden_identity = async {
-            if data.detect_eden_restart {
-                data.io.verify_eden_identity().await
+            if data.repo.detect_eden_restart {
+                data.repo.io.verify_eden_identity().await
             } else {
                 Ok(())
             }
         };
         let (_, eden_version, ()) = futures::future::try_join3(
-            data.io.settle(),
-            data.io.eden_version(),
+            data.repo.io.settle(),
+            data.repo.io.eden_version(),
             verify_eden_identity,
         )
         .await?;
@@ -953,7 +976,7 @@ impl DaemonState {
 
         Ok(BaseServerCommandContext {
             _fb: self.fb,
-            project_root: self.paths.project_root().clone(),
+            project_root: self.data.repo.paths.project_root().clone(),
             events: dispatcher,
             daemon: data.dupe(), // FIXME: Remove the duplicative fields.
             _drop_guard: drop_guard,
@@ -997,7 +1020,7 @@ impl DaemonState {
             use buck2_fs::error::IoResultExt;
             use buck2_fs::fs_util;
 
-            let project_root = self.paths.project_root().root();
+            let project_root = self.data.repo.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {
                 return Ok(());
             }

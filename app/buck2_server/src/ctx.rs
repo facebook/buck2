@@ -328,7 +328,7 @@ impl<'a> ServerCommandContext<'a> {
         }));
 
         // Add argfiles read by client into IO tracing state.
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.daemon.io) {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.daemon.repo.io) {
             for p in client_context
                 .argfiles
                 .iter()
@@ -428,6 +428,7 @@ impl<'a> ServerCommandContext<'a> {
             use_network_action_output_cache: self
                 .base_context
                 .daemon
+                .repo
                 .use_network_action_output_cache,
             eager_dep_files,
             default_allow_cache_upload: false,
@@ -556,8 +557,8 @@ impl<'a> ServerCommandContext<'a> {
         // already mid-build, so the sweep only starts when no command is active.
         // Reuses the page-out trigger classification: the same command kinds that
         // may have populated DICE are the ones that may have created scratch.
-        if triggers_idle_page_out && self.base_context.daemon.clean_scratch_on_idle {
-            let materializer = self.base_context.daemon.materializer.dupe();
+        if triggers_idle_page_out && self.base_context.daemon.repo.clean_scratch_on_idle {
+            let materializer = self.base_context.daemon.repo.materializer.dupe();
             let dispatcher = self.base_context.events.dupe();
             tokio::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -636,7 +637,9 @@ impl ServerCommandContext<'_> {
         &self,
         paths: &BuckMutSet<ConfigPath>,
     ) -> buck2_error::Result<()> {
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
+        if let Some(tracing_provider) =
+            TracingIoProvider::from_io(&*self.base_context.daemon.repo.io)
+        {
             for config_path in paths {
                 match config_path {
                     ConfigPath::Global(p) => {
@@ -770,6 +773,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .cmd_ctx
             .base_context
             .daemon
+            .repo
             .file_watcher
             .sync(ctx)
             .await?;
@@ -956,6 +960,7 @@ impl DiceCommandUpdater<'_, '_> {
             .cmd_ctx
             .base_context
             .daemon
+            .repo
             .dice_manager
             .unsafe_dice()
             .dupe();
@@ -1000,7 +1005,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.re_connection.dupe(),
             host_sharing_broker,
             low_pass_filter,
-            self.cmd_ctx.base_context.daemon.materializer.dupe(),
+            self.cmd_ctx.base_context.daemon.repo.materializer.dupe(),
             self.cmd_ctx.base_context.daemon.blocking_executor.dupe(),
             self.execution_strategy,
             executor_global_knobs,
@@ -1008,21 +1013,32 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.forkserver.dupe(),
             self.skip_cache_read,
             self.skip_cache_write,
-            self.cmd_ctx.base_context.daemon.io.project_root().dupe(),
+            self.cmd_ctx
+                .base_context
+                .daemon
+                .repo
+                .io
+                .project_root()
+                .dupe(),
             worker_pool,
             self.cmd_ctx.base_context.daemon.paranoid.dupe(),
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
-            self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
+            self.cmd_ctx
+                .base_context
+                .daemon
+                .repo
+                .incremental_db_state
+                .dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
             output_trees_download_config.dupe(),
             self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
-        data.set_materializer(self.cmd_ctx.base_context.daemon.materializer.dupe());
+        data.set_materializer(self.cmd_ctx.base_context.daemon.repo.materializer.dupe());
         data.init_materialization_queue_tracker();
         data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);
@@ -1030,6 +1046,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx
                 .base_context
                 .daemon
+                .repo
                 .create_unhashed_outputs_lock
                 .dupe(),
         );
@@ -1223,7 +1240,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     fn materializer(&self) -> Arc<dyn Materializer> {
-        self.base_context.daemon.materializer.dupe()
+        self.base_context.daemon.repo.materializer.dupe()
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
@@ -1240,7 +1257,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         };
 
         Ok(DiceAccessor {
-            dice_handler: self.base_context.daemon.dice_manager.dupe(),
+            dice_handler: self.base_context.daemon.repo.dice_manager.dupe(),
             setup: Box::new(self.dice_updater(build_signals_installer).await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
@@ -1255,7 +1272,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     fn previous_command_data(&self) -> Arc<LockedPreviousCommandData> {
-        self.base_context.daemon.previous_command_data.clone()
+        self.base_context.daemon.repo.previous_command_data.clone()
     }
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>> {
@@ -1278,7 +1295,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             metadata: self.request_metadata().await?,
             data: Some(data),
             cli_args: self.sanitized_argv.clone(),
-            tags: self.base_context.daemon.tags.clone(),
+            tags: self.base_context.daemon.repo.tags.clone(),
         })
     }
 
@@ -1294,17 +1311,17 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         #[cfg(not(fbcode_build))]
         let mut metadata = metadata::collect_with_extras(
             &self.base_context.daemon.daemon_id,
-            &self.base_context.daemon.buckconfig_metadata,
+            &self.base_context.daemon.repo.buckconfig_metadata,
         );
 
         metadata.insert(
             "io_provider".to_owned(),
-            self.base_context.daemon.io.name().to_owned(),
+            self.base_context.daemon.repo.io.name().to_owned(),
         );
 
         metadata.insert(
             "materializer".to_owned(),
-            self.base_context.daemon.materializer.name().to_owned(),
+            self.base_context.daemon.repo.materializer.name().to_owned(),
         );
 
         if let Some(originating_cgroup) = &self.base_context.daemon.daemon_originating_cgroup {

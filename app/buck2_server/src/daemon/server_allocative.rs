@@ -114,7 +114,11 @@ pub(crate) async fn spawn_allocative(
     path: AbsPathBuf,
     dispatcher: EventDispatcher,
 ) -> buck2_error::Result<()> {
-    let materializer = buckd_server_data.daemon_state_data().materializer.clone();
+    let materializer = buckd_server_data
+        .daemon_state_data()
+        .repo
+        .materializer
+        .clone();
     let deferred_materializer_profile = match materializer.as_deferred_materializer_extension() {
         Some(deferred_materializer) => {
             dispatcher.console_message("Visiting deferred materializer...".to_owned());

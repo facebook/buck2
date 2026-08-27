@@ -28,7 +28,7 @@ pub(crate) async fn trace_io_command(
         .command_start_event(buck2_data::TraceIoCommandStart {}.into())
         .await?;
     span_async(start_event, async move {
-        let tracing_provider = TracingIoProvider::from_io(&*context.base_context.daemon.io);
+        let tracing_provider = TracingIoProvider::from_io(&*context.base_context.daemon.repo.io);
         let respond_with_trace = matches!(
             req.read_state,
             Some(trace_io_request::ReadIoTracingState { with_trace: true })

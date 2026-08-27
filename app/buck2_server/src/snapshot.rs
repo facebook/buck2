@@ -320,13 +320,13 @@ impl SnapshotCollector {
     }
 
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let metrics = self.daemon.dice_manager.unsafe_dice().metrics();
+        let metrics = self.daemon.repo.dice_manager.unsafe_dice().metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        self.daemon.materializer.add_snapshot_stats(snapshot);
+        self.daemon.repo.materializer.add_snapshot_stats(snapshot);
     }
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

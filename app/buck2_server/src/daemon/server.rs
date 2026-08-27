@@ -337,18 +337,28 @@ impl BuckdServer {
             )
             .await?,
         );
-        let dice = daemon_state.data().dice_manager.unsafe_dice().dupe();
+        let dice = daemon_state.data().repo.dice_manager.unsafe_dice().dupe();
 
         #[cfg(fbcode_build)]
         {
-            let root_path =
-                std::path::PathBuf::from(&daemon_state.paths.project_root().root().as_os_str());
+            let root_path = std::path::PathBuf::from(
+                &daemon_state
+                    .data
+                    .repo
+                    .paths
+                    .project_root()
+                    .root()
+                    .as_os_str(),
+            );
             if !buck2_env!("BUCK2_DISABLE_EDEN_HEALTH_CHECK", bool)?
                 && detect_eden::is_eden(root_path).unwrap_or(false)
             {
                 tracing::trace!("EdenFS root detected; starting health check job");
-                eden_health::edenfs_health_check(fb, daemon_state.paths.roots.project_root.dupe())
-                    .await;
+                eden_health::edenfs_health_check(
+                    fb,
+                    daemon_state.data.repo.paths.roots.project_root.dupe(),
+                )
+                .await;
             }
         }
 
@@ -529,13 +539,13 @@ impl BuckdServer {
         // Captured here alongside `SystemInfo` and handed to this command's
         // `PagingManager`, which pairs it with the command-end snapshot's used-disk
         // reading to gate idle page-out without a second disk stat.
-        let total_disk_space_bytes = disk_space_stats(daemon_state.paths.buck_out_path())
+        let total_disk_space_bytes = disk_space_stats(daemon_state.data.repo.paths.buck_out_path())
             .ok()
             .map(|DiskSpaceStats { total_space, .. }| total_space);
 
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
-        let system_warning_config = &data.system_warning_config;
+        let system_warning_config = &data.repo.system_warning_config;
         dispatch.instant_event(buck2_data::SystemInfo {
             system_total_memory_bytes: Some(system_memory_stats()),
             memory_pressure_threshold_percent: system_warning_config
@@ -599,13 +609,13 @@ impl BuckdServer {
         // as a baseline.
         let snapshot_collector = SnapshotCollector::new(
             data.dupe(),
-            daemon_state.paths.buck_out_path(),
+            daemon_state.data.repo.paths.buck_out_path(),
             self.0.rt.clone(),
         );
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
         let cert_state = self.0.cert_state.dupe();
 
-        let repo_root = daemon_state.paths.project_root().root().to_buf();
+        let repo_root = daemon_state.data.repo.paths.project_root().root().to_buf();
         // Spawn an async task to collect expensive info
         // We start collecting immediately, and emit the event as soon as it is ready
         let version_control_revision_collector =
@@ -641,7 +651,7 @@ impl BuckdServer {
                             client_ctx,
                             profiling_manager,
                             req.build_options(),
-                            &daemon_state.paths,
+                            &daemon_state.data.repo.paths,
                             cert_state.dupe(),
                             snapshot_collector,
                             cancellations,
@@ -1051,7 +1061,7 @@ impl DaemonApi for BuckdServer {
                 Some(
                     snapshot::SnapshotCollector::new(
                         daemon_state.data(),
-                        daemon_state.paths.buck_out_path(),
+                        daemon_state.data.repo.paths.buck_out_path(),
                         rt.clone(),
                     )
                     .create_snapshot()
@@ -1062,9 +1072,11 @@ impl DaemonApi for BuckdServer {
             };
 
             let extra_constraints = buck2_cli_proto::ExtraDaemonConstraints {
-                trace_io_enabled: TracingIoProvider::from_io(&*daemon_state.data().io).is_some(),
+                trace_io_enabled: TracingIoProvider::from_io(&*daemon_state.data().repo.io)
+                    .is_some(),
                 materializer_state_identity: daemon_state
                     .data()
+                    .repo
                     .materializer_state_identity
                     .as_ref()
                     .map(|i| i.to_string()),
@@ -1076,7 +1088,7 @@ impl DaemonApi for BuckdServer {
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
             let valid_buck_out_mount = daemon_state.validate_buck_out_mount().is_ok();
 
-            let io_provider = daemon_state.data().io.name().to_owned();
+            let io_provider = daemon_state.data().repo.io.name().to_owned();
 
             let uptime = Instant::now() - self.0.start_instant;
 
@@ -1088,8 +1100,8 @@ impl DaemonApi for BuckdServer {
                 uptime: Some(uptime.try_into()?),
                 snapshot,
                 daemon_constraints: Some(daemon_constraints),
-                project_root: daemon_state.paths.project_root().to_string(),
-                isolation_dir: daemon_state.paths.isolation.to_string(),
+                project_root: daemon_state.data.repo.paths.project_root().to_string(),
+                isolation_dir: daemon_state.data.repo.paths.isolation.to_string(),
                 forkserver_pid: match &daemon_state.data.forkserver {
                     #[cfg(unix)]
                     ForkserverAccess::Client(f) => Some(f.pid()),
@@ -1594,7 +1606,7 @@ impl DaemonApi for BuckdServer {
         self.run_streaming(
             req,
             ProfileCommandOptions {
-                project_root: self.0.daemon_state.paths.project_root().dupe(),
+                project_root: self.0.daemon_state.data.repo.paths.project_root().dupe(),
             },
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {

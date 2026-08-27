@@ -48,6 +48,7 @@ async fn materialize(
     }
     server_ctx
         .daemon
+        .repo
         .materializer
         .ensure_materialized(project_paths, MaterializationPurpose::IntermediateOnly)
         .await
