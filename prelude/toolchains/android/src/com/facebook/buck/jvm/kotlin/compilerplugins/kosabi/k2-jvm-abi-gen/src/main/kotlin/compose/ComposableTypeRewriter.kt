@@ -253,16 +253,19 @@ internal class ComposableTypeRewriter(private val pluginContext: IrPluginContext
       val newArity = userParamCount + 1 + changedCount
 
       // Build new type arguments: [P1, ..., Pn, Composer, Int, ..., R]
+      // Recurse: a composable lambda nested inside another composable lambda's arguments is
+      // itself a composable function type and must be rewritten too. rewriteTypeIfComposable
+      // returns early on the composable branch, so this is the only place that reaches them.
       val newTypeArgs = mutableListOf<IrType>()
       for (arg in paramTypeArgs) {
-        newTypeArgs.add(extractTypeFromArgument(arg))
+        newTypeArgs.add(rewriteTypeIfComposable(extractTypeFromArgument(arg)))
       }
       // Add Composer? type argument.
       newTypeArgs.add(composerIrType)
       // Add Int type arguments for $changed params.
       repeat(changedCount) { newTypeArgs.add(pluginContext.irBuiltIns.intType) }
       // Add return type.
-      newTypeArgs.add(extractTypeFromArgument(returnTypeArg))
+      newTypeArgs.add(rewriteTypeIfComposable(extractTypeFromArgument(returnTypeArg)))
 
       // irBuiltIns.functionN/kFunctionN cannot fail, unlike referenceClass, whose `?: return type`
       // silently left the type un-rewritten when the synthetic class was not in the symbol table.
