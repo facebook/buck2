@@ -34,13 +34,20 @@ def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
 
     all_outputs = _build_release(ctx, apps)
     release_dir = _symlink_primary_toolchain_output(ctx, all_outputs)
-    return [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]
+    providers = [DefaultInfo(default_output = release_dir), ErlangReleaseInfo(name = _relname(ctx))]
+
+    if ctx.attrs.is_executable:
+        launcher = release_dir.project(_launcher_path(ctx))
+        providers.append(RunInfo(cmd_args(launcher)))
+
+    return providers
 
 def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, Artifact]:
     toolchain = get_toolchain(ctx)
 
     # Validate include_erts configuration
     _validate_include_erts(ctx, toolchain)
+    _validate_is_executable(ctx)
 
     # OTP base structure
     lib_dir = build_lib_dir(ctx, apps)
@@ -70,6 +77,13 @@ def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, 
         maybe_erts,
     ]:
         all_outputs.update(outputs)
+
+    # bin/<release_name> for runnable releases, last because it reads what the release contains
+    launcher = _build_launcher(ctx, toolchain, all_outputs)
+    for link_path in launcher:
+        if link_path in all_outputs:
+            fail("the launcher of %s is installed at %s, which the release already contains" % (str(ctx.label), link_path))
+    all_outputs.update(launcher)
 
     return all_outputs
 
@@ -294,6 +308,80 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
     )
     return {short_path: release_variables}
 
+def _build_launcher(ctx: AnalysisContext, toolchain: Toolchain, release_files: dict[str, Artifact]) -> dict[str, Artifact]:
+    """Generate bin/<release_name>, a launcher booting the release with the bundled emulator.
+
+    Everything the emulator is told is resolved here rather than at runtime: the erts version, so
+    the launcher addresses `erts-<version>` directly, and the boot script, `vm.args` and
+    `sys.config`, so the launcher does not depend on what it was invoked as. Every path is relative
+    to ROOTDIR, so the release stays relocatable. The tool name is still taken from the launcher's
+    own basename, so one release can serve several tools that differ only in the arguments they get.
+    """
+    if not ctx.attrs.is_executable:
+        return {}
+
+    boot_script = paths.join("releases", ctx.attrs.version, ctx.attrs.default_bootscript_name)
+    vm_args = boot_script + ".vm.args"
+    sys_config = paths.join("releases", ctx.attrs.version, "sys")
+
+    if boot_script + ".boot" not in release_files:
+        fail("%s boots with `%s.boot`, which the release does not contain" % (str(ctx.label), boot_script))
+
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        # macOS has no `readlink -f`, so the symlink chain is followed one hop at a time
+        'SELF="${BASH_SOURCE[0]}"',
+        "HOPS=0",
+        "while :; do",
+        '    ROOTDIR="$(cd -P "$(dirname "$SELF")/.." && pwd)"',
+        '    if [ -e "$ROOTDIR/{}.boot" ]; then'.format(boot_script),
+        "        break",
+        "    fi",
+        '    if [ ! -L "$SELF" ]; then',
+        '        echo "$0: cannot find the release root above $SELF" >&2',
+        "        exit 1",
+        "    fi",
+        "    HOPS=$((HOPS + 1))",
+        "    if [ $HOPS -gt 40 ]; then",
+        '        echo "$0: too many symlink hops resolving release root" >&2',
+        "        exit 1",
+        "    fi",
+        '    SELFDIR="$(cd -P "$(dirname "$SELF")" && pwd)"',
+        '    SELF="$(readlink "$SELF")"',
+        '    case "$SELF" in',
+        "        /*) ;;",
+        '        *) SELF="$SELFDIR/$SELF" ;;',
+        "    esac",
+        "done",
+        'BINDIR="$ROOTDIR/erts-{}/bin"'.format(toolchain.erts_toolchain_info.erts_version),
+        'TOOL="$(basename "$0")"',
+        "export ROOTDIR BINDIR",
+        'exec "$BINDIR/erlexec" \\',
+        '    -boot "$ROOTDIR/{}" \\'.format(boot_script),
+    ]
+    if vm_args in release_files:
+        lines.append('    -args_file "$ROOTDIR/{}" \\'.format(vm_args))
+    if sys_config + ".config" in release_files:
+        # `-config` names the file without its extension, the form OTP's own start scripts use
+        lines.append('    -config "$ROOTDIR/{}" \\'.format(sys_config))
+    lines += [
+        '    -extra "$TOOL" ${1+"$@"}',
+        "",
+    ]
+
+    launcher = ctx.actions.write(
+        paths.join(erlang_build.utils.BUILD_DIR, "launcher", _relname(ctx)),
+        lines,
+        is_executable = True,
+        has_content_based_path = False,
+    )
+
+    return {_launcher_path(ctx): launcher}
+
+def _launcher_path(ctx: AnalysisContext) -> str:
+    return paths.join("bin", _relname(ctx))
+
 def _build_erts(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     if not ctx.attrs.include_erts:
         return {}
@@ -371,6 +459,11 @@ def _dependencies_with_start_types(ctx: AnalysisContext) -> dict[str, StartType]
 def _app_name(app: Dependency) -> str:
     """Helper to unwrap the name for an erlang application dependency"""
     return app[ErlangAppInfo].name
+
+def _validate_is_executable(ctx: AnalysisContext) -> None:
+    """Validate that a runnable release ships the emulator its launcher runs"""
+    if ctx.attrs.is_executable and not ctx.attrs.include_erts:
+        fail("is_executable = True requires include_erts = True, the launcher runs the emulator from the release's own erts folder: %s" % (str(ctx.label),))
 
 def _validate_include_erts(ctx: AnalysisContext, toolchain: Toolchain) -> None:
     """Validate that include_erts is properly configured with required version information"""

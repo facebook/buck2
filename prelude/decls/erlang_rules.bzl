@@ -367,6 +367,15 @@ rules_attributes = {
                 followed by the values of `extra_bootscript_builder_args`, if any.
                 """,
         ),
+        "default_bootscript_name": attrs.string(
+            default = "start",
+            doc = """
+                The boot script a runnable release boots, named without its `.boot` extension and looked up in
+                `releases/<version>/`. The default is `start`, the release's default boot script, produced by
+                `generate_default_bootscript`. When the release also contains
+                `releases/<version>/<default_bootscript_name>.vm.args`, the launcher passes it as `-args_file`.
+            """,
+        ),
         "extra_bootscript_builder_args": attrs.list(
             attrs.arg(),
             default = [],
@@ -388,6 +397,16 @@ rules_attributes = {
             doc = """
                 This field controls whether OTP applications and the Erlang runtime system should be included as part of the release.
                 Please note, that at the moment the erts folder is just `erts/`.
+            """,
+        ),
+        "is_executable": attrs.bool(
+            default = False,
+            doc = """
+                This field controls whether the release is runnable. If set, a launcher is generated at
+                `bin/<release_name>` that boots the release with the bundled emulator, which is why it
+                requires `include_erts = True`. The boot script it uses is `default_bootscript_name`.
+
+                When the release contains `releases/<version>/sys.config`, the launcher passes it as `-config`.
             """,
         ),
         "overlays": attrs.dict(
