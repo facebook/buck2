@@ -22,6 +22,7 @@ use once_cell::sync::OnceCell;
 
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::arc_erase::WeakEraseDyn;
 use crate::hashers::TypeIdDashMap;
 use crate::hashers::TypeIdHasher;
@@ -355,7 +356,12 @@ pub trait PagableStorage: Send + Sync + 'static {
 
                     let mut serializer = SerializerForPaging::new(storage_context);
                     let (data, arcs) = match arc.serialize(&mut serializer) {
-                        Ok(_) => serializer.finish(),
+                        Ok(ArcSerializeOutcome::Serialized) => serializer.finish(),
+                        Ok(ArcSerializeOutcome::ReuseDataKey(key)) => {
+                            self.associate_arc_with_data_key(&*arc, key);
+                            slot.set_success(key);
+                            continue;
+                        }
                         Err(e) => {
                             slot.set_failed();
                             return Err(PageOutError::Failed(e));
@@ -467,6 +473,8 @@ impl ArcSerSlot {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::sync::atomic::AtomicBool;
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
 
@@ -481,6 +489,8 @@ mod tests {
     use crate::PagableTagged;
     use crate::PartialPagableArc;
     use crate::arc_erase::ArcErase;
+    use crate::arc_erase::ArcEraseType;
+    use crate::arc_erase::StdArcEraseType;
     use crate::storage::handle::PagableStorageHandle;
     use crate::storage::in_memory::InMemoryPagableStorage;
     use crate::storage::support::SerializerForPaging;
@@ -518,6 +528,95 @@ mod tests {
         ) -> crate::Result<Self> {
             RESIDENT_ARC_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
             Ok(Self(u8::pagable_deserialize(deserializer)?))
+        }
+    }
+
+    #[derive(Clone)]
+    struct PausedDataKeyLookupArc {
+        inner: Arc<PausedDataKeyLookupArcInner>,
+    }
+
+    struct PausedDataKeyLookupArcInner {
+        arc: PartialPagableArc<ResidentArcValue>,
+        pause_next_lookup: AtomicBool,
+        lookup_started: Barrier,
+        release_lookup: Barrier,
+    }
+
+    impl PausedDataKeyLookupArc {
+        fn new(value: ResidentArcValue) -> Self {
+            Self {
+                inner: Arc::new(PausedDataKeyLookupArcInner {
+                    arc: PartialPagableArc::new(value),
+                    pause_next_lookup: AtomicBool::new(true),
+                    lookup_started: Barrier::new(2),
+                    release_lookup: Barrier::new(2),
+                }),
+            }
+        }
+
+        fn wait_for_paused_lookup(&self) {
+            self.inner.lookup_started.wait();
+        }
+
+        fn release_paused_lookup(&self) {
+            self.inner.release_lookup.wait();
+        }
+    }
+
+    impl PagableSerialize for PausedDataKeyLookupArc {
+        fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+            serializer.serialize_arc(self)
+        }
+    }
+
+    impl ArcErase for PausedDataKeyLookupArc {
+        type Weak = ();
+
+        fn dupe_strong(&self) -> Self {
+            self.clone()
+        }
+
+        fn downgrade(&self) -> Option<Self::Weak> {
+            None
+        }
+
+        fn erase_type() -> impl ArcEraseType {
+            StdArcEraseType::<Self>::new()
+        }
+
+        fn identity(&self) -> usize {
+            Arc::as_ptr(&self.inner) as usize
+        }
+
+        fn set_data_key(&self, key: DataKey) {
+            ArcErase::set_data_key(&self.inner.arc, key)
+        }
+
+        fn data_key(&self) -> Option<DataKey> {
+            let key = self.inner.arc.data_key();
+            if self.inner.pause_next_lookup.swap(false, Ordering::SeqCst) {
+                self.inner.lookup_started.wait();
+                self.inner.release_lookup.wait();
+            }
+            key
+        }
+
+        fn needs_paging_out(&self) -> bool {
+            self.inner.arc.data_key().is_none()
+        }
+
+        fn serialize_inner(
+            &self,
+            serializer: &mut dyn PagableSerializer,
+        ) -> crate::Result<ArcSerializeOutcome> {
+            ArcErase::serialize_inner(&self.inner.arc, serializer)
+        }
+
+        fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+            _deserializer: &mut D,
+        ) -> crate::Result<Self> {
+            unreachable!("the race-only test Arc is never deserialized")
         }
     }
 
@@ -619,6 +718,25 @@ mod tests {
         }
         storage.flush()?;
         Ok(keys)
+    }
+
+    fn page_out_paused_lookup_arc(
+        storage: &CountingStorage,
+        arc: &PausedDataKeyLookupArc,
+    ) -> anyhow::Result<DataKey> {
+        let storage_context = storage.storage_context();
+        let mut serializer = SerializerForPaging::new(storage_context);
+        1u8.pagable_serialize(&mut serializer)?;
+        arc.pagable_serialize(&mut serializer)?;
+        let (data, arcs) = serializer.finish();
+        storage
+            .page_out_item(data, arcs, &ArcSerCache::new(), storage_context)
+            .map_err(|error| match error {
+                PageOutError::Failed(error) => error,
+                PageOutError::AlreadyFailed => {
+                    anyhow::anyhow!("a separate serialization cache cannot already be failed")
+                }
+            })
     }
 
     fn check_concrete_and_dyn_arc_views(dyn_first: bool) -> anyhow::Result<()> {
@@ -791,6 +909,33 @@ mod tests {
             "expected at most {} store_data calls, got {}",
             num_items + 1,
             total,
+        );
+        Ok(())
+    }
+
+    /// A page-out that observed no key must reuse one recorded by a concurrent
+    /// page-out before serialization begins.
+    #[test]
+    fn page_out_reuses_data_key_recorded_during_serialization() -> anyhow::Result<()> {
+        let mem = InMemoryPagableStorage::new();
+        let storage = Arc::new(CountingStorage::new(mem.handle()));
+        let arc = PausedDataKeyLookupArc::new(ResidentArcValue(42));
+
+        let racing_storage = storage.dupe();
+        let racing_arc = arc.clone();
+        let racing_page_out =
+            std::thread::spawn(move || page_out_paused_lookup_arc(&racing_storage, &racing_arc));
+
+        arc.wait_for_paused_lookup();
+        let winning_page_out = page_out_paused_lookup_arc(&storage, &arc);
+        arc.release_paused_lookup();
+
+        let racing_page_out = racing_page_out
+            .join()
+            .map_err(|_| anyhow::anyhow!("racing page-out thread panicked"))?;
+        assert_eq!(
+            winning_page_out?, racing_page_out?,
+            "both page-outs should reuse the same stored Arc representation",
         );
         Ok(())
     }

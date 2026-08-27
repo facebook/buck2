@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::any::type_name;
 use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -23,6 +22,7 @@ use crate::PagableSerialize;
 use crate::PagableSerializer;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseType;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::arc_erase::StdArcEraseType;
 use crate::arc_erase::WeakErase;
 use crate::storage::data::DataKey;
@@ -188,14 +188,15 @@ where
         self.data_key().is_none()
     }
 
-    fn serialize_inner(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+    fn serialize_inner(
+        &self,
+        serializer: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
         if let Some(key) = self.data_key() {
-            return Err(anyhow::anyhow!(
-                "attempted to serialize the inner value of PartialPagableArc<{}> after it was associated with {key:?}; reuse the existing DataKey because the inner value may be only partially deserialized",
-                type_name::<T>(),
-            ));
+            return Ok(ArcSerializeOutcome::ReuseDataKey(key));
         }
-        self.inner.value.pagable_serialize(serializer)
+        self.inner.value.pagable_serialize(serializer)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

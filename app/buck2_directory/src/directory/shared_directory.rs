@@ -26,6 +26,7 @@ use pagable::PagableSerialize;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::WeakErase;
 use pagable::arc_erase::deserialize_arc;
@@ -154,8 +155,12 @@ where
         weak.inner.upgrade().map(|inner| SharedDirectory { inner })
     }
 
-    fn serialize_inner(&self, ser: &mut dyn pagable::PagableSerializer) -> pagable::Result<()> {
-        self.inner.data.pagable_serialize(ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn pagable::PagableSerializer,
+    ) -> pagable::Result<ArcSerializeOutcome> {
+        self.inner.data.pagable_serialize(ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(

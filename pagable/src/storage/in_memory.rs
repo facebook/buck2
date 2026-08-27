@@ -18,6 +18,7 @@ use dashmap::DashMap;
 use dupe::Dupe;
 
 use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
@@ -176,7 +177,13 @@ impl InMemoryPagableStorage {
                             }
 
                             let mut serializer = SerializerForPaging::new(self.storage_context());
-                            v.serialize(&mut serializer).unwrap();
+                            if let ArcSerializeOutcome::ReuseDataKey(key) =
+                                v.serialize(&mut serializer).unwrap()
+                            {
+                                self.handle.associate_arc_with_data_key(&*v, key);
+                                finished.insert(v.identity(), key);
+                                continue;
+                            }
                             let (data, arcs) = serializer.finish();
 
                             let mut subtasks = vec![];

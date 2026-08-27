@@ -37,6 +37,7 @@ use pagable::PagableSerializer;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::WeakErase;
 use pagable::arc_erase::deserialize_arc;
@@ -562,11 +563,15 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> ArcEras
         })
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> pagable::Result<ArcSerializeOutcome> {
         let state = StarlarkSerializerImpl::get_or_create_state(ser);
         let mut ctx = StarlarkSerializerImpl::recover_from_pagable(ser, state, self.scope);
         <T as StarlarkSerialize>::starlark_serialize(&self.inner, &mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

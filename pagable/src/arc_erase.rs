@@ -32,6 +32,15 @@ use crate::PagableSerialize;
 use crate::PagableSerializer;
 use crate::storage::data::DataKey;
 
+/// Outcome of preparing an Arc payload for page-out.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ArcSerializeOutcome {
+    /// The payload was written to the supplied serializer.
+    Serialized,
+    /// The Arc already has a canonical stored representation that must be reused.
+    ReuseDataKey(DataKey),
+}
+
 /// Object-safe trait for type-erased Arc handling.
 ///
 /// This trait enables dynamic dispatch over different Arc types (e.g., `Arc<String>`,
@@ -72,7 +81,7 @@ pub trait ArcEraseDyn: std::any::Any + Send + Sync + 'static {
     /// Serializes this arc using the paging serializer.
     ///
     /// This is used during recursive serialization to convert arcs to their serialized form.
-    fn serialize(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()>;
+    fn serialize(&self, ser: &mut dyn PagableSerializer) -> crate::Result<ArcSerializeOutcome>;
 }
 static_assertions::assert_obj_safe!(ArcEraseDyn);
 
@@ -139,7 +148,7 @@ impl<T: ArcErase> ArcEraseDyn for T {
         ArcErase::needs_paging_out(self)
     }
 
-    fn serialize(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
+    fn serialize(&self, ser: &mut dyn PagableSerializer) -> crate::Result<ArcSerializeOutcome> {
         ArcErase::serialize_inner(self, ser)
     }
 }
@@ -229,7 +238,10 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
         false
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()>;
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome>;
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
         deser: &mut D,
@@ -278,8 +290,12 @@ impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send +
         Some(Arc::downgrade(self))
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        T::pagable_serialize_arc_payload(self.dupe(), ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
+        T::pagable_serialize_arc_payload(self.dupe(), ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
@@ -309,8 +325,12 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        T::pagable_serialize(self, ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
+        T::pagable_serialize(self, ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
@@ -338,8 +358,12 @@ impl ArcErase for triomphe::Arc<str> {
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        <str as PagableSerialize>::pagable_serialize(self, ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
+        <str as PagableSerialize>::pagable_serialize(self, ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
@@ -370,8 +394,12 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        <[T] as PagableSerialize>::pagable_serialize(self, ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
+        <[T] as PagableSerialize>::pagable_serialize(self, ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
@@ -404,10 +432,13 @@ impl<
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
         self.header.header.pagable_serialize(ser)?;
         self.slice.pagable_serialize(ser)?;
-        Ok(())
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

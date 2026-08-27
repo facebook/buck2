@@ -47,6 +47,7 @@ use serde::Serialize;
 use crate::PagableDeserializerRecipe;
 use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::flavors::PagableSlice;
 use crate::flavors::PagableVecFlavor;
 use crate::flavors::SharedPosition;
@@ -116,7 +117,16 @@ impl PagableSerializer for TestingSerializer {
             .insert((arc.as_arc_any().type_id(), identity))
         {
             // First time seeing this arc, serialize its contents
-            arc.serialize(self)?;
+            match arc.serialize(self)? {
+                ArcSerializeOutcome::Serialized => {}
+                ArcSerializeOutcome::ReuseDataKey(key) => {
+                    // This format stores Arc payloads inline and has no way to
+                    // encode a reference to an external storage key.
+                    return Err(anyhow::anyhow!(
+                        "TestingSerializer cannot reuse stored Arc representation {key:?}"
+                    ));
+                }
+            }
         }
         self.arc_count += 1;
         // If already seen, nothing more to write - identity is enough

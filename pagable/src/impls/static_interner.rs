@@ -26,6 +26,7 @@ use crate::PagableSerialize;
 use crate::PagableSerializer;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseType;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::arc_erase::StdArcEraseType;
 use crate::arc_erase::deserialize_arc;
 
@@ -63,8 +64,12 @@ impl<
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        T::pagable_serialize(self, ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> crate::Result<ArcSerializeOutcome> {
+        T::pagable_serialize(self, ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

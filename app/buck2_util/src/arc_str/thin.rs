@@ -23,6 +23,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
 use serde::Deserialize;
@@ -85,8 +86,12 @@ impl ArcErase for ThinArcStr {
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        Ok(Serialize::serialize(&self, ser.serde())?)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> pagable::Result<ArcSerializeOutcome> {
+        Serialize::serialize(&self, ser.serde())?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

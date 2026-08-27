@@ -132,6 +132,7 @@ use crate::PagableSerializer;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
+use crate::arc_erase::ArcSerializeOutcome;
 use crate::arc_erase::StdArcEraseType;
 use crate::arc_erase::deserialize_arc;
 use crate::storage::data::DataKey;
@@ -985,11 +986,15 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
         self.get_data_key().is_none()
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> anyhow::Result<()> {
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> anyhow::Result<ArcSerializeOutcome> {
         #[cfg(any(feature = "tokio", test))]
         {
             let strong = self.pin_sync()?;
-            <T as PagableSerialize>::pagable_serialize(&strong, ser)
+            <T as PagableSerialize>::pagable_serialize(&strong, ser)?;
+            Ok(ArcSerializeOutcome::Serialized)
         }
         #[cfg(not(any(feature = "tokio", test)))]
         {
@@ -1046,8 +1051,12 @@ impl<T: Pagable> ArcErase for PinnedPagableArc<T> {
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> anyhow::Result<()> {
-        <T as PagableSerialize>::pagable_serialize(self, ser)
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> anyhow::Result<ArcSerializeOutcome> {
+        <T as PagableSerialize>::pagable_serialize(self, ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(

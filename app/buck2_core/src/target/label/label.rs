@@ -34,6 +34,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::ArcSerializeOutcome;
 use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
 use serde::Serialize;
@@ -499,9 +500,13 @@ impl ArcErase for TargetLabel {
         None
     }
 
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
+    fn serialize_inner(
+        &self,
+        ser: &mut dyn PagableSerializer,
+    ) -> pagable::Result<ArcSerializeOutcome> {
         self.pkg().pagable_serialize(ser)?;
-        self.name().as_str().pagable_serialize(ser)
+        self.name().as_str().pagable_serialize(ser)?;
+        Ok(ArcSerializeOutcome::Serialized)
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
