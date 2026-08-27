@@ -202,7 +202,7 @@ pub struct RepoState {
 #[derive(Allocative)]
 pub struct DaemonStateData {
     /// State for the repo this daemon serves.
-    pub repo: Arc<RepoState>,
+    repo: Arc<RepoState>,
 
     /// The RE connection, managed such that all build commands that are concurrently active uses
     /// the same connection. Once there are no active build commands, the connection will be
@@ -258,6 +258,16 @@ pub struct DaemonStateData {
 }
 
 impl DaemonStateData {
+    /// The repo this daemon serves, on the assumption that there is exactly one.
+    ///
+    /// Command-scoped code should not call this — it should read `BaseServerCommandContext::repo`,
+    /// which is resolved once per command. Every remaining caller is daemon-scoped and will need a
+    /// way to say *which* repo before the daemon can serve more than one, so this is deliberately
+    /// easy to find.
+    pub fn sole_repo(&self) -> &Arc<RepoState> {
+        &self.repo
+    }
+
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump(self.repo.dice_manager.unsafe_dice(), path, format)
     }
@@ -978,6 +988,7 @@ impl DaemonState {
             _fb: self.fb,
             project_root: self.data.repo.paths.project_root().clone(),
             events: dispatcher,
+            repo: data.repo.dupe(),
             daemon: data.dupe(), // FIXME: Remove the duplicative fields.
             _drop_guard: drop_guard,
             spawner: data.spawner.dupe(),

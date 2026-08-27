@@ -77,7 +77,11 @@ impl PagingManager {
         total_disk_space_bytes: Option<u64>,
     ) -> PagingManager {
         let page_in_baseline = page_in_proto_map(&daemon);
-        let data_key_io_baseline = daemon.repo.dice_manager.unsafe_dice().storage_io_metrics();
+        let data_key_io_baseline = daemon
+            .sole_repo()
+            .dice_manager
+            .unsafe_dice()
+            .storage_io_metrics();
         PagingManager {
             daemon,
             total_disk_space_bytes,
@@ -91,7 +95,7 @@ impl PagingManager {
         counts: &PagableNodeCounts,
         page_out_started: buck2_data::PageOutStarted,
     ) -> buck2_data::PagingSummary {
-        let dice = self.daemon.repo.dice_manager.unsafe_dice();
+        let dice = self.daemon.sole_repo().dice_manager.unsafe_dice();
         // The delta is this command's work, matching the `page_in_*` fields beside
         // it; the cumulative totals are a daemon-wide gauge.
         let cumulative = dice.storage_io_metrics();
@@ -132,7 +136,7 @@ impl PagingManager {
         // candidates gate both need it.
         let counts = self
             .daemon
-            .repo
+            .sole_repo()
             .dice_manager
             .unsafe_dice()
             .pagable_node_counts()
@@ -145,7 +149,7 @@ impl PagingManager {
             spawn_page_out_on_idle(
                 self.daemon.page_out_on_idle,
                 self.daemon.allow_multiple_idle_page_outs,
-                self.daemon.repo.dice_manager.dupe(),
+                self.daemon.sole_repo().dice_manager.dupe(),
                 dispatcher.dupe(),
                 free_disk_bytes,
                 counts.candidates,
@@ -183,7 +187,7 @@ fn page_in_proto_map(
     daemon: &DaemonStateData,
 ) -> IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats> {
     daemon
-        .repo
+        .sole_repo()
         .dice_manager
         .unsafe_dice()
         .page_in_metrics()

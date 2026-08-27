@@ -44,13 +44,7 @@ pub(crate) async fn hydration_command(
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::HydrationRequest,
 ) -> buck2_error::Result<buck2_cli_proto::HydrationResponse> {
-    let dice = ctx
-        .base_context
-        .daemon
-        .repo
-        .dice_manager
-        .unsafe_dice()
-        .dupe();
+    let dice = ctx.base_context.repo.dice_manager.unsafe_dice().dupe();
     let subcommand = HydrationSubcommand::try_from(req.subcommand)?;
     run_server_command(
         HydrationServerCommand {

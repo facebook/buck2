@@ -116,7 +116,7 @@ pub(crate) async fn spawn_allocative(
 ) -> buck2_error::Result<()> {
     let materializer = buckd_server_data
         .daemon_state_data()
-        .repo
+        .sole_repo()
         .materializer
         .clone();
     let deferred_materializer_profile = match materializer.as_deferred_materializer_extension() {
