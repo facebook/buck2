@@ -130,7 +130,7 @@ linkme = { version = "0.3.37", features = ["used_linker"] }
 log = { version = "0.4.33", features = ["kv_unstable", "kv_unstable_std"] }
 logos = "0.16.1"
 lru = { version = "0.18.2", default-features = false }
-lsp-server = "0.8.0"
+lsp-server = "0.9.0"
 lsp-types = "0.97"
 maplit = "1.0"
 md-5 = "0.10"

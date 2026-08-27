@@ -40,6 +40,7 @@ use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
+use lsp_server::ResponseKind;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
 use lsp_types::CompletionOptions;
@@ -1400,17 +1401,19 @@ where
     match params {
         Ok(params) => Response {
             id,
-            result: Some(serde_json::to_value(params).unwrap()),
-            error: None,
+            response_kind: ResponseKind::Ok {
+                result: serde_json::to_value(params).unwrap(),
+            },
         },
         Err(e) => Response {
             id,
-            result: None,
-            error: Some(ResponseError {
-                code: 0,
-                message: e.format(),
-                data: None,
-            }),
+            response_kind: ResponseKind::Err {
+                error: ResponseError {
+                    code: 0,
+                    message: e.format(),
+                    data: None,
+                },
+            },
         },
     }
 }

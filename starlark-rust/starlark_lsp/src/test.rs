@@ -33,6 +33,7 @@ use lsp_server::Message;
 use lsp_server::RequestId;
 use lsp_server::Response;
 use lsp_server::ResponseError;
+use lsp_server::ResponseKind;
 use lsp_types::ClientCapabilities;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidOpenTextDocumentParams;
@@ -106,8 +107,6 @@ pub(crate) enum TestServerError {
     /// The response came back, but was an error response, not a successful one.
     #[error("Response error: {0:?}")]
     ResponseError(ResponseError),
-    #[error("Invalid response message for request {0}: {1:?}")]
-    InvalidResponse(RequestId, Response),
     #[error("Client received a request (not response/notification) from the server: {0:?}")]
     ReceivedRequest(lsp_server::Request),
     #[error("Got a duplicate response for request ID {:?}: Existing: {:?}, New: {:?}", .new.id, .existing, .new)]
@@ -548,21 +547,16 @@ impl TestServer {
 
             match self.responses.get(&id) {
                 Some(Response {
-                    error: None,
-                    result: Some(result),
+                    response_kind: ResponseKind::Ok { result },
                     ..
                 }) => {
                     break Ok(serde_json::from_value::<T>(result.clone())?);
                 }
                 Some(Response {
-                    error: Some(err),
-                    result: None,
+                    response_kind: ResponseKind::Err { error },
                     ..
                 }) => {
-                    break Err(TestServerError::ResponseError(err.clone()).into());
-                }
-                Some(msg) => {
-                    break Err(TestServerError::InvalidResponse(id, msg.clone()).into());
+                    break Err(TestServerError::ResponseError(error.clone()).into());
                 }
                 None => {}
             }
