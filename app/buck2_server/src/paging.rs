@@ -57,14 +57,21 @@ use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
 
 use crate::active_commands::is_only_active_command;
-use crate::daemon::state::DaemonStateData;
+use crate::daemon::state::RepoState;
 use crate::jemalloc_stats::get_allocator_stats;
 
 /// Command-scoped collector for DICE paging telemetry. Captures a baseline of the
 /// cumulative page-in and DataKey I/O counters at construction (command start) and
 /// produces the per-command delta on demand (command end).
+///
+/// Daemon-wide page-out settings are copied into each instance so the manager does not need to
+/// retain `DaemonStateData`.
 pub(crate) struct PagingManager {
-    daemon: Arc<DaemonStateData>,
+    repo: Arc<RepoState>,
+    /// Resource-pressure thresholds for automatic idle page-out, `Some` iff enabled.
+    page_out_on_idle: Option<PageOutThresholds>,
+    /// Running more than one automatic idle page-out during this daemon's lifetime.
+    allow_multiple_idle_page_outs: bool,
     total_disk_space_bytes: Option<u64>,
     page_in_baseline: IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
     /// `None` when pagable storage is not configured.
@@ -73,17 +80,17 @@ pub(crate) struct PagingManager {
 
 impl PagingManager {
     pub(crate) fn new(
-        daemon: Arc<DaemonStateData>,
+        repo: Arc<RepoState>,
+        page_out_on_idle: Option<PageOutThresholds>,
+        allow_multiple_idle_page_outs: bool,
         total_disk_space_bytes: Option<u64>,
     ) -> PagingManager {
-        let page_in_baseline = page_in_proto_map(&daemon);
-        let data_key_io_baseline = daemon
-            .sole_repo()
-            .dice_manager
-            .unsafe_dice()
-            .storage_io_metrics();
+        let page_in_baseline = page_in_proto_map(&repo);
+        let data_key_io_baseline = repo.dice_manager.unsafe_dice().storage_io_metrics();
         PagingManager {
-            daemon,
+            repo,
+            page_out_on_idle,
+            allow_multiple_idle_page_outs,
             total_disk_space_bytes,
             page_in_baseline,
             data_key_io_baseline,
@@ -95,7 +102,7 @@ impl PagingManager {
         counts: &PagableNodeCounts,
         page_out_started: buck2_data::PageOutStarted,
     ) -> buck2_data::PagingSummary {
-        let dice = self.daemon.sole_repo().dice_manager.unsafe_dice();
+        let dice = self.repo.dice_manager.unsafe_dice();
         // The delta is this command's work, matching the `page_in_*` fields beside
         // it; the cumulative totals are a daemon-wide gauge.
         let cumulative = dice.storage_io_metrics();
@@ -104,7 +111,7 @@ impl PagingManager {
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
                 &self.page_in_baseline,
-                &page_in_proto_map(&self.daemon),
+                &page_in_proto_map(&self.repo),
             ),
             paging_db_size_bytes: measured_db_size_bytes(dice.paging_db_size_bytes()),
             resident_node_count: Some(counts.resident as u64),
@@ -135,8 +142,7 @@ impl PagingManager {
         // Read the node tally once and share it: the paging telemetry and the page-out
         // candidates gate both need it.
         let counts = self
-            .daemon
-            .sole_repo()
+            .repo
             .dice_manager
             .unsafe_dice()
             .pagable_node_counts()
@@ -147,9 +153,9 @@ impl PagingManager {
         );
         let page_out_started = if triggers_idle_page_out {
             spawn_page_out_on_idle(
-                self.daemon.page_out_on_idle,
-                self.daemon.allow_multiple_idle_page_outs,
-                self.daemon.sole_repo().dice_manager.dupe(),
+                self.page_out_on_idle,
+                self.allow_multiple_idle_page_outs,
+                self.repo.dice_manager.dupe(),
                 dispatcher.dupe(),
                 free_disk_bytes,
                 counts.candidates,
@@ -184,11 +190,9 @@ fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Opt
 
 /// Cumulative per-key-type page-in counters, as proto stats.
 fn page_in_proto_map(
-    daemon: &DaemonStateData,
+    repo: &RepoState,
 ) -> IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats> {
-    daemon
-        .sole_repo()
-        .dice_manager
+    repo.dice_manager
         .unsafe_dice()
         .page_in_metrics()
         .iter()

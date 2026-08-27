@@ -354,7 +354,12 @@ impl<'a> ServerCommandContext<'a> {
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
-        let paging_manager = PagingManager::new(base_context.daemon.dupe(), total_disk_space_bytes);
+        let paging_manager = PagingManager::new(
+            base_context.repo.dupe(),
+            base_context.daemon.page_out_on_idle,
+            base_context.daemon.allow_multiple_idle_page_outs,
+            total_disk_space_bytes,
+        );
 
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
