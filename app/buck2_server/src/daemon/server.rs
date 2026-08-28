@@ -545,19 +545,19 @@ impl BuckdServer {
         }
 
         let data = daemon_state.data();
+        let repo = data.sole_repo();
 
         // The total disk space on `buck-out`, effectively fixed for the daemon's life.
         // Captured here alongside `SystemInfo` and handed to this command's
         // `PagingManager`, which pairs it with the command-end snapshot's used-disk
         // reading to gate idle page-out without a second disk stat.
-        let total_disk_space_bytes =
-            disk_space_stats(daemon_state.data.sole_repo().paths.buck_out_path())
-                .ok()
-                .map(|DiskSpaceStats { total_space, .. }| total_space);
+        let total_disk_space_bytes = disk_space_stats(repo.paths.buck_out_path())
+            .ok()
+            .map(|DiskSpaceStats { total_space, .. }| total_space);
 
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
-        let system_warning_config = &data.sole_repo().system_warning_config;
+        let system_warning_config = &repo.system_warning_config;
         dispatch.instant_event(buck2_data::SystemInfo {
             system_total_memory_bytes: Some(system_memory_stats()),
             memory_pressure_threshold_percent: system_warning_config
@@ -619,21 +619,12 @@ impl BuckdServer {
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
         // as a baseline.
-        let snapshot_collector = SnapshotCollector::new(
-            data.dupe(),
-            daemon_state.data.sole_repo().paths.buck_out_path(),
-            self.0.rt.clone(),
-        );
+        let snapshot_collector =
+            SnapshotCollector::new(data.dupe(), repo.paths.buck_out_path(), self.0.rt.clone());
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
         let cert_state = self.0.cert_state.dupe();
 
-        let repo_root = daemon_state
-            .data
-            .sole_repo()
-            .paths
-            .project_root()
-            .root()
-            .to_buf();
+        let repo_root = repo.paths.project_root().root().to_buf();
         // Spawn an async task to collect expensive info
         // We start collecting immediately, and emit the event as soon as it is ready
         let version_control_revision_collector =
