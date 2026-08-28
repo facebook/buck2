@@ -669,7 +669,6 @@ impl BuckdServer {
                             client_ctx,
                             profiling_manager,
                             req.build_options(),
-                            &daemon_state.data.sole_repo().paths,
                             cert_state.dupe(),
                             snapshot_collector,
                             cancellations,

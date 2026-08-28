@@ -49,7 +49,6 @@ use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::file_ops::io::initialize_read_dir_cache;
 use buck2_common::http::SetHttpClient;
-use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
@@ -275,7 +274,6 @@ impl<'a> ServerCommandContext<'a> {
         client_context: &ClientContext,
         starlark_profiling_manager: StarlarkProfilingManager,
         build_options: Option<&CommonBuildOptions>,
-        paths: &InvocationPaths,
         cert_state: CertState,
         snapshot_collector: SnapshotCollector,
         cancellations: &'a CancellationContext,
@@ -363,6 +361,10 @@ impl<'a> ServerCommandContext<'a> {
 
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
+        // Read before `base_context` moves into the struct literal below.
+        let buck_out_dir = base_context.repo.paths.buck_out_dir();
+        let isolation_prefix = base_context.repo.paths.isolation.clone();
+
         Ok(ServerCommandContext {
             base_context,
             working_dir: working_dir_project_relative,
@@ -377,8 +379,8 @@ impl<'a> ServerCommandContext<'a> {
             _re_connection_handle: re_connection_handle,
             cert_state,
             starlark_profiling_manager,
-            buck_out_dir: paths.buck_out_dir(),
-            isolation_prefix: paths.isolation.clone(),
+            buck_out_dir,
+            isolation_prefix,
             build_options: build_options.cloned(),
             record_target_call_stacks: client_context.target_call_stacks,
             skip_targets_with_duplicate_names: client_context.skip_targets_with_duplicate_names,
