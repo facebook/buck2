@@ -14,7 +14,7 @@ load(
     "get_shared_library_name_for_param",
 )
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
-load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup", "ScriptLanguage")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "MetadataKind", "ProfileMode")
@@ -97,7 +97,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 
     srcs = symlinked_srcs(ctx)
 
-    linker_with_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
+    linker_with_pre_args = _linker(ctx, toolchain_info, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = toolchain_info.clippy_wrapper or _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
@@ -170,10 +170,18 @@ def _validate_nightly_features(toolchain_info: RustToolchainInfo):
                 )
             )
 
-def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False) -> cmd_args:
+def make_linker_wrapper(
+    actions: AnalysisActions,
+    name: str,
+    language: ScriptLanguage,
+    linker_info: LinkerInfo,
+    rust_linker_flags: list[typing.Any],
+    binary: bool,
+    extra_linker_flags: list[typing.Any] = [],
+) -> cmd_args:
     return cmd_script(
-        actions = ctx.actions,
-        name = "linker_wrapper",
+        actions = actions,
+        name = name,
         cmd = cmd_args(
             linker_info.linker,
             linker_info.linker_flags or [],
@@ -182,11 +190,29 @@ def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False)
             # the Rust toolchain have it's own `binary_linker_flags` instead of
             # implicitly using the one from the C++ toolchain.
             linker_info.binary_linker_flags if binary else [],
-            ctx.attrs._rust_toolchain[RustToolchainInfo].linker_flags,
-            ctx.attrs.linker_flags,
+            rust_linker_flags,
+            extra_linker_flags,
         ),
-        language = ctx.attrs._exec_os_type[OsLookup].script,
+        language = language,
         has_content_based_path = True,
+    )
+
+def _linker(ctx: AnalysisContext, toolchain_info: RustToolchainInfo, linker_info: LinkerInfo, binary: bool = False) -> cmd_args:
+    # Targets with their own `linker_flags` need those flags inside the
+    # wrapper (they must precede the args rustc passes), so only flag-less
+    # targets can use the toolchain-provided wrapper.
+    if not ctx.attrs.linker_flags:
+        wrapper = toolchain_info.binary_linker_wrapper if binary else toolchain_info.linker_wrapper
+        if wrapper != None:
+            return wrapper
+    return make_linker_wrapper(
+        actions = ctx.actions,
+        name = "linker_wrapper",
+        language = ctx.attrs._exec_os_type[OsLookup].script,
+        linker_info = linker_info,
+        rust_linker_flags = toolchain_info.linker_flags,
+        binary = binary,
+        extra_linker_flags = ctx.attrs.linker_flags,
     )
 
 # Construct an empty sysroot dir with the similar structure as the real one
