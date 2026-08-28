@@ -9,9 +9,9 @@
 -module(list_test).
 -compile(warn_missing_spec_all).
 
--include_lib("common/include/tpx_records.hrl").
-
 -export([list_tests/2]).
+
+-include_lib("common/include/tpx_records.hrl").
 
 -import(common_util, [unicode_characters_to_binary/1]).
 

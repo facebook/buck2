@@ -38,6 +38,10 @@
 %% please dialyzer
 -export([ok_group/1, fail_group/1]).
 
+-export_type([
+    shared_state/0
+]).
+
 -import(common_util, [unicode_characters_to_list/1]).
 
 %% For tests purposes
@@ -51,10 +55,6 @@
 %% -----------------------------------------------------------------------------
 %%            Types
 %% -----------------------------------------------------------------------------
-
--export_type([
-    shared_state/0
-]).
 
 -type tree_node() :: cth_tpx_test_tree:tree_node().
 -type group_path() :: cth_tpx_test_tree:group_path().

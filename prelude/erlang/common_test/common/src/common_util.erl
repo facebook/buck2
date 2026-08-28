@@ -7,6 +7,7 @@
 
 %% % @format
 -module(common_util).
+-compile(warn_missing_spec_all).
 
 -export([
     unicode_characters_to_list/1,
@@ -17,7 +18,6 @@
     get_env/1,
     set_env/2
 ]).
--compile(warn_missing_spec_all).
 
 -spec unicode_characters_to_list(unicode:chardata()) -> string().
 unicode_characters_to_list(CharData) ->

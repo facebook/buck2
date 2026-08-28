@@ -13,17 +13,17 @@ Used by TPX to upload diagnostic reports.
 """.
 -compile(warn_missing_spec_all).
 
+%% Public API
+-export([prepare/3, link_to_artifact_dir/3, find_log_private/1]).
+
+-export_type([dir_path/0]).
+
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -import(common_util, [unicode_characters_to_list/1]).
 
 -define(raw_file_access, prim_file).
-
-%% Public API
--export([prepare/3, link_to_artifact_dir/3, find_log_private/1]).
-
--export_type([dir_path/0]).
 
 -type dir_path() :: file:filename() | undefined.
 

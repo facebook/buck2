@@ -7,9 +7,6 @@
 -module(ct_daemon_capture_SUITE).
 -typing([eqwalizer]).
 
-% elp:ignore WA003 (better_assertions) - Open Source
--include_lib("stdlib/include/assert.hrl").
-
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
 -export([
     test_start_stop/1,
@@ -20,6 +17,9 @@
     test_io_request_forwarding/1,
     test_unknown_request/1
 ]).
+
+% elp:ignore WA003 (better_assertions) - Open Source
+-include_lib("stdlib/include/assert.hrl").
 
 all() ->
     [

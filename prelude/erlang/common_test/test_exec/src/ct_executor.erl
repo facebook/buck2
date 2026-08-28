@@ -7,16 +7,19 @@
 
 %% @format
 -module(ct_executor).
--compile(warn_missing_spec_all).
 -moduledoc """
 Simple trampoline for ct_run.
 Notably allows us to call post/pre method on the node if needed, e.g for coverage.
 """.
+-compile(warn_missing_spec_all).
+
+-export([run/1]).
+
+% For testing
+-export([preload_app_file_atoms/1, split_args/1]).
 
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
-
--export([run/1]).
 
 %% `ct_run_arg()` represents an option accepted by ct:run_test/1, such as
 %% `multiply_timetraps` or `ct_hooks`.
@@ -67,9 +70,6 @@ Notably allows us to call post/pre method on the node if needed, e.g for coverag
     | {suite, module()}
     | {providers, [{Name :: atom(), Args :: term()}]}
     | {common_app_env, #{binary() => binary()}}.
-
-% For testing
--export([preload_app_file_atoms/1, split_args/1]).
 
 -define(raw_file_access, prim_file).
 

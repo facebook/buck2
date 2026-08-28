@@ -9,7 +9,16 @@
 -module(cth_tpx_test_tree).
 -compile([warn_missing_spec_all]).
 
--include("method_ids.hrl").
+%% Public API
+-export([
+    qualified_name/2,
+
+    new_node/1,
+    new_leaf/1,
+
+    register_result/4,
+    collect_results/3
+]).
 
 -export_type([
     tree/0,
@@ -27,16 +36,7 @@
     method_id/0
 ]).
 
-%% Public API
--export([
-    qualified_name/2,
-
-    new_node/1,
-    new_leaf/1,
-
-    register_result/4,
-    collect_results/3
-]).
+-include("method_ids.hrl").
 
 -import(common_util, [unicode_characters_to_list/1]).
 

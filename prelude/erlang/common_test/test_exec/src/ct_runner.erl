@@ -16,9 +16,6 @@ communicates the result to the test runner.
 -behavior(gen_server).
 
 -export([start_link/1]).
--include_lib("common/include/buck_ct_records.hrl").
--include_lib("kernel/include/logger.hrl").
--define(raw_file_access, prim_file).
 
 -export([
     init/1,
@@ -36,6 +33,13 @@ communicates the result to the test runner.
     generate_arg_tuple/2,
     project_root/0
 ]).
+
+-export_type([port_settings/0]).
+
+-include_lib("common/include/buck_ct_records.hrl").
+-include_lib("kernel/include/logger.hrl").
+
+-define(raw_file_access, prim_file).
 
 -import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
 
@@ -61,8 +65,6 @@ communicates the result to the test runner.
     | {busy_limits_msgq, {non_neg_integer(), non_neg_integer()} | disabled}.
 
 -type port_settings() :: [opt()].
-
--export_type([port_settings/0]).
 
 -type initial_state() :: #{
     test_env := #test_env{}

@@ -10,10 +10,11 @@
 -compile(warn_missing_spec_all).
 
 -export([load_from_file/1, write_to_file/2, try_make_path_relative/1]).
+-export_type([test_info/0]).
+
 -include_lib("common/include/buck_ct_records.hrl").
 
 -type test_info() :: #test_info{}.
--export_type([test_info/0]).
 
 -import(common_util, [unicode_characters_to_list/1, unicode_characters_to_binary/1]).
 

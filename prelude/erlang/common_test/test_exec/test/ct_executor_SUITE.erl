@@ -7,15 +7,15 @@
 -module(ct_executor_SUITE).
 -typing([eqwalizer]).
 
-% elp:ignore WA003 (better_assertions) - Open Source
--include_lib("stdlib/include/assert.hrl").
-
 -export([all/0]).
 
 -export([
     test_preload_app_file_atoms/1,
     test_split_args/1
 ]).
+
+% elp:ignore WA003 (better_assertions) - Open Source
+-include_lib("stdlib/include/assert.hrl").
 
 all() ->
     [

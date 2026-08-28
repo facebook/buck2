@@ -18,6 +18,8 @@ to delimit the output of each test-case.
 -export([emit_progress/4]).
 -export([process_raw_stdout_log/3, collect_method_stdout/4]).
 -export([init_process_stdout_state/3, process_stdout_line/2]).
+-export_type([progress/0, callback/0, progress_line/0, offset/0, fingerprint/0, collected_stdout/0]).
+-export_type([process_stdout_state/0]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -26,9 +28,6 @@ to delimit the output of each test-case.
 %% ---------------------------------------------------------------------------
 %% Types
 %% ---------------------------------------------------------------------------
-
--export_type([progress/0, callback/0, progress_line/0, offset/0, fingerprint/0, collected_stdout/0]).
--export_type([process_stdout_state/0]).
 
 -type progress() :: started | finished.
 -type callback() :: init_per | end_per.

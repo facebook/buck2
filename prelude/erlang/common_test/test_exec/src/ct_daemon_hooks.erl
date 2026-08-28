@@ -7,7 +7,6 @@
 
 %% @format
 -module(ct_daemon_hooks).
--compile(warn_missing_spec_all).
 -moduledoc """
 Implementation of hooks functionality. We mimic the behaviour of
 common test hooks so that they can run in test shell
@@ -26,14 +25,14 @@ common test hooks so that they can run in test shell
     get_hooks/0
 ]).
 
--export_type([part/0]).
-
 %% gen_server callbacks
 -export([
     init/1,
     handle_call/3,
     handle_cast/2
 ]).
+
+-export_type([part/0]).
 
 -type id() :: term().
 -type opts() :: term().

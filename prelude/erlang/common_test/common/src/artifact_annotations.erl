@@ -7,7 +7,6 @@
 
 %% @format
 -module(artifact_annotations).
--compile(warn_missing_spec_all).
 -moduledoc """
 This file acts as a manual erlang sync for the thrift type struct
 TestResultArtifactAnnotations defined in  https://fburl.com/code/r2t4vclb
@@ -17,6 +16,14 @@ We mostly expect next iterations of thrift data structure to include
 more testArtifactTypes. Those should be manually added to the
 test_artifact_type() here.
 """.
+-compile(warn_missing_spec_all).
+
+%% Public API
+-export([serialize/1, create_artifact_annotation/2, default_annotation/1, test_metrics_artifact_annotation/2]).
+-export_type([
+    annotation_function/0,
+    test_result_artifact_annotations/0
+]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -36,13 +43,6 @@ test_artifact_type() here.
 }.
 
 -type annotation_function() :: fun((file:filename()) -> test_result_artifact_annotations()).
-
-%% Public API
--export([serialize/1, create_artifact_annotation/2, default_annotation/1, test_metrics_artifact_annotation/2]).
--export_type([
-    annotation_function/0,
-    test_result_artifact_annotations/0
-]).
 
 -spec serialize(test_result_artifact_annotations()) -> iodata().
 serialize(ArtifactAnnotation) -> json:encode(ArtifactAnnotation).

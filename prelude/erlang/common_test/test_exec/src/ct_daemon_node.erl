@@ -9,12 +9,14 @@
 -module(ct_daemon_node).
 -compile(warn_missing_spec_all).
 
--include_lib("kernel/include/logger.hrl").
-
 %% Public API
 -export([start/1, start/2, stop/0, alive/0, get_node/0]).
 
 -export([node_main/1, get_domain_type/0]).
+
+-export_type([config/0]).
+
+-include_lib("kernel/include/logger.hrl").
 
 -import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
 
@@ -31,8 +33,6 @@
     {multiply_timetraps, number() | infinity}
     | {ct_hooks, [atom() | {atom(), [term()]}]}
     | {output_dir, file:filename_all()}.
-
--export_type([config/0]).
 
 -doc """
 start node for running tests in isolated way and keep state

@@ -12,18 +12,6 @@ behavior module defining callbacks for buck2 test providers
 """.
 -compile(warn_missing_spec_all).
 
--include("buck_ct_records.hrl").
-
--type state() :: term().
-
--type return_type() :: {ok, state()} | {error, term()}.
-
--type buck_ct_provider() :: {atom(), state()}.
-
--type init_argument_type() :: any().
-
--include_lib("kernel/include/logger.hrl").
-
 -export([
     do_init/2,
     do_pre_listing/1,
@@ -35,6 +23,17 @@ behavior module defining callbacks for buck2 test providers
 -optional_callbacks([
     init/2, pre_listing/1, post_listing/1, pre_running/1, post_running/1, terminate/1
 ]).
+
+-include("buck_ct_records.hrl").
+-include_lib("kernel/include/logger.hrl").
+
+-type state() :: term().
+
+-type return_type() :: {ok, state()} | {error, term()}.
+
+-type buck_ct_provider() :: {atom(), state()}.
+
+-type init_argument_type() :: any().
 
 % ------------------- Behaviors Callbacks -------------------------
 

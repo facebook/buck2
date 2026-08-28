@@ -15,8 +15,6 @@ User-Facing library for quick-iteration testing of Common Test
 -typing([eqwalizer]).
 -compile(warn_missing_spec_all).
 
--include_lib("common/include/buck_ct_records.hrl").
-
 %% Public API
 -export([
     start/0,
@@ -39,6 +37,8 @@ User-Facing library for quick-iteration testing of Common Test
 -export([
     list_impl/1
 ]).
+
+-include_lib("common/include/buck_ct_records.hrl").
 
 -define(raw_file_access, prim_file).
 
