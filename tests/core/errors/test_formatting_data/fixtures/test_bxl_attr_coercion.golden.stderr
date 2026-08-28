@@ -6,7 +6,6 @@ error: Error loading targets in package `root//attr_coercion` for target `root//
    |
 10 |     ctx.unconfigured_targets("//attr_coercion:int_rule")
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
 Traceback (most recent call last):
   File <builtin>, in <module>
   * fail_attr_coercion.bxl:10, in _int_rule
@@ -23,7 +22,6 @@ Caused by:
        5 | |     x = "foobar",
        6 | | )
          | |_^
-         |
        Traceback (most recent call last):
          * attr_coercion/TARGETS.fixture:3, in <module>
              int_rule(

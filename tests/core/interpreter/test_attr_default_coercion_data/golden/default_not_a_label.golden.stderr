@@ -14,7 +14,6 @@ Caused by:
           |
        23 |         "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transition),
           |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-          |
        Traceback (most recent call last):
          * error_rule.bzl:23, in <module>
              "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transiti...

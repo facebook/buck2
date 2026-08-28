@@ -12,7 +12,6 @@ Caused by:
        |
     10 |     enforce_visibility_intersection()
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
     Traceback (most recent call last):
       * indirect_call/PACKAGE:7, in <module>
           setup_cap()

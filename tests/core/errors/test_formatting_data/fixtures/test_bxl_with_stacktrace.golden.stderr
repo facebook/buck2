@@ -10,6 +10,5 @@ error: fail: failing with stacktrace
    |
 18 |     fail("failing with stacktrace")
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
 
 BXL FAILED

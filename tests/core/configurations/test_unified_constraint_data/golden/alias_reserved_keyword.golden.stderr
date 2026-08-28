@@ -16,7 +16,6 @@
 [<TIMESTAMP>]           |
 [<TIMESTAMP>]       159 |             fail("alias '{}' is a reserved keyword and cannot be used as a constraint alias.".format(alias_name))
 [<TIMESTAMP>]           |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[<TIMESTAMP>]           |
 [<TIMESTAMP>]       
 Command failed: 
 Evaluation of at least one target provider failed

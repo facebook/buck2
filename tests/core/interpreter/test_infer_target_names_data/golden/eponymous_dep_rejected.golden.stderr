@@ -16,7 +16,6 @@ Caused by:
        5 | |     deps = ["//lib/greeting"],
        6 | | )
          | |_^
-         |
        Traceback (most recent call last):
          * TARGETS.fixture:3, in <module>
              consumer(

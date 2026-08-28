@@ -14,7 +14,6 @@ Caused by:
        12 | |     deps = ["root//some_other:t"],
        13 | | )
           | |_^
-          |
        Traceback (most recent call last):
          * within_view_preserve/child_bad/bad_dep/TARGETS.fixture:9, in <module>
              stub(

@@ -16,7 +16,6 @@ Caused by:
        30 | |     supports_incoming_transition = True,
        31 | | )
           | |_^
-          |
        Traceback (most recent call last):
          * defs.bzl:26, in <module>
              toolchain_with_incoming_transition = rule(

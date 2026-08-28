@@ -12,7 +12,6 @@ Caused by:
        5 | |     x = "foobar",
        6 | | )
          | |_^
-         |
        Traceback (most recent call last):
          * attr_coercion/TARGETS.fixture:3, in <module>
              int_rule(

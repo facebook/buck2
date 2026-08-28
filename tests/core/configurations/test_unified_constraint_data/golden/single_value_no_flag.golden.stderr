@@ -27,7 +27,6 @@
 [<TIMESTAMP>]       80 | |                 + "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
 [<TIMESTAMP>]       81 | |             )
 [<TIMESTAMP>]          | |_____________^
-[<TIMESTAMP>]          |
 [<TIMESTAMP>]       
 Command failed: 
 Evaluation of at least one target provider failed

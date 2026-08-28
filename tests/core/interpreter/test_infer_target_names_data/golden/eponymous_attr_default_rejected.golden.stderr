@@ -14,7 +14,6 @@ Caused by:
           |
        12 |         "dep": attrs.dep(default = "//lib/greeting"),
           |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-          |
        Traceback (most recent call last):
          * bzl_default/defs.bzl:12, in <module>
              "dep": attrs.dep(default = "//lib/greeting"),

@@ -86,7 +86,6 @@ Caused by:
        80 | |     data = select_incompatible("bad use") if read_root_config("user", "check_bad_coercion_incompatible") != None else "",
        81 | | )
           | |_^
-          |
        Traceback (most recent call last):
          * TARGETS.fixture:78, in <module>
              error_rule(

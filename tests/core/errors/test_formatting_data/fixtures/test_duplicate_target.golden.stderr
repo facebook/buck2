@@ -9,7 +9,6 @@ Caused by:
        |
     10 |     stub(name = name)
        |     ^^^^^^^^^^^^^^^^^
-       |
     Traceback (most recent call last):
       * duplicate_target/TARGETS.fixture:5, in <module>
           make_target("foo")

@@ -16,5 +16,4 @@ Caused by:
        |
     11 |     fail("Analysis failed: this is a test failure message")
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
     
