@@ -22,6 +22,8 @@ open class KFunStub(val name: String, val namedArgs: List<NamedArg>) {
   // Top level functions are always static
   var static: Boolean = false
   var private: Boolean = false
+  var protected: Boolean = false
+  var isOverride: Boolean = false
   var abstract: Boolean = false
   var isConstructor: Boolean = false
   var isOperator: Boolean = false

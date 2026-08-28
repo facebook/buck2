@@ -61,7 +61,12 @@ fun KStub.render(): String {
             }
             when (type) {
               KStub.Type.TOP_LEVEL_DECLARATION -> renderTopLevelDeclaration(this@render)
-              else -> addType(renderType(returnObjectTypeIfNeeded()))
+              else ->
+                  addType(
+                      renderType(
+                          if (doNotRenderAsKotlinObject) type else returnObjectTypeIfNeeded(),
+                      ),
+                  )
             }
           }
           .build()
@@ -115,7 +120,13 @@ private fun KStub.renderType(stubType: KStub.Type): TypeSpec {
           else superclass(it.asTypeName())
         }
         implements.map { it.asTypeName() }.forEach { addSuperinterface(it) }
-        propertyStubs.map { addProperty(it.render()) }
+        // A static property on a CLASS only becomes a static JVM field from inside the companion;
+        // rendered on the class body it is an instance field. Scoped to the opted-in shape so the
+        // OBJECT-coercion path below keeps emitting the layout every other stub already relies on.
+        val companionProperties =
+            if (stubType == CLASS && doNotRenderAsKotlinObject) propertyStubs.filter { it.static }
+            else emptyList()
+        propertyStubs.filterNot { it in companionProperties }.forEach { addProperty(it.render()) }
         innerStubs
             .map {
               it.renderType(
@@ -124,9 +135,12 @@ private fun KStub.renderType(stubType: KStub.Type): TypeSpec {
             }
             .forEach { addType(it) }
         val staticFunctions = funStubs.filter { it.static }
-        if (stubType == CLASS && staticFunctions.isNotEmpty()) {
+        if (
+            stubType == CLASS && (staticFunctions.isNotEmpty() || companionProperties.isNotEmpty())
+        ) {
           val companionObject = TypeSpec.companionObjectBuilder()
           staticFunctions.map { it.renderFunction() }.forEach { companionObject.addFunction(it) }
+          companionProperties.map { it.render() }.forEach { companionObject.addProperty(it) }
           addType(companionObject.build())
           funStubs.filterNot { it.static }.forEach { addFunction(it.renderFunction()) }
         } else {
@@ -165,6 +179,12 @@ private fun KFunStub.renderFunction(isOpen: Boolean = true): FunSpec {
         }
       } else {
         FunSpec.builder(name).apply {
+          if (protected) {
+            addModifiers(KModifier.PROTECTED)
+          }
+          if (isOverride) {
+            addModifiers(KModifier.OVERRIDE)
+          }
           // Operator function couldn't be open
           if (isOperator) {
             addModifiers(KModifier.OPERATOR)
@@ -172,7 +192,7 @@ private fun KFunStub.renderFunction(isOpen: Boolean = true): FunSpec {
             addModifiers(KModifier.ABSTRACT)
           } else if (isFinal) {
             addModifiers(KModifier.FINAL)
-          } else if (isOpen) {
+          } else if (isOpen && !isOverride) {
             addModifiers(KModifier.OPEN)
           }
 
