@@ -55,7 +55,7 @@ load(
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
-load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
+load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode", "compiler_info_with_argsfiles")
 load(":cxx_types.bzl", "CxxRuleConstructorParams")
 load(":debug.bzl", "SplitDebugMode")
 load(
@@ -1699,6 +1699,33 @@ def _add_compiler_info_flags(compiler_info: typing.Any) -> list:
     cmd.append(compiler_info.compiler_flags or [])
 
     return cmd
+
+def compiler_info_with_toolchain_argsfiles(actions: AnalysisActions, name: str, ctor: typing.Callable, compiler_info: typing.Any) -> typing.Any:
+    """
+    Given a compiler_info that can have a new version made with ctor, this
+    will generate new `argsfile`/`argsfile_xcode` containing the compiler_info's
+    preprocessor and compiler flags. Compile commands use these per-toolchain
+    files, so targets using the toolchain don't each write their own
+    `{ext}.toolchain_cxx_args` copy of the same flags.
+    """
+    if compiler_info == None:
+        return None
+    is_nasm = compiler_info.compiler_type == "nasm"
+    flags = _add_compiler_info_flags(compiler_info)
+    content_based = bool(compiler_info.supports_content_based_paths)
+    argsfile, _ = actions.write(
+        name + "_toolchain_args",
+        create_cmd_args(is_nasm, False, flags),
+        allow_args = True,
+        has_content_based_path = content_based,
+    )
+    argsfile_xcode, _ = actions.write(
+        name + "_toolchain_args_xcode",
+        create_cmd_args(is_nasm, True, flags),
+        allow_args = True,
+        has_content_based_path = content_based,
+    )
+    return compiler_info_with_argsfiles(compiler_info, ctor, argsfile, argsfile_xcode)
 
 def _add_compiler_type_flags(target_label: Label, compiler_type: str, ext: CxxExtension) -> list:
     cmd = []

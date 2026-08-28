@@ -173,6 +173,12 @@ ObjcCompilerInfo = provider(fields = _compiler_fields)
 ObjcxxCompilerInfo = provider(fields = _compiler_fields)
 RcCompilerInfo = provider(fields = _compiler_fields)
 
+def compiler_info_with_argsfiles(compiler_info: typing.Any, ctor: typing.Callable, argsfile: Artifact, argsfile_xcode: Artifact) -> typing.Any:
+    fields = {k: getattr(compiler_info, k) for k in _compiler_fields}
+    fields["argsfile"] = argsfile
+    fields["argsfile_xcode"] = argsfile_xcode
+    return ctor(**fields)
+
 DistLtoToolsInfo = provider(
     fields = dict(
         planner = dict[LinkerType, RunInfo],
