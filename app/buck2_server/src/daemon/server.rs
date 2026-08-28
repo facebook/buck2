@@ -1114,7 +1114,7 @@ impl DaemonApi for BuckdServer {
                     .paths
                     .project_root()
                     .to_string(),
-                isolation_dir: daemon_state.data.sole_repo().paths.isolation.to_string(),
+                isolation_dir: daemon_state.data.isolation.to_string(),
                 forkserver_pid: match &daemon_state.data.forkserver {
                     #[cfg(unix)]
                     ForkserverAccess::Client(f) => Some(f.pid()),

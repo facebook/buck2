@@ -363,7 +363,7 @@ impl<'a> ServerCommandContext<'a> {
 
         // Read before `base_context` moves into the struct literal below.
         let buck_out_dir = base_context.repo.paths.buck_out_dir();
-        let isolation_prefix = base_context.repo.paths.isolation.clone();
+        let isolation_prefix = base_context.daemon.isolation.clone();
 
         Ok(ServerCommandContext {
             base_context,

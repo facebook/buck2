@@ -71,6 +71,7 @@ use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
@@ -255,6 +256,10 @@ pub struct DaemonStateData {
 
     /// Running more than one automatic idle page-out during this daemon's lifetime.
     pub(crate) allow_multiple_idle_page_outs: bool,
+
+    /// The isolation value supplied when this daemon started. Every repo served by the daemon uses
+    /// it when constructing repo-specific paths.
+    pub(crate) isolation: FileNameBuf,
 }
 
 impl DaemonStateData {
@@ -809,6 +814,7 @@ impl DaemonState {
             // about (potentially kicking off an initial crawl).
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
+            let isolation = paths.isolation.clone();
             let repo = Arc::new(RepoState {
                 paths,
                 dice_manager: ConcurrencyHandler::new(dice),
@@ -864,6 +870,7 @@ impl DaemonState {
                     .hydration
                     .as_ref()
                     .is_some_and(|h| h.allow_multiple_idle_page_outs),
+                isolation,
             }))
         };
         let daemon_listener_span = tracing::Span::current();
