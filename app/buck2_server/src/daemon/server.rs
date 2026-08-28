@@ -344,35 +344,6 @@ impl BuckdServer {
             .unsafe_dice()
             .dupe();
 
-        #[cfg(fbcode_build)]
-        {
-            let root_path = std::path::PathBuf::from(
-                &daemon_state
-                    .data
-                    .sole_repo()
-                    .paths
-                    .project_root()
-                    .root()
-                    .as_os_str(),
-            );
-            if !buck2_env!("BUCK2_DISABLE_EDEN_HEALTH_CHECK", bool)?
-                && detect_eden::is_eden(root_path).unwrap_or(false)
-            {
-                tracing::trace!("EdenFS root detected; starting health check job");
-                eden_health::edenfs_health_check(
-                    fb,
-                    daemon_state
-                        .data
-                        .sole_repo()
-                        .paths
-                        .roots
-                        .project_root
-                        .dupe(),
-                )
-                .await;
-            }
-        }
-
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
             stop_accepting_requests: AtomicBool::new(false),
@@ -1914,7 +1885,7 @@ async fn certs_validation_background_job(cert_state: CertState) {
 }
 
 #[cfg(fbcode_build)]
-mod eden_health {
+pub(crate) mod eden_health {
     use std::time::Duration;
 
     use buck2_core::fs::project::ProjectRoot;

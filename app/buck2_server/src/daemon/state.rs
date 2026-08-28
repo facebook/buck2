@@ -840,6 +840,23 @@ impl DaemonState {
                     .roll(),
             });
 
+            // EdenFS mounts correspond to project roots, i.e. repos, so the check is per-repo.
+            #[cfg(fbcode_build)]
+            {
+                let root_path =
+                    std::path::PathBuf::from(repo.paths.project_root().root().as_os_str());
+                if !buck2_env!("BUCK2_DISABLE_EDEN_HEALTH_CHECK", bool)?
+                    && detect_eden::is_eden(root_path).unwrap_or(false)
+                {
+                    tracing::trace!("EdenFS root detected; starting health check job");
+                    crate::daemon::server::eden_health::edenfs_health_check(
+                        fb,
+                        repo.paths.roots.project_root.dupe(),
+                    )
+                    .await;
+                }
+            }
+
             Ok(Arc::new(DaemonStateData {
                 repo,
                 re_client_manager,
