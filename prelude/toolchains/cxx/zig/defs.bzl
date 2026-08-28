@@ -406,7 +406,6 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             is_pdb_generated = is_pdb_generated(_get_linker_type(dist.os), ctx.attrs.linker_flags),
         ),
         binary_utilities_info = BinaryUtilitiesInfo(
-            bolt_msdk = None,
             dwp = None,
             nm = RunInfo(args = ["nm"]),  # not included in the zig distribution.
             objcopy = RunInfo(args = ["objcopy"]),  # not included in the zig distribution.

@@ -205,7 +205,6 @@ def _cxx_toolchain_override(ctx):
         ranlib = _pick_bin(ctx.attrs.ranlib, base_binary_utilities_info.ranlib),
         strip = _pick_bin(ctx.attrs.strip, base_binary_utilities_info.strip),
         dwp = _pick_bin(ctx.attrs.dwp, base_binary_utilities_info.dwp),
-        bolt_msdk = base_binary_utilities_info.bolt_msdk,
     )
 
     base_strip_flags_info = base_toolchain.strip_flags_info

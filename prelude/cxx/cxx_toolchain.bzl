@@ -234,7 +234,6 @@ def cxx_toolchain_impl(ctx):
         ranlib = ctx.attrs.ranlib[RunInfo] if ctx.attrs.ranlib else None,
         strip = ctx.attrs.strip[RunInfo],
         dwp = ctx.attrs.dwp[RunInfo] if ctx.attrs.dwp else None,
-        bolt_msdk = None,
     )
 
     strip_flags_info = StripFlagsInfo(

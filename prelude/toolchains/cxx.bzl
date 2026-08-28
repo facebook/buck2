@@ -187,7 +187,6 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 ranlib = RunInfo(args = ["ranlib"]),
                 strip = RunInfo(args = ["strip"]),
                 dwp = None,
-                bolt_msdk = None,
             ),
             cxx_compiler_info = CxxCompilerInfo(
                 compiler = _run_info(cxx_tools_info.cxx_compiler),
