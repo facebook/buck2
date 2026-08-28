@@ -98,9 +98,6 @@ rust_toolchain_attrs = {
     "deny_on_check_lints": provider_field(list[typing.Any], default = []),
     # Clippy configuration file clippy.toml
     "clippy_toml": provider_field(Artifact | None, default = None),
-    # A clippy-driver wrapper script produced by the toolchain and shared by
-    # every target. When None, each target writes its own wrapper.
-    "clippy_wrapper": provider_field(cmd_args | None, default = None),
     # Setting this enables additional behaviors that improves linking at the
     # cost of using unstable implementation details of rustc. At the moment,
     # this is only used for linking rlibs into C++/C builds, instead of using
@@ -117,10 +114,6 @@ rust_toolchain_attrs = {
     "sysroot_path": provider_field(Artifact | None, default = None),
     # See the documentation on the type for details
     "explicit_sysroot_deps": provider_field(RustExplicitSysrootDeps | None, default = None),
-    # `--sysroot=` args pointing at an empty sysroot directory produced by the
-    # toolchain and shared by every target compiled with
-    # `explicit_sysroot_deps`. When None, each target creates its own.
-    "empty_sysroot_args": provider_field(cmd_args | None, default = None),
     # The panic runtime to use. This is a part of the target definition and is
     # normally inferred by rustc. This field:
     #
