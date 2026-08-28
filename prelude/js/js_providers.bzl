@@ -13,8 +13,11 @@ TransitiveOutputsTSet = transitive_set(args_projections = {"artifacts": _artifac
 
 JsLibraryInfo = provider(
     fields = {
-        "output": provider_field(typing.Any, default = None),  # "artifact"
-        "transitive_outputs": provider_field(typing.Any, default = None),  # "TransitiveOutputsTSet"
+        # Output of the `library_files` action: the library's own transformed
+        # files, before cross-library dependency resolution.
+        "library_files": provider_field(Artifact | None, default = None),
+        "output": provider_field(Artifact | None, default = None),
+        "transitive_outputs": provider_field(TransitiveOutputsTSet | None, default = None),
     },
 )
 
