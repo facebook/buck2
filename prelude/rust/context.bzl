@@ -98,7 +98,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     srcs = symlinked_srcs(ctx)
 
     linker_with_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
-    clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
+    clippy_wrapper = toolchain_info.clippy_wrapper or _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
         advanced_unstable_linking = toolchain_info.advanced_unstable_linking,
@@ -118,19 +118,9 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     # sysroot to avoid accidentally linking against the prebuilt sysroot libs
     # provided by the toolchain.
     if toolchain_info.explicit_sysroot_deps:
-        # Construct an empty sysroot dir with the similar structure as the real one
-        # in order to appease rustc. For instance, even with -Zexternal-clangrt, rustc will emit a
-        # -L{sysroot}/lib/rustlib/{target}/lib on the link line, which will fail if the sysroot dir is empty.
-        empty_sysroot = ctx.actions.copied_dir(
-            "empty_dir",
-            {
-                "lib/rustlib/{}/lib".format(toolchain_info.rustc_target_triple): ctx.actions.copied_dir("__empty__", {}, has_content_based_path = True),
-            },
-            has_content_based_path = True,
-        )
-        sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
+        sysroot_args = toolchain_info.empty_sysroot_args or make_empty_sysroot_args(ctx.actions, toolchain_info.rustc_target_triple)
     elif toolchain_info.sysroot_path:
-        sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
+        sysroot_args = cmd_args(toolchain_info.sysroot_path, format = "--sysroot={}")
     else:
         sysroot_args = cmd_args()
 
@@ -199,25 +189,57 @@ def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False)
         has_content_based_path = True,
     )
 
+# Construct an empty sysroot dir with the similar structure as the real one
+# in order to appease rustc. For instance, even with -Zexternal-clangrt, rustc will emit a
+# -L{sysroot}/lib/rustlib/{target}/lib on the link line, which will fail if the sysroot dir is empty.
+def make_empty_sysroot_args(actions: AnalysisActions, rustc_target_triple: str | None) -> cmd_args:
+    return cmd_args(_make_empty_sysroot(actions, rustc_target_triple), format = "--sysroot={}")
+
+def _make_empty_sysroot(actions: AnalysisActions, rustc_target_triple: str | None) -> Artifact:
+    return actions.copied_dir(
+        "empty_dir",
+        {
+            "lib/rustlib/{}/lib".format(rustc_target_triple): actions.copied_dir("__empty__", {}, has_content_based_path = True),
+        },
+        has_content_based_path = True,
+    )
+
+def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> cmd_args:
+    return make_clippy_wrapper(
+        actions = ctx.actions,
+        exec_is_windows = ctx.attrs._exec_os_type[OsLookup].os == Os("windows"),
+        clippy_driver = toolchain_info.clippy_driver,
+        compiler = toolchain_info.compiler,
+        rustc_target_triple = toolchain_info.rustc_target_triple,
+        rust_target_path = toolchain_info.rust_target_path,
+        skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None or toolchain_info.sysroot_path != None,
+    )
+
 # Return wrapper script for clippy-driver to make sure sysroot is set right
 # We need to make sure clippy is using the same sysroot - compiler, std libraries -
 # as rustc itself, so explicitly invoke rustc to get the path. This is a
 # (small - ~15ms per invocation) perf hit but only applies when generating
 # specifically requested clippy diagnostics.
-def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> cmd_args:
-    clippy_driver = cmd_args(toolchain_info.clippy_driver)
-    rustc_print_sysroot = cmd_args(toolchain_info.compiler, "--print=sysroot", delimiter = " ")
-    uses_custom_target = toolchain_info.rust_target_path != None
-    if toolchain_info.rustc_target_triple:
-        rustc_print_sysroot.add("--target={}".format(toolchain_info.rustc_target_triple))
+def make_clippy_wrapper(
+    actions: AnalysisActions,
+    exec_is_windows: bool,
+    clippy_driver: RunInfo | cmd_args,
+    compiler: RunInfo | cmd_args,
+    rustc_target_triple: str | None,
+    rust_target_path: Dependency | None,
+    skip_setting_sysroot: bool,
+) -> cmd_args:
+    clippy_driver = cmd_args(clippy_driver)
+    rustc_print_sysroot = cmd_args(compiler, "--print=sysroot", delimiter = " ")
+    uses_custom_target = rust_target_path != None
+    if rustc_target_triple:
+        rustc_print_sysroot.add("--target={}".format(rustc_target_triple))
         if uses_custom_target:
             rustc_print_sysroot.add("-Zunstable-options")
 
-    skip_setting_sysroot = toolchain_info.explicit_sysroot_deps != None or toolchain_info.sysroot_path != None
-
-    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
-        wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.bat", has_content_based_path = True),
+    if exec_is_windows:
+        wrapper_file, _ = actions.write(
+            actions.declare_output("__clippy_driver_wrapper.bat", has_content_based_path = True),
             [
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
@@ -226,7 +248,7 @@ def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> 
                 [
                     "set RUSTC_BOOTSTRAP=1",
                     cmd_args(
-                        toolchain_info.rust_target_path[DefaultInfo].default_outputs[0],
+                        rust_target_path[DefaultInfo].default_outputs[0],
                         format = "set RUST_TARGET_PATH={}",
                     ),
                 ]
@@ -242,8 +264,8 @@ def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> 
             has_content_based_path = True,
         )
     else:
-        wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.sh", has_content_based_path = True),
+        wrapper_file, _ = actions.write(
+            actions.declare_output("__clippy_driver_wrapper.sh", has_content_based_path = True),
             [
                 "#!/usr/bin/env bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
@@ -253,7 +275,7 @@ def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> 
                 [
                     "export RUSTC_BOOTSTRAP=1",
                     cmd_args(
-                        toolchain_info.rust_target_path[DefaultInfo].default_outputs[0],
+                        rust_target_path[DefaultInfo].default_outputs[0],
                         format = "export RUST_TARGET_PATH={}",
                     ),
                 ]
