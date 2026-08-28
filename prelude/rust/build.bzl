@@ -102,7 +102,6 @@ load(
     ":context.bzl",
     "CommonArgsInfo",
     "CompileContext",
-    "DependencyArgsInfo",
     "output_filename",
 )
 load(
@@ -988,40 +987,6 @@ def dependency_args(
 
     return (args, argsfile, crate_targets)
 
-def memoized_dependency_args(
-    ctx: AnalysisContext,
-    compile_ctx: CompileContext,
-    dep_ctx: DepCollectionContext,
-    dep_link_strategy: LinkStrategy,
-    dep_metadata_kind: MetadataKind,
-    is_rustdoc_test: bool,
-) -> DependencyArgsInfo:
-    """
-    `dependency_args` for a target depends only on this key, so the several
-    compile flavors of one target share a single memoized result.
-    """
-    key = (dep_metadata_kind, dep_link_strategy, is_rustdoc_test)
-    deps_info = compile_ctx.dep_args.get(key)
-    if deps_info == None:
-        extern_args, dep_argsfiles, crate_map = dependency_args(
-            ctx = ctx,
-            internal_tools_info = compile_ctx.internal_tools_info,
-            transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
-            toolchain_info = compile_ctx.toolchain_info,
-            deps = resolve_rust_deps(ctx, dep_ctx),
-            subdir = dep_link_strategy.value + ("-doctest" if is_rustdoc_test else ""),
-            dep_link_strategy = dep_link_strategy,
-            dep_metadata_kind = dep_metadata_kind,
-            is_rustdoc_test = is_rustdoc_test,
-        )
-        deps_info = DependencyArgsInfo(
-            args = extern_args,
-            argsfile = dep_argsfiles,
-            crate_map = crate_map,
-        )
-        compile_ctx.dep_args[key] = deps_info
-    return deps_info
-
 def symlinked_dirs(
     ctx: AnalysisContext,
     internal_tools_info: RustInternalToolsInfo,
@@ -1287,23 +1252,26 @@ def _compute_common_args(
         # The linker receives the real rlibs through inherited link args.
         dep_metadata_kind = MetadataKind("full")
 
-    deps_info = memoized_dependency_args(
-        ctx,
-        compile_ctx,
-        dep_ctx,
-        params.dep_link_strategy,
-        dep_metadata_kind,
-        is_rustdoc_test,
+    dep_args, dep_argsfiles, crate_map = dependency_args(
+        ctx = ctx,
+        internal_tools_info = compile_ctx.internal_tools_info,
+        transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
+        toolchain_info = compile_ctx.toolchain_info,
+        deps = resolve_rust_deps(ctx, dep_ctx),
+        subdir = subdir,
+        dep_link_strategy = params.dep_link_strategy,
+        dep_metadata_kind = dep_metadata_kind,
+        is_rustdoc_test = is_rustdoc_test,
     )
 
-    crate_map = deps_info.crate_map
-    dep_args = cmd_args(
-        deps_info.args,
-        cmd_args(hidden = compile_ctx.transitive_srcs.project_as_args("artifacts")),
-        # rustc_action supports nested @argfiles, so the -Ldependency argsfile
-        # can ride along inside the outer argsfile.
-        deps_info.argsfile,
+    dep_args.add(
+        cmd_args(
+            hidden = compile_ctx.transitive_srcs.project_as_args("artifacts") if compile_ctx else [],
+        )
     )
+
+    # Add dep_argsfiles to dep_args becuase rustc_action supports nested @argfiles
+    dep_args.add(dep_argsfiles)
 
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
