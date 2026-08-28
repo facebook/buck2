@@ -14,11 +14,15 @@ import re
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden, strip_glog_lines
+from buck2.tests.e2e_util.helper.golden import (
+    golden,
+    strip_glog_lines,
+    strip_jemalloc_invalid_conf,
+)
 
 
 def _sanitize(s: str) -> str:
-    s = strip_glog_lines(s)
+    s = strip_jemalloc_invalid_conf(strip_glog_lines(s))
     # Remove configuration hashes
     s = re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
     # And action digests

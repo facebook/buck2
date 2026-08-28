@@ -177,6 +177,12 @@ def sanitize_hashes(s: str) -> str:
 # (e.g. when nested inside an embedded daemon stderr block), so we match it
 # anywhere in the line.
 _GLOG_LINE_RE = re.compile(r".*[WIEF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
+# Some fbcode binaries have this removed option baked into their allocator
+# configuration, so the warning cannot be suppressed through MALLOC_CONF.
+_JEMALLOC_INVALID_CONF_RE = re.compile(
+    r"^[ \t]*<jemalloc>: Invalid conf pair: experimental_infallible_new:true\n?",
+    flags=re.MULTILINE,
+)
 
 
 def strip_glog_lines(s: str) -> str:
@@ -186,8 +192,12 @@ def strip_glog_lines(s: str) -> str:
     return _GLOG_LINE_RE.sub("", s)
 
 
+def strip_jemalloc_invalid_conf(s: str) -> str:
+    return _JEMALLOC_INVALID_CONF_RE.sub("", s)
+
+
 def sanitize_stderr(s: str) -> str:
-    s = strip_glog_lines(s)
+    s = strip_jemalloc_invalid_conf(strip_glog_lines(s))
     # Remove all timestamps
     s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
     # Remove all UUIDs
@@ -306,6 +316,18 @@ def sanitize_build_report_error(s: str) -> str:
 
 
 def sanitize_build_report(report: dict) -> None:
+    def sanitize_value(value: object) -> object:
+        if isinstance(value, str):
+            return strip_jemalloc_invalid_conf(value)
+        if isinstance(value, list):
+            return [sanitize_value(item) for item in value]
+        if isinstance(value, dict):
+            return {key: sanitize_value(item) for key, item in value.items()}
+        return value
+
+    for key, value in report.items():
+        report[key] = sanitize_value(value)
+
     del report["trace_id"]
     del report["project_root"]
 
