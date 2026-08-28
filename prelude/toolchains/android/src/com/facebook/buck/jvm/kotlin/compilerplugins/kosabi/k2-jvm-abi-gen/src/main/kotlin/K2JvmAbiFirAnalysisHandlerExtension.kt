@@ -521,6 +521,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       if (composeAbiEnabled) {
         add(pipeline.composeAbi.createExtension())
       }
+      add(ParcelizeAbiEmulationExtension())
       add(pipeline.irSanitizer.createExtension(sourceFiles))
     }
 
