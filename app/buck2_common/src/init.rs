@@ -16,6 +16,7 @@ use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 #[cfg(unix)]
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
 use dice::PagableStorageBackend;
 use dupe::Dupe;
 use serde::Deserialize;
@@ -760,6 +761,21 @@ impl DaemonStartupConfig {
         })
     }
 
+    /// Returns the automatic idle page-out configuration for this daemon.
+    /// Pagable storage may remain enabled even when idle page-out is out of scope.
+    pub fn idle_page_out_config_for_isolation_dir(
+        &self,
+        isolation_dir: &FileName,
+    ) -> Option<&HydrationConfig> {
+        self.hydration.as_ref().filter(|hydration| {
+            hydration.page_out_on_idle
+                && self
+                    .buck_settings
+                    .hydration
+                    .page_out_on_idle_applies_to_isolation_dir(isolation_dir)
+        })
+    }
+
     pub fn serialize(&self) -> buck2_error::Result<String> {
         serde_json::to_string(&self).buck_error_context("Error serializing DaemonStartupConfig")
     }
@@ -837,7 +853,9 @@ mod tests {
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
         let hydration = startup_config
-            .hydration
+            .idle_page_out_config_for_isolation_dir(
+                FileName::new("v2").expect("The default isolation dir should be valid"),
+            )
             .expect("Idle page-out should enable hydration");
         assert!(hydration.page_out_on_idle);
         assert!(!hydration.allow_multiple_idle_page_outs);
@@ -919,6 +937,48 @@ mod tests {
 
         let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
         assert_eq!(startup_config.hydration, None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_non_default_idle_page_out_scope() -> buck2_error::Result<()> {
+        let config = parse(
+            &[(
+                "config",
+                indoc!(
+                    r#"
+                    [buck2_hydration]
+                    page_out_on_idle = true
+                    "#
+                ),
+            )],
+            "config",
+        )?;
+        let settings = resolve_setting_flags(vec![table(
+            "[hydration]\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
+        )])?;
+        let startup_config = DaemonStartupConfig::new(&config, &settings, false)?;
+
+        assert!(
+            startup_config.hydration.is_some(),
+            "The isolation scope must not disable pagable storage"
+        );
+        assert_eq!(
+            startup_config.idle_page_out_config_for_isolation_dir(
+                FileName::new("v2").expect("The default isolation dir should be valid"),
+            ),
+            None,
+            "The non-default scope must disable idle page-out for the default daemon"
+        );
+        let custom_hydration = startup_config
+            .idle_page_out_config_for_isolation_dir(
+                FileName::new("custom").expect("The test isolation dir should be valid"),
+            )
+            .expect("Idle page-out should remain enabled for another daemon");
+        assert!(
+            custom_hydration.page_out_on_idle,
+            "The non-default scope must retain idle page-out for another daemon"
+        );
         Ok(())
     }
 }

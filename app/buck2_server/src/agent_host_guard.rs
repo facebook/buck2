@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_common::invocation_paths::DEFAULT_ISOLATION_DIR;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
@@ -22,11 +23,6 @@ use crate::daemon::state::DaemonStateData;
 
 /// Substring that marks an originating cgroup as a coding-agent cgroup.
 const CGROUP_AGENT_MARKER: &str = "3pai";
-
-/// Default buck2 isolation dir. Must match the `--isolation-dir` clap
-/// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test
-/// (`denied.golden.stderr`) catches drift.
-const DEFAULT_ISOLATION_DIR: &str = "v2";
 
 /// Comma-separated hostname globs matched against the local hostname.
 /// Unset/empty disables the feature. Example:

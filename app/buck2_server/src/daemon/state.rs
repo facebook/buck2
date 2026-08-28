@@ -872,13 +872,11 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                // `Some` (with thresholds) iff idle page-out is enabled; `None`
-                // otherwise. Defaults live in `HydrationConfig::from_config`, not here.
+                // `Some` (with thresholds) iff idle page-out is enabled for this
+                // daemon's isolation dir; `None` otherwise.
                 page_out_on_idle: init_ctx
                     .daemon_startup_config
-                    .hydration
-                    .as_ref()
-                    .filter(|h| h.page_out_on_idle)
+                    .idle_page_out_config_for_isolation_dir(&isolation)
                     .map(|h| PageOutThresholds {
                         min_free_disk_gb: h.page_out_min_free_disk_gb,
                     }),

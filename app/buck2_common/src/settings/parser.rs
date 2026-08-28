@@ -474,6 +474,7 @@ mod tests {
     #[cfg(fbcode_build)]
     mod rollouts {
         use buck2_core::fs::project::ProjectRootTemp;
+        use buck2_fs::paths::file_name::FileName;
 
         use super::*;
         use crate::init::DaemonStartupConfig;
@@ -658,15 +659,23 @@ mod tests {
         #[test]
         fn hydration_rollout_configures_startup() -> buck2_error::Result<()> {
             let startup_config = startup_config_for(Some(&hydration_rollout_toml(
-                "enable_paging = true\npage_out_on_idle = true",
+                "enable_paging = true\npage_out_on_idle = true\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
             )))?;
             assert_eq!(
                 startup_config.buck_settings.hydration.enable_paging(),
                 Some(true)
             );
+            assert_eq!(
+                startup_config.idle_page_out_config_for_isolation_dir(
+                    FileName::new("v2").expect("The default isolation dir should be valid"),
+                ),
+                None,
+            );
             let hydration = startup_config
-                .hydration
-                .expect("The hydration rollout should enable idle page-out");
+                .idle_page_out_config_for_isolation_dir(
+                    FileName::new("custom").expect("The test isolation dir should be valid"),
+                )
+                .expect("The rollout should enable idle page-out outside the default daemon");
             assert!(hydration.page_out_on_idle);
             Ok(())
         }

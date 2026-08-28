@@ -197,9 +197,10 @@ mod tests {
     fn accepts_valid_hydration_settings() -> buck2_error::Result<()> {
         let selected = select_rollout_table(table(
             r#"
-                [hydration.0]
+                [hydration.1]
                 enable_paging = true
                 page_out_on_idle = true
+                page_out_on_idle_isolation_dir_scope = "non_default"
             "#,
         ))?
         .expect("The hydration section version is present");
@@ -211,8 +212,24 @@ mod tests {
                     [hydration]
                     enable_paging = true
                     page_out_on_idle = true
+                    page_out_on_idle_isolation_dir_scope = "non_default"
                 "#,
             ),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ignores_previous_hydration_version() -> buck2_error::Result<()> {
+        assert_eq!(
+            select_rollout_table(table(
+                r#"
+                    [hydration.0]
+                    enable_paging = true
+                    page_out_on_idle = true
+                "#,
+            ))?,
+            None,
         );
         Ok(())
     }

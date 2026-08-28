@@ -11,9 +11,12 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
 use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
+
+use crate::invocation_paths::DEFAULT_ISOLATION_DIR;
 
 /// Source categories used to define a setting's override policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,9 +137,41 @@ const HYDRATION_PAGE_OUT_ON_IDLE: SettingKey<bool> = SettingKey {
     oss_default: None,
 };
 
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PartialEq,
+    Eq
+)]
+#[serde(rename_all = "snake_case")]
+enum PageOutOnIdleIsolationDirScope {
+    NonDefault,
+    #[default]
+    All,
+}
+
+const HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE: SettingKey<PageOutOnIdleIsolationDirScope> =
+    SettingKey {
+        metadata: SettingKeyMetadata {
+            key: SettingKeyRef {
+                section: "hydration",
+                name: "page_out_on_idle_isolation_dir_scope",
+            },
+            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+        },
+        internal_default: Some(PageOutOnIdleIsolationDirScope::All),
+        oss_default: Some(PageOutOnIdleIsolationDirScope::All),
+    };
+
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] = &[
     HYDRATION_ENABLE_PAGING.metadata,
     HYDRATION_PAGE_OUT_ON_IDLE.metadata,
+    HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE.metadata,
     LOG_USE_MANIFOLD.metadata,
     LOG_URL.metadata,
 ];
@@ -166,6 +201,7 @@ struct LogDownloadSectionData {
 struct HydrationSectionData {
     enable_paging: Option<bool>,
     page_out_on_idle: Option<bool>,
+    page_out_on_idle_isolation_dir_scope: Option<PageOutOnIdleIsolationDirScope>,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -196,7 +232,7 @@ impl HydrationSection {
     /// Bump when the section's settings schema or semantics change.
     pub(crate) const METADATA: SectionMetadata = SectionMetadata {
         section_name: "hydration",
-        section_version: 0,
+        section_version: 1,
     };
 
     /// Returns `None` when legacy buckconfig should determine the behavior.
@@ -207,6 +243,21 @@ impl HydrationSection {
     /// Returns `None` when legacy buckconfig should determine the behavior.
     pub fn page_out_on_idle(&self) -> Option<bool> {
         HYDRATION_PAGE_OUT_ON_IDLE.resolve(self.0.page_out_on_idle)
+    }
+
+    pub(crate) fn page_out_on_idle_applies_to_isolation_dir(
+        &self,
+        isolation_dir: &FileName,
+    ) -> bool {
+        match HYDRATION_PAGE_OUT_ON_IDLE_ISOLATION_DIR_SCOPE
+            .resolve(self.0.page_out_on_idle_isolation_dir_scope)
+            .expect("Idle page-out isolation dir scope should have a default")
+        {
+            PageOutOnIdleIsolationDirScope::NonDefault => {
+                isolation_dir.as_str() != DEFAULT_ISOLATION_DIR
+            }
+            PageOutOnIdleIsolationDirScope::All => true,
+        }
     }
 }
 
@@ -333,15 +384,39 @@ mod tests {
         let hydration = BuckSettings::empty().hydration;
         assert_eq!(hydration.enable_paging(), None);
         assert_eq!(hydration.page_out_on_idle(), None);
+        assert!(
+            hydration.page_out_on_idle_applies_to_isolation_dir(
+                FileName::new(DEFAULT_ISOLATION_DIR)
+                    .expect("The default isolation dir should be valid")
+            )
+        );
+        assert!(hydration.page_out_on_idle_applies_to_isolation_dir(
+            FileName::new("custom").expect("The test isolation dir should be valid")
+        ));
     }
 
     #[test]
     fn test_hydration_settings() -> buck2_error::Result<()> {
         let settings = resolve_setting_flags(vec![table(
-            "[hydration]\nenable_paging = true\npage_out_on_idle = false",
+            "[hydration]\nenable_paging = true\npage_out_on_idle = false\npage_out_on_idle_isolation_dir_scope = \"non_default\"",
         )])?;
         assert_eq!(settings.hydration.enable_paging(), Some(true));
         assert_eq!(settings.hydration.page_out_on_idle(), Some(false));
+        assert!(
+            !settings
+                .hydration
+                .page_out_on_idle_applies_to_isolation_dir(
+                    FileName::new(DEFAULT_ISOLATION_DIR)
+                        .expect("The default isolation dir should be valid")
+                )
+        );
+        assert!(
+            settings
+                .hydration
+                .page_out_on_idle_applies_to_isolation_dir(
+                    FileName::new("custom").expect("The test isolation dir should be valid")
+                )
+        );
         Ok(())
     }
 
