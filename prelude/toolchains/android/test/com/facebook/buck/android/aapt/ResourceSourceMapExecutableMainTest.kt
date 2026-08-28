@@ -58,9 +58,10 @@ class ResourceSourceMapExecutableMainTest {
         ),
         StandardCharsets.UTF_8,
     )
+    val assetDirs = temporaryFolder.newFile("asset-dirs").toPath()
     val output = temporaryFolder.newFile("source-map").toPath()
 
-    ResourceSourceMapExecutableMain.generate(resourceDirs, output)
+    ResourceSourceMapExecutableMain.generate(resourceDirs, assetDirs, output)
 
     val expectedLines = listOf(
         "R\t0\tid\ttitle_view\t\tfirst/BUCK\tfirst/BUCK",
@@ -82,12 +83,15 @@ class ResourceSourceMapExecutableMainTest {
         "${temporaryFolder.root.toPath().resolve("missing-resources")}\tmissing/BUCK",
         StandardCharsets.UTF_8,
     )
+    val assetDirs = temporaryFolder.newFile("asset-dirs").toPath()
     val output = temporaryFolder.root.toPath().resolve("fallback/source-map")
 
     ResourceSourceMapExecutableMain.main(
         arrayOf(
             "--resource-dirs",
             resourceDirs.toString(),
+            "--asset-dirs",
+            assetDirs.toString(),
             "--output=$output",
         ),
     )
@@ -118,13 +122,84 @@ class ResourceSourceMapExecutableMainTest {
 
     val resourceDirs = temporaryFolder.newFile("resource-dirs").toPath()
     Files.writeString(resourceDirs, "$resources\tresources/BUCK", StandardCharsets.UTF_8)
+    val assetDirs = temporaryFolder.newFile("asset-dirs").toPath()
+    Files.writeString(
+        assetDirs,
+        "${temporaryFolder.root.toPath().resolve("missing-assets")}\tassets/BUCK",
+        StandardCharsets.UTF_8,
+    )
     val output = temporaryFolder.newFile("source-map").toPath()
 
-    ResourceSourceMapExecutableMain.generate(resourceDirs, output)
+    ResourceSourceMapExecutableMain.generate(resourceDirs, assetDirs, output)
 
     assertEquals(
         listOf("R\t0\tstring\ttitle\t\tresources/BUCK\tresources/BUCK"),
         Files.readAllLines(output, StandardCharsets.UTF_8),
     )
   }
+
+  @Test
+  fun `asset entries preserve paths and overlay priority`() {
+    val firstAssets = temporaryFolder.newFolder("first-assets").toPath()
+    val secondAssets = temporaryFolder.newFolder("second-assets").toPath()
+    Files.createDirectories(firstAssets.resolve("images"))
+    Files.createDirectories(secondAssets.resolve("images"))
+    val assetPath = "images/icon.webp"
+    Files.writeString(firstAssets.resolve(assetPath), "first", StandardCharsets.UTF_8)
+    Files.writeString(secondAssets.resolve(assetPath), "second", StandardCharsets.UTF_8)
+
+    val resourceDirs = temporaryFolder.newFile("resource-dirs").toPath()
+    val assetDirs = temporaryFolder.newFile("asset-dirs").toPath()
+    Files.write(
+        assetDirs,
+        listOf(
+            "$firstAssets\tfirst/BUCK",
+            "$secondAssets\tsecond/BUCK",
+        ),
+        StandardCharsets.UTF_8,
+    )
+    val output = temporaryFolder.newFile("source-map").toPath()
+
+    ResourceSourceMapExecutableMain.generate(resourceDirs, assetDirs, output)
+
+    assertEquals(
+        listOf(
+            assetSourceMapRow(0, assetPath, "first/BUCK", "first/BUCK"),
+            assetSourceMapRow(1, assetPath, "second/BUCK", "second/BUCK"),
+        ),
+        Files.readAllLines(output, StandardCharsets.UTF_8),
+    )
+  }
+
+  @Test
+  fun `asset row serialization preserves delimiter characters`() {
+    val assetRow =
+        ResourceSourceMapFormat.AssetRow(
+            2,
+            "images/icon\tvariant.webp",
+            "asset\nsource",
+            "asset\tBUCK",
+        )
+
+    assertEquals(assetRow, ResourceSourceMapFormat.parse(assetRow.serialize()))
+  }
+
+  private fun assetSourceMapRow(
+      priority: Int,
+      path: String,
+      source: String,
+      ownerBuildFile: String,
+  ): String = listOf(
+      "A",
+      priority.toString(),
+      encodeField(path),
+      encodeField(source),
+      encodeField(ownerBuildFile),
+  )
+      .joinToString("\t")
+
+  private fun encodeField(value: String): String =
+      java.util.Base64.getUrlEncoder()
+          .withoutPadding()
+          .encodeToString(value.toByteArray(StandardCharsets.UTF_8))
 }

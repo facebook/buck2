@@ -63,6 +63,11 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         resource_infos = [resource for resource in resources_info.unfiltered_resource_infos if resource.res != None]
         resource_dirs = [cmd_args([resource.res, _target_build_file_path(resource.raw_target)], delimiter = "\t") for resource in resource_infos]
         resource_dirs_file = ctx.actions.write("resource_source_map_resource_dirs", resource_dirs, has_content_based_path = False)
+        asset_infos = [
+            (asset, _target_build_file_path(resource.raw_target)) for resource in resources_info.unfiltered_resource_infos for asset in resource.assets
+        ]
+        asset_dirs = [cmd_args([asset, owner_build_file], delimiter = "\t") for asset, owner_build_file in asset_infos]
+        asset_dirs_file = ctx.actions.write("resource_source_map_asset_dirs", asset_dirs, has_content_based_path = False)
         resource_source_map = ctx.actions.declare_output("resource_source_map.tsv", has_content_based_path = False)
         resource_source_map_cmd = cmd_args([
             ctx.attrs._java_toolchain[JavaToolchainInfo].java[RunInfo],
@@ -70,10 +75,12 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
             resource_source_map_jar,
             "--resource-dirs",
             resource_dirs_file,
+            "--asset-dirs",
+            asset_dirs_file,
             "--output",
             resource_source_map.as_output(),
         ])
-        resource_source_map_cmd.add(cmd_args(hidden = [resource.res for resource in resource_infos]))
+        resource_source_map_cmd.add(cmd_args(hidden = [resource.res for resource in resource_infos] + [asset for asset, _ in asset_infos]))
         ctx.actions.run(resource_source_map_cmd, category = "robolectric_resource_source_map", allow_cache_upload = True)
 
     test_config_properties_file = ctx.actions.write(

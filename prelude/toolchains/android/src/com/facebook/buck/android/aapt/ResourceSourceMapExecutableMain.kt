@@ -57,7 +57,7 @@ object ResourceSourceMapExecutableMain {
   private fun run(args: Array<String>) {
     val options = Options()
     CmdLineParser(options).parseArgument(*args)
-    generate(options.resourceDirs, options.output)
+    generate(options.resourceDirs, options.assetDirs, options.output)
   }
 
   private fun outputPath(args: Array<String>): Path? {
@@ -67,9 +67,10 @@ object ResourceSourceMapExecutableMain {
     return inlineValue?.takeIf(String::isNotEmpty)?.let(Paths::get)
   }
 
-  internal fun generate(resourceDirsFile: Path, output: Path) {
+  internal fun generate(resourceDirsFile: Path, assetDirsFile: Path, output: Path) {
     val root = Paths.get(".").toAbsolutePath().normalize()
     val resourceRoots = readRoots(resourceDirsFile)
+    val assetRoots = readRoots(assetDirsFile)
     val lines = TreeSet<String>()
 
     val resourceFiles = resourceRoots.flatMapIndexed { priority, input ->
@@ -83,6 +84,9 @@ object ResourceSourceMapExecutableMain {
       }
     }
     collectResources(root, resourceFiles, lines)
+    assetRoots.forEachIndexed { priority, input ->
+      collectAssets(root, input, priority, lines)
+    }
     output.parent?.let(Files::createDirectories)
     val contents = lines.joinToString(separator = "\n", postfix = if (lines.isEmpty()) "" else "\n")
     Files.writeString(output, contents, StandardCharsets.UTF_8)
@@ -151,16 +155,54 @@ object ResourceSourceMapExecutableMain {
       if (entry.type == RType.STYLEABLE) {
         null
       } else {
-        listOf(
-            "R",
-            file.priority.toString(),
-            entry.type.name.lowercase(Locale.ROOT),
-            entry.name,
-            qualifiers,
-            source,
-            file.ownerBuildFile,
+        ResourceSourceMapFormat.ResourceRow(
+                file.priority,
+                entry.type.name.lowercase(Locale.ROOT),
+                entry.name,
+                qualifiers,
+                source,
+                file.ownerBuildFile,
+            )
+            .serialize()
+      }
+    }
+  }
+
+  private fun collectAssets(
+      root: Path,
+      input: InputRoot,
+      priority: Int,
+      output: MutableSet<String>,
+  ) {
+    val assetDir = resolve(root, input.path)
+    val assetFiles =
+        try {
+          filesUnder(assetDir)
+        } catch (failure: Throwable) {
+          if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
+          System.err.println(
+              "Failed to enumerate Robolectric asset directory $assetDir; skipping this directory.",
+          )
+          failure.printStackTrace(System.err)
+          return
+        }
+    for ((relative, file) in assetFiles) {
+      try {
+        output.add(
+            ResourceSourceMapFormat.AssetRow(
+                    priority,
+                    PathFormatter.pathWithUnixSeparators(relative),
+                    sourcePath(root, file, input.ownerBuildFile),
+                    input.ownerBuildFile,
+                )
+                .serialize(),
         )
-            .joinToString("\t")
+      } catch (failure: Throwable) {
+        if (failure is VirtualMachineError || failure is ThreadDeath) throw failure
+        System.err.println(
+            "Failed to map Robolectric asset file $file; skipping this file.",
+        )
+        failure.printStackTrace(System.err)
       }
     }
   }
@@ -196,6 +238,8 @@ object ResourceSourceMapExecutableMain {
 
   private class Options {
     @field:Option(name = "--resource-dirs", required = true) lateinit var resourceDirs: Path
+
+    @field:Option(name = "--asset-dirs", required = true) lateinit var assetDirs: Path
 
     @field:Option(name = "--output", required = true) lateinit var output: Path
   }
