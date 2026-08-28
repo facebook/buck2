@@ -101,11 +101,6 @@ rust_toolchain_attrs = {
     # A clippy-driver wrapper script produced by the toolchain and shared by
     # every target. When None, each target writes its own wrapper.
     "clippy_wrapper": provider_field(cmd_args | None, default = None),
-    # `-Clinker` wrapper scripts produced by the toolchain, shared by every
-    # target whose `linker_flags` attribute is empty (targets with their own
-    # flags write their own wrapper). When None, each target writes its own.
-    "linker_wrapper": provider_field(cmd_args | None, default = None),
-    "binary_linker_wrapper": provider_field(cmd_args | None, default = None),
     # Setting this enables additional behaviors that improves linking at the
     # cost of using unstable implementation details of rustc. At the moment,
     # this is only used for linking rlibs into C++/C builds, instead of using
