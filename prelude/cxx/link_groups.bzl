@@ -993,6 +993,10 @@ def _stub_library(
             identifier = name,
             category_suffix = "stub_library",
             link_execution_preference = stub_execution_preference,
+            # Anonymous stubs are canonical (owner-independent) and tiny, so
+            # sharing them through the action cache is cheap and lets other
+            # owners/builds skip the link entirely.
+            allow_cache_upload = anonymous,
         ),
         anonymous = anonymous,
     )
