@@ -620,7 +620,7 @@ impl BuckdServer {
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
         // as a baseline.
         let snapshot_collector =
-            SnapshotCollector::new(data.dupe(), repo.paths.buck_out_path(), self.0.rt.clone());
+            SnapshotCollector::new(data.dupe(), repo.dupe(), self.0.rt.clone());
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
         let cert_state = self.0.cert_state.dupe();
 
@@ -1069,7 +1069,7 @@ impl DaemonApi for BuckdServer {
                 Some(
                     snapshot::SnapshotCollector::new(
                         daemon_state.data(),
-                        daemon_state.data.sole_repo().paths.buck_out_path(),
+                        daemon_state.data.sole_repo().dupe(),
                         rt.clone(),
                     )
                     .create_snapshot()

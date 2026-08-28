@@ -28,6 +28,7 @@ use buck2_util::system_stats::UnixSystemStats;
 
 use crate::cpu_usage_collector::CpuUsageCollector;
 use crate::daemon::state::DaemonStateData;
+use crate::daemon::state::RepoState;
 use crate::jemalloc_stats::get_allocator_stats;
 use crate::net_io::NetworkKind;
 use crate::net_io::SystemNetworkIoCollector;
@@ -101,6 +102,7 @@ impl TokioMetricsState {
 #[derive(Clone)]
 pub struct SnapshotCollector {
     daemon: Arc<DaemonStateData>,
+    repo: Arc<RepoState>,
     net_io_collector: SystemNetworkIoCollector,
     buck_out_path: Arc<AbsNormPathBuf>,
     cpu_usage_collector: Option<CpuUsageCollector>,
@@ -116,11 +118,13 @@ pub struct SnapshotCollector {
 impl SnapshotCollector {
     pub fn new(
         daemon: Arc<DaemonStateData>,
-        buck_out_path: AbsNormPathBuf,
+        repo: Arc<RepoState>,
         runtime: tokio::runtime::Handle,
     ) -> SnapshotCollector {
+        let buck_out_path = repo.paths.buck_out_path();
         SnapshotCollector {
             daemon,
+            repo,
             net_io_collector: SystemNetworkIoCollector::new(),
             buck_out_path: buck_out_path.into(),
             cpu_usage_collector: CpuUsageCollector::new().ok(),
@@ -320,16 +324,13 @@ impl SnapshotCollector {
     }
 
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let metrics = self.daemon.sole_repo().dice_manager.unsafe_dice().metrics();
+        let metrics = self.repo.dice_manager.unsafe_dice().metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        self.daemon
-            .sole_repo()
-            .materializer
-            .add_snapshot_stats(snapshot);
+        self.repo.materializer.add_snapshot_stats(snapshot);
     }
 
     fn add_sink_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
