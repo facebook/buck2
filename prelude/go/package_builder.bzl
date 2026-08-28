@@ -355,9 +355,14 @@ def build_package(
     if params.standard and params.pkg_import_path in _incomplete_pkgs_allow_list:
         complete_flag = False
 
+    go_files_to_compile = covered_go_files + transformed_cgo_files
+
+    # Use argsfile to avoid command length limit on Windows. The source list
+    # is identical for the shared and non-shared variants, so they share it.
+    srcs_argsfile = actions.write("srcs.go_package_argsfile", go_files_to_compile, has_content_based_path = True) if go_files_to_compile else None
+
     def build_variant(shared: bool) -> (Artifact, Artifact):
         build_variant_id = "shared" if shared else "non-shared"  # use  tomake artifacts and actions unique
-        go_files_to_compile = covered_go_files + transformed_cgo_files
 
         required_imports = go_list.imports | implicit_imports(
             pkg_name = go_list.pkg_name,
@@ -382,6 +387,7 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             main = params.main,
             go_srcs = go_files_to_compile,
+            srcs_argsfile = srcs_argsfile,
             importcfg = importcfg,
             compiler_flags = params.compiler_flags,
             shared = shared,
@@ -436,6 +442,7 @@ def _compile(
     pkg_import_path: str,
     main: bool,
     go_srcs: list[Artifact],
+    srcs_argsfile: Artifact | None,
     importcfg: Artifact,
     compiler_flags: list[str],
     shared: bool,
@@ -459,9 +466,6 @@ def _compile(
         return out_x, out_a, None
 
     asmhdr = actions.declare_output("__asmhdr__{}/go_asm.h".format(build_variant_id), has_content_based_path = True) if gen_asmhdr else None
-
-    # Use argsfile to avoid command length limit on Windows
-    srcs_argsfile = actions.write(build_variant_id + "_srcs.go_package_argsfile", go_srcs, has_content_based_path = True)
 
     compile_cmd = cmd_args(
         [
