@@ -17,7 +17,6 @@
 [<TIMESTAMP>]         --> prelude/configurations/rules.bzl:73:13
 [<TIMESTAMP>]          |
 [<TIMESTAMP>]       73 | /             fail(
-[<TIMESTAMP>]          | |              
 [<TIMESTAMP>]       74 | |                 "constraint() rule must have at least two values. "
 [<TIMESTAMP>]       75 | |                 + "A single-value constraint has no selectivity: it can't express a choice between alternatives "
 [<TIMESTAMP>]       76 | |                 + "(e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. "
