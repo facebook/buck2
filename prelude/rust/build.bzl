@@ -1246,10 +1246,11 @@ def _compute_common_args(
 
     dep_metadata_kind = dep_metadata_of_emit(emit)
 
-    if compile_ctx.dep_ctx.advanced_unstable_linking and crate_type == CrateType("cdylib") and dep_metadata_kind == MetadataKind("link"):
-        # AUL rlibs compile against full metadata, so rustc-linked cdylibs need
-        # to receive the same full metadata deps to avoid crate hash mismatch.
-        # The linker receives the real rlibs through inherited link args.
+    if dep_metadata_kind == MetadataKind("link") and (is_rustdoc_test or (compile_ctx.dep_ctx.advanced_unstable_linking and crate_type == CrateType("cdylib"))):
+        # AUL rlibs compile against full metadata, so Rustdoc tests and
+        # rustc-linked cdylibs need the same full metadata deps to avoid crate
+        # hash mismatches. The linker receives the real rlibs through inherited
+        # link args.
         dep_metadata_kind = MetadataKind("full")
 
     dep_args, dep_argsfiles, crate_map = dependency_args(
