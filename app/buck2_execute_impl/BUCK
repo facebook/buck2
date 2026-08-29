@@ -12,6 +12,23 @@ rust_library(
     # the OSS rust_library directly for cargo's sake.
     autocargo = {
         "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "rusqlite": {
+                        "features": [
+                            "backup",
+                            "blob",
+                            "bundled",
+                            "column_decltype",
+                            "functions",
+                            "limits",
+                            "modern_sqlite",
+                            "serde_json",
+                            "vtab",
+                        ],
+                    },
+                },
+            },
             "extra_buck_dependencies": {
                 "dependencies": [
                     "fbcode//buck2/remote_execution/oss/re_grpc:remote_execution",
