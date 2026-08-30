@@ -21,87 +21,8 @@
 //! description = The purpose of this buck2 invocation
 //! ```
 
-use std::collections::BTreeMap;
-
-use buck2_common::legacy_configs::configs::LegacyBuckConfig;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::agent_context::AgentContextSchema;
 use buck2_data::AgentContextEntry;
-
-/// Schema for a single agent context field.
-struct FieldSchema {
-    /// Whether this field must be provided by enforced clients.
-    required: bool,
-    /// Allowed values. If empty, any value is accepted (freeform).
-    allowed_values: Vec<String>,
-    /// Human-readable description, used in error messages.
-    description: String,
-}
-
-/// Schema parsed from buckconfig `[agent_context]` + `[agent_context#*]` sections.
-pub(crate) struct AgentContextSchema {
-    /// Client IDs that are subject to strict validation.
-    enforced_clients: Vec<String>,
-    /// Per-field schema definitions.
-    fields: BTreeMap<String, FieldSchema>,
-}
-
-impl AgentContextSchema {
-    /// Parse the schema from buckconfig.
-    pub(crate) fn from_config(config: &LegacyBuckConfig) -> Self {
-        let enforced_clients = config
-            .get(BuckconfigKeyRef {
-                section: "agent_context",
-                property: "enforced_clients",
-            })
-            .map(|v| v.split('|').map(|s| s.trim().to_owned()).collect())
-            .unwrap_or_default();
-
-        let mut fields = BTreeMap::new();
-
-        // Iterate all sections to find `agent_context#*` sub-sections.
-        for (section_name, section) in config.all_sections() {
-            if let Some(field_name) = section_name.strip_prefix("agent_context#") {
-                let allowed_values = section
-                    .get("values")
-                    .map(|v| v.as_str().split('|').map(|s| s.trim().to_owned()).collect())
-                    .unwrap_or_default();
-
-                let required = section
-                    .get("required")
-                    .is_some_and(|v| v.as_str() == "true");
-
-                let description = section
-                    .get("description")
-                    .map(|v| v.as_str().to_owned())
-                    .unwrap_or_default();
-
-                fields.insert(
-                    field_name.to_owned(),
-                    FieldSchema {
-                        required,
-                        allowed_values,
-                        description,
-                    },
-                );
-            }
-        }
-
-        AgentContextSchema {
-            enforced_clients,
-            fields,
-        }
-    }
-
-    /// Returns true if this client ID is subject to strict validation.
-    fn is_enforced(&self, client_id: &str) -> bool {
-        self.enforced_clients.iter().any(|c| c == client_id)
-    }
-
-    /// Returns true if the schema has any field definitions.
-    fn has_schema(&self) -> bool {
-        !self.fields.is_empty()
-    }
-}
 
 /// Validate agent context entries against the schema.
 ///
@@ -113,7 +34,7 @@ pub(crate) fn validate_agent_context(
     entries: &[buck2_data::AgentContextEntry],
 ) -> buck2_error::Result<()> {
     // If no entries provided or no schema defined, nothing to validate.
-    if entries.is_empty() || !schema.has_schema() {
+    if entries.is_empty() || schema.is_empty() {
         return Ok(());
     }
 
@@ -134,14 +55,14 @@ pub(crate) fn validate_agent_context(
     // Check all required fields are present.
     // BTreeMap iterates in sorted order, so error messages are deterministic.
     let missing: Vec<_> = schema
-        .fields
+        .fields()
         .iter()
-        .filter(|(name, f)| f.required && !provided_keys.contains(name.as_str()))
+        .filter(|(name, f)| f.is_required() && !provided_keys.contains(name.as_str()))
         .map(|(name, f)| {
-            if f.description.is_empty() {
+            if f.description().is_empty() {
                 format!("  - {}", name)
             } else {
-                format!("  - {}: {}", name, f.description)
+                format!("  - {}: {}", name, f.description())
             }
         })
         .collect();
@@ -165,9 +86,9 @@ pub(crate) fn validate_agent_context(
             continue;
         }
 
-        match schema.fields.get(key.as_str()) {
+        match schema.fields().get(key.as_str()) {
             None => {
-                let valid_keys: Vec<&str> = schema.fields.keys().map(|k| k.as_str()).collect();
+                let valid_keys: Vec<&str> = schema.fields().keys().map(|k| k.as_str()).collect();
                 return Err(buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Input,
                     "Unknown agent-context key `{}`.\n  Valid keys: {}",
@@ -176,13 +97,13 @@ pub(crate) fn validate_agent_context(
                 ));
             }
             Some(field_schema) => {
-                if !field_schema.allowed_values.is_empty()
-                    && !field_schema.allowed_values.iter().any(|v| v == value)
+                if !field_schema.allowed_values().is_empty()
+                    && !field_schema.allowed_values().iter().any(|v| v == value)
                 {
-                    let desc = if field_schema.description.is_empty() {
+                    let desc = if field_schema.description().is_empty() {
                         String::new()
                     } else {
-                        format!("\n  {}: {}", key, field_schema.description)
+                        format!("\n  {}: {}", key, field_schema.description())
                     };
                     return Err(buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Input,
@@ -190,7 +111,7 @@ pub(crate) fn validate_agent_context(
                         value,
                         key,
                         desc,
-                        field_schema.allowed_values.join(", ")
+                        field_schema.allowed_values().join(", ")
                     ));
                 }
             }
@@ -202,22 +123,23 @@ pub(crate) fn validate_agent_context(
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::legacy_configs::configs::testing::parse;
+
     use super::*;
 
     fn schema_with_intent() -> AgentContextSchema {
-        let mut fields = BTreeMap::new();
-        fields.insert(
-            "intent".to_owned(),
-            FieldSchema {
-                required: false,
-                allowed_values: vec!["build".to_owned(), "test".to_owned()],
-                description: String::new(),
-            },
-        );
-        AgentContextSchema {
-            enforced_clients: vec!["claude_code".to_owned()],
-            fields,
-        }
+        let config = parse(
+            &[(
+                "test",
+                "[agent_context]\n\
+                 enforced_clients = claude_code\n\
+                 [agent_context#intent]\n\
+                 values = build|test\n",
+            )],
+            "test",
+        )
+        .expect("test agent context schema should parse");
+        AgentContextSchema::from_config(&config)
     }
 
     fn entry(key: &str, value: &str) -> buck2_data::AgentContextEntry {
