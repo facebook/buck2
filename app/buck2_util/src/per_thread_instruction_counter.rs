@@ -144,6 +144,13 @@ mod tests {
             // sample, the host is too contended to measure on — skip. A
             // trustworthy sample outside the window is a real failure.
             const ATTEMPTS: usize = 3;
+            #[cfg_attr(
+                not(target_os = "linux"),
+                expect(
+                    unused_mut,
+                    reason = "`rejected` is only mutated in the linux-only branch"
+                )
+            )]
             let mut rejected = Vec::new();
             for _ in 0..ATTEMPTS {
                 let counter = PerThreadInstructionCounter::init().unwrap().unwrap();
