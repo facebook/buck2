@@ -20,9 +20,11 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
+use crate::agent::docs_agent;
 use crate::builtins::docs_starlark_builtins;
 use crate::starlark_::docs_starlark;
 
+mod agent;
 mod builtins;
 mod json;
 mod starlark_;
@@ -72,6 +74,7 @@ async fn docs(
     request: &DocsRequest,
 ) -> buck2_error::Result<DocsResponse> {
     match request {
+        DocsRequest::Agent => docs_agent(dice_ctx).await,
         DocsRequest::Starlark(request) => docs_starlark(server_ctx, dice_ctx, request).await,
         DocsRequest::StarlarkBuiltins(request) => {
             docs_starlark_builtins(server_ctx, dice_ctx, request).await

@@ -5,6 +5,7 @@ Print documentation of specified symbols
 Usage: buck2 docs [OPTIONS] <COMMAND>
 
 Commands:
+  agent              Print repository-specific guidance for AI agents using Buck2
   starlark           Print documentation of user-defined starlark symbols
   starlark-builtins  Generate documentation for starlark builtins
   uquery             Print documentation for query/uquery

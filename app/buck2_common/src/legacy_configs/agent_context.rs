@@ -11,6 +11,9 @@
 //! The repository-defined schema for `--agent-context` entries.
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
@@ -41,7 +44,7 @@ impl AgentContextFieldSchema {
 }
 
 /// Schema parsed from buckconfig `[agent_context]` and `[agent_context#*]` sections.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct AgentContextSchema {
     enforced_clients: Vec<String>,
     fields: BTreeMap<String, AgentContextFieldSchema>,
@@ -109,5 +112,33 @@ impl AgentContextSchema {
     /// Whether the repository defines any agent-context fields.
     pub fn is_empty(&self) -> bool {
         self.fields.is_empty()
+    }
+}
+
+/// Formats the agent-supplied fields while keeping client enforcement internal to Buck2.
+impl Display for AgentContextSchema {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.is_empty() {
+            return f.write_str("No fields are configured for this repository.");
+        }
+
+        f.write_str("Fields:")?;
+        for (name, field) in &self.fields {
+            write!(f, "\n- `{name}`\n  Required: {}", field.is_required())?;
+            if !field.description().is_empty() {
+                write!(f, "\n  Description: {}", field.description())?;
+            }
+            if field.allowed_values().is_empty() {
+                f.write_str("\n  Allowed values: any")?;
+            } else {
+                write!(
+                    f,
+                    "\n  Allowed values: {}",
+                    field.allowed_values().join(", ")
+                )?;
+            }
+        }
+
+        Ok(())
     }
 }

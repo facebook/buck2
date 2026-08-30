@@ -115,6 +115,7 @@ pub struct DocsStarlarkBuiltinsRequest {
 pub enum DocsRequest {
     Starlark(DocsStarlarkRequest),
     StarlarkBuiltins(DocsStarlarkBuiltinsRequest),
+    Agent,
 }
 
 #[derive(Serialize, Deserialize)]
