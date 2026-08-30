@@ -8,10 +8,9 @@
 
 # pyre-strict
 
-
+import logging
 import platform
 
-import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
@@ -35,8 +34,7 @@ async def test_cpu_instruction_count(buck: Buck) -> None:
     # We only populate counters on Linux
     if platform.system() == "Linux":
         if cpu_instruction_count is None:
-            # warnings.warn(
-            pytest.xfail(
+            logging.warning(
                 "cpu_instruction_count is None, but we expect it to be populated on Linux most of the time. This is not a failure."
             )
         else:
