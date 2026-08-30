@@ -25,7 +25,12 @@ load(
 )
 load("@prelude//toolchains:kotlin.bzl", "kotlincd_toolchain", "system_kotlin_bootstrap_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
-load("@prelude//toolchains:python.bzl", "remote_python_toolchain", "system_python_wheel_toolchain")
+load(
+    "@prelude//toolchains:python.bzl",
+    "remote_python_toolchain",
+    "system_python_bootstrap_toolchain",
+    "system_python_wheel_toolchain",
+)
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load("@prelude//toolchains:zip_file.bzl", "zip_file_toolchain")
@@ -234,6 +239,12 @@ def system_demo_toolchains():
 
     remote_python_toolchain(
         name = "python",
+        bootstrap = False,
+        visibility = ["PUBLIC"],
+    )
+
+    system_python_bootstrap_toolchain(
+        name = "python_bootstrap",
         visibility = ["PUBLIC"],
     )
 
