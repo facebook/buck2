@@ -125,5 +125,5 @@ pub(crate) async fn docs_starlark_builtins(
 
     write_docs_to_subdir(modules_infos, &request.path, Some(linked_ty_mapper), false)?;
 
-    Ok(DocsResponse { json_output: None })
+    Ok(DocsResponse::NoOutput)
 }

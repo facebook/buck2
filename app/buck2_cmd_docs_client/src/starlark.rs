@@ -11,6 +11,7 @@
 use async_trait::async_trait;
 use buck2_cli_proto::new_generic::DocsOutputFormat;
 use buck2_cli_proto::new_generic::DocsRequest;
+use buck2_cli_proto::new_generic::DocsResponse;
 use buck2_cli_proto::new_generic::DocsStarlarkRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -116,8 +117,18 @@ impl StreamingCommand for DocsStarlarkCommand {
             .into();
         };
 
-        if let Some(json_output) = response.json_output {
-            buck2_client_ctx::println!("{}", json_output.trim_end())?;
+        match response {
+            DocsResponse::NoOutput => {}
+            DocsResponse::Json(output) => {
+                buck2_client_ctx::println!("{}", output.trim_end())?;
+            }
+            DocsResponse::Text(_) => {
+                return buck2_error!(
+                    ErrorTag::InvalidEvent,
+                    "Unexpected text response from docs starlark command"
+                )
+                .into();
+            }
         }
 
         ExitResult::success()

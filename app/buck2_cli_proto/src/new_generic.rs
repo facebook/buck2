@@ -118,7 +118,11 @@ pub enum DocsRequest {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct DocsResponse {
-    // Set when requested format is JSON.
-    pub json_output: Option<String>,
+pub enum DocsResponse {
+    /// The command wrote its documentation directly to files.
+    NoOutput,
+    /// JSON documentation to print on stdout.
+    Json(String),
+    /// Plain-text documentation to print on stdout.
+    Text(String),
 }

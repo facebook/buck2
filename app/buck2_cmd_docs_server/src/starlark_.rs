@@ -134,8 +134,8 @@ pub(crate) async fn docs_starlark(
         })
         .await?;
 
-    let json_output = match &request.format {
-        DocsOutputFormat::Json => Some(json::to_json(docs)?),
+    let response = match &request.format {
+        DocsOutputFormat::Json => DocsResponse::Json(json::to_json(docs)?),
         DocsOutputFormat::Markdown(output_dir) => {
             let mut render_signature_at_bottom = false;
             let module_infos = docs
@@ -162,9 +162,9 @@ pub(crate) async fn docs_starlark(
                 None,
                 render_signature_at_bottom,
             )?;
-            None
+            DocsResponse::NoOutput
         }
     };
 
-    Ok(DocsResponse { json_output })
+    Ok(response)
 }
