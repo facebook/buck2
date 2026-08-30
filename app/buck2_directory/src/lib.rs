@@ -9,7 +9,6 @@
  */
 
 #![feature(impl_trait_in_assoc_type)]
-#![feature(never_type)]
 #![feature(trait_alias)]
 
 pub mod directory;
