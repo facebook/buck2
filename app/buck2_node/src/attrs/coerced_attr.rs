@@ -173,7 +173,11 @@ impl CoercedSelector {
                 }
             }
         } else {
+            // Deliberately keyed with starlark's hasher, not buck2_hash's, so hashes
+            // stay consistent with the starlark_map collections used alongside it.
+            // ast-grep-ignore: rust/buck2-no-std-hashmap
             let mut visited_keys: std::collections::HashSet<&ConfigurationSettingKey, _> =
+                // ast-grep-ignore: rust/buck2-no-std-hashmap
                 std::collections::HashSet::with_capacity_and_hasher(
                     entries.len(),
                     StarlarkHasherBuilder,

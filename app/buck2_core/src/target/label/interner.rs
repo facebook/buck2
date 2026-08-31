@@ -62,8 +62,9 @@ pub(crate) fn global_intern(pkg: PackageLabel, name: &TargetNameRef) -> TargetLa
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::ptr;
+
+    use buck2_hash::BuckMutMap;
 
     use crate::target::label::label::TargetLabel;
 
@@ -87,7 +88,7 @@ mod tests {
                 .collect()
         });
 
-        let mut canonical: HashMap<String, *const ()> = HashMap::new();
+        let mut canonical: BuckMutMap<String, *const ()> = BuckMutMap::default();
         for label in &labels {
             let ptr = canonical.entry(label.to_string()).or_insert(label.as_raw());
             assert!(

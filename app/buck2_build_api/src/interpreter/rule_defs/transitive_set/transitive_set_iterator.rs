@@ -12,7 +12,8 @@ use std::collections::VecDeque;
 use std::collections::hash_map::Entry;
 
 use buck2_error::internal_error;
-use buck2_hash::BuckHasherBuilder;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
 use starlark::values::ValueLike;
@@ -44,7 +45,7 @@ fn assert_transitive_set<'v>(child: Value<'v>) -> &'v TransitiveSet<'v> {
 /// order that minimizes memory usage during traversal.
 pub struct PreorderTransitiveSetIterator<'a, 'v> {
     stack: Vec<&'a TransitiveSet<'v>>,
-    seen: std::collections::HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+    seen: BuckMutSet<ValueIdentity<'v>>,
 }
 
 impl<'a, 'v> PreorderTransitiveSetIterator<'a, 'v>
@@ -95,7 +96,7 @@ where
 /// node.
 pub struct PostorderTransitiveSetIterator<'a, 'v> {
     stack: Vec<(&'a TransitiveSet<'v>, PostorderMark<'v>)>,
-    seen: std::collections::HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+    seen: BuckMutSet<ValueIdentity<'v>>,
 }
 
 impl<'a, 'v> PostorderTransitiveSetIterator<'a, 'v>
@@ -166,7 +167,7 @@ where
 /// parent it is returned in the order of its last occurrence.
 pub struct TopologicalTransitiveSetIterator<'a, 'v> {
     output_stack: Vec<&'a TransitiveSet<'v>>,
-    instance_counts: std::collections::HashMap<ValueIdentity<'v>, u32, BuckHasherBuilder>,
+    instance_counts: BuckMutMap<ValueIdentity<'v>, u32>,
 }
 
 impl<'a, 'v> TopologicalTransitiveSetIterator<'a, 'v>
@@ -180,12 +181,9 @@ where
         }
     }
 
-    fn count_instances(
-        set: &'a TransitiveSet<'v>,
-    ) -> std::collections::HashMap<ValueIdentity<'v>, u32, BuckHasherBuilder> {
+    fn count_instances(set: &'a TransitiveSet<'v>) -> BuckMutMap<ValueIdentity<'v>, u32> {
         let mut stack = vec![set];
-        let mut instance_counts =
-            std::collections::HashMap::<ValueIdentity<'v>, u32, BuckHasherBuilder>::default();
+        let mut instance_counts = BuckMutMap::<ValueIdentity<'v>, u32>::default();
 
         while let Some(next) = stack.pop() {
             for child in next.children.iter().rev() {
@@ -251,7 +249,7 @@ where
 /// left-to-right before traversing to any grandchildren.
 pub struct BfsTransitiveSetIterator<'a, 'v> {
     queue: VecDeque<&'a TransitiveSet<'v>>,
-    seen: std::collections::HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+    seen: BuckMutSet<ValueIdentity<'v>>,
 }
 
 impl<'a, 'v> BfsTransitiveSetIterator<'a, 'v>
@@ -302,7 +300,7 @@ where
 /// left-to-right.
 pub struct DfsTransitiveSetIterator<'a, 'v> {
     stack: Vec<(&'a TransitiveSet<'v>, Option<ValueIdentity<'v>>)>,
-    seen: std::collections::HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+    seen: BuckMutSet<ValueIdentity<'v>>,
 }
 
 impl<'a, 'v> DfsTransitiveSetIterator<'a, 'v>

@@ -23,6 +23,7 @@
 
 use buck2_common::legacy_configs::agent_context::AgentContextSchema;
 use buck2_data::AgentContextEntry;
+use buck2_hash::BuckMutSet;
 
 /// Validate agent context entries against the schema.
 ///
@@ -46,7 +47,7 @@ pub(crate) fn validate_agent_context(
     }
 
     // Collect provided keys with non-empty values for required-field checking.
-    let provided_keys: std::collections::HashSet<&str> = entries
+    let provided_keys: BuckMutSet<&str> = entries
         .iter()
         .filter(|e| !e.value.is_empty())
         .map(|e| e.key.as_str())

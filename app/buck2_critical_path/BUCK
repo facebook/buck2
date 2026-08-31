@@ -9,6 +9,7 @@ rust_library(
         "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:rand_chacha",
         "fbsource//third-party/rust:rand_distr",
+        "//buck2/app/buck2_hash:buck2_hash",
     ],
     deps = [
         "fbsource//third-party/rust:crossbeam",

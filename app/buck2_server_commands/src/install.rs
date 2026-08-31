@@ -81,6 +81,8 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_install_proto::DeviceMetadata;
 use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
@@ -235,7 +237,7 @@ async fn install(
     // consumed by the install pipeline below. Deduped to keep
     // `get_target_rule_type_name` work proportional to unique targets.
     let installed_target_labels: Vec<ConfiguredTargetLabel> = {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = BuckMutSet::default();
         let mut out = Vec::new();
         for data in &install_request_data_vec {
             for (label, _) in &data.installed_targets {
@@ -322,7 +324,7 @@ async fn collect_install_request_data(
         .convert_pattern()
         .buck_error_context("Install with explicit configuration pattern is not supported yet")?;
 
-    let mut installer_to_files_map = std::collections::HashMap::new();
+    let mut installer_to_files_map = BuckMutMap::default();
     for (package_with_modifiers, spec) in resolved_pattern.specs {
         let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 

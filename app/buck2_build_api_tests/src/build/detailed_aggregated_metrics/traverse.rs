@@ -10,7 +10,6 @@
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     use buck2_artifact::actions::key::ActionIndex;
@@ -39,6 +38,7 @@ mod tests {
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_hash::StdBuckHashMap;
     use buck2_hash::buck_indexset;
     use dupe::Dupe;
     use dupe::IterDupedExt;
@@ -115,7 +115,7 @@ mod tests {
                     OwnedDeferredHolder::Analysis(AnalysisResult::new(
                         analysis_values,
                         None,
-                        HashMap::new(),
+                        StdBuckHashMap::default(),
                         0,
                         0,
                         None,

@@ -14,6 +14,7 @@ derive_more.workspace = true
 starlark_map.workspace = true
 
 [dev-dependencies]
+buck2_hash.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 rand_distr.workspace = true

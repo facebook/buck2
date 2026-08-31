@@ -22,7 +22,7 @@ use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
 use buck2_events::dispatch::console_message;
-use buck2_hash::BuckHasherBuilder;
+use buck2_hash::BuckMutSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dice_futures::owning_future::OwningFuture;
@@ -49,7 +49,7 @@ enum BuildErrors {
 
 struct Builder<'c, 'd> {
     ctx: LinearRecomputeDiceComputations<'c, 'd>,
-    already_loading: std::collections::HashSet<PackageLabel, BuckHasherBuilder>,
+    already_loading: BuckMutSet<PackageLabel>,
     load_package_futs:
         FuturesUnordered<BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>>,
 }
@@ -58,7 +58,7 @@ impl Builder<'_, '_> {
     pub fn new<'c, 'd>(ctx: LinearRecomputeDiceComputations<'c, 'd>) -> Builder<'c, 'd> {
         Builder {
             ctx,
-            already_loading: std::collections::HashSet::default(),
+            already_loading: BuckMutSet::default(),
             load_package_futs: FuturesUnordered::new(),
         }
     }
