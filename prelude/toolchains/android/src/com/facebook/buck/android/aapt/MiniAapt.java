@@ -10,7 +10,6 @@
 
 package com.facebook.buck.android.aapt;
 
-import com.facebook.buck.android.aapt.RDotTxtEntry.CustomDrawableType;
 import com.facebook.buck.android.aapt.RDotTxtEntry.IdType;
 import com.facebook.buck.android.aapt.RDotTxtEntry.RType;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -251,22 +250,14 @@ public class MiniAapt {
     int dotIndex = filename.indexOf('.');
     String resourceName = dotIndex != -1 ? filename.substring(0, dotIndex) : filename;
 
-    boolean isGrayscaleImage = false;
-    if (!filename.endsWith(".xml")) {
-      // .g.png is no longer an allowed filename in newer versions of aapt2.
-      isGrayscaleImage = filename.endsWith(".g.png") || filename.endsWith(GRAYSCALE_SUFFIX);
-      if (isGrayscaleImage) {
-        // Trim _g or .g from the resource name
-        resourceName = filename.substring(0, filename.length() - GRAYSCALE_SUFFIX.length());
-      }
+    // .g.png is no longer an allowed filename in newer versions of aapt2, hence the two spellings.
+    if (!filename.endsWith(".xml")
+        && (filename.endsWith(".g.png") || filename.endsWith(GRAYSCALE_SUFFIX))) {
+      // Trim _g or .g from the resource name
+      resourceName = filename.substring(0, filename.length() - GRAYSCALE_SUFFIX.length());
     }
 
-    if (isGrayscaleImage) {
-      resourceCollector.addCustomDrawableResourceIfNotPresent(
-          RType.DRAWABLE, resourceName, CustomDrawableType.GRAYSCALE_IMAGE);
-    } else {
-      resourceCollector.addIntResourceIfNotPresent(RType.DRAWABLE, resourceName);
-    }
+    resourceCollector.addIntResourceIfNotPresent(RType.DRAWABLE, resourceName);
   }
 
   /**
@@ -576,15 +567,6 @@ public class MiniAapt {
       }
     }
 
-    public void addCustomDrawableResourceIfNotPresent(
-        RType rType, String name, CustomDrawableType drawableType) {
-      RDotTxtEntry entry = new FakeRDotTxtEntry(IdType.INT, rType, name);
-      if (!resources.contains(entry)) {
-        String idValue = getNextCustomIdValue(rType, drawableType);
-        resources.add(new RDotTxtEntry(IdType.INT, rType, name, idValue, drawableType));
-      }
-    }
-
     public void addIntArrayResourceIfNotPresent(RType rType, String name, int numValues) {
       addResource(rType, IdType.INT_ARRAY, name, getNextArrayIdValue(rType, numValues), null);
     }
@@ -607,10 +589,6 @@ public class MiniAapt {
 
     String getNextIdValue(RType rType) {
       return String.format("0x%08x", getEnumerator(rType).next());
-    }
-
-    String getNextCustomIdValue(RType rType, CustomDrawableType drawableType) {
-      return String.format("0x%08x %s", getEnumerator(rType).next(), drawableType.getIdentifier());
     }
 
     String getNextArrayIdValue(RType rType, int numValues) {

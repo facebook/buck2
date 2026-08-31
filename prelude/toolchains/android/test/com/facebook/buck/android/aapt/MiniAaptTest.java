@@ -18,7 +18,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.facebook.buck.android.aapt.MiniAapt.ResourceParseException;
-import com.facebook.buck.android.aapt.RDotTxtEntry.CustomDrawableType;
 import com.facebook.buck.android.aapt.RDotTxtEntry.IdType;
 import com.facebook.buck.android.aapt.RDotTxtEntry.RType;
 import com.facebook.buck.core.filesystems.RelPath;
@@ -74,11 +73,6 @@ public class MiniAaptTest {
 
   private static Set<RDotTxtEntry> createTestingFakesWithParents(Set<RDotTxtEntry> entries) {
     return createTestingFakes(entries, RDotTxtEntryUtil::matchParent);
-  }
-
-  private static Set<RDotTxtEntry> createTestingFakesWithCustomDrawables(
-      Set<RDotTxtEntry> entries) {
-    return createTestingFakes(entries, RDotTxtEntryUtil::matchCustomDrawables);
   }
 
   @Before
@@ -320,15 +314,12 @@ public class MiniAaptTest {
 
     Set<RDotTxtEntry> definitions = aapt.getResourceCollector().getResources();
 
+    // Both spellings of the grayscale suffix are trimmed off the resource name.
     assertThat(
-        createTestingFakesWithCustomDrawables(definitions),
+        createTestingFakes(definitions),
         IsEqual.equalToObject(
             ImmutableSet.<RDotTxtEntry>of(
-                FakeEntry.createWithCustomDrawable(
-                    IdType.INT,
-                    RType.DRAWABLE,
-                    "fbui_tomato",
-                    CustomDrawableType.GRAYSCALE_IMAGE))));
+                FakeEntry.create(IdType.INT, RType.DRAWABLE, "fbui_tomato"))));
   }
 
   @Test
