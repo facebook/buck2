@@ -2013,6 +2013,7 @@ def rust_link_binary(
     transformation_spec_context: TransformationSpecContext | None,
     dwo_output_directory: Artifact | None,
     output: Artifact,
+    output_has_content_based_path: bool,
     identifier: str | None,
     allow_cache_upload: bool,
 ) -> CxxLinkResult:
@@ -2155,6 +2156,7 @@ def rust_link_binary(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("executable"),
+        output_has_content_based_path = output_has_content_based_path,
         opts = link_options(
             links = links,
             link_execution_preference = link_execution_preference,

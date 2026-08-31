@@ -178,6 +178,7 @@ def cxx_link_into(
     output: Artifact,
     result_type: CxxLinkResultType,
     opts: LinkOptions,
+    output_has_content_based_path: bool = False,
 ) -> CxxLinkResult:
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
@@ -537,7 +538,7 @@ def cxx_link_into(
         output = renamed
 
     if is_result_executable:
-        output = add_elf_sections_to_executable(ctx, output)
+        output = add_elf_sections_to_executable(ctx, output, has_content_based_path = output_has_content_based_path)
         output = stamp_build_info(ctx, output, links = opts.links)
 
     linked_object = LinkedObject(

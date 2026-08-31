@@ -406,6 +406,7 @@ def _rust_binary_common(
             transformation_spec_context = transformation_spec_context,
             dwo_output_directory = link.compile_output.dwo_output_directory,
             output = predeclared_output,
+            output_has_content_based_path = exe_content_based,
             identifier = name,
             allow_cache_upload = allow_cache_upload,
         )

@@ -61,7 +61,7 @@ def get_elf_sections(ctx: AnalysisContext) -> dict[str, Artifact]:
     """
     return getattr(ctx.attrs, "elf_sections", None) or {}
 
-def add_elf_sections_to_executable(ctx: AnalysisContext, obj: Artifact) -> Artifact:
+def add_elf_sections_to_executable(ctx: AnalysisContext, obj: Artifact, has_content_based_path: bool = False) -> Artifact:
     """
     Add the rule's `elf_sections` to a linked executable, if it has any.
 
@@ -84,6 +84,6 @@ def add_elf_sections_to_executable(ctx: AnalysisContext, obj: Artifact) -> Artif
         ctx,
         obj,
         sections,
-        ctx.actions.declare_output(stem.removesuffix(PRE_ADD_ELF_SECTIONS_SUFFIX) + ext),
+        ctx.actions.declare_output(stem.removesuffix(PRE_ADD_ELF_SECTIONS_SUFFIX) + ext, has_content_based_path = has_content_based_path),
         category = "add_elf_sections",
     )
