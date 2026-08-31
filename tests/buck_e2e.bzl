@@ -181,6 +181,7 @@ def buck_e2e_test(
             "!xplat/toolchains/gator/**",
             "fbcode/hermetic_infra/fdb/**",
             "tools/build_defs/**",
+            "!tools/build_defs/llvm/**",
             "arvr/tools/build_defs/config/**",
             ".buckconfig",
             "tools/buckconfigs/**",
