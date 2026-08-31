@@ -106,7 +106,7 @@ impl<'v> Tuple<'v> {
 impl<'v> Tuple<'v> {
     /// Get the length of the tuple.
     pub(crate) fn len(&self) -> usize {
-        self.content().len()
+        self.len
     }
 
     /// Tuple elements.
