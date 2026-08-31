@@ -898,12 +898,16 @@ def _get_base_compile_cmd(
 def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
     return flavor.value in toolchain.supported_compile_flavors and toolchain.compiler_flavor_flags.get(flavor.value) != None
 
+# Fallback when the toolchain configures no flavor flags at all, for clang and
+# gcc. Ideally this would be a default value in the toolchain definition itself,
+# but it is compiler-dependent so we can't have it there. Module-level so every
+# per-source compile record shares one frozen value instead of allocating a
+# fresh dict+list per TU.
+_DEFAULT_PIC_FLAVOR_FLAGS = {CxxCompileFlavor("pic").value: ["-fPIC"]}
+
 def build_flavor_flags(flavor_flags: dict[str, typing.Any], compiler_type: str) -> dict[str, typing.Any]:
     if not flavor_flags and compiler_type in ["clang", "gcc"]:
-        # If there are no configured flavor flags for toolchain at all
-        # we fallback to default fPIC for clang and gcc. Ideally this should be default
-        # value in toolchain definition itself, but it is compiler-dependent so we can't have it there.
-        return {CxxCompileFlavor("pic").value: ["-fPIC"]}
+        return _DEFAULT_PIC_FLAVOR_FLAGS
 
     return flavor_flags
 
