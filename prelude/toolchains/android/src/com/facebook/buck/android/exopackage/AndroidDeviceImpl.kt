@@ -765,8 +765,16 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   ): Boolean {
     val destinationPath: String = dataRoot.resolve(packageName).toString()
     try {
-      executeAdbShellCommand("umask 022 && mkdir -p $destinationPath")
-      executeAdbShellCommand("echo $buildUuid > $destinationPath/build_uuid.txt")
+      // One `adb shell`, not two, because `umask` is per-process. Split across two shells the
+      // second one never runs the umask, so the file its redirect creates takes adbd's default
+      // mode rather than 0644. The directory is unaffected either way — the FIRST shell is what
+      // creates it — and that asymmetry is what makes this easy to miss: on a host whose default
+      // umask is already 022 both land 0644 and the split looks harmless. The file is read back
+      // as build provenance, so it should not be writable by anything but the installer.
+      executeAdbShellCommand(
+          "umask 022 && mkdir -p $destinationPath && " +
+              "echo $buildUuid > $destinationPath/build_uuid.txt",
+      )
     } catch (e: Exception) {
       // we don't want to fail the install if we can't install the build_uuid.txt file
       LOG.warn("Failed to install build_uuid.txt file on $serial: ${e.message}")

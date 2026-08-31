@@ -15,6 +15,7 @@ import com.facebook.buck.installer.android.AndroidInstallErrorTag
 import com.facebook.buck.installer.android.AndroidInstallException
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.Paths
 import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -861,5 +862,44 @@ class AndroidDeviceImplTest {
         .verify(mockAdbUtils)
         .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
     inOrder.verify(mockAdbUtils).executeAdbCommand(eq(plainInstall), eq(serialNumber), any())
+  }
+
+  @Test
+  fun testInstallBuildUuidFileSetsTheUmaskInTheShellThatWritesTheFile() {
+    val result =
+        androidDevice.installBuildUuidFile(
+            Paths.get("/data/local/tmp/build_metadata"),
+            packageName,
+            "some-build-uuid",
+        )
+
+    // One command, not two: `umask` is per-process, so one set in its own `adb shell` is gone by
+    // the time a second shell's redirect creates the file, which then takes adbd's default mode
+    // rather than 0644. Pinning the single chained command is what holds that.
+    assertTrue(result)
+    verify(mockAdbUtils)
+        .executeAdbShellCommand(
+            "umask 022 && mkdir -p /data/local/tmp/build_metadata/$packageName && " +
+                "echo some-build-uuid > /data/local/tmp/build_metadata/$packageName/build_uuid.txt",
+            serialNumber,
+            false,
+        )
+  }
+
+  @Test
+  fun testInstallBuildUuidFileDoesNotFailTheInstallWhenTheDeviceRefusesTheWrite() {
+    // doAnswer, not thenThrow: Kotlin emits no `throws` clause, so Mockito rejects a checked
+    // exception as a stubbed one even though the code under test can observe it.
+    doAnswer { throw AdbCommandFailedException("read-only file system") }
+        .whenever(mockAdbUtils)
+        .executeAdbShellCommand(any(), eq(serialNumber), any())
+
+    assertTrue(
+        androidDevice.installBuildUuidFile(
+            Paths.get("/data/local/tmp/build_metadata"),
+            packageName,
+            "some-build-uuid",
+        ),
+    )
   }
 }
