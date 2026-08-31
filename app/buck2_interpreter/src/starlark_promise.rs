@@ -445,7 +445,8 @@ mod tests {
 
     #[test]
     fn test_promise() {
-        // patternlint-disable-next-line buck2-no-starlark-module: Test
+        // Test
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|modu| {
             let res = assert_promise(
                 &modu,
@@ -482,7 +483,8 @@ f = e.map(lambda x: x.upper())
 
     #[test]
     fn test_promise_validate() {
-        // patternlint-disable-next-line buck2-no-starlark-module: Test
+        // Test
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|modu| {
             assert_promise(
                 &modu,
@@ -509,7 +511,8 @@ p
 
     #[test]
     fn test_promise_join() {
-        // patternlint-disable-next-line buck2-no-starlark-module: Test
+        // Test
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|modu| {
             let res = assert_promise(
                 &modu,

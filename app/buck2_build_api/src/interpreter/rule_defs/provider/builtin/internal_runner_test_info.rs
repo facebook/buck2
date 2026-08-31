@@ -283,7 +283,8 @@ impl<'v> InternalRunnerTestInfo<'v> {
     ) -> buck2_error::Result<Vec<TestListingEntry>> {
         let callback = self.parse_test_listing();
 
-        // patternlint-disable-next-line buck2-no-starlark-module: calling frozen callback
+        // calling frozen callback
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
             let heap = env.heap();
             let mut eval = Evaluator::new(&env);
@@ -382,7 +383,8 @@ impl<'v> InternalRunnerTestInfo<'v> {
     ) -> buck2_error::Result<Vec<TestResultEntry>> {
         let callback = self.parse_test_result();
 
-        // patternlint-disable-next-line buck2-no-starlark-module: calling frozen callback
+        // calling frozen callback
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
             let heap = env.heap();
             let mut eval = Evaluator::new(&env);

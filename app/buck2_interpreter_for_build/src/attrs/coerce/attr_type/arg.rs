@@ -289,7 +289,8 @@ mod tests {
 
     #[test]
     fn test_concat() -> buck2_error::Result<()> {
-        // patternlint-disable-next-line buck2-no-starlark-module: Test
+        // Test
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
             let globals = GlobalsBuilder::standard().with(register_select).build();
             let attr = AttrType::arg(true);

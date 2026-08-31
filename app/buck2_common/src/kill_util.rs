@@ -151,7 +151,7 @@ mod tests {
         "#;
         child_file.write_all(child_script.as_bytes()).await?;
 
-        // @patternlint-disable-next-line buck2-no-command-new
+        // ast-grep-ignore: rust/buck2-no-command-new
         let mut command = tokio::process::Command::new("sh");
         command
             .args(["parent.sh"])
@@ -206,7 +206,7 @@ mod tests {
         "#;
         child_file.write_all(child_script.as_bytes()).await?;
 
-        // @patternlint-disable-next-line buck2-no-command-new
+        // ast-grep-ignore: rust/buck2-no-command-new
         let mut command = tokio::process::Command::new("sh");
         command
             .args(["parent.sh"])

@@ -463,7 +463,7 @@ fn do_exec(command: &mut Command) -> buck2_error::Error {
 /// Invokes the given program with the given argv and replaces the program image with the new program.
 /// Does not return.
 fn execv(args: ExecArgs) -> ! {
-    // patternlint-disable-next-line buck2-no-command-new
+    // ast-grep-ignore: rust/buck2-no-command-new
     let mut command = Command::new(&args.prog);
     command.args(&args.argv[1..]);
     if let Some(dir) = args.chdir {

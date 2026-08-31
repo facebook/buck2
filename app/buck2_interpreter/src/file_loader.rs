@@ -222,7 +222,8 @@ mod tests {
     }
 
     fn env(name: StarlarkModulePath) -> FrozenModule {
-        // patternlint-disable-next-line buck2-no-starlark-module: Test
+        // Test
+        // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|m| {
             m.set("name", m.heap().alloc(name.to_string()));
             m.freeze_named(Buck2TestHeapName::frozen_heap_name())
