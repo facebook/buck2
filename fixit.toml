@@ -1,0 +1,20 @@
+# buck2 custom Fixit 2 lint rules.
+# Local config -- merged with fbsource/.fixit.toml at lint time.
+#
+# These replace the two `inplace` PatternLint rules. Both are deliberately
+# path-scoped rather than enabled for all of `tests/`: `inplace=False` is
+# redundant only under `tests/core/` (which already defaults to it) and is
+# meaningful everywhere else, so an unscoped rule would fire on ~179 legitimate
+# uses elsewhere in the tree.
+
+[[tool.fixit.overrides]]
+enable = [
+    ".tests.lint_rules.no_redundant_inplace_false",
+]
+path = "tests/core/"
+
+[[tool.fixit.overrides]]
+enable = [
+    ".tests.lint_rules.no_inplace_true_in_build_isolated",
+]
+path = "tests/e2e/build/"
