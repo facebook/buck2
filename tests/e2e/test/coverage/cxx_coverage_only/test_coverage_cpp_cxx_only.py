@@ -265,7 +265,7 @@ async def test_cpp_test_coverage_filter_by_header_file_defined_in_one_link_group
     paths = await collect_coverage_for(
         buck,
         tmp_path,
-        "fbcode//testing_frameworks/code_coverage/playground/link_groups:test_with_header_used_in_different_link_group",
+        "fbcode//testing_frameworks/code_coverage/playground/link_groups:test_with_header_used_in_test_binary",
         mode="@fbcode//mode/dev-lg",
         filter=[header_name],
     )
