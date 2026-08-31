@@ -101,7 +101,6 @@ def _encode_link_info(info: LinkInfo, flags: list, artifacts: list[Artifact]):
     artifacts.extend(external_debug_artifacts)
 
     return [
-        info.name,
         len(info.pre_flags),
         len(info.post_flags),
         linkables,
@@ -110,6 +109,13 @@ def _encode_link_info(info: LinkInfo, flags: list, artifacts: list[Artifact]):
     ]
 
 def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> dict[str, typing.Any]:
+    # Anonymous links cannot run distributed ThinLTO (its dynamic outputs are
+    # unsupported in anon targets; every anonymous caller disables it), and the
+    # encoding relies on that: `LinkInfo.name` is not serialized, and dist
+    # ThinLTO planning is the one consumer that reads it.
+    if opts.enable_distributed_thinlto:
+        fail("anonymous links do not support distributed ThinLTO")
+
     recipe = []
     flags = []
     artifacts = []
@@ -178,7 +184,7 @@ def _decode_linkable(spec, artifacts, artifact_cursor: list[int]) -> typing.Any:
     fail("Invalid linkable kind: {}".format(kind))
 
 def _decode_link_info(actions: AnalysisActions, label: Label, spec, flags, flag_cursor: list[int], artifacts, artifact_cursor: list[int]) -> LinkInfo:
-    name, num_pre_flags, num_post_flags, linkable_specs, num_external_debug_artifacts, metadata = spec
+    num_pre_flags, num_post_flags, linkable_specs, num_external_debug_artifacts, metadata = spec
 
     pre_flags = flags[flag_cursor[0] : flag_cursor[0] + num_pre_flags]
     post_flags = flags[flag_cursor[0] + num_pre_flags : flag_cursor[0] + num_pre_flags + num_post_flags]
@@ -190,7 +196,7 @@ def _decode_link_info(actions: AnalysisActions, label: Label, spec, flags, flag_
     artifact_cursor[0] += num_external_debug_artifacts
 
     return LinkInfo(
-        name = name,
+        name = None,
         pre_flags = pre_flags,
         post_flags = post_flags,
         linkables = linkables,
