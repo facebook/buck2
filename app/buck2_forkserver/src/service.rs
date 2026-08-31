@@ -439,17 +439,11 @@ impl MiniperfContainer {
                 encoding: buck2_embedded_section::SectionEncoding::Zstd,
             };
 
-            if let Err(e) = section
+            section
                 .copy_to(&mut miniperf_writer)
                 .with_buck_error_context(|| {
                     format!("Error writing miniperf to `{}`", miniperf.display())
-                })
-            {
-                let _ignored = buck2_core::soft_error!("miniperf_embedded_section_load_failed", e);
-                let _ignored = fs_util::remove_all(&miniperf).categorize_internal();
-                let _ignored = fs_util::remove_all(&output_dir).categorize_internal();
-                return Ok(None);
-            }
+                })?;
 
             Ok(Some(Self {
                 miniperf,
