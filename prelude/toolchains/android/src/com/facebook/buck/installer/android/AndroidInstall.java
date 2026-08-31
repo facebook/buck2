@@ -20,6 +20,8 @@ import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.logging.Logger; // NOPMD
 /** Installs an Android Apk */
 class AndroidInstall {
   private static final Logger LOG = Logger.getLogger(AndroidInstall.class.getName());
+  private static final DateTimeFormatter INSTALL_COMPLETION_TIME_FORMAT =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
   private static final Set<String> ENABLE_APP_LINKS_ALLOWLIST =
       Set.of("com.facebook.wakizashi", "com.facebook.lite", "com.instagram.lite");
 
@@ -113,11 +117,13 @@ class AndroidInstall {
         Map<String, String> installMetrics =
             state.metrics().summarise(System.currentTimeMillis(), state.artifacts().arrivals());
         deviceInfos.forEach(infoMap -> infoMap.putAll(installMetrics));
+        Instant completedAt = Instant.now();
         logger.info(
-            String.format(
-                "Install of %s finished in %d seconds",
-                apkInfo.getApkPath().getFileName(),
-                Duration.between(start, Instant.now()).getSeconds()));
+            formatCompletionMessage(
+                apkInfo.getApkPath().getFileName().toString(),
+                start,
+                completedAt,
+                ZoneId.systemDefault()));
 
         String packageName = state.packageName();
 
@@ -168,5 +174,14 @@ class AndroidInstall {
           deviceInfos,
           Optional.of(errMsg).map(AndroidInstallErrorClassifier.INSTANCE::fromErrorMessage));
     }
+  }
+
+  static String formatCompletionMessage(
+      String apkName, Instant start, Instant completedAt, ZoneId zoneId) {
+    return String.format(
+        "Install of %s finished in %d seconds at %s",
+        apkName,
+        Duration.between(start, completedAt).getSeconds(),
+        INSTALL_COMPLETION_TIME_FORMAT.withZone(zoneId).format(completedAt));
   }
 }
