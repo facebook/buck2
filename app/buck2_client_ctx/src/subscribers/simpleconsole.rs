@@ -88,7 +88,6 @@ fn with_timestamps(message: &str) -> String {
 macro_rules! echo {
     () => {
         {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("[{}]", now_display())
         }
     };
@@ -96,7 +95,6 @@ macro_rules! echo {
         {
             let message = format!($fmt $(, $args)*);
             let message = with_timestamps(&message);
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", message)
         }
     };
@@ -321,10 +319,10 @@ where
 
         let message = error_display.simple_format_with_timestamps(with_timestamps, output_format);
         if self.tty_mode == TtyMode::Disabled {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            // ast-grep-ignore: rust/buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", display::sanitize_output_colors(message.as_bytes()))?;
         } else {
-            // patternlint-disable-next-line buck2-cli-simpleconsole-echo
+            // ast-grep-ignore: rust/buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", message)?;
         }
 
