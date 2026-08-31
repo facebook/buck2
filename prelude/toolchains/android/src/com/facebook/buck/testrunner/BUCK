@@ -19,9 +19,11 @@ buck_java_library(
     source = "11", # @oss-enable
     target = "11", # @oss-enable
     tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:junit_runner_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
     visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:junit_runner_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
     deps = [
@@ -119,11 +121,13 @@ buck_kotlin_library(
     source = "11", # @oss-enable
     target = "11", # @oss-enable
     tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:junit_runner_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:per_test_coverage_listener_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
     visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:junit_runner_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:per_test_coverage_listener_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",

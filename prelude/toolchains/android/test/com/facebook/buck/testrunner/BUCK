@@ -55,6 +55,16 @@ standard_java_test(
 )
 
 buck_kotlin_test(
+    name = "junit_runner_test",
+    srcs = ["JUnitRunnerTest.kt"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:base",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/third-party:junit",
+    ],
+)
+
+buck_kotlin_test(
     name = "tpx_timeout_buffer_manager_test",
     srcs = ["TpxTimeoutBufferManagerTest.kt"],
     deps = [
