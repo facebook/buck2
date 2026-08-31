@@ -15,8 +15,8 @@ load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
-    "ResourceInfo",
     "gather_resources",
+    "make_resource_info",
 )
 load("@prelude//cxx:cxx_link_utility.bzl", "shared_libs_symlink_tree_name")
 load(
@@ -508,12 +508,12 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # C++ resources.
     providers.append(
-        ResourceInfo(
-            resources = gather_resources(
+        make_resource_info(
+            gather_resources(
                 label = ctx.label,
                 deps = raw_deps,
-            )
-        )
+            ),
+        ),
     )
 
     # Attrs validators (combined with optional pyre type-check validation spec).

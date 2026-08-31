@@ -34,6 +34,8 @@ load(
 
 OBJECTS_SUBTARGET = "objects"
 
+EMPTY_DEFAULT_INFO = DefaultInfo()
+
 # The dependencies, and the default deps (if selected)
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     deps = ctx.attrs.deps

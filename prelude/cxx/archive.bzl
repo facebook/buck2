@@ -48,6 +48,8 @@ def archive_flags(archiver_type: str, linker_type: LinkerType, use_archiver_flag
 
     return [flags]
 
+_ARCHIVE_ENV = {"ZERO_AR_DATE": "1"}
+
 # Create a static library from a list of object files.
 def _archive(
     ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool, allow_cache_upload: bool, force_disable_content_based_path: bool = False
@@ -96,7 +98,7 @@ def _archive(
     # other archivers do not support such a flag. Some implementations, notably
     # Xcode's, instead support zeroing the timestamp by way of an environment
     # variable.
-    env = {"ZERO_AR_DATE": "1"}
+    env = _ARCHIVE_ENV
 
     category = "archive"
     if thin:

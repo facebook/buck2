@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",
@@ -174,7 +175,7 @@ def _anon_extract_symbol_names_impl(ctx):
         undefined_weak = ctx.attrs.undefined_weak,
         allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
-    return [DefaultInfo(), _SymbolsInfo(artifact = output)]
+    return [EMPTY_DEFAULT_INFO, _SymbolsInfo(artifact = output)]
 
 # Anonymous wrapper for `extract_symbol_names`.
 _anon_extract_symbol_names_impl_rule = anon_rule(

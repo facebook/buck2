@@ -60,6 +60,7 @@ load(
 )
 load(":bitcode.bzl", "make_bitcode_bundle")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(
     ":cxx_link_utility.bzl",
     "LinkArgsOutput",
@@ -597,7 +598,7 @@ def _anon_link_impl(ctx):
     split_debug_output_placeholder = ctx.actions.write("placeholder_split_debug_output", "", has_content_based_path = False)
 
     return [
-        DefaultInfo(),
+        EMPTY_DEFAULT_INFO,
         _AnonLinkInfo(result = link_result),
         _AnonLinkInfoPlaceholder(dwp = dwp_placeholder, split_debug_output = split_debug_output_placeholder),
     ]

@@ -8,8 +8,9 @@
 
 load(
     "@prelude//:resources.bzl",
-    "ResourceInfo",
+    "ResourceInfo",  # @unused Used as a type
     "gather_resources",
+    "make_resource_info",
 )
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:dex.bzl", "DexLibraryInfo", "get_dex_produced_from_java_library")
@@ -489,7 +490,7 @@ def get_all_java_packaging_deps_tset(
     ctx: AnalysisContext, java_packaging_infos: list[JavaPackagingInfo], java_packaging_dep: [JavaPackagingDep, None] = None
 ) -> [JavaPackagingDepTSet, None]:
     packaging_deps_kwargs = {}
-    if java_packaging_dep:
+    if java_packaging_dep != None:
         packaging_deps_kwargs["value"] = java_packaging_dep
 
     packaging_deps_children = filter(None, [info.packaging_deps for info in java_packaging_infos])
@@ -498,10 +499,14 @@ def get_all_java_packaging_deps_tset(
 
     return ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs) if packaging_deps_kwargs else None
 
+_EMPTY_JAVA_PACKAGING_INFO = JavaPackagingInfo(packaging_deps = None)
+
 # Accumulate deps necessary for packaging, which consist of all transitive java deps (except provided ones)
 def get_java_packaging_info(ctx: AnalysisContext, raw_deps: list[Dependency], java_packaging_dep: [JavaPackagingDep, None] = None) -> JavaPackagingInfo:
     java_packaging_infos = filter(None, [x.get(JavaPackagingInfo) for x in raw_deps])
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
+    if packaging_deps == None:
+        return _EMPTY_JAVA_PACKAGING_INFO
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
 def _group_global_code_children_by_name(global_code_infos: list[JavaGlobalCodeInfo]) -> dict[str, list[JavaCompilingDepsTSetWrapper]]:
@@ -614,8 +619,8 @@ def create_native_providers(ctx: AnalysisContext, label: Label, packaging_deps: 
         ctx.actions,
         deps = filter(None, [x.get(SharedLibraryInfo) for x in packaging_deps]),
     )
-    cxx_resource_info = ResourceInfo(
-        resources = gather_resources(
+    cxx_resource_info = make_resource_info(
+        gather_resources(
             label,
             deps = packaging_deps,
         )

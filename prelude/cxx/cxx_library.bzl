@@ -15,8 +15,8 @@ load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
-    "ResourceInfo",
     "gather_resources",
+    "make_resource_info",
 )
 load(
     "@prelude//android:android_providers.bzl",
@@ -64,8 +64,8 @@ load(
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_link_execution_preference")
 load(
     "@prelude//linking:link_groups.bzl",
+    "EMPTY_LINK_GROUP_LIB_INFO",
     "LinkGroupLib",  # @unused Used as a type
-    "LinkGroupLibInfo",
     "gather_link_group_libs",
     "merge_link_group_lib_info",
 )
@@ -101,7 +101,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "DlopenableLibraryInfo",
+    "DLOPENABLE_LIBRARY_INFO_MARKER",
     "LinkableRootInfo",
     "ReducedLinkableGraph",  # @unused used as a type
     "create_linkable_graph",
@@ -110,7 +110,14 @@ load(
     "linkable_deps",
     "reduce_linkable_graph",
 )
-load("@prelude//linking:shared_libraries.bzl", "NamedLinkedObject", "SharedLibraryInfo", "create_flavored_shared_libraries", "merge_shared_libraries")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "EMPTY_SHARED_LIBRARY_INFO",
+    "NamedLinkedObject",
+    "SharedLibraryInfo",
+    "create_flavored_shared_libraries",
+    "merge_shared_libraries",
+)
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load(
@@ -169,6 +176,7 @@ load(
 )
 load(
     ":cxx_library_utility.bzl",
+    "EMPTY_DEFAULT_INFO",
     "OBJECTS_SUBTARGET",
     "cxx_attr_dep_metadata",
     "cxx_attr_deps",
@@ -425,7 +433,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         return _CxxLibraryParameterizedOutput(
             providers = [
                 DefaultInfo(default_output = None, sub_targets = sub_targets),
-                SharedLibraryInfo(set = None),
+                EMPTY_SHARED_LIBRARY_INFO,
             ],
             sub_targets = sub_targets,
         )
@@ -992,7 +1000,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 own_exported_preprocessors.extend(header_unit_preprocessors)
         else:
             sub_targets["header-unit"] = [
-                DefaultInfo(),
+                EMPTY_DEFAULT_INFO,
                 cxx_merge_cpreprocessors(
                     ctx.actions,
                     own_exported_preprocessors,
@@ -1072,8 +1080,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 frameworks_linkable = frameworks_linkable,
                 swiftmodule_linkable = swiftmodule_linkable,
             ),
-            LinkGroupLibInfo(libs = {}),
-            SharedLibraryInfo(set = None),
+            EMPTY_LINK_GROUP_LIB_INFO,
+            EMPTY_SHARED_LIBRARY_INFO,
         ] + additional_providers
 
     if getattr(ctx.attrs, "supports_header_symlink_subtarget", False):
@@ -1188,7 +1196,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
         # Mark libraries that support `dlopen`.
         if getattr(ctx.attrs, "supports_python_dlopen", False):
-            providers.append(DlopenableLibraryInfo())
+            providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     # Augment and provide the linkable graph.
     if impl_params.generate_providers.linkable_graph:
@@ -1222,13 +1230,13 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if impl_params.generate_providers.resources:
         resources = cxx_attr_resources(ctx)
         providers.append(
-            ResourceInfo(
-                resources = gather_resources(
+            make_resource_info(
+                gather_resources(
                     label = ctx.label,
                     resources = resources,
                     deps = deps_all_non_exported_first,
-                )
-            )
+                ),
+            ),
         )
         if impl_params.generate_providers.cxx_resources_as_apple_resources:
             apple_resource_graph = create_resource_graph(
@@ -1346,8 +1354,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             linkage_providers = [
                 linkage_merged_link_info,
                 propagated_preprocessor,
-                LinkGroupLibInfo(libs = {}),
-                SharedLibraryInfo(set = None),
+                EMPTY_LINK_GROUP_LIB_INFO,
+                EMPTY_SHARED_LIBRARY_INFO,
             ]
 
             # Only create LinkableGraph if we have all required output styles for this linkage

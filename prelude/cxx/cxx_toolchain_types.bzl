@@ -10,6 +10,8 @@ load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_extra_darwin_linker_flag
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//target_stats:target_stats_tools.bzl", "TargetStatsToolsInfo")
 
+CXX_COMPILER_TYPES = ["clang", "clang_cl", "clang_windows", "gcc", "windows", "windows_ml64"]
+
 LinkerType = enum("gnu", "darwin", "windows", "wasm")
 
 IncrementalLinkingMode = enum("disabled", "supported", "enabled")

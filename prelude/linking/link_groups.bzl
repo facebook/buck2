@@ -37,6 +37,8 @@ LinkGroupLibInfo = provider(
     }
 )
 
+EMPTY_LINK_GROUP_LIB_INFO = LinkGroupLibInfo(libs = {})
+
 def gather_link_group_libs(
     libs: list[dict[str, LinkGroupLib]] = [], children: list[LinkGroupLibInfo] = [], deps: list[Dependency] = []
 ) -> dict[str, LinkGroupLib]:
@@ -67,10 +69,13 @@ def merge_link_group_lib_info(
             shared_libs = shared_libs,
             shared_link_infos = shared_link_infos,
         )
+    merged = gather_link_group_libs(
+        libs = [libs],
+        deps = deps,
+        children = children,
+    )
+    if not merged:
+        return EMPTY_LINK_GROUP_LIB_INFO
     return LinkGroupLibInfo(
-        libs = gather_link_group_libs(
-            libs = [libs],
-            deps = deps,
-            children = children,
-        ),
+        libs = merged,
     )

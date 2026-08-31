@@ -690,7 +690,7 @@ def _conan_profile_impl(ctx: AnalysisContext) -> list[Provider]:
     content.append(cmd_args(ctx.attrs.build_type, format = "build_type={}"))
 
     # TODO[AH] Auto-generate the compiler setting based on the toolchain.
-    #   Needs a translation of CxxToolProviderType to compiler setting.
+    #   Needs a translation of the supported C++ compiler types to compiler setting.
     content.append(cmd_args(ctx.attrs.compiler, format = "compiler={}"))
     content.append(cmd_args(ctx.attrs.compiler_version, format = "compiler.version={}"))
     content.append(cmd_args(ctx.attrs.compiler_libcxx, format = "compiler.libcxx={}"))

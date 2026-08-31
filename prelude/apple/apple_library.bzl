@@ -105,6 +105,7 @@ load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
     "CPreprocessorInfo",  # @unused Used as a type
+    "EMPTY_CPREPROCESSOR",
 )
 load("@prelude//cxx:target_sdk_version.bzl", "get_unversioned_target_triple")
 load("@prelude//graphql:graphql.bzl", "graphql_providers")
@@ -422,7 +423,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
     objc_swift_interface = swift_compile_result.objc_swift_interface
     swift_object_files = swift_compile.object_files if swift_compile else []
 
-    swift_pre = CPreprocessor()
+    swift_pre = EMPTY_CPREPROCESSOR
     if swift_compile:
         # If we have Swift we export the extended modulemap that includes
         # the ObjC exported headers and the -Swift.h header.

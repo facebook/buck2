@@ -14,6 +14,7 @@ load(
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 
 # Provider that exposes the compilation database information
 CxxCompilationDbInfo = provider(
@@ -82,7 +83,7 @@ def _create_comp_database_impl(
 
     actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
 
-    return [DefaultInfo()]
+    return [EMPTY_DEFAULT_INFO]
 
 _dynamic_compilation_database_rule = dynamic_actions(
     impl = _create_comp_database_impl,

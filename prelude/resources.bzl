@@ -19,6 +19,11 @@ ResourceInfo = provider(
     }
 )
 
+_EMPTY_RESOURCE_INFO = ResourceInfo(resources = {})
+
+def make_resource_info(resources: dict[Label, dict[str, ArtifactOutputs]]) -> ResourceInfo:
+    return _EMPTY_RESOURCE_INFO if not resources else ResourceInfo(resources = resources)
+
 def create_relocatable_resources_info(
     ctx: AnalysisContext, name: str, resources: dict[str, ArtifactOutputs], has_content_based_path: bool = False
 ) -> [ArgLike, Artifact]:

@@ -137,6 +137,8 @@ LinkableGraph = provider(
 # dynamically, at runtime (e.g. via `dlopen`).
 DlopenableLibraryInfo = provider(fields = {})
 
+DLOPENABLE_LIBRARY_INFO_MARKER = DlopenableLibraryInfo()
+
 def _get_required_outputs_for_linkage(linkage: Linkage) -> list[LibOutputStyle]:
     if linkage == Linkage("shared"):
         return [LibOutputStyle("shared_lib")]

@@ -140,13 +140,16 @@ FrameworksLinkable = record(
     # They get dedupped into sets as they propagate.
 )
 
-FrameworksLinkableEmpty = FrameworksLinkable()
+_EMPTY_FRAMEWORKS_LINKABLE = FrameworksLinkable()
 
 SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
 
-SwiftmoduleLinkableEmpty = SwiftmoduleLinkable()
+_EMPTY_SWIFTMODULE_LINKABLE = SwiftmoduleLinkable()
+
+_EMPTY_FRAMEWORKS_LINKABLE_BY_STRATEGY = {link_strategy: _EMPTY_FRAMEWORKS_LINKABLE for link_strategy in LinkStrategy}
+_EMPTY_SWIFTMODULE_LINKABLE_BY_STRATEGY = {link_strategy: _EMPTY_SWIFTMODULE_LINKABLE for link_strategy in LinkStrategy}
 
 LinkableTypes = [
     ArchiveLinkable,
@@ -571,8 +574,8 @@ def create_merged_link_info(
 
     infos = {}
     external_debug_info = {}
-    frameworks = {}
-    swiftmodules = {}
+    frameworks = None
+    swiftmodules = None
 
     # We don't know how this target will be linked, so we generate the possible
     # link info given the target's preferred linkage, to be consumed by the
@@ -620,8 +623,17 @@ def create_merged_link_info(
             if value:
                 external_debug_info_children.append(value)
 
-        frameworks[link_strategy] = _merge_framework_linkables(framework_linkables)
-        swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
+        merged_frameworks = _merge_framework_linkables(framework_linkables)
+        if merged_frameworks != _EMPTY_FRAMEWORKS_LINKABLE:
+            if frameworks == None:
+                frameworks = dict(_EMPTY_FRAMEWORKS_LINKABLE_BY_STRATEGY)
+            frameworks[link_strategy] = merged_frameworks
+
+        merged_swiftmodules = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
+        if merged_swiftmodules != _EMPTY_SWIFTMODULE_LINKABLE:
+            if swiftmodules == None:
+                swiftmodules = dict(_EMPTY_SWIFTMODULE_LINKABLE_BY_STRATEGY)
+            swiftmodules[link_strategy] = merged_swiftmodules
 
         if actual_output_style in link_infos:
             link_info = link_infos[actual_output_style]
@@ -642,8 +654,8 @@ def create_merged_link_info(
     return MergedLinkInfo(
         _infos = infos,
         _external_debug_info = external_debug_info,
-        frameworks = frameworks,
-        swiftmodules = swiftmodules,
+        frameworks = frameworks if frameworks != None else _EMPTY_FRAMEWORKS_LINKABLE_BY_STRATEGY,
+        swiftmodules = swiftmodules if swiftmodules != None else _EMPTY_SWIFTMODULE_LINKABLE_BY_STRATEGY,
     )
 
 def create_merged_link_info_for_propagation(ctx: AnalysisContext, xs: list[MergedLinkInfo]) -> MergedLinkInfo:
@@ -654,8 +666,8 @@ def create_merged_link_info_for_propagation(ctx: AnalysisContext, xs: list[Merge
     """
     merged = {}
     merged_external_debug_info = {}
-    frameworks = {}
-    swiftmodules = {}
+    frameworks = None
+    swiftmodules = None
     for link_strategy in LinkStrategy:
         merged[link_strategy] = ctx.actions.tset(
             LinkInfosTSet,
@@ -666,14 +678,23 @@ def create_merged_link_info_for_propagation(ctx: AnalysisContext, xs: list[Merge
             label = ctx.label,
             children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
-        frameworks[link_strategy] = _merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
-        swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
+        merged_frameworks = _merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
+        if merged_frameworks != _EMPTY_FRAMEWORKS_LINKABLE:
+            if frameworks == None:
+                frameworks = dict(_EMPTY_FRAMEWORKS_LINKABLE_BY_STRATEGY)
+            frameworks[link_strategy] = merged_frameworks
+
+        merged_swiftmodules = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
+        if merged_swiftmodules != _EMPTY_SWIFTMODULE_LINKABLE:
+            if swiftmodules == None:
+                swiftmodules = dict(_EMPTY_SWIFTMODULE_LINKABLE_BY_STRATEGY)
+            swiftmodules[link_strategy] = merged_swiftmodules
 
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
-        frameworks = frameworks,
-        swiftmodules = swiftmodules,
+        frameworks = frameworks if frameworks != None else _EMPTY_FRAMEWORKS_LINKABLE_BY_STRATEGY,
+        swiftmodules = swiftmodules if swiftmodules != None else _EMPTY_SWIFTMODULE_LINKABLE_BY_STRATEGY,
     )
 
 def get_link_info(infos: LinkInfos, prefer_stripped: bool = False, prefer_optimized: bool = False) -> LinkInfo:
@@ -1008,7 +1029,7 @@ def has_framework_linkable(linkables: list[[FrameworksLinkable, None]]) -> bool:
 
 def _merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
     if not has_framework_linkable(linkables):
-        return FrameworksLinkableEmpty
+        return _EMPTY_FRAMEWORKS_LINKABLE
 
     unique_frameworks = set()
     unique_libraries = set()
@@ -1019,22 +1040,33 @@ def _merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> F
         unique_frameworks.update(linkable.frameworks)
         unique_libraries.update(linkable.libraries)
 
+    # Non-None inputs can still be contentless (leaf nodes pass fresh empty
+    # records rather than None); collapse to the shared empty.
+    if not unique_frameworks and not unique_libraries:
+        return _EMPTY_FRAMEWORKS_LINKABLE
+
     return FrameworksLinkable(
         frameworks = unique_frameworks,
         libraries = unique_libraries,
     )
 
 def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SwiftmoduleLinkable, None]]) -> SwiftmoduleLinkable:
-    children = [linkable.swiftmodules for linkable in linkables if linkable != None]
+    # Contentless linkables (empty inner tset) contribute nothing; dropping
+    # them here lets the all-empty and single-contributor cases share records
+    # instead of re-wrapping per node.
+    non_empty = [linkable for linkable in linkables if linkable != None and linkable.swiftmodules._tset != None]
 
-    if not children:
-        return SwiftmoduleLinkableEmpty
+    if not non_empty:
+        return _EMPTY_SWIFTMODULE_LINKABLE
+
+    if len(non_empty) == 1:
+        return non_empty[0]
 
     return SwiftmoduleLinkable(
         swiftmodules = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            children = children,
+            children = [linkable.swiftmodules for linkable in non_empty],
         )
     )
 

@@ -54,6 +54,7 @@ load(
     "get_output_flags",
 )
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 load(":cxx_types.bzl", "CxxRuleConstructorParams")
@@ -990,7 +991,7 @@ def _cxx_dynamic_compile(
             json_error = json_error[i],
         )
 
-    return [DefaultInfo()]
+    return [EMPTY_DEFAULT_INFO]
 
 # https://buck2.build/docs/api/build/AnalysisActions/#analysisactionsdynamic_output_new
 # Dynamic actions factory for batch CXX compilation

@@ -8,8 +8,8 @@
 
 load(
     "@prelude//:resources.bzl",
-    "ResourceInfo",
     "gather_resources",
+    "make_resource_info",
 )
 load(
     "@prelude//cxx:omnibus.bzl",
@@ -156,12 +156,12 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # C++ resources.
     providers.append(
-        ResourceInfo(
-            resources = gather_resources(
+        make_resource_info(
+            gather_resources(
                 label = ctx.label,
                 deps = ctx.attrs.deps,
-            )
-        )
+            ),
+        ),
     )
 
     # Allow third-party-build rules to depend on Python rules.

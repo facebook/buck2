@@ -9,8 +9,8 @@
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
-    "ResourceInfo",
     "gather_resources",
+    "make_resource_info",
 )
 load(
     "@prelude//android:android_providers.bzl",
@@ -66,7 +66,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "DlopenableLibraryInfo",
+    "DLOPENABLE_LIBRARY_INFO_MARKER",
     "LinkableGraph",
     "create_linkable_graph",
     "create_linkable_graph_node",
@@ -807,7 +807,7 @@ def _create_prebuilt_library_providers(
 
         # Mark libraries that support `dlopen`.
         if ctx.attrs.supports_python_dlopen:
-            providers.append(DlopenableLibraryInfo())
+            providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     linkable_graph = create_linkable_graph(
         ctx,
@@ -1004,12 +1004,12 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     providers.append(
-        ResourceInfo(
-            resources = gather_resources(
+        make_resource_info(
+            gather_resources(
                 label = ctx.label,
                 deps = first_order_deps + exported_first_order_deps,
-            )
-        )
+            ),
+        ),
     )
 
     return providers

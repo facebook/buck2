@@ -8,6 +8,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 
 def _shared_library_interface(ctx: AnalysisContext, output: str, identifier: str, shared_lib: [Artifact, Promise]) -> Artifact:
@@ -46,7 +47,7 @@ def _anon_shared_library_interface_impl(ctx):
         shared_lib = ctx.attrs.shared_lib,
         identifier = ctx.attrs.identifier,
     )
-    return [DefaultInfo(), _InterfaceInfo(artifact = output)]
+    return [EMPTY_DEFAULT_INFO, _InterfaceInfo(artifact = output)]
 
 # Anonymous wrapper for `extract_symbol_names`.
 _anon_shared_library_interface = anon_rule(

@@ -11,7 +11,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
-load("@prelude//:resources.bzl", "ResourceInfo", "gather_resources")
+load("@prelude//:resources.bzl", "gather_resources", "make_resource_info")
 load(
     "@prelude//android:android_providers.bzl",
     "merge_android_packageable_info",
@@ -48,7 +48,7 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
-    "DlopenableLibraryInfo",
+    "DLOPENABLE_LIBRARY_INFO_MARKER",
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
@@ -510,13 +510,13 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
     providers.append(
-        ResourceInfo(
-            resources = gather_resources(
+        make_resource_info(
+            gather_resources(
                 label = ctx.label,
                 resources = rust_attr_resources(ctx),
                 deps = deps,
-            )
-        )
+            ),
+        ),
     )
 
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps))
@@ -973,7 +973,7 @@ def _advanced_unstable_link_providers(
 
     # Mark libraries that support `dlopen`.
     if getattr(ctx.attrs, "supports_python_dlopen", False):
-        providers.append(DlopenableLibraryInfo())
+        providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     # We never need to add anything to this provider because Rust libraries
     # cannot act as link group libs, especially given that they only support
@@ -1150,7 +1150,7 @@ def _native_link_providers(
 
     # Mark libraries that support `dlopen`.
     if getattr(ctx.attrs, "supports_python_dlopen", False):
-        providers.append(DlopenableLibraryInfo())
+        providers.append(DLOPENABLE_LIBRARY_INFO_MARKER)
 
     linkable_graph = create_linkable_graph(
         ctx,

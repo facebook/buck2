@@ -10,10 +10,10 @@ load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors", "cxx_private_preprocessor_info")
-load("@prelude//linking:link_groups.bzl", "LinkGroupLibInfo")
+load("@prelude//linking:link_groups.bzl", "EMPTY_LINK_GROUP_LIB_INFO")
 load("@prelude//linking:link_info.bzl", "LibOutputStyle", "LinkInfo", "LinkInfos", "ObjectsLinkable", "create_merged_link_info")
 load("@prelude//linking:linkable_graph.bzl", "create_linkable_graph")
-load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
+load("@prelude//linking:shared_libraries.bzl", "EMPTY_SHARED_LIBRARY_INFO")
 
 def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     non_exported_deps = cxx_attr_deps(ctx)
@@ -92,8 +92,8 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers = [
         DefaultInfo(default_output = None),
-        SharedLibraryInfo(set = None),
-        LinkGroupLibInfo(libs = {}),
+        EMPTY_SHARED_LIBRARY_INFO,
+        EMPTY_LINK_GROUP_LIB_INFO,
         create_linkable_graph(ctx),
         create_merged_link_info(
             ctx,
