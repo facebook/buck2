@@ -255,7 +255,7 @@ ANON_ATTRS = {
     "import_library": attrs.option(attrs.source(), default = None),
     "link_execution_preference": attrs.enum(LinkExecutionPreference.values()),
     "links_artifacts": attrs.list(attrs.source(), default = []),
-    "links_flags": attrs.list(attrs.one_of(attrs.string(), attrs.arg()), default = []),
+    "links_flags": attrs.list(attrs.arg(), default = []),
     "links_recipe": attrs.string(default = "[]"),
     "output": attrs.string(),
     "result_type": attrs.enum(CxxLinkResultType.values()),
