@@ -71,6 +71,12 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
                 "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
                 "BUCK2_RUNTIME_THREADS": "8",
                 "BUCK2_MAX_BLOCKING_THREADS": "8",
+                # Cap jemalloc arenas: the default (4*ncpu) arenas each retain
+                # dirty pages rounded up to aarch64's 64KB page, inflating the
+                # buck2 daemon's DICE-graph RSS ~5x vs x86 (4KB pages). Cuts ARM
+                # peak ~68% to x86 parity, no x86 regression. See T286274456.
+                "MALLOC_CONF": "narenas:4,dirty_decay_ms:0,muzzy_decay_ms:0",
+                "_RJEM_MALLOC_CONF": "narenas:4,dirty_decay_ms:0,muzzy_decay_ms:0",
             },
         )
         if expect_failure_msg == "":
@@ -161,6 +167,12 @@ elif FLAVOR == "check_mutually_exclusive_dependencies_test":
                 "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
                 "BUCK2_RUNTIME_THREADS": "8",
                 "BUCK2_MAX_BLOCKING_THREADS": "8",
+                # Cap jemalloc arenas: the default (4*ncpu) arenas each retain
+                # dirty pages rounded up to aarch64's 64KB page, inflating the
+                # buck2 daemon's DICE-graph RSS ~5x vs x86 (4KB pages). Cuts ARM
+                # peak ~68% to x86 parity, no x86 regression. See T286274456.
+                "MALLOC_CONF": "narenas:4,dirty_decay_ms:0,muzzy_decay_ms:0",
+                "_RJEM_MALLOC_CONF": "narenas:4,dirty_decay_ms:0,muzzy_decay_ms:0",
             },
         )
         if expect_failure_msg == "":
