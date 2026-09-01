@@ -113,7 +113,7 @@ impl Key for NonPagableKey {
 }
 
 #[derive(Clone, Dupe)]
-struct DeferredComputeCounts(Arc<[AtomicUsize; 4]>);
+struct DeferredComputeCounts(Arc<[AtomicUsize; 5]>);
 
 impl DeferredComputeCounts {
     fn new() -> Self {
@@ -185,6 +185,19 @@ impl Key for DeferredNonPagableKey {
                 ctx.compute(&DeferredPagableKey(1))
                     .await
                     .expect("pagable parent should compute")
+                    * 10
+            }
+            2 => {
+                if let Ok(counts) = ctx
+                    .per_transaction_data()
+                    .data
+                    .get::<DeferredComputeCounts>()
+                {
+                    counts.increment(4);
+                }
+                ctx.compute(&DeferredPagableKey(0))
+                    .await
+                    .expect("pagable dependency should compute")
                     * 10
             }
             _ => unreachable!("unknown deferred non-pagable test key"),
@@ -624,6 +637,65 @@ async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Resu
     assert_eq!(page_in_count::<DeferredPagableKey>(&dice), 1);
 
     Ok(())
+}
+
+#[tokio::test]
+async fn validation_only_dependency_currently_pages_in_before_value_demand() {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir().expect("temporary storage directory should be created");
+    let dice = make_dice(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)
+            .expect("pagable storage should open"),
+    );
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 1)])
+        .expect("initial input should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&DeferredNonPagableKey(2))
+            .await
+            .expect("validation root should compute"),
+        10,
+    );
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await.expect("page-out should succeed");
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 3)])
+        .expect("equal-output input change should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&DeferredNonPagableKey(2))
+            .await
+            .expect("validation root should be reused"),
+        10,
+    );
+
+    let validation_page_ins = page_in_count::<DeferredPagableKey>(&dice);
+    assert_eq!(
+        *tx.compute(&DeferredPagableKey(0))
+            .await
+            .expect("direct value demand should hydrate the dependency"),
+        1,
+    );
+    let value_demand_page_ins = page_in_count::<DeferredPagableKey>(&dice);
+
+    assert_eq!(
+        counts.count(0),
+        1,
+        "the paged-out dependency should be reused"
+    );
+    assert_eq!(counts.count(4), 1, "the validation root should be reused");
+    assert_eq!(
+        (validation_page_ins, value_demand_page_ins),
+        (1, 1),
+        "dependency validation currently materializes the paged-out dependency before direct value demand",
+    );
 }
 
 #[tokio::test]
