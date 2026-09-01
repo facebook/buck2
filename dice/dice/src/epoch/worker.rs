@@ -186,7 +186,7 @@ impl DiceTaskWorker {
                     // (fall through to the `Compute` path) and report it for telemetry.
                     // Note: the lost value can't be compared against the recompute, so
                     // `update_computed` can't do equality-based early cutoff (see
-                    // `ValueReusable::is_reusable`) and treats the node as changed —
+                    // `ValueUpdate::is_reusable`) and treats the node as changed —
                     // this dirties its rdeps and recomputes through them even if the
                     // recomputed value is identical.
                     Err(e) => {

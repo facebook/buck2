@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use crate::core::graph::storage::ValueReusable;
+use crate::core::graph::storage::ValueUpdate;
 use crate::core::internals::CoreState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
@@ -100,8 +100,7 @@ impl StateProcessor {
                     key,
                     epoch,
                     storage,
-                    value,
-                    ValueReusable::EqualityBased,
+                    ValueUpdate::Computed(value),
                     deps,
                     invalidation_paths,
                 )));
@@ -119,8 +118,10 @@ impl StateProcessor {
                     key,
                     epoch,
                     storage,
-                    previous.entry,
-                    ValueReusable::VersionBased(previous.prev_verified_version),
+                    ValueUpdate::DependencyValidated {
+                        previous_value: previous.entry,
+                        prev_verified_version: previous.prev_verified_version,
+                    },
                     previous.deps_to_validate,
                     invalidation_paths,
                 )));

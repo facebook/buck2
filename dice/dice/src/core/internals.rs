@@ -17,7 +17,7 @@ use crate::arc::Arc;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::storage::InvalidateKind;
-use crate::core::graph::storage::ValueReusable;
+use crate::core::graph::storage::ValueUpdate;
 use crate::core::graph::storage::VersionedGraph;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
@@ -125,8 +125,7 @@ impl CoreState {
         key: VersionedGraphKey,
         epoch: VersionEpoch,
         storage: StorageType,
-        value: DiceValidValue,
-        reusability: ValueReusable,
+        update: ValueUpdate,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> TransactionResult<DiceComputedValue> {
@@ -135,7 +134,7 @@ impl CoreState {
         } else {
             TransactionResult::ok(
                 self.graph
-                    .update(key, value, reusability, deps, storage, invalidation_paths)
+                    .update(key, update, deps, storage, invalidation_paths)
                     .0,
             )
         }
@@ -339,7 +338,7 @@ mod tests {
     use crate::core::graph::types::VersionedGraphKey;
     use crate::core::internals::CoreState;
     use crate::core::internals::StorageType;
-    use crate::core::internals::ValueReusable;
+    use crate::core::internals::ValueUpdate;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::epoch::cache::SharedCacheInsert;
     use crate::epoch::cache::TransactionCancelled;
@@ -413,8 +412,9 @@ mod tests {
                 VersionedGraphKey::new(v, DiceKey { index }),
                 epoch,
                 StorageType::Normal,
-                DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
-                ValueReusable::EqualityBased,
+                ValueUpdate::Computed(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
+                    index as usize,
+                ))),
                 Arc::new(SeriesParallelDeps::None),
                 TrackedInvalidationPaths::clean(),
             );

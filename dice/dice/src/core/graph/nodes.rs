@@ -209,9 +209,8 @@ impl VersionedGraphNode {
     pub(crate) fn on_computed(
         &mut self,
         key: super::types::VersionedGraphKey,
-        value: DiceValidValue,
+        update: super::storage::ValueUpdate,
         mut valid_deps_versions: VersionRanges,
-        reusable: super::storage::ValueReusable,
         deps: Arc<SeriesParallelDeps>,
         mut invalidation_paths: TrackedInvalidationPaths,
     ) -> (DiceComputedValue, bool) {
@@ -220,11 +219,11 @@ impl VersionedGraphNode {
             _,
             fn(DiceValidValue) -> PagableNodeValue,
         ) = match self {
-            VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
+            VersionedGraphNode::Occupied(entry) if update.is_reusable(&deps, entry) => {
                 // Page-out can replace the graph value after a worker captured it for
                 // dependency validation. Active demand wins that race: restore the exact
                 // value the worker validated before returning it from the graph.
-                entry.rehydrate(value);
+                entry.rehydrate(update.into_value());
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(
                     key.v,
@@ -260,6 +259,8 @@ impl VersionedGraphNode {
         valid_deps_versions.intersect_range(force_dirty_restricted_range);
         let computed_version = VersionRange::bounded(key.v, key.v.next());
         valid_deps_versions.insert(computed_version);
+
+        let value = update.into_value();
 
         if !overwrite_entry {
             // TODO(cjhopman): Returning `true` here matches previous behavior, but it seems odd
