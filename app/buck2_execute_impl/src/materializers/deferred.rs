@@ -366,10 +366,6 @@ impl From<MaterializeEntryError> for SharedMaterializingError {
 
 #[async_trait]
 impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T> {
-    fn name(&self) -> &str {
-        "deferred"
-    }
-
     async fn declare_existing(
         &self,
         artifacts: Vec<DeclareArtifactPayload>,
