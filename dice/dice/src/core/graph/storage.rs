@@ -169,6 +169,7 @@
 
 use allocative::Allocative;
 use bit_set::BitSet;
+use pagable::DataKey;
 
 use self::store::NodeEntry;
 use self::store::NodeMut;
@@ -580,6 +581,39 @@ impl VersionedGraph {
                 true,
             ),
         }
+    }
+
+    /// Drops a paged-out value that could not be read back, invalidating the node and its
+    /// transitive rdeps at `key.v`.
+    ///
+    /// Without this the node keeps advertising a `DataKey` nothing can read: it is still
+    /// verified at `key.v`, so the recompute that follows the failed page-in takes
+    /// `on_computed`'s "a newer computation exists" branch and leaves the entry alone, and
+    /// every later demand fails to page in again. Invalidating first makes that recompute
+    /// replace the entry, and dirties the rdeps that dependency validation may already have
+    /// reused against the value that is now gone.
+    ///
+    /// Guarded on `data_key`: if the node has since been recomputed or paged back in, its
+    /// current value is fine and must be left alone.
+    pub(crate) fn discard_lost_value(&mut self, key: VersionedGraphKey, data_key: DataKey) {
+        let queue = {
+            let Some(mut node) = self.nodes.node_mut(key.k) else {
+                return;
+            };
+            let VersionedGraphNode::Occupied(entry) = &mut *node else {
+                return;
+            };
+            if entry.val().data_key() != Some(data_key) {
+                return;
+            }
+            match entry.discard_value() {
+                InvalidateResult::Changed(rdeps) => {
+                    rdeps.into_iter().flatten().collect::<HashSet<DiceKey>>()
+                }
+                InvalidateResult::NoChange => return,
+            }
+        };
+        self.invalidate_rdeps(key.v, queue);
     }
 
     /// Invalidates an entry and its transitive rdeps. Returning true if this caused any type of

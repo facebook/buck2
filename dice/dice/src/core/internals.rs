@@ -186,6 +186,13 @@ impl CoreState {
         }
     }
 
+    /// Drops a paged-out value that could not be read back, so the recompute that follows
+    /// replaces the node rather than leaving it pointing at bytes nothing can read. See
+    /// [`VersionedGraph::discard_lost_value`].
+    pub(super) fn discard_lost_value(&mut self, key: VersionedGraphKey, data_key: DataKey) {
+        self.graph.discard_lost_value(key, data_key);
+    }
+
     /// Mark nodes that page-out considered but could not serialize, so they are
     /// not offered as page-out candidates again. Ignore stale results if a
     /// recomputation replaced the value while page-out was inspecting it.

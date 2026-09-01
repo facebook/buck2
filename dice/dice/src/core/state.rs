@@ -304,6 +304,14 @@ impl CoreStateHandle {
         self.request(StateRequest::MarkNonPageable { keys })
     }
 
+    /// Drop the paged-out value at `key`, which could not be read back from storage, and
+    /// invalidate the node and its rdeps. Fire-and-forget: the worker's subsequent
+    /// `update_computed` for the recomputed value is processed after this because state
+    /// requests are handled FIFO, which is what lets that update replace the node.
+    pub(crate) fn discard_lost_value(&self, key: VersionedGraphKey, data_key: DataKey) {
+        self.request(StateRequest::DiscardLostValue { key, data_key })
+    }
+
     /// Replace the paged-out value at `key` with its hydrated form. Fire-and-forget;
     /// any subsequent state requests for `key` are guaranteed to see the hydrated value
     /// because state requests are processed FIFO.
@@ -436,6 +444,11 @@ pub(super) enum StateRequest {
     },
     /// Replace the paged-out value at `key` with its hydrated form.
     Rehydrate { key: DiceKey, value: DiceValidValue },
+    /// Drop the paged-out value at `key` that could not be read back.
+    DiscardLostValue {
+        key: VersionedGraphKey,
+        data_key: DataKey,
+    },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
     /// Collects the introspectable dice state

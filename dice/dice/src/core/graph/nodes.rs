@@ -754,6 +754,18 @@ impl OccupiedGraphNode {
         }
     }
 
+    /// Drops this node's claim to hold a valid value at any version, returning the rdeps
+    /// that must be invalidated with it.
+    ///
+    /// Unlike [`Self::mark_invalidated`], which is scoped to the version a change happened
+    /// at, this is unscoped: a value that cannot be read back from storage is gone for
+    /// every version, and the reader that discovers this may be on any version, including
+    /// `VersionNumber::FIRST` (which an invalidation can never be at).
+    pub(crate) fn discard_value(&mut self) -> InvalidateResult<'_> {
+        Arc::make_mut(&mut self.metadata.verified_ranges).clear();
+        InvalidateResult::Changed(Some(self.metadata.rdeps.drain()))
+    }
+
     fn mark_invalidated(
         &mut self,
         v: VersionNumber,

@@ -187,3 +187,54 @@ async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()>
 
     Ok(())
 }
+
+/// A page-in failure must be repaired, not just reported: the recompute that recovers from
+/// it has to replace the node, or the unreadable `DataKey` stays in the graph and every
+/// later lookup pays another failed page-in (and files another `dice_hydration_failed`).
+#[tokio::test]
+async fn failed_hydrate_is_not_reported_again_on_a_later_lookup() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
+    let dice = {
+        let mut builder = Dice::builder();
+        builder.set_pagable_storage(storage);
+        builder.build(DetectCycles::Disabled)
+    };
+
+    let tx = dice.updater().commit().await;
+    let _: u64 = *tx.compute(&FailToHydrateKey(7)).await?;
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let failures_of = |dice: &Arc<Dice>| {
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let mut data = UserComputationData::new();
+        data.tracker = Arc::new(CapturingListener {
+            hydration_failures: captured.clone(),
+        });
+        (dice.updater_with_data(data), captured)
+    };
+
+    // First lookup after the page-out: hydration fails once and the value is recomputed.
+    let (updater, first) = failures_of(&dice);
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
+    drop(tx);
+    dice.wait_for_idle().await;
+    assert_eq!(first.lock().unwrap().len(), 1);
+
+    // The recomputed value is resident, so a fresh transaction reads it without touching
+    // storage at all.
+    let (updater, second) = failures_of(&dice);
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&FailToHydrateKey(7)).await?, 700);
+    assert_eq!(
+        second.lock().unwrap().as_slice(),
+        &[] as &[String],
+        "the unreadable value should have been dropped by the first failure"
+    );
+
+    Ok(())
+}

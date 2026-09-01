@@ -153,15 +153,10 @@ impl DiceTaskWorker {
                             return task_state.lookup_matches(handle, entry.paged_in(value));
                         }
                         // The on-disk value couldn't be read back (I/O or a deserialize
-                        // failure). It's just a cache entry, so recover by recomputing
-                        // (fall through to the `Compute` path) and report it for telemetry.
-                        // Note: the lost value can't be compared against the recompute, so
-                        // `update_computed` can't do equality-based early cutoff (see
-                        // `ValueUpdate::is_reusable`) and treats the node as changed —
-                        // this dirties its rdeps and recomputes through them even if the
-                        // recomputed value is identical.
+                        // failure). It's just a cache entry, so recover by recomputing —
+                        // fall through to the `Compute` path.
                         Err(e) => {
-                            self.eval.hydration_failed(self.k, &e);
+                            self.page_in_failed(&state_handle, v, data_key, &e);
                             None
                         }
                     }
@@ -240,7 +235,7 @@ impl DiceTaskWorker {
                                         deps_to_validate: mismatch.deps_to_validate.dupe(),
                                     }),
                                     Err(e) => {
-                                        self.eval.hydration_failed(self.k, &e);
+                                        self.page_in_failed(&state_handle, v, data_key, &e);
                                         old_value_hydration_failed = true;
                                         None
                                     }
@@ -382,14 +377,32 @@ impl DiceTaskWorker {
         )
     }
 
+    /// A page-in that could not be read back: report it for telemetry and drop the
+    /// unreadable value from the graph.
+    ///
+    /// The drop is what makes the recompute that follows actually replace the node. Without
+    /// it a node that is still verified at `v` keeps its unreadable `DataKey` — the
+    /// recompute takes `on_computed`'s "a newer computation exists" branch and leaves the
+    /// entry alone — so every later demand for the key fails to page in again.
+    #[cold]
+    fn page_in_failed(
+        &self,
+        state_handle: &CoreStateHandle,
+        v: VersionNumber,
+        data_key: pagable::DataKey,
+        e: &anyhow::Error,
+    ) {
+        self.eval.hydration_failed(self.k, e);
+        state_handle.discard_lost_value(VersionedGraphKey::new(v, self.k), data_key);
+    }
+
     /// Deserialize a paged-out value via `DiceStorage`, then send a `Rehydrate` request
     /// so the graph node returns to the `Hydrated` state for subsequent lookups. The
     /// returned value is the worker's local copy.
     ///
     /// Returns `Err` if the value cannot be read back (e.g. storage corruption, a
-    /// serialize/deserialize asymmetry). Callers treat that as a cache miss and
-    /// recompute the key, reporting the failure via
-    /// [`TransactionData::hydration_failed`]. A missing `DiceStorage` is an internal
+    /// serialize/deserialize asymmetry). Callers treat that as a cache miss and recompute
+    /// the key, reporting the failure via [`Self::page_in_failed`]. A missing `DiceStorage` is an internal
     /// invariant violation (we only receive a paged-out lookup result if storage is
     /// configured) and panics.
     async fn hydrate_and_rehydrate(

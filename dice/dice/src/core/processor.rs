@@ -151,6 +151,9 @@ impl StateProcessor {
             StateRequest::Rehydrate { key, value } => {
                 self.state.rehydrate(key, value);
             }
+            StateRequest::DiscardLostValue { key, data_key } => {
+                self.state.discard_lost_value(key, data_key);
+            }
             StateRequest::Metrics { resp } => {
                 let _ignored = resp.send(self.state.metrics());
             }
