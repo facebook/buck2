@@ -344,12 +344,10 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
     ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>>;
 
-    /// Currently no-op for all materializers except deferred materializer
-    fn log_materializer_state(&self, _events: &EventDispatcher) {}
+    fn log_materializer_state(&self, events: &EventDispatcher);
 
-    /// Inject stats into a snapshot. This is also used only for the deferred materializer at this
-    /// time.
-    fn add_snapshot_stats(&self, _snapshot: &mut buck2_data::Snapshot) {}
+    /// Inject stats into a snapshot.
+    fn add_snapshot_stats(&self, snapshot: &mut buck2_data::Snapshot);
 
     /// Returns artifact entries for the given `paths`.
     ///
