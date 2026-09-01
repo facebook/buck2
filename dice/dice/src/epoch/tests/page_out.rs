@@ -702,8 +702,8 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     dice.wait_for_idle().await;
 
     // Subsequent lookups hit the in-memory hydrated node — no recompute, and no need
-    // to call into storage again. We verify "no recompute" via the counter; we trust
-    // that the lookup result was VersionedGraphResult::Match (not MatchPagedOut).
+    // to call into storage again. We verify "no recompute" via the counter; the
+    // page-in counter below would catch a second read from storage.
     for _ in 0..5 {
         let tx = dice
             .updater_with_data(user_data_with_counter(&counter))
@@ -816,8 +816,11 @@ async fn exact_version_match_stays_paged_out_until_the_value_is_demanded() {
     );
 }
 
+/// A paged-out dependency proven unchanged by dependency validation must stay on disk: the
+/// parent read only its version history. The value is read back when, and only when, a
+/// caller asks for it.
 #[tokio::test]
-async fn validation_only_dependency_currently_pages_in_before_value_demand() {
+async fn validation_only_dependency_stays_paged_out_until_the_value_is_demanded() {
     let counts = DeferredComputeCounts::new();
     let tmp = tempdir().expect("temporary storage directory should be created");
     let dice = make_dice(
@@ -870,8 +873,8 @@ async fn validation_only_dependency_currently_pages_in_before_value_demand() {
     assert_eq!(counts.count(4), 1, "the validation root should be reused");
     assert_eq!(
         (validation_page_ins, value_demand_page_ins),
-        (1, 1),
-        "dependency validation currently materializes the paged-out dependency before direct value demand",
+        (0, 1),
+        "dependency validation should not materialize the paged-out dependency; only the direct value demand should",
     );
 }
 

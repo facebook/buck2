@@ -766,10 +766,12 @@ impl ValueUpdate {
                 if new_deps != &***node.deps() {
                     return false;
                 }
-                // We can't compare against a paged-out value without hydrating it, which
-                // would require blocking I/O on the core thread. Treat it as not
-                // reusable; the graph replaces the entry with the new (hydrated) value,
-                // at the cost of the early cutoff.
+                // We can't compare against a paged-out value without reading it back,
+                // which would be blocking I/O on the core state thread. Treat it as not
+                // reusable; the graph replaces the entry with the new (resident) value, at
+                // the cost of the early cutoff. The worker avoids landing here where the
+                // cutoff matters, by reading the old value back before it recomputes a key
+                // whose dependency structure is unchanged.
                 node.val()
                     .as_hydrated()
                     .is_some_and(|v| new_value.equality(v))

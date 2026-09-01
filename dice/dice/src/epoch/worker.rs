@@ -28,7 +28,6 @@ use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::PageInPhase;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::core::graph::types::VersionedGraphResultMismatch;
 use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
@@ -53,7 +52,6 @@ use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceComputedValue;
-use crate::value::MaybeResident;
 use crate::value::PagedOutValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -203,8 +201,6 @@ impl DiceTaskWorker {
             self.eval.finished(self.k);
         };
 
-        let mut old_value_hydration_failed = false;
-
         // deps_check_continuables needs to capture these and so they need to outlive it.
         let cycles;
         let (task_state, deps_check_continuables) = match check_deps_candidate.as_ref() {
@@ -248,54 +244,26 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        // Reusing the previous value means handing it back to the caller,
-                        // so it has to be paged in first.
-                        let mismatch = match mismatch.entry.data_key() {
-                            None => Some(mismatch.dupe()),
-                            Some(data_key) => {
-                                match self
-                                    .hydrate_and_rehydrate(
-                                        &state_handle,
-                                        data_key,
-                                        PageInPhase::AfterDependencyValidation,
-                                    )
-                                    .await
-                                {
-                                    Ok(entry) => Some(VersionedGraphResultMismatch {
-                                        entry: MaybeResident::Resident(entry),
-                                        prev_verified_version: mismatch.prev_verified_version,
-                                        deps_to_validate: mismatch.deps_to_validate.dupe(),
-                                    }),
-                                    Err(e) => {
-                                        self.page_in_failed(&state_handle, v, data_key, &e);
-                                        old_value_hydration_failed = true;
-                                        None
-                                    }
-                                }
-                            }
-                        };
+                        // The previous value is reusable as it stands. Recording that costs
+                        // nothing but version bookkeeping, so a value that is paged out
+                        // stays on disk: proving a key unchanged is not a reason to read it
+                        // back.
+                        let task_state = task_state.deps_match(handle)?;
+                        let activation_info = self.activation_info(
+                            mismatch.deps_to_validate.iter_keys(),
+                            ActivationData::Reused,
+                        );
+                        let response = state_handle
+                            .update_mismatch_as_unchanged(
+                                VersionedGraphKey::new(v, self.k),
+                                self.version_epoch,
+                                self.eval.storage_type(self.k),
+                                mismatch.dupe(),
+                                invalidation_paths,
+                            )
+                            .await;
 
-                        match mismatch {
-                            Some(mismatch) => {
-                                let task_state = task_state.deps_match(handle)?;
-                                let activation_info = self.activation_info(
-                                    mismatch.deps_to_validate.iter_keys(),
-                                    ActivationData::Reused,
-                                );
-                                let response = state_handle
-                                    .update_mismatch_as_unchanged(
-                                        VersionedGraphKey::new(v, self.k),
-                                        self.version_epoch,
-                                        self.eval.storage_type(self.k),
-                                        mismatch,
-                                        invalidation_paths,
-                                    )
-                                    .await;
-
-                                return Ok(task_state.cached(response, activation_info));
-                            }
-                            None => (task_state.deps_not_match(handle), None),
-                        }
+                        return Ok(task_state.cached(response, activation_info));
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
@@ -341,8 +309,7 @@ impl DiceTaskWorker {
                     let v = self.eval.epoch_state.get_version();
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
-                    if !old_value_hydration_failed
-                        && let Some(mismatch) = check_deps_candidate.as_ref()
+                    if let Some(mismatch) = check_deps_candidate.as_ref()
                         && let Some(data_key) = mismatch.entry.data_key()
                         && result.deps == **mismatch.deps_to_validate
                         && !self
