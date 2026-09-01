@@ -191,6 +191,8 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     }
     for (Map<String, String> metadata : deviceMetadata) {
       DeviceMetadata.Builder metadataBuilder = DeviceMetadata.newBuilder();
+      metadataBuilder.addEntry(
+          DeviceMetadata.Entry.newBuilder().setKey("installer").setValue(installer.name()));
       for (Map.Entry<String, String> entry : metadata.entrySet()) {
         metadataBuilder.addEntry(
             DeviceMetadata.Entry.newBuilder().setKey(entry.getKey()).setValue(entry.getValue()));

@@ -18,6 +18,12 @@ import java.util.Set;
  * as subclasses of this interface. *
  */
 public interface InstallCommand {
+  /**
+   * Names this implementation, e.g. {@code android}. Reported with every install so telemetry can
+   * tell one installer's installs from another's.
+   */
+  String name();
+
   /** Installs an artifact from a given path/location. */
   InstallResult fileReady(String artifact, Path artifactPath, InstallId installId);
 

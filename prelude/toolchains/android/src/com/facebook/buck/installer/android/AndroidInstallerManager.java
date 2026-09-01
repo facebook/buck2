@@ -68,6 +68,11 @@ class AndroidInstallerManager implements InstallCommand {
     this.options = options;
   }
 
+  @Override
+  public String name() {
+    return "android";
+  }
+
   /**
    * Coordinates the install artifacts needed for an install. The install_android_options.json is
    * parsed into a AndroidInstallApkOptions and the manifest is later set in the apkInstallOptions
