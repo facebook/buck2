@@ -150,13 +150,26 @@ impl RawPointer {
         InlineInt::new_unchecked(((self.0.get() as isize) >> INT_SHIFT) as i32)
     }
 
+    /// # Safety
+    ///
+    /// `self` must encode a pointer, not an inline integer. Before dereferencing the returned
+    /// pointer, the caller must ensure that the untagged address points to a live, properly
+    /// aligned allocation containing a valid `T`, and that provenance covering `T` was exposed.
+    #[inline]
+    pub(crate) unsafe fn unpack_ptr_no_int_unchecked_raw<T>(self) -> *const T {
+        debug_assert!(!self.is_int());
+        let ptr = self.0.get() & !(TAG_STR | TAG_UNFROZEN);
+        std::ptr::with_exposed_provenance(ptr)
+    }
+
+    /// # Safety
+    ///
+    /// `self` must encode a pointer to a live `AValueOrForward`, not an inline integer. The
+    /// allocation must remain valid for `'v`, and provenance covering the value must have been
+    /// exposed before its address was stored in `self`.
     #[inline]
     pub(crate) unsafe fn unpack_ptr_no_int_unchecked<'v>(self) -> &'v AValueOrForward {
-        unsafe {
-            debug_assert!(!self.is_int());
-            let ptr = self.0.get() & !(TAG_STR | TAG_UNFROZEN);
-            cast::usize_to_ptr(ptr)
-        }
+        unsafe { &*self.unpack_ptr_no_int_unchecked_raw() }
     }
 }
 

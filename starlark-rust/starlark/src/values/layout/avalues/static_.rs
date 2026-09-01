@@ -93,6 +93,7 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
 
     /// Get the value.
     pub fn unpack(&'static self) -> FrozenValueTyped<'static, T> {
+        let _ = std::ptr::from_ref(&self.0).expose_provenance();
         FrozenValueTyped::new_repr(&self.0)
     }
 

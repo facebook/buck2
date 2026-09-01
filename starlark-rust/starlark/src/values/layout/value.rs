@@ -457,12 +457,11 @@ impl<'v> Value<'v> {
     #[inline]
     unsafe fn unpack_starlark_str_unchecked(self) -> &'v StarlarkStr {
         unsafe {
-            &self
+            let repr = self
                 .0
-                .unpack_ptr_no_int_unchecked()
-                .unpack_header_unchecked()
-                .as_repr::<StarlarkStr>()
-                .payload
+                .raw()
+                .unpack_ptr_no_int_unchecked_raw::<AValueRepr<StarlarkStr>>();
+            &(*repr).payload
         }
     }
 

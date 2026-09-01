@@ -292,21 +292,6 @@ impl AValueHeader {
         }
     }
 
-    /// Cast header pointer to repr pointer.
-    #[inline]
-    pub(crate) unsafe fn as_repr<'v, T: StarlarkValue<'v>>(&self) -> &AValueRepr<T> {
-        unsafe {
-            debug_assert_eq!(
-                T::static_type_id(),
-                self.0.static_type_of_value.get(),
-                "AValueHeader type mismatch: expected `{}`, got `{}`",
-                T::TYPE,
-                self.0.type_name,
-            );
-            &*(self as *const AValueHeader as *const AValueRepr<T>)
-        }
-    }
-
     fn as_avalue_or_header(&self) -> &AValueOrForward {
         unsafe { &*(self as *const AValueHeader as *const AValueOrForward) }
     }

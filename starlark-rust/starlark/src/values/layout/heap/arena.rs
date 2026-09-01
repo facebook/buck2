@@ -316,6 +316,7 @@ impl<A: ArenaAllocator> Arena<A> {
 
         let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();
+        let _ = p.expose_provenance();
         unsafe {
             let repr = p as *mut MaybeUninit<AValueRepr<_>>;
             let extra = slice::from_raw_parts_mut(
@@ -477,6 +478,7 @@ impl<A: ArenaAllocator> Arena<A> {
         let total_bytes = total_bytes.get();
         let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
         let block = bump.alloc(size);
+        let _ = block.as_ptr().expose_provenance();
         let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
             ChunkAllocationDirection::Up => block.as_ptr(),
             ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
