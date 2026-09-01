@@ -21,7 +21,7 @@ use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
-use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;

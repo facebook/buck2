@@ -61,13 +61,13 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
-use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
-use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_execute::materialize::materializer::EagerMaterializationGuard;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::MaterializerIterItem;
+use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
@@ -635,7 +635,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(recv.await?)
     }
 
-    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
+    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, MaterializerIterItem>> {
         self.iterate_impl()
     }
 
@@ -682,9 +682,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         self.flush_all_access_times_impl().await
     }
 
-    async fn create_subscription(
-        &self,
-    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>> {
+    async fn create_subscription(&self) -> buck2_error::Result<Box<dyn MaterializerSubscription>> {
         self.create_subscription_impl().await
     }
 

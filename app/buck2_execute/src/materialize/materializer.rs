@@ -306,7 +306,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         file_paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>;
 
-    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>>;
+    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, MaterializerIterItem>>;
 
     fn list_subscriptions(&self)
     -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>>;
@@ -337,9 +337,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
 
     async fn flush_all_access_times(&self) -> buck2_error::Result<String>;
 
-    async fn create_subscription(
-        &self,
-    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>>;
+    async fn create_subscription(&self) -> buck2_error::Result<Box<dyn MaterializerSubscription>>;
 
     fn log_materializer_state(&self, events: &EventDispatcher);
 
@@ -812,19 +810,19 @@ impl FinalArtifactMaterialization {
 }
 
 /// This trait provides a level of indirection since the concrete implementation of
-/// `DeferredMaterializerEntry` lives in a crate that depends on this one.
-pub trait DeferredMaterializerEntry: Send + Sync + std::fmt::Display {}
+/// `MaterializerEntry` lives in a crate that depends on this one.
+pub trait MaterializerEntry: Send + Sync + std::fmt::Display {}
 
-pub struct DeferredMaterializerIterItem {
+pub struct MaterializerIterItem {
     pub artifact_path: ProjectRelativePathBuf,
-    pub artifact_display: Box<dyn DeferredMaterializerEntry>,
+    pub artifact_display: Box<dyn MaterializerEntry>,
     pub deps: Vec<(ProjectRelativePathBuf, &'static str)>,
 }
 
 /// Obtain notifications for entries as they are materialized, and request eager materialization of
 /// those paths.
 #[async_trait]
-pub trait DeferredMaterializerSubscription: Send + Sync {
+pub trait MaterializerSubscription: Send + Sync {
     /// Get notifications for specific paths. This also implicitly requests their eager
     /// materialization.
     fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);

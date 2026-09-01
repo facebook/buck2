@@ -25,9 +25,9 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
-use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
-use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
-use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_execute::materialize::materializer::MaterializerEntry;
+use buck2_execute::materialize::materializer::MaterializerIterItem;
+use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -127,7 +127,7 @@ impl Display for PathData {
     }
 }
 
-impl DeferredMaterializerEntry for PathData {}
+impl MaterializerEntry for PathData {}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -135,7 +135,7 @@ struct Iterate {
     /// This is for debug commands so we use an unbounded channel to avoid locking up the
     /// materializer command thread.
     #[derivative(Debug = "ignore")]
-    sender: UnboundedSender<DeferredMaterializerIterItem>,
+    sender: UnboundedSender<MaterializerIterItem>,
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for Iterate {
@@ -179,7 +179,7 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                 None => Vec::new(),
             };
 
-            match self.sender.send(DeferredMaterializerIterItem {
+            match self.sender.send(MaterializerIterItem {
                 artifact_path: path,
                 artifact_display: Box::new(path_data) as _,
                 deps,
@@ -383,7 +383,7 @@ impl<T: IoHandler> ExtensionCommand<T> for FlushAccessTimes {
 impl<T: IoHandler> DeferredMaterializerAccessor<T> {
     pub(super) fn iterate_impl(
         &self,
-    ) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
+    ) -> buck2_error::Result<BoxStream<'static, MaterializerIterItem>> {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Iterate { sender }) as _
@@ -538,7 +538,7 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
 
     pub(super) async fn create_subscription_impl(
         &self,
-    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>> {
+    ) -> buck2_error::Result<Box<dyn MaterializerSubscription>> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender.send(MaterializerCommand::Subscription(
             MaterializerSubscriptionOperation::Create { sender },

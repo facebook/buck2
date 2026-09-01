@@ -18,7 +18,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use derivative::Derivative;
@@ -236,7 +236,7 @@ impl<T: 'static> SubscriptionHandle<T> {
 }
 
 #[async_trait]
-impl<T: 'static> DeferredMaterializerSubscription for SubscriptionHandle<T> {
+impl<T: 'static> MaterializerSubscription for SubscriptionHandle<T> {
     fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>) {
         self.command_sender.send(MaterializerCommand::Subscription(
             MaterializerSubscriptionOperation::Subscribe {

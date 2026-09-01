@@ -15,7 +15,7 @@ use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerCommand;
 use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerSubcommand;
 use buck2_error::BuckErrorContext;
-use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
+use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use futures::stream::StreamExt;
@@ -40,7 +40,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     .iterate()
                     .buck_error_context("Failed to start iterating")?;
 
-                while let Some(DeferredMaterializerIterItem {
+                while let Some(MaterializerIterItem {
                     artifact_path,
                     artifact_display,
                     deps,
