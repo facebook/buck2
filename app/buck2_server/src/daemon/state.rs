@@ -667,7 +667,6 @@ impl DaemonState {
                 paths.buck_out_dir(),
                 re_client_manager.dupe(),
                 blocking_executor.dupe(),
-                materializations,
                 deferred_materializer_configs,
                 materializer_db,
                 materializer_state,
@@ -898,29 +897,24 @@ impl DaemonState {
         buck_out_path: ProjectRelativePathBuf,
         re_client_manager: Arc<ReConnectionManager>,
         blocking_executor: Arc<dyn BlockingExecutor>,
-        materializations: MaterializationMethod,
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
         http_client: HttpClient,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Arc<dyn Materializer>> {
-        match materializations {
-            MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
-                Ok(Arc::new(DeferredMaterializer::new(
-                    fs,
-                    digest_config,
-                    buck_out_path,
-                    re_client_manager,
-                    blocking_executor,
-                    deferred_materializer_configs,
-                    materializer_db,
-                    materializer_state,
-                    http_client,
-                    daemon_dispatcher,
-                )?))
-            }
-        }
+        Ok(Arc::new(DeferredMaterializer::new(
+            fs,
+            digest_config,
+            buck_out_path,
+            re_client_manager,
+            blocking_executor,
+            deferred_materializer_configs,
+            materializer_db,
+            materializer_state,
+            http_client,
+            daemon_dispatcher,
+        )?))
     }
 
     fn init_scribe_sink(
