@@ -286,17 +286,31 @@ impl CleanStaleArtifactsCommand {
         let start_time = Instant::now();
 
         let mut artifact_dirs = Vec::new();
+        let mut scan_error = None;
         for dir_name in &["gen", "gen-anon", "gen-bxl", "art", "art-anon", "art-bxl"] {
             let dir_path = io
                 .buck_out_path()
                 .join(ProjectRelativePathBuf::unchecked_new(dir_name.to_string()));
             let dir_abs = io.fs().resolve(&dir_path);
-            if fs_util::try_exists(&dir_abs)? {
-                artifact_dirs.push(dir_path);
+            match fs_util::try_exists(&dir_abs) {
+                Ok(true) => artifact_dirs.push(dir_path),
+                Ok(false) => {}
+                Err(error) => {
+                    let error = error.context(format!(
+                        "Error checking clean-stale artifact directory `{dir_abs}`"
+                    ));
+                    tracing::warn!("Skipping clean-stale artifact directory: {error:#}");
+                    if scan_error.is_none() {
+                        scan_error = Some(error);
+                    }
+                }
             }
         }
         if artifact_dirs.is_empty() {
-            return Ok(CleanStaleResultKind::SkippedNoGenDir.into());
+            return match scan_error {
+                Some(error) => Err(error),
+                None => Ok(CleanStaleResultKind::SkippedNoGenDir.into()),
+            };
         }
 
         let mut found_paths = Vec::new();
@@ -311,7 +325,19 @@ impl CleanStaleArtifactsCommand {
                     .get_subtree(&mut dir_path.iter())
                     .with_buck_error_context(|| {
                         format!("Found a file where directory was expected: {}", dir_path)
-                    })?;
+                    });
+                let dir_subtree = match dir_subtree {
+                    Ok(dir_subtree) => dir_subtree,
+                    Err(error) => {
+                        tracing::warn!(
+                            "Skipping clean-stale artifact directory after tree lookup failed: {error:#}"
+                        );
+                        if scan_error.is_none() {
+                            scan_error = Some(error);
+                        }
+                        continue;
+                    }
+                };
 
                 let empty;
 
@@ -323,7 +349,7 @@ impl CleanStaleArtifactsCommand {
                     }
                 };
 
-                StaleFinder {
+                let result = StaleFinder {
                     io: io.dupe(),
                     keep_since_time: self.keep_since_time,
                     rematerialization_deadline: rematerialization_deadline(rematerialization_ttl),
@@ -331,7 +357,19 @@ impl CleanStaleArtifactsCommand {
                     skipped_unreadable_count: &mut skipped_unreadable_count,
                     liveliness_observer: liveliness_observer.clone(),
                 }
-                .visit_recursively(dir_path.clone(), dir_subtree)?;
+                .visit_recursively(dir_path.clone(), dir_subtree);
+                if let Err(error) = result {
+                    let error = error.context(format!(
+                        "Error scanning clean-stale artifact directory `{}`",
+                        io.fs().resolve(dir_path)
+                    ));
+                    tracing::warn!(
+                        "Skipping the rest of a clean-stale artifact directory: {error:#}"
+                    );
+                    if scan_error.is_none() {
+                        scan_error = Some(error);
+                    }
+                }
             }
         };
 
@@ -381,7 +419,7 @@ impl CleanStaleArtifactsCommand {
         }
 
         // If no stale or retained artifact founds, the db should be empty.
-        if stats.stale_artifact_count + stats.retained_artifact_count == 0 {
+        if scan_error.is_none() && stats.stale_artifact_count + stats.retained_artifact_count == 0 {
             // Just need to know if any entries exist, could be a simpler query.
             // Checking the db directly in case tree is somehow not in sync.
             let materializer_state = sqlite_db
@@ -400,10 +438,13 @@ impl CleanStaleArtifactsCommand {
         }
 
         if self.dry_run {
-            Ok(PendingCleanResult::Finished(CleanResult {
-                kind: CleanStaleResultKind::SkippedDryRun,
-                stats,
-            }))
+            match scan_error {
+                Some(error) => Err(error),
+                None => Ok(PendingCleanResult::Finished(CleanResult {
+                    kind: CleanStaleResultKind::SkippedDryRun,
+                    stats,
+                })),
+            }
         } else {
             Ok(PendingCleanResult::Pending(create_clean_fut(
                 found_paths,
@@ -416,6 +457,7 @@ impl CleanStaleArtifactsCommand {
                 liveliness_observer,
                 rematerialization_ttl,
                 cleaning_version,
+                scan_error,
             )?))
         }
     }
@@ -472,6 +514,7 @@ fn create_clean_fut<T: IoHandler>(
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
     rematerialization_ttl: Option<SignedDuration>,
     cleaning_version: Version,
+    scan_error: Option<buck2_error::Error>,
 ) -> buck2_error::Result<BoxFuture<'static, buck2_error::Result<CleanResult>>> {
     let io = io.dupe();
 
@@ -575,7 +618,7 @@ fn create_clean_fut<T: IoHandler>(
 
     let fut = async move {
         let start_time = Instant::now();
-        let res = buck2_util::future::try_join_all(
+        let results = buck2_util::future::join_all(
             clean_futs
                 .into_iter()
                 .map(|(clean_fut, unmaterialized)| {
@@ -584,20 +627,28 @@ fn create_clean_fut<T: IoHandler>(
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
-        .await?;
+        .await;
 
-        for (cleaned, unmaterialized) in &res {
-            match cleaned {
-                CleanedPath::Cleaned(size) => {
-                    stats.cleaned_artifact_count += 1;
-                    stats.cleaned_bytes += size;
-                    if *unmaterialized {
-                        stats.unmaterialized_only_artifact_count += 1;
-                        stats.unmaterialized_only_bytes += size;
+        let mut first_error = scan_error;
+        for result in results {
+            match result {
+                Ok((cleaned, unmaterialized)) => match cleaned {
+                    CleanedPath::Cleaned(size) => {
+                        stats.cleaned_artifact_count += 1;
+                        stats.cleaned_bytes += size;
+                        if unmaterialized {
+                            stats.unmaterialized_only_artifact_count += 1;
+                            stats.unmaterialized_only_bytes += size;
+                        }
+                    }
+                    CleanedPath::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
+                    CleanedPath::Interrupted => {}
+                },
+                Err(error) => {
+                    if first_error.is_none() {
+                        first_error = Some(error);
                     }
                 }
-                CleanedPath::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
-                CleanedPath::Interrupted => {}
             }
         }
         stats.clean_duration_s = (Instant::now() - start_time).as_secs();
@@ -606,7 +657,10 @@ fn create_clean_fut<T: IoHandler>(
         } else {
             CleanStaleResultKind::Finished
         };
-        Ok(CleanResult { kind, stats })
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(CleanResult { kind, stats }),
+        }
     };
     Ok(fut.boxed())
 }
@@ -630,6 +684,7 @@ async fn clean_artifact<T: IoHandler>(
     io: &Arc<T>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 ) -> buck2_error::Result<CleanedPath> {
+    let path_for_error = path.clone();
     match io
         .clean_invalidated_path(
             CleanInvalidatedPathRequest {
@@ -654,6 +709,7 @@ async fn clean_artifact<T: IoHandler>(
                 tracing::warn!("Skipping undeletable path in clean --stale: {e:#}");
                 Ok(CleanedPath::SkippedPermissionDenied)
             } else {
+                tracing::warn!(path = %path_for_error, "Failed to delete path in clean --stale: {e:#}");
                 Err(e)
             }
         }

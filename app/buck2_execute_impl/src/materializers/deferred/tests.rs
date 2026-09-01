@@ -175,6 +175,9 @@ mod state_machine {
         log: Mutex<Vec<(Op, ProjectRelativePathBuf)>>,
         fail: Mutex<bool>,
         fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
+        fail_read_dirs: Mutex<Vec<AbsNormPathBuf>>,
+        fail_next_invalidated_cleans: Mutex<usize>,
+        invalidated_clean_attempts: Mutex<usize>,
         // If set, add a sleep when materializing to simulate a long materialization period
         materialization_config: BuckMutMap<ProjectRelativePathBuf, TokioDuration>,
         #[allocative(skip)]
@@ -211,11 +214,26 @@ mod state_machine {
             *self.fail_paths.lock() = paths;
         }
 
+        fn set_fail_read_dirs(&self, paths: Vec<AbsNormPathBuf>) {
+            *self.fail_read_dirs.lock() = paths;
+        }
+
+        fn set_fail_next_invalidated_cleans(&self, count: usize) {
+            *self.fail_next_invalidated_cleans.lock() = count;
+        }
+
+        fn invalidated_clean_attempts(&self) -> usize {
+            *self.invalidated_clean_attempts.lock()
+        }
+
         pub fn new(fs: ProjectRoot) -> Self {
             Self {
                 log: Default::default(),
                 fail: Default::default(),
                 fail_paths: Default::default(),
+                fail_read_dirs: Default::default(),
+                fail_next_invalidated_cleans: Default::default(),
+                invalidated_clean_attempts: Default::default(),
                 materialization_config: BuckMutMap::default(),
                 read_dir_barriers: None,
                 clean_barriers: None,
@@ -292,6 +310,22 @@ mod state_machine {
             request: CleanInvalidatedPathRequest,
             _cancellations: &'a CancellationContext,
         ) -> buck2_error::Result<()> {
+            *self.invalidated_clean_attempts.lock() += 1;
+            let should_fail = {
+                let mut remaining = self.fail_next_invalidated_cleans.lock();
+                if *remaining == 0 {
+                    false
+                } else {
+                    *remaining -= 1;
+                    true
+                }
+            };
+            if should_fail {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::CleanStale,
+                    "Injected clean-stale deletion error"
+                ));
+            }
             if let Some(barriers) = self.clean_barriers.as_ref() {
                 // Allow tests to advance here, execute something and then continue
                 barriers.as_ref().0.wait();
@@ -339,6 +373,12 @@ mod state_machine {
         }
 
         fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
+            if self.fail_read_dirs.lock().contains(path) {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::CleanStale,
+                    "Injected clean-stale scan error"
+                ));
+            }
             if let Some(barriers) = self.read_dir_barriers.as_ref() {
                 // Allow tests to advance here, execute something and then continue
                 barriers.as_ref().0.wait();
@@ -1585,6 +1625,96 @@ mod state_machine {
                     cleaned_bytes
                 ),
                 (1, 8, 1, 8)
+            );
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_keeps_going_after_scan_error() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let project_root = temp_root();
+            let failed_dir = project_root.resolve(make_path("buck-out/v2/gen"));
+            let cleanable_dir = project_root.resolve(make_path("buck-out/v2/art/cleanable"));
+            fs_util::create_dir_all(&failed_dir)?;
+            fs_util::create_dir_all(&cleanable_dir)?;
+
+            let io = Arc::new(StubIoHandler::new(project_root));
+            let (dm, _, _) = make_materializer(io.dupe(), None).await;
+            io.set_fail_read_dirs(vec![failed_dir]);
+
+            let result = dm
+                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                    policy: CleanStaleArtifactsPolicy::Explicit {
+                        keep_since_time: jiff::Timestamp::MAX,
+                        adaptive_low_disk_threshold: None,
+                        adaptive_min_ttl: None,
+                        adaptive_unmaterialize_active: false,
+                    },
+                    dry_run: false,
+                    tracked_only: false,
+                })
+                .await;
+
+            let Err(error) = result else {
+                panic!("clean-stale should report the injected scan error");
+            };
+            assert!(
+                format!("{error:#}").contains("Injected clean-stale scan error"),
+                "clean-stale should return the first scan error"
+            );
+            assert!(
+                !fs_util::try_exists(&cleanable_dir)?,
+                "clean-stale should scan and delete artifacts from later directories"
+            );
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_keeps_going_after_delete_error() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let project_root = temp_root();
+            let first_dir = project_root.resolve(make_path("buck-out/v2/art/first"));
+            let second_dir = project_root.resolve(make_path("buck-out/v2/art/second"));
+            fs_util::create_dir_all(&first_dir)?;
+            fs_util::create_dir_all(&second_dir)?;
+
+            let io = Arc::new(StubIoHandler::new(project_root));
+            let (dm, _, _) = make_materializer(io.dupe(), None).await;
+            io.set_fail_next_invalidated_cleans(1);
+
+            let result = dm
+                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                    policy: CleanStaleArtifactsPolicy::Explicit {
+                        keep_since_time: jiff::Timestamp::MAX,
+                        adaptive_low_disk_threshold: None,
+                        adaptive_min_ttl: None,
+                        adaptive_unmaterialize_active: false,
+                    },
+                    dry_run: false,
+                    tracked_only: false,
+                })
+                .await;
+
+            let Err(error) = result else {
+                panic!("clean-stale should report the injected deletion error");
+            };
+            assert!(
+                format!("{error:#}").contains("Injected clean-stale deletion error"),
+                "clean-stale should return the first deletion error"
+            );
+            assert_eq!(
+                io.invalidated_clean_attempts(),
+                2,
+                "clean-stale should attempt every deletion"
+            );
+            assert_ne!(
+                fs_util::try_exists(&first_dir)?,
+                fs_util::try_exists(&second_dir)?,
+                "exactly one path should remain after one injected deletion failure"
             );
             Ok(())
         })
