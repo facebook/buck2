@@ -11,7 +11,11 @@
 use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::Arc as StdArc;
+use std::task::Context;
+use std::task::Poll;
+use std::task::ready;
 
 use dice_error::DiceError;
 use dice_error::DiceResult;
@@ -22,10 +26,9 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::TryFutureExt;
 use futures::future::BoxFuture;
-use futures::future::Either as FutureEither;
-use futures::future::ready;
 use itertools::Either;
 use parking_lot::Mutex;
+use pin_project::pin_project;
 
 use crate::ActivationData;
 use crate::LinearRecomputeDiceComputations;
@@ -48,6 +51,7 @@ use crate::epoch::branches::ParallelArena;
 use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::VersionEpochState;
+use crate::epoch::task::promise::DicePromise;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -616,15 +620,80 @@ pub(crate) struct ComputeCtx {
     pub(crate) evaluation_data: Mutex<EvaluationData>,
 }
 
+/// The future of [`ComputeCtx::compute_opaque`].
+///
+/// Hand-written rather than `bring_up_to_date(..).then(..)`. `Then` is
+/// `Flatten<Map<..>, ..>`: it stores the follow-up future into its own slot, polls again,
+/// and reads the payload straight back out. On the resident path — every `compute` in a
+/// build with nothing paged out — that round-trips a value the first poll already had, and
+/// the `Pin::set` drop glue reaches `DiceTaskDependentFuture`'s `PinnedDrop`, so the
+/// temporary cannot stay in registers. That measured ~16ns of a ~70ns shared-cache hit —
+/// `dice_examples:compute_bench`, the `warm_cache_hit` stage, A/B'd with
+/// `dice_examples:ab_compute_bench`.
+#[pin_project]
+pub(crate) struct ComputeOpaque<'d, K: Key> {
+    /// Needed only if the value turns out to be paged out, which is not knowable until the
+    /// promise resolves.
+    ctx: &'d ComputeCtx,
+    key: DiceKey,
+    #[pin]
+    state: ComputeOpaqueState<'d, K>,
+}
+
+#[pin_project(project = ComputeOpaqueStateProj)]
+enum ComputeOpaqueState<'d, K: Key> {
+    UpToDate(#[pin] DicePromise<'d>),
+    /// Boxed: this state is far larger than the promise, and storing it inline would grow
+    /// the future of every `compute` call (see the `words_of_async_fn_future!` assertions in
+    /// `api/computations.rs`).
+    PagingIn(#[pin] BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>>),
+}
+
+impl<'d, K: Key> Future for ComputeOpaque<'d, K> {
+    type Output = DiceResult<OpaqueValue<'d, K>>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let (ctx, key) = (*this.ctx, *this.key);
+        let mut state = this.state;
+
+        // `DicePromise`'s output borrows the task's result for `'d`, not from this `&mut`,
+        // so the resident answer outlives the projection and there is nothing to park.
+        let paged_out = match state.as_mut().project() {
+            ComputeOpaqueStateProj::PagingIn(page_in) => return page_in.poll(cx),
+            ComputeOpaqueStateProj::UpToDate(promise) => {
+                match ready!(promise.poll(cx)).as_ref().into_dice_result() {
+                    Err(e) => return Poll::Ready(Err(e)),
+                    // This is the demand a paged-out value waits for. Dependency validation
+                    // goes through `VersionEpochState::bring_up_to_date` directly and so
+                    // never reaches here, which is the whole point: validating a key must
+                    // not read its value back from disk.
+                    Ok(computed) => match computed.paged_out() {
+                        None => return Poll::Ready(Ok(ComputeCtx::opaque(key, computed))),
+                        Some(paged_out) => paged_out,
+                    },
+                }
+            }
+        };
+
+        // The promise has resolved and marked itself `Done`, so replacing it drops no live
+        // waiter registration.
+        state.set(ComputeOpaqueState::PagingIn(ctx.page_in(key, paged_out)));
+        match state.project() {
+            ComputeOpaqueStateProj::PagingIn(page_in) => page_in.poll(cx),
+            ComputeOpaqueStateProj::UpToDate(_) => {
+                unreachable!("the state was just set to `PagingIn`")
+            }
+        }
+    }
+}
+
 impl ComputeCtx {
     /// Compute "opaque" value where the value is only accessible via projections.
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'d, K>(
-        &'d self,
-        key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<'d, K>>> + use<'d, K>
+    pub(crate) fn compute_opaque<'d, K>(&'d self, key: &K) -> ComputeOpaque<'d, K>
     where
         K: Key,
     {
@@ -634,26 +703,19 @@ impl ComputeCtx {
             .key_index
             .index(CowDiceKeyHashed::key_ref(key));
 
-        self.transaction_data
-            .epoch_state
-            .bring_up_to_date(
-                dice_key,
-                self.parent_key,
-                &self.transaction_data,
-                self.cycles
-                    .subrequest(dice_key, &self.transaction_data.dice.key_index),
-            )
-            .then(move |result| match result.as_ref().into_dice_result() {
-                Err(e) => FutureEither::Left(ready(Err(e))),
-                // This is the demand a paged-out value waits for. Dependency validation
-                // goes through `VersionEpochState::bring_up_to_date` directly and so never
-                // reaches here, which is the whole point: validating a key must not read
-                // its value back from disk.
-                Ok(computed) => match computed.paged_out() {
-                    None => FutureEither::Left(ready(Ok(Self::opaque(dice_key, computed)))),
-                    Some(paged_out) => FutureEither::Right(self.page_in(dice_key, paged_out)),
-                },
-            })
+        ComputeOpaque {
+            ctx: self,
+            key: dice_key,
+            state: ComputeOpaqueState::UpToDate(
+                self.transaction_data.epoch_state.bring_up_to_date(
+                    dice_key,
+                    self.parent_key,
+                    &self.transaction_data,
+                    self.cycles
+                        .subrequest(dice_key, &self.transaction_data.dice.key_index),
+                ),
+            ),
+        }
     }
 
     fn opaque<K: Key>(key: DiceKey, computed: &DiceComputedValue) -> OpaqueValue<'_, K> {

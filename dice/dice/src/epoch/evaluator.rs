@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::future::Future;
 use std::sync::Arc as StdArc;
 
 use derivative::Derivative;
@@ -131,7 +130,7 @@ impl VersionEpochState {
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+    ) -> DicePromise<'d> {
         self.run(TaskGoal::UpToDate, key, parent_key, eval, cycles, || {})
     }
 
@@ -149,7 +148,7 @@ impl VersionEpochState {
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+    ) -> DicePromise<'d> {
         self.run(
             TaskGoal::PageIn(paged_out),
             key,
