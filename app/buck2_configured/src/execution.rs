@@ -130,6 +130,81 @@ struct ExecutionPlatformConstraints {
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
 }
 
+/// Checks the most recently rejecting exec dep before all other exec deps.
+///
+/// Before a rejection is observed, every dep is checked in parallel. Afterwards, the most recent
+/// rejector is checked as a serial preflight and the rest are checked in their original order, in
+/// parallel, only if it succeeds. Since execution platforms are visited in configured order, each
+/// rejection becomes the preferred dependency for the next candidate.
+struct ExecDepChecker<'a> {
+    exec_deps: &'a [TargetLabel],
+    preferred_exec_dep_index: Option<usize>,
+}
+
+struct RemainingExecDeps<'a> {
+    exec_deps: &'a [TargetLabel],
+    preferred_exec_dep_index: Option<usize>,
+    next_index: usize,
+}
+
+impl<'a> ExecDepChecker<'a> {
+    fn new(exec_deps: &'a [TargetLabel]) -> Self {
+        Self {
+            exec_deps,
+            preferred_exec_dep_index: None,
+        }
+    }
+
+    fn preferred(&self) -> Option<(usize, &TargetLabel)> {
+        let index = self.preferred_exec_dep_index?;
+        Some((index, &self.exec_deps[index]))
+    }
+
+    fn remaining(&self) -> RemainingExecDeps<'_> {
+        RemainingExecDeps {
+            exec_deps: self.exec_deps,
+            preferred_exec_dep_index: self.preferred_exec_dep_index,
+            next_index: 0,
+        }
+    }
+
+    fn record_rejection(&mut self, rejecting_exec_dep_index: usize) {
+        debug_assert!(
+            rejecting_exec_dep_index < self.exec_deps.len(),
+            "rejecting exec dep index must be valid"
+        );
+        self.preferred_exec_dep_index = Some(rejecting_exec_dep_index);
+    }
+}
+
+impl<'a> Iterator for RemainingExecDeps<'a> {
+    type Item = (usize, &'a TargetLabel);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.next_index < self.exec_deps.len() {
+            let index = self.next_index;
+            self.next_index += 1;
+            if Some(index) != self.preferred_exec_dep_index {
+                return Some((index, &self.exec_deps[index]));
+            }
+        }
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let mut remaining = self.exec_deps.len() - self.next_index;
+        if self
+            .preferred_exec_dep_index
+            .is_some_and(|index| index >= self.next_index)
+        {
+            remaining -= 1;
+        }
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for RemainingExecDeps<'_> {}
+
 impl ExecutionPlatformConstraints {
     fn new_constraints(
         exec_deps: Arc<[TargetLabel]>,
@@ -262,15 +337,15 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         let constraints =
             ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
 
-        check_execution_platform(
-            ctx,
-            cell_name,
-            &constraints.exec_compatible_with,
-            &constraints.exec_deps,
-            &self.exec_platform,
-            &constraints.toolchain_deps,
-        )
-        .await
+        ExecDepChecker::new(&constraints.exec_deps)
+            .check_execution_platform(
+                ctx,
+                cell_name,
+                &constraints.exec_compatible_with,
+                &self.exec_platform,
+                &constraints.toolchain_deps,
+            )
+            .await
     }
 }
 
@@ -563,89 +638,124 @@ pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
         .await
 }
 
-/// Check if a particular execution platform is compatible with the constraints or not.
-/// Return either Ok/Ok if it is, or a reason if not.
-async fn check_execution_platform(
+async fn check_exec_dep_for_platform(
     ctx: &mut DiceComputations<'_>,
-    target_node_cell: CellNameForConfigurationResolution,
-    exec_compatible_with: &[ConfigurationSettingKey],
-    exec_deps: &[TargetLabel],
+    dep: &TargetLabel,
     exec_platform: &ExecutionPlatform,
-    toolchain_deps: &[TargetConfiguredTargetLabel],
-) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    let matched_cfg_keys = get_matched_cfg_keys(
-        ctx,
-        exec_platform.cfg(),
-        target_node_cell,
-        exec_compatible_with,
-    )
-    .await?;
-
-    // Then check if the platform satisfies compatible_with
-    for constraint in exec_compatible_with {
-        if matched_cfg_keys
-            .settings()
-            .setting_matches(constraint)
-            .is_none()
-        {
-            return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe().0),
-            ));
-        }
-    }
-
-    // Then check that all exec_deps are compatible with the platform. We collect errors separately,
-    // so that we do not report an error if we would later find an incompatibility.
-    let dep_results = ctx
-        .compute_join(exec_deps.iter(), async |ctx, dep| {
-            let cfg = exec_platform.cfg().dupe();
-            configure_exec_dep_with_modifiers(ctx, dep, &cfg)
-                .await
-                .map_err(|e| {
-                    e.context(format!(
-                        "Error checking compatibility of `{}` with `{}`",
-                        dep, cfg
-                    ))
-                })
+) -> ResultMaybeCompatible<()> {
+    let cfg = exec_platform.cfg();
+    configure_exec_dep_with_modifiers(ctx, dep, cfg)
+        .await
+        .map(|_| ())
+        .map_err(|e| {
+            e.context(format!(
+                "Error checking compatibility of `{}` with `{}`",
+                dep, cfg
+            ))
         })
-        .await;
+}
 
-    let mut errs = Vec::new();
-    for result in dep_results {
-        match result {
-            ResultMaybeCompatible::Compatible(..) => (),
+impl ExecDepChecker<'_> {
+    /// Check if a particular execution platform is compatible with the constraints or not.
+    /// Return either Ok/Ok if it is, or a reason if not.
+    async fn check_execution_platform(
+        &mut self,
+        ctx: &mut DiceComputations<'_>,
+        target_node_cell: CellNameForConfigurationResolution,
+        exec_compatible_with: &[ConfigurationSettingKey],
+        exec_platform: &ExecutionPlatform,
+        toolchain_deps: &[TargetConfiguredTargetLabel],
+    ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+        let matched_cfg_keys = get_matched_cfg_keys(
+            ctx,
+            exec_platform.cfg(),
+            target_node_cell,
+            exec_compatible_with,
+        )
+        .await?;
 
-            ResultMaybeCompatible::Incompatible(reason) => {
+        // Then check if the platform satisfies compatible_with
+        for constraint in exec_compatible_with {
+            if matched_cfg_keys
+                .settings()
+                .setting_matches(constraint)
+                .is_none()
+            {
                 return Ok(Err(
-                    ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
-                        reason.dupe(),
+                    ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(
+                        constraint.dupe().0,
                     ),
                 ));
             }
-            ResultMaybeCompatible::Err(e) => errs.push(e),
-        };
-    }
-
-    for result in ctx
-        .compute_join(toolchain_deps.iter(), async |ctx, dep| {
-            check_toolchain_execution_platform_compatibility(ctx, dep.dupe(), exec_platform.dupe())
-                .await
-        })
-        .await
-    {
-        match result {
-            Ok(Ok(())) => {}
-            Ok(Err(reason)) => {
-                return Ok(Err(reason));
-            }
-            Err(e) => errs.push(e),
         }
-    }
-    if let Some(e) = errs.pop() {
-        return Err(e);
-    }
 
-    Ok(Ok(()))
+        // Then check that all exec_deps are compatible with the platform. Retain an error only in
+        // case no dependency proves the platform incompatible.
+        let mut error = None;
+        if let Some((_, dep)) = self.preferred() {
+            match check_exec_dep_for_platform(ctx, dep, exec_platform).await {
+                ResultMaybeCompatible::Compatible(()) => {}
+                ResultMaybeCompatible::Incompatible(reason) => {
+                    return Ok(Err(
+                        ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
+                            reason,
+                        ),
+                    ));
+                }
+                ResultMaybeCompatible::Err(e) => error = Some(e),
+            }
+        }
+
+        let dep_results = ctx
+            .compute_join(self.remaining(), async |ctx, (index, dep)| {
+                (
+                    index,
+                    check_exec_dep_for_platform(ctx, dep, exec_platform).await,
+                )
+            })
+            .await;
+
+        for (index, result) in dep_results {
+            match result {
+                ResultMaybeCompatible::Compatible(..) => (),
+                ResultMaybeCompatible::Incompatible(reason) => {
+                    self.record_rejection(index);
+                    return Ok(Err(
+                        ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
+                            reason,
+                        ),
+                    ));
+                }
+                ResultMaybeCompatible::Err(e) => error = Some(e),
+            };
+        }
+
+        for result in ctx
+            .compute_join(toolchain_deps.iter(), async |ctx, dep| {
+                check_toolchain_execution_platform_compatibility(
+                    ctx,
+                    dep.dupe(),
+                    exec_platform.dupe(),
+                )
+                .await
+            })
+            .await
+        {
+            match result {
+                Ok(Ok(())) => {}
+                Ok(Err(reason)) => {
+                    return Ok(Err(reason));
+                }
+                Err(e) => error = Some(e),
+            }
+        }
+
+        if let Some(e) = error {
+            return Err(e);
+        }
+
+        Ok(Ok(()))
+    }
 }
 
 async fn get_execution_platforms_enabled(
@@ -727,18 +837,19 @@ pub(crate) async fn resolve_execution_platform_candidates<M: ResolutionMode>(
     exec_deps: &[TargetLabel],
     toolchain_deps: &[TargetConfiguredTargetLabel],
 ) -> buck2_error::Result<M::Output> {
+    let mut exec_dep_checker = ExecDepChecker::new(exec_deps);
     let execution_platforms = get_execution_platforms_enabled(ctx).await?;
     let mut accumulator = M::Accumulator::default();
     for exec_platform in execution_platforms.candidates() {
-        let outcome = check_execution_platform(
-            ctx,
-            target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            exec_platform,
-            toolchain_deps,
-        )
-        .await?;
+        let outcome = exec_dep_checker
+            .check_execution_platform(
+                ctx,
+                target_node_cell,
+                exec_compatible_with,
+                exec_platform,
+                toolchain_deps,
+            )
+            .await?;
         accumulator = match M::visit(accumulator, exec_platform, outcome) {
             ControlFlow::Break(output) => return Ok(output),
             ControlFlow::Continue(accumulator) => accumulator,
@@ -956,4 +1067,83 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
 
 pub(crate) fn init_get_execution_platforms() {
     GET_EXECUTION_PLATFORMS.init(&GetExecutionPlatformsInstance);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exec_dep_checker_only_prefers_the_latest_rejector() {
+        let deps = [
+            TargetLabel::testing_parse("root//:first"),
+            TargetLabel::testing_parse("root//:second"),
+            TargetLabel::testing_parse("root//:third"),
+        ];
+        let mut checker = ExecDepChecker::new(&deps);
+
+        assert_eq!(checker.remaining().len(), 3);
+        assert_eq!(
+            checker
+                .remaining()
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2],
+            "All dependencies should be checked together before a rejector is known",
+        );
+
+        checker.record_rejection(1);
+
+        assert_eq!(checker.remaining().len(), 2);
+        assert_eq!(
+            checker.preferred().map(|(index, _)| index),
+            Some(1),
+            "The rejecting dependency should be checked first for the next platform",
+        );
+        assert_eq!(
+            checker
+                .remaining()
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>(),
+            vec![0, 2],
+            "The preferred dependency should not also be checked in the parallel remainder",
+        );
+
+        checker.record_rejection(2);
+
+        assert_eq!(
+            checker.preferred().map(|(index, _)| index),
+            Some(2),
+            "A newer rejecting dependency should replace the previous preference",
+        );
+        assert_eq!(
+            checker
+                .remaining()
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>(),
+            vec![0, 1],
+            "Dependencies other than the preferred rejector should retain attribute order",
+        );
+    }
+
+    #[test]
+    fn exec_dep_checker_keeps_its_preference_until_another_rejection() {
+        let deps = [
+            TargetLabel::testing_parse("root//:first"),
+            TargetLabel::testing_parse("root//:second"),
+        ];
+        let mut checker = ExecDepChecker::new(&deps);
+
+        checker.record_rejection(1);
+
+        assert_eq!(checker.preferred().map(|(index, _)| index), Some(1));
+        assert_eq!(
+            checker
+                .remaining()
+                .map(|(index, _)| index)
+                .collect::<Vec<_>>(),
+            vec![0],
+            "The preferred dependency should remain until another exec dependency rejects",
+        );
+    }
 }
