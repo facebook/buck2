@@ -169,7 +169,7 @@ pub struct Evaluator<'v, 'a, 'e> {
     // Filled only if runtime typechecking profiling is enabled.
     pub(crate) typecheck_profile: TypecheckProfile,
     // Used for stack-like allocation
-    alloca: Alloca,
+    alloca: Box<Alloca>,
     // Another stack-like allocation
     pub(crate) string_pool: StringPool,
     /// Field that can be used for any purpose you want (can store types you define).
@@ -280,7 +280,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             extra_mut: None,
             next_gc_level: GC_THRESHOLD,
             disable_gc: false,
-            alloca: Alloca::new(),
+            alloca: Box::new(Alloca::new()),
             profile_or_instrumentation_mode: ProfileOrInstrumentationMode::None,
             heap_profile: HeapProfile::new(),
             stmt_profile: StmtProfile::new(),
@@ -883,7 +883,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     {
         // We want to be able to access the evaluator underneath the alloca.
         // We know that the alloca will be used in a stacked way, so that's fine.
-        let alloca = unsafe { cast::ptr_lifetime(&self.alloca) };
+        let alloca = unsafe { cast::ptr_lifetime(&*self.alloca) };
         alloca.alloca_uninit(len, |xs| k(xs, self))
     }
 
@@ -894,7 +894,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     where
         F: FnOnce(&mut [T], &mut Self) -> R,
     {
-        let alloca = unsafe { cast::ptr_lifetime(&self.alloca) };
+        let alloca = unsafe { cast::ptr_lifetime(&*self.alloca) };
         alloca.alloca_init(len, init, |xs| k(xs, self))
     }
 
@@ -903,7 +903,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     where
         F: FnOnce(&[T], &mut Self) -> R,
     {
-        let alloca = unsafe { cast::ptr_lifetime(&self.alloca) };
+        let alloca = unsafe { cast::ptr_lifetime(&*self.alloca) };
         alloca.alloca_concat(x, y, |xs| k(xs, self))
     }
 
