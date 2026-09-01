@@ -101,7 +101,7 @@ async fn simple_task() -> anyhow::Result<()> {
                 // wait for the lock too
                 let _lock = lock.lock().await;
 
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
@@ -142,7 +142,7 @@ async fn simple_task() -> anyhow::Result<()> {
     assert!(
         v.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
@@ -162,7 +162,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
             let can_terminate = can_terminate.dupe();
             async move {
                 // wait for the lock too
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(1),
                     )),
@@ -203,7 +203,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     assert!(
         v.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
@@ -252,7 +252,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
             async move {
                 // wait for the lock too
-                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
@@ -287,31 +287,31 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     assert!(
         v1.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v2.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v3.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v4.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
         v5.as_ref()
             .into_dice_result()?
-            .value()
+            .testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 

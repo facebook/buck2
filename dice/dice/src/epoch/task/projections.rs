@@ -214,7 +214,7 @@ mod tests {
     }
 
     fn computed(val: usize) -> DiceComputedValue {
-        DiceComputedValue::new(
+        DiceComputedValue::new_resident(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(val))),
             Arc::new(VersionRanges::new()),
             TrackedInvalidationPaths::clean(),
@@ -222,7 +222,7 @@ mod tests {
     }
 
     fn is_val(v: &DiceComputedValue, val: usize) -> bool {
-        v.value()
+        v.testing_resident_value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(val)))
     }
 

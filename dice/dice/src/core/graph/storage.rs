@@ -665,7 +665,7 @@ impl VersionedGraph {
             invalidation_paths,
         );
 
-        let res = entry.computed_val(v, "newly-constructed OccupiedGraphNode is always hydrated");
+        let res = entry.computed_val(v);
         // A freshly-computed node has never been paged out; filling the slot adds it
         // to the candidate set.
         slot.insert(VersionedGraphNode::Occupied(entry));
@@ -904,7 +904,13 @@ mod tests {
                 .1
         );
 
-        assert!(cache.get(key1.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key1.dupe())
+                .assert_match()
+                .testing_resident_value()
+                .equality(&res)
+        );
 
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
 
@@ -926,7 +932,7 @@ mod tests {
             cache
                 .get(key3.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
         // old version is gone
@@ -938,7 +944,7 @@ mod tests {
 
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
-        assert!(mismatch.entry.equality(&res2));
+        assert!(mismatch.entry.resident().unwrap().equality(&res2));
         assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // if the value is the same, then versions are shared
@@ -964,14 +970,14 @@ mod tests {
             cache
                 .get(key6.dupe(),)
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
         assert!(
             cache
                 .get(key3.dupe(),)
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
         // the first result is gone still
@@ -980,7 +986,7 @@ mod tests {
 
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
-        assert!(mismatch.entry.equality(&res2));
+        assert!(mismatch.entry.resident().unwrap().equality(&res2));
         assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // smaller version numbers don't get cached
@@ -998,21 +1004,21 @@ mod tests {
         );
         let entry = cache.get(key5.dupe());
         let mismatch = entry.assert_check_deps();
-        assert!(mismatch.entry.equality(&res2));
+        assert!(mismatch.entry.resident().unwrap().equality(&res2));
         assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         assert!(
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
         assert!(
             cache
                 .get(key3.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
         // the first result is gone still
@@ -1022,7 +1028,7 @@ mod tests {
         // @4 still needs deps check
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
-        assert!(mismatch.entry.equality(&res2));
+        assert!(mismatch.entry.resident().unwrap().equality(&res2));
         assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // different key is miss
@@ -1055,7 +1061,13 @@ mod tests {
             InvalidationSourcePriority::Normal,
         ));
 
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .testing_resident_value()
+                .equality(&res)
+        );
 
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
         let key2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
@@ -1070,10 +1082,16 @@ mod tests {
             cache
                 .get(key2.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .testing_resident_value()
+                .equality(&res)
+        );
 
         // skip a few versions
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(300));
@@ -1089,17 +1107,23 @@ mod tests {
             cache
                 .get(key3.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res3)
         );
         assert!(
             cache
                 .get(key2.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(
+            cache
+                .get(key.dupe())
+                .assert_match()
+                .testing_resident_value()
+                .equality(&res)
+        );
 
         // keys goes to the largest version that's smaller than it
         let key4 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
@@ -1107,7 +1131,7 @@ mod tests {
             cache
                 .get(key4.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res2)
         );
 
@@ -1116,7 +1140,7 @@ mod tests {
             cache
                 .get(key5.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res3)
         );
 
@@ -1166,14 +1190,14 @@ mod tests {
             cache
                 .get(key_a(1).dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res)
         );
         assert!(
             cache
                 .get(key_a(2).dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .equality(&res)
         );
         cache.get(key_a(3).dupe()).assert_compute();
@@ -1230,8 +1254,8 @@ mod tests {
         // should have created a new entry because of key2
         #[allow(ambiguous_wide_pointer_comparisons)] // this should be same exact ptr copy
         let is_same_ptr = std::sync::Arc::ptr_eq(
-            value.0.value().testing_value(),
-            value3.0.value().testing_value(),
+            value.0.testing_resident_value().testing_value(),
+            value3.0.testing_resident_value().testing_value(),
         );
         assert!(!is_same_ptr);
         // should actually be cached though
@@ -1269,7 +1293,7 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
 
@@ -1293,7 +1317,7 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         assert!(cache.nodes().contains_key(&DiceKey { index: 0 }));
@@ -1317,14 +1341,14 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         assert!(
             cache
                 .get(key4.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
 
@@ -1347,14 +1371,14 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         assert!(
             cache
                 .get(key7.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
     }
@@ -1396,7 +1420,7 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
 
@@ -1423,7 +1447,7 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         // there should be size 1
@@ -1451,14 +1475,14 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         assert!(
             cache
                 .get(key4.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
 
@@ -1484,14 +1508,14 @@ mod tests {
             cache
                 .get(key6.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
         assert!(
             cache
                 .get(key7.dupe())
                 .assert_match()
-                .value()
+                .testing_resident_value()
                 .instance_equal(&res)
         );
 
@@ -1960,7 +1984,7 @@ mod tests {
         // value, which we verify by reading it back as a successful Match.
         let result = cache.get(key_v2);
         let computed = result.unpack_match().expect("entry should be a Match");
-        assert!(computed.value().equality(&new_value));
+        assert!(computed.testing_resident_value().equality(&new_value));
     }
 
     /// Paged-out node + injection of a new value: the graph cannot
@@ -2000,7 +2024,7 @@ mod tests {
 
         let result = cache.get(key_v2);
         let computed = result.unpack_match().expect("entry should be a Match");
-        assert!(computed.value().equality(&new_value));
+        assert!(computed.testing_resident_value().equality(&new_value));
     }
 
     /// The `node_mut` / `VacantSlot` choke points keep the occupied-node tallies

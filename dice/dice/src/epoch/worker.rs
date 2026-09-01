@@ -26,8 +26,6 @@ use itertools::Either;
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::PageInPhase;
-use crate::arc::Arc;
-use crate::core::graph::types::PagedOutMismatch;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::graph::types::VersionedGraphResultMismatch;
@@ -54,7 +52,7 @@ use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceComputedValue;
-use crate::value::MaybeValidDiceValue;
+use crate::value::MaybeResident;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -81,27 +79,6 @@ pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: TransactionData,
     version_epoch: VersionEpoch,
-}
-
-enum CheckDepsCandidate {
-    Resident(VersionedGraphResultMismatch),
-    PagedOut(PagedOutMismatch),
-}
-
-impl CheckDepsCandidate {
-    fn prev_verified_version(&self) -> VersionNumber {
-        match self {
-            Self::Resident(mismatch) => mismatch.prev_verified_version,
-            Self::PagedOut(mismatch) => mismatch.prev_verified_version,
-        }
-    }
-
-    fn deps_to_validate(&self) -> &Arc<SeriesParallelDeps> {
-        match self {
-            Self::Resident(mismatch) => &mismatch.deps_to_validate,
-            Self::PagedOut(mismatch) => &mismatch.deps_to_validate,
-        }
-    }
 }
 
 impl DiceTaskWorker {
@@ -165,42 +142,32 @@ impl DiceTaskWorker {
 
         // handle cancelled/cache hits before sending started events
         let check_deps_candidate = match state_result {
-            VersionedGraphResult::Match(entry) => {
-                return task_state.lookup_matches(handle, entry);
-            }
-            VersionedGraphResult::MatchPagedOut(paged) => {
-                match self
-                    .hydrate_and_rehydrate(&state_handle, paged.data_key, PageInPhase::Match)
-                    .await
-                {
-                    Ok(entry) => {
-                        let entry = DiceComputedValue::new(
-                            MaybeValidDiceValue::valid(entry),
-                            paged.valid,
-                            paged.invalidation_paths,
-                        );
-                        return task_state.lookup_matches(handle, entry);
-                    }
-                    // The on-disk value couldn't be read back (I/O or a deserialize
-                    // failure). It's just a cache entry, so recover by recomputing
-                    // (fall through to the `Compute` path) and report it for telemetry.
-                    // Note: the lost value can't be compared against the recompute, so
-                    // `update_computed` can't do equality-based early cutoff (see
-                    // `ValueUpdate::is_reusable`) and treats the node as changed —
-                    // this dirties its rdeps and recomputes through them even if the
-                    // recomputed value is identical.
-                    Err(e) => {
-                        self.eval.hydration_failed(self.k, &e);
-                        None
+            VersionedGraphResult::Match(entry) => match entry.paged_out_data_key() {
+                None => return task_state.lookup_matches(handle, entry),
+                Some(data_key) => {
+                    match self
+                        .hydrate_and_rehydrate(&state_handle, data_key, PageInPhase::Match)
+                        .await
+                    {
+                        Ok(value) => {
+                            return task_state.lookup_matches(handle, entry.paged_in(value));
+                        }
+                        // The on-disk value couldn't be read back (I/O or a deserialize
+                        // failure). It's just a cache entry, so recover by recomputing
+                        // (fall through to the `Compute` path) and report it for telemetry.
+                        // Note: the lost value can't be compared against the recompute, so
+                        // `update_computed` can't do equality-based early cutoff (see
+                        // `ValueUpdate::is_reusable`) and treats the node as changed —
+                        // this dirties its rdeps and recomputes through them even if the
+                        // recomputed value is identical.
+                        Err(e) => {
+                            self.eval.hydration_failed(self.k, &e);
+                            None
+                        }
                     }
                 }
-            }
-            VersionedGraphResult::CheckDeps(mismatch) => {
-                Some(CheckDepsCandidate::Resident(mismatch))
-            }
-            VersionedGraphResult::CheckDepsPagedOut(mismatch) => {
-                Some(CheckDepsCandidate::PagedOut(mismatch))
-            }
+            },
+            VersionedGraphResult::CheckDeps(mismatch) => Some(mismatch),
             VersionedGraphResult::Compute => None,
         };
 
@@ -227,8 +194,8 @@ impl DiceTaskWorker {
                     match check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
-                        mismatch.deps_to_validate(),
-                        mismatch.prev_verified_version(),
+                        &mismatch.deps_to_validate,
+                        mismatch.prev_verified_version,
                         &cycles,
                     )
                     .await
@@ -254,19 +221,21 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        let mismatch = match mismatch {
-                            CheckDepsCandidate::Resident(mismatch) => Some(mismatch.dupe()),
-                            CheckDepsCandidate::PagedOut(mismatch) => {
+                        // Reusing the previous value means handing it back to the caller,
+                        // so it has to be paged in first.
+                        let mismatch = match mismatch.entry.data_key() {
+                            None => Some(mismatch.dupe()),
+                            Some(data_key) => {
                                 match self
                                     .hydrate_and_rehydrate(
                                         &state_handle,
-                                        mismatch.data_key,
+                                        data_key,
                                         PageInPhase::AfterDependencyValidation,
                                     )
                                     .await
                                 {
                                     Ok(entry) => Some(VersionedGraphResultMismatch {
-                                        entry,
+                                        entry: MaybeResident::Resident(entry),
                                         prev_verified_version: mismatch.prev_verified_version,
                                         deps_to_validate: mismatch.deps_to_validate.dupe(),
                                     }),
@@ -340,8 +309,8 @@ impl DiceTaskWorker {
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
                     if !old_value_hydration_failed
-                        && let Some(CheckDepsCandidate::PagedOut(mismatch)) =
-                            check_deps_candidate.as_ref()
+                        && let Some(mismatch) = check_deps_candidate.as_ref()
+                        && let Some(data_key) = mismatch.entry.data_key()
                         && result.deps == **mismatch.deps_to_validate
                         && !self
                             .eval
@@ -353,7 +322,7 @@ impl DiceTaskWorker {
                         if let Err(e) = self
                             .hydrate_and_rehydrate(
                                 &state_handle,
-                                mismatch.data_key,
+                                data_key,
                                 PageInPhase::AfterRecompute,
                             )
                             .await

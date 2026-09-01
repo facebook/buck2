@@ -137,6 +137,56 @@ impl MaybeValidDiceValue {
     }
 }
 
+/// A DICE value that may not be in memory: either resident, or paged out to storage, where
+/// `DataKey` locates it.
+///
+/// A paged-out value is read back only when a caller needs the payload. Everything a
+/// dependency check needs — the versions the value is valid at, and its invalidation paths
+/// — travels beside the value, so proving a key unchanged never has to touch storage.
+#[derive(Allocative, Clone, Dupe)]
+pub(crate) enum MaybeResident<V> {
+    Resident(V),
+    PagedOut(DataKey),
+}
+
+impl<V> MaybeResident<V> {
+    pub(crate) fn resident(&self) -> Option<&V> {
+        match self {
+            MaybeResident::Resident(v) => Some(v),
+            MaybeResident::PagedOut(_) => None,
+        }
+    }
+
+    /// The on-disk key to read the value back from, or `None` if it is already resident.
+    pub(crate) fn data_key(&self) -> Option<DataKey> {
+        match self {
+            MaybeResident::Resident(_) => None,
+            MaybeResident::PagedOut(data_key) => Some(*data_key),
+        }
+    }
+}
+
+impl MaybeResident<DiceValidValue> {
+    /// The same value as a [`DiceComputedValue`] payload.
+    pub(crate) fn into_payload(self) -> MaybeResident<MaybeValidDiceValue> {
+        match self {
+            MaybeResident::Resident(v) => MaybeResident::Resident(MaybeValidDiceValue::valid(v)),
+            MaybeResident::PagedOut(data_key) => MaybeResident::PagedOut(data_key),
+        }
+    }
+}
+
+/// Deliberately does not require `V: Debug`: neither `DiceValidValue` nor
+/// `MaybeValidDiceValue` prints its contents anyway.
+impl<V> Debug for MaybeResident<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MaybeResident::Resident(_) => f.write_str("Resident(..)"),
+            MaybeResident::PagedOut(data_key) => write!(f, "PagedOut({data_key:?})"),
+        }
+    }
+}
+
 /// validity, including based on validity of dependencies
 #[derive(Allocative, Clone, Dupe, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum DiceValidity {
@@ -155,7 +205,7 @@ impl DiceValidity {
 
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceComputedValue {
-    value: MaybeValidDiceValue,
+    value: MaybeResident<MaybeValidDiceValue>,
     valid: Arc<VersionRanges>,
     invalidation_paths: TrackedInvalidationPaths,
 }
@@ -321,7 +371,7 @@ impl TrackedInvalidationPaths {
 
 impl DiceComputedValue {
     pub(crate) fn new(
-        value: MaybeValidDiceValue,
+        value: MaybeResident<MaybeValidDiceValue>,
         valid: Arc<VersionRanges>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
@@ -330,6 +380,23 @@ impl DiceComputedValue {
             valid,
             invalidation_paths,
         }
+    }
+
+    pub(crate) fn new_resident(
+        value: MaybeValidDiceValue,
+        valid: Arc<VersionRanges>,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> Self {
+        Self::new(MaybeResident::Resident(value), valid, invalidation_paths)
+    }
+
+    /// The same result with `value` — read back from storage — as its payload.
+    pub(crate) fn paged_in(&self, value: DiceValidValue) -> Self {
+        Self::new_resident(
+            MaybeValidDiceValue::valid(value),
+            self.valid.dupe(),
+            self.invalidation_paths.dupe(),
+        )
     }
 
     /// A bunch of things in the per-transaction state expect `DiceComputedValue`s, but we don't
@@ -344,14 +411,20 @@ impl DiceComputedValue {
         invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
         Self {
-            value,
+            value: MaybeResident::Resident(value),
             valid: Arc::new(VersionRange::begins_with(v).into_ranges()),
             invalidation_paths,
         }
     }
 
-    pub(crate) fn value(&self) -> &MaybeValidDiceValue {
-        &self.value
+    /// The payload, or `None` if the value is still paged out.
+    pub(crate) fn resident_value(&self) -> Option<&MaybeValidDiceValue> {
+        self.value.resident()
+    }
+
+    /// The on-disk key to read the value back from, or `None` if it is already resident.
+    pub(crate) fn paged_out_data_key(&self) -> Option<DataKey> {
+        self.value.data_key()
     }
 
     pub(crate) fn versions(&self) -> &VersionRanges {
@@ -466,6 +539,7 @@ where
 pub mod testing {
     use crate::arc::Arc;
     use crate::key::DiceKey;
+    use crate::value::DiceComputedValue;
     use crate::value::DiceValidValue;
     use crate::value::DiceValueDyn;
     use crate::value::InvalidationPath;
@@ -483,6 +557,13 @@ pub mod testing {
     impl MaybeValidDiceValue {
         pub(crate) fn testing_value(&self) -> &std::sync::Arc<dyn DiceValueDyn> {
             self.value()
+        }
+    }
+
+    impl DiceComputedValue {
+        /// The payload, panicking if the value is paged out.
+        pub(crate) fn testing_resident_value(&self) -> &MaybeValidDiceValue {
+            self.resident_value().expect("value should be resident")
         }
     }
 

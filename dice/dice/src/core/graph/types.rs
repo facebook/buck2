@@ -13,16 +13,14 @@
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
-use pagable::DataKey;
 
 use crate::arc::Arc;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
-use crate::value::TrackedInvalidationPaths;
+use crate::value::MaybeResident;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRanges;
 
 /// The Key for a Versioned, incremental computation
 #[derive(Copy, Clone, Dupe, Debug)]
@@ -39,30 +37,9 @@ impl VersionedGraphKey {
 
 #[derive(Clone, Dupe, Debug)]
 pub(crate) struct VersionedGraphResultMismatch {
-    /// Last known value for the key.
-    pub(crate) entry: DiceValidValue,
+    /// Last known value for the key. Still paged out if nothing has read it back.
+    pub(crate) entry: MaybeResident<DiceValidValue>,
     /// Most recent previous version at which the last known value was valid.
-    pub(crate) prev_verified_version: VersionNumber,
-    pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
-}
-
-/// Equivalent of [`DiceComputedValue`] for the case where the matched entry's value is
-/// paged out. The worker hydrates `data_key` via `DiceStorage` to materialize the value
-/// before constructing a `DiceComputedValue`.
-#[derive(Debug)]
-pub(crate) struct PagedOutMatch {
-    pub(crate) data_key: DataKey,
-    pub(crate) valid: Arc<VersionRanges>,
-    pub(crate) invalidation_paths: TrackedInvalidationPaths,
-}
-
-/// Equivalent of [`VersionedGraphResultMismatch`] for the case where the previous entry's
-/// value is paged out. The worker can validate dependencies without hydrating it. It hydrates
-/// `data_key` if the dependencies are unchanged, or when the old value is needed to compare
-/// an equal-structure recomputation for reuse.
-#[derive(Debug)]
-pub(crate) struct PagedOutMismatch {
-    pub(crate) data_key: DataKey,
     pub(crate) prev_verified_version: VersionNumber,
     pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
 }
@@ -71,14 +48,9 @@ pub(crate) struct PagedOutMismatch {
 pub(crate) enum VersionedGraphResult {
     /// the entry is present and valid at the requested version
     Match(DiceComputedValue),
-    /// the entry is present and valid at the requested version, but its value is paged
-    /// out and must be hydrated before use
-    MatchPagedOut(PagedOutMatch),
     /// the entry at the requested version has been invalidated and
     /// we have a previous value with deps to possibly resurrect
     CheckDeps(VersionedGraphResultMismatch),
-    /// like `CheckDeps`, but the previous entry's value is paged out
-    CheckDepsPagedOut(PagedOutMismatch),
     /// the entry is missing or there's no previously valid value to check
     Compute,
 }

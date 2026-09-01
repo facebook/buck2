@@ -787,7 +787,7 @@ pub(crate) mod testing_helpers {
     pub(crate) fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
         make_completed_task_with_computed_value(
             key,
-            DiceComputedValue::new(
+            DiceComputedValue::new_resident(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
                     val,
                 ))),

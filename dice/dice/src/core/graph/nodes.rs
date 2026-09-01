@@ -28,8 +28,6 @@ use itertools::Itertools;
 use pagable::DataKey;
 use sorted_vector_map::SortedVectorMap;
 
-use super::types::PagedOutMatch;
-use super::types::PagedOutMismatch;
 use super::types::VersionedGraphResult;
 use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
@@ -43,6 +41,7 @@ use crate::introspection::graph::SerializedGraphNode;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::MaybeResident;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -225,10 +224,7 @@ impl VersionedGraphNode {
                 // value the worker validated before returning it from the graph.
                 entry.rehydrate(update.into_value());
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
-                let ret = entry.computed_val(
-                    key.v,
-                    "a reusable entry is resident or was restored from the worker's value",
-                );
+                let ret = entry.computed_val(key.v);
                 return (ret, false);
             }
             VersionedGraphNode::Occupied(entry) => {
@@ -268,7 +264,7 @@ impl VersionedGraphNode {
             // the return value actually is used to mean something different than that we changed
             // something.
             return (
-                DiceComputedValue::new(
+                DiceComputedValue::new_resident(
                     MaybeValidDiceValue::valid(value),
                     Arc::new(valid_deps_versions),
                     invalidation_paths,
@@ -292,10 +288,7 @@ impl VersionedGraphNode {
             unreachable!("`OccupiedGraphNode::new` always constructs a `NeverPagedOut` value");
         };
         new.res = make_res(v);
-        let ret = new.computed_val(
-            key.v,
-            "newly-constructed OccupiedGraphNode is always hydrated",
-        );
+        let ret = new.computed_val(key.v);
         *self = VersionedGraphNode::Occupied(new);
 
         (ret, true)
@@ -416,16 +409,18 @@ impl PagableNodeValue {
         }
     }
 
-    /// The hydrated value, panicking with `msg` if it is paged out. `msg` should
-    /// explain why the caller knows the value is resident (analogous to
-    /// `Option::expect`).
-    pub(crate) fn expect_hydrated(&self, msg: &str) -> &DiceValidValue {
-        self.as_hydrated().unwrap_or_else(|| {
-            panic!(
-                "PagableNodeValue::expect_hydrated called on a paged-out value: {}",
-                msg
-            )
-        })
+    /// This value as seen by a lookup: resident if it is in memory, otherwise the on-disk
+    /// key a caller can read it back from.
+    ///
+    /// Panics if a non-resident value has no `DataKey`, which would violate the
+    /// `PagableNodeValue` state invariant.
+    fn expect_maybe_resident(&self) -> MaybeResident<DiceValidValue> {
+        match self.as_hydrated() {
+            Some(value) => MaybeResident::Resident(value.dupe()),
+            None => MaybeResident::PagedOut(self.data_key().expect(
+                "a non-resident `PagableNodeValue` is always `PagedOut`, which has a `DataKey`",
+            )),
+        }
     }
 
     /// The on-disk key of a `PagedOut` value (in-memory copy evicted), used to load
@@ -624,8 +619,8 @@ impl OccupiedGraphNode {
     }
 
     /// Returns this node's stored value (which may be hydrated or paged out).
-    /// Callers that need a hydrated `DiceValidValue` should call `.expect_hydrated(msg)`
-    /// with a message explaining why the caller knows the value is hydrated.
+    /// Callers that need a hydrated `DiceValidValue` should call
+    /// `.as_hydrated().expect(msg)`, with a message explaining why the value is resident.
     pub(crate) fn val(&self) -> &PagableNodeValue {
         &self.res
     }
@@ -651,20 +646,17 @@ impl OccupiedGraphNode {
     pub(crate) fn mark_non_pageable(&mut self) {
         let value = self
             .res
-            .expect_hydrated("mark_non_pageable is only called on resident page-out candidates")
+            .as_hydrated()
+            .expect("mark_non_pageable is only called on resident page-out candidates")
             .dupe();
         self.res = PagableNodeValue::NonPageable(value);
     }
 
-    /// `expect_hydrated_msg` is forwarded to `expect_hydrated` and should explain why the
-    /// caller knows the entry is hydrated.
-    pub(crate) fn computed_val(
-        &self,
-        for_version: VersionNumber,
-        expect_hydrated_msg: &str,
-    ) -> DiceComputedValue {
+    /// This node's state at `for_version`. The payload is paged out if the node's value
+    /// has not been read back from storage.
+    pub(crate) fn computed_val(&self, for_version: VersionNumber) -> DiceComputedValue {
         DiceComputedValue::new(
-            MaybeValidDiceValue::valid(self.val().expect_hydrated(expect_hydrated_msg).dupe()),
+            self.val().expect_maybe_resident().into_payload(),
             self.metadata.verified_ranges.dupe(),
             self.invalidation_paths.at_version(for_version),
         )
@@ -705,21 +697,7 @@ impl OccupiedGraphNode {
 
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self.metadata.verified_ranges.find_value_upper_bound(v) {
-            Some(found) if found == v => {
-                if self.res.as_hydrated().is_some() {
-                    VersionedGraphResult::Match(
-                        self.computed_val(v, "the Match branch checked as_hydrated().is_some()"),
-                    )
-                } else {
-                    VersionedGraphResult::MatchPagedOut(PagedOutMatch {
-                        data_key: self.res.data_key().expect(
-                            "a non-resident `PagableNodeValue` is always `PagedOut`, which has a `DataKey`",
-                        ),
-                        valid: self.metadata.verified_ranges.dupe(),
-                        invalidation_paths: self.invalidation_paths.at_version(v),
-                    })
-                }
-            }
+            Some(found) if found == v => VersionedGraphResult::Match(self.computed_val(v)),
             Some(prev_verified_version) => {
                 if self
                     .metadata
@@ -727,21 +705,11 @@ impl OccupiedGraphNode {
                     .restricted_range(v)
                     .contains(&prev_verified_version)
                 {
-                    if let Some(value) = self.res.as_hydrated() {
-                        VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
-                            entry: value.dupe(),
-                            prev_verified_version,
-                            deps_to_validate: self.metadata.deps.dupe(),
-                        })
-                    } else {
-                        VersionedGraphResult::CheckDepsPagedOut(PagedOutMismatch {
-                            data_key: self.res.data_key().expect(
-                                "a non-resident `PagableNodeValue` is always `PagedOut`, which has a `DataKey`",
-                            ),
-                            prev_verified_version,
-                            deps_to_validate: self.metadata.deps.dupe(),
-                        })
-                    }
+                    VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
+                        entry: self.res.expect_maybe_resident(),
+                        prev_verified_version,
+                        deps_to_validate: self.metadata.deps.dupe(),
+                    })
                 } else {
                     VersionedGraphResult::Compute
                 }
@@ -884,7 +852,7 @@ impl InjectedGraphNode {
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self.data_at(v) {
-            Some((_, data)) => VersionedGraphResult::Match(DiceComputedValue::new(
+            Some((_, data)) => VersionedGraphResult::Match(DiceComputedValue::new_resident(
                 MaybeValidDiceValue::valid(data.value.dupe()),
                 data.valid_versions.dupe(),
                 self.invalidation_paths.at_version(v),
@@ -1042,7 +1010,8 @@ mod tests {
         assert!(
             entry
                 .val()
-                .expect_hydrated("the resident value must survive stale hydration")
+                .as_hydrated()
+                .expect("the resident value must survive stale hydration")
                 .equality(&resident)
         );
     }

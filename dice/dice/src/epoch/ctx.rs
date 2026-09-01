@@ -558,10 +558,13 @@ impl<'d> TrackedComputations<'d> {
     ) -> DiceResult<P::Value> {
         let (ctx_data, mut dep_trackers) = self.unpack();
         let (dice_key, res) = ctx_data.project(key, derive_from)?;
-        dep_trackers.record(dice_key, res.value().validity(), res.invalidation_paths());
+        // A projection is computed here and then stored, so its value is always resident.
+        let value = res
+            .resident_value()
+            .expect("a projection's value is never paged out");
+        dep_trackers.record(dice_key, value.validity(), res.invalidation_paths());
 
-        Ok(res
-            .value()
+        Ok(value
             .downcast_maybe_transient::<P::Value>()
             .expect("Type mismatch when computing key")
             .dupe())
@@ -641,7 +644,9 @@ impl ComputeCtx {
                 result.as_ref().into_dice_result().map(|dice_value| {
                     OpaqueValue::new(
                         dice_key,
-                        dice_value.value(),
+                        dice_value
+                            .resident_value()
+                            .expect("a task always pages in the value it hands back"),
                         dice_value.invalidation_paths(),
                     )
                 })

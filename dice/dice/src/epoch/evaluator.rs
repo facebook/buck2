@@ -286,13 +286,16 @@ impl TransactionData {
                     user_data: &self.user_data,
                 };
 
-                let value = proj.proj().compute(base.value(), &ctx);
+                let base_value = base
+                    .resident_value()
+                    .expect("a task always pages in the value it hands back");
+                let value = proj.proj().compute(base_value, &ctx);
 
                 state.finished(
                     handle,
                     cycles,
                     KeyEvaluationResult {
-                        value: MaybeValidDiceValue::new(value, base.value().validity()),
+                        value: MaybeValidDiceValue::new(value, base_value.validity()),
                         deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
                         storage: proj.proj().storage_type(),
                         invalidation_paths: base.invalidation_paths().for_dependent(key),

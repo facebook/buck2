@@ -366,11 +366,11 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     // verify that the instance we return and store is the same as the original instance
     assert_eq!(
-        res.value()
+        res.testing_resident_value()
             .downcast_maybe_transient::<InstanceEqual>()
             .unwrap()
             .instance_count,
-        res2.value()
+        res2.testing_resident_value()
             .downcast_maybe_transient::<InstanceEqual>()
             .unwrap()
             .instance_count
