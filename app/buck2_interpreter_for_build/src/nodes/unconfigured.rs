@@ -11,9 +11,6 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
-use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
-use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
-use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::values::AttrValues;
 use buck2_node::call_stack::StarlarkCallStack;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -71,7 +68,6 @@ impl TargetNodeExt for TargetNode {
             package,
             label,
             AttrValues::new(attr_values),
-            CoercedDeps::default(),
             None,
             package_cfg_modifiers,
             internals.super_package.test_config_unification_rollout(),
@@ -104,12 +100,6 @@ impl TargetNodeExt for TargetNode {
         let package_name = internals.buildfile_path().package();
 
         let label = TargetLabel::new(package_name.dupe(), target_name);
-        let mut deps_cache = CoercedDepsCollector::new();
-
-        for a in rule.attributes.attrs(&attr_values, AttrInspectOptions::All) {
-            a.traverse(label.pkg(), &mut deps_cache)?;
-        }
-
         let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
 
         Ok(TargetNode::new(
@@ -117,7 +107,6 @@ impl TargetNodeExt for TargetNode {
             package,
             label,
             attr_values,
-            CoercedDeps::from(deps_cache),
             call_stack
                 .map(StarlarkCallStackWrapper)
                 .map(StarlarkCallStack::new),

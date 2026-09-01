@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
@@ -34,6 +35,7 @@ use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
+use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
 use crate::attrs::coerced_deps_collector::DepPackagesCollector;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
@@ -129,9 +131,11 @@ pub struct TargetNodeData {
     /// have a value here, it does have a default value in the AttributeSpec.
     attributes: AttrValues,
 
-    // TODO(cjhopman): Consider removing these cached derived fields. Query definitely needs deps
-    // cached, but for builds it's potentially unimportant.
-    deps_cache: CoercedDeps,
+    /// Cache of the deps derived from the attributes, computed lazily on first access. Not
+    /// populating it at package load time saves memory for the (typically many) nodes in loaded
+    /// packages whose deps are never requested.
+    #[pagable(discard = "Default::default()")]
+    deps_cache: LazyCoercedDeps,
 
     /// Call stack for the target.
     #[pagable(discard = "None")]
@@ -141,6 +145,26 @@ pub struct TargetNodeData {
     package_cfg_modifiers: Option<PackageCfgModifiersValue>,
 
     test_config_unification_rollout: bool,
+}
+
+/// Lazily computed [`CoercedDeps`] for a target node.
+///
+/// This is a pure function of the target's attributes, so it is ignored for equality and hashing
+/// (the attributes are compared/hashed instead) and is recomputed on demand after being discarded
+/// when the node is paged out.
+#[derive(Debug, Default, Allocative)]
+struct LazyCoercedDeps(OnceLock<CoercedDeps>);
+
+impl PartialEq for LazyCoercedDeps {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for LazyCoercedDeps {}
+
+impl Hash for LazyCoercedDeps {
+    fn hash<H: Hasher>(&self, _state: &mut H) {}
 }
 
 impl TargetNodeData {
@@ -172,6 +196,30 @@ impl TargetNodeData {
         self.test_config_unification_rollout
     }
 
+    fn deps_cache(&self) -> &CoercedDeps {
+        self.deps_cache.0.get_or_init(|| {
+            let mut collector = CoercedDepsCollector::new();
+            for a in self
+                .rule
+                .attributes
+                .attrs(&self.attributes, AttrInspectOptions::All)
+            {
+                // Infallible, which is what lets the deps accessors stay non-`Result`. Every
+                // `CoercedDepsCollector` callback returns `Ok`, and the only errors `traverse`
+                // raises on its own are two `internal_error!` invariant checks: a tuple whose
+                // arity disagrees with its type (the coercer builds tuples by zipping against
+                // that type and rejects longer ones, so it cannot construct a mismatched one),
+                // and a missing package (we pass `Some`). Either would be a buck2 bug, and
+                // panicking is the only option here because the callers cannot surface an
+                // error. `OnceLock` does not poison, so the cell stays empty and a later
+                // access retries.
+                a.traverse(self.label.pkg(), &mut collector)
+                    .expect("should be unreachable: collector callbacks all return Ok");
+            }
+            CoercedDeps::from(collector)
+        })
+    }
+
     /// Cap inherited from `enforce_visibility_intersection()`. `Public` = no cap.
     /// Stored on `Package` (per build file), so all targets in the same BUCK
     /// file share the same cap allocation.
@@ -186,7 +234,6 @@ impl TargetNode {
         package: Arc<Package>,
         label: TargetLabel,
         attributes: AttrValues,
-        deps_cache: CoercedDeps,
         call_stack: Option<StarlarkCallStack>,
         package_cfg_modifiers: Option<PackageCfgModifiersValue>,
         test_config_unification_rollout: bool,
@@ -196,7 +243,7 @@ impl TargetNode {
             package,
             label,
             attributes,
-            deps_cache,
+            deps_cache: LazyCoercedDeps::default(),
             call_stack,
             package_cfg_modifiers,
             test_config_unification_rollout,
@@ -606,15 +653,15 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn target_deps(self) -> &'a [TargetLabel] {
-        &self.0.get().deps_cache.deps
+        &self.0.get().deps_cache().deps
     }
 
     pub fn exec_deps(self) -> &'a [TargetLabel] {
-        &self.0.get().deps_cache.exec_deps
+        &self.0.get().deps_cache().exec_deps
     }
 
     pub fn toolchain_deps(self) -> &'a [TargetLabel] {
-        &self.0.get().deps_cache.toolchain_deps
+        &self.0.get().deps_cache().toolchain_deps
     }
 
     pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ProvidersLabel> {
@@ -626,7 +673,7 @@ impl<'a> TargetNodeRef<'a> {
     ) -> impl Iterator<Item = (&'a ProvidersLabel, ConfigurationDepKind)> {
         self.0
             .get()
-            .deps_cache
+            .deps_cache()
             .configuration_deps
             .iter()
             .map(|(d, k)| (d, *k))
@@ -634,7 +681,7 @@ impl<'a> TargetNodeRef<'a> {
 
     /// Returns all deps for this node that we know about after processing the build file
     pub fn deps(self) -> impl Iterator<Item = &'a TargetLabel> {
-        let deps_cache = &self.0.get().deps_cache;
+        let deps_cache = self.0.get().deps_cache();
         deps_cache
             .deps
             .iter()
@@ -648,7 +695,7 @@ impl<'a> TargetNodeRef<'a> {
     pub fn transition_deps(self) -> impl Iterator<Item = (&'a TargetLabel, &'a Arc<TransitionId>)> {
         self.0
             .get()
-            .deps_cache
+            .deps_cache()
             .transition_deps
             .iter()
             .map(|x| (&x.0, &x.1))
@@ -706,13 +753,16 @@ pub mod testing {
 
     use super::*;
     use crate::attrs::attr::Attribute;
-    use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::fmt_context::AttrFmtContext;
     use crate::attrs::spec::internal::NAME_ATTRIBUTE;
     use crate::nodes::targets_map::TargetsMap;
     use crate::rule::RuleIncomingTransition;
 
     pub trait TargetNodeExt {
+        /// Does not populate `deps_cache`, so reading deps from the resulting node exercises
+        /// the same lazy initializer as production. That initializer traverses the rule's full
+        /// attribute spec, so the deps include those contributed by default attribute values,
+        /// not only by `attrs`.
         fn testing_new(
             label: TargetLabel,
             rule_type: RuleType,
@@ -742,13 +792,8 @@ pub mod testing {
                 CoercedAttr::String(StringLiteral(label.name().as_str().into())),
             );
 
-            let mut deps_cache = CoercedDepsCollector::new();
-
             for (name, _attr, val) in attrs.into_iter() {
                 let idx = attr_spec.attribute_id_by_name(name).unwrap();
-                let attr = attr_spec.attribute(name).unwrap();
-                val.traverse(attr.coercer(), Some(label.pkg()), &mut deps_cache)
-                    .unwrap();
                 attributes.push(idx, val);
             }
             let attributes = AttrValues::new(attributes);
@@ -772,7 +817,6 @@ pub mod testing {
                 }),
                 label,
                 attributes,
-                CoercedDeps::from(deps_cache),
                 call_stack,
                 None,
                 false,
