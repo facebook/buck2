@@ -309,9 +309,40 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         file_paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>;
 
-    fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
-        None
-    }
+    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>>;
+
+    fn list_subscriptions(&self)
+    -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>>;
+
+    async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput>;
+
+    /// Obtain a list of files that don't match their in-memory representation. This may not catch
+    /// all discrepancies.
+    fn fsck(
+        &self,
+    ) -> buck2_error::Result<BoxStream<'static, (ProjectRelativePathBuf, buck2_error::Error)>>;
+
+    async fn refresh_ttls(&self, min_ttl: i64) -> buck2_error::Result<()>;
+
+    async fn get_ttl_refresh_log(&self) -> buck2_error::Result<String>;
+
+    async fn clean_stale_artifacts(
+        &self,
+        args: CleanStaleArtifactsArgs,
+    ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
+
+    /// Delete all local-action scratch (`buck-out/<iso>/tmp*`). Only sound while no
+    /// command is running actions: scratch liveness is command-scoped. Aborts as soon
+    /// as any other materializer command arrives.
+    async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
+
+    async fn test_iter(&self, count: usize) -> buck2_error::Result<String>;
+
+    async fn flush_all_access_times(&self) -> buck2_error::Result<String>;
+
+    async fn create_subscription(
+        &self,
+    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>>;
 
     /// Currently no-op for all materializers except deferred materializer
     fn log_materializer_state(&self, _events: &EventDispatcher) {}
@@ -811,45 +842,6 @@ pub trait DeferredMaterializerSubscription: Send + Sync {
 
     /// Await the next materialization on this subscription.
     async fn next_materialization(&mut self) -> Option<ProjectRelativePathBuf>;
-}
-
-/// Extensions to the Materializer trait that are only available in the Deferred materializer.
-#[async_trait]
-pub trait DeferredMaterializerExtensions: Send + Sync {
-    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>>;
-
-    fn list_subscriptions(&self)
-    -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>>;
-
-    async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput>;
-
-    /// Obtain a list of files that don't match their in-memory representation. This may not catch
-    /// all discrepancies.
-    fn fsck(
-        &self,
-    ) -> buck2_error::Result<BoxStream<'static, (ProjectRelativePathBuf, buck2_error::Error)>>;
-
-    async fn refresh_ttls(&self, min_ttl: i64) -> buck2_error::Result<()>;
-
-    async fn get_ttl_refresh_log(&self) -> buck2_error::Result<String>;
-
-    async fn clean_stale_artifacts(
-        &self,
-        args: CleanStaleArtifactsArgs,
-    ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
-
-    /// Delete all local-action scratch (`buck-out/<iso>/tmp*`). Only sound while no
-    /// command is running actions: scratch liveness is command-scoped. Aborts as soon
-    /// as any other materializer command arrives.
-    async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
-
-    async fn test_iter(&self, count: usize) -> buck2_error::Result<String>;
-    async fn flush_all_access_times(&self) -> buck2_error::Result<String>;
-
-    /// Create a new DeferredMaterializerSubscription.
-    async fn create_subscription(
-        &self,
-    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>>;
 }
 
 #[derive(Debug, Clone)]

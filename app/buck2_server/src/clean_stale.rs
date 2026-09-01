@@ -10,7 +10,6 @@
 
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_error::internal_error;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -55,11 +54,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         server_ctx
             .cancellation_context()
             .critical_section(|| async move {
-                let deferred_materializer = server_ctx.materializer();
-
-                let extension = deferred_materializer
-                    .as_deferred_materializer_extension()
-                    .internal_error("Deferred materializer is not in use")?;
+                let materializer = server_ctx.materializer();
 
                 let policy = if self.req.use_configured_policy {
                     buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy::Configured
@@ -77,7 +72,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                         adaptive_unmaterialize_active: self.req.adaptive_unmaterialize_active,
                     }
                 };
-                extension
+                materializer
                     .clean_stale_artifacts(CleanStaleArtifactsArgs {
                         policy,
                         dry_run: self.req.dry_run,

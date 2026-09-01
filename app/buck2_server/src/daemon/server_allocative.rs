@@ -91,22 +91,17 @@ fn add_deferred_materializer_profile(
 
 fn combined_warnings(
     allocative: &FlameGraphOutput,
-    deferred_materializer: Option<&FlameGraphOutput>,
+    deferred_materializer: &FlameGraphOutput,
 ) -> String {
-    match deferred_materializer {
-        Some(deferred_materializer) => {
-            let mut warnings = allocative.warnings();
-            let deferred_materializer_warnings = deferred_materializer.warnings();
-            if !deferred_materializer_warnings.is_empty() {
-                if !warnings.is_empty() {
-                    warnings.push('\n');
-                }
-                warnings.push_str(&deferred_materializer_warnings);
-            }
-            warnings
+    let mut warnings = allocative.warnings();
+    let deferred_materializer_warnings = deferred_materializer.warnings();
+    if !deferred_materializer_warnings.is_empty() {
+        if !warnings.is_empty() {
+            warnings.push('\n');
         }
-        None => allocative.warnings(),
+        warnings.push_str(&deferred_materializer_warnings);
     }
+    warnings
 }
 
 pub(crate) async fn spawn_allocative(
@@ -119,13 +114,8 @@ pub(crate) async fn spawn_allocative(
         .sole_repo()
         .materializer
         .clone();
-    let deferred_materializer_profile = match materializer.as_deferred_materializer_extension() {
-        Some(deferred_materializer) => {
-            dispatcher.console_message("Visiting deferred materializer...".to_owned());
-            Some(deferred_materializer.allocative().await?)
-        }
-        None => None,
-    };
+    dispatcher.console_message("Visiting deferred materializer...".to_owned());
+    let deferred_materializer_profile = materializer.allocative().await?;
 
     tokio::task::spawn_blocking(move || {
         let mut graph = FlameGraphBuilder::default();
@@ -138,14 +128,11 @@ pub(crate) async fn spawn_allocative(
         dispatcher.console_message("Visiting buckd...".to_owned());
         graph.visit_root(&buckd_server_data);
         let fg = graph.finish();
-        let flamegraph = match deferred_materializer_profile.as_ref() {
-            Some(deferred_materializer) => add_deferred_materializer_profile(
-                fg.flamegraph().clone(),
-                deferred_materializer.flamegraph(),
-            ),
-            None => fg.flamegraph().clone(),
-        };
-        let warnings = combined_warnings(&fg, deferred_materializer_profile.as_ref());
+        let flamegraph = add_deferred_materializer_profile(
+            fg.flamegraph().clone(),
+            deferred_materializer_profile.flamegraph(),
+        );
+        let warnings = combined_warnings(&fg, &deferred_materializer_profile);
         // input path from --output-path
         fs_util::create_dir_if_not_exists(&path).categorize_input()?;
         dispatcher.console_message(format!("Writing allocative to `{}`...", path.display()));

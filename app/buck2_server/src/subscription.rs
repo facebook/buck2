@@ -37,14 +37,7 @@ pub(crate) async fn run_subscription_server_command(
         .await?;
     span_async(start_event, async move {
         let result: buck2_error::Result<buck2_cli_proto::SubscriptionCommandResponse> = try {
-            // NOTE: Long term if we expose more things here then we should probably move this error to
-            // only occur when we try to actually interact with materializer subscriptioons
-            let materializer = ctx
-                .materializer();
-
-            let materializer = materializer
-                .as_deferred_materializer_extension()
-                .internal_error("Subscriptions only work with the deferred materializer")?;
+            let materializer = ctx.materializer();
 
             let mut materializer_subscription = materializer
                 .create_subscription()

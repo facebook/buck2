@@ -567,12 +567,10 @@ impl<'a> ServerCommandContext<'a> {
                 if !crate::active_commands::active_commands().is_empty() {
                     return;
                 }
-                if let Some(extension) = materializer.as_deferred_materializer_extension() {
-                    if let Err(e) =
-                        with_dispatcher_async(dispatcher, extension.clean_scratch()).await
-                    {
-                        tracing::debug!("Idle scratch sweep failed: {e:#}");
-                    }
+                if let Err(e) =
+                    with_dispatcher_async(dispatcher, materializer.clean_scratch()).await
+                {
+                    tracing::debug!("Idle scratch sweep failed: {e:#}");
                 }
             });
         }

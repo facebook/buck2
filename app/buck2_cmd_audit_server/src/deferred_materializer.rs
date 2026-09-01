@@ -15,7 +15,6 @@ use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerCommand;
 use buck2_cmd_audit_client::deferred_materializer::DeferredMaterializerSubcommand;
 use buck2_error::BuckErrorContext;
-use buck2_error::BuckErrorOptionContext;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -33,10 +32,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
     ) -> buck2_error::Result<()> {
         let mut stdout = stdout.as_writer();
 
-        let materializer = server_ctx.materializer();
-        let deferred_materializer = materializer
-            .as_deferred_materializer_extension()
-            .internal_error("Deferred materializer is not in use")?;
+        let deferred_materializer = server_ctx.materializer();
 
         match self.subcommand {
             DeferredMaterializerSubcommand::List => {

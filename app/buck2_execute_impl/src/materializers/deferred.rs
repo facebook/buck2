@@ -57,10 +57,12 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CasNotFoundError;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
-use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
+use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
+use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_execute::materialize::materializer::EagerMaterializationGuard;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
@@ -637,8 +639,57 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(recv.await?)
     }
 
-    fn as_deferred_materializer_extension(&self) -> Option<&dyn DeferredMaterializerExtensions> {
-        Some(self as _)
+    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
+        self.iterate_impl()
+    }
+
+    fn list_subscriptions(
+        &self,
+    ) -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>> {
+        self.list_subscriptions_impl()
+    }
+
+    async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput> {
+        self.allocative_impl().await
+    }
+
+    fn fsck(
+        &self,
+    ) -> buck2_error::Result<BoxStream<'static, (ProjectRelativePathBuf, buck2_error::Error)>> {
+        self.fsck_impl()
+    }
+
+    async fn refresh_ttls(&self, min_ttl: i64) -> buck2_error::Result<()> {
+        self.refresh_ttls_impl(min_ttl).await
+    }
+
+    async fn get_ttl_refresh_log(&self) -> buck2_error::Result<String> {
+        self.get_ttl_refresh_log_impl().await
+    }
+
+    async fn clean_stale_artifacts(
+        &self,
+        args: CleanStaleArtifactsArgs,
+    ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
+        self.clean_stale_artifacts_impl(args).await
+    }
+
+    async fn clean_scratch(&self) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
+        self.clean_scratch_impl().await
+    }
+
+    async fn test_iter(&self, count: usize) -> buck2_error::Result<String> {
+        self.test_iter_impl(count).await
+    }
+
+    async fn flush_all_access_times(&self) -> buck2_error::Result<String> {
+        self.flush_all_access_times_impl().await
+    }
+
+    async fn create_subscription(
+        &self,
+    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>> {
+        self.create_subscription_impl().await
     }
 
     fn log_materializer_state(&self, events: &EventDispatcher) {
