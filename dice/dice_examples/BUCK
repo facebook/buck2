@@ -128,6 +128,48 @@ rust_binary(
 )
 
 rust_binary(
+    name = "compute_bench",
+    srcs = [
+        "bin/benchmarks/benchmark_utils.rs",
+        "bin/benchmarks/compute_bench.rs",
+    ],
+    # Depends on internal `json_value`; not part of the OSS workspace.
+    autocargo = {"ignore_rule": True},
+    compatible_with = ["ovr_config//os:linux"],
+    unittests = False,
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:jemalloc-ctl",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_futures:dice_futures",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/pagable:pagable",
+        "//common/rust/json_value:json_value",
+    ],
+)
+
+rust_binary(
+    name = "ab_compute_bench",
+    srcs = ["bin/benchmarks/ab_compute_bench.rs"],
+    # Depends on internal `json_value` via `:table`; not part of the OSS workspace.
+    autocargo = {"ignore_rule": True},
+    crate_root = "bin/benchmarks/ab_compute_bench.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:serde_json",
+        "//buck2/scripts/benchmarks:table",
+    ],
+)
+
+rust_binary(
     name = "bench_runner",
     srcs = [
         "bin/benchmarks/bench_runner.rs",
