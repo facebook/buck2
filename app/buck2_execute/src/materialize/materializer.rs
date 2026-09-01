@@ -785,30 +785,28 @@ impl HasMaterializer for UserComputationData {
 }
 
 #[derive(Clone, Copy, Debug, Dupe)]
-pub enum MaterializationMethod {
-    /// Materialize only when needed
-    Deferred,
-    /// Materialize only when needed, do not materialize final artifacts
-    DeferredSkipFinalArtifacts,
+pub enum FinalArtifactMaterialization {
+    Enabled,
+    Skipped,
 }
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
-pub enum MaterializationMethodError {
+pub enum FinalArtifactMaterializationError {
     #[error(
         "Invalid value for buckconfig `[buck2] materializations`. Got `{0}`. Expected one of `all`, `deferred`, or `deferred_skip_final_artifacts`."
     )]
     InvalidValueForConfig(String),
 }
 
-impl MaterializationMethod {
+impl FinalArtifactMaterialization {
     pub fn try_new_from_config_value(config_value: Option<&str>) -> buck2_error::Result<Self> {
         match config_value {
-            None | Some("") | Some("deferred") => Ok(MaterializationMethod::Deferred),
-            Some("deferred_skip_final_artifacts") => {
-                Ok(MaterializationMethod::DeferredSkipFinalArtifacts)
+            None | Some("") | Some("deferred") | Some("all") => Ok(Self::Enabled),
+            Some("deferred_skip_final_artifacts") => Ok(Self::Skipped),
+            Some(v) => {
+                Err(FinalArtifactMaterializationError::InvalidValueForConfig(v.to_owned()).into())
             }
-            Some(v) => Err(MaterializationMethodError::InvalidValueForConfig(v.to_owned()).into()),
         }
     }
 }

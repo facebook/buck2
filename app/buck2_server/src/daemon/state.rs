@@ -55,7 +55,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
 use buck2_execute::execute::blocking::DirectIoExecutor;
-use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_execute_impl::executors::local::ForkserverAccess;
@@ -303,7 +303,7 @@ impl DaemonState {
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
         rt: &Handle,
-        materializations: MaterializationMethod,
+        final_artifact_materialization: FinalArtifactMaterialization,
         working_directory: WorkingDirectory,
         cgroup_tree: Option<BuckCgroupTree>,
         daemon_id: DaemonId,
@@ -313,7 +313,7 @@ impl DaemonState {
             paths,
             init_ctx,
             rt,
-            materializations,
+            final_artifact_materialization,
             cgroup_tree,
             daemon_id,
         )
@@ -342,7 +342,7 @@ impl DaemonState {
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
         rt: &Handle,
-        materializations: MaterializationMethod,
+        final_artifact_materialization: FinalArtifactMaterialization,
         cgroup_tree: Option<BuckCgroupTree>,
         daemon_id: DaemonId,
     ) -> buck2_error::Result<Arc<DaemonStateData>> {
@@ -541,8 +541,8 @@ impl DaemonState {
 
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
-                        materializations,
-                        MaterializationMethod::Deferred
+                        final_artifact_materialization,
+                        FinalArtifactMaterialization::Enabled
                     ),
                     defer_write_actions,
                     ttl_refresh: TtlRefreshConfiguration {

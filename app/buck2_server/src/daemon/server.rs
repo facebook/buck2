@@ -56,7 +56,7 @@ use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::materialize::materializer::MaterializationMethod;
+use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute_impl::executors::local::ForkserverAccess;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::fs_util;
@@ -292,9 +292,10 @@ impl BuckdServer {
             mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
-        let materializations = MaterializationMethod::try_new_from_config_value(
-            init_ctx.daemon_startup_config.materializations.as_deref(),
-        )?;
+        let final_artifact_materialization =
+            FinalArtifactMaterialization::try_new_from_config_value(
+                init_ctx.daemon_startup_config.materializations.as_deref(),
+            )?;
 
         // Create buck-out and potentially chdir to there.
         fs_util::create_dir_all(paths.buck_out_path())
@@ -330,7 +331,7 @@ impl BuckdServer {
                 paths,
                 init_ctx,
                 &rt,
-                materializations,
+                final_artifact_materialization,
                 cwd,
                 cgroup_tree,
                 daemon_id,
