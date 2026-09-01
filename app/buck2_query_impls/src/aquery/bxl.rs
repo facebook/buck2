@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
@@ -31,6 +32,7 @@ use buck2_query::query::syntax::simple::eval::values::QueryValueDepth;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
+use buck2_util::future::try_join_all;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -322,6 +324,24 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                     QueryValue::TargetSet(s) => Ok(s.clone()),
                     _ => unreachable!("all_actions should always return target set"),
                 }
+            }
+            .boxed()
+        })
+        .await
+    }
+
+    async fn get_action_nodes(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        action_keys: Vec<ActionKey>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        dice.with_linear_recompute(|dice| {
+            async move {
+                let delegate = self.aquery_delegate(dice).await?;
+                let nodes =
+                    try_join_all(action_keys.iter().map(|key| delegate.get_action_node(key)))
+                        .await?;
+                Ok(nodes.into_iter().collect())
             }
             .boxed()
         })

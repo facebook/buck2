@@ -127,8 +127,12 @@ eval = bxl_main(
 def _impl_action_query_node(ctx):
     result = ctx.aquery().eval("//:test")
 
-    action = result[0]
-    analysis = result[1]
+    actions = [node for node in result if node.rule_type != "analysis"]
+    analyses = [node for node in result if node.rule_type == "analysis"]
+    _assert_eq(len(analyses), 1)
+
+    action = actions[0]
+    analysis = analyses[0]
 
     _assert_eq(type(action.action()), "bxl.Action")
     _assert_eq(action.rule_type, "copy")
@@ -139,5 +143,40 @@ def _impl_action_query_node(ctx):
 
 action_query_node = bxl_main(
     impl = _impl_action_query_node,
+    cli_args = {},
+)
+
+def _impl_action_deps_0(ctx):
+    """Test passing a bxl.Action to aquery.deps() returns itself"""
+    nodes = ctx.aquery().eval("//:test")
+
+    action = [node for node in nodes if node.rule_type != "analysis"][0].action()
+
+    # Pass the bxl.Action rather than a target to aquery.deps()
+    result = ctx.aquery().deps([action], depth = 0)
+    _assert_eq(len(result), 1)
+    _assert_eq(action.outputs(), result[0].action().outputs())
+
+action_deps_0 = bxl_main(
+    impl = _impl_action_deps_0,
+    cli_args = {},
+)
+
+def _impl_action_deps(ctx):
+    """Test that you can isolate the deps of one action by itself"""
+    nodes = ctx.aquery().eval("//:test")
+
+    action = [node for node in nodes if node.rule_type != "analysis"][0].action()
+
+    # Pass the bxl.Action rather than a target to aquery.deps()
+    result = ctx.aquery().deps([action], depth = 1)
+
+    # Exactly the action itself and its one recorded dep, in any order
+    result_short_paths = sorted([node.action().outputs()[0].short_path for node in result])
+    expected_short_paths = sorted([action.outputs()[0].short_path, "dep"])
+    _assert_eq(result_short_paths, expected_short_paths)
+
+action_deps = bxl_main(
+    impl = _impl_action_deps,
     cli_args = {},
 )

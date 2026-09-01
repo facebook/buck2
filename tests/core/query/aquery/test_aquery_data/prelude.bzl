@@ -10,6 +10,7 @@ def _test(ctx: AnalysisContext):
     dep = ctx.actions.write("dep", "", has_content_based_path = False)
     default = ctx.actions.copy_file("default", dep, has_content_based_path = False)
     other = ctx.actions.write("other", "", has_content_based_path = False)
+    other_default = ctx.actions.copy_file("other_default", dep, has_content_based_path = False)
 
     sub_default = ctx.actions.write("sub_default", "", has_content_based_path = False)
     sub_other = ctx.actions.write("sub_other", "", has_content_based_path = False)
@@ -19,7 +20,7 @@ def _test(ctx: AnalysisContext):
 
     return [
         DefaultInfo(
-            default_outputs = [default],
+            default_outputs = [default, other_default],
             other_outputs = [other],
             sub_targets = {
                 "sub": [
