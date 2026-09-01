@@ -182,3 +182,8 @@ def _uses_anon_impl(ctx: AnalysisContext) -> Promise:
     return anon.promise.map(_on_anon_resolved)
 
 uses_anon = rule(impl = _uses_anon_impl, attrs = {})
+
+def _config_setting_impl(_ctx: AnalysisContext) -> list[Provider]:
+    return [DefaultInfo(), ConfigurationInfo(constraints = {}, values = {})]
+
+config_setting = rule(impl = _config_setting_impl, attrs = {})

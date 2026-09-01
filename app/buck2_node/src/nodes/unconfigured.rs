@@ -705,8 +705,11 @@ impl<'a> TargetNodeRef<'a> {
         &self.0.get().rule.uses_plugins
     }
 
-    /// Returns the deduplicated packages of this node's deps — the same deps reported by
-    /// [`Self::deps`] (target/transition/exec/toolchain/plugin deps, excluding configuration deps).
+    /// Returns the deduplicated packages of every dep of this node — target, transition, exec,
+    /// toolchain, plugin *and* configuration deps. Note this is a wider set than [`Self::deps`],
+    /// which omits configuration deps: a configuration dep still forces its package to load, so
+    /// package-level callers must account for it.
+    ///
     /// Unlike [`Self::deps`], this runs an on-demand attribute traversal and does not read
     /// `deps_cache`, so callers that only need dep package labels don't force that cache to
     /// materialize.
@@ -871,13 +874,12 @@ mod tests {
     use crate::provider_id_set::ProviderIdSet;
     use crate::rule_type::StarlarkRuleType;
 
-    /// `dep_packages()` (used by build-signal load enrichment) must collect exactly the
-    /// packages that `deps()` reports — every dep bucket (regular/exec/toolchain) except
-    /// configuration deps. This is the invariant `enrich_load` relies on when it swaps
-    /// `deps().map(|t| t.pkg())` for `dep_packages()`. Guards against a future dep bucket
-    /// being added to `deps()` without also being reflected here.
+    /// `dep_packages()` (used by build-signal load enrichment) must collect the package of every
+    /// dep bucket — regular/exec/toolchain *and* configuration. Configuration deps are the
+    /// difference from `deps()`: they force their package to load, so the load graph needs them.
+    /// Guards against a future dep bucket being dropped from the traversal.
     #[test]
-    fn dep_packages_matches_deps_across_buckets() {
+    fn dep_packages_covers_every_bucket_including_configuration() {
         let label = TargetLabel::testing_parse("root//pkg:foo");
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
             path: BzlOrBxlPath::Bzl(ImportPath::testing_new("root//rules:defs.bzl")),
@@ -937,27 +939,26 @@ mod tests {
         };
         let from_packages = dedup(node.as_ref().dep_packages().collect());
         let from_deps = dedup(node.as_ref().deps().map(|t| t.pkg()).collect());
+
+        let mut expected = from_deps.clone();
+        expected.push(cfg_pkg);
         assert_eq!(
-            from_packages, from_deps,
-            "dep_packages() must equal the packages of deps() across all dep buckets"
+            from_packages,
+            dedup(expected),
+            "dep_packages() must be deps()'s packages plus the configuration dep packages"
         );
 
-        // Regular/exec/toolchain dep packages included; configuration dep package excluded.
+        for (pkg, bucket) in [
+            (&dep_pkg, "regular"),
+            (&exec_pkg, "exec"),
+            (&tc_pkg, "toolchain"),
+            (&cfg_pkg, "configuration"),
+        ] {
+            assert!(from_packages.contains(pkg), "{bucket} dep package missing");
+        }
         assert!(
-            from_packages.contains(&dep_pkg),
-            "regular dep package missing"
-        );
-        assert!(
-            from_packages.contains(&exec_pkg),
-            "exec dep package missing"
-        );
-        assert!(
-            from_packages.contains(&tc_pkg),
-            "toolchain dep package missing"
-        );
-        assert!(
-            !from_packages.contains(&cfg_pkg),
-            "configuration dep package must be excluded"
+            !from_deps.contains(&cfg_pkg),
+            "deps() omits configuration deps; dep_packages() being the wider set is the point"
         );
     }
 }

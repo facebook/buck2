@@ -504,6 +504,40 @@ async def test_cross_package_load_edge(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_configuration_dep_load_edge(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as f:
+        f.write("[buck2]\n")
+        f.write("critical_path_backend2 = logging\n")
+
+    await buck.build("//:cfg_dep_pkg", "--no-remote-cache")
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "UnstableE2eData",
+    )
+    nodes = {
+        json.loads(ev["data"])["key"]: json.loads(ev["data"])
+        for ev in events
+        if ev["key"] == "critical_path_logging_node"
+    }
+
+    assert "InterpreterResultsKey(root//cfg)" in nodes, (
+        "root//cfg should be loaded to resolve the select key"
+    )
+
+    # root// is loaded first and its cfg_dep_pkg target reaches root//cfg only through a
+    # select key, so root//cfg's load must still depend on root//'s load.
+    cfg_load_deps = nodes["InterpreterResultsKey(root//cfg)"]["deps"]
+    assert "InterpreterResultsKey(root//)" in cfg_load_deps, (
+        "expected a load edge for the configuration dep (root//cfg load depends on root// "
+        f"load), got deps: {cfg_load_deps}"
+    )
+
+
+@buck_test()
 async def test_critical_path_anon_targets(buck: Buck) -> None:
     """Test that anon target nodes appear on the critical path with correct
     splitting when anon targets themselves have anon target dependencies.

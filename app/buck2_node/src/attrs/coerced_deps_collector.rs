@@ -162,10 +162,10 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
 }
 
 /// Collects just the *packages* of a target's deps, deduplicated. Unlike [`CoercedDepsCollector`]
-/// it stores no per-target dep data and covers the same buckets as `TargetNode::deps`
-/// (target/transition/exec/toolchain/plugin deps) — i.e. it excludes configuration deps. Used
-/// where only dep package labels are needed (e.g. build-signal load enrichment) so the caller
-/// doesn't have to materialize a node's full `deps_cache`.
+/// it stores no per-target dep data and keeps no per-bucket split — every dep of every kind
+/// contributes its package, configuration deps included. Used where only dep package labels are
+/// needed (e.g. build-signal load enrichment) so the caller doesn't have to materialize a node's
+/// full `deps_cache`.
 #[derive(Debug)]
 pub struct DepPackagesCollector {
     pub packages: OrderedSet<PackageLabel>,
@@ -185,16 +185,6 @@ impl<'a> CoercedAttrTraversal<'a> for DepPackagesCollector {
         Ok(())
     }
 
-    // `deps()` excludes configuration deps, so exclude them here too. The trait's default routes
-    // `configuration_dep` through `dep`, so this override is required for equivalence with `deps()`.
-    fn configuration_dep(
-        &mut self,
-        _dep: &ProvidersLabel,
-        _kind: ConfigurationDepKind,
-    ) -> buck2_error::Result<()> {
-        Ok(())
-    }
-
     fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {
         Ok(())
     }
@@ -208,10 +198,9 @@ mod tests {
 
     use super::*;
 
-    /// Drive a collector across every dep bucket. `TargetNode::deps` chains
-    /// regular/transition/exec/toolchain/plugin (split-transition lands in the transition
-    /// bucket), excluding configuration; every non-configuration bucket reaches the collector
-    /// through the `CoercedAttrTraversal` trait defaults routing to `dep`.
+    /// Drive a collector across every dep bucket: regular/transition/exec/toolchain/plugin
+    /// (split-transition lands in the transition bucket) plus configuration. Every bucket reaches
+    /// the collector through the `CoercedAttrTraversal` trait defaults routing to `dep`.
     fn drive_all_buckets<'a, T: CoercedAttrTraversal<'a>>(
         c: &mut T,
         dep: &'a ProvidersLabel,
@@ -234,12 +223,12 @@ mod tests {
             .unwrap();
     }
 
-    /// `DepPackagesCollector` must collect the packages of exactly the buckets `TargetNode::deps`
-    /// reports — regular/exec/toolchain/transition/split-transition/plugin — and exclude
-    /// configuration deps. Driving every bucket guards against a future bucket whose trait default
-    /// does not route to `dep` (which would silently diverge `dep_packages()` from `deps()`).
+    /// `DepPackagesCollector` must collect the package of every dep bucket —
+    /// regular/exec/toolchain/transition/split-transition/plugin *and* configuration. Driving
+    /// every bucket guards against a future bucket whose trait default does not route to `dep`,
+    /// which would silently drop those packages from `dep_packages()`.
     #[test]
-    fn dep_packages_matches_deps_buckets_and_excludes_configuration() {
+    fn dep_packages_covers_every_bucket_including_configuration() {
         let dep = ProvidersLabel::default_for(TargetLabel::testing_parse("root//dep:d"));
         let exec = ProvidersLabel::default_for(TargetLabel::testing_parse("root//exec:e"));
         let toolchain = ProvidersLabel::default_for(TargetLabel::testing_parse("root//tc:t"));
@@ -275,7 +264,7 @@ mod tests {
         );
         let got = dedup(dep_packages.packages.into_iter().collect());
 
-        // Reference: the packages of exactly the buckets `TargetNode::deps` chains.
+        // Reference: the packages of every bucket `CoercedDepsCollector` splits deps into.
         let mut full = CoercedDepsCollector::new();
         drive_all_buckets(
             &mut full,
@@ -298,16 +287,17 @@ mod tests {
                 .chain(full.toolchain_deps.iter())
                 .chain(full.plugin_deps.iter())
                 .map(|t| t.pkg())
+                .chain(
+                    full.configuration_deps
+                        .iter()
+                        .map(|(d, _)| d.target().pkg()),
+                )
                 .collect(),
         );
 
         assert_eq!(
             got, expected,
-            "DepPackagesCollector must match the packages of deps()'s buckets across all bucket types"
-        );
-        assert!(
-            !got.contains(&cfg.target().pkg()),
-            "configuration dep package must be excluded to match deps()"
+            "DepPackagesCollector must cover every dep bucket's packages"
         );
         for pkg in [
             dep.target().pkg(),
@@ -316,6 +306,7 @@ mod tests {
             transition.target().pkg(),
             split.target().pkg(),
             plugin.pkg(),
+            cfg.target().pkg(),
         ] {
             assert!(got.contains(&pkg), "missing dep package `{pkg}`");
         }

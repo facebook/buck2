@@ -25,3 +25,14 @@ uses_anon(name = "anon_step")
 # package). Building it exercises enrich_load's cross-package load-edge enrichment, which
 # the single-package targets above never hit.
 cp(name = "cross_pkg", dep = "//sub:leaf")
+
+# `root//cfg` is reachable only through a select key, i.e. a configuration dep. Resolving the
+# select still forces that package to load, so it is a real load edge.
+cp(
+    name = "cfg_dep_pkg",
+    dep = ":step_0",
+    sleep = select({
+        "//cfg:setting": 0,
+        "DEFAULT": 0,
+    }),
+)
