@@ -348,6 +348,7 @@ mod tests {
     use crate::core::internals::ValueUpdate;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::epoch::cache::SharedCacheInsert;
+    use crate::epoch::cache::TaskLane;
     use crate::epoch::cache::TransactionCancelled;
     use crate::epoch::task::dice::DiceTask;
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
@@ -562,20 +563,28 @@ mod tests {
         let never_cancel_key1 = DiceKey { index: 100500 };
         let never_cancel_tasks1 = make_never_cancellable_task(never_cancel_key1).await;
 
-        cache.testing_insert_task(completed_key1, completed_task1);
-        cache.testing_insert_task(completed_key2, completed_task2);
-        cache.testing_insert_task(finished_cancelling_key1, finished_cancelling_tasks1);
-        cache.testing_insert_task(finished_cancelling_key2, finished_cancelling_tasks2);
-        cache.testing_insert_task(pending_key1, yet_to_cancel_tasks1);
-        cache.testing_insert_task(pending_key2, yet_to_cancel_tasks2);
-        cache.testing_insert_task(never_cancel_key1, never_cancel_tasks1);
+        cache.testing_insert_task(TaskLane::UpToDate, completed_key1, completed_task1);
+        cache.testing_insert_task(TaskLane::UpToDate, completed_key2, completed_task2);
+        cache.testing_insert_task(
+            TaskLane::UpToDate,
+            finished_cancelling_key1,
+            finished_cancelling_tasks1,
+        );
+        cache.testing_insert_task(
+            TaskLane::UpToDate,
+            finished_cancelling_key2,
+            finished_cancelling_tasks2,
+        );
+        cache.testing_insert_task(TaskLane::UpToDate, pending_key1, yet_to_cancel_tasks1);
+        cache.testing_insert_task(TaskLane::UpToDate, pending_key2, yet_to_cancel_tasks2);
+        cache.testing_insert_task(TaskLane::UpToDate, never_cancel_key1, never_cancel_tasks1);
 
         core.drop_ctx_at_version(v);
 
         assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
 
         assert!(matches!(
-            cache.insert(DiceKey { index: 999 },),
+            cache.insert(TaskLane::UpToDate, DiceKey { index: 999 }),
             SharedCacheInsert::TransactionCancelled(_)
         ));
 
@@ -591,7 +600,11 @@ mod tests {
 
         let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 
-        cache.testing_insert_task(DiceKey { index: 300 }, never_cancel_tasks2);
+        cache.testing_insert_task(
+            TaskLane::UpToDate,
+            DiceKey { index: 300 },
+            never_cancel_tasks2,
+        );
 
         core.drop_ctx_at_version(v);
 

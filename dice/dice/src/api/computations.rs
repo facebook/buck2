@@ -560,7 +560,10 @@ fn _assert_dice_compute_future_sizes() {
         }
     }
 
-    mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 8);
+    // One word of this is the branch that pages a value back in when a caller needs a
+    // payload the key's evaluation left on disk (`ComputeCtx::compute_opaque`); the page-in
+    // future itself is boxed so only the branch, not its state, is inline here.
+    mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 9);
 
     // The future of the canonical async closure mapper - the thing that is stored, unboxed, in the
     // join combinator's slot for each branch of a `compute_join_async`. This is mostly just here to
@@ -572,7 +575,7 @@ fn _assert_dice_compute_future_sizes() {
     mini_vec::size_assert::words_of_expr!(
         (async |ctx: &mut DiceComputations<'static>, k: &K| ctx.compute(k).await)
             .async_call_once((panic!(), panic!())),
-        11
+        12
     );
 
     mini_vec::size_assert::words_of_async_fn_future!(
@@ -593,6 +596,6 @@ fn _assert_dice_compute_future_sizes() {
             async |ctx| ctx.compute(&K(0)).await,
             async |ctx| ctx.compute(&K(1)).await
         ),
-        24
+        26
     );
 }

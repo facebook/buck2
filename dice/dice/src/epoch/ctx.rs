@@ -22,6 +22,8 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::TryFutureExt;
 use futures::future::BoxFuture;
+use futures::future::Either as FutureEither;
+use futures::future::ready;
 use itertools::Either;
 use parking_lot::Mutex;
 
@@ -53,6 +55,7 @@ use crate::opaque::OpaqueValue;
 use crate::updater::ActiveTransactionGuard;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::value::DiceComputedValue;
+use crate::value::PagedOutValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -633,24 +636,65 @@ impl ComputeCtx {
 
         self.transaction_data
             .epoch_state
-            .compute_opaque(
+            .bring_up_to_date(
                 dice_key,
                 self.parent_key,
                 &self.transaction_data,
                 self.cycles
                     .subrequest(dice_key, &self.transaction_data.dice.key_index),
             )
-            .map(move |result| {
-                result.as_ref().into_dice_result().map(|dice_value| {
-                    OpaqueValue::new(
-                        dice_key,
-                        dice_value
-                            .resident_value()
-                            .expect("a task always pages in the value it hands back"),
-                        dice_value.invalidation_paths(),
-                    )
-                })
+            .then(move |result| match result.as_ref().into_dice_result() {
+                Err(e) => FutureEither::Left(ready(Err(e))),
+                // This is the demand a paged-out value waits for. Dependency validation
+                // goes through `VersionEpochState::bring_up_to_date` directly and so never
+                // reaches here, which is the whole point: validating a key must not read
+                // its value back from disk.
+                Ok(computed) => match computed.paged_out() {
+                    None => FutureEither::Left(ready(Ok(Self::opaque(dice_key, computed)))),
+                    Some(paged_out) => FutureEither::Right(self.page_in(dice_key, paged_out)),
+                },
             })
+    }
+
+    fn opaque<K: Key>(key: DiceKey, computed: &DiceComputedValue) -> OpaqueValue<'_, K> {
+        OpaqueValue::new(
+            key,
+            computed
+                .resident_value()
+                .expect("a value is only handed to a caller once it is materialized"),
+            computed.invalidation_paths(),
+        )
+    }
+
+    /// Reads back a value left on disk because nothing needed the payload while the key was
+    /// brought up to date.
+    ///
+    /// Boxed deliberately: this future is far larger than the resident one, and storing it
+    /// inline would grow the future of every `compute` call, paged out or not (see the
+    /// `words_of_async_fn_future!` assertions in `api/computations.rs`). The box costs one
+    /// allocation on a path that is about to read from storage anyway.
+    fn page_in<'d, K: Key>(
+        &'d self,
+        key: DiceKey,
+        paged_out: PagedOutValue,
+    ) -> BoxFuture<'d, DiceResult<OpaqueValue<'d, K>>> {
+        self.transaction_data
+            .epoch_state
+            .page_in(
+                key,
+                paged_out,
+                self.parent_key,
+                &self.transaction_data,
+                self.cycles
+                    .subrequest(key, &self.transaction_data.dice.key_index),
+            )
+            .map(move |result| {
+                result
+                    .as_ref()
+                    .into_dice_result()
+                    .map(|computed| Self::opaque(key, computed))
+            })
+            .boxed()
     }
 
     /// Compute "projection" based on deriving value

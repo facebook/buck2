@@ -59,6 +59,7 @@ use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::CheckDependenciesResult;
 use crate::epoch::worker::DiceTaskWorker;
+use crate::epoch::worker::TaskGoal;
 use crate::epoch::worker::check_dependencies;
 use crate::epoch::worker::testing::CheckDependenciesResultExt;
 use crate::key::DiceKey;
@@ -168,6 +169,7 @@ fn spawn_task(
     let task = prepared_task.task().clone_arc();
     let promise = DiceTaskWorker::spawn(
         k,
+        TaskGoal::UpToDate,
         prepared_task,
         version_epoch,
         eval,

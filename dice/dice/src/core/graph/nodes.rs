@@ -631,9 +631,7 @@ impl OccupiedGraphNode {
         self.invalidation_paths.update(&new_invalidation_paths)
     }
 
-    /// Returns this node's stored value (which may be hydrated or paged out).
-    /// Callers that need a hydrated `DiceValidValue` should call
-    /// `.as_hydrated().expect(msg)`, with a message explaining why the value is resident.
+    /// This node's stored value, which may be resident or paged out.
     pub(crate) fn val(&self) -> &PagableNodeValue {
         &self.res
     }

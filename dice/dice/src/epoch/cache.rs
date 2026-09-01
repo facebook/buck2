@@ -68,11 +68,34 @@ impl<T> TransactionResult<T> {
     }
 }
 
+/// Which of a key's two task tables a request goes to.
+///
+/// A key can need two tasks at one version because a task's result slot is write-once: the
+/// `UpToDate` task can complete having left a paged-out value on disk, and the caller that
+/// afterwards needs the payload has nowhere to put it.
+#[derive(Copy, Clone, Dupe, Debug)]
+pub(crate) enum TaskLane {
+    /// Brings the key up to date at this version, computing it if its dependencies changed.
+    UpToDate,
+    /// Reads back a value that the `UpToDate` task left paged out.
+    PageIn,
+}
+
 #[derive(Allocative)]
 struct Data {
     storage: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
+    page_in_storage: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
     projection_storage: ShardedLockFreeRawTable<Arc<ProjectionTask>, 64>,
     is_cancelled: AtomicBool,
+}
+
+impl Data {
+    fn tasks(&self, lane: TaskLane) -> &ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64> {
+        match lane {
+            TaskLane::UpToDate => &self.storage,
+            TaskLane::PageIn => &self.page_in_storage,
+        }
+    }
 }
 
 #[derive(Allocative, Clone, Dupe)]
@@ -110,10 +133,14 @@ impl SharedCache {
         (key.index as u64).wrapping_mul(0x9e3779b97f4a7c15)
     }
 
-    pub(crate) fn get(&self, key: DiceKey) -> SharedCacheLookup<'_, DiceTaskRef<'_>> {
+    pub(crate) fn get(
+        &self,
+        lane: TaskLane,
+        key: DiceKey,
+    ) -> SharedCacheLookup<'_, DiceTaskRef<'_>> {
         let entry = self
             .data
-            .storage
+            .tasks(lane)
             .lookup(Self::key_hash(key), |task| task.key == key);
 
         match entry {
@@ -149,6 +176,7 @@ impl SharedCache {
 
     pub(crate) fn insert(
         &self,
+        lane: TaskLane,
         key: DiceKey,
     ) -> SharedCacheInsert<DiceTaskRef<'_>, PreparedDiceTask<'_>> {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
@@ -156,7 +184,7 @@ impl SharedCache {
         }
 
         let maybe_prepared_task = DiceTask::prepare(key, |task| {
-            let (entry, not_inserted_value) = self.data.storage.insert(
+            let (entry, not_inserted_value) = self.data.tasks(lane).insert(
                 Self::key_hash(key),
                 task.internal,
                 |left, right| left.key == right.key,
@@ -218,8 +246,8 @@ impl SharedCache {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_insert_task(&self, key: DiceKey, task: DiceTask) {
-        let (_, not_inserted_value) = self.data.storage.insert(
+    pub(crate) fn testing_insert_task(&self, lane: TaskLane, key: DiceKey, task: DiceTask) {
+        let (_, not_inserted_value) = self.data.tasks(lane).insert(
             Self::key_hash(key),
             task.internal,
             |left, right| left.key == right.key,
@@ -232,6 +260,7 @@ impl SharedCache {
         SharedCache {
             data: Arc::new(Data {
                 storage: ShardedLockFreeRawTable::new(),
+                page_in_storage: ShardedLockFreeRawTable::new(),
                 projection_storage: ShardedLockFreeRawTable::new(),
                 is_cancelled: AtomicBool::new(false),
             }),
@@ -245,11 +274,13 @@ impl SharedCache {
 
         // The pattern with the `is_cancelled` flag is exactly what this is for
         self.data.storage.synchronize_with_inserts();
+        self.data.page_in_storage.synchronize_with_inserts();
 
         let regular = self
             .data
             .storage
             .iter()
+            .chain(self.data.page_in_storage.iter())
             .filter_map(|entry| {
                 let task = DiceTaskRef { internal: entry };
                 if task.cancel(TransactionCancelled) {
@@ -268,7 +299,8 @@ impl SharedCache {
         //
         // We must only wait for the `compute`s though, not for the tasks' values: completing a
         // projection task requires a response from the core state thread, which is typically the
-        // thread this is running on.
+        // thread this is running on. This treatment is specific to projections' synchronous
+        // compute; the two `DiceTask` tables above are cancelled, never waited on.
         for t in self.data.projection_storage.iter() {
             t.wait_computed();
         }
@@ -292,12 +324,17 @@ pub(crate) mod introspection {
 
     impl SharedCache {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
-            let regular = self.data.storage.iter().map(|entry| {
-                (
-                    entry.key,
-                    DiceTaskRef { internal: entry }.introspect_state(),
-                )
-            });
+            let regular = self
+                .data
+                .storage
+                .iter()
+                .chain(self.data.page_in_storage.iter())
+                .map(|entry| {
+                    (
+                        entry.key,
+                        DiceTaskRef { internal: entry }.introspect_state(),
+                    )
+                });
             let projection = self
                 .data
                 .projection_storage
@@ -328,6 +365,7 @@ mod tests {
     use crate::epoch::cache::SharedCache;
     use crate::epoch::cache::SharedCacheInsert;
     use crate::epoch::cache::SharedCacheLookup;
+    use crate::epoch::cache::TaskLane;
     use crate::epoch::cache::TransactionCancelled;
     use crate::epoch::task::dice::DiceTask;
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
@@ -408,16 +446,24 @@ mod tests {
         let yet_to_cancel_tasks2 = make_never_finish_yet_to_cancel_task(pending_key2);
         let yet_to_cancel_tasks3 = make_never_finish_yet_to_cancel_task(pending_key3);
 
-        cache.testing_insert_task(completed_key1, completed_task1);
-        cache.testing_insert_task(completed_key2, completed_task2);
-        cache.testing_insert_task(finished_cancelling_key1, finished_cancelling_tasks1);
-        cache.testing_insert_task(finished_cancelling_key2, finished_cancelling_tasks2);
-        cache.testing_insert_task(pending_key1, yet_to_cancel_tasks1);
-        cache.testing_insert_task(pending_key2, yet_to_cancel_tasks2);
-        cache.testing_insert_task(pending_key3, yet_to_cancel_tasks3);
+        cache.testing_insert_task(TaskLane::UpToDate, completed_key1, completed_task1);
+        cache.testing_insert_task(TaskLane::UpToDate, completed_key2, completed_task2);
+        cache.testing_insert_task(
+            TaskLane::UpToDate,
+            finished_cancelling_key1,
+            finished_cancelling_tasks1,
+        );
+        cache.testing_insert_task(
+            TaskLane::UpToDate,
+            finished_cancelling_key2,
+            finished_cancelling_tasks2,
+        );
+        cache.testing_insert_task(TaskLane::UpToDate, pending_key1, yet_to_cancel_tasks1);
+        cache.testing_insert_task(TaskLane::UpToDate, pending_key2, yet_to_cancel_tasks2);
+        cache.testing_insert_task(TaskLane::UpToDate, pending_key3, yet_to_cancel_tasks3);
 
         assert!(matches!(
-            cache.get(completed_key1),
+            cache.get(TaskLane::UpToDate, completed_key1),
             SharedCacheLookup::Finished(_)
         ));
 
@@ -425,7 +471,35 @@ mod tests {
 
         assert_eq!(pending_tasks.len(), 3);
         assert!(matches!(
-            cache.insert(DiceKey { index: 999 }),
+            cache.insert(TaskLane::UpToDate, DiceKey { index: 999 }),
+            SharedCacheInsert::TransactionCancelled(_)
+        ));
+    }
+
+    /// A page-in task is a task like any other: it has to be cancelled and reported as
+    /// pending when its transaction goes away, or `Dice::is_idle` would claim the daemon is
+    /// quiet while a worker is still running (and page-out would then race it).
+    #[tokio::test]
+    async fn test_drain_task_covers_the_page_in_lane() {
+        let cache = SharedCache::new();
+
+        let key = DiceKey { index: 10 };
+        cache.testing_insert_task(TaskLane::UpToDate, key, make_completed_task::<K>(key, 1));
+        cache.testing_insert_task(
+            TaskLane::PageIn,
+            key,
+            make_never_finish_yet_to_cancel_task(key),
+        );
+
+        let pending_tasks = cache.dupe().cancel_pending_tasks();
+
+        assert_eq!(
+            pending_tasks.len(),
+            1,
+            "the in-flight page-in task should be reported as pending"
+        );
+        assert!(matches!(
+            cache.insert(TaskLane::PageIn, DiceKey { index: 999 }),
             SharedCacheInsert::TransactionCancelled(_)
         ));
     }

@@ -210,6 +210,26 @@ pub(crate) struct DiceComputedValue {
     invalidation_paths: TrackedInvalidationPaths,
 }
 
+/// A [`DiceComputedValue`] whose payload is still on disk: everything needed to read the
+/// value back and rebuild the full result.
+#[derive(Debug)]
+pub(crate) struct PagedOutValue {
+    pub(crate) data_key: DataKey,
+    valid: Arc<VersionRanges>,
+    invalidation_paths: TrackedInvalidationPaths,
+}
+
+impl PagedOutValue {
+    /// The result this stood in for, now that `value` has been read back.
+    pub(crate) fn paged_in(&self, value: DiceValidValue) -> DiceComputedValue {
+        DiceComputedValue::new_resident(
+            MaybeValidDiceValue::valid(value),
+            self.valid.dupe(),
+            self.invalidation_paths.dupe(),
+        )
+    }
+}
+
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
 pub(crate) enum InvalidationPath {
     Clean,
@@ -390,15 +410,6 @@ impl DiceComputedValue {
         Self::new(MaybeResident::Resident(value), valid, invalidation_paths)
     }
 
-    /// The same result with `value` — read back from storage — as its payload.
-    pub(crate) fn paged_in(&self, value: DiceValidValue) -> Self {
-        Self::new_resident(
-            MaybeValidDiceValue::valid(value),
-            self.valid.dupe(),
-            self.invalidation_paths.dupe(),
-        )
-    }
-
     /// A bunch of things in the per-transaction state expect `DiceComputedValue`s, but we don't
     /// actually have a real one of those (because we don't have a real `VersionRange`) since we
     /// didn't talk to the core state.
@@ -422,9 +433,13 @@ impl DiceComputedValue {
         self.value.resident()
     }
 
-    /// The on-disk key to read the value back from, or `None` if it is already resident.
-    pub(crate) fn paged_out_data_key(&self) -> Option<DataKey> {
-        self.value.data_key()
+    /// This result as a page-in request, or `None` if the value is already resident.
+    pub(crate) fn paged_out(&self) -> Option<PagedOutValue> {
+        Some(PagedOutValue {
+            data_key: self.value.data_key()?,
+            valid: self.valid.dupe(),
+            invalidation_paths: self.invalidation_paths.dupe(),
+        })
     }
 
     pub(crate) fn versions(&self) -> &VersionRanges {

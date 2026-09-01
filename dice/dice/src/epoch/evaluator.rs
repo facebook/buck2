@@ -30,6 +30,7 @@ use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::SharedCacheInsert;
 use crate::epoch::cache::SharedCacheLookup;
+use crate::epoch::cache::TaskLane;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::ctx::ComputeCtx;
 use crate::epoch::ctx::EvaluationData;
@@ -41,6 +42,7 @@ use crate::epoch::task::handle::DiceTaskHandle;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
+use crate::epoch::worker::TaskGoal;
 use crate::epoch::worker::WorkerCancelled;
 use crate::epoch::worker::WorkerResult;
 use crate::epoch::worker::state::DiceWorkerStateEvaluating;
@@ -52,6 +54,7 @@ use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceComputedValue;
 use crate::value::MaybeValidDiceValue;
+use crate::value::PagedOutValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -79,13 +82,18 @@ impl VersionEpochState {
         }
     }
 
-    fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult<'_> {
-        let task = match self.cache.get(key) {
+    fn lookup_entry(
+        &self,
+        lane: TaskLane,
+        key: DiceKey,
+        parent_key: ParentKey,
+    ) -> LookupResult<'_> {
+        let task = match self.cache.get(lane, key) {
             SharedCacheLookup::Finished(result) => {
                 return LookupResult::Finished(result);
             }
             SharedCacheLookup::InProgress(task) => task,
-            SharedCacheLookup::Vacant => match self.cache.insert(key) {
+            SharedCacheLookup::Vacant => match self.cache.insert(lane, key) {
                 SharedCacheInsert::Occupied(dice_task) => dice_task,
                 SharedCacheInsert::Inserted(prepared_task) => {
                     return LookupResult::NeedsRestart(prepared_task, None);
@@ -110,18 +118,49 @@ impl VersionEpochState {
         }
     }
 
-    /// Compute "opaque" value where the value is only accessible via projections.
-    /// Projections allow accessing derived results from the "opaque" value,
-    /// where the dependency of reading a projection is the projection value rather
-    /// than the entire opaque value.
-    pub(crate) fn compute_opaque<'d>(
+    /// Brings `key` up to date at this version, computing it if its dependencies changed.
+    ///
+    /// **The result's payload may be absent**: a value that is paged out stays on disk,
+    /// because the caller this exists for — dependency validation — reads only the version
+    /// metadata beside it. Anything that needs the payload must follow up with
+    /// [`Self::page_in`] when [`DiceComputedValue::paged_out`] says so.
+    pub(crate) fn bring_up_to_date<'d>(
         &'d self,
         key: DiceKey,
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
-        match self.lookup_entry(key, parent_key) {
+        self.run(TaskGoal::UpToDate, key, parent_key, eval, cycles)
+    }
+
+    /// Reads back a value that [`Self::bring_up_to_date`] left paged out.
+    ///
+    /// This runs as a *second* task for the key. The first one has already completed and a
+    /// task's result slot is write-once, so there is nowhere else to put the payload. Being
+    /// a task is what keeps the read deduplicated across callers and cancellable with the
+    /// transaction, and lets a read failure fall back on the worker's normal recovery,
+    /// which recomputes the key.
+    pub(crate) fn page_in<'d>(
+        &'d self,
+        key: DiceKey,
+        paged_out: PagedOutValue,
+        parent_key: ParentKey,
+        eval: &TransactionData,
+        cycles: UserCycleDetectorData,
+    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+        self.run(TaskGoal::PageIn(paged_out), key, parent_key, eval, cycles)
+    }
+
+    fn run<'d>(
+        &'d self,
+        goal: TaskGoal,
+        key: DiceKey,
+        parent_key: ParentKey,
+        eval: &TransactionData,
+        cycles: UserCycleDetectorData,
+    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+        match self.lookup_entry(goal.lane(), key, parent_key) {
             LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
             LookupResult::Pending(dice_promise) => dice_promise,
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
@@ -129,6 +168,7 @@ impl VersionEpochState {
 
                 DiceTaskWorker::spawn(
                     key,
+                    goal,
                     prepared_dice_task,
                     self.version_epoch,
                     eval,
@@ -265,9 +305,12 @@ impl TransactionData {
                 //  2. It's completely unclear why we're ok with this kind of discrepency between
                 //     the recompute and normal cases.
                 //  3. This is insanity.
+                // We convert a transaction cancellation into a worker cancellation in here.
+                // That's not ideal form, but it's mostly fine in practice and there isn't
+                // really much of an alternative.
                 let base = self
                     .epoch_state
-                    .compute_opaque(
+                    .bring_up_to_date(
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself
                         self,
@@ -276,10 +319,26 @@ impl TransactionData {
                     .await
                     .as_ref()
                     .unpack()
-                    // We convert a transaction cancellation into a worker cancellation here. That's
-                    // not ideal form, but it's mostly fine in practice and there isn't really much
-                    // of an alternative.
                     .map_err(|_| WorkerCancelled)?;
+
+                // A projection is computed from its base's payload, so unlike a dependency
+                // check this cannot make do with the version metadata.
+                let base = match base.paged_out() {
+                    None => base,
+                    Some(paged_out) => self
+                        .epoch_state
+                        .page_in(
+                            proj.base(),
+                            paged_out,
+                            ParentKey::Some(key),
+                            self,
+                            cycles.subrequest(proj.base(), &self.dice.key_index),
+                        )
+                        .await
+                        .as_ref()
+                        .unpack()
+                        .map_err(|_| WorkerCancelled)?,
+                };
 
                 let ctx = DiceProjectionComputations {
                     data: &self.dice.global_data,
@@ -288,7 +347,7 @@ impl TransactionData {
 
                 let base_value = base
                     .resident_value()
-                    .expect("a task always pages in the value it hands back");
+                    .expect("a page-in always pages in the value");
                 let value = proj.proj().compute(base_value, &ctx);
 
                 state.finished(

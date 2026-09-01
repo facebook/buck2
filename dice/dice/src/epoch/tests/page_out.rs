@@ -33,6 +33,7 @@ use tokio::sync::Notify;
 use tokio::time::timeout;
 
 use crate::DiceKeyDyn;
+use crate::DiceProjectionDyn;
 use crate::DiceStorage;
 use crate::PagableStorageBackend;
 use crate::api::computations::DiceComputations;
@@ -42,6 +43,8 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::PagableValueSerialize;
 use crate::api::key::ValueSerialize;
+use crate::api::projection::DiceProjectionComputations;
+use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::dice::Dice;
 
@@ -112,8 +115,16 @@ impl Key for NonPagableKey {
     }
 }
 
+/// Per-test compute counters for the deferred-key fixtures, indexed by key:
+///
+/// | index | key |
+/// | --- | --- |
+/// | 0..=3 | `DeferredPagableKey(0..=3)` |
+/// | 4 | `DeferredNonPagableKey(2)` |
+/// | 5 | `DeferredNonPagableKey(3)` |
+/// | 6 | `DeferredNonPagableKey(1)` |
 #[derive(Clone, Dupe)]
-struct DeferredComputeCounts(Arc<[AtomicUsize; 5]>);
+struct DeferredComputeCounts(Arc<[AtomicUsize; 7]>);
 
 impl DeferredComputeCounts {
     fn new() -> Self {
@@ -180,7 +191,7 @@ impl Key for DeferredNonPagableKey {
                     .data
                     .get::<DeferredComputeCounts>()
                 {
-                    counts.increment(3);
+                    counts.increment(6);
                 }
                 ctx.compute(&DeferredPagableKey(1))
                     .await
@@ -199,6 +210,24 @@ impl Key for DeferredNonPagableKey {
                     .await
                     .expect("pagable dependency should compute")
                     * 10
+            }
+            3 => {
+                if let Ok(counts) = ctx
+                    .per_transaction_data()
+                    .data
+                    .get::<DeferredComputeCounts>()
+                {
+                    counts.increment(5);
+                }
+                let cutoff = *ctx
+                    .compute(&DeferredNonPagableKey(0))
+                    .await
+                    .expect("modulo dependency should compute");
+                let unaffected = *ctx
+                    .compute(&DeferredPagableKey(3))
+                    .await
+                    .expect("input-independent dependency should compute");
+                cutoff * 1000 + unaffected
             }
             _ => unreachable!("unknown deferred non-pagable test key"),
         }
@@ -256,6 +285,9 @@ impl Key for DeferredPagableKey {
                 .await
                 .expect("selected injected value should compute")
             }
+            // Depends on nothing, so no input change ever invalidates it: a lookup after
+            // one is always an exact-version match.
+            3 => 7,
             _ => unreachable!("unknown deferred pagable test key"),
         }
     }
@@ -266,6 +298,86 @@ impl Key for DeferredPagableKey {
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// A pagable key whose value a projection is derived from.
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ProjectionBaseKey;
+
+#[async_trait]
+impl Key for ProjectionBaseKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        *ctx.compute(&DeferredInput(0))
+            .await
+            .expect("injected input should compute")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceProjectionDyn)]
+struct BaseParityKey;
+
+impl ProjectionKey for BaseParityKey {
+    type DeriveFromKey = ProjectionBaseKey;
+    type Value = u64;
+
+    fn compute(&self, derive_from: &u64, _ctx: &DiceProjectionComputations) -> Self::Value {
+        derive_from % 2
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+/// Resident (so page-out leaves it alone) and reached only through the projection.
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct ProjectionRootKey;
+
+#[async_trait]
+impl Key for ProjectionRootKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let base = ctx
+            .compute_opaque(&ProjectionBaseKey)
+            .await
+            .expect("projection base should compute");
+        ctx.projection(&base, &BaseParityKey)
+            .expect("projection should compute")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -606,6 +718,11 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
         1,
         "all lookups after the initial compute should be cache hits"
     );
+    assert_eq!(
+        page_in_count::<PagableKey>(&dice),
+        1,
+        "only the first lookup after the page-out should read from storage"
+    );
 
     Ok(())
 }
@@ -637,6 +754,66 @@ async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Resu
     assert_eq!(page_in_count::<DeferredPagableKey>(&dice), 1);
 
     Ok(())
+}
+
+/// A paged-out dependency that no change touched is an exact-version match. Validating a
+/// parent against it reads only its version history, so it must stay on disk until someone
+/// asks for the value itself.
+#[tokio::test]
+async fn exact_version_match_stays_paged_out_until_the_value_is_demanded() {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir().expect("temporary storage directory should be created");
+    let dice = make_dice(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)
+            .expect("pagable storage should open"),
+    );
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 1)])
+        .expect("initial input should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&DeferredNonPagableKey(3))
+            .await
+            .expect("root should compute"),
+        1007,
+    );
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await.expect("page-out should succeed");
+
+    // The input change dirties the root, so it revalidates its dependencies. The pagable
+    // one does not depend on the input, so it is still verified at the new version.
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 3)])
+        .expect("equal-output input change should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&DeferredNonPagableKey(3))
+            .await
+            .expect("root should be reused"),
+        1007,
+    );
+
+    let validation_page_ins = page_in_count::<DeferredPagableKey>(&dice);
+    assert_eq!(
+        *tx.compute(&DeferredPagableKey(3))
+            .await
+            .expect("direct value demand should hydrate the dependency"),
+        7,
+    );
+    let value_demand_page_ins = page_in_count::<DeferredPagableKey>(&dice);
+
+    assert_eq!(counts.count(3), 1, "the matched dependency is reused");
+    assert_eq!(counts.count(5), 1, "the root is reused");
+    assert_eq!(
+        (validation_page_ins, value_demand_page_ins),
+        (0, 1),
+        "an exact-version match should page in only for a caller that wants the value",
+    );
 }
 
 #[tokio::test]
@@ -695,6 +872,74 @@ async fn validation_only_dependency_currently_pages_in_before_value_demand() {
         (validation_page_ins, value_demand_page_ins),
         (1, 1),
         "dependency validation currently materializes the paged-out dependency before direct value demand",
+    );
+}
+
+/// A projection is computed *from* its base's payload, so recomputing one has to read a
+/// paged-out base back — unlike a dependency check, which stops at the version metadata.
+///
+/// Reaching this needs the base to be valid at the current version while the projection is
+/// still dirty at it: recompute the base alone at v2, page it out, and only then ask for
+/// the root, whose dependency check on the projection has to recompute it against a base
+/// that is a paged-out exact match.
+#[tokio::test]
+async fn projection_over_a_paged_out_base_reads_it_back() {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir().expect("temporary storage directory should be created");
+    let dice = make_dice(
+        DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)
+            .expect("pagable storage should open"),
+    );
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 4)])
+        .expect("initial input should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&ProjectionRootKey)
+            .await
+            .expect("root should compute"),
+        0,
+    );
+    drop(tx);
+
+    // Recompute only the base, leaving the projection and the root dirty at this version.
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater
+        .changed_to([(DeferredInput(0), 7)])
+        .expect("input change should be injected");
+    let tx = updater.commit().await;
+    assert_eq!(
+        *tx.compute(&ProjectionBaseKey)
+            .await
+            .expect("base should recompute"),
+        7,
+    );
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await.expect("page-out should succeed");
+    assert_eq!(
+        page_in_count::<ProjectionBaseKey>(&dice),
+        0,
+        "nothing should have read the base back yet"
+    );
+
+    let tx = dice
+        .updater_with_data(user_data_with_deferred_counts(&counts))
+        .commit()
+        .await;
+    assert_eq!(
+        *tx.compute(&ProjectionRootKey)
+            .await
+            .expect("root should recompute over the paged-out base"),
+        1,
+    );
+    assert_eq!(
+        page_in_count::<ProjectionBaseKey>(&dice),
+        1,
+        "the projection needs its base's value, so it must be read back exactly once"
     );
 }
 
@@ -760,7 +1005,7 @@ async fn check_deps_paged_out_hydrates_to_compare_equal_recompute() -> anyhow::R
 
     assert_eq!(counts.count(1), 2, "the paged-out parent should recompute");
     assert_eq!(
-        counts.count(3),
+        counts.count(6),
         1,
         "the observer should reuse the equality-verified parent"
     );
