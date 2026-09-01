@@ -17,7 +17,6 @@ use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
 use crate::epoch::evaluator::VersionEpochState;
 use crate::metrics::PagingMemoryMetrics;
-use crate::value::MaybeResident;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -114,18 +113,13 @@ impl StateProcessor {
                 invalidation_paths,
                 resp,
             } => {
-                let MaybeResident::Resident(previous_value) = previous.entry else {
-                    unreachable!(
-                        "the worker pages in a dependency-validated value before updating the graph"
-                    );
-                };
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
                     key,
                     epoch,
                     storage,
                     ValueUpdate::DependencyValidated {
-                        previous_value,
+                        previous_value: previous.entry,
                         prev_verified_version: previous.prev_verified_version,
                     },
                     previous.deps_to_validate,

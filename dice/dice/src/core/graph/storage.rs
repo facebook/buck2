@@ -183,6 +183,7 @@ use crate::core::graph::nodes::ForceDirtyHistory;
 use crate::core::graph::nodes::InjectedGraphNode;
 use crate::core::graph::nodes::InvalidateResult;
 use crate::core::graph::nodes::OccupiedGraphNode;
+use crate::core::graph::nodes::PagableNodeValue;
 use crate::core::graph::nodes::VacantGraphNode;
 use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::types::VersionedGraphKey;
@@ -192,6 +193,7 @@ use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
+use crate::value::MaybeResident;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
@@ -620,7 +622,7 @@ impl VersionedGraph {
                     InvalidateKind::Update(value, StorageType::Normal) => {
                         VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
-                            value,
+                            PagableNodeValue::hydrated(value),
                             Arc::new(SeriesParallelDeps::None),
                             VersionRange::begins_with(key.v).into_ranges(),
                             ForceDirtyHistory::new(),
@@ -649,7 +651,7 @@ impl VersionedGraph {
     fn update_empty(
         slot: VacantSlot<'_>,
         v: VersionNumber,
-        value: DiceValidValue,
+        value: MaybeResident<DiceValidValue>,
         mut valid_deps_versions: VersionRanges,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
@@ -658,7 +660,7 @@ impl VersionedGraph {
         valid_deps_versions.insert(VersionRange::bounded(v, v.next()));
         let entry = OccupiedGraphNode::new(
             key,
-            value,
+            PagableNodeValue::stored(value, PagableNodeValue::hydrated),
             deps,
             valid_deps_versions,
             ForceDirtyHistory::new(),
@@ -704,21 +706,19 @@ pub(crate) enum ValueUpdate {
     /// The previous value after its dependencies were validated unchanged. The entry is
     /// retained only if it is still verified at `prev_verified_version`, anchoring the
     /// validation result to the entry it was based on. The reuse decision does not inspect
-    /// the value; it is carried for the fallback path when the entry cannot be retained.
+    /// the value, which is why it may still be paged out; the value is carried for the
+    /// fallback path when the entry cannot be retained.
     DependencyValidated {
-        previous_value: DiceValidValue,
+        previous_value: MaybeResident<DiceValidValue>,
         prev_verified_version: VersionNumber,
     },
 }
 
 impl ValueUpdate {
-    pub(super) fn into_value(self) -> DiceValidValue {
+    pub(super) fn into_value(self) -> MaybeResident<DiceValidValue> {
         match self {
-            ValueUpdate::Computed(value)
-            | ValueUpdate::DependencyValidated {
-                previous_value: value,
-                ..
-            } => value,
+            ValueUpdate::Computed(value) => MaybeResident::Resident(value),
+            ValueUpdate::DependencyValidated { previous_value, .. } => previous_value,
         }
     }
 
@@ -841,6 +841,7 @@ mod tests {
     use crate::key::DiceKey;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
+    use crate::value::MaybeResident;
     use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
 
@@ -1432,7 +1433,7 @@ mod tests {
                 .update(
                     key5.dupe(),
                     ValueUpdate::DependencyValidated {
-                        previous_value: res_fake.dupe(),
+                        previous_value: MaybeResident::Resident(res_fake.dupe()),
                         prev_verified_version: VersionNumber::new(2),
                     },
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -1461,7 +1462,7 @@ mod tests {
                 .update(
                     key4.dupe(),
                     ValueUpdate::DependencyValidated {
-                        previous_value: res_fake.dupe(),
+                        previous_value: MaybeResident::Resident(res_fake.dupe()),
                         prev_verified_version: VersionNumber::new(6),
                     },
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -1494,7 +1495,7 @@ mod tests {
                 .update(
                     key7.dupe(),
                     ValueUpdate::DependencyValidated {
-                        previous_value: res_fake.dupe(),
+                        previous_value: MaybeResident::Resident(res_fake.dupe()),
                         prev_verified_version: VersionNumber::new(6),
                     },
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),

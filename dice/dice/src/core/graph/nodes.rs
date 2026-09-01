@@ -192,7 +192,7 @@ impl VersionedGraphNode {
             VersionedGraphNode::Vacant(vac) => {
                 let entry = OccupiedGraphNode::new(
                     vac.key,
-                    value,
+                    PagableNodeValue::hydrated(value),
                     Arc::new(SeriesParallelDeps::None),
                     VersionRange::begins_with(version).into_ranges(),
                     vac.dirtied_history.clone(),
@@ -222,7 +222,9 @@ impl VersionedGraphNode {
                 // Page-out can replace the graph value after a worker captured it for
                 // dependency validation. Active demand wins that race: restore the exact
                 // value the worker validated before returning it from the graph.
-                entry.rehydrate(update.into_value());
+                if let MaybeResident::Resident(value) = update.into_value() {
+                    entry.rehydrate(value);
+                }
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(key.v);
                 return (ret, false);
@@ -264,8 +266,8 @@ impl VersionedGraphNode {
             // the return value actually is used to mean something different than that we changed
             // something.
             return (
-                DiceComputedValue::new_resident(
-                    MaybeValidDiceValue::valid(value),
+                DiceComputedValue::new(
+                    value.into_payload(),
                     Arc::new(valid_deps_versions),
                     invalidation_paths,
                 ),
@@ -273,21 +275,17 @@ impl VersionedGraphNode {
             );
         }
 
-        let mut new = OccupiedGraphNode::new(
+        // `make_res` carries the previous value's page-out lifecycle onto the new one: a
+        // key that was paged out stays resident once recomputed rather than becoming a
+        // page-out candidate again.
+        let new = OccupiedGraphNode::new(
             key.k,
-            value,
+            PagableNodeValue::stored(value, make_res),
             deps,
             valid_deps_versions,
             dirtied_history.clone(),
             invalidation_paths,
         );
-        // Carry the previous value's page-out lifecycle onto the recomputed value: a
-        // key that was paged out stays resident once recomputed rather than becoming a
-        // candidate again. `new` is always freshly `NeverPagedOut` here.
-        let PagableNodeValue::NeverPagedOut(v) = new.res else {
-            unreachable!("`OccupiedGraphNode::new` always constructs a `NeverPagedOut` value");
-        };
-        new.res = make_res(v);
         let ret = new.computed_val(key.v);
         *self = VersionedGraphNode::Occupied(new);
 
@@ -395,7 +393,7 @@ mini_vec::size_assert::words_of_type!(PagableNodeValue, 3);
 
 impl PagableNodeValue {
     /// A resident value that has never been paged out.
-    fn hydrated(value: DiceValidValue) -> Self {
+    pub(crate) fn hydrated(value: DiceValidValue) -> Self {
         PagableNodeValue::NeverPagedOut(value)
     }
 
@@ -451,6 +449,21 @@ impl PagableNodeValue {
             PagableNodeValue::Recomputed(_) | PagableNodeValue::PagedOut(_) => {
                 PagableNodeValue::Recomputed
             }
+        }
+    }
+
+    /// The stored value for a node being (re)written with `value`, where `lifecycle` is
+    /// the variant a resident value should take (see [`Self::after_recompute`]).
+    ///
+    /// A value that is still paged out stays on disk: it is the value the node already
+    /// holds, so reading it back only to store it again would page in for nobody.
+    pub(crate) fn stored(
+        value: MaybeResident<DiceValidValue>,
+        lifecycle: fn(DiceValidValue) -> PagableNodeValue,
+    ) -> PagableNodeValue {
+        match value {
+            MaybeResident::Resident(value) => lifecycle(value),
+            MaybeResident::PagedOut(data_key) => PagableNodeValue::PagedOut(data_key),
         }
     }
 }
@@ -585,7 +598,7 @@ impl ForceDirtyHistory {
 impl OccupiedGraphNode {
     pub(crate) fn new(
         key: DiceKey,
-        res: DiceValidValue,
+        res: PagableNodeValue,
         deps: Arc<SeriesParallelDeps>,
         verified_ranges: VersionRanges,
         dirtied_history: ForceDirtyHistory,
@@ -593,7 +606,7 @@ impl OccupiedGraphNode {
     ) -> Self {
         Self {
             key,
-            res: PagableNodeValue::hydrated(res),
+            res,
             metadata: NodeMetadata {
                 deps,
                 rdeps: LazyDepsSet::new(),
@@ -923,6 +936,7 @@ mod tests {
     use crate::arc::Arc;
     use crate::core::graph::nodes::ForceDirtyHistory;
     use crate::core::graph::nodes::OccupiedGraphNode;
+    use crate::core::graph::nodes::PagableNodeValue;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::key::DiceKey;
     use crate::value::DiceKeyValue;
@@ -965,7 +979,7 @@ mod tests {
             }]));
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
-            DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
+            PagableNodeValue::hydrated(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
             deps0.dupe(),
             VersionRanges::testing_new(
                 vec![VersionRange::bounded(
@@ -998,7 +1012,7 @@ mod tests {
         let stale = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
         let mut entry = OccupiedGraphNode::new(
             DiceKey { index: 1335 },
-            resident.dupe(),
+            PagableNodeValue::hydrated(resident.dupe()),
             Arc::new(SeriesParallelDeps::None),
             VersionRange::begins_with(VersionNumber::new(1)).into_ranges(),
             ForceDirtyHistory::new(),
