@@ -84,27 +84,41 @@ pub(crate) fn write_scientific<W: fmt::Write>(
         write_non_finite(output, f)
     } else {
         let abs = f.abs();
-        let exponent = if f == 0.0 {
+        let mut exponent = if f == 0.0 {
             0
         } else {
             abs.log10().floor() as i32
         };
         let normal = if f == 0.0 {
             0.0
+        } else if exponent >= 0 {
+            abs / 10f64.powi(exponent)
         } else {
-            abs / 10f64.powf(exponent as f64)
+            let mut normal = abs;
+            let mut remaining = -exponent;
+            while remaining != 0 {
+                let step = remaining.min(308);
+                normal *= 10f64.powi(step);
+                remaining -= step;
+            }
+            normal
         };
+        let scale = 10u64.pow(WRITE_PRECISION as u32);
+        let mut scaled = (normal * scale as f64).round() as u64;
+        if scaled >= 10 * scale {
+            scaled /= 10;
+            exponent += 1;
+        }
 
         // start with "-" for a negative number
         if f.is_sign_negative() {
             output.write_char('-')?
         }
 
-        // use the whole integral part of normal (a single digit)
-        output.write_fmt(format_args!("{}", normal.trunc()))?;
+        output.write_fmt(format_args!("{}", scaled / scale))?;
 
         // calculate the fractional tail for given precision
-        let mut tail = (normal.fract() * 10f64.powf(WRITE_PRECISION as f64)).round() as u64;
+        let mut tail = scaled % scale;
         let mut rev_tail = [0u8; WRITE_PRECISION];
         let mut rev_tail_len = 0;
         let mut removing_trailing_zeros = strip_trailing_zeros;
@@ -146,8 +160,9 @@ pub(crate) fn write_compact<W: fmt::Write>(
         } else {
             abs.log10().floor() as i32
         };
+        let scientific_upper = 10f64.powi(WRITE_PRECISION as i32);
 
-        if exponent.abs() >= WRITE_PRECISION as i32 {
+        if exponent.abs() >= WRITE_PRECISION as i32 || abs >= scientific_upper {
             // use scientific notation if exponent is outside of our precision (but strip 0s)
             write_scientific(output, f, exponent_char, true)
         } else if f.fract() == 0.0 {
@@ -393,6 +408,8 @@ mod tests {
         assert_eq!(scientific(1.23e45), "1.230000e+45");
         assert_eq!(scientific(-3.14e-145), "-3.140000e-145");
         assert_eq!(scientific(1e300), "1.000000e+300");
+        assert_eq!(scientific(9.9999999e10), "1.000000e+11");
+        assert_eq!(scientific(f64::from_bits(1)), "4.940656e-324");
     }
 
     fn compact(f: f64) -> String {
@@ -410,6 +427,9 @@ mod tests {
         assert_eq!(compact(0f64), "0.0");
         assert_eq!(compact(std::f64::consts::PI), "3.141592653589793");
         assert_eq!(compact(-std::f64::consts::E), "-2.718281828459045");
+        assert_eq!(compact(1e-5), "0.00001");
+        assert_eq!(compact(9e-6), "9e-06");
+        assert_eq!(compact(1e6), "1e+06");
         assert_eq!(compact(1e10), "1e+10");
         assert_eq!(compact(1.23e45), "1.23e+45");
         assert_eq!(compact(-3.14e-145), "-3.14e-145");
