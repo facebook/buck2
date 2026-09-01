@@ -88,7 +88,7 @@ struct CleanStaleOptions {
     #[clap(
         long = "stale",
         help = "Delete artifacts from buck-out using the configured clean-stale
-policy or the specified duration, without killing the daemon",
+policy or a duration if specified, without killing the daemon",
         value_name = "DURATION"
     )]
     stale: Option<Option<humantime::Duration>>,

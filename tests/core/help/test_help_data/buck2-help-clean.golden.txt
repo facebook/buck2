@@ -22,7 +22,7 @@ Options:
 Clean Stale Options:
       --stale [<DURATION>]
           Delete artifacts from buck-out using the configured clean-stale
-          policy or the specified duration, without killing the daemon
+          policy or a duration if specified, without killing the daemon
 
       --tracked-only
           Only considers tracked artifacts for cleanup.
