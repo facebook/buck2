@@ -156,12 +156,29 @@ impl AtomicWakerSetEntry {
     ///    `set` is kept alive until the `disconnect` call.
     ///  - Until you next disconnect, you may only invoke `register` again with the same `set`.
     pub unsafe fn register(self: Pin<&mut Self>, set: &AtomicWakerSet, waker: Waker) {
+        unsafe { self.register_impl(set, waker, || {}) }
+    }
+
+    /// Implementation of `register`, with a `pause` hook invoked just before the lock
+    /// acquisition. Tests use the hook to deterministically interleave a concurrent
+    /// operation into that window; `register` passes a no-op.
+    ///
+    /// # Safety
+    ///
+    /// Same contract as `register`. Additionally, `pause` may operate on the set (e.g.
+    /// `wake_all`) but must not `register` or `disconnect` this entry.
+    unsafe fn register_impl(
+        self: Pin<&mut Self>,
+        set: &AtomicWakerSet,
+        waker: Waker,
+        pause: impl FnOnce(),
+    ) {
         unsafe {
             let this = Pin::into_inner_unchecked(self.into_ref());
             // With some more work, re-registration by a still-inserted entry could fast path out
             // lock-free when the new waker `will_wake`s the old one, but so far we haven't
             // bothered.
-            //
+            pause();
             // The wake -> register happens before relationship is established by this lock
             let mut guard = set.mutex.lock();
             // Owning the lock gives us the right to change the waker
@@ -352,64 +369,35 @@ mod tests {
         );
     }
 
-    /// Repeatedly races a re-`register` against a `wake_all` on another thread, and returns the
-    /// number of iterations in which the waker passed to the racing `register` was never woken
-    /// by any subsequent `wake_all`.
-    fn count_lost_wakeups(iterations: usize) -> usize {
-        let set = Arc::new(AtomicWakerSet::new());
-        // Iteration counters used to hand control back and forth between the two threads.
-        let register_ready = Arc::new(AtomicUsize::new(0));
-        let wake_all_done = Arc::new(AtomicUsize::new(0));
-
-        let wake_thread = std::thread::spawn({
-            let set = set.clone();
-            let register_ready = register_ready.clone();
-            let wake_all_done = wake_all_done.clone();
-            move || {
-                for i in 1..=iterations {
-                    while register_ready.load(Ordering::Acquire) != i {
-                        std::hint::spin_loop();
-                    }
-                    set.wake_all();
-                    wake_all_done.store(i, Ordering::Release);
-                }
-            }
-        });
-
-        let mut lost = 0;
-        for i in 1..=iterations {
-            let racing_waker = CountingWaker::new();
-            let mut entry = pin!(AtomicWakerSetEntry::new());
-            unsafe {
-                entry
-                    .as_mut()
-                    .register(&set, Waker::from(CountingWaker::new()));
-                register_ready.store(i, Ordering::Release);
-                // Races with the `wake_all` on the other thread.
-                entry
-                    .as_mut()
-                    .register(&set, Waker::from(racing_waker.clone()));
-                while wake_all_done.load(Ordering::Acquire) != i {
-                    std::hint::spin_loop();
-                }
-                // The racing `register` completed before this `wake_all` starts, so by now the
-                // racing waker must have been woken by one of the two `wake_all` calls.
-                set.wake_all();
-                entry.as_mut().disconnect(&set);
-            }
-            if racing_waker.count() == 0 {
-                lost += 1;
-            }
-        }
-
-        wake_thread.join().unwrap();
-        lost
-    }
-
+    /// Regression test for a lost-wakeup race between a re-`register` and a concurrent
+    /// `wake_all` that evicts the entry just before `register` acquires the lock:
+    /// `register` must notice the eviction under the lock and re-insert, so the new waker
+    /// stays visible to subsequent `wake_all` calls.
+    ///
+    /// A real concurrent thread has to land its entire `wake_all` inside the
+    /// couple-of-instructions window before the lock acquisition, which is far too rare to
+    /// exercise reliably by brute force. Instead, the `pause` hook of `register_impl`
+    /// executes the `wake_all` deterministically inside that window, on a single thread.
     #[test]
     fn register_racing_with_wake_all_does_not_lose_wakeups() {
-        let lost = count_lost_wakeups(100_000);
-        assert_eq!(lost, 0, "the race must never lose wakeups");
+        let set = AtomicWakerSet::new();
+        let racing_waker = CountingWaker::new();
+
+        let mut entry = pin!(AtomicWakerSetEntry::new());
+        unsafe {
+            entry
+                .as_mut()
+                .register(&set, Waker::from(CountingWaker::new()));
+            entry
+                .as_mut()
+                .register_impl(&set, Waker::from(racing_waker.clone()), || set.wake_all());
+            // The racing `register` completed before this `wake_all` starts, so the racing
+            // waker must be woken by now at the latest.
+            set.wake_all();
+            entry.as_mut().disconnect(&set);
+        }
+
+        assert_eq!(racing_waker.count(), 1, "the race must not lose the wakeup");
     }
 
     #[test]
