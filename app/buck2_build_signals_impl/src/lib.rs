@@ -56,6 +56,7 @@ use buck2_events::span::SpanId;
 use buck2_hash::BuckDashMap;
 use buck2_hash::BuckDashSet;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -333,6 +334,11 @@ struct PageInSignal {
     phase: PageInPhase,
 }
 
+struct PageInWaitSignal {
+    key: NodeKey,
+    waiter: NodeKey,
+}
+
 struct PageInAssociation {
     key: Arc<NodeKey>,
     phase: PageInPhase,
@@ -350,6 +356,7 @@ enum BuildSignal {
     TestExecution(TestExecutionSignal),
     TestListing(TestListingSignal),
     PageIn(PageInSignal),
+    PageInWait(PageInWaitSignal),
     BuildFinished,
 }
 
@@ -732,6 +739,17 @@ impl ActivationTracker for BuildSignalSender {
         let _ignored = self.sender.send(BuildSignal::Evaluation(signal));
     }
 
+    fn key_page_in_waited(&self, key: &DynKey, waiter: &DynKey) {
+        let key =
+            NodeKey::from_dyn_key(key).unwrap_or_else(|| NodeKey::PageInConnector(key.dupe()));
+        let waiter = NodeKey::from_dyn_key(waiter)
+            .unwrap_or_else(|| NodeKey::PageInConnector(waiter.dupe()));
+
+        let _ignored = self
+            .sender
+            .send(BuildSignal::PageInWait(PageInWaitSignal { key, waiter }));
+    }
+
     fn key_paged_in(&self, key: &DynKey, start: Instant, duration: Duration, phase: PageInPhase) {
         self.page_in_reachability
             .get_or_init(PageInReachability::default)
@@ -826,10 +844,25 @@ struct BuildSignalReceiver<T> {
     // When a node depends on a split analysis, the dep should point to the finish key
     // (representing full completion) rather than the Part 1 key.
     split_analysis_finish_keys: BuckMutMap<NodeKey, NodeKey>,
-    // Non-match page-ins are reported before `key_activated` supplies their dependencies and
-    // evaluation data. Hold each timed signal until that associated evaluation arrives so the
-    // page-in can be placed on the correct side of the evaluation work.
+    // Page-ins paired with an activation are reported before `key_activated` supplies their
+    // dependencies and evaluation data. Hold each timed signal until that associated
+    // evaluation arrives so the page-in can be placed on the correct side of the evaluation
+    // work.
     pending_page_ins: BuckMutMap<NodeKey, PageInSignal>,
+    // Maps each key that waited for an on-demand page-in to the paged-in keys it awaited.
+    // Spliced into that waiter's deps when its evaluation arrives, which is the
+    // only way the read lands on the critical path: the paged-in key's own node was pushed
+    // before the read happened, if at all.
+    //
+    // Keyed by the waiter rather than by the paged-in key on purpose. Every other dependent
+    // of a paged-in key reached its value some other way - most of them by dependency
+    // validation, which reads no value at all - and charging them for a read they never
+    // waited on would make the attribution depend on signal ordering.
+    demanded_page_ins: BuckMutMap<NodeKey, BuckMutSet<NodeKey>>,
+    // Waits are reported before the physical read is known to have succeeded. Track completed
+    // reads separately so a failed hydration cannot create an edge to a nonexistent PageIn node.
+    // The value is the one canonical PageIn node shared by every waiter for that physical read.
+    completed_demanded_page_ins: BuckMutMap<NodeKey, NodeKey>,
     backend: T,
 
     // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
@@ -849,6 +882,8 @@ where
             first_analysis_for_anon_target: BuckMutMap::default(),
             split_analysis_finish_keys: BuckMutMap::default(),
             pending_page_ins: BuckMutMap::default(),
+            demanded_page_ins: BuckMutMap::default(),
+            completed_demanded_page_ins: BuckMutMap::default(),
             test_listing_keys: BuckMutMap::default(),
         }
     }
@@ -869,6 +904,7 @@ where
                 }
                 BuildSignal::TestListing(test_listing) => self.process_test_listing(test_listing),
                 BuildSignal::PageIn(page_in) => self.process_page_in(page_in),
+                BuildSignal::PageInWait(page_in_wait) => self.process_page_in_wait(page_in_wait),
                 BuildSignal::BuildFinished => {
                     self.flush_unmatched_page_ins();
                     break;
@@ -933,6 +969,17 @@ where
             }
         }
 
+        // Route this key's deps through the page-ins it waited for.
+        if let Some(page_ins) = self.demanded_page_ins.remove(&evaluation.key) {
+            for dep_key in &mut evaluation.dep_keys {
+                if page_ins.contains(dep_key)
+                    && let Some(page_in_key) = self.completed_demanded_page_ins.get(dep_key)
+                {
+                    *dep_key = page_in_key.dupe();
+                }
+            }
+        }
+
         // Track discovery edges for anon target splits
         if let Some(discovery) = &evaluation.split_discovery {
             // Record the mapping from Part 1 key to the finish key (Part 2).
@@ -987,26 +1034,6 @@ where
         match page_in.phase {
             PageInPhase::Demanded => {
                 unreachable!("a demanded page-in is not paired with an activation")
-            }
-            PageInPhase::AfterDependencyValidation => {
-                // Dependency validation completed before hydration:
-                // `key -> PageIn(key) -> dependencies`.
-                self.backend.process_node(
-                    page_in_key.dupe(),
-                    NodeExtraData::None,
-                    page_in.duration,
-                    evaluation.dep_keys,
-                    Default::default(),
-                    WaitingData::new(),
-                );
-                self.backend.process_node(
-                    evaluation.key,
-                    evaluation.extra_data,
-                    evaluation.duration,
-                    [page_in_key],
-                    evaluation.spans,
-                    evaluation.waiting_data,
-                );
             }
             PageInPhase::AfterRecompute => {
                 // Recalculation completed before hydration. Keep the original key as a
@@ -1177,40 +1204,43 @@ where
         );
     }
 
-    /// A page-in a caller demanded has no activation of its own - the key's evaluation was a
-    /// cache hit that emitted nothing - so emit its complete topology immediately. Other
-    /// page-ins are paired with their subsequent activation, which provides the dependency and
-    /// evaluation phases on either side of hydration.
+    /// A page-in a caller demanded happens after the key's own evaluation, which may already
+    /// have been pushed (if the key was reused) or may never be pushed at all (if it was an
+    /// exact match, which emits no activation). Either way the `PageIn` node cannot be
+    /// attached by pushing the key again. Its separately reported waiters splice it into their
+    /// own evaluations instead.
+    ///
+    /// A read nothing can be charged to (demanded from outside any key) stays an unattached
+    /// node: its cost is visible in the graph but not on any path.
+    ///
+    /// Other page-ins are paired with their subsequent activation, which provides the
+    /// dependency and evaluation phases on either side of hydration.
     fn process_page_in(&mut self, page_in: PageInSignal) {
         match page_in.phase {
             PageInPhase::Demanded => {
-                let key_end = page_in.duration.total.end();
                 let page_in_key = NodeKey::PageIn(Arc::new(page_in.key.dupe()));
+                self.completed_demanded_page_ins
+                    .insert(page_in.key.dupe(), page_in_key.dupe());
                 self.backend.process_node(
                     page_in_key.dupe(),
                     NodeExtraData::None,
                     page_in.duration,
-                    std::iter::empty::<NodeKey>(),
-                    Default::default(),
-                    WaitingData::new(),
-                );
-                self.backend.process_node(
-                    page_in.key,
-                    NodeExtraData::None,
-                    NodeDuration {
-                        user: Duration::ZERO,
-                        total: TimeSpan::new_saturating(key_end, key_end),
-                        queue: None,
-                    },
-                    [page_in_key],
+                    [page_in.key.dupe()],
                     Default::default(),
                     WaitingData::new(),
                 );
             }
-            PageInPhase::AfterDependencyValidation | PageInPhase::AfterRecompute => {
+            PageInPhase::AfterRecompute => {
                 self.pending_page_ins.insert(page_in.key.dupe(), page_in);
             }
         }
+    }
+
+    fn process_page_in_wait(&mut self, page_in_wait: PageInWaitSignal) {
+        self.demanded_page_ins
+            .entry(page_in_wait.waiter)
+            .or_default()
+            .insert(page_in_wait.key);
     }
 
     fn flush_unmatched_page_ins(&mut self) {
@@ -1601,6 +1631,10 @@ mod tests {
         }
     }
 
+    fn page_in_wait(key: NodeKey, waiter: NodeKey) -> PageInWaitSignal {
+        PageInWaitSignal { key, waiter }
+    }
+
     fn evaluation(
         key: NodeKey,
         dep: NodeKey,
@@ -1627,31 +1661,134 @@ mod tests {
         BuildSignalReceiver::new(receiver, RecordingBackend::default())
     }
 
+    /// A demanded page-in reads a value back after the key it belongs to already finished,
+    /// so it hangs off that key rather than replacing it.
     #[test]
-    fn demanded_key_depends_on_page_in() {
+    fn demanded_page_in_depends_on_the_key_it_reads_back() {
         let mut receiver = receiver();
-        let key = node_key("cell//match");
+        let key = node_key("cell//paged");
         let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
 
         receiver.process_page_in(page_in(key.dupe(), PageInPhase::Demanded));
 
-        assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
-        assert!(receiver.backend.deps[&page_in_key].is_empty());
+        assert_eq!(receiver.backend.deps[&page_in_key], [key]);
+    }
+
+    /// The key that waited for the read has its dep spliced to run through the page-in -
+    /// which is what puts the read on the critical path.
+    #[test]
+    fn a_demanded_page_in_is_spliced_into_the_key_that_waited_for_it() {
+        let mut receiver = receiver();
+        let paged_key = node_key("cell//paged");
+        let waiter = node_key("cell//waiter");
+        let page_in_key = NodeKey::PageIn(Arc::new(paged_key.dupe()));
+
+        receiver.process_page_in_wait(page_in_wait(paged_key.dupe(), waiter.dupe()));
+        receiver.process_page_in(page_in(paged_key.dupe(), PageInPhase::Demanded));
+        receiver.process_evaluation(evaluation(
+            waiter.dupe(),
+            paged_key,
+            waiter.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+
+        assert_eq!(receiver.backend.deps[&waiter], [page_in_key]);
     }
 
     #[test]
-    fn reuse_page_in_depends_on_validated_dependencies() {
+    fn multiple_demanded_page_ins_are_spliced_into_the_waiter() {
         let mut receiver = receiver();
-        let key = node_key("cell//reuse");
-        let dep = node_key("cell//dep");
-        let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
-        let phase = PageInPhase::AfterDependencyValidation;
+        let paged_a = node_key("cell//paged_a");
+        let paged_b = node_key("cell//paged_b");
+        let waiter = node_key("cell//waiter");
+        let page_in_a = NodeKey::PageIn(Arc::new(paged_a.dupe()));
+        let page_in_b = NodeKey::PageIn(Arc::new(paged_b.dupe()));
 
-        receiver.process_page_in(page_in(key.dupe(), phase));
-        receiver.process_evaluation(evaluation(key.dupe(), dep.dupe(), key.dupe(), phase));
+        receiver.process_page_in_wait(page_in_wait(paged_a.dupe(), waiter.dupe()));
+        receiver.process_page_in(page_in(paged_a.dupe(), PageInPhase::Demanded));
+        receiver.process_page_in_wait(page_in_wait(paged_b.dupe(), waiter.dupe()));
+        receiver.process_page_in(page_in(paged_b.dupe(), PageInPhase::Demanded));
 
-        assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
-        assert_eq!(receiver.backend.deps[&page_in_key], [dep]);
+        let mut waiter_evaluation = evaluation(
+            waiter.dupe(),
+            paged_a,
+            waiter.dupe(),
+            PageInPhase::AfterRecompute,
+        );
+        waiter_evaluation.dep_keys.push(paged_b);
+        receiver.process_evaluation(waiter_evaluation);
+
+        assert_eq!(receiver.backend.deps[&waiter], [page_in_a, page_in_b]);
+    }
+
+    #[test]
+    fn all_waiters_share_one_deduplicated_page_in() {
+        let mut receiver = receiver();
+        let paged_key = node_key("cell//paged");
+        let first_waiter = node_key("cell//first_waiter");
+        let second_waiter = node_key("cell//second_waiter");
+        let page_in_key = NodeKey::PageIn(Arc::new(paged_key.dupe()));
+
+        receiver.process_page_in_wait(page_in_wait(paged_key.dupe(), first_waiter.dupe()));
+        receiver.process_page_in(page_in(paged_key.dupe(), PageInPhase::Demanded));
+        // A caller can join the task after hydration completed but before the shared task has
+        // published its result. Its wait signal must still attach to the completed PageIn node.
+        receiver.process_page_in_wait(page_in_wait(paged_key.dupe(), second_waiter.dupe()));
+        receiver.process_evaluation(evaluation(
+            first_waiter.dupe(),
+            paged_key.dupe(),
+            first_waiter.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+        receiver.process_evaluation(evaluation(
+            second_waiter.dupe(),
+            paged_key.dupe(),
+            second_waiter.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+
+        assert_eq!(receiver.backend.deps[&page_in_key], [paged_key]);
+        assert_eq!(receiver.backend.deps[&first_waiter], [page_in_key.dupe()]);
+        assert_eq!(receiver.backend.deps[&second_waiter], [page_in_key]);
+    }
+
+    #[test]
+    fn failed_page_in_wait_is_not_spliced_into_the_waiter() {
+        let mut receiver = receiver();
+        let paged_key = node_key("cell//paged");
+        let waiter = node_key("cell//waiter");
+
+        receiver.process_page_in_wait(page_in_wait(paged_key.dupe(), waiter.dupe()));
+        receiver.process_evaluation(evaluation(
+            waiter.dupe(),
+            paged_key.dupe(),
+            waiter.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+
+        assert_eq!(receiver.backend.deps[&waiter], [paged_key]);
+    }
+
+    /// A key that merely revalidated against the paged-out key never waited for the read, so
+    /// it keeps its direct dep. Otherwise the topology - and the page-in time attributed to
+    /// the critical path - would depend on which signal happened to arrive first.
+    #[test]
+    fn a_demanded_page_in_is_not_charged_to_other_dependents() {
+        let mut receiver = receiver();
+        let paged_key = node_key("cell//paged");
+        let waiter = node_key("cell//waiter");
+        let validator = node_key("cell//validator");
+
+        receiver.process_page_in_wait(page_in_wait(paged_key.dupe(), waiter));
+        receiver.process_page_in(page_in(paged_key.dupe(), PageInPhase::Demanded));
+        receiver.process_evaluation(evaluation(
+            validator.dupe(),
+            paged_key.dupe(),
+            validator.dupe(),
+            PageInPhase::AfterRecompute,
+        ));
+
+        assert_eq!(receiver.backend.deps[&validator], [paged_key]);
     }
 
     #[test]

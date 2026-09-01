@@ -29,9 +29,17 @@ pub trait ActivationTracker: Send + Sync + 'static {
         activation_data: ActivationData,
     );
 
+    /// Receives once for every key whose evaluation waits for an on-demand page-in of `key`.
+    /// Unlike [`Self::key_paged_in`], this is reported per waiter rather than per deduplicated
+    /// physical read. A top-level request has no waiter and is not reported here.
+    ///
+    /// Defaults to a no-op.
+    fn key_page_in_waited(&self, _key: &DynKey, _waiter: &DynKey) {}
+
     /// Receives when a paged-out key was paged back in. `start`/`duration` are the wall-clock
     /// span of the hydration (backend fetch + deserialize). `phase` says where the page-in occurs
-    /// in the key's evaluation (see `PageInPhase`).
+    /// in the key's evaluation (see [`PageInPhase`]). A deduplicated read is reported only once;
+    /// its individual waiters are reported through [`Self::key_page_in_waited`].
     ///
     /// Defaults to a no-op.
     fn key_paged_in(
@@ -47,12 +55,11 @@ pub trait ActivationTracker: Send + Sync + 'static {
 /// Where hydration occurs relative to dependency validation and key evaluation.
 #[derive(Copy, Clone, Dupe, Debug, Eq, PartialEq)]
 pub enum PageInPhase {
-    /// A caller asked for a payload that the key's own evaluation had left on disk. The
-    /// key does no other work and emits no other activation, so the page-in is the only
-    /// signal for it.
+    /// A caller asked for a payload that the key's own evaluation had left on disk. That
+    /// evaluation has already finished and reported whatever activation it had, so this
+    /// arrives unpaired. Its waiters are reported separately via
+    /// [`ActivationTracker::key_page_in_waited`].
     Demanded,
-    /// Dependency validation succeeded, so the old value is loaded for reuse.
-    AfterDependencyValidation,
     /// Recalculation preserved the dependency structure, so the old value is loaded for equality
     /// comparison with the newly computed value.
     AfterRecompute,

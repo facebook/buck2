@@ -17,6 +17,7 @@ use parking_lot::Mutex;
 
 use crate::ActivationData;
 use crate::DiceEvent;
+use crate::DynKey;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -131,7 +132,7 @@ impl VersionEpochState {
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
-        self.run(TaskGoal::UpToDate, key, parent_key, eval, cycles)
+        self.run(TaskGoal::UpToDate, key, parent_key, eval, cycles, || {})
     }
 
     /// Reads back a value that [`Self::bring_up_to_date`] left paged out.
@@ -149,7 +150,14 @@ impl VersionEpochState {
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
-        self.run(TaskGoal::PageIn(paged_out), key, parent_key, eval, cycles)
+        self.run(
+            TaskGoal::PageIn(paged_out),
+            key,
+            parent_key,
+            eval,
+            cycles,
+            || eval.page_in_waited(key, parent_key),
+        )
     }
 
     fn run<'d>(
@@ -159,11 +167,16 @@ impl VersionEpochState {
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
+        on_wait: impl FnOnce(),
+    ) -> DicePromise<'d> {
         match self.lookup_entry(goal.lane(), key, parent_key) {
             LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
-            LookupResult::Pending(dice_promise) => dice_promise,
+            LookupResult::Pending(dice_promise) => {
+                on_wait();
+                dice_promise
+            }
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
+                on_wait();
                 let eval = eval.dupe();
 
                 DiceTaskWorker::spawn(
@@ -239,6 +252,20 @@ pub(crate) struct TransactionData {
 }
 
 impl TransactionData {
+    fn page_in_waited(&self, key: DiceKey, waiter: ParentKey) {
+        let ParentKey::Some(waiter) = waiter else {
+            return;
+        };
+        let Some(activation_tracker) = self.user_data.activation_tracker.as_ref() else {
+            return;
+        };
+
+        activation_tracker.key_page_in_waited(
+            DynKey::ref_cast(self.dice.key_index.get(key)),
+            DynKey::ref_cast(self.dice.key_index.get(waiter)),
+        );
+    }
+
     pub(crate) fn storage_type(&self, key: DiceKey) -> StorageType {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {

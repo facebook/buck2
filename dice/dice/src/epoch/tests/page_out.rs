@@ -16,6 +16,7 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -32,10 +33,14 @@ use tempfile::tempdir;
 use tokio::sync::Notify;
 use tokio::time::timeout;
 
+use crate::ActivationData;
+use crate::ActivationTracker;
 use crate::DiceKeyDyn;
 use crate::DiceProjectionDyn;
 use crate::DiceStorage;
+use crate::DynKey;
 use crate::PagableStorageBackend;
+use crate::PageInPhase;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::EqualityBehavior;
@@ -87,6 +92,141 @@ impl Key for PagableKey {
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct TrackedPageInKey;
+
+#[async_trait]
+impl Key for TrackedPageInKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        _ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        42
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        BlockingPageInValueSerialize
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct PageInWaiter(u8);
+
+#[async_trait]
+impl Key for PageInWaiter {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        *ctx.compute(&TrackedPageInKey)
+            .await
+            .expect("paged-out dependency should be read back")
+    }
+
+    fn equality_behavior() -> EqualityBehavior<Self::Value> {
+        EqualityBehavior::Compare(|x, y| x == y)
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Default)]
+struct PageInAttributionTracker {
+    waiters: Mutex<Vec<u8>>,
+    waiter_added: Notify,
+    completions: AtomicUsize,
+}
+
+impl PageInAttributionTracker {
+    async fn wait_for_waiters(&self, expected: usize) {
+        loop {
+            let waiter_added = self.waiter_added.notified();
+            if self
+                .waiters
+                .lock()
+                .expect("tracker lock should not be poisoned")
+                .len()
+                >= expected
+            {
+                return;
+            }
+            timeout(Duration::from_secs(10), waiter_added)
+                .await
+                .expect("all page-in waiters should be reported");
+        }
+    }
+}
+
+impl ActivationTracker for PageInAttributionTracker {
+    fn key_activated(
+        &self,
+        _key: &DynKey,
+        _deps: &mut dyn Iterator<Item = &DynKey>,
+        _activation_data: ActivationData,
+    ) {
+    }
+
+    fn key_page_in_waited(&self, key: &DynKey, waiter: &DynKey) {
+        assert!(key.downcast_ref::<TrackedPageInKey>().is_some());
+        let waiter = waiter
+            .downcast_ref::<PageInWaiter>()
+            .expect("page-in waiter should retain its concrete key");
+        self.waiters
+            .lock()
+            .expect("tracker lock should not be poisoned")
+            .push(waiter.0);
+        self.waiter_added.notify_waiters();
+    }
+
+    fn key_paged_in(&self, key: &DynKey, _start: Instant, _duration: Duration, phase: PageInPhase) {
+        if phase == PageInPhase::Demanded && key.downcast_ref::<TrackedPageInKey>().is_some() {
+            self.completions.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+}
+
+struct BlockingPageInValueSerialize;
+
+impl ValueSerialize for BlockingPageInValueSerialize {
+    type Value = u64;
+
+    fn pagable_serialize_value(
+        &self,
+        value: &Self::Value,
+        serializer: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        Some(value.pagable_serialize(serializer))
+    }
+
+    fn pagable_deserialize_value<'de, D: PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deserializer: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        let gate = BLOCKING_VALUE_SERDE_GATE
+            .lock()
+            .expect("gate lock should not be poisoned")
+            .clone();
+        if let Some(gate) = gate {
+            gate.block();
+        }
+        u64::pagable_deserialize(deserializer)
     }
 }
 
@@ -413,13 +553,13 @@ impl Key for AlwaysUnequalPagableKey {
     }
 }
 
-struct PageOutSerializationGate {
+struct BlockingValueSerdeGate {
     started: Notify,
     released: Mutex<bool>,
     released_cv: Condvar,
 }
 
-impl PageOutSerializationGate {
+impl BlockingValueSerdeGate {
     fn new() -> Self {
         Self {
             started: Notify::new(),
@@ -434,7 +574,7 @@ impl PageOutSerializationGate {
             .expect("page-out serialization should start");
     }
 
-    fn block_serialization(&self) {
+    fn block(&self) {
         self.started.notify_one();
         let mut released = self
             .released
@@ -457,29 +597,29 @@ impl PageOutSerializationGate {
     }
 }
 
-static PAGE_OUT_SERIALIZATION_GATE: Mutex<Option<Arc<PageOutSerializationGate>>> = Mutex::new(None);
+static BLOCKING_VALUE_SERDE_GATE: Mutex<Option<Arc<BlockingValueSerdeGate>>> = Mutex::new(None);
 static PAGE_OUT_RACE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-struct InstalledPageOutSerializationGate(Arc<PageOutSerializationGate>);
+struct InstalledBlockingValueSerdeGate(Arc<BlockingValueSerdeGate>);
 
-impl InstalledPageOutSerializationGate {
-    fn install(gate: Arc<PageOutSerializationGate>) -> Self {
-        let previous = PAGE_OUT_SERIALIZATION_GATE
+impl InstalledBlockingValueSerdeGate {
+    fn install(gate: Arc<BlockingValueSerdeGate>) -> Self {
+        let previous = BLOCKING_VALUE_SERDE_GATE
             .lock()
             .expect("gate lock should not be poisoned")
             .replace(gate.clone());
         assert!(
             previous.is_none(),
-            "only one page-out gate may be installed"
+            "only one value-serde gate may be installed"
         );
         Self(gate)
     }
 }
 
-impl Drop for InstalledPageOutSerializationGate {
+impl Drop for InstalledBlockingValueSerdeGate {
     fn drop(&mut self) {
         self.0.release();
-        let mut installed = PAGE_OUT_SERIALIZATION_GATE
+        let mut installed = BLOCKING_VALUE_SERDE_GATE
             .lock()
             .expect("gate lock should not be poisoned");
         if installed
@@ -501,12 +641,12 @@ impl ValueSerialize for BlockingPagableValueSerialize {
         value: &Self::Value,
         serializer: &mut dyn PagableSerializer,
     ) -> Option<pagable::Result<()>> {
-        let gate = PAGE_OUT_SERIALIZATION_GATE
+        let gate = BLOCKING_VALUE_SERDE_GATE
             .lock()
             .expect("gate lock should not be poisoned")
             .clone();
         if let Some(gate) = gate {
-            gate.block_serialization();
+            gate.block();
         }
         Some(value.pagable_serialize(serializer))
     }
@@ -668,6 +808,58 @@ async fn paged_out_value_is_hydrated_on_next_lookup() -> anyhow::Result<()> {
         counter.count(),
         1,
         "second lookup should hydrate from storage, not recompute"
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn deduplicated_page_in_reports_every_waiter() -> anyhow::Result<()> {
+    let _test_lock = PAGE_OUT_RACE_TEST_LOCK.lock().await;
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+
+    let tx = dice.updater().commit().await;
+    assert_eq!(*tx.compute(&TrackedPageInKey).await?, 42);
+    drop(tx);
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let gate = Arc::new(BlockingValueSerdeGate::new());
+    let _installed_gate = InstalledBlockingValueSerdeGate::install(gate.dupe());
+    let tracker = Arc::new(PageInAttributionTracker::default());
+    let data = UserComputationData {
+        activation_tracker: Some(tracker.dupe()),
+        ..Default::default()
+    };
+    let tx = dice.updater_with_data(data).commit().await;
+
+    let compute_both = async {
+        let (first, second) =
+            tokio::join!(tx.compute(&PageInWaiter(1)), tx.compute(&PageInWaiter(2)),);
+        assert_eq!(*first.expect("first waiter should compute"), 42);
+        assert_eq!(*second.expect("second waiter should compute"), 42);
+    };
+    let release_page_in = async {
+        tracker.wait_for_waiters(2).await;
+        gate.release();
+    };
+    tokio::join!(compute_both, release_page_in);
+
+    let mut waiters = tracker
+        .waiters
+        .lock()
+        .expect("tracker lock should not be poisoned")
+        .clone();
+    waiters.sort_unstable();
+    assert_eq!(waiters, [1, 2]);
+    assert_eq!(
+        tracker.completions.load(Ordering::SeqCst),
+        1,
+        "the shared physical read should complete once"
     );
 
     Ok(())
@@ -1085,8 +1277,8 @@ async fn page_out_racing_check_deps_keeps_reused_value_hydrated() {
     drop(tx);
     dice.wait_for_idle().await;
 
-    let serialization_gate = Arc::new(PageOutSerializationGate::new());
-    let _installed_gate = InstalledPageOutSerializationGate::install(serialization_gate.clone());
+    let serialization_gate = Arc::new(BlockingValueSerdeGate::new());
+    let _installed_gate = InstalledBlockingValueSerdeGate::install(serialization_gate.clone());
     let page_out = tokio::spawn({
         let dice = dice.clone();
         async move { dice.page_out().await }
@@ -1152,8 +1344,8 @@ async fn page_out_does_not_evict_a_recomputed_value() {
     drop(tx);
     dice.wait_for_idle().await;
 
-    let serialization_gate = Arc::new(PageOutSerializationGate::new());
-    let _installed_gate = InstalledPageOutSerializationGate::install(serialization_gate.clone());
+    let serialization_gate = Arc::new(BlockingValueSerdeGate::new());
+    let _installed_gate = InstalledBlockingValueSerdeGate::install(serialization_gate.clone());
     let page_out = tokio::spawn({
         let dice = dice.clone();
         async move { dice.page_out().await }

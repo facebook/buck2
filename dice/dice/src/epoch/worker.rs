@@ -75,6 +75,11 @@ pub(crate) type WorkerResult<T> = Result<T, WorkerCancelled>;
 /// automatically deduplicated, so that identical requests share the same set of
 /// work. It is guaranteed that there is at most one computation in flight at a
 /// time if they share the same key and version.
+///
+/// A key can have two workers at one version — see [`TaskGoal`] — but only the `UpToDate`
+/// one ever computes. A `PageIn` worker reads a value back from storage, and only reaches
+/// the computation path if that read fails, by which point the `UpToDate` worker has
+/// finished.
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     goal: TaskGoal,
@@ -96,7 +101,7 @@ impl TaskGoal {
     pub(crate) fn lane(&self) -> TaskLane {
         match self {
             TaskGoal::UpToDate => TaskLane::UpToDate,
-            TaskGoal::PageIn(_) => TaskLane::PageIn,
+            TaskGoal::PageIn(..) => TaskLane::PageIn,
         }
     }
 }
@@ -300,7 +305,7 @@ impl DiceTaskWorker {
         // would push the key into the critical-path graph twice.
         let activation_info = match self.goal {
             TaskGoal::UpToDate => self.activation_info(result.deps.iter_keys(), activation_data),
-            TaskGoal::PageIn(_) => None,
+            TaskGoal::PageIn(..) => None,
         };
 
         let res = {
