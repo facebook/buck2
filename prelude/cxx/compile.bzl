@@ -37,6 +37,7 @@ load(
     "XCODE_ARG_SUBSTITUTIONS",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
+load("@prelude//utils:argfile.bzl", "argsfile_with_artifacts")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
@@ -1876,8 +1877,31 @@ def _mk_argsfiles(
     def make_toolchain_argsfile():
         compiler_info_flags = _add_compiler_info_flags(compiler_info)
 
-        # Use the argsfile from the compiler info if it exists.
-        if compiler_info.argsfile and not is_xcode_argsfile:
+        if is_precompile:
+            if impl_params._cxx_toolchain == None:
+                # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
+                # AppleToolchain for C++20 modules. Update this if that changes.
+                fail("C++20 modules are not supported for AppleToolchain")
+
+            # The anon filter takes an `attrs.source()` argsfile, so write a
+            # per-target copy of the flags for it.
+            unfiltered_argsfile = mk_argsfile(filename_prefix + "toolchain_cxx_args", compiler_info_flags)
+            filtered_info_argsfile = actions.anon_target(
+                _filter_precompile_argsfile_anon_rule,
+                {
+                    "allow_cache_upload": impl_params.allow_cache_upload,
+                    "src": unfiltered_argsfile,
+                    "_cxx_toolchain": impl_params._cxx_toolchain,
+                },
+            ).artifact("argsfile")
+
+            # The promise artifact doesn't carry the artifacts the flags
+            # reference forward automatically for us; re-pair them.
+            compiler_info_argsfile = argsfile_with_artifacts(
+                actions.assert_has_content_based_path(filtered_info_argsfile),
+                compiler_info_flags,
+            )
+        elif compiler_info.argsfile and not is_xcode_argsfile:
             compiler_info_argsfile = compiler_info.argsfile
         elif compiler_info.argsfile_xcode and is_xcode_argsfile:
             compiler_info_argsfile = compiler_info.argsfile_xcode
@@ -1885,22 +1909,6 @@ def _mk_argsfiles(
             # filename example: .cpp.toolchain_cxx_args
             compiler_info_filename = filename_prefix + "toolchain_cxx_args"
             compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
-
-        if is_precompile:
-            if impl_params._cxx_toolchain == None:
-                # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
-                # AppleToolchain for C++20 modules. Update this if that changes.
-                fail("C++20 modules are not supported for AppleToolchain")
-
-            filtered_info_argsfile = actions.anon_target(
-                _filter_precompile_argsfile_anon_rule,
-                {
-                    "allow_cache_upload": impl_params.allow_cache_upload,
-                    "src": compiler_info_argsfile,
-                    "_cxx_toolchain": impl_params._cxx_toolchain,
-                },
-            ).artifact("argsfile")
-            compiler_info_argsfile = actions.assert_has_content_based_path(filtered_info_argsfile)
 
         argsfiles.append(compiler_info_argsfile)
         args_list.append(compiler_info_flags)

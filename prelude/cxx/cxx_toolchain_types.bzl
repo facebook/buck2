@@ -148,11 +148,11 @@ _compiler_fields = [
     "compiler",
     "compiler_type",
     "compiler_flags",
-    # An optional @argsfile `Artifact` that contains the preprocessor flags and the compiler flags.
-    "argsfile",  # `Artifact | None`
-    # An optional @argsfile `Artifact` that contains the preprocessor flags and the compiler flags
+    # An optional argsfile that contains the preprocessor flags and the compiler flags.
+    "argsfile",  # `cmd_args | None`
+    # An optional argsfile that contains the preprocessor flags and the compiler flags,
     # formatted for xcode.
-    "argsfile_xcode",  # `Artifact | None`
+    "argsfile_xcode",  # `cmd_args | None`
     "preprocessor",
     "preprocessor_type",
     "preprocessor_flags",
