@@ -54,6 +54,11 @@ BuckTestMarker = namedtuple(
 )
 
 
+def _is_core_test() -> bool:
+    """Whether the running test is one of the `tests/core` tests."""
+    return os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated"
+
+
 @contextlib.asynccontextmanager
 async def buck_fixture(  # noqa C901 : "too complex"
     marker: BuckTestMarker,
@@ -130,9 +135,15 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Create a temporary file to store all lines of extra buck config values.
     extra_config_lines = []
 
-    # Override all RE use cases to use buck2-testing, which has an isolated
-    # CAS namespace (cas_store_version offset by TEST_OFFSET=200).
-    extra_config_lines.append("[buck2_re_client]\noverride_use_case = buck2-testing\n")
+    # Core tests run all their RE actions under `buck2-testing`, which has an
+    # isolated CAS namespace (cas_store_version offset by TEST_OFFSET=200). Its
+    # quota is sized for their small actions only; the other users of this
+    # harness build real targets and stay on the use case their execution
+    # platforms declare.
+    if _is_core_test():
+        extra_config_lines.append(
+            "[buck2_re_client]\noverride_use_case = buck2-testing\n"
+        )
 
     project_dir = base_dir / "project"
 
@@ -470,7 +481,7 @@ def _copytree(
 
 def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
     if "PRELUDE" in os.environ or "OVR_CONFIG" in os.environ:
-        if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+        if _is_core_test():
             raise Exception(
                 "Don't set `PRELUDE` or `OVR_CONFIG` in `tests/core` - these tests are always isolated"
             )
@@ -597,7 +608,7 @@ def buck_test(
     if inplace and data_dir == "":
         data_dir = None
 
-    if os.environ.get("BUCK2_E2E_TEST_FLAVOR") == "isolated":
+    if _is_core_test():
         if inplace is not None:
             raise Exception(
                 "Don't set `inplace` in `tests/core` - these tests are always isolated"
