@@ -738,7 +738,7 @@ impl ActivationTracker for BuildSignalSender {
             .record_page_in(key);
         let key =
             NodeKey::from_dyn_key(key).unwrap_or_else(|| NodeKey::PageInConnector(key.dupe()));
-        if phase != PageInPhase::Demanded {
+        if phase != PageInPhase::Match {
             self.pending_page_in_phases.insert(key.dupe(), phase);
         }
 
@@ -985,9 +985,7 @@ where
         let page_in_key = NodeKey::PageIn(Arc::new(page_in.key));
 
         match page_in.phase {
-            PageInPhase::Demanded => {
-                unreachable!("a demanded page-in is not paired with an activation")
-            }
+            PageInPhase::Match => unreachable!("exact matches do not emit an activation"),
             PageInPhase::AfterDependencyValidation => {
                 // Dependency validation completed before hydration:
                 // `key -> PageIn(key) -> dependencies`.
@@ -1177,13 +1175,12 @@ where
         );
     }
 
-    /// A page-in a caller demanded has no activation of its own - the key's evaluation was a
-    /// cache hit that emitted nothing - so emit its complete topology immediately. Other
+    /// Exact matches have no activation, so emit their complete topology immediately. Other
     /// page-ins are paired with their subsequent activation, which provides the dependency and
     /// evaluation phases on either side of hydration.
     fn process_page_in(&mut self, page_in: PageInSignal) {
         match page_in.phase {
-            PageInPhase::Demanded => {
+            PageInPhase::Match => {
                 let key_end = page_in.duration.total.end();
                 let page_in_key = NodeKey::PageIn(Arc::new(page_in.key.dupe()));
                 self.backend.process_node(
@@ -1628,12 +1625,12 @@ mod tests {
     }
 
     #[test]
-    fn demanded_key_depends_on_page_in() {
+    fn exact_match_depends_on_page_in() {
         let mut receiver = receiver();
         let key = node_key("cell//match");
         let page_in_key = NodeKey::PageIn(Arc::new(key.dupe()));
 
-        receiver.process_page_in(page_in(key.dupe(), PageInPhase::Demanded));
+        receiver.process_page_in(page_in(key.dupe(), PageInPhase::Match));
 
         assert_eq!(receiver.backend.deps[&key], [page_in_key.dupe()]);
         assert!(receiver.backend.deps[&page_in_key].is_empty());

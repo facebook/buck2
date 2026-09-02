@@ -33,7 +33,6 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
-use crate::epoch::cache::TaskLane;
 use crate::epoch::cache::TransactionCancelled;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::TransactionData;
@@ -54,7 +53,6 @@ use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceComputedValue;
 use crate::value::MaybeResident;
-use crate::value::PagedOutValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
@@ -79,34 +77,13 @@ pub(crate) type WorkerResult<T> = Result<T, WorkerCancelled>;
 /// time if they share the same key and version.
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
-    goal: TaskGoal,
     eval: TransactionData,
     version_epoch: VersionEpoch,
-}
-
-/// What a task has to produce for the caller that started it.
-pub(crate) enum TaskGoal {
-    /// Bring the key up to date at this version. A value that is paged out stays on disk:
-    /// dependency validation, which is most of what asks for a key, reads only the version
-    /// metadata that comes back beside it.
-    UpToDate,
-    /// Materialize a value an earlier `UpToDate` task left on disk.
-    PageIn(PagedOutValue),
-}
-
-impl TaskGoal {
-    pub(crate) fn lane(&self) -> TaskLane {
-        match self {
-            TaskGoal::UpToDate => TaskLane::UpToDate,
-            TaskGoal::PageIn(_) => TaskLane::PageIn,
-        }
-    }
 }
 
 impl DiceTaskWorker {
     pub(crate) fn spawn(
         k: DiceKey,
-        goal: TaskGoal,
         prepared_task: PreparedDiceTask,
         version_epoch: VersionEpoch,
         eval: TransactionData,
@@ -119,7 +96,6 @@ impl DiceTaskWorker {
 
         let worker = DiceTaskWorker {
             k,
-            goal,
             eval,
             version_epoch,
         };
@@ -160,40 +136,32 @@ impl DiceTaskWorker {
     ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.epoch_state.get_version();
 
-        let state_result = match &self.goal {
-            TaskGoal::UpToDate => {
-                state_handle
-                    .lookup_key(VersionedGraphKey::new(v, self.k))
-                    .await
-            }
-            // Read back exactly the value the caller observed, rather than re-deriving it
-            // from a graph that may have moved on since — re-deriving could land on
-            // `Compute` and recompute a key whose task for this version already finished.
-            //
-            // A read failure is the one case that does fall through to the normal path,
-            // which recomputes. It skips the graph lookup: we already know the value the
-            // graph would point us at cannot be read.
-            TaskGoal::PageIn(paged_out) => {
-                match self
-                    .hydrate_and_rehydrate(&state_handle, paged_out.data_key, PageInPhase::Demanded)
-                    .await
-                {
-                    Ok(value) => {
-                        return task_state.lookup_matches(handle, paged_out.paged_in(value));
-                    }
-                    Err(e) => {
-                        self.page_in_failed(&state_handle, v, paged_out.data_key, &e);
-                        VersionedGraphResult::Compute
-                    }
-                }
-            }
-        };
+        let state_result = state_handle
+            .lookup_key(VersionedGraphKey::new(v, self.k))
+            .await;
 
         // handle cancelled/cache hits before sending started events
         let check_deps_candidate = match state_result {
-            // The value may be paged out; nothing has needed the payload yet, and a caller
-            // that does asks for it via `VersionEpochState::page_in`.
-            VersionedGraphResult::Match(entry) => return task_state.lookup_matches(handle, entry),
+            VersionedGraphResult::Match(entry) => match entry.paged_out_data_key() {
+                None => return task_state.lookup_matches(handle, entry),
+                Some(data_key) => {
+                    match self
+                        .hydrate_and_rehydrate(&state_handle, data_key, PageInPhase::Match)
+                        .await
+                    {
+                        Ok(value) => {
+                            return task_state.lookup_matches(handle, entry.paged_in(value));
+                        }
+                        // The on-disk value couldn't be read back (I/O or a deserialize
+                        // failure). It's just a cache entry, so recover by recomputing —
+                        // fall through to the `Compute` path.
+                        Err(e) => {
+                            self.page_in_failed(&state_handle, v, data_key, &e);
+                            None
+                        }
+                    }
+                }
+            },
             VersionedGraphResult::CheckDeps(mismatch) => Some(mismatch),
             VersionedGraphResult::Compute => None,
         };
@@ -327,13 +295,7 @@ impl DiceTaskWorker {
         // the compute would.
         drop(deps_check_continuables);
 
-        // A page-in task recomputes only when the read failed, and the key it belongs to
-        // already reported its activation from the `UpToDate` task. Reporting a second one
-        // would push the key into the critical-path graph twice.
-        let activation_info = match self.goal {
-            TaskGoal::UpToDate => self.activation_info(result.deps.iter_keys(), activation_data),
-            TaskGoal::PageIn(_) => None,
-        };
+        let activation_info = self.activation_info(result.deps.iter_keys(), activation_data);
 
         let res = {
             match result.value.into_valid_value() {
@@ -586,7 +548,7 @@ async fn check_dependency(
 ) -> Result<CheckDependencyResult, TransactionCancelled> {
     let dep_result = eval
         .epoch_state
-        .bring_up_to_date(
+        .compute_opaque(
             dep,
             parent_key,
             eval,
