@@ -35,3 +35,14 @@ async def test_select_buckconfig(buck: Buck) -> None:
     q = json.loads(out.stdout)
     assert len(q) == 1
     assert list(q.values())[0]["labels"] == ["YES"]
+
+
+@buck_test()
+async def test_select_root_buckconfig(buck: Buck) -> None:
+    out = await buck.cquery(
+        "subcell//:the-root-buckconfig-test",
+        "--output-attribute=labels",
+    )
+    q = json.loads(out.stdout)
+    assert len(q) == 1
+    assert set(list(q.values())[0]["labels"]) == {"ROOT_YES", "TARGET_YES"}

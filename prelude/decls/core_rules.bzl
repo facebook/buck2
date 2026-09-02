@@ -267,7 +267,26 @@ config_setting = prelude_rule(
         # @unsorted-dict-items
         {
             "constraint_values": attrs.list(attrs.configuration_label(), default = []),
-            "values": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
+            "values": attrs.dict(
+                key = attrs.string(),
+                value = attrs.string(),
+                sorted = False,
+                default = {},
+                doc = """
+                    Buckconfig key -> expected value, evaluated from the target's cell (like `read_config`).
+                    A given `section.key` may appear in either `values` or `root_values`, but not both.
+                """,
+            ),
+            "root_values": attrs.dict(
+                key = attrs.string(),
+                value = attrs.string(),
+                sorted = False,
+                default = {},
+                doc = """
+                    Buckconfig key -> expected value, evaluated from the root cell (like `read_root_config`).
+                    A given `section.key` may appear in either `values` or `root_values`, but not both.
+                """,
+            ),
         }
     ),
 )

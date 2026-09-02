@@ -8,9 +8,19 @@
 
 # This is copy-paste from `prelude/configurations/util.bzl`
 
+def _configuration_info(constraints, values, root_values = None):
+    # TODO(scottcao): Pass `root_values` directly once the minimum Buck2 binary
+    # version includes `ConfigurationInfo.root_values`. Until then, omit empty
+    # `root_values` kwargs and use `getattr` below so old binaries can still
+    # load this prelude.
+    kwargs = {}
+    if root_values:
+        kwargs["root_values"] = root_values
+    return ConfigurationInfo(constraints = constraints, values = values, **kwargs)
+
 def _configuration_info_union(infos):
     if len(infos) == 0:
-        return ConfigurationInfo(
+        return _configuration_info(
             constraints = {},
             values = {},
         )
@@ -18,13 +28,22 @@ def _configuration_info_union(infos):
         return infos[0]
     constraints = {k: v for info in infos for (k, v) in info.constraints.items()}
     values = {k: v for info in infos for (k, v) in info.values.items()}
-    return ConfigurationInfo(
+    root_values = {}
+    for info in infos:
+        rv = getattr(info, "root_values", {})
+        for k, v in rv.items():
+            root_values[k] = v
+    return _configuration_info(
         constraints = constraints,
         values = values,
+        root_values = root_values,
     )
 
 def _constraint_values_to_configuration(values):
-    return ConfigurationInfo(constraints = {info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo] for info in values}, values = {})
+    return _configuration_info(
+        constraints = {info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo] for info in values},
+        values = {},
+    )
 
 # This is copy-paste from `prelude/configurations/rules.bzl`
 
@@ -46,7 +65,7 @@ def _constraint_value_impl(ctx):
         DefaultInfo(),
         constraint_value,
         # Provide `ConfigurationInfo` from `constraint_value` so it could be used as select key.
-        ConfigurationInfo(
+        _configuration_info(
             constraints = {
                 constraint_value.setting.label: constraint_value,
             },
@@ -83,7 +102,13 @@ platform = rule(
 
 def _config_setting_impl(ctx):
     subinfos = [_constraint_values_to_configuration(ctx.attrs.constraint_values)]
-    subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))
+    subinfos.append(
+        _configuration_info(
+            constraints = {},
+            values = ctx.attrs.values,
+            root_values = ctx.attrs.root_values,
+        )
+    )
     return [DefaultInfo(), _configuration_info_union(subinfos)]
 
 config_setting = rule(
@@ -91,6 +116,7 @@ config_setting = rule(
     is_configuration_rule = True,
     attrs = {
         "constraint_values": attrs.list(attrs.dep(providers = [ConstraintValueInfo]), default = []),
+        "root_values": attrs.dict(attrs.string(), attrs.string(), default = {}),
         "values": attrs.dict(attrs.string(), attrs.string(), default = {}),
     },
 )

@@ -18,7 +18,13 @@ _ExecutionModifierInfo = provider(
 
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
-    subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))
+    subinfos.append(
+        util.configuration_info(
+            constraints = {},
+            values = ctx.attrs.values,
+            root_values = ctx.attrs.root_values,
+        )
+    )
     cfg_info = util.configuration_info_union(subinfos)
     providers = [DefaultInfo(), cfg_info]
     if len(ctx.attrs.constraint_values) == 1:

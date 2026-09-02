@@ -103,12 +103,18 @@ def get_modifier_info(refs: dict[str, ProviderCollection], modifier: Modifier, l
                     default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
-                if cfg_info.values:
+                # TODO(scottcao): Use `cfg_info.root_values` directly once the
+                # minimum Buck2 binary version includes the field.
+                root_values = getattr(cfg_info, "root_values", {})
+                if cfg_info.values or root_values:
+                    buckconfig_values = cfg_info.values | root_values
                     soft_error(
                         "starlark_config_setting_non_empty_buckconfig_values_in_conditional_modifier",
-                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, cfg_info.values)
+                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, buckconfig_values)
                         + "These buckconfig values are being IGNORED.\n\n"
-                        + "Action required: Remove the `values` parameter from this config_setting {} and use only `constraint_values` instead.\n".format(key)
+                        + "Action required: Remove the `values` and `root_values` parameters from this config_setting {} and use only `constraint_values` instead.\n".format(
+                            key
+                        )
                         + "Note: This may become a hard error in the future to prevent silent misconfiguration.",
                         quiet = True,
                         stack = False,
