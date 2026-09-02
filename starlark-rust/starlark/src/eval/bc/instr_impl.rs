@@ -73,7 +73,6 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::util::arc_str::ArcStr;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -1398,8 +1397,6 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 
 #[derive(Debug, StarlarkPagable)]
 pub(crate) struct InstrDefData {
-    #[starlark_pagable(pagable)]
-    pub(crate) function_name: ArcStr,
     pub(crate) params: ParametersCompiled<u32>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenAnyValue<DefInfo>,
@@ -1416,56 +1413,40 @@ impl InstrNoFlowImpl for InstrDefImpl {
     ) -> crate::Result<()> {
         let pop = frame.get_bc_slot_range(*pops);
 
-        let mut parameters = ParametersSpec::with_capacity(
-            def_data.function_name.clone(),
-            def_data.params.params.len(),
-        );
         let mut parameter_types = Vec::new();
+        let mut defaults = Vec::with_capacity(pop.len());
 
         let mut pop_index = 0;
 
         for (i, x) in def_data.params.params.iter().enumerate() {
             let i = i as u32;
 
-            if i == def_data.params.indices.num_positional_only && !x.is_star_or_star_star() {
-                parameters.no_more_positional_only_args();
-            }
-
-            if i == def_data.params.indices.num_positional && !x.is_star_or_star_star() {
-                parameters.no_more_positional_args();
-            }
-
             if let (name, Some(t)) = x.name_ty() {
                 parameter_types.push((LocalSlotId(i), name.name.clone(), t));
             }
 
-            match &x.node {
-                ParameterCompiled::Normal(n, _, None) => parameters.required(&n.name),
-                ParameterCompiled::Normal(n, ty, Some(v)) => {
-                    assert!(*v == pop_index);
-                    let value = pop[pop_index as usize];
-                    pop_index += 1;
+            if let ParameterCompiled::Normal(n, ty, Some(v)) = &x.node {
+                assert!(*v == pop_index);
+                let value = pop[pop_index as usize];
+                pop_index += 1;
 
-                    if ty.is_some() {
-                        // Check the type of the default
-                        let (_, _, ty_compiled) = parameter_types.last().unwrap();
-                        expr_throw_starlark_result(
-                            ty_compiled.check_type(value, Some(&n.name)),
-                            x.span,
-                            eval,
-                        )
-                        .map_err(EvalException::into_error)?;
-                    }
-                    parameters.defaulted(&n.name, value);
+                if ty.is_some() {
+                    // Check the type of the default
+                    let (_, _, ty_compiled) = parameter_types.last().unwrap();
+                    expr_throw_starlark_result(
+                        ty_compiled.check_type(value, Some(&n.name)),
+                        x.span,
+                        eval,
+                    )
+                    .map_err(EvalException::into_error)?;
                 }
-                ParameterCompiled::Args(_, _) => parameters.args(),
-                ParameterCompiled::KwArgs(_, _) => parameters.kwargs(),
-            };
+                defaults.push(value);
+            }
         }
         let return_type = def_data.return_type;
         assert!(pop_index as usize == pop.len());
         let def = eval.heap().alloc(Def::new(
-            parameters.finish(),
+            ParametersSpec::from_prototype(def_data.params.param_spec_prototype(), defaults),
             parameter_types,
             return_type,
             def_data.info,

@@ -53,8 +53,9 @@ strong_hash = { workspace = true }
 strsim = "0.11.1"
 textwrap = "0.11"
 thiserror = "2.0.18"
+triomphe = { workspace = true }
 
-allocative = { workspace = true, features = ["bumpalo", "dashmap", "num-bigint"] }
+allocative = { workspace = true, features = ["bumpalo", "dashmap", "num-bigint", "triomphe"] }
 cmp_any = { workspace = true }
 pagable = { workspace = true }
 

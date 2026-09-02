@@ -92,7 +92,7 @@ impl ArgSymbol for Symbol {
         &self,
         ps: &ParametersSpec<V>,
     ) -> Option<usize> {
-        ps.names.get(self).map(|i| *i as usize)
+        ps.names().get(self).map(|i| *i as usize)
     }
 
     fn small_hash(&self) -> StarlarkHashValue {

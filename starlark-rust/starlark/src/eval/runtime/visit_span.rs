@@ -23,6 +23,7 @@ use crate::environment::slots::ModuleSlotId;
 use crate::eval::compiler::expr::CompareOp;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::util::arc_str::ArcStr;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -136,6 +137,10 @@ impl VisitSpanMut for DefRegularParamMode {
 }
 
 impl VisitSpanMut for DefParamIndices {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
+}
+
+impl VisitSpanMut for triomphe::Arc<ParametersSpecPrototype> {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan)) {}
 }
 

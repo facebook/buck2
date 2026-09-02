@@ -56,6 +56,43 @@ assert_eq(add18(24), 42)
 }
 
 #[test]
+fn test_def_default_per_instantiation() {
+    assert::is_true(
+        "
+def outer():
+    fs = []
+    for i in [1, 2, 3]:
+        def g(x = i):
+            return x
+        fs.append(g)
+    return [f() for f in fs]
+outer() == [1, 2, 3]",
+    );
+}
+
+#[test]
+fn test_def_default_per_instantiation_frozen() {
+    let mut a = Assert::new();
+    a.module(
+        "defs",
+        r#"
+fs = []
+for i in [1, 2, 3]:
+    def g(x = i):
+        return x
+    fs.append(g)
+garbage_collect()
+"#,
+    );
+    a.pass(
+        r#"
+load("defs", "fs")
+assert_eq([f() for f in fs], [1, 2, 3])
+"#,
+    );
+}
+
+#[test]
 fn test_nested_def_1() {
     assert::is_true(
         "

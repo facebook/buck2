@@ -39,6 +39,7 @@ use starlark_syntax::syntax::def::DefParam;
 use starlark_syntax::syntax::def::DefParamIndices;
 use starlark_syntax::syntax::def::DefParamKind;
 use starlark_syntax::syntax::def::DefParams;
+use triomphe::Arc;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
@@ -79,6 +80,7 @@ use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::params::spec::ParametersSpec;
+use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
@@ -240,9 +242,54 @@ pub(crate) struct ParametersCompiled<T> {
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
     #[starlark_pagable(pagable)]
     pub(crate) indices: DefParamIndices,
+    #[starlark_pagable(pagable)]
+    param_spec_prototype: Arc<ParametersSpecPrototype>,
 }
 
 impl<T> ParametersCompiled<T> {
+    pub(crate) fn new(
+        function_name: ArcStr,
+        params: Vec<IrSpanned<ParameterCompiled<T>>>,
+        indices: DefParamIndices,
+    ) -> ParametersCompiled<T> {
+        let mut builder = ParametersSpec::<()>::with_capacity(function_name, params.len());
+        for (i, x) in params.iter().enumerate() {
+            let i = i as u32;
+
+            if i == indices.num_positional_only && !x.is_star_or_star_star() {
+                builder.no_more_positional_only_args();
+            }
+
+            if i == indices.num_positional && !x.is_star_or_star_star() {
+                builder.no_more_positional_args();
+            }
+
+            match &x.node {
+                ParameterCompiled::Normal(n, _, None) => builder.required(&n.name),
+                ParameterCompiled::Normal(n, _, Some(_)) => builder.defaulted(&n.name, ()),
+                ParameterCompiled::Args(_, _) => builder.args(),
+                ParameterCompiled::KwArgs(_, _) => builder.kwargs(),
+            }
+        }
+        ParametersCompiled {
+            params,
+            indices,
+            param_spec_prototype: builder.finish_prototype(),
+        }
+    }
+
+    pub(crate) fn param_spec_prototype(&self) -> Arc<ParametersSpecPrototype> {
+        self.param_spec_prototype.clone()
+    }
+
+    pub(crate) fn map_exprs<U>(&self, mut f: impl FnMut(&T) -> U) -> ParametersCompiled<U> {
+        ParametersCompiled {
+            params: self.params.map(|p| p.map(|p| p.map_expr(&mut f))),
+            indices: self.indices,
+            param_spec_prototype: self.param_spec_prototype.clone(),
+        }
+    }
+
     /// How many expressions this parameters references (default values and types).
     pub(crate) fn count_exprs(&self) -> u32 {
         let mut count = 0;
@@ -403,8 +450,6 @@ impl DefInfo {
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct DefCompiled {
-    #[starlark_pagable(pagable)]
-    pub(crate) function_name: ArcStr,
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenAnyValue<DefInfo>,
@@ -470,7 +515,7 @@ impl Compiler<'_, '_, '_, '_> {
             .iter()
             .map(|x| self.parameter(x))
             .collect::<Result<_, CompilerInternalError>>()?;
-        let params = ParametersCompiled { params, indices };
+        let params = ParametersCompiled::new(function_name, params, indices);
         let return_type = self.expr_for_type(return_type).map(|t| t.node);
 
         let ty = Ty::function(
@@ -528,7 +573,6 @@ impl Compiler<'_, '_, '_, '_> {
         });
 
         Ok(ExprCompiled::Def(DefCompiled {
-            function_name,
             params,
             return_type,
             info,
