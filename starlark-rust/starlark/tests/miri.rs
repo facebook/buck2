@@ -22,12 +22,18 @@
 //! `src/tests`: the latter would compile the complete unit-test harness, which is far too
 //! expensive under Miri. It is not exposed as a Buck test because Buck does not support
 //! running Rust tests through Miri; CI invokes it with `cargo miri test --test miri`.
+//!
+//! This file is compiled both from the `starlark-rust` export, where the `pagable` feature
+//! is off, and from the `buck2` workspace, where `fbcode/buck2/Cargo.toml` turns it on for
+//! every crate. Use only APIs that exist under both: notably `Module::freeze_named` rather
+//! than `Module::freeze`, which is `#[cfg(not(feature = "pagable"))]`.
 
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::FrozenHeapName;
 use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::list::AllocList;
@@ -91,6 +97,6 @@ fn single_character_module_name() {
         let value = module.heap().alloc("value");
         module.set("x", value);
         assert_eq!(module.get("x").unwrap().unpack_str(), Some("value"));
-        module.freeze().unwrap();
+        module.freeze_named(FrozenHeapName::user("miri")).unwrap();
     });
 }
