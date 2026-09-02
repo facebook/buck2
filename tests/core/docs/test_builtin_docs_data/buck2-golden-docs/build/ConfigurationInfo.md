@@ -11,4 +11,5 @@
 # Insert a new constraint value
 ## ConfigurationInfo.pop
 # Remove a constraint
+## ConfigurationInfo.root\_values
 ## ConfigurationInfo.values

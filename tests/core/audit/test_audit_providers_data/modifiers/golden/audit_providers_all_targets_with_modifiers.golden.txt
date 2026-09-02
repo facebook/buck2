@@ -35,7 +35,8 @@ root//:linux (<unbound>):
         ),
         label=root//:linux
       ) },
-      values={}
+      values={},
+      root_values={}
     ),
     ConditionalModifierInfo(
       inner=record[ModifiersMatchInfo](
@@ -48,7 +49,8 @@ root//:linux (<unbound>):
               ),
               label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
             ) },
-            values={}
+            values={},
+            root_values={}
           ),
           None
         ) ],
@@ -85,7 +87,8 @@ root//:macos (<unbound>):
         ),
         label=root//:macos
       ) },
-      values={}
+      values={},
+      root_values={}
     ),
     ConditionalModifierInfo(
       inner=record[ModifiersMatchInfo](
@@ -98,7 +101,8 @@ root//:macos (<unbound>):
               ),
               label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
             ) },
-            values={}
+            values={},
+            root_values={}
           ),
           None
         ) ],
@@ -148,7 +152,8 @@ root//:arm (<unbound>):
         ),
         label=root//:arm
       ) },
-      values={}
+      values={},
+      root_values={}
     ),
     ConditionalModifierInfo(
       inner=record[ModifiersMatchInfo](
@@ -161,7 +166,8 @@ root//:arm (<unbound>):
               ),
               label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
             ) },
-            values={}
+            values={},
+            root_values={}
           ),
           None
         ) ],

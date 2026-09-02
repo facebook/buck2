@@ -93,6 +93,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
                 ConfigurationNode::new(Some(ConfigSettingData {
                     constraints: BTreeMap::new(),
                     buckconfigs: BTreeMap::new(),
+                    root_buckconfigs: BTreeMap::new(),
                 })),
             ),
             (

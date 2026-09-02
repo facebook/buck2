@@ -327,7 +327,18 @@ pub fn inject_legacy_config_for_test(
     cell_name: CellName,
     configs: LegacyBuckConfig,
 ) -> buck2_error::Result<()> {
-    dice.changed_to([(LegacyBuckConfigForCellKey { cell_name }, Ok(configs))])?;
+    inject_legacy_configs_for_test(dice, [(cell_name, configs)])
+}
+
+pub fn inject_legacy_configs_for_test(
+    dice: &mut DiceTransactionUpdater,
+    configs: impl IntoIterator<Item = (CellName, LegacyBuckConfig)> + Send + Sync + 'static,
+) -> buck2_error::Result<()> {
+    let configs = configs
+        .into_iter()
+        .map(|(cell_name, configs)| (LegacyBuckConfigForCellKey { cell_name }, Ok(configs)))
+        .collect::<Vec<_>>();
+    dice.changed_to(configs)?;
     dice.changed_to([(LegacyExternalBuckConfigDataKey, None)])?;
     Ok(())
 }

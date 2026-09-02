@@ -115,6 +115,25 @@ async fn configuration_matches(
         }
     }
 
+    if !constraints_and_configs.root_buckconfigs.is_empty() {
+        let root_config = ctx.get_legacy_root_config_on_dice().await?;
+
+        for (raw_section_and_key, config_value) in &constraints_and_configs.root_buckconfigs {
+            let config_section_and_key = parse_config_section_and_key(raw_section_and_key, None)?;
+            let v = root_config.lookup(
+                ctx,
+                BuckconfigKeyRef {
+                    section: &config_section_and_key.section,
+                    property: &config_section_and_key.key,
+                },
+            )?;
+            match v {
+                Some(v) if &*v == config_value => {}
+                _ => return Ok(false),
+            }
+        }
+    }
+
     Ok(true)
 }
 
@@ -426,4 +445,146 @@ impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
 
 pub(crate) fn init_configuration_calculation() {
     CONFIGURATION_CALCULATION.init(&ConfigurationCalculationDynImpl);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use buck2_common::dice::cells::SetCellResolver;
+    use buck2_common::legacy_configs::configs::testing::parse;
+    use buck2_common::legacy_configs::dice::inject_legacy_configs_for_test;
+    use buck2_core::cells::CellResolver;
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
+    use dice::UserComputationData;
+    use dice::testing::DiceBuilder;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn configuration_matches_buckconfigs_from_target_and_root_cells()
+    -> buck2_error::Result<()> {
+        let root_config = parse(
+            &[(
+                "root/.buckconfig",
+                "[cell_scope]\nkey = root-value\n[root_scope]\nkey = root-value\n",
+            )],
+            "root/.buckconfig",
+        )?;
+        let target_config = parse(
+            &[(
+                "cell/.buckconfig",
+                "[cell_scope]\nkey = target-value\n[root_scope]\nkey = target-value\n",
+            )],
+            "cell/.buckconfig",
+        )?;
+
+        let root_cell = CellName::testing_new("root");
+        let target_cell = CellName::testing_new("cell");
+        let cell_resolver = CellResolver::testing_with_names_and_paths(&[
+            (root_cell, CellRootPathBuf::testing_new("")),
+            (target_cell, CellRootPathBuf::testing_new("cell")),
+        ]);
+
+        let mut dice = DiceBuilder::new()
+            .build(UserComputationData::new())
+            .expect("should build test DICE");
+        dice.set_cell_resolver(cell_resolver)?;
+        inject_legacy_configs_for_test(
+            &mut dice,
+            [(root_cell, root_config), (target_cell, target_config)],
+        )?;
+
+        let dice = dice.commit().await;
+        let mut ctx = dice.ctx();
+        let cfg = ConfigurationData::testing_new();
+        let target_cell = CellNameForConfigurationResolution(target_cell);
+
+        assert!(
+            configuration_matches(
+                &mut ctx,
+                &cfg,
+                target_cell,
+                &ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::from_iter([(
+                        "cell_scope.key".to_owned(),
+                        "target-value".to_owned(),
+                    )]),
+                    root_buckconfigs: BTreeMap::new(),
+                },
+            )
+            .await?
+        );
+        assert!(
+            !configuration_matches(
+                &mut ctx,
+                &cfg,
+                target_cell,
+                &ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::from_iter([(
+                        "cell_scope.key".to_owned(),
+                        "root-value".to_owned(),
+                    )]),
+                    root_buckconfigs: BTreeMap::new(),
+                },
+            )
+            .await?
+        );
+        assert!(
+            configuration_matches(
+                &mut ctx,
+                &cfg,
+                target_cell,
+                &ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::new(),
+                    root_buckconfigs: BTreeMap::from_iter([(
+                        "root_scope.key".to_owned(),
+                        "root-value".to_owned(),
+                    )]),
+                },
+            )
+            .await?
+        );
+        assert!(
+            !configuration_matches(
+                &mut ctx,
+                &cfg,
+                target_cell,
+                &ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::new(),
+                    root_buckconfigs: BTreeMap::from_iter([(
+                        "root_scope.key".to_owned(),
+                        "target-value".to_owned(),
+                    )]),
+                },
+            )
+            .await?
+        );
+        assert!(
+            configuration_matches(
+                &mut ctx,
+                &cfg,
+                target_cell,
+                &ConfigSettingData {
+                    constraints: BTreeMap::new(),
+                    buckconfigs: BTreeMap::from_iter([(
+                        "cell_scope.key".to_owned(),
+                        "target-value".to_owned(),
+                    )]),
+                    root_buckconfigs: BTreeMap::from_iter([(
+                        "root_scope.key".to_owned(),
+                        "root-value".to_owned(),
+                    )]),
+                },
+            )
+            .await?
+        );
+
+        Ok(())
+    }
 }
