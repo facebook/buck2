@@ -423,7 +423,7 @@ mod tests {
             let ty_fruit = Ty::custom(TyUser::new(
                 name.clone(),
                 TyStarlarkValue::new::<Fruit>(),
-                TypeInstanceId::r#gen(),
+                TypeInstanceId::for_test(&("fruit", name.as_str())),
                 TyUserParams {
                     supertypes: AbstractPlant::get_type_starlark_repr()
                         .iter_union()
@@ -434,7 +434,7 @@ mod tests {
             let ty_fruit_callable = Ty::custom(TyUser::new(
                 format!("fruit[{name}]"),
                 TyStarlarkValue::new::<FruitCallable>(),
-                TypeInstanceId::r#gen(),
+                TypeInstanceId::for_test(&("fruit_callable", name.as_str())),
                 TyUserParams {
                     callable: Some(TyCallable::new(ParamSpec::empty(), ty_fruit.clone())),
 

@@ -1535,8 +1535,8 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
         fields
     };
 
-    let id_a = TypeInstanceId::r#gen();
-    let id_b = TypeInstanceId::r#gen();
+    let id_a = TypeInstanceId::for_test(&"frozen_record_type_a");
+    let id_b = TypeInstanceId::for_test(&"frozen_record_type_b");
     let rt_a_fv = heap.alloc_simple(FrozenRecordType {
         id: id_a,
         ty_record_data: RecordVariantFrozen {

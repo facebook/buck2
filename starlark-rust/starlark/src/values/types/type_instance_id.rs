@@ -16,8 +16,6 @@
  */
 
 use std::hash::Hasher;
-use std::sync::atomic;
-use std::sync::atomic::AtomicU64;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -40,8 +38,7 @@ use crate::pagable::heap_ref_id::Blake3StrongHasher;
 /// - unique across distinct types (so matching never false-positives).
 ///
 /// Build ids with [`TypeInstanceId::from_identity`] from a stable identity (a
-/// call site, a provider id, ...), never from process-local state — that is what
-/// `gen` does, which defeats dedup and is for tests only.
+/// call site, a provider id, ...), never from process-local state.
 #[derive(
     Debug,
     Copy,
@@ -101,6 +98,16 @@ impl TypeIdDomain for StarlarkTypeIdDomain {
     }
 }
 
+#[cfg(test)]
+struct TestTypeIdDomain;
+
+#[cfg(test)]
+impl TypeIdDomain for TestTypeIdDomain {
+    fn tag(&self) -> &'static str {
+        "starlark.test_type_instance_id"
+    }
+}
+
 impl TypeInstanceId {
     /// Construct a content-deterministic id from a domain tag and a stable
     /// identity.
@@ -137,12 +144,9 @@ impl TypeInstanceId {
         }
     }
 
-    /// Non-deterministic id from a process-local counter. For tests and the rare
-    /// path with no stable identity; production types reachable by page-out must
-    /// use [`from_identity`](Self::from_identity) or dedup breaks (ids vary run
-    /// to run).
-    pub fn r#gen() -> TypeInstanceId {
-        static LAST_ID: AtomicU64 = AtomicU64::new(0);
-        TypeInstanceId(LAST_ID.fetch_add(1, atomic::Ordering::SeqCst) + 1)
+    /// Deterministic test-only id. Distinct logical types must use distinct stable identities.
+    #[cfg(test)]
+    pub(crate) fn for_test(identity: &impl StrongHash) -> TypeInstanceId {
+        Self::from_identity(TestTypeIdDomain, identity)
     }
 }
