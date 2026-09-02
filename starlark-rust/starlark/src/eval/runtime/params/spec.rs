@@ -21,7 +21,6 @@ use std::fmt;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::Coerce;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
 use starlark_map::Hashed;
@@ -88,29 +87,50 @@ impl<V> ParametersSpecParam<V> {
     }
 }
 
-#[derive(
-    Debug,
-    Copy,
-    Clone,
-    Dupe,
-    Coerce,
-    PartialEq,
-    Trace,
-    Allocative,
-    StarlarkPagable
-)]
-#[repr(C)]
-#[starlark_pagable(bound = "V: StarlarkPagable")]
-pub(crate) enum ParameterKind<V> {
+/// Function parameter kind, packed into a `u32`: values below
+/// [`FIRST_SPECIAL`](ParameterKind::FIRST_SPECIAL) are `Defaulted` indices into
+/// [`ParametersSpec::defaults`]; the values near `u32::MAX` encode others.
+/// Match via [`unpack`](ParameterKind::unpack).
+#[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, Allocative, pagable::Pagable)]
+#[repr(transparent)]
+pub(crate) struct ParameterKind(u32);
+
+/// Unpacked view of [`ParameterKind`] for matching.
+pub(crate) enum ParameterKindUnpacked {
     Required,
     /// When optional parameter is not supplied, there's no error,
     /// but the slot remains `None`.
     ///
     /// This is used only in native code, parameters of type `Option<T>` become `Optional`.
     Optional,
-    Defaulted(V),
+    /// Index into [`ParametersSpec::defaults`] holding this parameter's default value.
+    Defaulted(u32),
     Args,
     KWargs,
+}
+
+impl ParameterKind {
+    pub(crate) const REQUIRED: ParameterKind = ParameterKind(u32::MAX);
+    pub(crate) const OPTIONAL: ParameterKind = ParameterKind(u32::MAX - 1);
+    pub(crate) const ARGS: ParameterKind = ParameterKind(u32::MAX - 2);
+    pub(crate) const KWARGS: ParameterKind = ParameterKind(u32::MAX - 3);
+    /// Everything below this is a `Defaulted` index.
+    const FIRST_SPECIAL: u32 = u32::MAX - 3;
+
+    fn defaulted(index: u32) -> ParameterKind {
+        assert!(index < ParameterKind::FIRST_SPECIAL);
+        ParameterKind(index)
+    }
+
+    pub(crate) fn unpack(self) -> ParameterKindUnpacked {
+        match self {
+            ParameterKind::REQUIRED => ParameterKindUnpacked::Required,
+            ParameterKind::OPTIONAL => ParameterKindUnpacked::Optional,
+            ParameterKind::ARGS => ParameterKindUnpacked::Args,
+            ParameterKind::KWARGS => ParameterKindUnpacked::KWargs,
+            ParameterKind(index) => ParameterKindUnpacked::Defaulted(index),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Dupe, PartialEq, Eq, PartialOrd, Ord)]
@@ -128,7 +148,8 @@ enum CurrentParameterStyle {
 /// Builder for [`ParametersSpec`]
 pub(crate) struct ParametersSpecBuilder<V> {
     function_name: ArcStr,
-    params: Vec<(String, ParameterKind<V>)>,
+    params: Vec<(String, ParameterKind)>,
+    defaults: Vec<V>,
     names: SymbolMap<u32>,
     /// Number of parameters that can be filled only positionally.
     positional_only: usize,
@@ -154,7 +175,8 @@ pub struct ParametersSpec<V> {
     function_name: ArcStr,
 
     /// Parameters in the order they occur.
-    param_kinds: Box<[ParameterKind<V>]>,
+    #[starlark_pagable(pagable)]
+    param_kinds: Box<[ParameterKind]>,
     /// Parameter names in the order they occur.
     param_names: Box<[String]>,
     /// Mapping from name to index where the argument lives.
@@ -162,6 +184,8 @@ pub struct ParametersSpec<V> {
     pub(crate) names: SymbolMap<u32>,
     #[starlark_pagable(pagable)]
     indices: DefParamIndices,
+    /// Default values, indexed by [`ParameterKind::Defaulted`], in parameter order.
+    defaults: Box<[V]>,
 }
 
 /// `Frozen` ignores the brand: the frozen spec keeps its defaults as `FrozenValue`, because
@@ -173,34 +197,23 @@ impl<'v> FreezeBranded for ParametersSpec<Value<'v>> {
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(ParametersSpec {
             function_name: self.function_name,
-            param_kinds: self
-                .param_kinds
-                .into_vec()
-                .into_try_map(|kind| kind.freeze(freezer))?
-                .into_boxed_slice(),
+            param_kinds: self.param_kinds,
             param_names: self.param_names,
             names: self.names,
             indices: self.indices,
-        })
-    }
-}
-
-impl<'v> ParameterKind<Value<'v>> {
-    fn freeze(self, freezer: &Freezer<'_>) -> FreezeResult<ParameterKind<FrozenValue>> {
-        Ok(match self {
-            ParameterKind::Required => ParameterKind::Required,
-            ParameterKind::Optional => ParameterKind::Optional,
-            ParameterKind::Defaulted(v) => ParameterKind::Defaulted(freezer.freeze(v)?),
-            ParameterKind::Args => ParameterKind::Args,
-            ParameterKind::KWargs => ParameterKind::KWargs,
+            defaults: self
+                .defaults
+                .into_vec()
+                .into_try_map(|v| freezer.freeze(v))?
+                .into_boxed_slice(),
         })
     }
 }
 
 impl<V> ParametersSpecBuilder<V> {
-    fn add(&mut self, name: &str, val: ParameterKind<V>) {
+    fn add(&mut self, name: &str, val: ParameterKind) {
         assert!(
-            !matches!(val, ParameterKind::Args | ParameterKind::KWargs),
+            !matches!(val, ParameterKind::ARGS | ParameterKind::KWARGS),
             "adding parameter `{}` to `{}",
             name,
             self.function_name
@@ -240,21 +253,23 @@ impl<V> ParametersSpecBuilder<V> {
     /// it. If you want to supply a position-only argument, prepend a `$` to
     /// the name.
     pub(crate) fn required(&mut self, name: &str) {
-        self.add(name, ParameterKind::Required);
+        self.add(name, ParameterKind::REQUIRED);
     }
 
     /// Add an optional parameter. Will be None if the caller doesn't supply it.
     /// If you want to supply a position-only argument, prepend a `$` to the
     /// name.
     pub(crate) fn optional(&mut self, name: &str) {
-        self.add(name, ParameterKind::Optional);
+        self.add(name, ParameterKind::OPTIONAL);
     }
 
     /// Add an optional parameter. Will be the default value if the caller
     /// doesn't supply it. If you want to supply a position-only argument,
     /// prepend a `$` to the name.
     pub(crate) fn defaulted(&mut self, name: &str, val: V) {
-        self.add(name, ParameterKind::Defaulted(val));
+        let index = u32::try_from(self.defaults.len()).expect("too many parameters");
+        self.defaults.push(val);
+        self.add(name, ParameterKind::defaulted(index));
     }
 
     fn param(&mut self, name: &str, param: ParametersSpecParam<V>) {
@@ -288,7 +303,7 @@ impl<V> ParametersSpecBuilder<V> {
             "adding *args to `{}`",
             self.function_name
         );
-        self.params.push(("*args".to_owned(), ParameterKind::Args));
+        self.params.push(("*args".to_owned(), ParameterKind::ARGS));
         self.args = Some(self.params.len() - 1);
         self.current_style = CurrentParameterStyle::NamedOnly;
     }
@@ -339,7 +354,7 @@ impl<V> ParametersSpecBuilder<V> {
             self.function_name
         );
         self.params
-            .push(("**kwargs".to_owned(), ParameterKind::KWargs));
+            .push(("**kwargs".to_owned(), ParameterKind::KWARGS));
         self.current_style = CurrentParameterStyle::NoMore;
         self.kwargs = Some(self.params.len() - 1);
     }
@@ -354,13 +369,14 @@ impl<V> ParametersSpecBuilder<V> {
             current_style,
             kwargs,
             params,
+            defaults,
             names,
         } = self;
         let _ = current_style;
         let positional_only: u32 = positional_only.try_into().unwrap();
         let positional: u32 = positional.try_into().unwrap();
         assert!(positional_only <= positional, "building `{function_name}`");
-        let (param_names, param_kinds): (Vec<String>, Vec<ParameterKind<V>>) =
+        let (param_names, param_kinds): (Vec<String>, Vec<ParameterKind>) =
             params.into_iter().unzip();
         ParametersSpec {
             function_name,
@@ -373,6 +389,7 @@ impl<V> ParametersSpecBuilder<V> {
                 args: args.map(|args| args.try_into().unwrap()),
                 kwargs: kwargs.map(|kwargs| kwargs.try_into().unwrap()),
             },
+            defaults: defaults.into_boxed_slice(),
         }
     }
 }
@@ -386,6 +403,7 @@ impl<V> ParametersSpec<V> {
         ParametersSpecBuilder {
             function_name,
             params: Vec::with_capacity(capacity),
+            defaults: Vec::new(),
             names: SymbolMap::with_capacity(capacity),
             positional_only: 0,
             positional: 0,
@@ -506,11 +524,13 @@ impl<V> ParametersSpec<V> {
             ParamFmt {
                 name,
                 ty: None::<&str>,
-                default: match self.param_kinds[i] {
-                    ParameterKind::Defaulted(_) | ParameterKind::Optional => {
+                default: match self.param_kinds[i].unpack() {
+                    ParameterKindUnpacked::Defaulted(_) | ParameterKindUnpacked::Optional => {
                         Some(PARAM_FMT_OPTIONAL)
                     }
-                    ParameterKind::Required | ParameterKind::Args | ParameterKind::KWargs => None,
+                    ParameterKindUnpacked::Required
+                    | ParameterKindUnpacked::Args
+                    | ParameterKindUnpacked::KWargs => None,
                 },
             }
         };
@@ -568,12 +588,14 @@ impl<V> ParametersSpec<V> {
                 name,
                 docs,
                 typ: parameter_types[i].dupe(),
-                default_value: match &self.param_kinds[i] {
-                    ParameterKind::Required => None,
-                    ParameterKind::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
-                    ParameterKind::Defaulted(v) => Some(formatter(v)),
-                    ParameterKind::Args => None,
-                    ParameterKind::KWargs => None,
+                default_value: match self.param_kinds[i].unpack() {
+                    ParameterKindUnpacked::Required => None,
+                    ParameterKindUnpacked::Optional => Some(PARAM_FMT_OPTIONAL.to_owned()),
+                    ParameterKindUnpacked::Defaulted(idx) => {
+                        Some(formatter(&self.defaults[idx as usize]))
+                    }
+                    ParameterKindUnpacked::Args => None,
+                    ParameterKindUnpacked::KWargs => None,
                 },
             }
         };
@@ -836,8 +858,8 @@ impl<'v> ParametersSpec<Value<'v>> {
             if slot.is_some() {
                 continue;
             }
-            match def {
-                ParameterKind::Required => {
+            match def.unpack() {
+                ParameterKindUnpacked::Required => {
                     let function_name = &self.function_name;
                     let param_name = &self.param_names[index];
                     if index < self.indices.num_positional_only as usize {
@@ -854,8 +876,8 @@ impl<'v> ParametersSpec<Value<'v>> {
                         ));
                     }
                 }
-                ParameterKind::Defaulted(x) => {
-                    *slot = Some(x.to_value());
+                ParameterKindUnpacked::Defaulted(x) => {
+                    *slot = Some(self.defaults[x as usize].to_value());
                 }
                 _ => {}
             }
@@ -922,12 +944,12 @@ impl<'v> ParametersSpec<Value<'v>> {
             if *filled {
                 continue;
             }
-            match p {
-                ParameterKind::Args => {}
-                ParameterKind::KWargs => {}
-                ParameterKind::Defaulted(_) => {}
-                ParameterKind::Optional => {}
-                ParameterKind::Required => return false,
+            match p.unpack() {
+                ParameterKindUnpacked::Args => {}
+                ParameterKindUnpacked::KWargs => {}
+                ParameterKindUnpacked::Defaulted(_) => {}
+                ParameterKindUnpacked::Optional => {}
+                ParameterKindUnpacked::Required => return false,
             }
         }
         true
