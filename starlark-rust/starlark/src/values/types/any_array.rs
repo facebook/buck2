@@ -168,6 +168,7 @@ macro_rules! register_any_array {
 // starlark. External users register their own `T` via `register_any_array!`.
 crate::register_any_array!(crate::values::FrozenStringValue);
 crate::register_any_array!(crate::eval::compiler::def::CopySlotFromParent);
+crate::register_any_array!(crate::eval::compiler::def::ParameterTypeCompiled);
 crate::register_any_array!(crate::eval::runtime::slots::LocalSlotId);
 crate::register_any_array!(crate::eval::bc::stack_ptr::BcSlotOut);
 

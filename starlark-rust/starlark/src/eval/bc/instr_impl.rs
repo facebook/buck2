@@ -1413,26 +1413,18 @@ impl InstrNoFlowImpl for InstrDefImpl {
     ) -> crate::Result<()> {
         let pop = frame.get_bc_slot_range(*pops);
 
-        let mut parameter_types = Vec::new();
         let mut defaults = Vec::with_capacity(pop.len());
 
         let mut pop_index = 0;
 
-        for (i, x) in def_data.params.params.iter().enumerate() {
-            let i = i as u32;
-
-            if let (name, Some(t)) = x.name_ty() {
-                parameter_types.push((LocalSlotId(i), name.name.clone(), t));
-            }
-
+        for x in def_data.params.params.iter() {
             if let ParameterCompiled::Normal(n, ty, Some(v)) = &x.node {
                 assert!(*v == pop_index);
                 let value = pop[pop_index as usize];
                 pop_index += 1;
 
-                if ty.is_some() {
+                if let Some(ty_compiled) = ty {
                     // Check the type of the default
-                    let (_, _, ty_compiled) = parameter_types.last().unwrap();
                     expr_throw_starlark_result(
                         ty_compiled.check_type(value, Some(&n.name)),
                         x.span,
@@ -1447,7 +1439,6 @@ impl InstrNoFlowImpl for InstrDefImpl {
         assert!(pop_index as usize == pop.len());
         let def = eval.heap().alloc(Def::new(
             ParametersSpec::from_prototype(def_data.params.param_spec_prototype(), defaults),
-            parameter_types,
             return_type,
             def_data.info,
             eval,

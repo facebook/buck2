@@ -35,6 +35,7 @@ use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::slice_vec_ext::SliceExt;
+use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::def::DefParam;
 use starlark_syntax::syntax::def::DefParamIndices;
 use starlark_syntax::syntax::def::DefParamKind;
@@ -112,6 +113,7 @@ use crate::values::types::any_array::FrozenAnyArray;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 static_starlark_value!(VALUE_EMPTY_PARAMETER_CAPTURES: AnyArray<LocalSlotId> = AnyArray::empty());
+static_starlark_value!(VALUE_EMPTY_PARAMETER_TYPES: AnyArray<ParameterTypeCompiled> = AnyArray::empty());
 
 #[derive(thiserror::Error, Debug)]
 enum DefError {
@@ -319,6 +321,22 @@ impl<T> ParametersCompiled<T> {
         })
     }
 
+    /// The type-annotated parameters, for [`DefInfo::parameter_types`].
+    pub(crate) fn parameter_types(&self, heap: &FrozenHeap) -> Vec<ParameterTypeCompiled> {
+        self.params
+            .iter()
+            .enumerate()
+            .filter_map(|(i, x)| {
+                let (name, ty) = x.name_ty();
+                ty.map(|ty| ParameterTypeCompiled {
+                    slot: LocalSlotId(i as u32),
+                    name: heap.alloc_str_intern(&name.name),
+                    ty,
+                })
+            })
+            .collect()
+    }
+
     pub(crate) fn parameter_captures(&self) -> Vec<LocalSlotId> {
         self.params
             .iter()
@@ -369,6 +387,17 @@ impl<T> ParametersCompiled<T> {
     }
 }
 
+/// Type annotation on a parameter: shared per def site in
+/// [`DefInfo::parameter_types`], sparse, in parameter order.
+#[derive(Debug, Clone, Copy, Dupe, StarlarkPagable)]
+pub(crate) struct ParameterTypeCompiled {
+    /// The parameter's local slot, which equals its parameter index.
+    pub(crate) slot: LocalSlotId,
+    /// Parameter name, for error messages.
+    pub(crate) name: FrozenStringValue,
+    pub(crate) ty: TypeCompiled<FrozenValue>,
+}
+
 /// Copy local variable slot to nested function.
 #[derive(
     Debug,
@@ -394,6 +423,8 @@ pub(crate) struct DefInfo {
     pub(crate) signature_span: FrozenFileSpan,
     /// Indices of parameters, which are captured in nested defs.
     parameter_captures: FrozenAnyArray<LocalSlotId>,
+    /// Type annotations on parameters, sparse, in parameter order.
+    pub(crate) parameter_types: FrozenAnyArray<ParameterTypeCompiled>,
     /// Type of this function, for the typechecker.
     #[starlark_pagable(pagable)]
     ty: Ty,
@@ -434,6 +465,7 @@ impl DefInfo {
             name: const_frozen_string!("<module>"),
             signature_span: FrozenFileSpan::default(),
             parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.unpack(),
+            parameter_types: VALUE_EMPTY_PARAMETER_TYPES.unpack(),
             ty: Ty::any(),
             codemap,
             docstring: None,
@@ -552,6 +584,10 @@ impl Compiler<'_, '_, '_, '_> {
                 .eval
                 .frozen_heap()
                 .alloc_any_array_value(&params.parameter_captures()),
+            parameter_types: self
+                .eval
+                .frozen_heap()
+                .alloc_any_array_value(&params.parameter_types(self.eval.frozen_heap())),
             ty,
             codemap: self.codemap,
             docstring,
@@ -596,9 +632,6 @@ pub(crate) struct DefGen<V> {
     /// Indices of parameters, which are captured in nested defs.
     /// This is a copy of `DefInfo.parameter_captures`.
     parameter_captures: FrozenAnyArray<LocalSlotId>,
-    // The types of the parameters.
-    // (Sparse indexed array, (0, argm T) implies parameter 0 named arg must have type T).
-    parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
@@ -607,7 +640,7 @@ pub(crate) struct DefGen<V> {
     /// Any variables captured from the outer scope (nested def/lambda).
     /// Values are either [`Value`] or [`FrozenValue`] pointing respectively to
     /// [`ValueCaptured`] or [`FrozenValueCaptured`].
-    captured: Vec<V>,
+    captured: Box<[V]>,
     // Important to ignore these field as it probably references DefGen in a cycle
     #[derivative(Debug = "ignore")]
     /// A reference to the module where the function is defined after the module has been frozen.
@@ -665,7 +698,6 @@ impl<'v> AllocValue<'v> for Def<'v> {
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        parameter_types: Vec<(LocalSlotId, String, TypeCompiled<FrozenValue>)>,
         return_type: Option<TypeCompiled<FrozenValue>>,
         stmt: FrozenAnyValue<DefInfo>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -673,11 +705,11 @@ impl<'v> Def<'v> {
         let captured = stmt
             .parent
             .as_ref()
-            .map(|copy| eval.clone_slot_capture(copy, &stmt));
+            .map(|copy| eval.clone_slot_capture(copy, &stmt))
+            .into_boxed_slice();
         Ok(eval.heap().alloc(Self {
             parameters,
             parameter_captures: stmt.parameter_captures,
-            parameter_types,
             return_type,
             captured,
             module: AtomicFrozenAnyValueOption::new(eval.top_frame_def_frozen_module(false)?),
@@ -696,13 +728,15 @@ impl<'v> FreezeBranded for Def<'v> {
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenDef> {
         let parameters = FreezeBranded::freeze(self.parameters, freezer)?;
-        let captured = self.captured.try_map(|x| freezer.freeze(*x))?;
+        let captured = self
+            .captured
+            .into_vec()
+            .into_try_map(|x| freezer.freeze(x))?
+            .into_boxed_slice();
         let module = AtomicFrozenAnyValueOption::new(self.module.load_relaxed());
         Ok(FrozenDef {
             parameters,
             parameter_captures: self.parameter_captures,
-            // Already in frozen form.
-            parameter_types: self.parameter_types,
             return_type: self.return_type,
             def_info: self.def_info,
             captured,
@@ -744,9 +778,9 @@ where
 
     fn documentation(&self) -> DocItem {
         let mut parameter_types = vec![Ty::any(); self.parameters.len()];
-        for (idx, _, ty) in &self.parameter_types {
+        for pt in self.def_info.parameter_types.iter() {
             // Local slot number for parameter is the same as parameter index.
-            parameter_types[idx.0 as usize] = ty.as_ty().clone();
+            parameter_types[pt.slot.0 as usize] = pt.ty.as_ty().clone();
         }
 
         let return_type = self.return_type.map_or(Ty::any(), |r| r.as_ty().clone());
@@ -790,12 +824,12 @@ where
         } else {
             None
         };
-        for (i, arg_name, ty) in &self.parameter_types {
-            match eval.current_frame.get_slot(i.to_captured_or_not()) {
+        for pt in self.def_info.parameter_types.iter() {
+            match eval.current_frame.get_slot(pt.slot.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
                 }
-                Some(v) => ty.check_type(v, Some(arg_name))?,
+                Some(v) => pt.ty.check_type(v, Some(pt.name.as_str()))?,
             }
         }
         if let Some(start) = start {
@@ -880,7 +914,7 @@ where
     ) -> crate::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
-        if !self.parameter_types.is_empty() {
+        if !self.def_info.parameter_types.is_empty() {
             self.check_parameter_types(eval)?;
         }
 
