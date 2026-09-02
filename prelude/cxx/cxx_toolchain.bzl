@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//cxx:compile.bzl", "compiler_info_with_toolchain_argsfiles")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "AsCompilerInfo",
@@ -168,6 +169,24 @@ def cxx_toolchain_impl(ctx):
         if ctx.attrs.rc_compiler
         else None
     )
+
+    c_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "c", CCompilerInfo, c_info)
+    objc_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "objc", ObjcCompilerInfo, objc_info)
+    cxx_info = compiler_info_with_toolchain_argsfiles(
+        ctx.actions,
+        "cxx",
+        CxxCompilerInfo,
+        cxx_info,
+        # Only the cxx info can be precompiled for C++20 modules.
+        precompile_filter = ctx.attrs.internal_tools[CxxInternalTools].filter_argsfile,
+    )
+    objcxx_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "objcxx", ObjcxxCompilerInfo, objcxx_info)
+    asm_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "asm", AsmCompilerInfo, asm_info)
+    as_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "as", AsCompilerInfo, as_info)
+    cuda_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "cuda", CudaCompilerInfo, cuda_info)
+    hip_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "hip", HipCompilerInfo, hip_info)
+    cvtres_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "cvtres", CvtresCompilerInfo, cvtres_info)
+    rc_info = compiler_info_with_toolchain_argsfiles(ctx.actions, "rc", RcCompilerInfo, rc_info)
 
     linker_type = LinkerType(ctx.attrs.linker_type)
     linker_info = LinkerInfo(

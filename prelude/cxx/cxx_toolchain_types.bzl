@@ -153,6 +153,9 @@ _compiler_fields = [
     # An optional argsfile that contains the preprocessor flags and the compiler flags,
     # formatted for xcode.
     "argsfile_xcode",  # `cmd_args | None`
+    # An optional copy of `argsfile` filtered for C++20 module precompilation,
+    # as an `argsfile_with_artifacts()` value.
+    "argsfile_precompile",  # `cmd_args | None`
     "preprocessor",
     "preprocessor_type",
     "preprocessor_flags",
@@ -173,6 +176,15 @@ HipCompilerInfo = provider(fields = _compiler_fields)
 ObjcCompilerInfo = provider(fields = _compiler_fields)
 ObjcxxCompilerInfo = provider(fields = _compiler_fields)
 RcCompilerInfo = provider(fields = _compiler_fields)
+
+def compiler_info_with_argsfiles(
+    compiler_info: typing.Any, ctor: typing.Callable, argsfile: cmd_args, argsfile_xcode: cmd_args, argsfile_precompile: cmd_args | None = None
+) -> typing.Any:
+    fields = {k: getattr(compiler_info, k) for k in _compiler_fields}
+    fields["argsfile"] = argsfile
+    fields["argsfile_xcode"] = argsfile_xcode
+    fields["argsfile_precompile"] = argsfile_precompile
+    return ctor(**fields)
 
 DistLtoToolsInfo = provider(
     fields = dict(

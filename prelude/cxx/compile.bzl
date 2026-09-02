@@ -37,7 +37,7 @@ load(
     "XCODE_ARG_SUBSTITUTIONS",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
-load("@prelude//utils:argfile.bzl", "argsfile_with_artifacts")
+load("@prelude//utils:argfile.bzl", "argsfile_with_artifacts", _mk_argsfile = "mk_argsfile")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
@@ -57,7 +57,7 @@ load(
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_library_utility.bzl", "EMPTY_DEFAULT_INFO")
 load(":cxx_sources.bzl", "CxxSrcWithFlags")
-load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
+load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode", "compiler_info_with_argsfiles")
 load(":cxx_types.bzl", "CxxRuleConstructorParams")
 load(":debug.bzl", "SplitDebugMode")
 load(
@@ -1706,6 +1706,60 @@ def _add_compiler_info_flags(compiler_info: typing.Any) -> list:
 
     return cmd
 
+def mk_toolchain_precompile_argsfile(actions: AnalysisActions, name: str, argsfile: cmd_args, filter_argsfile: RunInfo) -> cmd_args:
+    """
+    Copy a toolchain argsfile with flags that are invalid for C++20 module
+    precompilation filtered out. One filter action per toolchain, run only if
+    a precompile demands it. `argsfile` is an `argsfile_with_artifacts()`
+    value; the filtered copy carries everything the original carried.
+    """
+    filtered = actions.declare_output(name + "_toolchain_args_precompile", has_content_based_path = True)
+    actions.run(
+        [filter_argsfile, _PRECOMPILE_OPTION_IGNORE_REGEX_STR, argsfile, filtered.as_output()],
+        category = "filter_modules_precompile_argsfile",
+        identifier = name,
+    )
+    return argsfile_with_artifacts(filtered, argsfile)
+
+def compiler_info_with_toolchain_argsfiles(
+    actions: AnalysisActions, name: str, ctor: typing.Callable, compiler_info: typing.Any, precompile_filter: RunInfo | None = None
+) -> typing.Any:
+    """
+    Given a compiler_info that can have a new version made with ctor, this
+    will generate new `argsfile`/`argsfile_xcode` containing the compiler_info's
+    preprocessor and compiler flags. Compile commands use these per-toolchain
+    files, so targets using the toolchain don't each write their own
+    `{ext}.toolchain_cxx_args` copy of the same flags. With `precompile_filter`,
+    also generate `argsfile_precompile`.
+    """
+    if compiler_info == None:
+        return None
+    is_nasm = compiler_info.compiler_type == "nasm"
+    flags = _add_compiler_info_flags(compiler_info)
+    content_based = bool(compiler_info.supports_content_based_paths)
+    argsfile = _mk_argsfile(
+        actions = actions,
+        name = name + "_toolchain_args",
+        args = create_cmd_args(is_nasm, False, flags),
+        has_content_based_path = content_based,
+    )
+    argsfile_xcode = _mk_argsfile(
+        actions = actions,
+        name = name + "_toolchain_args_xcode",
+        args = create_cmd_args(is_nasm, True, flags),
+        has_content_based_path = content_based,
+    )
+    argsfile_precompile = None
+    if precompile_filter != None:
+        argsfile_precompile = mk_toolchain_precompile_argsfile(actions, name, argsfile, precompile_filter)
+    return compiler_info_with_argsfiles(
+        compiler_info,
+        ctor,
+        argsfile,
+        argsfile_xcode,
+        argsfile_precompile,
+    )
+
 def _add_compiler_type_flags(target_label: Label, compiler_type: str, ext: CxxExtension) -> list:
     cmd = []
     cmd.append(get_flags_for_reproducible_build(target_label, compiler_type))
@@ -1883,24 +1937,27 @@ def _mk_argsfiles(
                 # AppleToolchain for C++20 modules. Update this if that changes.
                 fail("C++20 modules are not supported for AppleToolchain")
 
-            # The anon filter takes an `attrs.source()` argsfile, so write a
-            # per-target copy of the flags for it.
-            unfiltered_argsfile = mk_argsfile(filename_prefix + "toolchain_cxx_args", compiler_info_flags)
-            filtered_info_argsfile = actions.anon_target(
-                _filter_precompile_argsfile_anon_rule,
-                {
-                    "allow_cache_upload": impl_params.allow_cache_upload,
-                    "src": unfiltered_argsfile,
-                    "_cxx_toolchain": impl_params._cxx_toolchain,
-                },
-            ).artifact("argsfile")
+            if compiler_info.argsfile_precompile and not is_xcode_argsfile:
+                compiler_info_argsfile = compiler_info.argsfile_precompile
+            else:
+                # The anon filter takes an `attrs.source()` argsfile, so write
+                # a per-target copy of the flags for it.
+                unfiltered_argsfile = mk_argsfile(filename_prefix + "toolchain_cxx_args", compiler_info_flags)
+                filtered_info_argsfile = actions.anon_target(
+                    _filter_precompile_argsfile_anon_rule,
+                    {
+                        "allow_cache_upload": impl_params.allow_cache_upload,
+                        "src": unfiltered_argsfile,
+                        "_cxx_toolchain": impl_params._cxx_toolchain,
+                    },
+                ).artifact("argsfile")
 
-            # The promise artifact doesn't carry the artifacts the flags
-            # reference forward automatically for us; re-pair them.
-            compiler_info_argsfile = argsfile_with_artifacts(
-                actions.assert_has_content_based_path(filtered_info_argsfile),
-                compiler_info_flags,
-            )
+                # The promise artifact doesn't carry the artifacts the flags
+                # reference forward automatically for us; re-pair them.
+                compiler_info_argsfile = argsfile_with_artifacts(
+                    actions.assert_has_content_based_path(filtered_info_argsfile),
+                    compiler_info_flags,
+                )
         elif compiler_info.argsfile and not is_xcode_argsfile:
             compiler_info_argsfile = compiler_info.argsfile
         elif compiler_info.argsfile_xcode and is_xcode_argsfile:
