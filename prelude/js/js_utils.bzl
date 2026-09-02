@@ -10,7 +10,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec")
 load("@prelude//apple:resource_groups.bzl", "ResourceGraphInfo", "create_resource_graph")  # @unused `ResourceGraphInfo` used as a type
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
-load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load(":worker_tool.bzl", "WorkerToolInfo")
@@ -168,12 +167,7 @@ def run_worker_commands(
     worker_tool_info = worker_tool[WorkerToolInfo]
     worker_command = cmd_args(
         worker_tool_info.command.copy(),
-        at_argfile(
-            actions = ctx.actions,
-            name = paths.join(identifier, "{}.js_worker_argsfile".format(category)),
-            args = worker_args,
-            has_content_based_path = has_content_based_path,
-        ),
+        worker_args,
         hidden = [command_args_file] + hidden_artifacts,
     )
 
