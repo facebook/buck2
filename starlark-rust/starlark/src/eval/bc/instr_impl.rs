@@ -73,6 +73,7 @@ use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::util::arc_str::ArcStr;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
@@ -1397,7 +1398,8 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 
 #[derive(Debug, StarlarkPagable)]
 pub(crate) struct InstrDefData {
-    pub(crate) function_name: String,
+    #[starlark_pagable(pagable)]
+    pub(crate) function_name: ArcStr,
     pub(crate) params: ParametersCompiled<u32>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenAnyValue<DefInfo>,

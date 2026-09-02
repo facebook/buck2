@@ -52,6 +52,7 @@ use crate::hint::unlikely;
 use crate::pagable::StarlarkPagable;
 use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
+use crate::util::arc_str::ArcStr;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -126,7 +127,7 @@ enum CurrentParameterStyle {
 
 /// Builder for [`ParametersSpec`]
 pub(crate) struct ParametersSpecBuilder<V> {
-    function_name: String,
+    function_name: ArcStr,
     params: Vec<(String, ParameterKind<V>)>,
     names: SymbolMap<u32>,
     /// Number of parameters that can be filled only positionally.
@@ -149,7 +150,8 @@ pub(crate) struct ParametersSpecBuilder<V> {
 #[starlark_pagable(bound = "V: StarlarkPagable")]
 pub struct ParametersSpec<V> {
     /// Only used in error messages
-    function_name: String,
+    #[starlark_pagable(pagable)]
+    function_name: ArcStr,
 
     /// Parameters in the order they occur.
     param_kinds: Box<[ParameterKind<V>]>,
@@ -378,7 +380,7 @@ impl<V> ParametersSpecBuilder<V> {
 impl<V> ParametersSpec<V> {
     /// Create a new [`ParametersSpec`] with the given function name and an advance capacity hint.
     pub(crate) fn with_capacity(
-        function_name: String,
+        function_name: ArcStr,
         capacity: usize,
     ) -> ParametersSpecBuilder<V> {
         ParametersSpecBuilder {
@@ -407,7 +409,7 @@ impl<V> ParametersSpec<V> {
         let named_only = named_only.into_iter();
 
         let mut builder = ParametersSpec::with_capacity(
-            function_name.to_owned(),
+            ArcStr::from(function_name),
             pos_only.size_hint().0
                 + pos_or_named.size_hint().0
                 + args as usize

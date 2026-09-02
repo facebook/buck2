@@ -403,7 +403,8 @@ impl DefInfo {
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct DefCompiled {
-    pub(crate) function_name: String,
+    #[starlark_pagable(pagable)]
+    pub(crate) function_name: ArcStr,
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
     pub(crate) info: FrozenAnyValue<DefInfo>,
@@ -455,7 +456,7 @@ impl Compiler<'_, '_, '_, '_> {
         suite: &CstStmt,
     ) -> Result<ExprCompiled, CompilerInternalError> {
         let file = self.codemap.file_span(suite.span);
-        let function_name = format!("{}.{}", file.file.filename(), name);
+        let function_name = ArcStr::from(format!("{}.{}", file.file.filename(), name).as_str());
         let name = self.eval.frozen_heap().alloc_str_intern(name);
 
         let DefParams { params, indices } = match DefParams::unpack(params, &self.codemap) {
