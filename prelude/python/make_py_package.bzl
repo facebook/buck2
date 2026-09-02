@@ -490,6 +490,7 @@ def _make_py_package_impl(
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
     inplace = package_style == PackageStyle("inplace")
+    include_bytecode = pex_modules.compile and not inplace
 
     runtime_files = []
     sub_targets = {}
@@ -501,13 +502,13 @@ def _make_py_package_impl(
     elif pex_modules.manifests.has_hidden_resources(mode = package_style.value):
         hidden_resources = pex_modules.manifests.hidden_resources(mode = package_style.value)
 
-    pyc_mode = PycInvalidationMode("checked_hash") if inplace else PycInvalidationMode("unchecked_hash")
+    pyc_mode = PycInvalidationMode("unchecked_hash")
 
     # Accumulate all of the artifacts required by the build
     runtime_artifacts = []
     runtime_artifacts.extend(dep_artifacts)
     runtime_artifacts.extend(pex_modules.manifests.resource_artifacts(mode = package_style.value))
-    if pex_modules.compile:
+    if include_bytecode:
         runtime_artifacts.extend(pex_modules.manifests.bytecode_artifacts(pyc_mode))
     if manifest_module:
         runtime_artifacts.extend(manifest_module.artifacts)
@@ -530,6 +531,7 @@ def _make_py_package_impl(
         runtime_artifacts,
         debug_artifacts,
         package_style,
+        include_bytecode,
         pyc_mode,
         symlink_tree_path,
         manifest_module,
@@ -765,11 +767,11 @@ def _make_py_package_live(
         cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = [resources]))
         runtime_files.extend(resource_artifacts)
 
-    if pex_modules.compile:
+    if pex_modules.compile and is_outplace:
         # bytecode is compiled per library so the actual bytecode artifacts are directories
         # the compile command outputs json manifest in the form
         # [(src, dst, origin),]
-        pyc_mode = PycInvalidationMode("unchecked_hash") if is_outplace else PycInvalidationMode("checked_hash")
+        pyc_mode = PycInvalidationMode("unchecked_hash")
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
         bytecode_manifests_path = ctx.actions.write(
             "__bytecode_manifests{}.txt".format(output_suffix),
@@ -1105,6 +1107,7 @@ def _pex_modules_args(
     dep_artifacts: list[ArgLike],
     debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
     package_style: PackageStyle,
+    include_bytecode: bool,
     pyc_mode: PycInvalidationMode,
     symlink_tree_path: Artifact | None,
     manifest_module: ManifestModule | None,
@@ -1124,7 +1127,7 @@ def _pex_modules_args(
     if manifest_module != None:
         cmd.append(cmd_args(manifest_module.manifest, format = "--module-manifest={}"))
 
-    if pex_modules.compile:
+    if include_bytecode:
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
 
         bytecode_manifests_path = ctx.actions.write(

@@ -155,7 +155,7 @@ def python_executable(
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
 
         python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-        if get_package_style(ctx) != PackageStyle("inplace") and python_toolchain.pyc_compilation_enabled:
+        if python_toolchain.pyc_compilation_enabled:
             bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     all_default_resources = {}
