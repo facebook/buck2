@@ -100,6 +100,12 @@ def main():
         help="How many times to repeat",
     )
     parser.add_argument(
+        "--starlark",
+        default=None,
+        type=str,
+        help="Path to a prebuilt starlark binary; skips the cargo build",
+    )
+    parser.add_argument(
         "benchmarks",
         nargs="*",
         type=str,
@@ -107,7 +113,7 @@ def main():
     )
     args = parser.parse_args()
 
-    starlark = compile_starlark()
+    starlark = args.starlark or compile_starlark()
     with tempfile.TemporaryDirectory() as dir:
         benchmarks = generate_benchmarks(dir)
         for name, file in benchmarks.items():

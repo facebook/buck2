@@ -68,6 +68,23 @@ struct Args {
     /// Also freeze the module after evaluation (requires --eval).
     #[arg(long, default_value_t = false)]
     freeze: bool,
+
+    /// Measure lambda instantiation instead of function definitions:
+    /// one lambda site instantiated `num_instances` times.
+    #[arg(long, default_value_t = false)]
+    lambdas: bool,
+
+    /// Number of lambda instances to create (requires --lambdas).
+    #[arg(long, default_value_t = 1_000_000, requires = "lambdas")]
+    num_instances: usize,
+
+    /// Number of parameters on the lambda (requires --lambdas).
+    #[arg(long, default_value_t = 2, requires = "lambdas")]
+    lambda_params: usize,
+
+    /// Give every lambda parameter a default value (requires --lambdas).
+    #[arg(long, default_value_t = false, requires = "lambdas")]
+    lambda_defaults: bool,
 }
 
 /// Read RSS (Resident Set Size) in bytes from /proc/self/status on Linux.
@@ -127,6 +144,38 @@ fn generate_source(num_functions: usize, body_size: usize) -> String {
         writeln!(source).unwrap();
     }
 
+    source
+}
+
+/// Generate a program with a single lambda site instantiated many times.
+///
+/// Sharing one site isolates the per-instance cost (`DefGen`, its
+/// `ParametersSpec`, captured slots) from the per-site cost (`DefInfo`),
+/// which is paid only once. Each instance captures `i` so instances cannot
+/// collapse into a constant.
+fn generate_lambda_source(num_instances: usize, params: usize, defaults: bool) -> String {
+    let mut source = String::new();
+    writeln!(source, "def mk(i):").unwrap();
+    if params == 0 {
+        writeln!(source, "    return lambda: i").unwrap();
+    } else {
+        let param_list = (0..params)
+            .map(|p| {
+                if defaults {
+                    format!("p{p} = i")
+                } else {
+                    format!("p{p}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(source, "    return lambda {param_list}: i").unwrap();
+    }
+    writeln!(
+        source,
+        "instances = [mk(i) for i in range({num_instances})]"
+    )
+    .unwrap();
     source
 }
 
@@ -194,15 +243,31 @@ fn main() {
         std::process::exit(1);
     }
 
+    if args.lambdas && args.num_instances == 0 {
+        eprintln!("Error: --num-instances must be at least 1");
+        std::process::exit(1);
+    }
+
     println!("=== Starlark Memory Benchmark ===");
-    println!(
-        "Configuration: {} functions, body_size={}",
-        args.num_functions, args.body_size
-    );
+    if args.lambdas {
+        println!(
+            "Configuration: {} lambda instances, lambda_params={}, lambda_defaults={}",
+            args.num_instances, args.lambda_params, args.lambda_defaults
+        );
+    } else {
+        println!(
+            "Configuration: {} functions, body_size={}",
+            args.num_functions, args.body_size
+        );
+    }
 
     // Generate source code
     let gen_start = Instant::now();
-    let source = generate_source(args.num_functions, args.body_size);
+    let source = if args.lambdas {
+        generate_lambda_source(args.num_instances, args.lambda_params, args.lambda_defaults)
+    } else {
+        generate_source(args.num_functions, args.body_size)
+    };
     let gen_time = gen_start.elapsed();
     println!(
         "Source code: {} ({} bytes), generated in {:.1}s",
@@ -258,6 +323,12 @@ fn main() {
             println!("Peak heap:        {}", format_mb(heap_peak));
             println!("RSS after eval:   {}", format_mb(rss_after_eval));
             println!("Eval time:        {:.1}s", eval_time.as_secs_f64());
+            if args.lambdas {
+                println!(
+                    "Heap per instance: {} bytes",
+                    heap_allocated / args.num_instances
+                );
+            }
 
             // Freeze phase (optional)
             if args.freeze {
@@ -274,6 +345,12 @@ fn main() {
                 println!("Frozen heap:      {}", format_mb(frozen_heap_bytes));
                 println!("RSS after freeze: {}", format_mb(rss_after_freeze));
                 println!("Freeze time:      {:.1}s", freeze_time.as_secs_f64());
+                if args.lambdas {
+                    println!(
+                        "Frozen heap per instance: {} bytes",
+                        frozen_heap_bytes / args.num_instances
+                    );
+                }
 
                 // Keep frozen alive until after measurement
                 drop(frozen);
