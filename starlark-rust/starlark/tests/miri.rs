@@ -28,6 +28,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::FrozenHeapName;
 use starlark::values::Heap;
 use starlark::values::Value;
 use starlark::values::list::AllocList;
@@ -91,6 +92,6 @@ fn single_character_module_name() {
         let value = module.heap().alloc("value");
         module.set("x", value);
         assert_eq!(module.get("x").unwrap().unpack_str(), Some("value"));
-        module.freeze().unwrap();
+        module.freeze_named(FrozenHeapName::user("miri")).unwrap();
     });
 }
