@@ -1,12 +1,16 @@
-load("@prelude//toolchains/android/tools:build_rules.bzl", "standard_java_test")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_test")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
 
 source_listing()
 
-standard_java_test(
+buck_kotlin_test(
     name = "kotlin",
+    srcs = glob([
+        "*Test.java",
+        "*Test.kt",
+    ]),
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
@@ -26,6 +30,7 @@ standard_java_test(
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/kotlinc/incremental:incremental",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/ksp/incremental:incremental",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
         "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",

@@ -205,14 +205,14 @@ class JarsActionMetadataTest {
   }
 
   @Test
-  fun `when jar file with uppercase extension then filters correctly`() {
+  fun `when jar file with uppercase extension then it is not treated as a jar`() {
     val previousDigest = mutableMapOf(Paths.get("lib1.JAR") to "digest1")
     val currentDigest = mutableMapOf(Paths.get("lib1.JAR") to "digest1")
 
     val actionMetadata = ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest)
     val jarsActionMetadata = JarsActionMetadata(actionMetadata)
 
-    assertEquals(1, jarsActionMetadata.previousJarsDigest.size)
-    assertEquals(1, jarsActionMetadata.currentJarsDigest.size)
+    assertEquals(0, jarsActionMetadata.previousJarsDigest.size)
+    assertEquals(0, jarsActionMetadata.currentJarsDigest.size)
   }
 }
