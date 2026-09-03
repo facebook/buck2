@@ -110,10 +110,6 @@ mod fbcode {
         pub shared_casd_address: Option<CASdAddress>,
         pub shared_casd_use_tls: Option<bool>,
         pub cas_client_label: Option<String>,
-        pub action_cache_address: Option<String>,
-        pub action_cache_connection_count: i32,
-        pub engine_address: Option<String>,
-        pub engine_connection_count: i32,
         // End gRPC settings
         pub verbose_logging: bool,
 
@@ -229,26 +225,6 @@ mod fbcode {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_client_label_v2",
                 })?,
-                action_cache_address: legacy_config.parse(BuckconfigKeyRef {
-                    section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "action_cache_address",
-                })?,
-                action_cache_connection_count: legacy_config
-                    .parse(BuckconfigKeyRef {
-                        section: BUCK2_RE_CLIENT_CFG_SECTION,
-                        property: "action_cache_connection_count",
-                    })?
-                    .unwrap_or(4),
-                engine_address: legacy_config.parse(BuckconfigKeyRef {
-                    section: BUCK2_RE_CLIENT_CFG_SECTION,
-                    property: "engine_address",
-                })?,
-                engine_connection_count: legacy_config
-                    .parse(BuckconfigKeyRef {
-                        section: BUCK2_RE_CLIENT_CFG_SECTION,
-                        property: "engine_connection_count",
-                    })?
-                    .unwrap_or(4),
                 verbose_logging: legacy_config
                     .parse(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
