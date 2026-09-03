@@ -2288,7 +2288,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             )
 
             extra_args = {} # @oss-enable
-            # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
+            # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path, soname)
             relinker_output_args = get_extra_relinker_args(ctx, output_path)
             extra_args = merge_extra_linker_args([extra_args, relinker_output_args])
             shared_lib = create_shared_lib(
