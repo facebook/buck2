@@ -202,7 +202,9 @@ fn create_endpoint(
     // Do not set `Endpoint::timeout` here. CAS, AC, and Execute share this
     // channel when they share a frontend address; a channel timeout would
     // abort long-running Execute streams. Unary CAS/AC RPCs are bounded in
-    // `client.rs` via `await_rpc` instead.
+    // `client.rs` via `await_rpc`; Execute stream waits via
+    // `grpc_execute_without_action_timeout_secs` /
+    // `grpc_execute_after_action_timeout_secs`.
 
     Ok(endpoint)
 }
