@@ -252,6 +252,14 @@ def _rust_binary_common(
         link_strategy = link_strategy,
         transformation_spec_context = transformation_spec_context,
     )
+
+    # Link groups repartition the dependency graph's code — including the
+    # Rust code — into group libraries, filtering the main link accordingly.
+    # Without advanced_unstable_linking, rustc links the full dep rlib set no
+    # matter what, so the grouped code would be linked twice; this cannot be
+    # made correct.
+    if rust_cxx_link_group_info != None and not toolchain_info.advanced_unstable_linking:
+        fail("link groups on Rust binaries require `advanced_unstable_linking`")
     if rust_cxx_link_group_info != None:
         link_group_mappings = rust_cxx_link_group_info.link_group_info.mappings
         link_group_libs = rust_cxx_link_group_info.link_group_libs
@@ -386,7 +394,6 @@ def _rust_binary_common(
         predeclared_output = None if links_via_cxx else predeclared_output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
-        rust_cxx_link_group_info = rust_cxx_link_group_info,
         transformation_spec_context = transformation_spec_context,
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
@@ -631,7 +638,6 @@ def _rust_binary_common(
             default_roots = default_roots,
             extra_link_args = executable_shlib_args.extra_link_args,
             extra_flags = extra_flags,
-            rust_cxx_link_group_info = rust_cxx_link_group_info,
             incremental_enabled = ctx.attrs.incremental_enabled,
             profile_mode = ProfileMode("llvm-time-trace"),
         )
@@ -643,7 +649,6 @@ def _rust_binary_common(
             default_roots = default_roots,
             extra_link_args = executable_shlib_args.extra_link_args,
             extra_flags = extra_flags,
-            rust_cxx_link_group_info = rust_cxx_link_group_info,
             incremental_enabled = ctx.attrs.incremental_enabled,
             profile_mode = ProfileMode("self-profile"),
         )

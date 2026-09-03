@@ -560,7 +560,6 @@ def rust_compile(
     # compilation fails. This should not generally be used if the "real"
     # output of the action is going to be depended on
     infallible_diagnostics: bool = False,
-    rust_cxx_link_group_info: RustCxxLinkGroupInfo | None = None,
     transformation_spec_context: TransformationSpecContext | None = None,
     profile_mode: ProfileMode | None = None,
 ) -> RustcOutput:
@@ -710,7 +709,7 @@ def rust_compile(
             ctx,
             compile_ctx,
             params.dep_link_strategy,
-            rust_cxx_link_group_info,
+            None,  # link group info
             transformation_spec_context,
         )
 
