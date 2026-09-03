@@ -7,14 +7,11 @@
 # above-listed licenses.
 
 def _configuration_info(constraints, values, root_values = None):
-    # TODO(scottcao): Pass `root_values` directly once the minimum Buck2 binary
-    # version includes `ConfigurationInfo.root_values`. Until then, omit empty
-    # `root_values` kwargs and use `getattr` below so old binaries can still
-    # load this prelude.
-    kwargs = {}
-    if root_values:
-        kwargs["root_values"] = root_values
-    return ConfigurationInfo(constraints = constraints, values = values, **kwargs)
+    return ConfigurationInfo(
+        constraints = constraints,
+        values = values,
+        root_values = root_values or {},
+    )
 
 def _configuration_info_union(infos):
     if len(infos) == 0:
@@ -26,11 +23,7 @@ def _configuration_info_union(infos):
         return infos[0]
     constraints = {k: v for info in infos for (k, v) in info.constraints.items()}
     values = {k: v for info in infos for (k, v) in info.values.items()}
-    root_values = {}
-    for info in infos:
-        rv = getattr(info, "root_values", {})
-        for k, v in rv.items():
-            root_values[k] = v
+    root_values = {k: v for info in infos for (k, v) in info.root_values.items()}
     return _configuration_info(
         constraints = constraints,
         values = values,

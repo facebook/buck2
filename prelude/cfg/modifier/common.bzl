@@ -103,9 +103,7 @@ def get_modifier_info(refs: dict[str, ProviderCollection], modifier: Modifier, l
                     default = None
             elif key != "_type":
                 cfg_info = refs[key][ConfigurationInfo]
-                # TODO(scottcao): Use `cfg_info.root_values` directly once the
-                # minimum Buck2 binary version includes the field.
-                root_values = getattr(cfg_info, "root_values", {})
+                root_values = cfg_info.root_values
                 if cfg_info.values or root_values:
                     buckconfig_values = cfg_info.values | root_values
                     soft_error(
