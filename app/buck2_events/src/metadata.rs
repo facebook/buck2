@@ -225,6 +225,29 @@ pub fn username() -> buck2_error::Result<Option<String>> {
     }
 }
 
+/// The AI agent driving this process, as the launcher that started it declared in
+/// `BUCK2_CLIENT_METADATA`. `None` when no launcher set one.
+///
+/// Read straight from the environment rather than from the parsed `client_metadata`:
+/// that vec merges in every `--client-metadata` argument, so its `id` is whatever
+/// wrapper ran buck2 last, not the agent the wrapper is running under.
+pub fn agent_identity_from_env() -> Option<String> {
+    agent_id_in(&env::var("BUCK2_CLIENT_METADATA").ok()?)
+}
+
+/// The last non-empty `id` of a comma-separated `key=value` client-metadata string.
+/// Keys and values are trimmed, and an entry whose value is empty does not shadow an
+/// earlier one that names an agent.
+fn agent_id_in(metadata: &str) -> Option<String> {
+    metadata
+        .split(',')
+        .filter_map(|pair| pair.split_once('='))
+        .filter(|(key, _)| key.trim() == "id")
+        .map(|(_, value)| value.trim())
+        .rfind(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 pub fn system_fingerprint() -> Option<String> {
     #[cfg(fbcode_build)]
     {
@@ -252,5 +275,94 @@ mod tests {
         assert_ne!(data["os_version"], "6.2.9200");
         // This is true for both Windows 10 and Windows 11: https://learn.microsoft.com/en-us/windows/win32/sysinfo/operating-system-version
         assert!(data["os_version"].starts_with("10.0."));
+    }
+}
+
+#[cfg(test)]
+mod agent_id_tests {
+    use super::*;
+
+    fn agent_id(metadata: &str) -> Option<String> {
+        agent_id_in(metadata)
+    }
+
+    #[test]
+    fn reads_the_id_a_launcher_writes() {
+        assert_eq!(agent_id("id=claude_code"), Some("claude_code".to_owned()));
+        assert_eq!(
+            agent_id("id=claude_code,invocation_id=inv,session_id=sess"),
+            Some("claude_code".to_owned()),
+        );
+    }
+
+    #[test]
+    fn keeps_the_warmup_variant_distinct_from_the_agent() {
+        // The launcher suffixes only this variable, so warmup must not collapse
+        // into `claude_code` -- it is the larger share of buck2 traffic.
+        assert_eq!(
+            agent_id("id=claude_code_warmup,invocation_id=inv"),
+            Some("claude_code_warmup".to_owned()),
+        );
+    }
+
+    #[test]
+    fn finds_the_id_in_any_position() {
+        assert_eq!(
+            agent_id("invocation_id=inv,id=codex"),
+            Some("codex".to_owned()),
+        );
+    }
+
+    #[test]
+    fn a_duplicate_id_resolves_to_the_last() {
+        assert_eq!(agent_id("id=first,id=last"), Some("last".to_owned()));
+    }
+
+    #[test]
+    fn an_empty_id_does_not_shadow_an_earlier_one() {
+        assert_eq!(
+            agent_id("id=claude_code,id="),
+            Some("claude_code".to_owned())
+        );
+        assert_eq!(
+            agent_id("id=claude_code,id=   "),
+            Some("claude_code".to_owned()),
+        );
+    }
+
+    #[test]
+    fn keys_and_values_are_trimmed() {
+        assert_eq!(agent_id("id= claude_code "), Some("claude_code".to_owned()));
+        assert_eq!(
+            agent_id("invocation_id=inv, id =claude_code"),
+            Some("claude_code".to_owned()),
+        );
+    }
+
+    #[test]
+    fn a_key_that_merely_ends_in_id_is_not_the_id() {
+        assert_eq!(agent_id("invocation_id=inv"), None);
+        assert_eq!(agent_id("session_id=sess"), None);
+        assert_eq!(agent_id("parent_id=outer"), None);
+    }
+
+    #[test]
+    fn names_no_agent_without_a_usable_id() {
+        assert_eq!(agent_id(""), None);
+        assert_eq!(agent_id("id="), None);
+        assert_eq!(agent_id("no_equals_sign"), None);
+    }
+
+    #[test]
+    fn a_value_may_contain_the_separator() {
+        assert_eq!(agent_id("id=a=b"), Some("a=b".to_owned()));
+    }
+
+    #[test]
+    fn a_padded_key_still_names_the_id() {
+        assert_eq!(
+            agent_id("invocation_id=inv, id=claude_code"),
+            Some("claude_code".to_owned()),
+        );
     }
 }

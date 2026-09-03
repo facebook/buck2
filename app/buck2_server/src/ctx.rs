@@ -1312,8 +1312,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             );
         }
 
-        #[cfg(all(fbcode_build, target_os = "linux"))]
-        if let Some(agent_identity) = identity_env::agent_identity_from_env() {
+        if let Some(agent_identity) = buck2_events::metadata::agent_identity_from_env() {
             metadata.insert("daemon_agent_identity_from_env".to_owned(), agent_identity);
         }
 

@@ -55,6 +55,7 @@ use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_event_observer::last_command_execution_kind::get_last_command_execution_time;
 use buck2_events::BuckEvent;
 use buck2_events::daemon_id::DaemonId;
+use buck2_events::metadata;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::error::IoResultExt;
@@ -1416,12 +1417,8 @@ impl InvocationRecorder {
     fn default_metadata() -> buck2_data::TypedMetadata {
         let mut ints = IntentionallyStdHashMap::new();
         ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
-        // `strings` is only mutated under the cfg-gated block below, so in any other build
-        // configuration (notably OSS) the `mut` is unused and trips `-D unused_mut`.
-        #[cfg_attr(not(all(fbcode_build, target_os = "linux")), allow(unused_mut))]
         let mut strings = IntentionallyStdHashMap::new();
-        #[cfg(all(fbcode_build, target_os = "linux"))]
-        if let Some(agent_identity) = identity_env::agent_identity_from_env() {
+        if let Some(agent_identity) = metadata::agent_identity_from_env() {
             strings.insert("client_agent_identity_from_env".to_owned(), agent_identity);
         }
         buck2_data::TypedMetadata { ints, strings }
