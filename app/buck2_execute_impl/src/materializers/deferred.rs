@@ -26,6 +26,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::time::Duration as StdDuration;
 
 use allocative::Allocative;
 use artifact_tree::ArtifactMaterializationMethod;
@@ -43,6 +44,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -131,6 +133,10 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
     eager_materialization_enabled: bool,
+    /// Bound on waiting for `buck2-dm` to dequeue `Ensure`. `None` disables.
+    /// Does not bound the CAS download that follows; that is the RE client RPC timeout.
+    #[allocative(skip)]
+    ensure_timeout: Option<StdDuration>,
 
     io: Arc<T>,
 
@@ -165,6 +171,9 @@ pub struct DeferredMaterializerConfigs {
     pub clean_stale_config: Option<CleanStaleConfig>,
     pub disable_eager_write_dispatch: bool,
     pub eager_materialization_enabled: bool,
+    /// Client-side timeout waiting for `buck2-dm` to accept `Ensure`.
+    /// Default 60s. `None` disables. Does not bound the download future.
+    pub ensure_timeout: Option<StdDuration>,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -539,9 +548,26 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 sender,
             ))
             .buck_error_context("Sending Ensure() command.")?;
-        let materialization_fut = recv
-            .await
-            .buck_error_context("Receiving materialization future from command thread.")?;
+        // Bound only this oneshot. If `buck2-dm` is stuck in sqlite/WAL/clean-stale,
+        // `Ensure` is never dequeued and no CAS RPC is sent. The download future
+        // returned here is already bounded by the RE client RPC timeout.
+        let materialization_fut = if let Some(timeout) = self.ensure_timeout {
+            match tokio::time::timeout(timeout, recv).await {
+                Ok(r) => {
+                    r.buck_error_context("Receiving materialization future from command thread.")?
+                }
+                Err(_) => {
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::MaterializationError,
+                        "Materializer did not accept `Ensure` within {:?}; `buck2-dm` may be stuck",
+                        timeout
+                    ));
+                }
+            }
+        } else {
+            recv.await
+                .buck_error_context("Receiving materialization future from command thread.")?
+        };
         Ok(materialization_fut)
     }
 
@@ -741,6 +767,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
             eager_materialization_enabled: configs.eager_materialization_enabled,
+            ensure_timeout: configs.ensure_timeout,
             io,
             materializer_state_info,
             stats,

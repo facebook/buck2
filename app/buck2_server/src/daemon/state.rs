@@ -489,6 +489,15 @@ impl DaemonState {
                     .unwrap_or_else(RolloutPercentage::never)
                     .roll();
 
+                let ensure_timeout = match root_config.parse::<u64>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer_ensure_timeout_secs",
+                })? {
+                    None => Some(std::time::Duration::from_secs(60)),
+                    Some(0) => None,
+                    Some(n) => Some(std::time::Duration::from_secs(n)),
+                };
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -505,6 +514,7 @@ impl DaemonState {
                     clean_stale_config,
                     disable_eager_write_dispatch,
                     eager_materialization_enabled,
+                    ensure_timeout,
                 }
             };
             let disable_eager_write_dispatch =
