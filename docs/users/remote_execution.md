@@ -38,6 +38,12 @@ Keys supported include:
   interpolation syntax ($VAR). They will be substituted before reading the file.
 - `instance_name` - an instance name to pass on execution, action cache, and CAS
   requests.
+- `grpc_timeout_secs` - client-side timeout in seconds for unary CAS and action
+  cache RPCs (`BatchReadBlobs`, `GetActionResult`, `FindMissingBlobs`,
+  `BatchUpdateBlobs`). Default `60`. Set to `0` to disable. Not applied to
+  `Execute`.
+- `grpc_stream_timeout_secs` - client-side timeout in seconds for ByteStream
+  `Read`/`Write`. Default `600`. Set to `0` to disable.
 
 Buck2 uses `SHA256` for all its hashing by default. If your RE engine requires
 something else, this can be configured in `.buckconfig` as follows:
