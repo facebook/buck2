@@ -452,6 +452,15 @@ impl TenantState {
             let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
             clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
 
+            let ensure_timeout = match root_config.parse::<u64>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "materializer_ensure_timeout_secs",
+            })? {
+                None => Some(Duration::from_secs(60)),
+                Some(0) => None,
+                Some(n) => Some(Duration::from_secs(n)),
+            };
+
             DeferredMaterializerConfigs {
                 materialize_final_artifacts: matches!(
                     final_artifact_materialization,
@@ -466,6 +475,7 @@ impl TenantState {
                 update_access_times,
                 verbose_materializer_log,
                 clean_stale_config,
+                ensure_timeout,
             }
         };
 
