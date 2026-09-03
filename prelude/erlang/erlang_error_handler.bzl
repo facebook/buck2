@@ -120,5 +120,4 @@ def erlang_extract_otp_app_error_handler(ctx: ActionErrorCtx) -> list[ActionSubE
 
 erlang_action_error_handler = ErlangErrorHandlers(
     erlc = erlang_erlc_action_error_handler,
-    extract_otp_app = erlang_extract_otp_app_error_handler,
 )

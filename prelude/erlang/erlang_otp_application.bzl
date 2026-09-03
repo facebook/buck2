@@ -6,11 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:paths.bzl", "paths")
-load(
-    ":erlang_build.bzl",
-    "erlang_build",
-)
 load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo")
 load(
     ":erlang_toolchain.bzl",
@@ -82,42 +77,12 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
 
     toolchain = get_toolchain(ctx)
 
-    # Look up version from toolchain applications
-    version = None
-    for app_info in toolchain.erts_toolchain_info.applications:
-        if app_info.name == ctx.attrs.name:
-            version = app_info.version
-            break
-
-    # Support dynamic mode (for include_erts=False) and explicit mode (for include_erts=True)
-    if version == None:
-        # Application not in toolchain's explicit list
-        # Use wildcard to attempt discovery at build time
-        # This allows the analysis phase to succeed even if the app doesn't exist
-        # The actual error will happen during extraction if the app is truly missing
-        wildcard = paths.join("lib", ctx.attrs.name + "-*")
-        app_dir = ctx.actions.declare_output(ctx.attrs.name, dir = True, has_content_based_path = False)
-        version = "dynamic"
-    else:
-        # Explicit version found - use versioned directory
-        wildcard = paths.join("lib", ctx.attrs.name + "-" + version)
-        app_dir = ctx.actions.declare_output(ctx.attrs.name + "-" + version, dir = True, has_content_based_path = False)
-
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        cmd_args(toolchain.extract_from_otp, wildcard, app_dir.as_output()),
-        identifier = ctx.attrs.name,
-        category = "extract_otp_app",
-        error_handler = toolchain.error_handler.extract_otp_app,
-    )
-
     return [
         DefaultInfo(),
         ErlangAppOrTestInfo(),
         ErlangAppInfo(
             name = ctx.attrs.name,
-            version = version,
+            version = "dynamic",
             beams = [],
             includes = [],
             dependencies = {},
@@ -125,7 +90,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
             start_dependencies = None,
             include_dir = None,
             virtual = True,
-            app_folder = app_dir,
+            app_folder = toolchain.erts_toolchain_info.applications.get(ctx.attrs.name) if toolchain.erts_toolchain_info else None,
         ),
     ]
 

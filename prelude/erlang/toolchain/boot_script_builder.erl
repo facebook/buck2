@@ -65,7 +65,7 @@ build_no_dot_erlang_boot(
     PathOption,
     RelName,
     RelVersion,
-    _OTPAppMapping
+    OTPAppMapping
 ) ->
     {OTPApps, _Others} = lists:partition(
         fun(#{<<"resolved">> := Resolved}) -> not Resolved end,
@@ -80,7 +80,8 @@ build_no_dot_erlang_boot(
                 OTPApps
             )
         of
-            {value, #{<<"version">> := KernelVersion}} ->
+            {value, _} ->
+                #{<<"kernel">> := #{version := KernelVersion}} = OTPAppMapping,
                 {kernel, binary_to_list(KernelVersion)};
             false ->
                 error({abort, "kernel version not found in OTPApps"})
@@ -94,7 +95,8 @@ build_no_dot_erlang_boot(
                 OTPApps
             )
         of
-            {value, #{<<"version">> := StdLibVersion}} ->
+            {value, _} ->
+                #{<<"stdlib">> := #{version := StdLibVersion}} = OTPAppMapping,
                 {stdlib, binary_to_list(StdLibVersion)};
             false ->
                 error({abort, "stdlib version not found in OTPApps"})

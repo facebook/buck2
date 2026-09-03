@@ -10,10 +10,12 @@
 -compile(warn_missing_spec_all).
 -author("loscher@meta.com").
 -moduledoc """
-Copy ERTS for releases to the given location
+Take parts of the OTP a release is built from, and introspect the versions it ships
 
 usage:
-  extract_from_otp.erl wildcard target
+  extract_from_otp.erl versions Target
+  extract_from_otp.erl extract_into Wildcard Target
+  extract_from_otp.erl Wildcard Target
 """.
 
 %% escript API
@@ -35,6 +37,10 @@ usage:
 %%%=============================================================================
 
 -spec main([string()]) -> ok.
+main(["versions", Target]) ->
+    ok = file:write_file(Target, json:encode(versions()));
+main(["extract_into", Wildcard, Target]) ->
+    ok = extract_into(Wildcard, Target);
 main([Wildcard, Target]) ->
     ok = extract(Wildcard, Target);
 main(_) ->
@@ -95,6 +101,45 @@ extract(Wildcard, Target) ->
             }),
             erlang:halt(1)
     end.
+
+-spec extract_into(Wildcard, Target) -> ok when Wildcard :: string(), Target :: string().
+extract_into(Wildcard, Target) ->
+    FullWildcard = filename:join(code:root_dir(), Wildcard),
+    case filelib:wildcard(FullWildcard, ".", prim_file) of
+        [] ->
+            ?extract_from_otp_error(?no_matches_for_wildcard, #{
+                message => ?FMT("No matches found for wildcard: ~ts", [FullWildcard]),
+                wildcard => bin(FullWildcard),
+                root_dir => bin(code:root_dir())
+            }),
+            erlang:halt(1);
+        Paths ->
+            ok = filelib:ensure_path(Target),
+            lists:foreach(
+                fun(Path) ->
+                    ok = copy_dir(Path, filename:join(Target, filename:basename(Path)))
+                end,
+                Paths
+            )
+    end.
+
+-spec versions() -> #{binary() => binary() | #{binary() => binary()}}.
+versions() ->
+    LibDir = filename:join(code:root_dir(), "lib"),
+    Applications = lists:foldl(
+        fun(Entry, Acc) ->
+            case string:split(Entry, "-", trailing) of
+                [Name, Version] -> Acc#{bin(Name) => bin(Version)};
+                _ -> Acc
+            end
+        end,
+        #{},
+        filelib:wildcard("*-*", LibDir, prim_file)
+    ),
+    #{
+        <<"erts_version">> => bin(erlang:system_info(version)),
+        <<"applications">> => Applications
+    }.
 
 -spec extract_app_name_from_wildcard(string()) -> {ok, string()} | error.
 extract_app_name_from_wildcard(Wildcard) ->
@@ -161,4 +206,11 @@ parse_installed_application_versions(Dirs) ->
 
 -spec usage() -> ok.
 usage() ->
-    io:format(standard_error, "needs exactly one argument: extract_from_otp.escript wildcard target~n", []).
+    io:format(
+        standard_error,
+        "usage:~n"
+        "  extract_from_otp.erl versions Target~n"
+        "  extract_from_otp.erl extract_into Wildcard Target~n"
+        "  extract_from_otp.erl Wildcard Target~n",
+        []
+    ).
