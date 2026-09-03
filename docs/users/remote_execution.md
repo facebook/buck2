@@ -44,6 +44,15 @@ Keys supported include:
   `Execute`.
 - `grpc_stream_timeout_secs` - client-side timeout in seconds for ByteStream
   `Read`/`Write`. Default `600`. Set to `0` to disable.
+- `grpc_execute_without_action_timeout_secs` - client wait in seconds for the
+  next `Execute` stream message when the action has no `Action.timeout`
+  (`timeout_seconds` unset on `ctx.actions.run`). Default `1800`. Set to `0`
+  to disable. This is not stamped onto the action.
+- `grpc_execute_after_action_timeout_secs` - added to `Action.timeout`
+  (`timeout_seconds`) to form the client wait for the next `Execute` stream
+  message. Default `300`. Set to `0` to wait exactly the action timeout.
+  Independent of `grpc_timeout_secs` so a hung Execute cannot sit until the
+  job dies, without a 60s unary bound killing live actions.
 
 Buck2 uses `SHA256` for all its hashing by default. If your RE engine requires
 something else, this can be configured in `.buckconfig` as follows:

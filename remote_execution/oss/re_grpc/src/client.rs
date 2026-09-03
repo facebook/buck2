@@ -186,6 +186,13 @@ pub struct RECapabilities {
 const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(60);
 /// Default ByteStream `Read`/`Write` timeout. Large blobs can take minutes.
 const DEFAULT_STREAM_TIMEOUT: Duration = Duration::from_secs(600);
+/// Default client wait for the next `Execute` stream message when the action
+/// has no `Action.timeout`. Long enough for a queued compile; short enough
+/// that a dead Execute stream cannot burn a 90-minute CI job.
+const DEFAULT_EXECUTE_WITHOUT_ACTION_TIMEOUT: Duration = Duration::from_secs(1800);
+/// Default added to `Action.timeout` for the client Execute stream wait
+/// (queue leftover + time for the backend to report completion).
+const DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
 pub struct RERuntimeOpts {
@@ -201,6 +208,11 @@ pub struct RERuntimeOpts {
     rpc_timeout: Option<Duration>,
     /// Client-side timeout for ByteStream `Read`/`Write`. `None` disables.
     stream_timeout: Option<Duration>,
+    /// Client wait for the next `Execute` stream message when the action has
+    /// no `Action.timeout`. `None` disables.
+    execute_without_action_timeout: Option<Duration>,
+    /// Added to `Action.timeout` to form the client Execute stream wait.
+    execute_after_action_timeout: Duration,
 }
 
 /// `None` → default. `Some(0)` → disabled. Anything else → that many seconds.
@@ -209,6 +221,28 @@ fn timeout_from_config(secs: Option<u64>, default: Duration) -> Option<Duration>
         None => Some(default),
         Some(0) => None,
         Some(n) => Some(Duration::from_secs(n)),
+    }
+}
+
+/// `None` → default. `Some(n)` (including `0`) → that many seconds. Never
+/// disables: `0` means add nothing to `Action.timeout`.
+fn after_action_timeout_from_config(secs: Option<u64>, default: Duration) -> Duration {
+    match secs {
+        None => default,
+        Some(n) => Duration::from_secs(n),
+    }
+}
+
+/// Client wait for the next `Execute` stream message.
+/// `action_timeout` is REAPI `Action.timeout` (`timeout_seconds` on the run).
+fn execute_stream_wait(
+    action_timeout: Option<Duration>,
+    without: Option<Duration>,
+    after: Duration,
+) -> Option<Duration> {
+    match action_timeout {
+        Some(t) => Some(t.saturating_add(after)),
+        None => without,
     }
 }
 
@@ -360,6 +394,14 @@ impl REClientBuilder {
                 stream_timeout: timeout_from_config(
                     opts.grpc_stream_timeout_secs,
                     DEFAULT_STREAM_TIMEOUT,
+                ),
+                execute_without_action_timeout: timeout_from_config(
+                    opts.grpc_execute_without_action_timeout_secs,
+                    DEFAULT_EXECUTE_WITHOUT_ACTION_TIMEOUT,
+                ),
+                execute_after_action_timeout: after_action_timeout_from_config(
+                    opts.grpc_execute_after_action_timeout_secs,
+                    DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT,
                 ),
             },
             capabilities,
@@ -820,6 +862,11 @@ impl REClient {
             .map(|ep| ep.priority)
             .unwrap_or_default();
 
+        let execute_timeout = execute_stream_wait(
+            execute_request.timeout,
+            self.runtime_opts.execute_without_action_timeout,
+            self.runtime_opts.execute_after_action_timeout,
+        );
         let stream = retry(|| async {
             let stream = self
                 .execution_client()
@@ -835,7 +882,8 @@ impl REClient {
                     },
                     metadata,
                     self.runtime_opts.use_fbcode_metadata,
-                    // Execute is long-running; a unary timeout would abort live actions.
+                    // Do not put the unary CAS timeout on Execute (would abort
+                    // live actions). Stream-message waits use execute_timeout.
                     None,
                 ))
                 .await?
@@ -844,10 +892,26 @@ impl REClient {
         })
         .await?;
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream.try_next().await.context("RE channel error")? {
-                Some(msg) => msg,
-                None => return Ok(None),
+        let stream = futures::stream::try_unfold(stream, move |mut stream| async move {
+            let msg = {
+                let next = stream.try_next();
+                let msg = if let Some(timeout) = execute_timeout {
+                    match tokio::time::timeout(timeout, next).await {
+                        Ok(r) => r.context("RE channel error")?,
+                        Err(_) => {
+                            return Err(tonic::Status::deadline_exceeded(format!(
+                                "client Execute stream timeout ({timeout:?}) expired"
+                            ))
+                            .into());
+                        }
+                    }
+                } else {
+                    next.await.context("RE channel error")?
+                };
+                match msg {
+                    Some(msg) => msg,
+                    None => return Ok(None),
+                }
             };
 
             let status = if msg.done {
@@ -3047,6 +3111,38 @@ mod tests {
     }
 
     #[test]
+    fn test_after_action_timeout_from_config() {
+        assert_eq!(
+            after_action_timeout_from_config(None, DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT
+        );
+        assert_eq!(
+            after_action_timeout_from_config(Some(0), DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            Duration::ZERO
+        );
+        assert_eq!(
+            after_action_timeout_from_config(Some(120), DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            Duration::from_secs(120)
+        );
+    }
+
+    #[test]
+    fn test_execute_stream_wait() {
+        let after = Duration::from_secs(300);
+        let without = Some(Duration::from_secs(1800));
+        assert_eq!(execute_stream_wait(None, without, after), without);
+        assert_eq!(
+            execute_stream_wait(Some(Duration::from_secs(3600)), without, after),
+            Some(Duration::from_secs(3900))
+        );
+        assert_eq!(execute_stream_wait(None, None, after), None);
+        assert_eq!(
+            execute_stream_wait(Some(Duration::from_secs(60)), None, Duration::ZERO),
+            Some(Duration::from_secs(60))
+        );
+    }
+
+    #[test]
     fn test_deadline_exceeded_is_retryable() {
         let err = anyhow::Error::new(tonic::Status::deadline_exceeded("stuck"));
         assert!(is_retryable(&err));
@@ -3100,6 +3196,28 @@ mod tests {
         await_rpc(None, async { Ok::<_, tonic::Status>(()) })
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_execute_stream_wait_times_out() {
+        let err = match tokio::time::timeout(
+            Duration::from_millis(20),
+            std::future::pending::<Result<Option<()>, anyhow::Error>>(),
+        )
+        .await
+        {
+            Ok(_) => panic!("pending future completed"),
+            Err(_) => tonic::Status::deadline_exceeded(format!(
+                "client Execute stream timeout ({:?}) expired",
+                Duration::from_millis(20)
+            )),
+        };
+        let err = anyhow::Error::new(err);
+        assert!(is_retryable(&err));
+        assert_eq!(
+            err.downcast_ref::<tonic::Status>().unwrap().code(),
+            tonic::Code::DeadlineExceeded
+        );
     }
 }
 
