@@ -14,7 +14,7 @@ bytesize = { workspace = true }
 dashmap = { workspace = true }
 either = { workspace = true }
 pagable = { version = "=0.4.2", path = "../pagable" }
-rusqlite = { version = "0.39.0", features = ["bundled", "limits"] }
+rusqlite = { version = "0.40.0", features = ["bundled", "limits"] }
 sled = { version = "0.34" }
 tokio = { workspace = true, optional = true }
 
