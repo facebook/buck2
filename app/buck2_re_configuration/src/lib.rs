@@ -453,6 +453,13 @@ pub struct Buck2OssReConfiguration {
     pub max_connections: Option<usize>,
     /// Maximum concurrent streams per connection.
     pub max_concurrency_per_connection: Option<usize>,
+    /// Client-side timeout for unary CAS/AC RPCs (`BatchReadBlobs`,
+    /// `GetActionResult`, `FindMissingBlobs`, `BatchUpdateBlobs`), in seconds.
+    /// Default 60. `0` disables. Not applied to `Execute` (long-running).
+    pub grpc_timeout_secs: Option<u64>,
+    /// Client-side timeout for ByteStream `Read`/`Write`, in seconds.
+    /// Default 600. `0` disables.
+    pub grpc_stream_timeout_secs: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -589,6 +596,14 @@ impl Buck2OssReConfiguration {
             max_concurrency_per_connection: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_concurrency_per_connection",
+            })?,
+            grpc_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_timeout_secs",
+            })?,
+            grpc_stream_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_stream_timeout_secs",
             })?,
         })
     }
