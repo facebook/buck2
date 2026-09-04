@@ -42,6 +42,7 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
         stubsDumpDir,
         stubsClassOutputDir,
         classPaths,
+        // @oss-disable: ktFiles,
     )
         .generateStubs(ktFiles, configuration, project)
 

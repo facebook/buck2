@@ -46,10 +46,13 @@ class SamePackageClassStubsGenerator : StubsGenerator {
     // to avoid name collisions with non-auto-imported types that have the same simple name.
     // Types like android.*, javax.*, etc. require explicit imports and should not be included here.
     val autoImportedExternalTypes = context.externalTypeReferences.filter { it.isAutoImported() }
+    val generatedTypesInModulePackage =
+        context.knownGeneratedTypes.filter { it.pkgAsString() == modulePkgName }
     allKnownSymbols.addAll(
         (context.importedTypes +
                 context.declaredTypes +
                 autoImportedExternalTypes +
+                generatedTypesInModulePackage +
                 context.fullQualifierTypes)
             .flatMap { it.segments + it.names },
     )

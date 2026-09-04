@@ -40,6 +40,7 @@ object StubsGenCli {
             stubsDumpDir = stubsDumpDir,
             stubsClassOutputDir = stubsClassOutputDir,
             classPaths = classpath,
+            // @oss-disable: knownSources = ktFiles,
         )
             .generateStubs(ktFiles, CompilerConfiguration(), env.project)
       }

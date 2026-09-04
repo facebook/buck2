@@ -55,6 +55,7 @@ class GenerationContext {
    * generation
    */
   val externalTypeReferences: Set<FullTypeQualifier>
+  val knownGeneratedTypes: Set<FullTypeQualifier>
   val pkgsInClasspath: Set<List<String>>
   val interfaceTypes: List<KtUserType>
   val annotationEntries: List<KtAnnotationEntry>
@@ -76,6 +77,7 @@ class GenerationContext {
   ) {
     this.projectFiles = projectFiles
     this.stubsContainer = StubsContainerImpl()
+    this.knownGeneratedTypes = knownGeneratedTypes
 
     if (lightweight) {
       this.externalTypeReferences = emptySet()
