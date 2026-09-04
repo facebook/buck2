@@ -207,6 +207,7 @@ pub struct InvocationRecorder {
     install_duration: Option<prost_types::Duration>,
     install_device_metadata: Vec<buck2_data::DeviceMetadata>,
     installer_log_url: Option<String>,
+    installer_name: Option<String>,
     initial_re_upload_bytes: Option<u64>,
     initial_re_download_bytes: Option<u64>,
     initial_zdb_download_queries: Option<u64>,
@@ -434,6 +435,7 @@ impl InvocationRecorder {
             install_duration: None,
             install_device_metadata: Vec::new(),
             installer_log_url: None,
+            installer_name: None,
             initial_re_upload_bytes: None,
             initial_re_download_bytes: None,
             initial_zdb_download_queries: None,
@@ -1200,6 +1202,7 @@ impl InvocationRecorder {
             install_duration: self.install_duration.take(),
             install_device_metadata: self.install_device_metadata.drain(..).collect(),
             installer_log_url: self.installer_log_url.take(),
+            installer_name: self.installer_name.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
@@ -1812,6 +1815,7 @@ impl InvocationRecorder {
         self.install_duration = install_finished.duration;
         self.install_device_metadata = install_finished.device_metadata.clone();
         self.installer_log_url = install_finished.log_url.clone();
+        self.installer_name = install_finished.installer_name.clone();
         Ok(())
     }
 

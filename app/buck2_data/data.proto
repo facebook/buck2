@@ -3039,6 +3039,8 @@ message InvocationRecord {
   repeated DeviceMetadata install_device_metadata = 99;
   // Path to uploaded installer log file.
   optional string installer_log_url = 247;
+  // Which installer implementation ran an install command, e.g. `android`.
+  optional string installer_name = 260;
   // The list of active network devices
   repeated NetworkKind active_networks_kinds = 102;
   // Configuration used during the build command.
@@ -3658,6 +3660,9 @@ message InstallFinished {
   google.protobuf.Duration duration = 1;
   repeated DeviceMetadata device_metadata = 2;
   optional string log_url = 3;
+  // Which installer implementation ran this install, as it named itself at the
+  // handshake. Absent when the install never reached an installer.
+  optional string installer_name = 4;
 }
 
 message SystemInfo {
