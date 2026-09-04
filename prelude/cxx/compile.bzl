@@ -2064,6 +2064,9 @@ def _mk_argsfiles(
             # driver (as_compiler_info) and do accept these flags.
             return
 
+        if not preprocessor.set.reduce("has_file_prefix_args"):
+            return
+
         # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
         # to avoid "argument too long" errors
         file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))

@@ -161,6 +161,13 @@ def _cpreprocessor_coverage_prefix_args(pres: list[CPreprocessor]):
         args.add(pre.args.coverage_prefix_args)
     return args
 
+def _cpreprocessor_has_file_prefix_args(children: list[bool], pres: [list[CPreprocessor], None]):
+    if pres:
+        for pre in pres:
+            if pre.args.file_prefix_args or pre.args.coverage_prefix_args:
+                return True
+    return any(children)
+
 def _cpreprocessor_include_dirs(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
@@ -194,6 +201,7 @@ CPreprocessorTSet = transitive_set(
         "precompile_args": _cpreprocessor_precompile_args,
     },
     reductions = {
+        "has_file_prefix_args": _cpreprocessor_has_file_prefix_args,
         "has_header_units_args": _cpreprocessor_has_header_units_args,
         "uses_modules": _cpreprocessor_uses_modules,
     },
