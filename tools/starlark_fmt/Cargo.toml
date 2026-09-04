@@ -40,6 +40,7 @@ tracing-subscriber.workspace = true
 indoc.workspace = true
 quickcheck.workspace = true
 quickcheck_macros.workspace = true
+vec1.workspace = true
 
 [lints]
 workspace = true

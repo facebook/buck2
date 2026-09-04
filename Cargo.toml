@@ -484,6 +484,7 @@ tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "
 triomphe = { version = "0.1.16", features = ["arc-swap"] }
 twox-hash = "2.1.3"
 uuid = { version = "1.24.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
+vec1 = { version = "1.12.1", features = ["serde"] }
 walkdir = "2.3"
 watchman_client = "0.9"
 whoami = "2.1.3"

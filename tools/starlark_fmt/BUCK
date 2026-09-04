@@ -25,6 +25,7 @@ rust_library(
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:quickcheck",
         "fbsource//third-party/rust:quickcheck_macros",
+        "fbsource//third-party/rust:vec1",
         # @oss-disable[end= ]: "//common/rust/shed/quickcheck_arbitrary_derive:quickcheck_arbitrary_derive",
     ],
     visibility = [
