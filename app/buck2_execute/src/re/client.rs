@@ -332,6 +332,7 @@ impl RemoteExecutionClient {
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
         priority: Option<i32>,
+        action_timeout: Option<Duration>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -351,6 +352,7 @@ impl RemoteExecutionClient {
                 meta_internal_extra_params,
                 worker_tool_action_digest,
                 priority,
+                action_timeout,
             ))
             .await
     }
@@ -1485,6 +1487,7 @@ impl RemoteExecutionClientImpl {
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
         priority: Option<i32>,
+        action_timeout: Option<Duration>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         let _exec_permit = self.exec_semaphore.acquire().await;
 
@@ -1492,6 +1495,8 @@ impl RemoteExecutionClientImpl {
         let _unused = worker_tool_action_digest;
         #[cfg(not(fbcode_build))]
         let _unused = re_gang_workers;
+        #[cfg(fbcode_build)]
+        let _ = action_timeout;
 
         if buck2_env!("BUCK2_TEST_FAIL_RE_EXECUTE", bool, applicability = testing)? {
             return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
@@ -1666,6 +1671,8 @@ impl RemoteExecutionClientImpl {
                     ..Default::default()
                 })
             },
+            #[cfg(not(fbcode_build))]
+            timeout: action_timeout,
             ..Default::default()
         };
         let re_action = format!("Execute with digest {}", action_digest);
