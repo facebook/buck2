@@ -32,14 +32,25 @@ class GenericStubsGenerator : StubsGenerator {
 
     // TODO: Do not apply for SDK classes
     val candidates = context.importedTypes - context.declaredTypes
+    val modulePkg = context.packageName()?.split(".").orEmpty()
 
     for (genType in usedGenericTypes) {
       val genFullQualifier = genType.calculateQualifierList()
       val imp =
           candidates.find { it.names.last() == genFullQualifier.first() }
-              ?: if (genFullQualifier.size > 1) FullTypeQualifier(genFullQualifier) else continue
-      val pkg = imp.pkgAsString()
+              ?: when {
+                genFullQualifier.size > 1 -> FullTypeQualifier(genFullQualifier)
+                // A same-package type carries no import, so it is never in `candidates`, yet
+                // SamePackageClassStubsGenerator has already stubbed it under the module's package.
+                modulePkg.isNotEmpty() && genFullQualifier.first().first().isUpperCase() ->
+                    FullTypeQualifier(modulePkg + genFullQualifier)
+                else -> continue
+              }
       val name = imp.names
+      // An all-caps simple name reads as a static-const member, so the qualifier carries no class
+      // name to look up.
+      if (name.isEmpty()) continue
+      val pkg = imp.pkgAsString()
       val innerClassNames =
           if (genFullQualifier == imp.segments) emptyList<String>()
           else (name.drop(1) + genFullQualifier.drop(1))
