@@ -39,6 +39,7 @@ load(
     "LinkInfos",
     "LinkStrategy",
     "LinkedObject",
+    "LinkerFlags",
     "MergedLinkInfo",  # @unused Used as a type
     "SharedLibLinkable",
     "create_merged_link_info",
@@ -873,6 +874,13 @@ def _proc_macro_link_providers(ctx: AnalysisContext, rust_artifacts: dict[LinkSt
         )
     ]
 
+def _linker_flags(ctx: AnalysisContext) -> LinkerFlags:
+    return LinkerFlags(
+        flags = ctx.attrs.linker_flags,
+        exported_flags = ctx.attrs.exported_linker_flags,
+        exported_post_flags = ctx.attrs.exported_post_linker_flags,
+    )
+
 def _advanced_unstable_link_providers(
     ctx: AnalysisContext,
     compile_ctx: CompileContext,
@@ -944,6 +952,7 @@ def _advanced_unstable_link_providers(
                 exported_deps = inherited_exported_deps,
                 link_infos = link_infos,
                 shared_libs = shared_libs,
+                linker_flags = _linker_flags(ctx),
                 default_soname = shlib_name,
                 # Link groups have a heuristic in which they assume that a
                 # preferred_linkage = "static" library needs to be linked
@@ -1163,6 +1172,7 @@ def _native_link_providers(
                 exported_deps = inherited_exported_deps,
                 link_infos = link_infos,
                 shared_libs = shared_libs,
+                linker_flags = _linker_flags(ctx),
                 default_soname = shlib_name,
                 include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True),
             ),
