@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.psi.KtSuperTypeListEntry
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.psi.KtTypeAlias
 import org.jetbrains.kotlin.psi.KtTypeParameter
+import org.jetbrains.kotlin.psi.KtTypeParameterListOwner
 import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.psi.KtUserType
 import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
@@ -58,6 +59,8 @@ class GenerationContext {
   val knownGeneratedTypes: Set<FullTypeQualifier>
   val pkgsInClasspath: Set<List<String>>
   val interfaceTypes: List<KtUserType>
+  // Each entry is one multi-bound type parameter's bounds, in source order.
+  val multiBoundGroups: List<List<KtUserType>>
   val annotationEntries: List<KtAnnotationEntry>
   val declaredTypes: Set<FullTypeQualifier>
   val fullQualifierTypes: Set<FullTypeQualifier>
@@ -85,6 +88,7 @@ class GenerationContext {
       this.importedDeclarations = emptySet()
       this.importedTypes = emptySet()
       this.interfaceTypes = emptyList()
+      this.multiBoundGroups = emptyList()
       this.annotationEntries = emptyList()
       this.declaredTypes = emptySet()
       this.typeValueArgs = emptyMap<String, Int>()
@@ -118,6 +122,7 @@ class GenerationContext {
       val usedTypes = mutableSetOf<KtUserType>()
       val multiSegQualifiers = mutableListOf<List<String>>()
       val interfaceUserTypes = mutableListOf<KtUserType>()
+      val multiBoundUserTypes = mutableListOf<List<KtUserType>>()
       val typeValueArgPairs = mutableListOf<Pair<String, Int>>()
       for (ktFile in projectFiles) {
         val superCallPairs = mutableListOf<Pair<String, Int>>()
@@ -150,6 +155,9 @@ class GenerationContext {
                       element.getInterfaceTypes().mapNotNull { it.typeAsUserType },
                   )
                 }
+                if (element is KtTypeParameterListOwner) {
+                  multiBoundUserTypes.addAll(element.multiBoundGroups())
+                }
                 if (element is KtSuperTypeCallEntry) {
                   element.typeValueArgs()?.let { superCallPairs.add(it) }
                 }
@@ -175,6 +183,7 @@ class GenerationContext {
       this.parameterNames = paramNames
       this.usedUserTypes = usedTypes
       this.interfaceTypes = interfaceUserTypes
+      this.multiBoundGroups = multiBoundUserTypes
       this.fullQualifierTypes =
           multiSegQualifiers
               .distinct()
@@ -291,6 +300,31 @@ class GenerationContext {
   private fun KtTypeReference.userTypeForQualifier(): KtUserType? {
     val nullableTypeWrapper = getChildOfType<KtNullableType>()
     return (nullableTypeWrapper ?: this).getChildOfType<KtUserType>()
+  }
+
+  // Grouped rather than flattened: the consumer decides per parameter, from the first bound.
+  private fun KtTypeParameterListOwner.multiBoundGroups(): List<List<KtUserType>> {
+    val boundsByParameter = mutableMapOf<String, MutableList<KtTypeReference>>()
+    typeParameters.forEach { parameter ->
+      val name = parameter.name ?: return@forEach
+      parameter.extendsBound?.let { boundsByParameter.getOrPut(name) { mutableListOf() }.add(it) }
+    }
+    typeConstraints.forEach { constraint ->
+      val name = constraint.subjectTypeParameterName?.getReferencedName() ?: return@forEach
+      constraint.boundTypeReference?.let {
+        boundsByParameter.getOrPut(name) { mutableListOf() }.add(it)
+      }
+    }
+    return boundsByParameter.values
+        .filter { it.size > 1 }
+        .mapNotNull { bounds ->
+          val userTypes = bounds.map { it.userTypeForQualifier() }
+          // The consumer keys the whole-parameter decision off the source-order first bound.
+          // Compacting nulls away would shift a later bound into first position, so a first bound
+          // that doesn't resolve to a KtUserType (e.g. a function-type bound) drops the group.
+          if (userTypes.first() == null) null else userTypes.filterNotNull()
+        }
+        .filter { it.size > 1 }
   }
 
   fun packageName(): String? {
