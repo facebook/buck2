@@ -228,13 +228,15 @@ BuildPackageGoList = record(
     embed_patterns = field(list[str]),
     cgo_cflags = field(list[str]),
     cgo_cppflags = field(list[str]),
+    cgo_cxxflags = field(list[str]),
+    cgo_ldflags = field(list[str]),
 )
 
 def go_list_for_build(go_list_out: GoListOut, with_tests: bool) -> BuildPackageGoList:
     imports = set(go_list_out.imports + (go_list_out.test_imports if with_tests else []))
     embed_patterns = go_list_out.embed_patterns + (go_list_out.test_embed_patterns if with_tests else [])
     go_files = go_list_out.go_files + (go_list_out.test_go_files if with_tests else [])
-    c_cxx_files = go_list_out.c_files + go_list_out.cxx_files
+    c_cxx_files = go_list_out.c_files + go_list_out.cxx_files + go_list_out.m_files
     return BuildPackageGoList(
         pkg_name = go_list_out.name,
         go_files = go_files,
@@ -247,6 +249,8 @@ def go_list_for_build(go_list_out: GoListOut, with_tests: bool) -> BuildPackageG
         embed_patterns = embed_patterns,
         cgo_cflags = go_list_out.cgo_cflags,
         cgo_cppflags = go_list_out.cgo_cppflags,
+        cgo_cxxflags = go_list_out.cgo_cxxflags,
+        cgo_ldflags = go_list_out.cgo_ldflags,
     )
 
 BuildPackageParams = record(
@@ -343,6 +347,8 @@ def build_package(
         c_files = c_cxx_files,
         c_flags = go_list.cgo_cflags,
         cpp_flags = go_list.cgo_cppflags,
+        cxx_flags = go_list.cgo_cxxflags,
+        ld_flags = go_list.cgo_ldflags,
         anon_targets_allowed = False,
     )
 
