@@ -174,7 +174,7 @@ rand = "0.10.2"
 rand_chacha = "0.10"
 rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
-ref-cast = "1.0.26"
+ref-cast = "1.0.27"
 regex = "1.13.1"
 relative-path = { version = "2.0.1", features = ["serde"] }
 ring = "0.17.14"
