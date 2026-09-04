@@ -1,4 +1,4 @@
-load("@root//:rules.bzl", "write")
+load("@root//:rules.bzl", "missing_output", "write")
 
 write(
     name = "write",
@@ -34,6 +34,13 @@ write(
     text = read_config("write", "text") or fail("text missing"),
     allow_cache_upload = None,
     local_only = True,
+    default_target_platform = "//platforms:target",
+    exec_compatible_with = ["//platforms:cache_uploads"],
+)
+
+missing_output(
+    name = "missing_output",
+    nonce = read_config("write", "nonce") or fail("nonce missing"),
     default_target_platform = "//platforms:target",
     exec_compatible_with = ["//platforms:cache_uploads"],
 )
