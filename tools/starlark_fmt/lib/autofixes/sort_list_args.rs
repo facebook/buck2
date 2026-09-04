@@ -37,6 +37,7 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::ops::Range;
 
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
@@ -151,13 +152,15 @@ fn compare_buildifier_string_values(a: &str, b: &str) -> Ordering {
         .then_with(|| a.cmp(b))
 }
 
-fn sorted_unique_indices(values: &[Cow<str>]) -> Vec<usize> {
+fn sorted_indices(values: &[Cow<str>], deduplicate: bool) -> Vec<usize> {
     // `Vec::sort_by` is stable, so equal keys preserve insertion order.
     // No explicit tiebreaker on the original index is needed.
     let mut indices: Vec<usize> = (0..values.len()).collect();
     indices
         .sort_by(|&a, &b| compare_buildifier_string_values(values[a].as_ref(), values[b].as_ref()));
-    indices.dedup_by(|a, b| values[*a] == values[*b]);
+    if deduplicate {
+        indices.dedup_by(|a, b| values[*a] == values[*b]);
+    }
     indices
 }
 
@@ -212,6 +215,26 @@ fn collect_sorted_elements_with_comments(
     source: &str,
     force_sort: bool,
 ) -> Option<Vec<(TextRange, String)>> {
+    let sort_keys = list.elts.iter().map(element_sort_key).collect::<Vec<_>>();
+    let context = ElementSortContext {
+        list,
+        source,
+        sort_keys: &sort_keys,
+        deduplicate: true,
+    };
+    collect_sorted_elements_with_keys(&context, force_sort)
+}
+
+fn collect_sorted_elements_with_keys(
+    context: &ElementSortContext<'_, '_>,
+    force_sort: bool,
+) -> Option<Vec<(TextRange, String)>> {
+    let ElementSortContext {
+        list,
+        source,
+        sort_keys,
+        ..
+    } = context;
     let elts = &list.elts;
     if elts.len() < 2 {
         return None;
@@ -222,7 +245,7 @@ fn collect_sorted_elements_with_comments(
     let last_elt = &elts[elts.len() - 1];
     if last_elt.range().end() <= first_line_end {
         // Single-line list: no comments to worry about
-        return collect_sorted_elements(list, source);
+        return collect_sorted_elements(&context);
     }
 
     if !force_sort && has_line_comment(source, list.range()) {
@@ -248,7 +271,7 @@ fn collect_sorted_elements_with_comments(
 
     // If no comments, sort the entire list using block ranges
     if !has_comments {
-        return sort_multiline_list(list, elts, source);
+        return sort_multiline_list(&context);
     }
 
     // Comments exist — they act as group separators.
@@ -257,14 +280,14 @@ fn collect_sorted_elements_with_comments(
     let mut i = 0;
 
     while i < elts.len() {
-        if element_sort_key(&elts[i]).is_none() {
+        if sort_keys[i].is_none() {
             i += 1;
             continue;
         }
 
         // Find contiguous run of string elements
         let run_start = i;
-        while i < elts.len() && element_sort_key(&elts[i]).is_some() {
+        while i < elts.len() && sort_keys[i].is_some() {
             i += 1;
         }
         let run_end = i;
@@ -291,14 +314,14 @@ fn collect_sorted_elements_with_comments(
             }
             let content = &source[after_prev_line..cur_start];
             if has_non_directive_comment(content) {
-                if let Some(edits) = sort_element_group(list, elts, source, group_start, j) {
+                if let Some(edits) = sort_element_group(&context, group_start..j) {
                     all_edits.extend(edits);
                 }
                 group_start = j;
             }
         }
         // Sort the last group
-        if let Some(edits) = sort_element_group(list, elts, source, group_start, run_end) {
+        if let Some(edits) = sort_element_group(&context, group_start..run_end) {
             all_edits.extend(edits);
         }
     }
@@ -310,23 +333,27 @@ fn collect_sorted_elements_with_comments(
     }
 }
 
+struct ElementSortContext<'a, 'value> {
+    list: &'a ExprList,
+    source: &'a str,
+    sort_keys: &'a [Option<Cow<'value, str>>],
+    deduplicate: bool,
+}
+
 /// Sort all elements in a multiline list using block ranges (no group splitting).
-fn sort_multiline_list(
-    list: &ExprList,
-    elts: &[Expr],
-    source: &str,
-) -> Option<Vec<(TextRange, String)>> {
+fn sort_multiline_list(context: &ElementSortContext<'_, '_>) -> Option<Vec<(TextRange, String)>> {
+    let elts = &context.list.elts;
     let mut all_edits = Vec::new();
     let mut i = 0;
 
     while i < elts.len() {
-        if element_sort_key(&elts[i]).is_none() {
+        if context.sort_keys[i].is_none() {
             i += 1;
             continue;
         }
 
         let run_start = i;
-        while i < elts.len() && element_sort_key(&elts[i]).is_some() {
+        while i < elts.len() && context.sort_keys[i].is_some() {
             i += 1;
         }
         let run_end = i;
@@ -335,7 +362,7 @@ fn sort_multiline_list(
             continue;
         }
 
-        if let Some(edits) = sort_element_group(list, elts, source, run_start, run_end) {
+        if let Some(edits) = sort_element_group(context, run_start..run_end) {
             all_edits.extend(edits);
         }
     }
@@ -406,26 +433,34 @@ fn first_element_block_start(
 /// the end of this element's line. Leading comments and trailing inline comments
 /// move together with their element during sorting.
 fn sort_element_group(
-    list: &ExprList,
-    elts: &[Expr],
-    source: &str,
-    group_start: usize,
-    group_end: usize,
+    context: &ElementSortContext<'_, '_>,
+    group: Range<usize>,
 ) -> Option<Vec<(TextRange, String)>> {
+    let ElementSortContext {
+        list,
+        source,
+        sort_keys,
+        deduplicate,
+    } = context;
+    let elts = &list.elts;
+    let group_start = group.start;
+    let group_end = group.end;
     if group_end - group_start < 2 {
         return None;
     }
 
-    let sort_keys: Vec<Cow<str>> = (group_start..group_end)
+    let group_sort_keys: Vec<Cow<str>> = (group_start..group_end)
         .map(|idx| {
-            element_sort_key(&elts[idx])
+            sort_keys[idx]
+                .as_ref()
                 .expect("group elements are pre-filtered to sortable elements")
+                .clone()
         })
         .collect();
 
-    let sorted_indices = sorted_unique_indices(&sort_keys);
+    let sorted_indices = sorted_indices(&group_sort_keys, *deduplicate);
 
-    if is_unchanged_unique_order(&sorted_indices, sort_keys.len()) {
+    if is_unchanged_unique_order(&sorted_indices, group_sort_keys.len()) {
         return None;
     }
 
@@ -438,7 +473,7 @@ fn sort_element_group(
 
     if !block_ranges_valid(&block_ranges, source) {
         // Safety fallback: use simple element-only swapping
-        return collect_sorted_elements_simple(elts, source, group_start, group_end);
+        return collect_sorted_elements_simple(context, group_start..group_end);
     }
 
     let group_range = TextRange::new(
@@ -461,7 +496,7 @@ fn sort_element_group(
                 // For malformed/edge block boundaries (e.g., multiple elements on
                 // one line), preserve behavior by falling back to element-only swaps.
                 None => {
-                    return collect_sorted_elements_simple(elts, source, group_start, group_end);
+                    return collect_sorted_elements_simple(context, group_start..group_end);
                 }
             }
         } else {
@@ -474,8 +509,10 @@ fn sort_element_group(
 
 /// Check if a list needs sorting and return sorted ranges and values.
 /// Simple version that only swaps element values, not preserving comments.
-fn collect_sorted_elements(list: &ExprList, source: &str) -> Option<Vec<(TextRange, String)>> {
-    let elts = &list.elts;
+fn collect_sorted_elements(
+    context: &ElementSortContext<'_, '_>,
+) -> Option<Vec<(TextRange, String)>> {
+    let elts = &context.list.elts;
     if elts.len() < 2 {
         return None;
     }
@@ -484,17 +521,17 @@ fn collect_sorted_elements(list: &ExprList, source: &str) -> Option<Vec<(TextRan
     let mut i = 0;
 
     while i < elts.len() {
-        if element_sort_key(&elts[i]).is_none() {
+        if context.sort_keys[i].is_none() {
             i += 1;
             continue;
         }
 
         let start = i;
-        while i < elts.len() && element_sort_key(&elts[i]).is_some() {
+        while i < elts.len() && context.sort_keys[i].is_some() {
             i += 1;
         }
 
-        if let Some(run_edits) = collect_sorted_elements_simple(elts, source, start, i) {
+        if let Some(run_edits) = collect_sorted_elements_simple(context, start..i) {
             edits.extend(run_edits);
         }
     }
@@ -504,21 +541,28 @@ fn collect_sorted_elements(list: &ExprList, source: &str) -> Option<Vec<(TextRan
 
 /// Sort a contiguous run of string elements using AST ranges only (no comments).
 fn collect_sorted_elements_simple(
-    elts: &[Expr],
-    source: &str,
-    run_start: usize,
-    run_end: usize,
+    context: &ElementSortContext<'_, '_>,
+    run: Range<usize>,
 ) -> Option<Vec<(TextRange, String)>> {
+    let ElementSortContext {
+        list,
+        source,
+        sort_keys,
+        deduplicate,
+    } = context;
+    let elts = &list.elts;
+    let run_start = run.start;
+    let run_end = run.end;
     if run_end - run_start < 2 {
         return None;
     }
 
-    let sort_keys: Vec<Cow<str>> = (run_start..run_end)
-        .map(|idx| element_sort_key(&elts[idx]).unwrap_or(Cow::Borrowed("")))
+    let run_sort_keys: Vec<Cow<str>> = (run_start..run_end)
+        .map(|idx| sort_keys[idx].clone().unwrap_or(Cow::Borrowed("")))
         .collect();
-    let indices = sorted_unique_indices(&sort_keys);
+    let indices = sorted_indices(&run_sort_keys, *deduplicate);
 
-    if is_unchanged_unique_order(&indices, sort_keys.len()) {
+    if is_unchanged_unique_order(&indices, run_sort_keys.len()) {
         return None;
     }
 
@@ -852,6 +896,14 @@ mod tests {
             ["genrule.srcs"].into_iter().map(String::from).collect(),
             Default::default(),
         )
+    }
+
+    #[test]
+    fn test_explicit_sort_keys_can_preserve_equal_elements() {
+        let values = [Cow::Borrowed("same"), Cow::Borrowed("same")];
+
+        assert_eq!(sorted_indices(&values, false), vec![0, 1]);
+        assert_eq!(sorted_indices(&values, true), vec![0]);
     }
 
     fn run(source: &str) -> String {
