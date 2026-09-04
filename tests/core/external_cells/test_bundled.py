@@ -84,3 +84,29 @@ async def test_expand_external_cell(buck: Buck) -> None:
     )
     p = Path(result.stdout.strip())
     assert p.read_text().strip() == "\n".join(["value", "6", "foobar3", "foobar2"])
+
+
+# This test verifies the fix for https://github.com/facebook/buck2/issues/1079
+@buck_test()
+async def test_expand_external_cell_ignores_stray_files(buck: Buck) -> None:
+    bundled_dir = (
+        buck.cwd
+        / "buck-out"
+        / "v2"
+        / "external_cells"
+        / "bundled"
+        / "test_bundled_cell"
+    )
+    stray_nested_dir = bundled_dir / "dir"
+    stray_nested_dir.mkdir(parents=True, exist_ok=True)
+    (bundled_dir / "STRAY_TOP").write_text("stray\n")
+    (stray_nested_dir / "STRAY_NESTED").write_text("stray\n")
+
+    await buck.expand_external_cell("test_bundled_cell")
+
+    # Stray files must not have been copied into the expanded cell...
+    assert not (buck.cwd / "test_bundled_cell" / "STRAY_TOP").exists()
+    assert not (buck.cwd / "test_bundled_cell" / "dir" / "STRAY_NESTED").exists()
+    # ...but genuinely bundled files, including ones nested in a subdirectory, still are.
+    assert (buck.cwd / "test_bundled_cell" / ".buckconfig").exists()
+    assert (buck.cwd / "test_bundled_cell" / "dir" / "src.txt").exists()
