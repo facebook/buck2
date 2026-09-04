@@ -9,7 +9,6 @@
 load("@prelude//linking:link_info.bzl", "LinkedObject")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonToolchainInfo")
@@ -29,15 +28,15 @@ PythonLibraryManifests = record(
     default_resources = field([(ManifestInfo, list[ArgLike]), None]),
     standalone_resources = field([(ManifestInfo, list[ArgLike]), None]),
     outplace_resources = field([(ManifestInfo, list[ArgLike]), None]),
-    bytecode = field([dict[PycInvalidationMode, ManifestInfo], None]),
+    bytecode = field([ManifestInfo, None]),
     extensions = field([dict[str, LinkedObject], None]),
 )
 
-def _bytecode_artifacts(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PythonLibraryManifests], list[ArgLike]]:
-    return lambda value: [] if value.bytecode == None else ([a for a, _ in value.bytecode[invalidation_mode].artifacts])
+def _bytecode_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
+    return [] if value.bytecode == None else [a for a, _ in value.bytecode.artifacts]
 
-def _bytecode_manifests(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PythonLibraryManifests], list[None] | Artifact]:
-    return lambda value: [] if value.bytecode == None else (value.bytecode[invalidation_mode].manifest)
+def _bytecode_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
+    return [] if value.bytecode == None else value.bytecode.manifest
 
 def _hidden_resources_for(field_name: str) -> typing.Callable[[PythonLibraryManifests], list[ArgLike]]:
     return lambda value: [] if getattr(value, field_name) == None else getattr(value, field_name)[1]
@@ -78,11 +77,6 @@ def _source_type_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
         return []
     return [a for a, _ in value.src_types.artifacts]
 
-_BYTECODE_PROJ_PREFIX = {
-    PycInvalidationMode("checked_hash"): "checked_bytecode",
-    PycInvalidationMode("unchecked_hash"): "bytecode",
-}
-
 # Mode strings mirror PackageStyle.value
 _RESOURCE_MODES = {
     "inplace": ("", "default_resources"),
@@ -91,6 +85,8 @@ _RESOURCE_MODES = {
 }
 
 args_projections = {
+    "bytecode_artifacts": _bytecode_artifacts,
+    "bytecode_manifests": _bytecode_manifests,
     "source_artifacts": _source_artifacts,
     "source_manifests": _source_manifests,
     "source_type_artifacts": _source_type_artifacts,
@@ -99,8 +95,6 @@ args_projections = {
 args_projections.update({"{}hidden_resources".format(prefix): _hidden_resources_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
 args_projections.update({"{}resource_manifests".format(prefix): _resource_manifests_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
 args_projections.update({"{}resource_artifacts".format(prefix): _resource_artifacts_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
-args_projections.update({"{}_artifacts".format(prefix): _bytecode_artifacts(mode) for mode, prefix in _BYTECODE_PROJ_PREFIX.items()})
-args_projections.update({"{}_manifests".format(prefix): _bytecode_manifests(mode) for mode, prefix in _BYTECODE_PROJ_PREFIX.items()})
 
 PythonLibraryManifestsTSet = transitive_set(
     args_projections = args_projections,
@@ -134,8 +128,8 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibra
     return PythonLibraryManifestsInterface(
         src_manifests = lambda: [manifests.project_as_args("source_manifests")],
         src_artifacts = lambda: [manifests.project_as_args("source_artifacts")],
-        bytecode_manifests = lambda mode: [manifests.project_as_args("{}_manifests".format(_BYTECODE_PROJ_PREFIX[mode]))],
-        bytecode_artifacts = lambda mode: [manifests.project_as_args("{}_artifacts".format(_BYTECODE_PROJ_PREFIX[mode]))],
+        bytecode_manifests = lambda: [manifests.project_as_args("bytecode_manifests")],
+        bytecode_artifacts = lambda: [manifests.project_as_args("bytecode_artifacts")],
         resource_manifests = lambda mode = "inplace": [manifests.project_as_args("{}resource_manifests".format(_RESOURCE_MODES[mode][0]))],
         resource_artifacts = lambda mode = "inplace": [manifests.project_as_args("{}resource_artifacts".format(_RESOURCE_MODES[mode][0]))],
         has_hidden_resources = lambda mode = "inplace": manifests.reduce("{}has_hidden_resources".format(_RESOURCE_MODES[mode][0])),

@@ -51,7 +51,7 @@ load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "from_named_set")
-load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
+load(":compile.bzl", "compile_manifests")
 load(":lazy_imports.bzl", "get_lazy_imports_analyzer", "run_lazy_imports_library_analyzer")
 load(
     ":manifest.bzl",
@@ -116,7 +116,7 @@ def create_python_library_info(
     is_native_dep: bool,
     srcs: [ManifestInfo, None] = None,
     src_types: [ManifestInfo, None] = None,
-    bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
+    bytecode: [ManifestInfo, None] = None,
     default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
     standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
     outplace_resources: [(ManifestInfo, list[ArgLike]), None] = None,
@@ -348,7 +348,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     bytecode = None
     if src_manifest != None and python_toolchain.pyc_compilation_enabled:
         bytecode = compile_manifests(ctx, [src_manifest])
-        sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
+        sub_targets["compile"] = [DefaultInfo(default_output = bytecode.artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
 
     raw_deps = ctx.attrs.deps

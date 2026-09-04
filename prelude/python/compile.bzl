@@ -9,20 +9,8 @@
 load(":manifest.bzl", "ManifestInfo")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
-PycInvalidationMode = enum(
-    "unchecked_hash",
-    "checked_hash",
-    # timestamp isn't supported at the moment
-    # "timestamp",
-)
-
-def compile_manifests(ctx: AnalysisContext, manifests: list[ManifestInfo]) -> dict[PycInvalidationMode, ManifestInfo]:
-    return {mode: compile_manifests_for_mode(ctx, manifests, mode) for mode in [PycInvalidationMode("unchecked_hash"), PycInvalidationMode("checked_hash")]}
-
-def compile_manifests_for_mode(
-    ctx: AnalysisContext, manifests: list[ManifestInfo], invalidation_mode: PycInvalidationMode = PycInvalidationMode("unchecked_hash")
-) -> ManifestInfo:
-    mode = invalidation_mode.value.upper()
+def compile_manifests(ctx: AnalysisContext, manifests: list[ManifestInfo]) -> ManifestInfo:
+    mode = "UNCHECKED_HASH"
     has_content_based_path = ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths == True
     output = ctx.actions.declare_output("bytecode_{}".format(mode), dir = True, has_content_based_path = has_content_based_path)
     bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(mode), has_content_based_path = has_content_based_path)
