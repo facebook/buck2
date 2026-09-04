@@ -25,5 +25,6 @@
 
 pub mod convert;
 pub mod data;
+pub mod environment;
 pub mod grpc;
 pub mod protocol;
