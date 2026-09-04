@@ -225,30 +225,6 @@ public class InstallerServiceTest {
         List.of("fileReady", "allFilesReady"),
         response.getDeviceMetadataList().stream()
             .flatMap(metadata -> metadata.getEntryList().stream())
-            .filter(entry -> entry.getKey().equals("from"))
-            .map(entry -> entry.getValue())
-            .collect(Collectors.toList()));
-  }
-
-  @Test
-  public void everyReportedDeviceSaysWhichInstallerRanIt() {
-    FakeInstaller reportsTwoDevices =
-        new FakeInstaller() {
-          @Override
-          public InstallResult allFilesReady(InstallId installId) {
-            return new InstallResult(
-                List.of(Map.of("abi", "arm64-v8a"), Map.of("abi", "x86_64")), Optional.empty());
-          }
-        };
-
-    FileResponse response =
-        deliver(serviceFor(reportsTwoDevices, AMPLE_TIMEOUT_SECONDS, "apk"), "apk");
-
-    assertEquals(
-        List.of("fake", "fake"),
-        response.getDeviceMetadataList().stream()
-            .flatMap(metadata -> metadata.getEntryList().stream())
-            .filter(entry -> entry.getKey().equals("installer"))
             .map(entry -> entry.getValue())
             .collect(Collectors.toList()));
   }

@@ -46,6 +46,10 @@ message InstallInfoRequest {
 
 message InstallResponse {
   string install_id = 1;
+  // Names the installer implementation, e.g. `android`. Reported at the
+  // handshake rather than alongside a device, so an install that reaches the
+  // installer says which one ran it even when it resolves no device.
+  string installer_name = 2;
 }
 
 message FileReadyRequest {

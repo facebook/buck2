@@ -120,7 +120,10 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
           fileNames.stream()
               .collect(Collectors.toMap(Function.identity(), ignore -> Optional.empty())));
     }
-    return InstallResponse.newBuilder().setInstallId(installId.getValue()).build();
+    return InstallResponse.newBuilder()
+        .setInstallId(installId.getValue())
+        .setInstallerName(installer.name())
+        .build();
   }
 
   @Override
@@ -191,8 +194,6 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     }
     for (Map<String, String> metadata : deviceMetadata) {
       DeviceMetadata.Builder metadataBuilder = DeviceMetadata.newBuilder();
-      metadataBuilder.addEntry(
-          DeviceMetadata.Entry.newBuilder().setKey("installer").setValue(installer.name()));
       for (Map.Entry<String, String> entry : metadata.entrySet()) {
         metadataBuilder.addEntry(
             DeviceMetadata.Entry.newBuilder().setKey(entry.getKey()).setValue(entry.getValue()));
