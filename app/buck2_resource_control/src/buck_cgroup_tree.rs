@@ -308,6 +308,7 @@ mod tests {
     use crate::buck_cgroup_tree::parse_procfs_cgroup_output;
     use crate::buck_cgroup_tree::resolve_memory_restriction_value;
     use crate::cgroup::Cgroup;
+    use crate::path::CgroupPath;
 
     #[test]
     fn test_cgroup_info_parse() {
@@ -477,5 +478,39 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(c.memory_high, Some(1 << 19));
+    }
+
+    /// Checks which cgroup the daemon-wide memory attributes are written to, relative to the
+    /// cgroup the daemon was launched in.
+    #[tokio::test]
+    async fn test_daemon_wide_memory_attributes_placement() {
+        let Some(r) = Cgroup::create_internal_for_test().await else {
+            return;
+        };
+        let launch = r
+            .make_child(FileNameBuf::unchecked_new("launch"))
+            .await
+            .unwrap();
+        let launch_path = launch.path().to_buf();
+        let p = PreppedBuckCgroups::testing_new_in(launch).await;
+        let t = BuckCgroupTree::set_up(
+            p,
+            &ResourceControlConfig {
+                memory_high: Some((1 << 20).to_string()),
+                ..ResourceControlConfig::testing_default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let read = |cgroup: &CgroupPath, file: &str| {
+            std::fs::read_to_string(cgroup.as_abs_path().join(file))
+                .unwrap()
+                .trim()
+                .to_owned()
+        };
+        assert_eq!(t.allprocs().path(), &*launch_path);
+        assert_eq!(read(&launch_path, "memory.oom.group"), "1");
+        assert_eq!(read(&launch_path, "memory.high"), (1 << 20).to_string());
     }
 }
