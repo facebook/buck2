@@ -383,17 +383,18 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         })
     }
 
-    /// Move all processes in this cgroup (other than the current process) to a child cgroup.
+    /// Move all processes in this cgroup (other than the current process) into `dest`, which may be
+    /// any cgroup, not necessarily a direct child of this one.
     ///
     /// This is needed before enabling subtree control, because cgroupv2 enforces a
     /// no-internal-process constraint: a cgroup cannot have both processes in cgroup.procs
     /// AND controllers enabled in cgroup.subtree_control.
     ///
     /// Processes may end up in this cgroup if they were spawned before prep_current_process()
-    /// moved the daemon to a child cgroup
-    pub(crate) async fn drain_to_child(
+    /// moved the daemon into its own cgroup
+    pub(crate) async fn drain_to(
         &self,
-        child: &CgroupMinimal,
+        dest: &CgroupMinimal,
     ) -> buck2_error::Result<Vec<OrphanProcessInfo>> {
         let procs = CgroupFile::open(
             self.dir.dupe(),
@@ -415,7 +416,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         }
 
         let child_procs = CgroupFile::open(
-            child.dir.dupe(),
+            dest.dir.dupe(),
             FileNameBuf::unchecked_new("cgroup.procs"),
             CgroupFileMode::ReadWrite,
         )
@@ -1145,7 +1146,7 @@ mod tests {
             .unwrap();
 
         // Empty cgroup should drain nothing
-        let orphans = source.drain_to_child(&dest).await.unwrap();
+        let orphans = source.drain_to(&dest).await.unwrap();
         assert!(orphans.is_empty());
 
         // Spawn a process into source via the filesystem
@@ -1160,7 +1161,7 @@ mod tests {
         assert_eq!(dest.read_pid_count().await.unwrap(), 0);
 
         // Drain should move the process to dest
-        let orphans = source.drain_to_child(&dest).await.unwrap();
+        let orphans = source.drain_to(&dest).await.unwrap();
         assert_eq!(orphans.len(), 1);
         assert_eq!(orphans[0].pid, child_pid);
         assert_eq!(orphans[0].comm, "sleep");
@@ -1169,7 +1170,7 @@ mod tests {
         assert_eq!(dest.read_pid_count().await.unwrap(), 1);
 
         // Draining again should be a no-op
-        let orphans = source.drain_to_child(&dest).await.unwrap();
+        let orphans = source.drain_to(&dest).await.unwrap();
         assert!(orphans.is_empty());
 
         child.kill().unwrap();

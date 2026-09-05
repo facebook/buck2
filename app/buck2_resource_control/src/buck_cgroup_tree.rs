@@ -17,6 +17,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use dupe::Dupe;
 
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
@@ -83,6 +84,14 @@ pub fn read_cgroup_path_of_buck2_daemon(daemon_pid: i64) -> buck2_error::Result<
 }
 
 pub struct PreppedBuckCgroups {
+    /// The cgroup the daemon was launched in.
+    ///
+    /// Whoever launched the daemon owns this cgroup's attributes. When that's systemd, it rewrites
+    /// them from its own configuration of the unit whenever it reapplies that configuration, for
+    /// example on `daemon-reload`. So the only thing buck ever writes here is
+    /// `cgroup.subtree_control`, which cgroup delegation requires the delegatee to do; everything
+    /// else, including daemon-wide resource limits, goes on `allprocs` or below.
+    launch: CgroupMinimal,
     allprocs: CgroupMinimal,
     daemon: CgroupMinimal,
 }
@@ -101,12 +110,14 @@ impl PreppedBuckCgroups {
     pub fn prep_current_process() -> buck2_error::Result<Self> {
         let procfs_out = fs_util::read_to_string(AbsPath::new("/proc/self/cgroup").unwrap())
             .categorize_internal()?;
-        let root_cgroup_path = parse_procfs_cgroup_output(&procfs_out)?;
-        let root_cgroup = CgroupMinimal::sync_try_from_path(root_cgroup_path)?;
-        // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
-        // point, the rest can be done when we complete the cgroup setup later
+        let launch_cgroup_path = parse_procfs_cgroup_output(&procfs_out)?;
+        let launch_cgroup = CgroupMinimal::sync_try_from_path(launch_cgroup_path)?;
+        // Make our own cgroups and move ourselves into the daemon one. That's all we have to do at
+        // this point, the rest can be done when we complete the cgroup setup later
+        let allprocs_cgroup =
+            launch_cgroup.sync_discouraged_make_child(FileName::unchecked_new("allprocs"))?;
         let daemon_cgroup =
-            root_cgroup.sync_discouraged_make_child(FileName::unchecked_new("daemon"))?;
+            allprocs_cgroup.sync_discouraged_make_child(FileName::unchecked_new("daemon"))?;
         let daemon_procs = CgroupFile::sync_open(
             daemon_cgroup.dir_fd(),
             FileNameBuf::unchecked_new("cgroup.procs"),
@@ -121,19 +132,25 @@ impl PreppedBuckCgroups {
         }
 
         Ok(PreppedBuckCgroups {
-            allprocs: root_cgroup,
+            launch: launch_cgroup,
+            allprocs: allprocs_cgroup,
             daemon: daemon_cgroup,
         })
     }
 
     #[cfg(test)]
-    pub(crate) async fn testing_new_in(root: CgroupMinimal) -> Self {
-        let daemon = root
+    pub(crate) async fn testing_new_in(launch: CgroupMinimal) -> Self {
+        let allprocs = launch
+            .discouraged_make_child(FileNameBuf::unchecked_new("allprocs"))
+            .await
+            .unwrap();
+        let daemon = allprocs
             .discouraged_make_child(FileNameBuf::unchecked_new("daemon"))
             .await
             .unwrap();
         PreppedBuckCgroups {
-            allprocs: root,
+            launch,
+            allprocs,
             daemon,
         }
     }
@@ -172,6 +189,8 @@ fn resolve_memory_restriction_value(
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
+    /// The topmost cgroup that buck owns outright. See [`PreppedBuckCgroups`] for why its parent
+    /// is off limits.
     allprocs: CgroupInternal,
     forkserver_and_actions: CgroupInternal,
     forkserver: CgroupLeaf,
@@ -191,13 +210,13 @@ impl BuckCgroupTree {
         prepped: PreppedBuckCgroups,
         config: &ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
-        let enabled_controllers = prepped.allprocs.read_enabled_controllers().await?;
+        let enabled_controllers = prepped.launch.read_enabled_controllers().await?;
 
-        // Drain any orphan processes from the scope root into the daemon child cgroup.
-        // This is necessary because processes may have been spawned in the scope root
+        // Drain any orphan processes from the launch cgroup into the daemon cgroup.
+        // This is necessary because processes may have been spawned in the launch cgroup
         // before prep_current_process() moved the daemon. cgroupv2 requires that a
         // cgroup has no processes directly in it before enabling subtree controllers.
-        let _orphans = prepped.allprocs.drain_to_child(&prepped.daemon).await?;
+        let _orphans = prepped.launch.drain_to(&prepped.daemon).await?;
 
         let cpuset_available = enabled_controllers.contains("cpuset");
         if !cpuset_available {
@@ -205,12 +224,17 @@ impl BuckCgroupTree {
                 "daemon_cpuset_unavailable",
                 buck2_error!(
                     buck2_error::ErrorTag::Environment,
-                    "cpuset controller is not available in the daemon's parent cgroup"
+                    "cpuset controller is not available in the cgroup the daemon was launched in"
                 ),
                 quiet: true
             )
             .ok();
         }
+
+        prepped
+            .launch
+            .enable_subtree_control_and_into_internal(enabled_controllers.dupe())
+            .await?;
 
         let allprocs = prepped
             .allprocs
@@ -480,8 +504,8 @@ mod tests {
         assert_eq!(c.memory_high, Some(1 << 19));
     }
 
-    /// Checks which cgroup the daemon-wide memory attributes are written to, relative to the
-    /// cgroup the daemon was launched in.
+    /// The launch cgroup's attributes belong to whoever launched the daemon, so the daemon-wide
+    /// memory attributes must land on `allprocs` instead.
     #[tokio::test]
     async fn test_daemon_wide_memory_attributes_placement() {
         let Some(r) = Cgroup::create_internal_for_test().await else {
@@ -509,8 +533,11 @@ mod tests {
                 .trim()
                 .to_owned()
         };
-        assert_eq!(t.allprocs().path(), &*launch_path);
-        assert_eq!(read(&launch_path, "memory.oom.group"), "1");
-        assert_eq!(read(&launch_path, "memory.high"), (1 << 20).to_string());
+        let allprocs_path = t.allprocs().path();
+        assert_eq!(allprocs_path.parent(), Some(&*launch_path));
+        assert_eq!(read(&launch_path, "memory.oom.group"), "0");
+        assert_eq!(read(&launch_path, "memory.high"), "max");
+        assert_eq!(read(allprocs_path, "memory.oom.group"), "1");
+        assert_eq!(read(allprocs_path, "memory.high"), (1 << 20).to_string());
     }
 }

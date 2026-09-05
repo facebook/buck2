@@ -464,11 +464,10 @@ pub struct EventsCtx {
     pub command_report_path: Option<AbsPathBuf>,
     // Internal commands triggered by other commands should not log an invocation record.
     pub log_invocation_record: bool,
-    // This is the daemon process's cgroup path read from /proc/{pid}/cgroup by the client,
-    // which is always available. This differs from `daemon_cgroup_path` in buck2_resource_control
-    // which is a child cgroup created under the root cgroup (i.e. {root}/daemon) and is only
-    // available when daemon cgroup mode is enabled.
     pub daemon_pid: Option<i64>,
+    // The daemon process's cgroup path as read from /proc/{pid}/cgroup by the client. Unlike the
+    // `daemon_cgroup_path` the daemon reports about itself, this is available even when the daemon
+    // isn't running with resource control.
     pub cgroup_path_of_buck2_daemon: Option<String>,
     pub daemon_start_instant: Option<Instant>,
     /// Whether a superconsole was actually constructed for this command.

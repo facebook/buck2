@@ -154,6 +154,8 @@ pub async fn create_daemon_spawn_command(
             use buck2_error::BuckErrorContext;
             use buck2_fs::paths::file_name::FileName;
 
+            // The daemon treats this cgroup the same way it treats a systemd scope: it builds its
+            // own tree beneath it and leaves the attributes of the cgroup itself alone.
             let child = parent
                 .make_leaf_child(
                     FileName::new(&unit_name)
