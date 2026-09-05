@@ -103,7 +103,7 @@ httparse = "1.7.1"
 httptest = "0.16.4"
 humantime = "2.4.0"
 hyper = { version = "1.11.0", features = ["client", "http1", "http2"] }
-hyper-http-proxy = "1.1.1"
+hyper-http-proxy = "1.2.0"
 hyper-proxy2 = { version = "0.1", features = ["rustls"], default-features = false }
 hyper-rustls = { version = "0.27.9", features = ["http2"] }
 hyper-timeout = "0.5.2"
