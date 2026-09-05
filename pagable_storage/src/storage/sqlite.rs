@@ -747,7 +747,11 @@ mod tests {
     fn shard_row_count(shard: &Shard) -> anyhow::Result<usize> {
         shard.flush()?;
         let conn = shard.inner.conns.readwrite.lock().expect("lock poisoned");
-        Ok(conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| row.get(0))?)
+        Ok(
+            conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| {
+                row.get::<_, i64>(0)
+            })? as usize,
+        )
     }
 
     #[test]
@@ -826,7 +830,9 @@ mod tests {
             tx.commit()?;
 
             let row_count: usize =
-                conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| row.get(0))?;
+                conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| {
+                    row.get::<_, i64>(0)
+                })? as usize;
             assert_eq!(
                 item_count, row_count,
                 "{case}: every queued item should be inserted exactly once",
