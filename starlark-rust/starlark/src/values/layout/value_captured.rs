@@ -34,7 +34,6 @@ use crate::any::ProvidesStaticType;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -55,13 +54,18 @@ pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 )]
 #[display("{:?}", self)] // Type is not user visible
 #[repr(transparent)]
-pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
+pub(crate) struct FrozenValueCaptured<'v>(Option<Value<'v>>);
+
+crate::register_simple_vtable_entry!(FrozenValueCaptured<'static>);
+// SAFETY: The vtable entry is registered above. The deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> crate::__derive_refs::VtableRegistered for FrozenValueCaptured<'v> {}
 
 #[starlark_value(type = "value_captured")]
 impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {}
 
 #[starlark_value(type = "value_captured")]
-impl<'v> StarlarkValue<'v> for FrozenValueCaptured {
+impl<'v> StarlarkValue<'v> for FrozenValueCaptured<'v> {
     type Canonical = ValueCaptured<'v>;
 }
 
@@ -81,29 +85,25 @@ impl<'v> ValueCaptured<'v> {
     }
 }
 
-/// `Frozen` ignores the brand: `value_captured_get` reads the payload out of the frozen and the
-/// unfrozen capture alike, at the reader's lifetime, so the frozen capture keeps storing a
-/// `FrozenValue`. Branding that storage waits for `FrozenValue` to be branded.
 impl<'v> FreezeBranded for ValueCaptured<'v> {
-    type Frozen<'fv> = FrozenValueCaptured;
+    type Frozen<'fv> = FrozenValueCaptured<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured> {
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured<'fv>> {
         Ok(FrozenValueCaptured(
-            self.0.get().map(|v| freezer.freeze(v)).transpose()?,
+            self.0
+                .get()
+                .map(|v| freezer.freeze_branded(v))
+                .transpose()?,
         ))
     }
 }
 
 pub(crate) fn value_captured_get<'v>(value_captured: Value<'v>) -> Option<Value<'v>> {
-    if let Some(value_captured) = value_captured.unpack_frozen() {
-        value_captured
-            .downcast_ref::<FrozenValueCaptured>()
-            .expect("not a ValueCaptured")
-            .0
-            .map(|v| v.to_value())
+    if let Some(value_captured) = value_captured.downcast_ref::<FrozenValueCaptured<'v>>() {
+        value_captured.0
     } else {
         value_captured
-            .downcast_ref::<ValueCaptured>()
+            .downcast_ref::<ValueCaptured<'v>>()
             .expect("not a ValueCaptured")
             .0
             .get()
