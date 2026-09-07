@@ -40,6 +40,7 @@ type AnalyzerOutput struct {
 	HFiles            []string `json:"HFiles,omitempty"`
 	CFiles            []string `json:"CFiles,omitempty"`
 	CXXFiles          []string `json:"CXXFiles,omitempty"`
+	MFiles            []string `json:"MFiles,omitempty"`
 	CgoFiles          []string `json:"CgoFiles,omitempty"`
 	SFiles            []string `json:"SFiles,omitempty"`
 	TestGoFiles       []string `json:"TestGoFiles,omitempty"`
@@ -48,6 +49,8 @@ type AnalyzerOutput struct {
 	IgnoredOtherFiles []string `json:"IgnoredOtherFiles,omitempty"`
 	CgoCFLAGS         []string `json:"CgoCFLAGS,omitempty"`
 	CgoCPPFLAGS       []string `json:"CgoCPPFLAGS,omitempty"`
+	CgoCXXFLAGS       []string `json:"CgoCXXFLAGS,omitempty"`
+	CgoLDFLAGS        []string `json:"CgoLDFLAGS,omitempty"`
 	EmbedPatterns     []string `json:"EmbedPatterns,omitempty"`
 	TestEmbedPatterns []string `json:"TestEmbedPatterns,omitempty"`
 
@@ -142,11 +145,14 @@ Flags:
 		HFiles:            pkg.HFiles,
 		CFiles:            pkg.CFiles,
 		CXXFiles:          pkg.CXXFiles,
+		MFiles:            pkg.MFiles,
 		SFiles:            pkg.SFiles,
 		IgnoredGoFiles:    pkg.IgnoredGoFiles,
 		IgnoredOtherFiles: pkg.IgnoredOtherFiles,
 		CgoCFLAGS:         pkg.CgoCFLAGS,
 		CgoCPPFLAGS:       pkg.CgoCPPFLAGS,
+		CgoCXXFLAGS:       pkg.CgoCXXFLAGS,
+		CgoLDFLAGS:        pkg.CgoLDFLAGS,
 		EmbedPatterns:     pkg.EmbedPatterns,
 		Error:             pkgErr,
 	}

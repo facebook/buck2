@@ -22,6 +22,7 @@ GoListOut = record(
     h_files = field(list[Artifact], default = []),
     c_files = field(list[Artifact], default = []),
     cxx_files = field(list[Artifact], default = []),
+    m_files = field(list[Artifact], default = []),
     cgo_files = field(list[Artifact], default = []),
     s_files = field(list[Artifact], default = []),
     syso_files = field(list[Artifact], default = []),
@@ -31,6 +32,8 @@ GoListOut = record(
     ignored_other_files = field(list[Artifact], default = []),
     cgo_cflags = field(list[str], default = []),
     cgo_cppflags = field(list[str], default = []),
+    cgo_cxxflags = field(list[str], default = []),
+    cgo_ldflags = field(list[str], default = []),
     embed_patterns = field(list[str], default = []),
     test_embed_patterns = field(list[str], default = []),
     error = field(GoListError | None, default = None),
@@ -77,7 +80,8 @@ def go_list(
 
 def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> GoListOut:
     go_list = go_list_out.read_json()
-    go_files, cgo_files, h_files, c_files, cxx_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = (
+    go_files, cgo_files, h_files, c_files, cxx_files, m_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = (
+        [],
         [],
         [],
         [],
@@ -104,6 +108,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
             c_files.append(src)
         if src_path in go_list.get("CXXFiles", []):
             cxx_files.append(src)
+        if src_path in go_list.get("MFiles", []):
+            m_files.append(src)
         if src_path in go_list.get("SFiles", []):
             s_files.append(src)
         if src_path in go_list.get("SysoFiles", []):
@@ -122,6 +128,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
     test_imports = go_list.get("TestImports", [])
     cgo_cflags = go_list.get("CgoCFLAGS", [])
     cgo_cppflags = go_list.get("CgoCPPFLAGS", [])
+    cgo_cxxflags = go_list.get("CgoCXXFLAGS", [])
+    cgo_ldflags = go_list.get("CgoLDFLAGS", [])
     embed_patterns = go_list.get("EmbedPatterns", [])
     test_embed_patterns = go_list.get("TestEmbedPatterns", [])
     error = _parse_error(go_list.get("Error", None))
@@ -134,6 +142,7 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         h_files = h_files,
         c_files = c_files,
         cxx_files = cxx_files,
+        m_files = m_files,
         cgo_files = cgo_files,
         s_files = s_files,
         syso_files = syso_files,
@@ -141,6 +150,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         x_test_go_files = x_test_go_files,
         cgo_cflags = cgo_cflags,
         cgo_cppflags = cgo_cppflags,
+        cgo_cxxflags = cgo_cxxflags,
+        cgo_ldflags = cgo_ldflags,
         ignored_go_files = ignored_go_files,
         ignored_other_files = ignored_other_files,
         embed_patterns = embed_patterns,
