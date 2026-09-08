@@ -8,11 +8,10 @@
 
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_apk.bzl", "get_install_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidDerivedApkInfo")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidDerivedApkInfo", "KeystoreInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
-load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
 # Native-library debug sub-targets that the wrapped android_apk/android_aab only

@@ -6,8 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//android:android_providers.bzl", "KeystoreInfo")  # @unused used as type
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
-load("@prelude//java:java_providers.bzl", "KeystoreInfo")  # @unused used as type
 
 def derive_universal_apk(ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, app_bundle: Artifact, keystore: [KeystoreInfo, None]) -> Artifact:
     output_apk = ctx.actions.declare_output("universal.apk", has_content_based_path = False)

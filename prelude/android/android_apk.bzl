@@ -18,11 +18,11 @@ load(
     "AndroidBinaryResourcesInfo",
     "DexFilesInfo",
     "ExopackageInfo",
+    "KeystoreInfo",
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:util.bzl", "package_validators_decorator")
 load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
-load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")

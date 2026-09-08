@@ -17,11 +17,11 @@ load(
     "AndroidBinaryResourcesInfo",
     "AndroidDerivedApkInfo",
     "DexFilesInfo",
+    "KeystoreInfo",
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//android:util.bzl", "package_validators_decorator")
-load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:argfile.bzl", "argfile")
 

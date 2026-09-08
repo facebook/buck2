@@ -185,6 +185,14 @@ AndroidInstrumentationApkInfo = provider(
     },
 )
 
+KeystoreInfo = provider(
+    # @unsorted-dict-items
+    fields = {
+        "store": provider_field(Artifact),
+        "properties": provider_field(Artifact),
+    },
+)
+
 ManifestInfo = record(
     target_label = TargetLabel,
     manifest = Artifact,

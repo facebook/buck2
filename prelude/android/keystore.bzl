@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//java:java_providers.bzl", "KeystoreInfo")
+load(":android_providers.bzl", "KeystoreInfo")
 
 def keystore_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}

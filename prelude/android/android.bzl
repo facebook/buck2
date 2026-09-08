@@ -18,6 +18,7 @@ load(":android_prebuilt_aar.bzl", "android_prebuilt_aar_impl")
 load(":android_resource.bzl", "android_resource_impl")
 load(":apk_genrule.bzl", "apk_genrule_impl")
 load(":gen_aidl.bzl", "gen_aidl_impl")
+load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_native_library.bzl", "prebuilt_native_library_impl")
 load(":robolectric_test.bzl", "robolectric_test_impl")
 load(":voltron.bzl", "android_app_modularity_impl")
@@ -36,6 +37,7 @@ implemented_rules = {
     "android_resource": android_resource_impl,
     "apk_genrule": apk_genrule_impl,
     "gen_aidl": gen_aidl_impl,
+    "keystore": keystore_impl,
     "prebuilt_native_library": prebuilt_native_library_impl,
     "robolectric_test": robolectric_test_impl,
 }

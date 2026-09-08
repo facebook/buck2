@@ -246,14 +246,6 @@ JavaPackagingInfo = provider(
     },
 )
 
-KeystoreInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "store": provider_field(Artifact),
-        "properties": provider_field(Artifact),
-    },
-)
-
 JavaCompileOutputs = record(
     full_library = Artifact,
     class_abi = Artifact | None,

@@ -13,7 +13,6 @@ load(":jar_genrule.bzl", "jar_genrule_impl")
 load(":java_binary.bzl", "java_binary_impl")
 load(":java_library.bzl", "java_library_impl")
 load(":java_test.bzl", "java_test_impl")
-load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 
 implemented_rules = {
@@ -24,6 +23,5 @@ implemented_rules = {
     "java_library": java_library_impl,
     "java_plugin": java_plugin_impl,
     "java_test": java_test_impl,
-    "keystore": keystore_impl,
     "prebuilt_jar": prebuilt_jar_impl,
 }
