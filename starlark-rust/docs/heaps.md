@@ -1,102 +1,184 @@
 # Heaps and Heap References
 
+Starlark values live in heaps, and a value is only usable while its heap is
+alive. Rather than reference counting every value, Starlark tracks heaps, and
+uses the lifetime parameter on `Value<'v>` to tie each value to the heap it
+lives in. This page describes the heap types, how heaps keep each other alive,
+and the APIs for moving values between them. The `branding` module in the
+source (`values/layout/heap/branding.rs`) explains the lifetime discipline
+itself.
+
 ## Heaps
 
-In Starlark, there are three interesting heap-related points of interest:
+There are three kinds of heap:
 
-- A `Heap` has `Value`'s allocated on it and cannot be cloned or shared.
-- A `FrozenHeap` has `FrozenValue`'s allocated on it and cannot be cloned or
-  shared.
-- An `OwnedFrozen<()>` is a sealed `FrozenHeap`: read-only, and can be cloned
-  and shared.
+- A `Heap<'v>` is an unfrozen heap: values allocated on it are mutable and
+  garbage collected. Each `Module` has one. It is only ever reached through a
+  closure, `Heap::temp(|heap| ..)` or `Module::with_temp_heap(|module| ..)`, and
+  `'v` names that closure; the handle is `Copy`.
+- An `OwnedFrozenHeap` is a frozen heap under construction. It is owned, single
+  threaded, and only allocates through the `FrozenHeap<'fh>` handle it hands out
+  inside a closure: `OwnedFrozenHeap::with(|fh| ..)`, or `FrozenHeap::temp` for a
+  throwaway heap. Values allocated through the handle are immutable and branded
+  `'fh`, so they cannot leave the closure on their own.
+- An `OwnedFrozen<()>` is a sealed frozen heap: read only, `Clone`,
+  `Send + Sync`, and the thing that keeps a frozen heap's memory alive.
+  `OwnedFrozenHeap::seal` produces one. An `OwnedFrozen<T>` is a sealed heap
+  together with a `T` that it keeps alive.
 
-An `OwnedFrozen<()>` keeps a heap alive. While you have a `FrozenValue`, it is
-important that you have either the `FrozenHeap` itself, or more usually, an
-`OwnedFrozen<()>` for it. A `FrozenHeap` may contain a set of `OwnedFrozen<()>`s
-to keep the `FrozenHeap`s it references alive.
+The lifetimes `'v`, `'fh` and `'fv` do not measure how long anything lives.
+They identify a heap: two values with the same brand live in the same heap, or
+in heaps that heap keeps alive. A value can only be given a brand by the heap
+that owns it, or by one of the APIs below that record the dependency between
+the heaps.
 
-## Heap Containers
+## Getting values out of a frozen heap
 
-Heaps are included in other data types:
-
-- A `Module` contains a `Heap` (where normal values are allocated) and a
-  `FrozenHeap` (stores references to other frozen heaps and has compilation
-  constants allocated on it). The `Heap` portion is garbage collected. At the
-  end, when you call `freeze`, `Value`'s referenced by name in the `Module` are
-  moved to the `FrozenHeap` and then then `FrozenHeap` is sealed to produce an
-  `OwnedFrozen<()>`.
-- A `FrozenModule` contains an `OwnedFrozen<()>`.
-- A `GlobalsBuilder` contains a `FrozenHeap` onto which values are allocated.
-- A `Globals` contains an `OwnedFrozen<()>`.
-
-## Heap References
-
-It is important that when a `FrozenValue` X is referenced by a `Value` or
-`FrozenValue` (for example, included in a list), the heap where X originates is
-added as a reference to the heap where the new value is being created.
-
-As a concrete example in pseudo-code:
+Values allocated through a `FrozenHeap<'fh>` handle can only leave the closure
+paired with the sealed heap that owns them, as an `OwnedFrozen<T>`:
 
 ```rust
-let h1 = FrozenHeap::new();
-let s = "test".alloc(h1);
-let h1: OwnedFrozen<()> = h1.into_ref_named(name);
-
-let h2 = Heap::new();
-h2.add_reference(h1.owner());
-vec![s].alloc(h2);
+let list: OwnedFrozen<Value<'static>> =
+    OwnedFrozen::build(FrozenHeapName::user("example"), |fh| {
+        fh.alloc(AllocList([fh.alloc("a"), fh.alloc("b")]))
+    });
 ```
 
-In the above code, the following steps are taken:
+`OwnedFrozen::build` allocates on a fresh heap and seals it;
+`OwnedFrozenHeap::seal_with` does the same on a heap you already hold. The
+closure can only return values at the handle's brand, so the value and its
+owner are paired by construction.
 
-1. Create a `FrozenHeap` then allocate something in it.
-1. Turn the heap into a reference.
-1. Use the allocated value `s` from `h1` when constructing a value in `h2`.
-1. For that to be legal, and for the heap `h1` to not disappear while it is
-   being allocated, it is important to call `add_reference`.
+The `'static` in `OwnedFrozen<Value<'static>>` is a placeholder for the brand
+of the sealed heap, which has no name. None of the accessors hand the value
+back at `'static`:
 
-Note that this API can only point at a `FrozenValue` from another heap, and only
-after that heap has been turned into a reference, so it will not be allocated in
-anymore. These restrictions are deliberate and mean that most programs only have
-one 'active heap' at a time.
+- **Move it into a heap** - `add_to_heap(heap)` (or `add_to_frozen_heap`)
+  records the owning heap as a reference of `heap` and hands the value back
+  branded for `heap`. This is what you want nearly all of the time.
+- **Look at it in place** - `by_ref` runs a closure on the value at a brand
+  private to the closure, so nothing derived from it can escape;
+  `by_ref_with_reconstructor` also provides an `OwnedFrozenReconstructor`,
+  which can re-pair derived values with the owner or mint a `HeapEdge` (see
+  below).
+- **Transform it** - `map`, `try_map` and `maybe_map` produce an
+  `OwnedFrozen<U>` from the same heap.
+- **Borrow the owner instead of sharing it** - `as_ref` produces an
+  `OwnedFrozenRef<'f, T>`, which uses the borrow of the `OwnedFrozen` as the
+  brand and hands out the value directly through `value()`. It is `Copy` when
+  `T` is and avoids touching the heap's reference count.
 
-Following are some places where heap references are added by Starlark:
+## Heap references
 
-- Before evaluation is started, a reference is added to the `Globals` from the
-  `Module`, so it can access the global functions.
-- When evaluating a `load` statement, a reference is added to the `FrozenModule`
-  that is being loaded.
-- When freezing a module, the `FrozenHeap`, in the `Module`, is moved to the
-  `FrozenModule`, preserving the references that were added.
+A heap can depend on sealed frozen heaps. `Heap::add_reference` and
+`FrozenHeap::add_reference` take an `OwnedFrozenRef<'_, ()>`, the borrowed form
+of a sealed heap, and keep that heap alive for as long as the referencing heap
+is. The invariant everything relies on is:
 
-## `OwnedFrozen`
+> A value in heap A may point at a value in heap B only if A is B, or A
+> references B (directly or through other heaps).
 
-When you get a value from a `FrozenModule`, it will be an
-`OwnedFrozen<Value<'static>>`. This structure is a pair of a sealed heap and a
-value, where the heap keeps the value alive. You can move that `OwnedFrozen`
-into the value of a module with code such as:
+The safe APIs maintain this without the caller thinking about it. Every way of
+obtaining a `Value<'v>` from a sealed heap adds the reference as a side effect:
+`add_to_heap` does, and so does minting a `HeapEdge` from a reconstructor. The
+only way to obtain a branded value without recording a dependency is
+`FrozenValue::to_value` and the typed handles built on it, see the end of this
+page.
+
+## Heap edges
+
+A `HeapEdge<'v, 'dep>` is a witness that the heap `'v` keeps the heap `'dep`
+alive. Its `rebrand` (and `rebrand_ref`) convert anything branded `'dep` to the
+`'v` brand, including compound types: a `ValueTyped<'dep, Tuple<'dep>>`
+becomes a `ValueTyped<'v, Tuple<'v>>`. Edges are `Copy` and zero sized. There
+are three ways to get one:
+
+- **The module edge.** `Module::frozen_heap(|fh, edge| ..)` (also on
+  `Evaluator`) opens a scope on the module's own frozen heap and provides the
+  edge from the module's value heap to it. Anything the closure allocates
+  through `fh` reaches the module's `'v` through `edge.rebrand`. The compiler
+  runs inside such a scope, which is where bytecode, constants and interned
+  names live.
+- **Reconstructor edges.** Inside `by_ref_with_reconstructor`, the
+  `OwnedFrozenReconstructor` mints `edge(heap)` or `frozen_edge(fh)`, adding
+  the owner as a reference of the given heap. This is how the compiler reads
+  a `Globals` while allocating into the module's frozen heap.
+- **The immortal edge.** `HeapEdge::immortal()` is the edge from every heap to
+  the `'static` brand. Nothing needs to keep `'static` data alive, so it can be
+  minted anywhere. Statics are brought to a brand by spelling `at()`:
+  `AllocStaticSimple::at` and `ValueTyped::<'static, _>::at` (which covers
+  `const_frozen_string!`) are this edge behind a name.
+
+`HeapEdge::unchecked_new` is `unsafe`, and the three minters above are its only
+callers; there should be no reason to call it elsewhere.
+
+## Heap containers
+
+- A `Module<'v>` owns a `Heap<'v>` and an `OwnedFrozenHeap`, together, in a
+  `ModuleHeaps`. Values are allocated on the heap; the frozen heap holds the
+  compiler's products and anything a user allocates through
+  `Module::frozen_heap`. The frozen heap is sealed when the module is frozen,
+  and also when an unfrozen module is dropped; in both cases the sealed heap is
+  added to the value heap's references, so `'v` values that came out of the
+  frozen heap stay valid as long as the value heap does.
+- A `FrozenModule` is an owned carrier: an `OwnedFrozen` of the module's data
+  (its slots and extra value) allocated on the sealed heap. Every accessor is a
+  projection of that owner: `get_owned` returns an
+  `OwnedFrozen<Value<'static>>`, `get_option_ref` an `OwnedFrozenRef`, and
+  `frozen_heap` the bare `OwnedFrozenRef<'_, ()>`.
+- A `GlobalsBuilder` owns an `OwnedFrozenHeap`, onto which values are allocated
+  as it is built. `Globals` is an owned carrier of the resulting table; entries
+  are reached as `OwnedFrozenRef`s through `get_ref` and `iter`.
+- A `MethodsBuilder` owns an `OwnedFrozenHeap`. `Methods` holds the sealed heap
+  and its members at the `'static` brand. Methods tables are only ever reached
+  as `&'static Methods` through `StarlarkValue::get_methods`, so their members
+  are immortal and the `'static` brand is honest; they come to a brand through
+  the immortal edge.
+- Statics: `AllocStaticSimple`, the `static_starlark_value!` family and
+  `const_frozen_string!` are `Value<'static>`s. They are in no heap and need no
+  reference; use `at()`.
+
+## Where Starlark adds references
+
+- **Compiling a module** adds the `Globals` heap as a reference of the module's
+  frozen heap, through a reconstructor edge, so the compiled code can name
+  globals directly.
+- **`load()`** adds the loaded `FrozenModule`'s heap as a reference of the
+  loading module's value heap (`add_to_heap` on the looked-up slot).
+  `Module::import_public_symbols` does the same into the frozen heap, through
+  the module edge.
+- **Freezing** seals the module's frozen heap into the `FrozenModule`. The
+  `Freezer` copies the value heap's references into the frozen heap first, so
+  everything the module could reach stays reachable from its frozen form, and
+  the values named by the module are moved into the frozen heap.
+- **Dropping** an unfrozen module seals its frozen heap into the value heap's
+  references.
+
+## A worked example
+
+Moving a value from a frozen module into another module:
 
 ```rust
-fn move<'v>(from: &FrozenModule, to: &Module<'v>) {
-    let x: OwnedFrozen<Value<'static>> = from.get_owned("value").unwrap();
+fn copy<'v>(from: &FrozenModule, to: &Module<'v>) -> anyhow::Result<()> {
+    let x: OwnedFrozen<Value<'static>> = from.get_owned("value")?;
     let v: Value<'v> = x.add_to_heap(to.heap());
     to.set("value", v);
+    Ok(())
 }
 ```
 
-The `'static` in the type is a placeholder, not a claim that the value lives
-forever: the accessors hand the value back at whatever lifetime is being used to
-brand the heap you are working with, and never at `'static`. See the `branding`
-module for what that lifetime means.
+`add_to_heap` records `from`'s heap as a reference of `to`'s value heap and
+hands the value back at `'v`. When `to` is frozen, the reference is copied into
+its frozen heap, so the resulting `FrozenModule` keeps `from`'s heap alive too.
 
-In general, you use an `OwnedFrozen` in one of three ways:
+## `FrozenValue`
 
-- **Move it into a heap** - `add_to_heap` (or `add_to_frozen_heap`) adds the
-  owning heap as a reference of the heap you pass, and hands the value back
-  branded for that heap. This is what you want nearly all of the time.
-- **Look at it in place** - `by_ref` runs a closure on the value at an
-  unnameable brand, so nothing derived from it can escape the closure.
-- **Borrow the owner instead of sharing it** - `as_ref` produces an
-  `OwnedFrozenRef`, which uses the borrow of the `OwnedFrozen` as the brand
-  rather than duping the heap `Arc`. `FrozenModule` offers `get_option_ref` for
-  the same reason.
+`FrozenValue` is a pointer to a frozen value with no brand. It is the currency
+of the freezer, of pagable serialization, and of the compiler's IR, which are
+the places that deal in pointers rather than in values of a particular heap.
+It is not the general way to hold a frozen value: `FrozenValue::to_value` hands
+a brand back without recording any dependency, and a value obtained that way
+may outlive its heap. New code should hold `OwnedFrozen<T>`,
+`OwnedFrozenRef<'_, T>`, or a branded `Value<'fv>` inside the scope that owns
+it. The "`FrozenValue` hole" section of the `branding` module describes what
+this costs and what closes it.

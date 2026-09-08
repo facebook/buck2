@@ -84,10 +84,9 @@ enum ModuleError {
 
 /// The result of freezing a [`Module`], making it and its contained values immutable.
 ///
-/// The values of this [`FrozenModule`] are stored on a frozen heap, a reference to which
-/// can be obtained using [`frozen_heap`](FrozenModule::frozen_heap). Be careful not to use
-/// these values after the [`FrozenModule`] has been released unless you obtain a reference
-/// to the frozen heap.
+/// The values live on the module's frozen heap, which this type owns. The value accessors hand
+/// them out as [`OwnedFrozen`]s and [`OwnedFrozenRef`]s that carry the heap along, and
+/// [`frozen_heap`](FrozenModule::frozen_heap) exposes the heap itself.
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct FrozenModule {
     data: OwnedFrozenModuleData,
@@ -572,7 +571,9 @@ impl<'v> Module<'v> {
         // they are used.
         let data = heaps.seal_with(name, |fh| {
             let freezer = Freezer::new(fh);
-            // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
+            // Frozen values may point into any heap the value heap references, so the frozen heap
+            // takes those references over.
+            // FIXME(JakobDegen): This belongs in `Freezer::new`, so that it cannot be forgotten.
             for r in heap.referenced_heaps() {
                 fh.add_reference(r.owner());
             }

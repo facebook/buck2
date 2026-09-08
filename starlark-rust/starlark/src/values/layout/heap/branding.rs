@@ -100,6 +100,23 @@
 //! acts as a proof/endorsement that the given value is sound to use "within the context of that
 //! heap."
 //!
+//! ### Heap edges
+//!
+//! `add_to_heap` is the common case of a more general tool. A `HeapEdge<'v, 'dep>` is a witness
+//! that the heap of `'v` keeps the heap of `'dep` alive, and its `rebrand` converts anything at
+//! `'dep` to `'v`. Edges are only minted where that dependency is established:
+//!
+//!  - `OwnedFrozenReconstructor::edge` and `frozen_edge`, inside `by_ref_with_reconstructor`,
+//!    add the owner as a reference of the given heap and return the edge to it.
+//!  - `Module::frozen_heap` (and `Evaluator::frozen_heap`) opens a scope on a module's own frozen
+//!    heap and provides the edge from the module's value heap to it; the dependency is
+//!    structural, see `ModuleHeaps`.
+//!  - `HeapEdge::immortal` is the edge from every heap to the `'static` brand, at which only
+//!    immortal data exists: statics, and the `Methods` tables reached through `&'static Methods`.
+//!    `at()` on the static holders is this edge behind a name.
+//!
+//! `HeapEdge::unchecked_new` is `unsafe` and these minters are its only callers.
+//!
 //! ### The `FrozenValue` hole
 //!
 //! There is one gap in all of the above. `FrozenValue` carries no brand, and

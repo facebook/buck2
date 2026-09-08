@@ -236,13 +236,17 @@ impl Equivalent<Value<'_>> for FrozenValue {
     }
 }
 
-/// A [`Value`] that can never be changed. Can be converted back to a [`Value`] with [`to_value`](FrozenValue::to_value).
+/// A pointer to a frozen value, with no brand.
 ///
-/// A [`FrozenValue`] exists on a [`FrozenHeap`](crate::values::FrozenHeap), which in turn can be kept
-/// alive by an [`OwnedFrozen<()>`](crate::values::OwnedFrozen). If the frozen heap gets dropped
-/// while a [`FrozenValue`] from it still exists, the program will probably segfault, so be careful
-/// when working directly with [`FrozenValue`]s. See the type [`OwnedFrozen`](crate::values::OwnedFrozen)
-/// for a little bit more safety.
+/// This is the currency of the places that deal in pointers rather than in the values of a
+/// particular heap: the freezer, pagable serialization, and the compiler's IR and bytecode. It is
+/// not the general way to hold a frozen value. Nothing ties a [`FrozenValue`] to the heap that
+/// keeps it alive, and [`to_value`](FrozenValue::to_value) hands out a [`Value`] at any brand
+/// without recording that dependency, so a value obtained that way can outlive its heap; the
+/// `branding` module describes this hole. Hold an [`OwnedFrozen`](crate::values::OwnedFrozen), an
+/// [`OwnedFrozenRef`](crate::values::OwnedFrozenRef), or a `Value<'fv>` inside the scope of the
+/// [`FrozenHeap`](crate::values::FrozenHeap) that allocated it instead. New code should not take
+/// or return a [`FrozenValue`]; the type is being removed.
 #[derive(Clone, Copy, Dupe, ProvidesStaticType, Allocative)]
 #[derive(pagable::PagablePanic)]
 // One possible change: moving from Blackhole during GC
@@ -1192,7 +1196,8 @@ impl FrozenValue {
         self.to_value().unpack_str()
     }
 
-    /// Convert a [`FrozenValue`] back to a [`Value`].
+    /// Convert a [`FrozenValue`] back to a [`Value`], at any brand and without recording a heap
+    /// dependency; see the type documentation.
     #[inline]
     pub fn to_value<'v>(self) -> Value<'v> {
         Value::new_frozen(self)
