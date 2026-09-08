@@ -338,6 +338,48 @@ fn test_heap_allocated_value_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
+/// A branded test type: it is its own frozen form, so `frozen_vtable` registers it.
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("BrandedData({}, {})", self.label, self.inner)]
+struct BrandedData<'v> {
+    label: String,
+    inner: Value<'v>,
+}
+
+#[starlark_value(type = "BrandedData", frozen_vtable)]
+impl<'v> StarlarkValue<'v> for BrandedData<'v> {
+    type Canonical = Self;
+}
+
+#[test]
+fn test_frozen_vtable_flag_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let inner = heap.alloc("inner").to_value();
+    let root = heap.alloc_simple(BrandedData {
+        label: "branded".to_owned(),
+        inner,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_vtable_flag"));
+
+    let restored = round_trip_owned(heap_ref, root)?;
+    let data: &BrandedData = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<BrandedData>()
+        .unwrap();
+    assert_eq!(data.label, "branded");
+    assert_eq!(data.inner.unpack_str(), Some("inner"));
+
+    Ok(())
+}
+
 /// A test type with a FrozenValue field that references another value in the same heap.
 #[derive(
     Debug,

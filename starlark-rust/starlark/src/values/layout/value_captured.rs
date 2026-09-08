@@ -56,15 +56,10 @@ pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured<'v>(Option<Value<'v>>);
 
-crate::register_simple_vtable_entry!(FrozenValueCaptured<'static>);
-// SAFETY: The vtable entry is registered above. The deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> crate::__derive_refs::VtableRegistered for FrozenValueCaptured<'v> {}
-
 #[starlark_value(type = "value_captured")]
 impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {}
 
-#[starlark_value(type = "value_captured")]
+#[starlark_value(type = "value_captured", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenValueCaptured<'v> {
     type Canonical = ValueCaptured<'v>;
 }

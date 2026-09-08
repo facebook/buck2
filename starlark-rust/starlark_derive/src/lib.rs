@@ -186,6 +186,20 @@ pub fn derive_alloc_frozen_value(input: proc_macro::TokenStream) -> proc_macro::
 
 /// Generate missing elements of `StarlarkValue` trait when this attribute
 /// is applied to an impl block of `StarlarkValue`.
+///
+/// `#[starlark_value(type = "name", ...)]` accepts these flags after the required `type`:
+/// - `StarlarkTypeRepr`, `UnpackValue` (only together): implement those traits for `&T`.
+/// - `skip_vtable`: register no vtable at all, neither the pagable `AValue` one nor the typing
+///   one. For types whose frozen canonical form is what gets serialized.
+/// - `ty_vtable_no_freeze`: register only the typing vtable. For types with no frozen form,
+///   which therefore need not be `StarlarkPagable`.
+/// - `frozen_vtable`: `T<'v>` is its own frozen form, freezing to `T<'static>`; register the
+///   frozen `AValue` vtable too, which implements `VtableRegistered` for every `T<'v>`.
+///   Requires `T<'static>: StarlarkPagable`. Without the flag a lifetime-parameterized `T`
+///   gets only the typing vtable, because that shape is also what the unfrozen half of a
+///   frozen/unfrozen pair looks like.
+///
+/// At most one of the three vtable flags may be given.
 #[proc_macro_attribute]
 pub fn starlark_value(
     attr: proc_macro::TokenStream,
