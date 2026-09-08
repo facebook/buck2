@@ -25,6 +25,7 @@ use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::any::FrozenAnyValue;
 use crate::values::any::StarlarkAnyRegistered;
 use crate::values::layout::avalue::AValue;
@@ -105,6 +106,16 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     /// Get a reference to the payload value.
     pub const fn as_payload(&'static self) -> &'static T {
         &self.0.payload.1
+    }
+}
+
+impl<T: for<'lt> StarlarkValue<'lt>> AllocStaticSimple<T> {
+    /// The value, usable with any heap.
+    ///
+    /// A static is immortal, so it can be used at every brand, see
+    /// [`HeapEdge::immortal`](crate::values::HeapEdge::immortal); `&'static self` is the proof.
+    pub fn at<'v>(&'static self) -> ValueTyped<'v, T> {
+        ValueTyped::new_static_repr(&self.0)
     }
 }
 

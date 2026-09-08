@@ -65,3 +65,62 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
         unsafe { transmute!(U, <U::StaticType as IsStaticType>::Reinfect<'v>, v) }
     }
 }
+
+impl<'v> HeapEdge<'v, 'static> {
+    /// The dependency of every heap on the `'static` brand.
+    ///
+    /// The only data at the `'static` brand is immortal: statics ([`AllocStaticSimple`]) and the
+    /// [`Methods`] tables reached through `&'static Methods`. Nothing keeps it alive because
+    /// nothing needs to, and the frozen bit already makes the garbage collector skip it, so every
+    /// heap trivially depends on it and the edge can be minted anywhere.
+    ///
+    /// Like the other minters, this is sound in the end state. `FrozenValue::to_value` and the
+    /// typed `'static` handles can today produce `'static`-branded values that are not immortal;
+    /// see "The `FrozenValue` hole" in the `branding` module.
+    ///
+    /// [`AllocStaticSimple`]: crate::values::AllocStaticSimple
+    /// [`Methods`]: crate::environment::Methods
+    pub fn immortal() -> Self {
+        // SAFETY: `'static` is a brand: no stack data can be borrowed at it, so a `'static`-branded
+        // value can only be immortal data, which every heap keeps alive by virtue of it never
+        // being freed. (The holes listed in the doc comment are the ones the `branding` module
+        // tracks for all minters.)
+        unsafe { Self::unchecked_new() }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::values::AllocStaticSimple;
+    use crate::values::Heap;
+    use crate::values::Value;
+    use crate::values::ValueTyped;
+    use crate::values::layout::heap::edge::HeapEdge;
+    use crate::values::list::AllocList;
+    use crate::values::list::ListRef;
+    use crate::values::none::NoneType;
+    use crate::values::types::none::none_type::VALUE_NONE;
+
+    /// Rebrands a static for the given heap; the heap only serves to name the brand.
+    fn at_brand<'v>(_heap: Heap<'v>, v: ValueTyped<'static, NoneType>) -> Value<'v> {
+        HeapEdge::immortal().rebrand(v).to_value()
+    }
+
+    #[test]
+    fn test_immortal_edge_at_nested_brands() {
+        let none: &'static AllocStaticSimple<NoneType> = &VALUE_NONE;
+        let none: ValueTyped<'static, NoneType> = none.at();
+        Heap::temp(|outer| {
+            let v1 = at_brand(outer, none);
+            let list1 = outer.alloc(AllocList([v1]));
+            Heap::temp(|inner| {
+                let v2 = at_brand(inner, none);
+                let list2 = inner.alloc(AllocList([v2]));
+                assert!(v1.ptr_eq(none.to_value()));
+                assert!(v2.ptr_eq(none.to_value()));
+                assert!(ListRef::from_value(list1).unwrap().content()[0].is_none());
+                assert!(ListRef::from_value(list2).unwrap().content()[0].is_none());
+            });
+        });
+    }
+}

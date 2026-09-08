@@ -107,8 +107,15 @@
 //! therefore live in a frozen heap that the `Heap<'v>` does not depend on, and nothing is keeping
 //! that heap alive.
 //!
+//! The typed handles of the same family share the hole: `FrozenValueTyped<'static, T>` (and so
+//! `FrozenStringValue` and `FrozenAnyValue`) can be minted from any frozen heap, yet their
+//! `as_ref` hands out a `&'static T` and their `to_value` a `'static`-branded value, all without
+//! saying who keeps the heap alive. As long as they exist, "at the `'static` brand there is only
+//! immortal data" - the contract that `HeapEdge::immortal` and the `Value<'static>` storage of the
+//! owning carriers rely on - is only true of code that does not use them to lie.
+//!
 //! So a brand is currently only as good as the code that mints `FrozenValue`s. This is why the
 //! APIs that would otherwise be sound on lifetimes alone - a standalone token permitting
 //! `X<'b> -> X<'a>` rebrands, or a zero-sized witness that a brand is frozen - do not exist, and
 //! the ones that do (`OwnedFrozen`, `OwnedFrozenRef`, `HeapEdge`) all carry the keep-alive with
-//! them. Closing the hole means removing `FrozenValue::to_value`.
+//! them. Closing the hole means removing `FrozenValue::to_value` and the typed `'static` handles.

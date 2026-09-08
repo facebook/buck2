@@ -199,6 +199,17 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         ValueTyped(Value::new_repr(repr), marker::PhantomData)
     }
 
+    /// A statically allocated value, which is usable at any brand because a `&'static` to it
+    /// outlives every heap.
+    #[inline]
+    pub(crate) fn new_static_repr<A: AValue<'static, StarlarkValue = T>>(
+        repr: &'static AValueRepr<AValueImpl<'static, A>>,
+    ) -> ValueTyped<'v, T> {
+        // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
+        let frozen = FrozenValue::new_ptr(&repr.header, A::IS_STR);
+        ValueTyped(Value::new_frozen(frozen), marker::PhantomData)
+    }
+
     /// Erase the type.
     #[inline]
     pub fn to_value(self) -> Value<'v> {
