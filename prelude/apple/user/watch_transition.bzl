@@ -21,9 +21,12 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     #  - If the old OS constraint was iOS or watchOS, set the new constraint to be always watchOS.
     #  - If the old SDK constraint was iOS, replace with the equivalent watchOS constraint.
     #  - Return a new platform with the updated constraints.
-    updated_constraints = transition_utils.filtered_platform_constraints(
-        platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label]
-    )
+    constraint_settings_to_remove = [
+        refs.os[ConstraintSettingInfo].label,
+        refs.sdk[ConstraintSettingInfo].label,
+    ]
+    # @oss-disable[end= ]: constraint_settings_to_remove.append(refs.memory_profiler[ConstraintValueInfo].setting.label)
+    updated_constraints = transition_utils.filtered_platform_constraints(platform, constraint_settings_to_remove)
 
     # Update OS constraint
     old_os = transition_utils.get_constraint_value(platform, refs.os[ConstraintSettingInfo])
@@ -71,6 +74,7 @@ watch_transition = transition(
         "ios": "config//os/constraints:iphoneos",
         "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
         "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        # @oss-disable[end= ]: "memory_profiler": "config//build_mode/apple/constraints:enable-memory-profiler-constraint-value",
         "os": "config//os/constraints:os",
         "sdk": "config//os/sdk/apple/constraints:_",
         "watchos": "config//os/constraints:watchos",
