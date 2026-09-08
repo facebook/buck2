@@ -545,6 +545,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
             ]
 
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
+        subtargets["swift-objc-header"] = [DefaultInfo(default_output = swift_compile.exported_swift_header)]
 
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
