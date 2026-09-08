@@ -587,49 +587,6 @@ java_test = prelude_rule(
     cfg = constraint_overrides.transition,
 )
 
-java_test_runner = prelude_rule(
-    name = "java_test_runner",
-    docs = """
-        A `java_test_runner()` rule defines a custom test runner JAR
-        (with a `main_class`) that can be referenced by `java_test()`
-        targets via their `runner` attribute, replacing the default
-        JUnit/TestNG runner.
-    """,
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "deps": attrs.list(attrs.dep(), default = []),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
-            "exported_provided_deps": attrs.list(attrs.dep(), default = []),
-            "extra_arguments": attrs.list(attrs.string(), default = []),
-            "java_version": attrs.option(attrs.string(), default = None),
-            "main_class": attrs.string(default = ""),
-            "manifest_file": attrs.option(attrs.source(), default = None),
-            "maven_coords": attrs.option(attrs.string(), default = None),
-            "proguard_config": attrs.option(attrs.source(), default = None),
-            "provided_deps": attrs.list(attrs.dep(), default = []),
-            "remove_classes": attrs.list(attrs.regex(), default = []),
-            "required_for_source_only_abi": attrs.bool(default = False),
-            "resources": attrs.list(attrs.source(), default = []),
-            "resources_root": attrs.option(attrs.string(), default = None),
-            "runtime_deps": attrs.list(attrs.dep(), default = []),
-            "source": attrs.option(attrs.string(), default = None),
-            "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
-            "srcs": attrs.list(attrs.source(), default = []),
-            "target": attrs.option(attrs.string(), default = None),
-        }
-        | buck.licenses_arg()
-        | buck.labels_arg()
-        | buck.contacts_arg()
-        | jvm_common.abi_generation_mode()
-        | jvm_common.annotation_processors()
-        | jvm_common.plugins()
-        | jvm_common.javac()
-    ),
-)
-
 prebuilt_jar = prelude_rule(
     name = "prebuilt_jar",
     docs = """
@@ -721,6 +678,5 @@ java_rules = struct(
     java_library = java_library,
     java_plugin = java_plugin,
     java_test = java_test,
-    java_test_runner = java_test_runner,
     prebuilt_jar = prebuilt_jar,
 )
