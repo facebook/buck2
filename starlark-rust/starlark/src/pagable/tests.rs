@@ -706,7 +706,7 @@ fn test_frozen_str_value_round_trip() -> crate::Result<()> {
     let restored = round_trip_owned(heap_ref, root)?;
     let ref_data: &RefData = restored.as_ref().value().downcast_ref::<RefData>().unwrap();
     assert_eq!(ref_data.label, 42);
-    assert!(ref_data.target.is_str());
+    assert!(ref_data.target.to_value().is_str());
     assert_eq!(ref_data.target.unpack_str().unwrap(), "hello world");
 
     Ok(())

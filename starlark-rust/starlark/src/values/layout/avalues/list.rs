@@ -29,7 +29,6 @@ use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -73,15 +72,15 @@ impl<'v> AValue<'v> for AValueList {
         mem::size_of::<Self>()
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         unsafe {
             let content = (*me).payload.0.content();
 
             if content.is_empty() {
-                let fv = FrozenValue::new_empty_list();
+                let fv = Value::new_empty_list();
                 AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                     me,
                     ForwardPtr::new_frozen(fv),
@@ -136,10 +135,10 @@ impl<'v> AValue<'v> for AValueFrozenList {
         visitor.visit_simple(Key::new("content"), mem::size_of::<Value>() * value.0.len());
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        _freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         panic!("already frozen");
     }
 

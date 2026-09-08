@@ -30,7 +30,6 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
@@ -136,7 +135,7 @@ pub(crate) trait AValue<'v>: Sized + 'v {
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer<'fv>,
-    ) -> FreezeResult<FrozenValue>;
+    ) -> FreezeResult<Value<'fv>>;
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self::StarlarkValue>, tracer: &Tracer<'v>)
     -> Value<'v>;
@@ -182,10 +181,10 @@ impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
 
 /// If `A` provides a statically allocated frozen value,
 /// replace object with the forward to that frozen value instead of using default freeze.
-pub(super) unsafe fn try_freeze_directly<'v, A>(
+pub(super) unsafe fn try_freeze_directly<'v, 'fv, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer<'_>,
-) -> Option<FreezeResult<FrozenValue>>
+    freezer: &Freezer<'fv>,
+) -> Option<FreezeResult<Value<'fv>>>
 where
     A: AValue<'v>,
 {
@@ -205,10 +204,10 @@ where
 
 /// `heap_freeze` implementation for simple `StarlarkValue` and `StarlarkFloat`
 /// (`StarlarkFloat` is logically a simple type, but it is not considered simple type).
-pub(super) unsafe fn heap_freeze_simple_impl<'v, A>(
+pub(super) unsafe fn heap_freeze_simple_impl<'v, 'fv, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer,
-) -> FreezeResult<FrozenValue>
+    freezer: &Freezer<'fv>,
+) -> FreezeResult<Value<'fv>>
 where
     A: AValue<'v, ExtraElem = ()>,
     A::StarlarkValue: HeapSendable<'v> + HeapSyncable<'v>,

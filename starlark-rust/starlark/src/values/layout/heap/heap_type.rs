@@ -1291,7 +1291,7 @@ impl<'fh> FrozenHeap<'fh> {
         self,
         extra_len: usize,
     ) -> (
-        FrozenValue,
+        Value<'fh>,
         Reservation<'v2, T>,
         *mut [MaybeUninit<T::ExtraElem>],
     )
@@ -1301,8 +1301,8 @@ impl<'fh> FrozenHeap<'fh> {
         T::StarlarkValue: HeapSyncable<'v2>,
     {
         let (r, extra) = self.0.arena.reserve_with_extra::<T>(extra_len);
-        let fv = FrozenValue::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
-        (fv, r, extra)
+        let v = Value::new_frozen_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
+        (v, r, extra)
     }
 }
 

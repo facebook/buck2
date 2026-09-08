@@ -27,7 +27,6 @@ use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::Reservation;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::send::HeapSyncable;
-use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 
 /// Used to `freeze` values by
@@ -52,7 +51,7 @@ impl<'fv> Freezer<'fv> {
         self.heap.alloc(val)
     }
 
-    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> (FrozenValue, Reservation<'v2, T>)
+    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> (Value<'fv>, Reservation<'v2, T>)
     where
         T: AValue<'v2, ExtraElem = ()>,
         T::StarlarkValue: HeapSendable<'v2>,
@@ -75,11 +74,9 @@ impl<'fv> Freezer<'fv> {
         let value = value.0.unpack_ptr().unwrap();
         match value.unpack() {
             AValueOrForwardUnpack::Forward(x) => {
-                Ok(unsafe { x.forward_ptr().unpack_frozen_value() }.to_value())
+                Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
             }
-            AValueOrForwardUnpack::Header(v) => {
-                unsafe { v.unpack().heap_freeze(self) }.map(|fv| fv.to_value())
-            }
+            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_freeze(self) },
         }
     }
 

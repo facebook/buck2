@@ -31,7 +31,6 @@ use crate::pagable::StarlarkPagable;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -87,10 +86,10 @@ impl<'v> AValue<'v> for AValueArray {
         );
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        _freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         panic!("arrays should not be frozen")
     }
 
@@ -153,10 +152,10 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
         visitor.visit_simple(Key::new("content"), mem::size_of::<T>() * value.len);
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        _freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         panic!("AnyArray for now can only be allocated in FrozenHeap");
     }
 

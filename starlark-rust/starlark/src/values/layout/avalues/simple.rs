@@ -22,7 +22,6 @@ use crate::private::Private;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -56,10 +55,10 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
         mem::size_of::<Self>()
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         unsafe {
             if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
                 return f;

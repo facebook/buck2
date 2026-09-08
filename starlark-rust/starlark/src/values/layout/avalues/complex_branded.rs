@@ -25,7 +25,6 @@ use crate::private::Private;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
@@ -64,7 +63,7 @@ where
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer<'fv>,
-    ) -> FreezeResult<FrozenValue> {
+    ) -> FreezeResult<Value<'fv>> {
         unsafe {
             if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
                 return f;
@@ -78,7 +77,8 @@ where
             let res = x.freeze(freezer)?;
             r.fill(res);
             if TypeId::of::<T::Frozen<'static>>() == TypeId::of::<FrozenDef>() {
-                let frozen_def = ValueTyped::new(fv.to_value()).unwrap();
+                let frozen_def =
+                    ValueTyped::new(fv).expect("`fv` was just filled with a `FrozenDef`");
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
             Ok(fv)

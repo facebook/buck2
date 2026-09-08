@@ -32,7 +32,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::StringValueLike as _;
@@ -86,10 +85,10 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
         visitor.visit_simple(Key::new("padding"), allocated_size - content_size);
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         unsafe {
             debug_assert!(
                 (*me).payload.len() > 1,
@@ -97,7 +96,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
             );
 
             let s = (*me).payload.as_str();
-            let fv = freezer.frozen_heap().alloc_str_intern(s).to_frozen_value();
+            let fv = freezer.frozen_heap().alloc_str(s).to_value();
             debug_assert!(fv.is_str());
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
@@ -179,9 +178,9 @@ impl<'fh> FrozenHeap<'fh> {
 
     /// Intern a string and erase its brand.
     ///
-    /// For the code that still deals in `FrozenValue`s: the string freeze path and the pagable
-    /// tests. Everything else should keep the brand that [`alloc_str`](FrozenHeap::alloc_str)
-    /// hands out.
+    /// For the pagable tests, which drive the plumbing beneath the branded API in `FrozenValue`s;
+    /// everything else should keep the brand that [`alloc_str`](FrozenHeap::alloc_str) hands out.
+    #[cfg(test)]
     pub(crate) fn alloc_str_intern(self, s: &str) -> FrozenStringValue {
         self.alloc_str_intern_hashed(Hashed::new(s))
     }

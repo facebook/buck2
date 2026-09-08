@@ -1147,12 +1147,6 @@ impl FrozenValue {
     }
 
     #[inline]
-    pub(crate) fn new_ptr_query_is_str(x: &'static AValueHeader) -> Self {
-        let is_string = x.0.is_str;
-        Self::new_ptr(x, is_string)
-    }
-
-    #[inline]
     pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }
@@ -1221,11 +1215,6 @@ impl FrozenValue {
     #[inline]
     pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
         self.to_value().unpack_inline_int()
-    }
-
-    #[inline]
-    pub(crate) fn is_str(self) -> bool {
-        self.to_value().is_str()
     }
 
     // The resulting `str` is alive as long as the `FrozenHeap` is,

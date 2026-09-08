@@ -44,7 +44,6 @@ use starlark::values::Demand;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -550,14 +549,17 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
 
-    fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
+    fn try_freeze_directly<'fv>(
+        &self,
+        _freezer: &Freezer<'fv>,
+    ) -> Option<FreezeResult<Value<'fv>>> {
         let StarlarkCommandLineData {
             items,
             hidden,
             options,
         } = &*self.0.borrow();
         if items.is_empty() && hidden.is_empty() && options.is_none() {
-            Some(Ok(EMPTY_FROZEN_CMD_ARGS.to_frozen_value()))
+            Some(Ok(EMPTY_FROZEN_CMD_ARGS.at().to_value()))
         } else {
             None
         }

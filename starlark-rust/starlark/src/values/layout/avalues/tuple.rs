@@ -28,7 +28,6 @@ use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -75,10 +74,10 @@ impl<'v> AValue<'v> for AValueTuple {
         );
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         unsafe {
             debug_assert!(
                 (*me).payload.len() != 0,
@@ -164,10 +163,10 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
         );
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        _freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         panic!("already frozen");
     }
 

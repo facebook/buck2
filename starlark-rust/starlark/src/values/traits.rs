@@ -55,7 +55,6 @@ use crate::typing::TypingBinOp;
 use crate::typing::starlark_value::HasTyVTable;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -799,7 +798,7 @@ pub trait StarlarkValue<'v>:
         let _ = demand;
     }
 
-    /// When freezing, this function is called on the value first and can return a `FrozenValue`
+    /// When freezing, this function is called on the value first and can return a frozen value
     /// directly to bypass the freeze impl.
     ///
     /// Most types, when being frozen, want to implement their `FreezeBranded` by converting
@@ -812,11 +811,15 @@ pub trait StarlarkValue<'v>:
     ///
     /// FIXME(JakobDegen):
     ///   1. This behavior really belongs on the freeze trait, not here
-    ///   2. We need to verify that the returned `FrozenValue`'s underlying type agrees with the
-    ///      type on the `FreezeBranded` implementation
+    ///   2. We need to verify that the returned value's underlying type agrees with the type on
+    ///      the `FreezeBranded` implementation
     ///   3. We may want to make it possible to *only* implement this, thereby not allowing by-value
     ///      freezes of the type.
-    fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
+    #[starlark_internal_vtable(skip)]
+    fn try_freeze_directly<'fv>(
+        &self,
+        _freezer: &Freezer<'fv>,
+    ) -> Option<FreezeResult<Value<'fv>>> {
         None
     }
 }

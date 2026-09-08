@@ -23,7 +23,6 @@ use std::ptr;
 use dupe::Dupe;
 
 use crate::any::AnyLifetime;
-use crate::cast;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -82,7 +81,8 @@ impl ForwardPtr {
     }
 
     /// Create a forward pointer to a frozen value. This is used during heap freeze.
-    pub(crate) fn new_frozen(value: FrozenValue) -> ForwardPtr {
+    pub(crate) fn new_frozen(value: Value) -> ForwardPtr {
+        debug_assert!(value.unpack_frozen().is_some());
         ForwardPtr::new(value.0.raw().ptr_value())
     }
 
@@ -92,9 +92,10 @@ impl ForwardPtr {
         ForwardPtr::new(value.0.raw().ptr_value() & !1)
     }
 
-    /// It's caller responsibility to ensure that forward pointer points to a frozen value.
-    pub(crate) unsafe fn unpack_frozen_value(self) -> FrozenValue {
-        FrozenValue::new_ptr_usize_with_str_tag(self.0)
+    /// It's caller responsibility to ensure that forward pointer points to a frozen value in the
+    /// heap of `'v`.
+    pub(crate) unsafe fn unpack_frozen_value<'v>(self) -> Value<'v> {
+        FrozenValue::new_ptr_usize_with_str_tag(self.0).to_value()
     }
 
     /// It's caller responsibility to ensure that forward pointer points to an unfrozen value.
@@ -106,7 +107,7 @@ impl ForwardPtr {
         unsafe {
             match heap_kind {
                 HeapKind::Unfrozen => self.unpack_unfrozen_value(),
-                HeapKind::Frozen => self.unpack_frozen_value().to_value(),
+                HeapKind::Frozen => self.unpack_frozen_value(),
             }
         }
     }
@@ -251,13 +252,9 @@ impl AValueHeader {
     }
 
     pub(crate) unsafe fn unpack_value<'v>(&'v self, heap_kind: HeapKind) -> Value<'v> {
-        unsafe {
-            match heap_kind {
-                HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
-                HeapKind::Frozen => {
-                    FrozenValue::new_ptr_query_is_str(cast::ptr_lifetime(self)).to_value()
-                }
-            }
+        match heap_kind {
+            HeapKind::Unfrozen => Value::new_ptr_query_is_str(self),
+            HeapKind::Frozen => Value::new_frozen_ptr(self, self.0.is_str),
         }
     }
 

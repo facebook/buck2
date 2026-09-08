@@ -45,7 +45,6 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -137,7 +136,7 @@ pub struct AValueVTable {
     // `AValue`
     pub(crate) is_str: bool,
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
-    heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> FreezeResult<FrozenValue>,
+    heap_freeze: for<'fv> fn(StarlarkValueRawPtr, &Freezer<'fv>) -> FreezeResult<Value<'fv>>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
     starlark_serialize:
         fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
@@ -289,7 +288,7 @@ impl AValueVTable {
             },
             heap_freeze: |p, freezer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
-                T::heap_freeze(p, transmute!(&Freezer, &Freezer, freezer))
+                T::heap_freeze(p, freezer)
             },
             heap_copy: |p, tracer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
@@ -415,7 +414,10 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) unsafe fn heap_freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
+    pub(crate) unsafe fn heap_freeze<'fv>(
+        self,
+        freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         (self.vtable.heap_freeze)(self.value, freezer)
     }
 

@@ -23,7 +23,6 @@ use crate::private::Private;
 use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
@@ -59,10 +58,10 @@ where
         mem::size_of::<Self::StarlarkValue>()
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer,
-    ) -> FreezeResult<FrozenValue> {
+        _freezer: &Freezer<'fv>,
+    ) -> FreezeResult<Value<'fv>> {
         Err(FreezeError::new(
             AValueError::CannotBeFrozen(type_name::<T>()).to_string(),
         ))
