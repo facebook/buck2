@@ -34,6 +34,7 @@ use starlark_derive::VisitSpanMut;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::internal_error;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::def::DefParam;
@@ -121,11 +122,15 @@ enum DefError {
     CheckReturnTypeNoType,
 }
 
-/// Store frozen `StmtCompiled`.
-/// This is initialized in `post_freeze`.
+/// The body a frozen def runs: [`DefInfo::stmt_compiled`] re-optimized against the fully frozen
+/// module. `post_freeze` fills it. While it is empty - before freeze, or for a def frozen by a
+/// [`Freezer`] that never runs `post_freeze` - the def runs [`DefInfo::stmt_compiled`] itself.
 struct StmtCompiledCell {
-    cell: UnsafeCell<Bc>,
+    cell: UnsafeCell<Option<Bc>>,
 }
+
+// `Option<Bc>` uses a niche in `Bc`, so the empty state costs the def no space.
+static_assertions::assert_eq_size!(Option<Bc>, Bc);
 
 unsafe impl<'v> Trace<'v> for StmtCompiledCell {
     fn trace(&mut self, _: &Tracer<'v>) {
@@ -139,7 +144,7 @@ unsafe impl Send for StmtCompiledCell {}
 impl StmtCompiledCell {
     fn new() -> StmtCompiledCell {
         StmtCompiledCell {
-            cell: UnsafeCell::new(Bc::default()),
+            cell: UnsafeCell::new(None),
         }
     }
 
@@ -147,12 +152,12 @@ impl StmtCompiledCell {
     unsafe fn set(&self, value: Bc) {
         unsafe {
             ptr::drop_in_place(self.cell.get());
-            ptr::write(self.cell.get(), value);
+            ptr::write(self.cell.get(), Some(value));
         }
     }
 
-    fn get(&self) -> &Bc {
-        unsafe { &*self.cell.get() }
+    fn get(&self) -> Option<&Bc> {
+        unsafe { (*self.cell.get()).as_ref() }
     }
 }
 
@@ -648,7 +653,7 @@ pub(crate) struct DefGen<V> {
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
     pub(crate) module: AtomicFrozenAnyValueOption<FrozenModuleData>,
-    /// This field is only used in `FrozenDef`. It is populated in `post_freeze`.
+    /// See [`StmtCompiledCell`].
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
     #[starlark_pagable(
@@ -662,11 +667,13 @@ fn serialize_optimized_on_freeze_stmt(
     cell: &StmtCompiledCell,
     ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
 ) -> crate::Result<()> {
-    // SAFETY: `StmtCompiledCell::set` is only called from `DefGen::post_freeze`,
-    // which runs as part of the freeze pipeline before the frozen def is
-    // exposed to any caller. Pagable serialization is downstream of freeze,
-    // so the cell is stable here.
-    let bc: &Bc = unsafe { &*cell.cell.get() };
+    // `StmtCompiledCell::set` is only called from `post_freeze`, which runs as part of the
+    // module freeze before the frozen def is exposed to any caller. Pagable serialization is
+    // downstream of that, so the cell is stable here, and empty only if a `Freezer` other than
+    // the module's froze this def.
+    let bc = cell
+        .get()
+        .ok_or_else(|| internal_error!("frozen def paged out before `post_freeze`"))?;
     <Bc as crate::pagable::StarlarkSerialize>::starlark_serialize(bc, ctx)
 }
 
@@ -674,9 +681,9 @@ fn deserialize_optimized_on_freeze_stmt(
     ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
 ) -> crate::Result<StmtCompiledCell> {
     Ok(StmtCompiledCell {
-        cell: UnsafeCell::new(
+        cell: UnsafeCell::new(Some(
             <Bc as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
-        ),
+        )),
     })
 }
 
@@ -721,10 +728,7 @@ impl<'v> Def<'v> {
 
 /// `Frozen` ignores the brand, deliberately. A frozen def is invoked at whatever brand its caller
 /// runs at, through `Bc`, whose operands - `FrozenValueTyped<'static, FrozenDef>` and raw
-/// `FrozenValue` constants - are the compiler's own domain, and `DefLike::FROZEN` turns the
-/// frozen/unfrozen split into a constant that `bc()` dispatches on. That is a distinction the
-/// compiler wants statically; collapsing it into one branded type would put a runtime
-/// discriminant on a hot path.
+/// `FrozenValue` constants - are the compiler's own domain.
 impl<'v> FreezeBranded for Def<'v> {
     type Frozen<'fv> = FrozenDef;
 
@@ -748,22 +752,10 @@ impl<'v> FreezeBranded for Def<'v> {
     }
 }
 
-pub(crate) trait DefLike<'v> {
-    const FROZEN: bool;
-}
-
-impl<'v> DefLike<'v> for DefGen<Value<'v>> {
-    const FROZEN: bool = false;
-}
-
-impl<'v> DefLike<'v> for DefGen<FrozenValue> {
-    const FROZEN: bool = true;
-}
-
 #[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DefGen<V>
 where
-    Self: ProvidesStaticType<'v> + DefLike<'v>,
+    Self: ProvidesStaticType<'v>,
 {
     fn name_for_call_stack(&self, _me: Value<'v>) -> String {
         self.def_info.name.as_str().to_owned()
@@ -808,16 +800,11 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> DefGen<V>
-where
-    Self: DefLike<'v>,
-{
+impl<'v, V: ValueLike<'v>> DefGen<V> {
     pub(crate) fn bc(&self) -> &Bc {
-        if Self::FROZEN {
-            self.optimized_on_freeze_stmt.get()
-        } else {
-            &self.def_info.stmt_compiled
-        }
+        self.optimized_on_freeze_stmt
+            .get()
+            .unwrap_or(&self.def_info.stmt_compiled)
     }
 
     fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> crate::Result<()> {
@@ -936,9 +923,7 @@ where
             }
         }
 
-        if Self::FROZEN {
-            debug_assert!(self.module.load_relaxed().is_some());
-        }
+        debug_assert!(me.unpack_frozen().is_none() || self.module.load_relaxed().is_some());
 
         eval.eval_bc(me, self.bc())
             .map_err(EvalException::into_error)
