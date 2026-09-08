@@ -61,11 +61,6 @@ pub struct DictMut<'v> {
     pub aref: RefMut<'v, Dict<'v>>,
 }
 
-/// Reference to frozen `Dict`.
-pub struct FrozenDictRef {
-    dict: &'static Dict<'static>,
-}
-
 impl<'v> DictRef<'v> {
     /// Downcast the value to a dict.
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
@@ -109,34 +104,6 @@ impl<'v> DictMut<'v> {
             },
         }
     }
-}
-
-impl FrozenDictRef {
-    /// Downcast to frozen dict.
-    pub fn from_frozen_value(x: FrozenValue) -> Option<FrozenDictRef> {
-        x.downcast_ref::<DictGen<Dict<'static>>>()
-            .map(|x| FrozenDictRef { dict: &x.0 })
-    }
-
-    /// Get value by a string key.
-    pub fn get_str(&self, key: &str) -> Option<FrozenValue> {
-        self.dict.get_str(key).map(frozen_entry)
-    }
-
-    /// Iterate over dict entries.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + use<> {
-        self.dict
-            .iter()
-            .map(|(k, v)| (frozen_entry(k), frozen_entry(v)))
-    }
-}
-
-/// The entries of a dict in a frozen heap are frozen: freezing a dict freezes every key and
-/// value, and `FrozenDictRef` is only ever constructed from a `FrozenValue`.
-fn frozen_entry(value: Value<'static>) -> FrozenValue {
-    value
-        .unpack_frozen()
-        .expect("entry of a frozen dict is frozen")
 }
 
 impl<'v> Deref for DictRef<'v> {

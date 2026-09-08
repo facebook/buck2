@@ -89,7 +89,7 @@ use crate::values::ValueError;
 use crate::values::ValueIdentity;
 use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
-use crate::values::dict::FrozenDictRef;
+use crate::values::dict::value::FrozenDict;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::function::BoundMethod;
 use crate::values::function::FUNCTION_TYPE;
@@ -1213,7 +1213,7 @@ impl FrozenValue {
             || self.unpack_bool().is_some()
             || NumRef::unpack_value(self.to_value()).is_ok_and(|n| n.is_some())
             || FrozenListData::from_frozen_value(&self).is_some()
-            || FrozenDictRef::from_frozen_value(self).is_some()
+            || FrozenValueTyped::<FrozenDict>::new(self).is_some()
             || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
             || FrozenValueTyped::<Range>::new(self).is_some()
             || FrozenValueTyped::<FrozenDef>::new(self).is_some()
