@@ -51,7 +51,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueOfUnchecked;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
@@ -402,10 +401,10 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         }
     }
 
-    /// Convert to another `FrozenValue` wrapper.
+    /// Convert to another `Value` wrapper.
     #[inline]
-    pub fn to_value_of_unchecked(self) -> FrozenValueOfUnchecked<'v, T> {
-        FrozenValueOfUnchecked::new(self.to_frozen_value())
+    pub fn to_value_of_unchecked(self) -> ValueOfUnchecked<'v, T> {
+        ValueOfUnchecked::new(self.to_value())
     }
 }
 

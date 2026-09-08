@@ -38,7 +38,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -126,9 +125,9 @@ impl<'v, V: ValueLike<'v>, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUnchec
     }
 }
 
-impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for ValueOfUncheckedGeneric<FrozenValue, T> {
+impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for ValueOfUnchecked<'fv, T> {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        self.0.to_value()
+        self.0
     }
 }
 
@@ -161,9 +160,6 @@ impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
 /// Providing incorrect type annotation will result
 /// in incorrect error reporting by the type checker.
 pub type ValueOfUnchecked<'v, T> = ValueOfUncheckedGeneric<Value<'v>, T>;
-
-/// Frozen starlark value with type annotation.
-pub type FrozenValueOfUnchecked<'f, T> = ValueOfUncheckedGeneric<FrozenValue, T>;
 
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     /// Construct after checking the type.
@@ -200,7 +196,6 @@ mod tests {
 
     use crate::const_frozen_string;
     use crate::typing::Ty;
-    use crate::values::FrozenValueOfUnchecked;
     use crate::values::ValueOfUnchecked;
     use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -212,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_frozen_value_of_unchecked_send_sync() {
+    fn test_value_of_unchecked_send_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
 
         #[allow(dead_code)]
@@ -224,15 +219,6 @@ mod tests {
             }
         }
 
-        assert_send_sync::<FrozenValueOfUnchecked<ReprNotSendSync>>();
-    }
-
-    #[test]
-    fn test_frozen_value_of_unchecked_covariant() {
-        fn _assert_covariant<'a>(
-            _value: FrozenValueOfUnchecked<'static, String>,
-        ) -> FrozenValueOfUnchecked<'a, String> {
-            panic!()
-        }
+        assert_send_sync::<ValueOfUnchecked<'static, ReprNotSendSync>>();
     }
 }
