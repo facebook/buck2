@@ -176,6 +176,22 @@ rust_toolchain_attrs = {
     # "target-feature" will block both "-Ctarget-feature=..." and the split
     # form "-C" followed by "target-feature=...".
     "restricted_rustc_flags": provider_field(list[typing.Any], default = []),
+    # Under `-Csplit-debuginfo=unpacked`, which the rules pass for the cxx
+    # toolchain's `single` and `split` debug modes, rustc writes each codegen
+    # unit's `.dwo` to `--out-dir` and also packs a copy of it into the rlib or
+    # staticlib, so that a downstream `-Csplit-debuginfo=packed` link could
+    # build a dwp from the archive alone. The rules never link that way: `dwp`
+    # reads the `--out-dir` files, which are tracked as external debug info,
+    # and linkers never pull archive members that define no symbols. The
+    # copies only add to what every dependent compile downloads and every
+    # link materializes, and in debug-heavy builds they are a large share of
+    # rlib bytes. When set, the compile action deletes the `.dwo` members from
+    # rlibs and staticlibs right after rustc writes them, using the cxx
+    # toolchain's archiver (`gnu`, `llvm` or `bsd` archiver types; others keep
+    # the members). No effect when the cxx toolchain's split debug mode is
+    # `none`, or for Apple and Windows targets, whose archives never carry
+    # `.dwo` members.
+    "strip_dwo_from_rlibs": provider_field(bool, default = False),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

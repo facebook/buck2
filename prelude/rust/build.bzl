@@ -680,6 +680,14 @@ def rust_compile(
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     has_split_debug = split_debug_mode != SplitDebugMode("none")
 
+    strip_dwo_members = _strip_dwo_members_args(
+        compile_ctx = compile_ctx,
+        emit = emit,
+        crate_type = params.crate_type,
+        output = emit_op.output,
+        has_split_debug = has_split_debug,
+    )
+
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
@@ -816,6 +824,7 @@ def rust_compile(
         env = emit_op.env,
         incremental_enabled = incremental_enabled,
         profile_mode = profile_mode,
+        strip_dwo_members = strip_dwo_members,
     )
 
     if extracts_objects:
@@ -1663,6 +1672,49 @@ Invoke = record(
     identifier = field(str | None),
 )
 
+# Under `-Csplit-debuginfo=unpacked` (see `split_debuginfo_flags` in
+# `_compute_common_args`), rustc writes each codegen unit's `.dwo` to
+# `--out-dir` and also packs a copy of it into the rlib or staticlib, so that a
+# downstream `-Csplit-debuginfo=packed` link could build a dwp from the archive
+# alone. These rules never link that way: `dwp` reads the `--out-dir` files,
+# which flow to it as external debug info, and linkers never pull archive
+# members that define no symbols. A toolchain that sets `strip_dwo_from_rlibs`
+# has `rustc_action.py` delete those members inside the compile action, so the
+# archive is never cached or handed to a consumer with them.
+def _strip_dwo_members_args(compile_ctx: CompileContext, emit: Emit, crate_type: CrateType, output: Artifact | None, has_split_debug: bool) -> cmd_args | None:
+    if not compile_ctx.toolchain_info.strip_dwo_from_rlibs or not has_split_debug:
+        return None
+
+    # Only the `--emit=link` products of the archive crate types carry `.dwo`
+    # members. `Emit("rlib")` of an rlib crate is that product; the hollow
+    # rlibs of `metadata-full` are built without codegen and have none.
+    if crate_type not in [CrateType("rlib"), CrateType("staticlib")]:
+        return None
+    if emit not in [Emit("link"), Emit("rlib")] or output == None:
+        return None
+
+    linker_info = compile_ctx.cxx_toolchain_info.linker_info
+
+    # rustc emits DWARF objects only for targets whose debuginfo is plain DWARF
+    # (`Session::target_can_use_split_dwarf`): Apple (dSYM) and Windows (PDB)
+    # archives never carry `.dwo` members, so skip the archiver round-trip.
+    if linker_info.type in [LinkerType("darwin"), LinkerType("windows")]:
+        return None
+
+    # `d` is the member-deletion verb of the GNU, llvm and BSD archivers; the
+    # others (`lib.exe`, amdclang) have no equivalent this tool speaks, so
+    # toolchains using them keep the members.
+    if linker_info.archiver_type not in ["gnu", "llvm", "bsd"]:
+        return None
+
+    return cmd_args(
+        cmd_args(output.as_output(), format = "--strip-dwo-members={}"),
+        cmd_args(linker_info.archiver, format = "--archiver={}"),
+        # As in `archive_flags`: GNU-style archivers need `D` to leave
+        # timestamps out of the archive they write.
+        ["--archiver-deterministic"] if linker_info.type == LinkerType("gnu") else [],
+    )
+
 # Invoke rustc and capture outputs
 def _rustc_invoke(
     ctx: AnalysisContext,
@@ -1678,6 +1730,7 @@ def _rustc_invoke(
     crate_map: list[(CrateName, Label)],
     env: dict[str, str | ResolvedStringWithMacros | Artifact],
     profile_mode: ProfileMode | None,
+    strip_dwo_members: cmd_args | None,
 ) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -1725,6 +1778,9 @@ def _rustc_invoke(
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in required_outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())
+
+    if strip_dwo_members != None:
+        compile_cmd.add(strip_dwo_members)
 
     compile_cmd.add(rustc_cmd)
 
