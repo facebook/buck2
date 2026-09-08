@@ -559,7 +559,6 @@ mod tests {
 
     use super::*;
     use crate as starlark;
-    use crate::values::FrozenStringValue;
     use crate::values::any::StarlarkAny;
     use crate::values::any_complex::StarlarkAnyComplex;
     use crate::values::dict::value::FrozenDict;
@@ -653,11 +652,12 @@ mod tests {
     fn test_any_array_per_t_distinct() {
         // Same contract for `AnyArray<T>`: different T gets different entry.
         use crate::eval::bc::stack_ptr::BcSlotOut;
+        use crate::eval::runtime::slots::LocalSlotId;
 
-        let arr_fv = TyStarlarkValue::new::<AnyArray<FrozenStringValue>>();
+        let arr_slot = TyStarlarkValue::new::<AnyArray<LocalSlotId>>();
         let arr_bc = TyStarlarkValue::new::<AnyArray<BcSlotOut>>();
-        assert_ne!(arr_fv, arr_bc);
-        assert_eq!(round_trip(arr_fv), arr_fv);
+        assert_ne!(arr_slot, arr_bc);
+        assert_eq!(round_trip(arr_slot), arr_slot);
         assert_eq!(round_trip(arr_bc), arr_bc);
     }
 
@@ -674,14 +674,15 @@ mod tests {
 
     #[test]
     fn test_any_vs_any_array_same_t_distinct() {
-        // `StarlarkAny<FrozenStringValue>` and `AnyArray<FrozenStringValue>`
-        // wrap the same T but are different container types — their entries
-        // must not alias.
-        let any_fv = TyStarlarkValue::new::<StarlarkAny<FrozenStringValue>>();
-        let arr_fv = TyStarlarkValue::new::<AnyArray<FrozenStringValue>>();
-        assert_ne!(any_fv, arr_fv);
-        assert_eq!(round_trip(any_fv), any_fv);
-        assert_eq!(round_trip(arr_fv), arr_fv);
+        // `StarlarkAny<LocalSlotId>` and `AnyArray<LocalSlotId>` wrap the same T but are
+        // different container types — their entries must not alias.
+        use crate::eval::runtime::slots::LocalSlotId;
+
+        let any_slot = TyStarlarkValue::new::<StarlarkAny<LocalSlotId>>();
+        let arr_slot = TyStarlarkValue::new::<AnyArray<LocalSlotId>>();
+        assert_ne!(any_slot, arr_slot);
+        assert_eq!(round_trip(any_slot), any_slot);
+        assert_eq!(round_trip(arr_slot), arr_slot);
     }
 
     #[test]

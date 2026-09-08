@@ -59,7 +59,6 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::any::FrozenAnyValue;
-use crate::values::types::any_array::FrozenAnyArray;
 
 #[derive(Debug, StarlarkPagable)]
 pub(crate) struct BcStmtLoc {
@@ -166,8 +165,8 @@ pub(crate) struct BcWriter<'f> {
     last_opcode: BcOpcode,
     /// Current stack size.
     stack_size: u32,
-    /// Local slot count.
-    local_names: FrozenAnyArray<FrozenStringValue>,
+    /// Local variable names, indexed by slot.
+    local_names: Box<[FrozenStringValue]>,
     /// Local variables which are known to be definitely assigned at current program point.
     definitely_assigned: BcDefinitelyAssigned,
     /// Max observed stack size.
@@ -184,7 +183,7 @@ pub(crate) struct BcWriter<'f> {
 impl<'f> BcWriter<'f> {
     /// Empty.
     pub(crate) fn new(
-        local_names: FrozenAnyArray<FrozenStringValue>,
+        local_names: &[FrozenStringValue],
         param_count: u32,
         heap: FrozenHeap<'f>,
     ) -> BcWriter<'f> {
@@ -200,7 +199,7 @@ impl<'f> BcWriter<'f> {
             stmt_locs: BcStatementLocations::new(),
             last_opcode: BcOpcode::End,
             stack_size: 0,
-            local_names,
+            local_names: local_names.into(),
             definitely_assigned,
             max_stack_size: 0,
             heap,
@@ -230,8 +229,8 @@ impl<'f> BcWriter<'f> {
         assert_eq!(stack_size, 0);
         assert!(for_loops.is_empty());
         Bc {
-            instrs: instrs.finish(spans, stmt_locs, local_names),
             local_count: local_names.len().try_into().unwrap(),
+            instrs: instrs.finish(spans, stmt_locs, local_names),
             max_stack_size,
             max_loop_depth,
         }

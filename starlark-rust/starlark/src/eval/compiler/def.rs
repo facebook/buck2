@@ -114,7 +114,6 @@ use crate::values::types::any_array::FrozenAnyArray;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 static_starlark_value!(VALUE_EMPTY_PARAMETER_CAPTURES: AnyArray<LocalSlotId> = AnyArray::empty());
-static_starlark_value!(VALUE_EMPTY_PARAMETER_TYPES: AnyArray<ParameterTypeCompiled> = AnyArray::empty());
 
 #[derive(thiserror::Error, Debug)]
 enum DefError {
@@ -427,9 +426,12 @@ pub(crate) struct DefInfo {
     /// Span of function signature.
     pub(crate) signature_span: FrozenFileSpan,
     /// Indices of parameters, which are captured in nested defs.
+    ///
+    /// A heap array rather than a box: every [`Def`] copies the handle, see
+    /// [`Def::parameter_captures`].
     parameter_captures: FrozenAnyArray<LocalSlotId>,
     /// Type annotations on parameters, sparse, in parameter order.
-    pub(crate) parameter_types: FrozenAnyArray<ParameterTypeCompiled>,
+    pub(crate) parameter_types: Box<[ParameterTypeCompiled]>,
     /// Type of this function, for the typechecker.
     #[starlark_pagable(pagable)]
     ty: Ty,
@@ -439,10 +441,10 @@ pub(crate) struct DefInfo {
     pub(crate) docstring: Option<String>,
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
-    pub(crate) used: FrozenAnyArray<FrozenStringValue>,
+    pub(crate) used: Box<[FrozenStringValue]>,
     /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
-    pub(crate) parent: FrozenAnyArray<CopySlotFromParent>,
+    pub(crate) parent: Box<[CopySlotFromParent]>,
     /// Statement compiled for non-frozen def.
     #[derivative(Debug = "ignore")]
     stmt_compiled: Bc,
@@ -462,15 +464,15 @@ pub(crate) struct DefInfo {
 impl DefInfo {
     pub(crate) fn for_module(
         codemap: FrozenAnyValue<CodeMap>,
-        local_names: FrozenAnyArray<FrozenStringValue>,
-        parent: FrozenAnyArray<CopySlotFromParent>,
+        local_names: Box<[FrozenStringValue]>,
+        parent: Box<[CopySlotFromParent]>,
         globals: FrozenAnyValue<Globals>,
     ) -> DefInfo {
         DefInfo {
             name: const_frozen_string!("<module>").to_frozen(),
             signature_span: FrozenFileSpan::default(),
             parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.unpack_frozen(),
-            parameter_types: VALUE_EMPTY_PARAMETER_TYPES.unpack_frozen(),
+            parameter_types: Box::default(),
             ty: Ty::any(),
             codemap,
             docstring: None,
@@ -578,25 +580,24 @@ impl Compiler<'_, '_, '_, '_, '_> {
 
         let param_count = params.count_param_variables();
 
-        let used = self.fh.alloc_any_array_value(&scope_names.used);
+        let used: Box<[FrozenStringValue]> = scope_names.used.clone().into_boxed_slice();
+        let stmt_compiled = body.as_bc(
+            &self.compile_context(return_type.is_some()),
+            &used,
+            param_count,
+            self.fh,
+        );
         let info = self.fh.alloc_any_value(DefInfo {
             name,
             signature_span,
             parameter_captures: self.fh.alloc_any_array_value(&params.parameter_captures()),
-            parameter_types: self
-                .fh
-                .alloc_any_array_value(&params.parameter_types(self.fh)),
+            parameter_types: params.parameter_types(self.fh).into_boxed_slice(),
             ty,
             codemap: self.codemap,
             docstring,
             used,
-            parent: self.fh.alloc_any_array_value(&scope_names.parent),
-            stmt_compiled: body.as_bc(
-                &self.compile_context(return_type.is_some()),
-                used,
-                param_count,
-                self.fh,
-            ),
+            parent: scope_names.parent.clone().into_boxed_slice(),
+            stmt_compiled,
             body_stmts: body,
             inline_def_body,
             stmt_compile_context: self.compile_context(return_type.is_some()),
@@ -957,7 +958,7 @@ impl<'v> Def<'v> {
             ))
             .as_bc(
                 &self.def_info.stmt_compile_context,
-                self.def_info.used,
+                &self.def_info.used,
                 self.parameters.len() as u32,
                 frozen_heap,
             );

@@ -50,10 +50,7 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
-use crate::static_starlark_value;
 use crate::values::FrozenStringValue;
-use crate::values::types::any_array::AnyArray;
-use crate::values::types::any_array::FrozenAnyArray;
 
 impl BcOpcode {
     /// Drop instruction at given address.
@@ -104,8 +101,6 @@ unsafe fn drop_instrs(instrs: &[u64]) {
 // But if `BcInstrs::instrs` is `Either` allocated instructions or a pointer to statically
 // allocated instructions, then both `BcInstrs::default` is free
 // and evaluation start [is free](https://rust.godbolt.org/z/3nEhWGo4Y).
-static_starlark_value!(VALUE_EMPTY_LOCAL_NAMES: AnyArray<FrozenStringValue> = AnyArray::empty());
-
 fn empty_instrs() -> &'static [u64] {
     static END_OF_BC: std::sync::LazyLock<BcInstrRepr<InstrEnd>> =
         std::sync::LazyLock::new(|| BcInstrRepr {
@@ -113,7 +108,7 @@ fn empty_instrs() -> &'static [u64] {
             arg: BcInstrEndArg {
                 end_addr: BcAddr(0),
                 slow_args: Vec::new(),
-                local_names: VALUE_EMPTY_LOCAL_NAMES.unpack_frozen(),
+                local_names: Box::default(),
             },
             _align: [],
         });
@@ -514,7 +509,7 @@ impl BcInstrsWriter {
         mut self,
         slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
         stmt_locs: BcStatementLocations,
-        local_names: FrozenAnyArray<FrozenStringValue>,
+        local_names: Box<[FrozenStringValue]>,
     ) -> BcInstrs {
         self.write::<InstrEnd>(BcInstrEndArg {
             end_addr: self.ip(),
@@ -542,13 +537,7 @@ mod tests {
     use crate::eval::bc::instrs::BcInstrsWriter;
     use crate::eval::bc::stack_ptr::BcSlot;
     use crate::eval::bc::writer::BcStatementLocations;
-    use crate::register_starlark_any;
-    use crate::values::FrozenHeap;
-    use crate::values::FrozenStringValue;
     use crate::values::FrozenValue;
-
-    // Register Vec<FrozenStringValue> for use with alloc_any in pagable mode.
-    register_starlark_any!(Vec<FrozenStringValue>);
 
     #[test]
     fn write() {
@@ -567,27 +556,24 @@ mod tests {
 
     #[test]
     fn display() {
-        FrozenHeap::temp(|heap| {
-            let local_names =
-                heap.alloc_any_array_value(&[const_frozen_string!("abc").to_frozen()]);
-            let mut bc = BcInstrsWriter::new();
-            bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
-            bc.write::<InstrReturn>(BcSlot(0).to_in());
-            let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
-            if mem::size_of::<usize>() == 8 {
-                assert_eq!(
-                    "0: Const True ->&abc; 24: Return &abc; 32: End",
-                    bc.to_string()
-                );
-                assert_eq!(
-                    " 0: Const True ->&abc\n24: Return &abc\n32: End\n",
-                    bc.dump_debug()
-                );
-            } else if mem::size_of::<usize>() == 4 {
-                // Starlark doesn't work now on 32-bit CPU
-            } else {
-                panic!("unknown word size: {}", mem::size_of::<usize>());
-            }
-        });
+        let local_names = Box::new([const_frozen_string!("abc").to_frozen()]);
+        let mut bc = BcInstrsWriter::new();
+        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
+        bc.write::<InstrReturn>(BcSlot(0).to_in());
+        let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
+        if mem::size_of::<usize>() == 8 {
+            assert_eq!(
+                "0: Const True ->&abc; 24: Return &abc; 32: End",
+                bc.to_string()
+            );
+            assert_eq!(
+                " 0: Const True ->&abc\n24: Return &abc\n32: End\n",
+                bc.dump_debug()
+            );
+        } else if mem::size_of::<usize>() == 4 {
+            // Starlark doesn't work now on 32-bit CPU
+        } else {
+            panic!("unknown word size: {}", mem::size_of::<usize>());
+        }
     }
 }

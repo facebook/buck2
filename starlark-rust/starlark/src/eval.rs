@@ -62,6 +62,7 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::evaluator;
 use crate::register_starlark_any;
 use crate::syntax::DialectTypes;
+use crate::values::FrozenStringValue;
 use crate::values::Value;
 
 // Register CodeMap for use with StarlarkAny
@@ -110,15 +111,16 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
             let globals = fh.alloc_any_value(globals.dupe());
 
             let scope_names = scope_data.get_scope(ScopeId::module());
-            let local_names = fh.alloc_any_array_value(&scope_names.used);
+            let local_names: Box<[FrozenStringValue]> = scope_names.used.clone().into_boxed_slice();
+            let parent = scope_names.parent.clone().into_boxed_slice();
 
             module_env.slots().ensure_slots(module_slot_count);
             let old_def_info =
                 self.module_def_info
                     .replace(fh.alloc_any_value(DefInfo::for_module(
                         codemap,
-                        local_names,
-                        fh.alloc_any_array_value(&scope_names.parent),
+                        local_names.clone(),
+                        parent,
                         globals,
                     )));
 
@@ -144,7 +146,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
                 typecheck,
             };
 
-            let res = compiler.eval_module(cst, local_names);
+            let res = compiler.eval_module(cst, &local_names);
 
             // Clean up the world, putting everything back
             self.call_stack.pop();

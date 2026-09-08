@@ -43,7 +43,6 @@ use crate::typing::mode::TypecheckMode;
 use crate::typing::typecheck::solve_bindings;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
-use crate::values::types::any_array::FrozenAnyArray;
 
 #[derive(Debug, thiserror::Error)]
 enum ModuleError {
@@ -98,7 +97,7 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
     fn eval_regular_top_level_stmt(
         &mut self,
         stmt: &mut CstStmt,
-        local_names: FrozenAnyArray<FrozenStringValue>,
+        local_names: &[FrozenStringValue],
     ) -> Result<Value<'v>, EvalException> {
         if matches!(stmt.node, StmtP::Statements(_) | StmtP::Load(_)) {
             return Err(EvalException::new_anyhow(
@@ -129,7 +128,7 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
     fn eval_top_level_stmt(
         &mut self,
         stmt: &mut CstStmt,
-        local_names: FrozenAnyArray<FrozenStringValue>,
+        local_names: &[FrozenStringValue],
     ) -> Result<Value<'v>, EvalException> {
         let mut stmts = top_level_stmts_mut(stmt);
 
@@ -209,7 +208,7 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
     pub(crate) fn eval_module(
         &mut self,
         mut stmt: CstStmt,
-        local_names: FrozenAnyArray<FrozenStringValue>,
+        local_names: &[FrozenStringValue],
     ) -> Result<Value<'v>, EvalException> {
         self.enter_scope(ScopeId::module());
         let value = self.eval_top_level_stmt(&mut stmt, local_names)?;
