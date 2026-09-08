@@ -234,6 +234,13 @@ pub(crate) enum ExprLogicalBinOp {
     Or,
 }
 
+/// The IR names values as `FrozenValue`s until `ExprCompiled::Value` is branded, so a value
+/// brought to the IR's brand by [`OptCtx::demote`] drops it again here.
+pub(crate) fn ir_value(v: Value<'_>) -> FrozenValue {
+    v.unpack_frozen()
+        .expect("`demote` only returns frozen values")
+}
+
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum ExprCompiled {
     Value(FrozenValue),
@@ -717,7 +724,7 @@ impl ExprCompiled {
         // but to avoid possible problems, we only fold binary operators on builtin types.
         if let (Some(l), Some(r)) = (l.as_builtin_value(), r.as_builtin_value()) {
             if let Ok(v) = bin_op.eval(l.to_value(), r.to_value(), ctx.heap()) {
-                if let Some(v) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
+                if let Some(v) = ExprCompiled::try_value(span, v, ctx) {
                     return v;
                 }
             }
@@ -771,7 +778,7 @@ impl ExprCompiled {
     ) -> ExprCompiled {
         if let Some(v) = expr.as_builtin_value() {
             if let Some(v) = op.eval(v, ctx) {
-                if let Some(v) = ExprCompiled::try_value(expr.span, v, ctx.frozen_heap()) {
+                if let Some(v) = ExprCompiled::try_value(expr.span, v, ctx) {
                     return v;
                 }
             }
@@ -790,14 +797,14 @@ impl ExprCompiled {
         }
     }
 
-    fn try_values(
+    fn try_values<'v>(
         span: FrameSpan,
-        values: &[Value],
-        heap: FrozenHeap<'_>,
+        values: &[Value<'v>],
+        ctx: &OptCtx<'v, '_, '_, '_, '_>,
     ) -> Option<Vec<IrSpanned<ExprCompiled>>> {
         values
             .try_map(|v| {
-                Self::try_value(span, *v, heap)
+                Self::try_value(span, *v, ctx)
                     .map(|expr| IrSpanned { span, node: expr })
                     .ok_or(())
             })
@@ -805,14 +812,15 @@ impl ExprCompiled {
     }
 
     /// Try convert a maybe not frozen value to an expression, or discard it.
-    pub(crate) fn try_value(
+    pub(crate) fn try_value<'v>(
         span: FrameSpan,
-        v: Value,
-        heap: FrozenHeap<'_>,
+        v: Value<'v>,
+        ctx: &OptCtx<'v, '_, '_, '_, '_>,
     ) -> Option<ExprCompiled> {
-        if let Some(v) = v.unpack_frozen() {
+        let heap = ctx.frozen_heap();
+        if let Some(v) = ctx.demote(v) {
             // If frozen, we are lucky.
-            Some(ExprCompiled::Value(v))
+            Some(ExprCompiled::Value(ir_value(v)))
         } else if let Some(v) = v.unpack_str() {
             if v.len() <= 1000 {
                 // If string, copy it to frozen heap.
@@ -831,10 +839,10 @@ impl ExprCompiled {
         } else if let Some(v) = ListRef::from_value(v) {
             // When spec-safe function returned a non-frozen list,
             // we try to convert that list to a list of constants instruction.
-            let items = Self::try_values(span, v.content(), heap)?;
+            let items = Self::try_values(span, v.content(), ctx)?;
             Some(ExprCompiled::List(items))
         } else if let Some(v) = Tuple::from_value(v) {
-            let items = Self::try_values(span, v.content(), heap)?;
+            let items = Self::try_values(span, v.content(), ctx)?;
             Some(Self::tuple(items, heap))
         } else {
             None
@@ -885,7 +893,7 @@ impl ExprCompiled {
                 ),
                 UnboundValue::Attr(..) => None,
             },
-            MemberOrValue::Value(v) => v.unpack_frozen(),
+            MemberOrValue::Value(v) => Some(ir_value(ctx.demote(v)?)),
         }
     }
 
@@ -923,7 +931,7 @@ impl ExprCompiled {
                 step.map(|v| v.to_value()),
                 ctx.heap(),
             ) {
-                if let Some(v) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
+                if let Some(v) = ExprCompiled::try_value(span, v, ctx) {
                     return v;
                 }
             }
@@ -939,7 +947,7 @@ impl ExprCompiled {
         let span = array.span.merge(&index.span);
         if let (Some(array), Some(index)) = (array.as_builtin_value(), index.as_value()) {
             if let Ok(v) = array.to_value().at(index.to_value(), ctx.heap()) {
-                if let Some(expr) = ExprCompiled::try_value(span, v, ctx.frozen_heap()) {
+                if let Some(expr) = ExprCompiled::try_value(span, v, ctx) {
                     return expr;
                 }
             }
@@ -1221,8 +1229,8 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                     if let Some(v) = self.eval.module_env.slots().get_slot(*slot) {
                         // We could inline non-frozen values, but these values
                         // can be garbage-collected, so it is somewhat harder to implement.
-                        if let Some(v) = v.unpack_frozen() {
-                            return ExprCompiled::Value(v);
+                        if let Some(v) = self.opt_ctx().demote(v) {
+                            return ExprCompiled::Value(ir_value(v));
                         }
                     }
                 }

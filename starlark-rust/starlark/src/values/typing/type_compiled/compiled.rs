@@ -423,10 +423,15 @@ impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
 impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
-    /// Reallocate the type in a frozen heap.
+    /// Copy the type into a frozen heap.
+    ///
+    /// For the compiler, which builds types at the value heap and keeps them in the IR. The type
+    /// is copied even when it is already frozen, since nothing says which heap it was frozen in;
+    /// `typing.Any` is a static and is returned as such.
     pub fn to_frozen(self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
-        if let Some(v) = self.0.to_value().unpack_frozen() {
-            TypeCompiled(v)
+        let any = TypeCompiled::any();
+        if self.to_value().0.ptr_eq(any.to_value().0) {
+            any
         } else {
             self.to_value().downcast().unwrap().to_frozen_dyn(heap)
         }

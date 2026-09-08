@@ -21,15 +21,26 @@ use crate::eval::compiler::Compiler;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
+use crate::values::Value;
 
-pub(crate) trait OptCtxEval<'v, 'a, 'e, 'fm> {
+/// The context the optimizer runs in: a module's value heap, which it speculates on, and the
+/// module's frozen heap, where the IR it produces is allocated.
+///
+/// # Safety
+///
+/// `heap()` and `frozen_heap()` must be the two heaps of one `ModuleHeaps`, used within the scope
+/// that type hands the frozen heap out in. [`OptCtx::demote`] moves frozen values from the first
+/// to the second on the strength of that pairing.
+pub(crate) unsafe trait OptCtxEval<'v, 'a, 'e, 'fm> {
     fn heap(&self) -> Heap<'v>;
     fn frozen_heap(&self) -> FrozenHeap<'fm>;
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>>;
     fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>>;
 }
 
-impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v, 'a, 'fv> {
+// SAFETY: Constructed by `Def::post_freeze` alone, from the heaps `Module::freeze_impl` is
+// sealing with.
+unsafe impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v, 'a, 'fv> {
     fn heap(&self) -> Heap<'v> {
         self.heap
     }
@@ -47,7 +58,9 @@ impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v
     }
 }
 
-impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a, 'e, 'x, 'fm> {
+// SAFETY: Constructed by `Evaluator::eval_module` alone, with the evaluator's module heap and
+// the frozen heap that module hands out.
+unsafe impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a, 'e, 'x, 'fm> {
     fn heap(&self) -> Heap<'v> {
         self.eval.heap()
     }
@@ -98,5 +111,24 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
 
     pub(crate) fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>> {
         self.eval.frozen_module()
+    }
+
+    /// Bring a frozen value the optimizer observed at `'v` to the brand the IR is allocated at,
+    /// or `None` if it is not frozen.
+    ///
+    /// The optimizer evaluates speculatively at `'v` (calls, attribute reads, operators, module
+    /// slots) and folds frozen results into IR stored at `'fm`. No [`HeapEdge`] certifies that
+    /// direction; this is the one place it is taken, and it rests on where a frozen value at `'v`
+    /// can live: in the module's own frozen heap; in a heap that heap references (the globals,
+    /// `load`ed modules); in `'static` data; or in a foreign heap that only the value heap
+    /// references, which `ModuleHeaps` copies into the frozen heap when it is sealed. Each of
+    /// those is kept alive as long as anything at `'fm`. Like every brand argument today, this
+    /// takes `'v` values to be honest; see the `FrozenValue` hole in the `branding` module.
+    ///
+    /// [`HeapEdge`]: crate::values::HeapEdge
+    pub(crate) fn demote(&self, v: Value<'v>) -> Option<Value<'fm>> {
+        // Until the IR is branded the result is erased again at the call sites; once it is, this
+        // is the compiler's last use of `FrozenValue::to_value`.
+        Some(v.unpack_frozen()?.to_value())
     }
 }

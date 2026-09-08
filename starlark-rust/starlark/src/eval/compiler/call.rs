@@ -30,6 +30,7 @@ use crate::eval::compiler::def_inline::InlineDefCallSite;
 use crate::eval::compiler::def_inline::local_as_value::local_as_value;
 use crate::eval::compiler::expr::Builtin1;
 use crate::eval::compiler::expr::ExprCompiled;
+use crate::eval::compiler::expr::ir_value;
 use crate::eval::compiler::opt_ctx::OptCtx;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
@@ -191,7 +192,7 @@ impl CallCompiled {
                     let value = value.ok_or(())?;
                     // Everything should be frozen here, but if not,
                     // it is safer to abandon optimization.
-                    value.unpack_frozen().ok_or(())
+                    ctx.demote(value).map(ir_value).ok_or(())
                 })
                 .ok()?;
 
@@ -221,14 +222,12 @@ impl CallCompiled {
             return None;
         }
 
-        let frozen_heap = ctx.frozen_heap();
-        let eval = ctx.eval()?;
-
-        // Only if all call arguments are frozen values.
-        args.all_values(|arguments| {
-            let v = fun.to_value().invoke(arguments.frozen_to_v(), eval).ok()?;
-            ExprCompiled::try_value(span, v, frozen_heap)
-        })?
+        let v = {
+            let eval = ctx.eval()?;
+            // Only if all call arguments are frozen values.
+            args.all_values(|arguments| fun.to_value().invoke(arguments.frozen_to_v(), eval).ok())??
+        };
+        ExprCompiled::try_value(span, v, ctx)
     }
 
     // Optimize `MyEnum(arg)`.
@@ -236,11 +235,13 @@ impl CallCompiled {
         fun: &IrSpanned<ExprCompiled>,
         args: &ArgsCompiledValue,
     ) -> Option<ExprCompiled> {
+        // The enum type, the argument and the variant it selects are all IR constants, so the
+        // lookup happens at the IR's brand and nothing is demoted from the value heap.
         let fun = AnyEnumType::unpack_value_opt(fun.as_value()?.to_value())?;
         let arg = args.one_pos()?.as_value()?;
-        Some(ExprCompiled::Value(
-            fun.construct(arg.to_value()).ok()?.unpack_frozen().unwrap(),
-        ))
+        Some(ExprCompiled::Value(ir_value(
+            fun.construct(arg.to_value()).ok()?,
+        )))
     }
 
     // Optimize `"aaa{}bbb".format(arg)`.
