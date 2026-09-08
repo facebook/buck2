@@ -111,6 +111,16 @@ impl<T> SymbolMap<T> {
         self.0.len()
     }
 
+    /// Transform the values, keeping the keys.
+    pub(crate) fn map_values<U>(self, mut f: impl FnMut(T) -> U) -> SymbolMap<U> {
+        let mut r = SymbolMap::with_capacity(self.len());
+        for (k, v) in self.0 {
+            let hash = k.hash();
+            r.0.insert_unique(hash, (k, f(v)), |x| x.0.hash());
+        }
+        r
+    }
+
     pub(crate) fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a (Symbol, T)> + 'a {
         self.0.iter()
     }

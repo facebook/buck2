@@ -979,7 +979,7 @@ impl ExprCompiled {
                 node: CallCompiled {
                     fun: IrSpanned {
                         span,
-                        node: ExprCompiled::Value(Constants::get().fn_type.0),
+                        node: ExprCompiled::Value(Constants::get().fn_type.frozen()),
                     },
                     args: ArgsCompiledValue {
                         pos_named: vec![v],
@@ -1012,7 +1012,7 @@ impl ExprCompiled {
             node: CallCompiled {
                 fun: IrSpanned {
                     span,
-                    node: ExprCompiled::Value(Constants::get().fn_len.0),
+                    node: ExprCompiled::Value(Constants::get().fn_len.frozen()),
                 },
                 args: ArgsCompiledValue {
                     pos_named: vec![arg],

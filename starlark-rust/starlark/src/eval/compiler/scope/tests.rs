@@ -48,20 +48,25 @@ fn test_with_module(program: &str, expected: &str, module: &MutableNames) {
     let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
     FrozenHeap::temp(|frozen_heap| {
         let codemap = frozen_heap.alloc_any_value(ast.codemap().dupe());
+        let globals = Globals::new();
         let ModuleScopes {
             cst, scope_data, ..
-        } = ModuleScopes::check_module_err(
-            module,
-            frozen_heap,
-            &HashMap::new(),
-            ast.into_parts().1,
-            ScopeResolverGlobals {
-                globals: Some(frozen_heap.alloc_any_value(Globals::new())),
-            },
-            codemap,
-            &Dialect::AllOptionsInternal,
-        )
-        .unwrap();
+        } = globals
+            .data()
+            .by_ref_with_reconstructor(|globals, r| {
+                ModuleScopes::check_module_err(
+                    module,
+                    frozen_heap,
+                    &HashMap::new(),
+                    ast.into_parts().1,
+                    ScopeResolverGlobals {
+                        globals: Some((globals, r.frozen_edge(frozen_heap))),
+                    },
+                    codemap,
+                    &Dialect::AllOptionsInternal,
+                )
+            })
+            .unwrap();
         let mut r = String::new();
         for (i, binding) in scope_data.bindings.iter().enumerate() {
             if i != 0 {

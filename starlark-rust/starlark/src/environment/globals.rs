@@ -49,9 +49,11 @@ use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
+use crate::values::ProvidesStaticType;
 use crate::values::StarlarkPagable;
 use crate::values::StringValueLike;
 use crate::values::Value;
@@ -64,54 +66,81 @@ use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::types::function::NativeFunction;
 
 /// The global values available during execution.
-#[derive(Clone, Dupe, Debug, Allocative)]
-#[derive(pagable::Pagable, starlark_derive::StarlarkPagableViaPagable)]
-pub struct Globals(Arc<GlobalsData>);
-
-/// A value in a [`Globals`], plus whether it should be hidden from generated documentation.
-#[derive(Clone, Copy, Dupe, Debug, Allocative, StarlarkPagable)]
-struct GlobalValue {
-    value: FrozenValue,
-    doc_hidden: bool,
-}
+///
+/// The values live in a frozen heap that the `Globals` owns; they are reached as
+/// [`OwnedFrozenRef`]s ([`get_ref`](Globals::get_ref), [`iter`](Globals::iter)), which carry the
+/// heap along.
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Allocative,
+    starlark_derive::StarlarkPagableViaPagable
+)]
+pub struct Globals(Arc<GlobalsInner>);
 
 #[derive(Debug, Allocative)]
-struct GlobalsData {
-    heap: OwnedFrozen<()>,
-    variables: SymbolMap<GlobalValue>,
+struct GlobalsInner {
+    data: OwnedFrozen<GlobalsData<'static>>,
+    /// The keys of `data.variables`, sorted.
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
 }
 
-impl PagableSerialize for GlobalsData {
+/// A value in a [`Globals`], plus whether it should be hidden from generated documentation.
+#[derive(Clone, Copy, Dupe, Debug, Allocative, StarlarkPagable)]
+pub(crate) struct GlobalValue<'v> {
+    pub(crate) value: Value<'v>,
+    pub(crate) doc_hidden: bool,
+}
+
+/// The values of a [`Globals`], at the brand of the heap that owns them.
+#[derive(Debug, Allocative, ProvidesStaticType)]
+pub(crate) struct GlobalsData<'v> {
+    pub(crate) variables: SymbolMap<GlobalValue<'v>>,
+}
+
+/// A value in a [`GlobalsBuilder`]. The builder has no brand, so it keeps the values it allocates
+/// as `FrozenValue`s until `build` pairs them with the sealed heap.
+#[derive(Clone, Copy, Dupe, Debug)]
+struct BuilderValue {
+    value: FrozenValue,
+    doc_hidden: bool,
+}
+
+impl PagableSerialize for Globals {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        let GlobalsInner {
+            data,
+            variable_names,
+            docstring,
+        } = &*self.0;
+
         // Serialize the heap (via pagable arc — actual heap data may be deferred).
-        self.heap.pagable_serialize(serializer)?;
+        data.heap_arc().pagable_serialize(serializer)?;
 
         // Force-register chunk indices for the heap and its transitive deps. The
         // pagable arc may not run heap serialization yet, but we need the
         // chunk indices now so the upcoming starlark serializer can resolve
         // FrozenValue pointers. Same trick as `OwnedFrozen` and `FrozenModule`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(self.heap.heap_arc())?;
-        let mut ctx =
-            StarlarkSerializerImpl::new_with_root(serializer, state, self.heap.heap_arc());
+        state.ensure_chunk_index_registered(data.heap_arc())?;
+        let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, data.heap_arc());
 
-        self.variables
-            .starlark_serialize(&mut ctx)
+        data.by_ref(|data| data.variables.starlark_serialize(&mut ctx))
             .map_err(|e: crate::Error| e.into_anyhow())?;
-        self.variable_names
+        variable_names
             .starlark_serialize(&mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())?;
         drop(ctx);
 
-        self.docstring.pagable_serialize(serializer)?;
+        docstring.pagable_serialize(serializer)?;
 
         Ok(())
     }
 }
 
-impl<'de> PagableDeserialize<'de> for GlobalsData {
+impl<'de> PagableDeserialize<'de> for Globals {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
@@ -122,7 +151,7 @@ impl<'de> PagableDeserialize<'de> for GlobalsData {
         let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
             .map_err(|e: crate::Error| e.into_anyhow())?;
 
-        let variables = <SymbolMap<GlobalValue>>::starlark_deserialize(&mut ctx)
+        let variables = <SymbolMap<GlobalValue<'static>>>::starlark_deserialize(&mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())?;
         let variable_names = <Vec<FrozenStringValue>>::starlark_deserialize(&mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())?;
@@ -130,12 +159,8 @@ impl<'de> PagableDeserialize<'de> for GlobalsData {
 
         let docstring = <Option<String>>::pagable_deserialize(deserializer)?;
 
-        Ok(Self {
-            heap,
-            variables,
-            variable_names,
-            docstring,
-        })
+        // SAFETY: The values were resolved against `heap`, which therefore keeps them alive.
+        Ok(unsafe { Globals::from_parts(heap, variables, variable_names, docstring) })
     }
 }
 
@@ -158,9 +183,9 @@ pub struct GlobalsBuilder {
     // The heap everything is allocated in
     heap: OwnedFrozenHeap,
     // Normal top-level variables, e.g. True/hash
-    variables: SymbolMap<GlobalValue>,
+    variables: SymbolMap<BuilderValue>,
     // The list of struct fields, pushed to the end
-    namespace_fields: Vec<SmallMap<FrozenStringValue, GlobalValue>>,
+    namespace_fields: Vec<SmallMap<FrozenStringValue, BuilderValue>>,
     /// The raw docstring for this module
     ///
     /// FIXME(JakobDegen): This should probably be removed. Having a docstring on a `GlobalsBuilder`
@@ -196,23 +221,47 @@ impl Globals {
         GlobalsBuilder::extended_by(extensions).build()
     }
 
-    /// This function is only safe if you first call `heap` and keep a reference to it.
-    /// Therefore, don't expose it on the public API.
-    #[cfg(test)]
-    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
-        self.get_frozen(name).map(FrozenValue::to_value)
+    /// Pair the values with the heap that owns them. `variable_names` are the keys of
+    /// `variables`, sorted, which [`iter`](Globals::iter) relies on.
+    ///
+    /// # SAFETY
+    ///
+    /// Every value in `variables` must be allocated in `heap` or in a heap it references.
+    unsafe fn from_parts(
+        heap: OwnedFrozen<()>,
+        variables: SymbolMap<GlobalValue<'static>>,
+        variable_names: Vec<FrozenStringValue>,
+        docstring: Option<String>,
+    ) -> Globals {
+        // SAFETY: The caller's obligation.
+        let data = unsafe { OwnedFrozen::unchecked_new(heap, GlobalsData { variables }) };
+        Globals(Arc::new(GlobalsInner {
+            data,
+            variable_names,
+            docstring,
+        }))
     }
 
-    /// This function is only safe if you first call `heap` and keep a reference to it.
-    /// Therefore, don't expose it on the public API.
-    pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValue> {
-        self.0.variables.get_str(name).map(|x| x.value)
+    /// The values, for the compiler to read at the brand of the heap it allocates on.
+    pub(crate) fn data(&self) -> &OwnedFrozen<GlobalsData<'static>> {
+        &self.0.data
+    }
+
+    /// The value bound to `name`, kept alive by this globals.
+    pub fn get_ref(&self, name: &str) -> Option<OwnedFrozenRef<'_, Value<'static>>> {
+        self.0
+            .data
+            .maybe_map_ref(|data| Some(data.variables.get_str(name)?.value))
     }
 
     pub(crate) fn get_owned(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
-        let v = self.get_frozen(name)?;
-        // SAFETY: We know the heap this is allocated in
-        unsafe { Some(OwnedFrozen::unchecked_new(self.0.heap.dupe(), v.to_value())) }
+        Some(self.get_ref(name)?.to_owned())
+    }
+
+    /// The value bound to `name`, at the brand of the borrow.
+    #[cfg(test)]
+    pub(crate) fn get(&self, name: &str) -> Option<Value<'_>> {
+        Some(self.get_ref(name)?.value())
     }
 
     /// Get all the names defined in this environment.
@@ -220,24 +269,31 @@ impl Globals {
         self.0.variable_names.iter().copied()
     }
 
-    /// Iterate over all the items in this environment.
-    /// Note returned values are owned by this globals.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
-        self.0.variables.iter().map(|(n, v)| (n.as_str(), v.value))
+    /// Iterate over all the items in this environment, in the order of [`names`](Globals::names).
+    pub fn iter(&self) -> impl Iterator<Item = (&str, OwnedFrozenRef<'_, Value<'static>>)> {
+        self.names().map(|name| {
+            let name = name.as_str();
+            (
+                name,
+                self.get_ref(name)
+                    .expect("`variable_names` are the keys of `variables`"),
+            )
+        })
     }
 
     /// The heap that owns the values in this globals.
     pub fn heap(&self) -> OwnedFrozenRef<'_, ()> {
-        self.0.heap.owner()
+        self.0.data.owner()
     }
 
     /// Print information about the values in this object.
     pub fn describe(&self) -> String {
-        self.0
-            .variables
-            .iter()
-            .map(|(name, val)| val.value.to_value().describe(name.as_str()))
-            .join("\n")
+        self.0.data.by_ref(|data| {
+            data.variables
+                .iter()
+                .map(|(name, val)| val.value.describe(name.as_str()))
+                .join("\n")
+        })
     }
 
     /// Get the documentation for the object itself
@@ -247,18 +303,19 @@ impl Globals {
 
     /// Get the documentation for both the object itself, and its members.
     pub fn documentation(&self) -> DocModule {
-        let (docs, members) = common_documentation(
-            &self.0.docstring,
-            self.0
-                .variables
-                .iter()
-                .filter(|(_, v)| !v.doc_hidden)
-                .map(|(n, v)| (n.as_str(), v.value)),
-        );
-        DocModule {
-            docs,
-            members: members.collect(),
-        }
+        self.0.data.by_ref(|data| {
+            let (docs, members) = common_documentation(
+                &self.0.docstring,
+                data.variables
+                    .iter()
+                    .filter(|(_, v)| !v.doc_hidden)
+                    .map(|(n, v)| (n.as_str(), v.value)),
+            );
+            DocModule {
+                docs,
+                members: members.collect(),
+            }
+        })
     }
 }
 
@@ -364,12 +421,13 @@ impl GlobalsBuilder {
         });
         variable_names.sort();
         let heap = self.heap.seal_impl(name.map(FrozenHeapName::Global), None);
-        Globals(Arc::new(GlobalsData {
-            heap,
-            variables: self.variables,
-            variable_names,
-            docstring: self.docstring,
-        }))
+        let variables = self.variables.map_values(|v| GlobalValue {
+            value: v.value.to_value(),
+            doc_hidden: v.doc_hidden,
+        });
+        // SAFETY: `set` allocates in `self.heap`, which was just sealed into `heap`, and
+        // `populate` copies values only after making `self.heap` reference their heap.
+        unsafe { Globals::from_parts(heap, variables, variable_names, self.docstring) }
     }
 
     /// Set a value in the [`GlobalsBuilder`].
@@ -379,7 +437,7 @@ impl GlobalsBuilder {
     }
 
     fn set_inner<'v>(&'v mut self, name: &str, value: FrozenValue, doc_hidden: bool) {
-        let value = GlobalValue { value, doc_hidden };
+        let value = BuilderValue { value, doc_hidden };
         match self.namespace_fields.last_mut() {
             None => {
                 // TODO(nga): do not quietly ignore redefinitions.
@@ -473,10 +531,12 @@ impl GlobalsStatic {
     /// Get a function out of the object. Requires that the initializer set
     /// exactly one value. If populated via a `#[starlark_module]`, that means
     /// a single function in it.
-    pub fn function(&'static self) -> FrozenValue {
+    ///
+    /// The static is never dropped, so the function is usable with any heap.
+    pub fn function<'v>(&'static self) -> Value<'v> {
         let globals = self.globals();
         assert!(
-            globals.0.variables.len() == 1,
+            globals.0.variable_names.len() == 1,
             "GlobalsBuilder.function must have exactly 1 member, you had {}",
             globals
                 .names()
@@ -484,7 +544,12 @@ impl GlobalsStatic {
                 .join(", ")
         );
 
-        globals.0.variables.values().next().unwrap().value
+        let function = globals.0.data.by_ref(|data| {
+            let function = data.variables.values().next().unwrap().value;
+            // SAFETY: `self` is `'static`, so the globals and their heap are never dropped.
+            unsafe { OwnedFrozen::<Value<'static>>::erase_brand(function) }
+        });
+        HeapEdge::immortal().rebrand(function)
     }
 
     /// Copy all the globals into another builder. The values stay owned by
@@ -493,9 +558,15 @@ impl GlobalsStatic {
     pub fn populate(&'static self, out: &mut GlobalsBuilder) {
         let globals = self.globals();
         out.heap.with(|heap| heap.add_reference(globals.heap()));
-        for (name, value) in globals.0.variables.iter() {
-            out.set_inner(name.as_str(), value.value, value.doc_hidden)
-        }
+        globals.0.data.by_ref(|data| {
+            for (name, value) in data.variables.iter() {
+                let frozen = value
+                    .value
+                    .unpack_frozen()
+                    .expect("globals live in frozen heaps");
+                out.set_inner(name.as_str(), frozen, value.doc_hidden)
+            }
+        });
         out.docstring = globals.0.docstring.clone();
     }
 }
@@ -530,19 +601,19 @@ macro_rules! globals_static {
     };
 }
 
-pub(crate) fn common_documentation<'a, T: IntoIterator<Item = (&'a str, FrozenValue)>>(
+pub(crate) fn common_documentation<'a, 'v, T: IntoIterator<Item = (&'a str, Value<'v>)>>(
     docstring: &Option<String>,
     members: T,
 ) -> (
     Option<DocString>,
-    impl Iterator<Item = (String, DocItem)> + use<T>,
+    impl Iterator<Item = (String, DocItem)> + use<'a, 'v, T>,
 ) {
     let main_docs = docstring
         .as_ref()
         .and_then(|ds| DocString::from_docstring(DocStringKind::Rust, ds));
     let member_docs = members
         .into_iter()
-        .map(|(name, val)| (name.to_owned(), val.to_value().documentation()))
+        .map(|(name, val)| (name.to_owned(), val.documentation()))
         .sorted_by(|(l, _), (r, _)| Ord::cmp(l, r));
 
     (main_docs, member_docs)

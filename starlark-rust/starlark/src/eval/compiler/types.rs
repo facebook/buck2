@@ -173,9 +173,9 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 let a = self.eval_path(a.node)?;
-                if a.ptr_eq(Constants::get().fn_dict.0.to_value())
-                    || a.ptr_eq(Constants::get().fn_tuple.0.to_value())
-                    || a.ptr_eq(Constants::get().typing_callable.0.to_value())
+                if Constants::get().fn_dict.is(a)
+                    || Constants::get().fn_tuple.is(a)
+                    || Constants::get().typing_callable.is(a)
                 {
                     let i0 = self.eval_expr(*i0)?;
                     let i1 = self.eval_expr(*i1)?;

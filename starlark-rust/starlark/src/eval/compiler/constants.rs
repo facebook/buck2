@@ -21,18 +21,36 @@ use dupe::Dupe;
 
 use crate::environment::Globals;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
+use crate::values::OwnedFrozen;
+use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::namespace::Namespace;
 
-#[derive(Copy, Clone, Dupe, Debug)]
-pub(crate) struct BuiltinFn(pub(crate) FrozenValue);
+#[derive(Clone, Dupe, Debug)]
+pub(crate) struct BuiltinFn(OwnedFrozen<Value<'static>>);
 
-impl PartialEq<FrozenValue> for BuiltinFn {
-    fn eq(&self, other: &FrozenValue) -> bool {
+impl BuiltinFn {
+    /// The function as the IR names it, which is by `FrozenValue` until `ExprCompiled::Value` is
+    /// branded.
+    pub(crate) fn frozen(&self) -> FrozenValue {
+        self.0
+            .by_ref(|v| v.unpack_frozen().expect("globals live in frozen heaps"))
+    }
+}
+
+impl BuiltinFn {
+    /// Whether `v` is this function.
+    pub(crate) fn is(&self, v: Value) -> bool {
         // Pointer equality works because `#[starlark_module]` proc macro
         // generates a singleton which allocates the function only once
         // even if builder function is called multiple times.
-        self.0.to_value().ptr_eq(other.to_value())
+        self.0.by_ref(|f| f.ptr_eq(v))
+    }
+}
+
+impl PartialEq<FrozenValue> for BuiltinFn {
+    fn eq(&self, other: &FrozenValue) -> bool {
+        self.is(other.to_value())
     }
 }
 
@@ -57,24 +75,22 @@ impl Constants {
     pub fn get() -> &'static Constants {
         static RES: LazyLock<Constants> = LazyLock::new(|| {
             let g = Globals::extended_internal();
+            let builtin = |name| BuiltinFn(g.get_owned(name).unwrap());
             Constants {
-                fn_len: BuiltinFn(g.get_frozen("len").unwrap()),
-                fn_type: BuiltinFn(g.get_frozen("type").unwrap()),
-                fn_list: BuiltinFn(g.get_frozen("list").unwrap()),
-                fn_dict: BuiltinFn(g.get_frozen("dict").unwrap()),
-                fn_tuple: BuiltinFn(g.get_frozen("tuple").unwrap()),
-                fn_isinstance: BuiltinFn(g.get_frozen("isinstance").unwrap()),
-                typing_callable: {
-                    let typing =
-                        FrozenValueTyped::<Namespace>::new(g.get_frozen("typing").unwrap())
-                            .unwrap();
-                    let callable = typing.as_ref().get("Callable").unwrap();
-                    BuiltinFn(
-                        callable
-                            .unpack_frozen()
-                            .expect("globals are allocated in a frozen heap"),
-                    )
-                },
+                fn_len: builtin("len"),
+                fn_type: builtin("type"),
+                fn_list: builtin("list"),
+                fn_dict: builtin("dict"),
+                fn_tuple: builtin("tuple"),
+                fn_isinstance: builtin("isinstance"),
+                typing_callable: BuiltinFn(
+                    g.get_owned("typing")
+                        .unwrap()
+                        .by_ref_with_reconstructor(|typing, r| {
+                            let typing = ValueTyped::<Namespace>::new(*typing).unwrap();
+                            r.reconstruct(typing.as_ref().get("Callable").unwrap())
+                        }),
+                ),
             }
         });
         LazyLock::force(&RES)
@@ -88,13 +104,9 @@ mod tests {
 
     #[test]
     fn test_constants() {
-        assert_eq!(
-            Globals::standard().get_frozen("len").unwrap(),
-            Constants::get().fn_len
-        );
-        assert_eq!(
-            Globals::extended_internal().get_frozen("len").unwrap(),
-            Constants::get().fn_len
-        );
+        for globals in [Globals::standard(), Globals::extended_internal()] {
+            let len = globals.get_owned("len").unwrap();
+            assert!(len.by_ref(|len| Constants::get().fn_len == len.unpack_frozen().unwrap()));
+        }
     }
 }

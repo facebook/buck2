@@ -597,7 +597,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                         // Built-in generic types (list, set) are special-cased because they
                         // are functions, not types, so they lack eval_type(). Their
                         // parameterization is handled directly via Ty constructors.
-                        if a.ptr_eq(Constants::get().fn_list.0.to_value()) {
+                        if Constants::get().fn_list.is(a) {
                             Ok(Ty::list(i))
                         } else {
                             let i_compiled = TypeCompiled::from_ty(&i, self.heap);
@@ -631,7 +631,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
             }
             TypeExprUnpackP::Index2(a, i0, i1) => {
                 if let Some(a) = self.eval_path(a)? {
-                    if a.ptr_eq(Constants::get().fn_dict.0.to_value()) {
+                    if Constants::get().fn_dict.is(a) {
                         let i0 = self.from_type_expr_impl(i0)?;
                         let i1 = self.from_type_expr_impl(i1)?;
                         let i0 = TypeCompiled::from_ty(&i0, self.heap);
@@ -651,7 +651,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                                 Ok(Ty::any())
                             }
                         }
-                    } else if a.ptr_eq(Constants::get().fn_tuple.0.to_value()) {
+                    } else if Constants::get().fn_tuple.is(a) {
                         let i0 = self.from_type_expr_impl(i0)?;
                         let TypeExprUnpackP::Ellipsis = i1.node else {
                             self.approximations
@@ -678,7 +678,7 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                                 Ok(Ty::any())
                             }
                         }
-                    } else if a.ptr_eq(Constants::get().typing_callable.0.to_value()) {
+                    } else if Constants::get().typing_callable.is(a) {
                         let TypeExprUnpackP::List(items) = &i0.node else {
                             self.approximations.push(Approximation::new(
                                 "Expecting list in Callable[[...], ...]",

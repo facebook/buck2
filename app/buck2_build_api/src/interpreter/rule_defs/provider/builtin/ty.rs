@@ -92,10 +92,10 @@ fn builtin_provider_typechecker_ty<'v, C: StarlarkValue<'v> + ProviderCallableLi
     if iter.next().is_some() {
         panic!("more then one global in creator func globals");
     }
-    if first.1.to_value().get_type() != FUNCTION_TYPE {
+    if first.1.value().get_type() != FUNCTION_TYPE {
         panic!("creator func is not a function");
     }
-    let ty = Ty::of_value(first.1.to_value());
+    let ty = Ty::of_value(first.1.value());
     let ty_callable = ty
         .as_function()
         .expect("creator func is not a function")

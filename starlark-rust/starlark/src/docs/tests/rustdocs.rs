@@ -237,8 +237,9 @@ fn inner_module_functions_have_docs() {
     let item = GlobalsBuilder::new()
         .with(module)
         .build()
-        .get("func1")
+        .get_ref("func1")
         .unwrap()
+        .value()
         .documentation();
 
     match item {

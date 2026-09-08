@@ -82,8 +82,6 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         let res = module_env.frozen_heap(|fh, _| {
             let codemap = fh.alloc_any_value(codemap.dupe());
 
-            let globals = fh.alloc_any_value(globals.dupe());
-
             if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
                 module_env.set_docstring(docstring)
             }
@@ -93,19 +91,23 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
                 module_slot_count,
                 scope_data,
                 top_level_stmt_count,
-            } = ModuleScopes::check_module_err(
-                module_env.mutable_names(),
-                fh,
-                &HashMap::new(),
-                statement,
-                ScopeResolverGlobals {
-                    globals: Some(globals),
-                },
-                codemap,
-                &dialect,
-            )?;
+            } = globals.data().by_ref_with_reconstructor(|globals, r| {
+                // The edge makes the module's frozen heap keep the globals alive.
+                let gedge = r.frozen_edge(fh);
+                ModuleScopes::check_module_err(
+                    module_env.mutable_names(),
+                    fh,
+                    &HashMap::new(),
+                    statement,
+                    ScopeResolverGlobals {
+                        globals: Some((globals, gedge)),
+                    },
+                    codemap,
+                    &dialect,
+                )
+            })?;
 
-            fh.add_reference(globals.heap());
+            let globals = fh.alloc_any_value(globals.dupe());
 
             let scope_names = scope_data.get_scope(ScopeId::module());
             let local_names = fh.alloc_any_array_value(&scope_names.used);

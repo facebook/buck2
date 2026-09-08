@@ -202,17 +202,19 @@ impl AstModuleTypecheck for AstModule {
                     scope_data,
                     ..
                 },
-            ) = ModuleScopes::check_module(
-                &names,
-                frozen_heap,
-                loads,
-                statement,
-                ScopeResolverGlobals {
-                    globals: Some(frozen_heap.alloc_any_value(globals.dupe())),
-                },
-                frozen_heap.alloc_any_value(codemap.dupe()),
-                &Dialect::AllOptionsInternal,
-            );
+            ) = globals.data().by_ref_with_reconstructor(|globals, r| {
+                ModuleScopes::check_module(
+                    &names,
+                    frozen_heap,
+                    loads,
+                    statement,
+                    ScopeResolverGlobals {
+                        globals: Some((globals, r.frozen_edge(frozen_heap))),
+                    },
+                    frozen_heap.alloc_any_value(codemap.dupe()),
+                    &Dialect::AllOptionsInternal,
+                )
+            });
             let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
             // We don't really need to properly unpack top-level statements,
             // but make it safe against future changes.

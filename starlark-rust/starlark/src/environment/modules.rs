@@ -185,10 +185,8 @@ impl FrozenModule {
     /// but we prefer not to panic if there's some high level logic error.
     pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
         Module::with_temp_heap(|module| {
-            module.frozen_heap(|fh, _| fh.add_reference(globals.heap()));
-
             for (name, value) in globals.iter() {
-                module.set(name, value.to_value());
+                module.set(name, value.add_to_heap(module.heap()));
             }
 
             if let Some(docstring) = globals.docstring() {

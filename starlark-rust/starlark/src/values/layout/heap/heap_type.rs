@@ -1799,7 +1799,7 @@ where
     /// # SAFETY
     ///
     /// The result must be stored alongside an owner that keeps `'fv` alive.
-    unsafe fn erase_brand<'fv>(v: T::Reinfect<'fv>) -> T {
+    pub(crate) unsafe fn erase_brand<'fv>(v: T::Reinfect<'fv>) -> T {
         // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
         // lifetimes; keeping `'fv` alive is the caller's obligation.
         unsafe { transmute!(T::Reinfect<'fv>, T, v) }
@@ -1855,6 +1855,24 @@ where
                 _invariant: PhantomData,
             },
         )
+    }
+
+    /// Borrow a part of the underlying value as an [`OwnedFrozenRef`], using the borrow as the
+    /// brand.
+    ///
+    /// This is how a value is picked out of an owner whose type is not `Copy`, where
+    /// [`as_ref`](OwnedFrozen::as_ref) is unavailable.
+    pub fn maybe_map_ref<'s, U, F>(&'s self, f: F) -> Option<OwnedFrozenRef<'s, U>>
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'a, 'fv> F: FnOncish<&'a T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
+    {
+        // SAFETY: See the comment on the type
+        let v = f(unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) })?;
+        // SAFETY: `f` is generic over the brand, so up to unbranded (frozen) values it can only
+        // return values derived from its input, which our heap keeps alive
+        Some(unsafe { OwnedFrozenRef::unchecked_new(self.owner(), v) })
     }
 
     /// Map the underlying value and access a reconstructor

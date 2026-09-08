@@ -92,7 +92,7 @@ impl From<ScopeError> for crate::Error {
 }
 
 /// All scopes and bindings in a module.
-struct ModuleScopeBuilder<'a, 'f> {
+struct ModuleScopeBuilder<'a, 'f, 'g> {
     scope_data: ModuleScopeData<'f>,
     module: &'a MutableNames,
     frozen_heap: FrozenHeap<'f>,
@@ -102,7 +102,7 @@ struct ModuleScopeBuilder<'a, 'f> {
     locals: Vec<ScopeId>,
     unscopes: Vec<Unscope>,
     codemap: FrozenAnyValue<CodeMap>,
-    globals: ScopeResolverGlobals,
+    globals: ScopeResolverGlobals<'a, 'f, 'g>,
     errors: Vec<EvalException>,
     top_level_stmt_count: usize,
 }
@@ -248,7 +248,7 @@ enum ResolveIdentScope {
     GlobalForTypeExpression,
 }
 
-impl<'a, 'f> ModuleScopeBuilder<'a, 'f> {
+impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
     fn top_scope_id(&self) -> ScopeId {
         *self.locals.last().unwrap()
     }
@@ -274,10 +274,10 @@ impl<'a, 'f> ModuleScopeBuilder<'a, 'f> {
         frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: ScopeResolverGlobals,
+        globals: ScopeResolverGlobals<'a, 'f, 'g>,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
-    ) -> (CstStmt, ModuleScopeBuilder<'a, 'f>) {
+    ) -> (CstStmt, ModuleScopeBuilder<'a, 'f, 'g>) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
@@ -351,7 +351,7 @@ impl<'a, 'f> ModuleScopeBuilder<'a, 'f> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'_, 'f> {
+impl<'f> ModuleScopeBuilder<'_, 'f, '_> {
     // Number of module slots I need, a struct holding all scopes, and module bindings.
     fn exit_module(
         mut self,
@@ -380,7 +380,7 @@ impl<'f> ModuleScopes<'f> {
         frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: ScopeResolverGlobals,
+        globals: ScopeResolverGlobals<'_, 'f, '_>,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
     ) -> crate::Result<ModuleScopes<'f>> {
@@ -397,7 +397,7 @@ impl<'f> ModuleScopes<'f> {
         frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
-        globals: ScopeResolverGlobals,
+        globals: ScopeResolverGlobals<'_, 'f, '_>,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
     ) -> (Vec<EvalException>, ModuleScopes<'f>) {
@@ -425,7 +425,7 @@ impl<'f> ModuleScopes<'f> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'_, 'f> {
+impl<'f> ModuleScopeBuilder<'_, 'f, '_> {
     fn collect_defines_in_def(
         scope_data: &mut ModuleScopeData,
         scope_id: ScopeId,

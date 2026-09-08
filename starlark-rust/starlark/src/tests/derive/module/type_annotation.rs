@@ -64,7 +64,7 @@ fn test_every_as_type_global_has_a_typecheckable_type_attr() {
     let globals = GlobalsBuilder::extended().build();
     let mut checked = Vec::new();
     for (name, value) in globals.iter() {
-        let Some(func) = value.downcast_ref::<NativeFunction>() else {
+        let Some(func) = value.value().downcast_ref::<NativeFunction>() else {
             continue;
         };
         if func.as_type.is_none() {

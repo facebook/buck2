@@ -1922,8 +1922,11 @@ fn assert_static_value_round_trip(
 fn test_globals_static_heap_value_round_trip() -> crate::Result<()> {
     let static_fv = PAGABLE_TEST_STATIC_GLOBALS
         .globals()
-        .get_frozen("global_value")
-        .expect("static global should exist");
+        .get_ref("global_value")
+        .expect("static global should exist")
+        .value()
+        .unpack_frozen()
+        .expect("static global is frozen");
 
     let restored = assert_static_value_round_trip(static_fv, 8)?;
     let restored_data = restored

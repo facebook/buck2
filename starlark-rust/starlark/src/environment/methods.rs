@@ -129,7 +129,7 @@ impl Methods {
             &self.docstring,
             self.members
                 .iter()
-                .map(|(n, v)| (n.as_str(), v.to_frozen_value())),
+                .map(|(n, v)| (n.as_str(), v.to_frozen_value().to_value())),
         );
 
         DocType {
