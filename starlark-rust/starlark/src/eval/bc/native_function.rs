@@ -25,16 +25,21 @@ use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
 use crate::values::FrozenValueTyped;
+use crate::values::HeapEdge;
 use crate::values::Value;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFunction;
 
 /// Pointer to a native function optimized for bytecode execution.
+///
+/// The bytecode names the function by a `'static` handle, and `invoke` brings it to the brand of
+/// the heap it runs against through [`HeapEdge::immortal`]; that `'static` is one of the typed
+/// handles the `branding` module names as the hole.
 #[derive(Copy, Clone, Dupe, Allocative)]
 pub(crate) struct BcNativeFunction {
-    fun: FrozenValueTyped<'static, NativeFunction>,
+    fun: FrozenValueTyped<'static, NativeFunction<'static>>,
     /// Copy function here from `fun` to avoid extra dereference when calling.
-    imp: &'static NativeFunc,
+    imp: &'static NativeFunc<'static>,
 }
 
 // Only the frozen value is on the wire; `imp` is recomputed from `fun` on
@@ -47,13 +52,13 @@ impl StarlarkSerialize for BcNativeFunction {
 
 impl StarlarkDeserialize for BcNativeFunction {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let fun = FrozenValueTyped::<'static, NativeFunction>::starlark_deserialize(ctx)?;
+        let fun = FrozenValueTyped::<'static, NativeFunction<'static>>::starlark_deserialize(ctx)?;
         Ok(BcNativeFunction::new(fun))
     }
 }
 
 impl BcNativeFunction {
-    pub(crate) fn new(fun: FrozenValueTyped<'static, NativeFunction>) -> BcNativeFunction {
+    pub(crate) fn new(fun: FrozenValueTyped<'static, NativeFunction<'static>>) -> BcNativeFunction {
         BcNativeFunction {
             fun,
             imp: &fun.as_ref().function,
@@ -61,7 +66,7 @@ impl BcNativeFunction {
     }
 
     #[inline]
-    pub(crate) fn fun(&self) -> FrozenValueTyped<'static, NativeFunction> {
+    pub(crate) fn fun(&self) -> FrozenValueTyped<'static, NativeFunction<'static>> {
         self.fun
     }
 
@@ -76,6 +81,7 @@ impl BcNativeFunction {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        self.imp.invoke(eval, args)
+        let imp: &NativeFunc<'v> = HeapEdge::immortal().rebrand(self.imp);
+        imp.invoke(eval, args)
     }
 }

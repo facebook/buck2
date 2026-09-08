@@ -168,7 +168,7 @@ impl StarFun {
                 globals_builder.set_method(
                     #name_str,
                     #components,
-                    #param_spec,
+                    |__heap| #param_spec,
                     __starlark_invoke_outer,
                 );
             })
@@ -180,7 +180,7 @@ impl StarFun {
                 globals_builder.set_function(
                     #name_str,
                     #components,
-                    #param_spec,
+                    |__heap| #param_spec,
                     #as_type,
                     #ty_custom,
                     #special_builtin_function,
@@ -259,7 +259,7 @@ pub(crate) fn render_fun(x: StarFun) -> syn::Result<syn::Stmt> {
         fn __starlark_invoke_outer<'v>(
             eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
             #(#this_outer_param,)*
-            signature: &starlark::eval::ParametersSpec<starlark::values::FrozenValue>,
+            signature: &starlark::eval::ParametersSpec<starlark::values::Value<'v>>,
             parameters: &starlark::eval::Arguments<'v, '_>,
         ) -> starlark::Result<starlark::values::Value<'v>> {
             #this_prepare
@@ -438,8 +438,8 @@ fn render_binding_arg(arg: &StarArg) -> syn::Result<BindingArg> {
     })
 }
 
-// Given the arguments, create a variable `signature` with a `ParametersSpec` object.
-// Or return None if you don't need a signature
+// Given the arguments, create an expression building the `ParametersSpec` on the builder's
+// heap, which is in scope as `__heap`.
 fn render_signature(x: &StarFun) -> syn::Result<syn::Expr> {
     let name_str = ident_string(&x.name);
 
@@ -646,7 +646,7 @@ impl SignatureRegularArgMode {
             // to avoid the to/from value conversion.
             if arg.is_value() {
                 SignatureRegularArgMode::Defaulted(syn::parse_quote! {
-                    globals_builder.alloc(#default)
+                    __heap.alloc(#default)
                 })
             } else {
                 SignatureRegularArgMode::Optional

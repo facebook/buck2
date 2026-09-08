@@ -29,6 +29,7 @@ use crate::environment::common_documentation;
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
+use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
@@ -43,11 +44,17 @@ use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::types::unbound::UnboundValue;
 
 /// Methods of an object.
+///
+/// A methods table is reached as `&'static Methods`, through
+/// [`StarlarkValue::get_methods`](crate::values::StarlarkValue::get_methods). That is what keeps
+/// its members alive, and the readers that hand out members require it: the members are stored
+/// at the `'static` brand, which such a reference makes honest, see
+/// [`HeapEdge::immortal`](crate::values::HeapEdge::immortal).
 #[derive(Clone, Debug)]
 pub struct Methods {
     /// This field holds the objects referenced in `members`.
     heap: OwnedFrozen<()>,
-    members: SymbolMap<UnboundValue>,
+    members: SymbolMap<UnboundValue<'static>>,
     docstring: Option<String>,
 }
 
@@ -70,8 +77,9 @@ impl std::fmt::Display for MethodFrozenHeapName {
 pub struct MethodsBuilder {
     /// The heap everything is allocated in.
     heap: OwnedFrozenHeap,
-    /// Members, either `NativeMethod` or `NativeAttribute`.
-    members: SymbolMap<UnboundValue>,
+    /// Members, either `NativeMethod` or `NativeAttribute`. Allocated in `heap` (or a heap it
+    /// references) and stored with the brand erased; `Methods` documents how they are read.
+    members: SymbolMap<UnboundValue<'static>>,
     /// The raw docstring for the main object.
     ///
     /// FIXME(JakobDegen): This should probably be removed. Not only can these docstrings not be
@@ -83,15 +91,15 @@ pub struct MethodsBuilder {
 }
 
 impl Methods {
-    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
-        Some(self.members.get_str(name)?.to_frozen_value().to_value())
+    pub(crate) fn get<'v>(&'static self, name: &str) -> Option<Value<'v>> {
+        Some(self.members.get_str(name)?.at().to_value())
     }
 
     /// Gets the type of the member
     ///
     /// In the case of an attribute, this is the type the attribute evaluates to, while in the case
     /// of a method, this is the `TyCallable`
-    pub(crate) fn get_ty(&self, name: &str) -> Option<Ty> {
+    pub(crate) fn get_ty(&'static self, name: &str) -> Option<Ty> {
         match self.members.get_str(name)? {
             UnboundValue::Attr(attr) => Some(attr.typ.dupe()),
             UnboundValue::Method(method) => Some(method.ty.dupe()),
@@ -104,12 +112,18 @@ impl Methods {
     }
 
     #[inline]
-    pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<&UnboundValue> {
+    pub(crate) fn get_hashed(
+        &'static self,
+        name: Hashed<&str>,
+    ) -> Option<&'static UnboundValue<'static>> {
         self.members.get_hashed_str(name)
     }
 
     #[inline]
-    pub(crate) fn get_frozen_symbol(&self, name: &Symbol) -> Option<&UnboundValue> {
+    pub(crate) fn get_frozen_symbol(
+        &'static self,
+        name: &Symbol,
+    ) -> Option<&'static UnboundValue<'static>> {
         self.members.get(name)
     }
 
@@ -117,19 +131,19 @@ impl Methods {
         self.members.keys().map(|x| x.as_str().to_owned()).collect()
     }
 
-    pub(crate) fn members(&self) -> impl Iterator<Item = (&str, FrozenValue)> {
+    pub(crate) fn members<'v>(&'static self) -> impl Iterator<Item = (&'static str, Value<'v>)> {
         self.members
             .iter()
-            .map(|(k, v)| (k.as_str(), v.to_frozen_value()))
+            .map(|(k, v)| (k.as_str(), v.at().to_value()))
     }
 
     /// Fetch the documentation.
-    pub fn documentation(&self, ty: Ty) -> DocType {
+    pub fn documentation(&'static self, ty: Ty) -> DocType {
         let (docs, members) = common_documentation(
             &self.docstring,
             self.members
                 .iter()
-                .map(|(n, v)| (n.as_str(), v.to_frozen_value().to_value())),
+                .map(|(n, v)| (n.as_str(), v.at().to_value())),
         );
 
         DocType {
@@ -198,17 +212,19 @@ impl MethodsBuilder {
     ) {
         // We want to build an attribute, that ignores its self argument, and does no subsequent allocation.
         let attr = self.heap.with(|heap| {
-            let value = heap.alloc_frozen(value);
-            heap.alloc_simple_typed_static(NativeAttribute {
+            let value = heap.alloc(value);
+            let attr = heap.alloc_simple_typed(NativeAttribute {
                 speculative_exec_safe: true,
                 docstring,
                 typ: V::starlark_type_repr(),
                 data: Some(value),
                 // SAFETY: Set to `Some` immediately above
-                callable: |value, _, _| Ok(unsafe { value.unwrap_unchecked() }.to_value()),
-            })
+                callable: |value, _, _| Ok(unsafe { value.unwrap_unchecked() }),
+            });
+            // SAFETY: Allocated in `self.heap` just above.
+            unsafe { erase_member(UnboundValue::Attr(attr)) }
         });
-        self.members.insert(name, UnboundValue::Attr(attr));
+        self.members.insert(name, attr);
     }
 
     /// Set an attribute. Only used by `starlark_module` macro
@@ -220,41 +236,48 @@ impl MethodsBuilder {
         docstring: Option<String>,
         typ: Ty,
         // The first argument is always `None`
-        f: for<'v> fn(Option<FrozenValue>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
+        f: for<'v> fn(Option<Value<'v>>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
     ) {
         let attr = self.heap.with(|heap| {
-            heap.alloc_simple_typed_static(NativeAttribute {
+            let attr = heap.alloc_simple_typed(NativeAttribute {
                 speculative_exec_safe,
                 docstring,
                 typ,
                 data: None,
                 callable: f,
-            })
+            });
+            // SAFETY: Allocated in `self.heap` just above.
+            unsafe { erase_member(UnboundValue::Attr(attr)) }
         });
-        self.members.insert(name, UnboundValue::Attr(attr));
+        self.members.insert(name, attr);
     }
 
     /// Set a method. Only used by `starlark_module` macro
+    ///
+    /// `sig` builds the signature on the heap of this builder, so that its default values live
+    /// there.
     #[doc(hidden)]
     pub fn set_method(
         &mut self,
         name: &str,
         components: NativeCallableComponents,
-        sig: ParametersSpec<FrozenValue>,
+        sig: impl for<'fh> FnOnce(FrozenHeap<'fh>) -> ParametersSpec<Value<'fh>>,
         f: NativeMethFn,
     ) {
         let ty = components.make_type(None);
 
         let method = self.heap.with(|heap| {
-            heap.alloc_simple_typed_static(NativeMethod {
-                function: NativeMeth(f, sig),
+            let method = heap.alloc_simple_typed(NativeMethod {
+                function: NativeMeth(f, sig(heap)),
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
                 docs: components.into_docs(None),
                 ty,
-            })
+            });
+            // SAFETY: Allocated in `self.heap` just above.
+            unsafe { erase_member(UnboundValue::Method(method)) }
         });
-        self.members.insert(name, UnboundValue::Method(method));
+        self.members.insert(name, method);
     }
 
     /// Allocate a value using the same underlying heap as the [`MethodsBuilder`]
@@ -313,12 +336,22 @@ impl MethodsStatic {
     pub fn populate(&'static self, out: &mut MethodsBuilder) {
         let methods = self.methods();
         for (name, value) in methods.members.iter() {
-            out.members.insert(name.as_str(), value.clone());
+            out.members.insert(name.as_str(), *value);
         }
         out.heap
             .with(|heap| heap.add_reference(methods.heap.owner()));
         out.docstring = methods.docstring.clone();
     }
+}
+
+/// Forget the brand of a member, for storage in a [`MethodsBuilder`].
+///
+/// # SAFETY
+///
+/// `member` must be allocated in the builder's heap.
+unsafe fn erase_member<'fh>(member: UnboundValue<'fh>) -> UnboundValue<'static> {
+    // SAFETY: The builder's heap ends up as the `Methods`' heap, which keeps the member alive.
+    unsafe { OwnedFrozen::<UnboundValue<'static>>::erase_brand(member) }
 }
 
 /// Define a `static` of type [`MethodsStatic`] backed by an init function. The

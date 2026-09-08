@@ -231,7 +231,7 @@ fn render_attr(x: StarAttr, generics: &StarGenerics) -> syn::Stmt {
     let outer: syn::ItemFn = syn::parse_quote! {
         #[allow(non_snake_case)]
         fn #name #generic_decls(
-            _ignored: std::option::Option<starlark::values::FrozenValue>,
+            _ignored: std::option::Option<starlark::values::Value<'v>>,
             #this_value: starlark::values::Value<'v>,
             heap: starlark::values::Heap<'v>,
         ) -> starlark::Result<starlark::values::Value<'v>>

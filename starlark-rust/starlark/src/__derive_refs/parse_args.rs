@@ -17,7 +17,6 @@
 
 use crate::eval::Arguments;
 use crate::eval::ParametersSpec;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -28,7 +27,7 @@ use crate::values::ValueError;
 /// This function is called by generated code.
 #[inline]
 pub fn parse_signature<'v, const N: usize>(
-    parser: &ParametersSpec<FrozenValue>,
+    parser: &ParametersSpec<Value<'v>>,
     args: &Arguments<'v, '_>,
     heap: Heap<'v>,
 ) -> crate::Result<[Option<Value<'v>>; N]> {

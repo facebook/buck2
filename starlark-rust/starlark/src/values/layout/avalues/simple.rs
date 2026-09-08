@@ -102,8 +102,8 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
 impl<'fh> FrozenHeap<'fh> {
     /// Allocate a simple value and return the `'static`-branded typed handle to it.
     ///
-    /// For the handle types that predate branding (`FrozenAnyValue`, the native method tables):
-    /// their `'static` says nothing about what keeps the heap alive, so prefer
+    /// For the handle types that predate branding (`FrozenAnyValue`, the inlined locals of the
+    /// compiler): their `'static` says nothing about what keeps the heap alive, so prefer
     /// [`alloc_simple_typed`](FrozenHeap::alloc_simple_typed) where the brand can be kept.
     pub(crate) fn alloc_simple_typed_static<T>(self, val: T) -> FrozenValueTyped<'static, T>
     where

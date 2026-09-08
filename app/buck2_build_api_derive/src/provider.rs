@@ -345,14 +345,15 @@ impl ProviderCodegen {
         let create_func = &self.args.creator_func;
 
         // Generate the documentation function based on whether custom methods are provided
-        if let Some(ref custom_methods) = self.args.methods_func {
+        if self.args.methods_func.is_some() {
             // When using custom methods, we don't need the field arrays
+            let methods_static_name = self.methods_static_name()?;
             Ok(syn::parse_quote_spanned! {self.span=>
                 fn documentation(&self) -> starlark::docs::DocItem {
                     let docstring = #provider_docstring;
                     buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
                         Some(#create_func),
-                        buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromMethods(#custom_methods),
+                        buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromMethods(#methods_static_name.methods()),
                         BUILTIN_PROVIDER_TY.instance(),
                         &docstring,
                     )
@@ -446,20 +447,29 @@ impl ProviderCodegen {
         })
     }
 
+    /// The function that populates the provider's methods table: the custom one if provided,
+    /// otherwise the generated one.
+    fn methods_func_name(&self) -> syn::Result<syn::Ident> {
+        match &self.args.methods_func {
+            Some(custom) => Ok(custom.clone()),
+            None => self.provider_methods_func_name(),
+        }
+    }
+
+    /// The `methods_static!` holding the provider's methods table.
+    fn methods_static_name(&self) -> syn::Result<syn::Ident> {
+        Ok(format_ident!(
+            "{}_PROVIDER_STATICS",
+            self.methods_func_name()?.to_string().to_uppercase()
+        ))
+    }
+
     fn impl_starlark_value(&self) -> syn::Result<Vec<syn::Item>> {
         let vis = &self.input.vis;
         let name = self.name()?;
         let name_str = self.name_str()?;
-        // Use custom methods function if provided, otherwise use auto-generated one
-        let provider_methods_func_name = if let Some(ref custom) = self.args.methods_func {
-            custom.clone()
-        } else {
-            self.provider_methods_func_name()?
-        };
-        let methods_static_name = format_ident!(
-            "{}_PROVIDER_STATICS",
-            provider_methods_func_name.to_string().to_uppercase()
-        );
+        let provider_methods_func_name = self.methods_func_name()?;
+        let methods_static_name = self.methods_static_name()?;
         let self_values = self.field_values(syn::parse_quote_spanned! { self.span=> self })?;
         let other_values = self.field_values(syn::parse_quote_spanned! { self.span=> other })?;
         let starlark_value_attr: syn::Attribute = syn::parse_quote_spanned! { self.span=>

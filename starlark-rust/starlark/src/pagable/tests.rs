@@ -1944,7 +1944,9 @@ fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
         .methods()
         .members()
         .find_map(|(name, value)| (name == "method_value").then_some(value))
-        .expect("static method attribute should exist");
+        .expect("static method attribute should exist")
+        .unpack_frozen()
+        .expect("static method attribute is frozen");
 
     assert_static_value_round_trip(static_fv, 9)?;
     Ok(())

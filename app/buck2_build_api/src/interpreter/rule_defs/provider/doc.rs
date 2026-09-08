@@ -16,7 +16,7 @@ use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::MethodsBuilder;
+use starlark::environment::Methods;
 use starlark::typing::Ty;
 
 /// Source for provider member documentation.
@@ -24,9 +24,9 @@ use starlark::typing::Ty;
 /// This enum represents the two mutually exclusive ways to obtain
 /// documentation for a provider's members (fields and methods).
 pub enum ProviderMembersSource<'a> {
-    /// Extract documentation from a custom methods builder.
+    /// Extract documentation from the provider's methods table.
     /// Used when `#[internal_provider(..., methods = custom_methods)]` is specified.
-    FromMethods(for<'b> fn(&'b mut MethodsBuilder)),
+    FromMethods(&'static Methods),
 
     /// Use documentation derived from struct fields.
     /// Used when no custom methods builder is provided.
@@ -44,9 +44,7 @@ pub fn provider_callable_documentation(
     overall: &Option<DocString>,
 ) -> DocItem {
     let members = match members_source {
-        ProviderMembersSource::FromMethods(methods_fn) => {
-            // Extract documentation from the custom methods function
-            let methods = MethodsBuilder::new().with(methods_fn).build();
+        ProviderMembersSource::FromMethods(methods) => {
             let methods_doc = methods.documentation(self_ty.clone());
 
             methods_doc

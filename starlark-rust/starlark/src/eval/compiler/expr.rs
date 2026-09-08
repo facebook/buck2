@@ -878,10 +878,10 @@ impl ExprCompiled {
         // We assume `getattr` has no side effects.
         let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
         match v {
-            MemberOrValue::Member(m) => match m {
+            MemberOrValue::Member(m) => match m.at() {
                 UnboundValue::Method(m) => Some(
                     ctx.frozen_heap()
-                        .alloc_frozen(BoundMethod::new(left.to_value(), *m)),
+                        .alloc_frozen(BoundMethod::new(left.to_value(), m)),
                 ),
                 UnboundValue::Attr(..) => None,
             },
@@ -1126,12 +1126,12 @@ fn get_attr_no_attr_error<'v>(x: Value<'v>, attribute: &Symbol) -> crate::Error 
     }
 }
 
-pub(crate) enum MemberOrValue<'v, 'a> {
-    Member(&'a UnboundValue),
+pub(crate) enum MemberOrValue<'v> {
+    Member(&'static UnboundValue<'static>),
     Value(Value<'v>),
 }
 
-impl<'v, 'a> MemberOrValue<'v, 'a> {
+impl<'v> MemberOrValue<'v> {
     #[inline]
     pub(crate) fn invoke(
         &self,
@@ -1141,7 +1141,7 @@ impl<'v, 'a> MemberOrValue<'v, 'a> {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
         match self {
-            MemberOrValue::Member(member) => member.invoke_method(this, span, args, eval),
+            MemberOrValue::Member(member) => member.at().invoke_method(this, span, args, eval),
             MemberOrValue::Value(value) => value.invoke_with_loc(Some(span), args, eval),
         }
     }
@@ -1152,7 +1152,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
     x: Value<'v>,
     attribute: &Symbol,
     heap: Heap<'v>,
-) -> crate::Result<MemberOrValue<'v, 'static>> {
+) -> crate::Result<MemberOrValue<'v>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
@@ -1173,7 +1173,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
         if let Some(v) = methods.get_frozen_symbol(attribute) {
-            return v.bind(x, heap);
+            return v.at().bind(x, heap);
         }
     }
     match aref.get_attr_hashed(attribute.as_str_hashed(), heap) {

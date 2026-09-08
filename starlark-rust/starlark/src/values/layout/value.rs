@@ -980,7 +980,7 @@ impl<'v> Value<'v> {
         if let Some(methods) = aref.vtable().methods() {
             let attribute = Hashed::new(attribute);
             if let Some(v) = methods.get_hashed(attribute) {
-                return Ok(Some(v.bind(self, heap)?));
+                return Ok(Some(v.at().bind(self, heap)?));
             }
             Ok(aref.get_attr_hashed(attribute, heap))
         } else {

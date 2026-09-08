@@ -27,9 +27,10 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
-use crate::values::FrozenValueTyped;
+use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::dict::value::FrozenDict;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
@@ -38,14 +39,17 @@ use crate::values::set::value::FrozenSet;
 use crate::values::string::StarlarkStr;
 
 /// Method and a `Methods` container which declares it.
+///
+/// The method comes from a `&'static Methods`, so it is immortal and is brought to the brand of
+/// the heap in use through [`HeapEdge::immortal`].
 #[derive(Clone, Copy, Dupe)]
 pub(crate) struct KnownMethod {
     /// An object where the method is defined.
     pub(crate) type_methods: &'static Methods,
     /// The method.
-    method: FrozenValueTyped<'static, NativeMethod>,
+    method: ValueTyped<'static, NativeMethod<'static>>,
     /// Copied here from `method` to faster invocation (one fewer deref).
-    imp: &'static NativeMeth,
+    imp: &'static NativeMeth<'static>,
 }
 
 // `type_methods` and `imp` are `'static` pointers tied to the in-process
@@ -71,7 +75,7 @@ impl StarlarkDeserialize for KnownMethod {
 impl KnownMethod {
     #[inline]
     pub(crate) fn to_value<'v>(&self) -> Value<'v> {
-        self.method.to_value()
+        HeapEdge::immortal().rebrand(self.method).to_value()
     }
 
     #[inline]
@@ -81,7 +85,8 @@ impl KnownMethod {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        self.imp.invoke(eval, this, args)
+        let imp: &NativeMeth<'v> = HeapEdge::immortal().rebrand(self.imp);
+        imp.invoke(eval, this, args)
     }
 }
 
@@ -100,9 +105,9 @@ impl KnownMethods {
         ) {
             let type_methods = type_methods.unwrap();
             let mut has_at_least_one_method = false;
-            for (name, member) in type_methods.members() {
+            for (name, member) in type_methods.members::<'static>() {
                 // Take methods, ignore attributes.
-                if let Some(method) = FrozenValueTyped::new(member) {
+                if let Some(method) = ValueTyped::<NativeMethod>::new(member) {
                     // First wins, e. g. `list.clear` is hit, and `dict.clear` is miss.
                     methods.entry(name).or_insert(KnownMethod {
                         type_methods,
