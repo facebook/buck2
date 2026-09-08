@@ -32,8 +32,6 @@ load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":toolchains_common.bzl", "toolchains_common")
 
-CompressionAlgorithm = ["xz", "zstd"]
-
 DexStore = ["raw", "raw_subdir", "jar", "xzs"]
 
 DuplicateResourceBehaviour = ["allow_by_default", "ban_by_default"]
@@ -132,7 +130,6 @@ ANDROID_BINARY_BUNDLE_COMMON_ATTRS = (
             doc = "A map of module names to lists of targets, where the targets should seed the corresponding module. The seed targets and their exclusive dependencies are packaged into the APK in separate files to allow them to be loaded independently.",
         ),
         "application_module_dependencies": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False), default = None, doc = ""),
-        "asset_compression_algorithm": attrs.option(attrs.enum(CompressionAlgorithm), default = None, doc = ""),
         "banned_duplicate_resource_types": attrs.list(
             attrs.enum(RType),
             default = [],
@@ -146,7 +143,6 @@ ANDROID_BINARY_BUNDLE_COMMON_ATTRS = (
         ),
         "build_string_source_map": attrs.bool(default = False, doc = ""),
         "compiled_resource_apks": attrs.list(attrs.source(), default = [], doc = ""),
-        "compress_asset_libraries": attrs.bool(default = False, doc = ""),
         "cpu_filters": attrs.list(
             attrs.enum(TargetCpuType),
             default = [],
@@ -435,7 +431,6 @@ android_aar = prelude_rule(
             ),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
-            "compress_asset_libraries": attrs.default_only(attrs.bool(default = False)),
             "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
             "enable_relinker": attrs.bool(default = False),
             "excluded_java_deps": attrs.list(attrs.dep(), default = []),
