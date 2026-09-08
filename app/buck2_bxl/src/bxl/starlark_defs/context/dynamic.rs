@@ -296,7 +296,7 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
             DynamicActionsCallbackParamSpec,
             DynamicActionsCallbackReturnType,
         >,
-        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
+        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
     ) -> starlark::Result<DynamicActionsCallable<'v>> {
         Ok(new_dynamic_actions_callable(r#impl, attrs, &P_BXLCTX)?)
     }

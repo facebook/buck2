@@ -111,7 +111,7 @@ pub struct DynamicActionsCallable<'v> {
     pub(crate) self_ty: Ty,
     pub(crate) implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub(crate) attrs: SmallMap<String, DynamicAttrType>,
+    pub(crate) attrs: SmallMap<String, DynamicAttrType<'v>>,
     pub(crate) name: OnceCell<String>,
 }
 
@@ -129,7 +129,7 @@ pub struct FrozenStarlarkDynamicActionsCallable<'v> {
     pub(crate) self_ty: Ty,
     pub(crate) implementation:
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
-    pub(crate) attrs: SmallMap<String, DynamicAttrType>,
+    pub(crate) attrs: SmallMap<String, DynamicAttrType<'v>>,
     name: String,
     signature: ParametersSpec<Value<'v>>,
 }
@@ -239,7 +239,7 @@ impl<'v> FreezeBranded for DynamicActionsCallable<'v> {
             self_ty,
             implementation: implementation.freeze(freezer)?,
             name,
-            attrs,
+            attrs: attrs.freeze(freezer)?,
             signature,
         })
     }
@@ -259,7 +259,7 @@ impl<'v> FreezeBranded for FrozenStarlarkDynamicActionsCallable<'v> {
         Ok(FrozenStarlarkDynamicActionsCallable {
             self_ty,
             implementation: implementation.freeze(freezer)?,
-            attrs,
+            attrs: attrs.freeze(freezer)?,
             name,
             signature: signature.freeze(freezer)?,
         })

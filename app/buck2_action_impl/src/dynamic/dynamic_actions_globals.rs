@@ -39,7 +39,7 @@ pub fn new_dynamic_actions_callable<'v>(
         DynamicActionsCallbackParamSpec,
         DynamicActionsCallbackReturnType,
     >,
-    attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
+    attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
     callback_param: &DynamicActionsCallbackParam,
 ) -> buck2_error::Result<DynamicActionsCallable<'v>> {
     if attrs.contains_key(callback_param.name.as_str()) {
@@ -48,7 +48,7 @@ pub fn new_dynamic_actions_callable<'v>(
             "Cannot define `actions` attribute"
         ));
     }
-    let attrs: SmallMap<String, DynamicAttrType> = attrs
+    let attrs: SmallMap<String, DynamicAttrType<'v>> = attrs
         .into_iter()
         .map(|(name, ty)| (name, ty.ty.clone()))
         .collect();
@@ -109,7 +109,7 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
             DynamicActionsCallbackParamSpec,
             DynamicActionsCallbackReturnType,
         >,
-        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
+        #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType<'v>>,
     ) -> starlark::Result<DynamicActionsCallable<'v>> {
         Ok(new_dynamic_actions_callable(r#impl, attrs, &P_ACTIONS)?)
     }

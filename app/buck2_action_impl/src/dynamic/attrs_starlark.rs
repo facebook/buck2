@@ -11,13 +11,14 @@
 use allocative::Allocative;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
+use starlark::values::FreezeBranded;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
+use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark::values::starlark_value;
@@ -32,35 +33,37 @@ use crate::dynamic::attrs::DynamicAttrType;
     Debug,
     derive_more::Display,
     ProvidesStaticType,
+    Trace,
+    FreezeBranded,
     Allocative,
     NoSerialize,
     StarlarkPagable
 )]
 #[display("{}", ty)]
-pub struct StarlarkDynamicAttrType {
-    pub(crate) ty: DynamicAttrType,
+pub struct StarlarkDynamicAttrType<'v> {
+    pub(crate) ty: DynamicAttrType<'v>,
 }
 
-#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for StarlarkDynamicAttrType {}
+#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue, frozen_vtable)]
+impl<'v> StarlarkValue<'v> for StarlarkDynamicAttrType<'v> {}
 
-impl<'v> AllocValue<'v> for StarlarkDynamicAttrType {
+impl<'v> AllocValue<'v> for StarlarkDynamicAttrType<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_simple(self)
+        heap.alloc_complex_branded(self)
     }
 }
 
 /// Attributes declared for [`dynamic_actions()`](../#dynamic_actions) functions.
 #[starlark_module]
 #[starlark_types(
-    StarlarkDynamicAttrType as DynamicAttrType
+    StarlarkDynamicAttrType<'_> as DynamicAttrType
 )]
 fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     /// Unbound output to be bound by this dynamic action.
     /// Accepts an [`OutputArtifact`](../OutputArtifact/).
     ///
     /// The impl function receives an [`OutputArtifact`](../OutputArtifact/) value.
-    fn output() -> starlark::Result<StarlarkDynamicAttrType> {
+    fn output<'v>() -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Output,
         })
@@ -70,7 +73,7 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     /// Accepts an [`OutputArtifact`](../OutputArtifact/).
     ///
     /// The impl function receives an [`ArtifactValue`](../ArtifactValue).
-    fn artifact_value() -> starlark::Result<StarlarkDynamicAttrType> {
+    fn artifact_value<'v>() -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::ArtifactValue,
         })
@@ -81,7 +84,7 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     /// Accepts a [`DynamicValue`](../DynamicValue/).
     ///
     /// The impl function receives a [`ResolvedDynamicValue`](../ResolvedDynamicValue/).
-    fn dynamic_value() -> starlark::Result<StarlarkDynamicAttrType> {
+    fn dynamic_value<'v>() -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::DynamicValue,
         })
@@ -90,12 +93,9 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     /// Plain value of a given type.
     fn value<'v>(
         #[starlark(require = pos)] ty: ValueOf<'v, TypeType>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<StarlarkDynamicAttrType> {
-        let ty = TypeCompiled::new(ty.value, eval.heap())?;
-        // We allocate a type in the frozen heap (which is not garbage collected),
-        // which is fine because this code is not meant to be executed outside top-level code.
-        let ty = eval.frozen_heap(|fh, _| ty.to_frozen_unbranded(fh));
+        heap: Heap<'v>,
+    ) -> starlark::Result<StarlarkDynamicAttrType<'v>> {
+        let ty = TypeCompiled::new(ty.value, heap)?;
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Value(ty),
         })
@@ -103,8 +103,8 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
 
     /// Takes a list of values and gives a list to the impl function.
     fn list<'v>(
-        #[starlark(require = pos)] ty: &'v StarlarkDynamicAttrType,
-    ) -> starlark::Result<StarlarkDynamicAttrType> {
+        #[starlark(require = pos)] ty: &'v StarlarkDynamicAttrType<'v>,
+    ) -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         let ty = ty.ty.clone();
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::List(Box::new(ty)),
@@ -114,12 +114,10 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     /// Takes a dict of values and gives it to the impl function.
     fn dict<'v>(
         #[starlark(require = pos)] key: ValueOf<'v, TypeType>,
-        #[starlark(require = pos)] value: &'v StarlarkDynamicAttrType,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<StarlarkDynamicAttrType> {
-        let key = TypeCompiled::new(key.value, eval.heap())?;
-        // See the comment above about frozen heap.
-        let key = eval.frozen_heap(|fh, _| key.to_frozen_unbranded(fh));
+        #[starlark(require = pos)] value: &'v StarlarkDynamicAttrType<'v>,
+        heap: Heap<'v>,
+    ) -> starlark::Result<StarlarkDynamicAttrType<'v>> {
+        let key = TypeCompiled::new(key.value, heap)?;
         let value = value.ty.clone();
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Dict(Box::new((key, value))),
@@ -128,8 +126,8 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
 
     /// Takes a tuple and gives it to the impl function.
     fn tuple<'v>(
-        #[starlark(args)] args: UnpackTuple<&'v StarlarkDynamicAttrType>,
-    ) -> starlark::Result<StarlarkDynamicAttrType> {
+        #[starlark(args)] args: UnpackTuple<&'v StarlarkDynamicAttrType<'v>>,
+    ) -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         let items = args.items.into_iter().map(|x| x.ty.clone()).collect();
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Tuple(items),
@@ -138,8 +136,8 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
 
     /// Takes either a value or `None` and gives it to the impl function.
     fn option<'v>(
-        #[starlark(require = pos)] ty: &'v StarlarkDynamicAttrType,
-    ) -> starlark::Result<StarlarkDynamicAttrType> {
+        #[starlark(require = pos)] ty: &'v StarlarkDynamicAttrType<'v>,
+    ) -> starlark::Result<StarlarkDynamicAttrType<'v>> {
         let ty = ty.ty.clone();
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Option(Box::new(ty)),

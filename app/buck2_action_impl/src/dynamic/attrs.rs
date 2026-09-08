@@ -26,7 +26,6 @@ use starlark::typing::Ty;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -43,8 +42,16 @@ use crate::context::dynamic_output::DynamicActionsOutputArtifactBinder;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
 use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
-#[derive(Clone, Debug, derive_more::Display, Allocative, StarlarkPagable)]
-pub(crate) enum DynamicAttrType {
+#[derive(
+    Clone,
+    Debug,
+    derive_more::Display,
+    Trace,
+    FreezeBranded,
+    Allocative,
+    StarlarkPagable
+)]
+pub(crate) enum DynamicAttrType<'v> {
     /// `OutputArtifact`.
     #[display("dynattrs.output()")]
     Output,
@@ -56,19 +63,19 @@ pub(crate) enum DynamicAttrType {
     DynamicValue,
     /// Pass arbitrary starlark value.
     #[display("dynattrs.value({})", _0)]
-    Value(TypeCompiled<FrozenValue>),
+    Value(TypeCompiled<Value<'v>>),
     /// List.
     #[display("dynattrs.list({})", _0)]
-    List(Box<DynamicAttrType>),
+    List(Box<DynamicAttrType<'v>>),
     /// Tuple.
     #[display("dynattrs.tuple({})", _0.iter().map(|x| format!("{x}")).collect::<Vec<_>>().join(", "))]
-    Tuple(Box<[DynamicAttrType]>),
+    Tuple(Box<[DynamicAttrType<'v>]>),
     /// Value or `None`.
     #[display("dynattrs.option({})", _0)]
-    Option(Box<DynamicAttrType>),
+    Option(Box<DynamicAttrType<'v>>),
     /// Dict.
     #[display("dynattrs.dict({}, {})", _0.0, _0.1)]
-    Dict(Box<(TypeCompiled<FrozenValue>, DynamicAttrType)>),
+    Dict(Box<(TypeCompiled<Value<'v>>, DynamicAttrType<'v>)>),
 }
 
 /// A value passed to a dynamic action, in whichever heap holds it.
@@ -242,7 +249,7 @@ impl<'v> DynamicAttrValues<'v> {
     }
 }
 
-impl DynamicAttrType {
+impl<'v> DynamicAttrType<'v> {
     /// Parameter type of `impl` function.
     pub(crate) fn impl_param_ty(&self) -> Ty {
         match self {
@@ -281,7 +288,7 @@ impl DynamicAttrType {
         }
     }
 
-    pub(crate) fn coerce<'v>(&self, value: Value<'v>) -> buck2_error::Result<DynamicAttrValue<'v>> {
+    pub(crate) fn coerce(&self, value: Value<'v>) -> buck2_error::Result<DynamicAttrValue<'v>> {
         match self {
             DynamicAttrType::Output => {
                 let artifact = ValueTyped::<StarlarkOutputArtifact<'v>>::unpack_value_err(value)?;

@@ -49,7 +49,6 @@ use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::FreezeBranded;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
@@ -432,20 +431,6 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         } else {
             self.to_value().downcast().unwrap().to_frozen_dyn(heap)
         }
-    }
-
-    /// Copy the type into a frozen heap and erase its brand.
-    ///
-    /// For buck2's `UserProviderCallable` and `DynamicAttrType`, which store their types
-    /// unbranded; everything else should keep the brand [`to_frozen`](TypeCompiled::to_frozen)
-    /// hands out.
-    pub fn to_frozen_unbranded(self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
-        TypeCompiled::unchecked_new(
-            self.to_frozen(heap)
-                .0
-                .unpack_frozen()
-                .expect("value allocated in a frozen heap is frozen"),
-        )
     }
 }
 
