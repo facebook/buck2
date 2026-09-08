@@ -305,7 +305,6 @@ kotlin_test = prelude_rule(
             "test_info_type": attrs.option(attrs.string(), default = None),
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
-            "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
             "_exec_os_type": buck.exec_os_type_arg(),
