@@ -1656,6 +1656,10 @@ impl FrozenHeapRef {
 /// see the documentation in the `branding` module.
 ///
 /// The more typical way of accessing the underlying value though is with the `add_to_heap` method.
+///
+/// `OwnedFrozen<()>` is a bare heap handle: it keeps a heap alive without picking out any value in
+/// it, and offers only the heap-identity API (`name`, `refs`, the size accessors). It compares and
+/// hashes by heap identity.
 pub struct OwnedFrozen<T> {
     heap_ref: FrozenHeapRef,
     // This is morally storing a `T::Reinfect<'fv>` for `'fv` the lifetime associated with the
@@ -1841,6 +1845,115 @@ where
 unsafe impl<T> Send for OwnedFrozen<T> {}
 unsafe impl<T> Sync for OwnedFrozen<T> {}
 
+/// The heap-identity API: facts about the owning heap, independent of the value.
+///
+/// ```
+/// use starlark::values::FrozenHeapName;
+/// use starlark::values::OwnedFrozen;
+/// use starlark::values::Value;
+///
+/// let v: OwnedFrozen<Value<'static>> =
+///     OwnedFrozen::build(FrozenHeapName::user("example"), |heap| {
+///         heap.alloc("contents").to_value()
+///     });
+/// assert_eq!(v.name().unwrap().to_string(), "example");
+/// assert!(v.allocated_bytes() > 0);
+/// assert_eq!(v.refs().count(), 0);
+/// ```
+impl<T> OwnedFrozen<T> {
+    /// The name of the owning heap.
+    ///
+    /// Names are assigned when sealing frozen heaps; in practice, this is done when freezing
+    /// modules, see [`Module::freeze_named`](crate::environment::Module::freeze_named).
+    ///
+    /// The name is made available here and not at a higher point like the module level so that it
+    /// can be inspected even when traversing the dependency graph of frozen heaps via
+    /// [`refs`](OwnedFrozen::refs).
+    pub fn name(&self) -> Option<&FrozenHeapName> {
+        self.heap_ref.name()
+    }
+
+    /// The frozen heaps that the owning heap depends on.
+    pub fn refs(&self) -> impl Iterator<Item = OwnedFrozenRef<'_, ()>> {
+        self.heap_ref.refs().map(OwnedFrozenRef::for_heap)
+    }
+
+    /// Number of bytes allocated on the owning heap, not including any memory allocated outside of
+    /// the starlark heap.
+    pub fn allocated_bytes(&self) -> usize {
+        self.heap_ref.allocated_bytes()
+    }
+
+    /// Peak number of bytes allocated on the live heap that produced the owning heap, if it was
+    /// produced by freezing one.
+    pub fn peak_allocated_bytes(&self) -> Option<usize> {
+        self.heap_ref.peak_allocated_bytes()
+    }
+
+    /// Number of bytes allocated by the owning heap but not filled. These bytes will _never_ be
+    /// filled, as no further allocations can be made on a sealed heap.
+    pub fn available_bytes(&self) -> usize {
+        self.heap_ref.available_bytes()
+    }
+
+    /// A summary of how much memory is allocated by the owning heap. Doesn't include the heaps it
+    /// keeps alive by reference.
+    pub fn allocated_summary(&self) -> HeapSummary {
+        self.heap_ref.allocated_summary()
+    }
+}
+
+impl OwnedFrozen<()> {
+    /// A handle to the heap behind `heap_ref`.
+    pub(crate) fn for_heap(heap_ref: FrozenHeapRef) -> Self {
+        Self {
+            heap_ref,
+            v: (),
+            _no_auto_traits: PhantomData,
+        }
+    }
+}
+
+/// The empty heap, which keeps nothing alive.
+impl Default for OwnedFrozen<()> {
+    fn default() -> Self {
+        Self::for_heap(FrozenHeapRef::default())
+    }
+}
+
+/// Heap identity: two handles are equal iff they refer to the same heap allocation. Consistent
+/// within a process, but non-deterministic across executions and between distinct but observably
+/// identical heaps.
+impl PartialEq for OwnedFrozen<()> {
+    fn eq(&self, other: &Self) -> bool {
+        self.heap_ref == other.heap_ref
+    }
+}
+
+impl Eq for OwnedFrozen<()> {}
+
+impl Hash for OwnedFrozen<()> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.heap_ref.hash(state)
+    }
+}
+
+impl PagableSerialize for OwnedFrozen<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.heap_ref.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for OwnedFrozen<()> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(Self::for_heap(FrozenHeapRef::pagable_deserialize(
+            deserializer,
+        )?))
+    }
+}
+
 /// Marker providing the ability to reconstruct `OwnedFrozen` values.
 ///
 /// This type is provided as an argument to a number of the closures in `OwnedFrozen` APIs. It
@@ -2020,6 +2133,66 @@ impl<'f, T: Copy> Dupe for OwnedFrozenRef<'f, T> {}
 unsafe impl<'f, T> Send for OwnedFrozenRef<'f, T> {}
 unsafe impl<'f, T> Sync for OwnedFrozenRef<'f, T> {}
 
+/// The heap-identity API, see the [`OwnedFrozen`] counterparts.
+impl<'f, T> OwnedFrozenRef<'f, T> {
+    /// See [`OwnedFrozen::name`].
+    pub fn name(&self) -> Option<&'f FrozenHeapName> {
+        self.heap_ref.name()
+    }
+
+    /// See [`OwnedFrozen::refs`].
+    pub fn refs(&self) -> impl Iterator<Item = OwnedFrozenRef<'f, ()>> + use<'f, T> {
+        let heap_ref: &'f FrozenHeapRef = self.heap_ref;
+        heap_ref.refs().map(OwnedFrozenRef::for_heap)
+    }
+
+    /// See [`OwnedFrozen::allocated_bytes`].
+    pub fn allocated_bytes(&self) -> usize {
+        self.heap_ref.allocated_bytes()
+    }
+
+    /// See [`OwnedFrozen::peak_allocated_bytes`].
+    pub fn peak_allocated_bytes(&self) -> Option<usize> {
+        self.heap_ref.peak_allocated_bytes()
+    }
+
+    /// See [`OwnedFrozen::available_bytes`].
+    pub fn available_bytes(&self) -> usize {
+        self.heap_ref.available_bytes()
+    }
+
+    /// See [`OwnedFrozen::allocated_summary`].
+    pub fn allocated_summary(&self) -> HeapSummary {
+        self.heap_ref.allocated_summary()
+    }
+}
+
+impl<'f> OwnedFrozenRef<'f, ()> {
+    /// A handle to the heap behind `heap_ref`.
+    pub(crate) fn for_heap(heap_ref: &'f FrozenHeapRef) -> Self {
+        Self {
+            heap_ref,
+            v: (),
+            _no_auto_traits: PhantomData,
+        }
+    }
+}
+
+/// Heap identity, as for [`OwnedFrozen<()>`].
+impl PartialEq for OwnedFrozenRef<'_, ()> {
+    fn eq(&self, other: &Self) -> bool {
+        *self.heap_ref == *other.heap_ref
+    }
+}
+
+impl Eq for OwnedFrozenRef<'_, ()> {}
+
+impl Hash for OwnedFrozenRef<'_, ()> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.heap_ref.hash(state)
+    }
+}
+
 impl<T: IsStaticType> OwnedFrozen<T>
 where
     for<'fv> T::Reinfect<'fv>: Sized,
@@ -2039,10 +2212,17 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use dupe::Dupe;
     use starlark_derive::starlark_module;
 
+    use super::FrozenHeap;
+    use super::FrozenHeapName;
     use super::FrozenHeapRef;
     use super::Heap;
+    use super::OwnedFrozen;
+    use super::OwnedFrozenRef;
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
@@ -2053,6 +2233,77 @@ mod tests {
     where
         FrozenHeapRef: Send + Sync,
     {
+    }
+
+    fn sealed_heap(name: &str) -> FrozenHeapRef {
+        let heap = FrozenHeap::new();
+        heap.alloc("contents");
+        heap.into_ref_named(FrozenHeapName::user(name))
+    }
+
+    #[test]
+    fn test_heap_identity_api() {
+        let dep = sealed_heap("dep");
+        let heap = FrozenHeap::new();
+        heap.alloc("contents");
+        heap.add_reference(&dep);
+        let heap_ref = heap.into_ref_named(FrozenHeapName::user("heap"));
+
+        let owned = OwnedFrozen::<()>::for_heap(heap_ref.dupe());
+        assert_eq!(owned.name().unwrap().to_string(), "heap");
+        assert!(owned.allocated_bytes() > 0);
+        assert_eq!(owned.allocated_bytes(), heap_ref.allocated_bytes());
+        assert_eq!(owned.available_bytes(), heap_ref.available_bytes());
+        assert_eq!(owned.peak_allocated_bytes(), None);
+        assert_eq!(
+            owned.allocated_summary().total_allocated_bytes(),
+            heap_ref.allocated_summary().total_allocated_bytes()
+        );
+        let refs: Vec<OwnedFrozenRef<()>> = owned.refs().collect();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name().unwrap().to_string(), "dep");
+        assert!(*refs[0].owner() == dep);
+
+        let borrowed = owned.as_ref();
+        assert_eq!(borrowed.name().unwrap().to_string(), "heap");
+        assert_eq!(borrowed.allocated_bytes(), owned.allocated_bytes());
+        assert_eq!(borrowed.available_bytes(), owned.available_bytes());
+        assert_eq!(borrowed.peak_allocated_bytes(), None);
+        assert_eq!(
+            borrowed.allocated_summary().total_allocated_bytes(),
+            owned.allocated_summary().total_allocated_bytes()
+        );
+        assert_eq!(borrowed.refs().count(), 1);
+        assert!(borrowed.refs().next().unwrap() == refs[0]);
+    }
+
+    #[test]
+    fn test_heap_identity_eq_hash() {
+        let a = OwnedFrozen::<()>::for_heap(sealed_heap("a"));
+        let same_content = OwnedFrozen::<()>::for_heap(sealed_heap("a"));
+        let empty = OwnedFrozen::<()>::default();
+
+        assert!(a == a.dupe());
+        assert!(a != same_content);
+        assert!(a != empty);
+        assert!(empty == OwnedFrozen::<()>::default());
+        let set: HashSet<OwnedFrozen<()>> = [a.dupe(), a.dupe(), same_content.dupe(), empty.dupe()]
+            .into_iter()
+            .collect();
+        assert_eq!(set.len(), 3);
+
+        assert!(a.as_ref() == a.as_ref());
+        assert!(a.as_ref() != same_content.as_ref());
+        assert!(a.as_ref() != empty.as_ref());
+        let set: HashSet<OwnedFrozenRef<()>> = [
+            a.as_ref(),
+            a.as_ref(),
+            same_content.as_ref(),
+            empty.as_ref(),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(set.len(), 3);
     }
 
     #[test]

@@ -188,6 +188,51 @@ fn test_frozen_heap_ref_round_trip_preserves_name() -> crate::Result<()> {
     Ok(())
 }
 
+/// The bare heap handle `OwnedFrozen<()>` has the same wire format as `FrozenHeapRef`, for all
+/// three kinds of heap: empty, paged, and registered static.
+#[test]
+fn test_owned_frozen_unit_wire_format() -> crate::Result<()> {
+    fn serialize(value: &impl PagableSerialize) -> crate::Result<Vec<u8>> {
+        let mut ser = pagable::testing::TestingSerializer::new();
+        value
+            .pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+        Ok(ser.finish())
+    }
+
+    fn round_trip(heap_ref: &FrozenHeapRef) -> crate::Result<OwnedFrozen<()>> {
+        let owned = OwnedFrozen::<()>::for_heap(heap_ref.clone());
+        let bytes = serialize(&owned)?;
+        assert_eq!(
+            bytes,
+            serialize(heap_ref)?,
+            "wire format must not depend on the handle type"
+        );
+        let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+        <OwnedFrozen<()>>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+    }
+
+    let restored = round_trip(&FrozenHeapRef::default())?;
+    assert!(restored == OwnedFrozen::<()>::default());
+
+    let heap = FrozenHeap::new();
+    heap.alloc("value");
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("owned_frozen_unit_wire"));
+    let restored = round_trip(&heap_ref)?;
+    assert_eq!(
+        restored.name().map(ToString::to_string),
+        heap_ref.name().map(ToString::to_string)
+    );
+
+    let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap();
+    let restored = round_trip(static_heap)?;
+    assert!(
+        restored == OwnedFrozen::<()>::for_heap(static_heap.clone()),
+        "a registered static heap resolves to the live allocation"
+    );
+    Ok(())
+}
+
 #[test]
 fn test_module_eval_round_trip() -> crate::Result<()> {
     use std::any::TypeId;
