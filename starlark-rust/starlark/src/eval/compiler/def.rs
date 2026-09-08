@@ -36,7 +36,6 @@ use starlark_map::StarlarkHasher;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::internal_error;
 use starlark_syntax::slice_vec_ext::SliceExt;
-use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::def::DefParam;
 use starlark_syntax::syntax::def::DefParamIndices;
 use starlark_syntax::syntax::def::DefParamKind;
@@ -95,17 +94,16 @@ use crate::typing::callable_param::ParamIsRequired;
 use crate::util::arc_str::ArcStr;
 use crate::values::AllocValue;
 use crate::values::FreezeBranded;
-use crate::values::FreezeResult;
-use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
-use crate::values::ValueLike;
+use crate::values::ValueTyped;
 use crate::values::any::AtomicFrozenAnyValueOption;
 use crate::values::any::FrozenAnyValue;
 use crate::values::function::FUNCTION_TYPE;
@@ -623,39 +621,48 @@ impl Compiler<'_, '_, '_, '_> {
 
 /// Starlark function internal representation and implementation of
 /// [`StarlarkValue`].
+///
+/// The parameter defaults and the captured variables are values at the brand. The other fields
+/// are compiler products in the module's frozen heap - `FrozenAnyValue`/`FrozenAnyArray` handles
+/// and `TypeCompiled<FrozenValue>` - which the brand does not reach.
 #[derive(
     Derivative,
     NoSerialize,
     ProvidesStaticType,
     Trace,
     Allocative,
+    FreezeBranded,
     starlark_derive::StarlarkPagable
 )]
 #[derivative(Debug)]
-pub(crate) struct DefGen<V> {
-    pub(crate) parameters: ParametersSpec<V>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
+pub(crate) struct Def<'v> {
+    pub(crate) parameters: ParametersSpec<Value<'v>>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
     /// Indices of parameters, which are captured in nested defs.
     /// This is a copy of `DefInfo.parameter_captures`.
+    #[freeze_branded(identity)]
     parameter_captures: FrozenAnyArray<LocalSlotId>,
+    #[freeze_branded(identity)]
     pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
+    #[freeze_branded(identity)]
     pub(crate) def_info: FrozenAnyValue<DefInfo>,
     /// Any variables captured from the outer scope (nested def/lambda).
-    /// Values are either [`Value`] or [`FrozenValue`] pointing respectively to
-    /// [`ValueCaptured`] or [`FrozenValueCaptured`].
-    captured: Box<[V]>,
-    // Important to ignore these field as it probably references DefGen in a cycle
+    /// Each points to a [`ValueCaptured`] or [`FrozenValueCaptured`].
+    captured: Box<[Value<'v>]>,
+    // Important to ignore these field as it probably references Def in a cycle
     #[derivative(Debug = "ignore")]
     /// A reference to the module where the function is defined after the module has been frozen.
     /// When the module is not frozen yet, this field contains `None`, and function's module
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
+    #[freeze_branded(identity)]
     pub(crate) module: AtomicFrozenAnyValueOption<FrozenModuleData>,
     /// See [`StmtCompiledCell`].
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
+    #[freeze_branded(identity)]
     #[starlark_pagable(
         serialize_with = "serialize_optimized_on_freeze_stmt",
         deserialize_with = "deserialize_optimized_on_freeze_stmt"
@@ -687,14 +694,13 @@ fn deserialize_optimized_on_freeze_stmt(
     })
 }
 
-impl<V> Display for DefGen<V> {
+impl Display for Def<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.parameters.signature())
     }
 }
 
-pub(crate) type Def<'v> = DefGen<Value<'v>>;
-pub(crate) type FrozenDef = DefGen<FrozenValue>;
+pub(crate) type FrozenDef = Def<'static>;
 
 impl<'v> AllocValue<'v> for Def<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
@@ -724,39 +730,22 @@ impl<'v> Def<'v> {
             def_info: stmt,
         }))
     }
-}
 
-/// `Frozen` ignores the brand, deliberately. A frozen def is invoked at whatever brand its caller
-/// runs at, through `Bc`, whose operands - `FrozenValueTyped<'static, FrozenDef>` and raw
-/// `FrozenValue` constants - are the compiler's own domain.
-impl<'v> FreezeBranded for Def<'v> {
-    type Frozen<'fv> = FrozenDef;
-
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenDef> {
-        let parameters = FreezeBranded::freeze(self.parameters, freezer)?;
-        let captured = self
-            .captured
-            .into_vec()
-            .into_try_map(|x| freezer.freeze(x))?
-            .into_boxed_slice();
-        let module = AtomicFrozenAnyValueOption::new(self.module.load_relaxed());
-        Ok(FrozenDef {
-            parameters,
-            parameter_captures: self.parameter_captures,
-            return_type: self.return_type,
-            def_info: self.def_info,
-            captured,
-            module,
-            optimized_on_freeze_stmt: self.optimized_on_freeze_stmt,
-        })
+    /// A def the compiler baked into bytecode or IR, at the brand of the heap it now runs
+    /// against.
+    ///
+    /// Bytecode operands and `ExprCompiled::Value` constants name defs as
+    /// `FrozenValueTyped<'static, FrozenDef>`, and a `Def<'static>`'s parameters and captures
+    /// cannot be read at `'v`. This is the one `to_value` site that brings such a def to `'v`. It
+    /// rechecks the type - a vtable compare - rather than casting; handing the brand across the
+    /// compiler boundary directly, as an edge rebrand, would make the recheck unnecessary.
+    pub(crate) fn at_brand(def: FrozenValueTyped<'static, FrozenDef>) -> ValueTyped<'v, Def<'v>> {
+        ValueTyped::new(def.to_value()).expect("a frozen def is a def at every brand")
     }
 }
 
-#[starlark_value(type = FUNCTION_TYPE)]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DefGen<V>
-where
-    Self: ProvidesStaticType<'v>,
-{
+#[starlark_value(type = FUNCTION_TYPE, frozen_vtable)]
+impl<'v> StarlarkValue<'v> for Def<'v> {
     fn name_for_call_stack(&self, _me: Value<'v>) -> String {
         self.def_info.name.as_str().to_owned()
     }
@@ -800,7 +789,7 @@ where
     }
 }
 
-impl<'v, V: ValueLike<'v>> DefGen<V> {
+impl<'v> Def<'v> {
     pub(crate) fn bc(&self) -> &Bc {
         self.optimized_on_freeze_stmt
             .get()
@@ -919,7 +908,7 @@ impl<'v, V: ValueLike<'v>> DefGen<V> {
         // self.def_info.scope_names which is two indirections.
         if !self.captured.is_empty() {
             for (copy, captured) in self.def_info.parent.iter().zip(self.captured.iter()) {
-                eval.current_frame.set_slot(copy.child, captured.to_value());
+                eval.current_frame.set_slot(copy.child, *captured);
             }
         }
 
@@ -942,9 +931,7 @@ impl<'v, V: ValueLike<'v>> DefGen<V> {
             .for_each(|l| writeln!(w, "  {l}").unwrap());
         w
     }
-}
 
-impl FrozenDef {
     pub(crate) fn post_freeze(
         &self,
         module: FrozenAnyValue<FrozenModuleData>,

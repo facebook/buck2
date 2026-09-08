@@ -296,7 +296,7 @@ impl ExprCompiled {
     }
 
     /// Expression is known to be a constant which is a `def`.
-    pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<'_, FrozenDef>> {
+    pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<'static, FrozenDef>> {
         FrozenValueTyped::new(self.as_value()?)
     }
 

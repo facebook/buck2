@@ -149,7 +149,7 @@ fn generate_source(num_functions: usize, body_size: usize) -> String {
 
 /// Generate a program with a single lambda site instantiated many times.
 ///
-/// Sharing one site isolates the per-instance cost (`DefGen`, its
+/// Sharing one site isolates the per-instance cost (`Def`, its
 /// `ParametersSpec`, captured slots) from the per-site cost (`DefInfo`),
 /// which is paid only once. Each instance captures `i` so instances cannot
 /// collapse into a constant.

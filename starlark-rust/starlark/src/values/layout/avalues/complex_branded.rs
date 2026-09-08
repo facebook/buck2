@@ -26,13 +26,13 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimpleBound;
@@ -78,7 +78,7 @@ where
             let res = x.freeze(freezer)?;
             r.fill(res);
             if TypeId::of::<T::Frozen<'static>>() == TypeId::of::<FrozenDef>() {
-                let frozen_def = FrozenValueTyped::new(fv).unwrap();
+                let frozen_def = ValueTyped::new(fv.to_value()).unwrap();
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
             Ok(fv)

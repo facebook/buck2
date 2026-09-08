@@ -695,13 +695,7 @@ impl<'v> Value<'v> {
     ///
     /// For now it only returns parameter spec for `def` and `lambda`.
     pub fn parameters_spec(self) -> Option<&'v ParametersSpec<Value<'v>>> {
-        if let Some(def) = self.downcast_ref::<Def>() {
-            Some(&def.parameters)
-        } else if let Some(def) = self.downcast_ref::<FrozenDef>() {
-            Some(def.parameters.as_value())
-        } else {
-            None
-        }
+        Some(&self.downcast_ref::<Def>()?.parameters)
     }
 
     /// Returns the name of a callable value, if known.
@@ -709,8 +703,6 @@ impl<'v> Value<'v> {
     /// Works for user-defined functions (`def`/`lambda`) and native functions.
     pub fn function_name(self) -> Option<&'v str> {
         if let Some(def) = self.downcast_ref::<Def>() {
-            Some(def.def_info.name.as_str())
-        } else if let Some(def) = self.downcast_ref::<FrozenDef>() {
             Some(def.def_info.name.as_str())
         } else if let Some(native) = self.downcast_ref::<NativeFunction>() {
             Some(&native.name)

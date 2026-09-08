@@ -91,7 +91,7 @@ mod tests {
     use crate::docs::DocString;
     use crate::docs::DocStringKind;
     use crate::eval::ParametersSpecParam;
-    use crate::eval::compiler::def::FrozenDef;
+    use crate::eval::compiler::def::Def;
     use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
@@ -189,7 +189,7 @@ mod tests {
             let a = Assert::new();
             let module = a.pass_module(&format!("def f({sig}): pass"));
             let f = module.get_owned("f").unwrap();
-            let f = f.as_ref().value().downcast_ref::<FrozenDef>().unwrap();
+            let f = f.as_ref().value().downcast_ref::<Def>().unwrap();
             let parameters_spec = &f.parameters;
             assert_eq!(expected, parameters_spec.can_fill_with_args(pos, names));
         }

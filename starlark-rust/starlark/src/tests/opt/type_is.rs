@@ -23,7 +23,6 @@ use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
 use crate::eval::compiler::def::Def;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -31,12 +30,7 @@ use crate::values::ValueLike;
 #[starlark_module]
 fn globals(builder: &mut GlobalsBuilder) {
     fn returns_type_is<'v>(value: Value<'v>) -> anyhow::Result<bool> {
-        Ok(if let Some(def) = value.downcast_ref::<FrozenDef>() {
-            matches!(
-                def.def_info.inline_def_body,
-                Some(InlineDefBody::ReturnTypeIs(..))
-            )
-        } else if let Some(def) = value.downcast_ref::<Def>() {
+        Ok(if let Some(def) = value.downcast_ref::<Def>() {
             matches!(
                 def.def_info.inline_def_body,
                 Some(InlineDefBody::ReturnTypeIs(..))

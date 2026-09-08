@@ -1470,20 +1470,6 @@ impl BcFrozenCallable for FrozenValue {
     }
 }
 
-impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
-    #[inline(always)]
-    fn bc_invoke<'v>(
-        self,
-        location: &'static FrameSpan,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> crate::Result<Value<'v>> {
-        eval.with_call_stack(self.to_value(), Some(location), |eval| {
-            self.as_ref().invoke(self.to_value(), args, eval)
-        })
-    }
-}
-
 impl BcFrozenCallable for BcNativeFunction {
     #[inline(always)]
     fn bc_invoke<'v>(
@@ -1587,6 +1573,7 @@ impl<A: BcCallArgsForDef> InstrNoFlowImpl for InstrCallFrozenDefImpl<A> {
     ) -> crate::Result<()> {
         eval.report_forward_progress()?;
         let arguments = args.pop_from_stack(frame);
+        let fun = Def::at_brand(*fun);
         let r = eval.with_call_stack(fun.to_value(), Some(span.as_ref()), |eval| {
             fun.as_ref()
                 .invoke_with_args(fun.to_value(), &arguments, eval)

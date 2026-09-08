@@ -47,7 +47,6 @@ use crate::eval::bc::writer::BcStatementLocations;
 use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
 use crate::eval::runtime::cheap_call_stack::CheapCallStack;
@@ -737,8 +736,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         let func = self.call_stack.top_nth_function(0)?;
         if let Some(func) = func.downcast_ref::<Def>() {
             func.check_return_type(ret, self)
-        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
-            func.check_return_type(ret, self)
         } else {
             Err(crate::Error::new_other(EvaluatorError::TopFrameNotDef))
         }
@@ -746,8 +743,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     fn func_to_def_info(&self, func: Value<'_>) -> crate::Result<FrozenAnyValue<DefInfo>> {
         if let Some(func) = func.downcast_ref::<Def>() {
-            Ok(func.def_info)
-        } else if let Some(func) = func.downcast_ref::<FrozenDef>() {
             Ok(func.def_info)
         } else if func.is_none() {
             // Module top-level has no Def (pushes `None` on the call stack),
@@ -769,9 +764,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         for_debugger: bool,
     ) -> anyhow::Result<Option<FrozenAnyValue<FrozenModuleData>>> {
         let func = self.top_frame_maybe_for_debugger(for_debugger)?;
-        if let Some(func) = func.downcast_ref::<FrozenDef>() {
-            Ok(func.module.load_relaxed())
-        } else if let Some(func) = func.downcast_ref::<Def>() {
+        if let Some(func) = func.downcast_ref::<Def>() {
             Ok(func.module.load_relaxed())
         } else {
             Ok(None)

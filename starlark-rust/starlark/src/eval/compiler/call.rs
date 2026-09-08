@@ -24,6 +24,7 @@ use starlark_syntax::slice_vec_ext::VecExt;
 use crate as starlark;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
+use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::eval::compiler::def_inline::InlineDefCallSite;
 use crate::eval::compiler::def_inline::local_as_value::local_as_value;
@@ -178,8 +179,9 @@ impl CallCompiled {
         };
 
         args.all_values_generic(expr_to_value, |arguments| {
-            let mut slots = vec![None; fun.parameters.len()];
-            fun.parameters
+            let parameters = &Def::at_brand(fun).as_ref().parameters;
+            let mut slots = vec![None; parameters.len()];
+            parameters
                 .collect(arguments.frozen_to_v(), &mut slots, ctx.heap())
                 .ok()?;
 

@@ -18,19 +18,13 @@
 use crate::collections::SmallMap;
 use crate::eval::Evaluator;
 use crate::eval::compiler::def::Def;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::values::FrozenStringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 
 pub(crate) fn to_scope_names_by_local_slot_id<'v>(x: Value<'v>) -> Option<&'v [FrozenStringValue]> {
-    if x.unpack_frozen().is_some() {
-        x.downcast_ref::<FrozenDef>()
-            .map(|x| x.def_info.used.as_slice())
-    } else {
-        x.downcast_ref::<Def>().map(|x| x.def_info.used.as_slice())
-    }
+    x.downcast_ref::<Def>().map(|x| x.def_info.used.as_slice())
 }
 
 impl<'v> Evaluator<'v, '_, '_> {

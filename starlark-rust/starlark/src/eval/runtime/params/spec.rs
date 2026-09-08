@@ -27,7 +27,6 @@ use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::function_error;
 use starlark_syntax::other_error;
-use starlark_syntax::slice_vec_ext::VecExt;
 use starlark_syntax::syntax::def::DefParamIndices;
 use triomphe::Arc;
 
@@ -56,7 +55,6 @@ use crate::util::arc_str::ArcStr;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -201,20 +199,13 @@ pub struct ParametersSpec<V> {
     defaults: Box<[V]>,
 }
 
-/// `Frozen` ignores the brand: the frozen spec keeps its defaults as `FrozenValue`, because
-/// `ParametersSpec::as_value` reads the frozen and the unfrozen spec through one type, at the
-/// reader's lifetime. Branding the defaults waits for `FrozenValue` to be branded.
 impl<'v> FreezeBranded for ParametersSpec<Value<'v>> {
-    type Frozen<'fv> = ParametersSpec<FrozenValue>;
+    type Frozen<'fv> = ParametersSpec<Value<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(ParametersSpec {
             prototype: self.prototype,
-            defaults: self
-                .defaults
-                .into_vec()
-                .into_try_map(|v| freezer.freeze(v))?
-                .into_boxed_slice(),
+            defaults: self.defaults.freeze(freezer)?,
         })
     }
 }
@@ -668,6 +659,9 @@ impl<V> ParametersSpec<V> {
 }
 
 impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
+    /// The spec at the reader's brand. `ParametersSpec<FrozenValue>` is the signature type of
+    /// the native-function machinery, which builds specs with no heap in reach; this is where
+    /// such a spec is read at a lifetime.
     pub(crate) fn as_value(&self) -> &ParametersSpec<Value<'v>> {
         // Everything is `repr(C)` and `Value` and `FrozenValue` have the same layout.
         unsafe { transmute!(&ParametersSpec<V>, &ParametersSpec<Value>, self) }

@@ -19,7 +19,7 @@
 
 use crate::assert::Assert;
 use crate::eval::bc::opcode::BcOpcode;
-use crate::eval::compiler::def::FrozenDef;
+use crate::eval::compiler::def::Def;
 use crate::tests::bc::golden::bc_golden_test;
 use crate::values::ValueLike;
 
@@ -93,7 +93,7 @@ fn test_dict_inlined_call_stack() {
     // Check `f` is inlined into `g` and `h`.
     for (m, f) in [(m_g, "g"), (m_h, "h")] {
         let owned = m.get_owned(f).unwrap();
-        let f = owned.as_ref().value().downcast_ref::<FrozenDef>().unwrap();
+        let f = owned.as_ref().value().downcast_ref::<Def>().unwrap();
         assert_eq!(
             BcOpcode::ListNew,
             f.bc().instrs.opcodes().as_slice()[0],
