@@ -52,7 +52,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
 ) -> (impl AttrResolutionContext<'v>, ProviderIdSet) {
     struct Ctx<'a, 'v> {
         module: &'a Module<'v>,
-        // This module needs to be kept alive in order for the FrozenValues to stick around
+        // The module the provider collections were frozen in.
         _deps_env: FrozenModule,
         deps: SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     }

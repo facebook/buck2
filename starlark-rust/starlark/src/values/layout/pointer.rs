@@ -175,9 +175,7 @@ impl RawPointer {
     }
 }
 
-// A structure that is morally a `PointerUnpack`, but gets encoded in one
-// pointer sized lump. The two types P1 and P2 are arbitrary pointers (which we
-// instantiate to FrozenValueMem and ValueMem)
+// A tagged pointer to a value, branded with the heap it belongs to.
 #[derive(Clone, Copy, Dupe)]
 pub(crate) struct Pointer<'p> {
     ptr: RawPointer,
@@ -439,11 +437,6 @@ impl<'p> FrozenPointer<'p> {
             ptr: self.ptr,
             _phantom: PhantomData,
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn raw(self) -> RawPointer {
-        self.ptr
     }
 
     /// Unpack pointer when it is known to be frozen, not an integer, not a string.

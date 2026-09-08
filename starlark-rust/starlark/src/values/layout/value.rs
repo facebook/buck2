@@ -20,7 +20,7 @@
 // Encode Int in the pointer too
 
 // We use pointer tagging on the bottom two bits:
-// 00 => this Value pointer is actually a FrozenValue pointer
+// 00 => this is a pointer to a frozen value
 // 01 => this is a real Value pointer
 // 11 => this is a bool (next bit: 1 => true, 0 => false)
 // 10 => this is a None
@@ -46,7 +46,6 @@ use either::Either;
 use num_bigint::BigInt;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_map::Equivalent;
 use starlark_syntax::value_error;
 
 use crate as starlark;
@@ -145,18 +144,10 @@ pub struct Value<'v>(pub(crate) Pointer<'v>);
 
 unsafe impl<'v> Coerce<Value<'v>> for Value<'v> {}
 unsafe impl<'v> CoerceKey<Value<'v>> for Value<'v> {}
-unsafe impl<'v> Coerce<Value<'v>> for FrozenValue {}
-unsafe impl<'v> CoerceKey<Value<'v>> for FrozenValue {}
 
 impl Default for Value<'_> {
     fn default() -> Self {
         Self::new_none()
-    }
-}
-
-impl Default for FrozenValue {
-    fn default() -> Self {
-        VALUE_NONE.unpack().to_frozen().to_frozen_value()
     }
 }
 
@@ -174,12 +165,6 @@ impl Display for Value<'_> {
                 write!(f, "{recursive}")
             }
         }
-    }
-}
-
-impl Display for FrozenValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.to_value(), f)
     }
 }
 
@@ -201,58 +186,13 @@ impl Debug for Value<'_> {
     }
 }
 
-impl Debug for FrozenValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        debug_value("FrozenValue", Value::new_frozen(*self), f)
-    }
-}
-
 impl<'v> PartialEq for Value<'v> {
     fn eq(&self, other: &Value<'v>) -> bool {
         self.equals(*other).ok() == Some(true)
     }
 }
 
-impl PartialEq for FrozenValue {
-    fn eq(&self, other: &FrozenValue) -> bool {
-        self.to_value().eq(&other.to_value())
-    }
-}
-
 impl Eq for Value<'_> {}
-
-impl Eq for FrozenValue {}
-
-impl Equivalent<FrozenValue> for Value<'_> {
-    fn equivalent(&self, key: &FrozenValue) -> bool {
-        key.equals(*self).unwrap()
-    }
-}
-
-impl Equivalent<Value<'_>> for FrozenValue {
-    fn equivalent(&self, key: &Value) -> bool {
-        self.equals(*key).unwrap()
-    }
-}
-
-/// A pointer to a frozen value, with no brand.
-///
-/// This is the currency of the places that deal in pointers rather than in the values of a
-/// particular heap: the freezer, pagable serialization, and the compiler's IR and bytecode. It is
-/// not the general way to hold a frozen value. Nothing ties a [`FrozenValue`] to the heap that
-/// keeps it alive, and [`to_value`](FrozenValue::to_value) hands out a [`Value`] at any brand
-/// without recording that dependency, so a value obtained that way can outlive its heap; the
-/// `branding` module describes this hole. Hold an [`OwnedFrozen`](crate::values::OwnedFrozen), an
-/// [`OwnedFrozenRef`](crate::values::OwnedFrozenRef), or a `Value<'fv>` inside the scope of the
-/// [`FrozenHeap`](crate::values::FrozenHeap) that allocated it instead. New code should not take
-/// or return a [`FrozenValue`]; the type is being removed.
-#[derive(Clone, Copy, Dupe, ProvidesStaticType, Allocative)]
-#[derive(pagable::PagablePanic)]
-// One possible change: moving from Blackhole during GC
-pub struct FrozenValue(
-    #[allocative(skip)] // Because it is owned by the heap.
-    pub(crate)  FrozenPointer<'static>,
-);
 
 #[derive(thiserror::Error, Debug)]
 #[error("Integer value is too big to fit in {integer_type}: {value}")]
@@ -287,6 +227,15 @@ impl<'v> Value<'v> {
     #[inline]
     pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
+    }
+
+    /// # Safety
+    ///
+    /// `x` must be the address of an [`AValueHeader`] in a frozen heap that the heap of `'v`
+    /// keeps alive, with the string tag set iff the value is a string.
+    #[inline]
+    pub(crate) unsafe fn new_frozen_ptr_usize_with_str_tag(x: usize) -> Self {
+        Self(FrozenPointer::new_frozen_usize_with_str_tag(x).to_pointer())
     }
 
     /// Create a new `None` value.
@@ -338,41 +287,23 @@ impl<'v> Value<'v> {
         VALUE_EMPTY_TUPLE.at().to_value()
     }
 
-    /// Turn a [`FrozenValue`] into a [`Value`]. See the safety warnings on
-    /// [`FrozenValue`].
-    #[inline]
-    pub fn new_frozen(x: FrozenValue) -> Self {
-        // Safe if every FrozenValue must have had a reference added to its heap first.
-        // That property is NOT statically checked.
-        Self(x.0.to_pointer())
-    }
-
     /// Whether the value is frozen: allocated in a frozen heap, a static, or an inline integer.
     #[inline]
     pub fn is_frozen(self) -> bool {
         !self.0.is_unfrozen()
     }
 
-    /// Obtain the underlying [`FrozenValue`] from inside the [`Value`], if it is one.
-    #[inline]
-    pub fn unpack_frozen(self) -> Option<FrozenValue> {
-        if self.0.is_unfrozen() {
-            None
-        } else {
-            // SAFETY: We've just checked the value is frozen.
-            unsafe { Some(self.unpack_frozen_unchecked()) }
-        }
-    }
-
+    /// The same frozen value, at the brand of another heap.
+    ///
     /// # Safety
     ///
-    /// The value must be frozen.
+    /// The value must be frozen, and the heap of `'v2` must keep alive the frozen heap the value
+    /// lives in. The `branding` module lists the callers.
     #[inline]
-    pub(crate) unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
-        unsafe {
-            debug_assert!(!self.0.is_unfrozen());
-            FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
-        }
+    pub(crate) unsafe fn rebrand_frozen_unchecked<'v2>(self) -> Value<'v2> {
+        debug_assert!(self.is_frozen());
+        // SAFETY: The caller's obligation.
+        Value(unsafe { self.0.cast_lifetime() })
     }
 
     /// Is this value `None`.
@@ -1145,59 +1076,6 @@ impl<'v> Value<'v> {
     }
 }
 
-impl FrozenValue {
-    #[inline]
-    pub(crate) fn new_ptr(x: &'static AValueHeader, is_str: bool) -> Self {
-        Self(FrozenPointer::new_frozen(x, is_str))
-    }
-
-    #[inline]
-    pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
-        Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ptr_value(self) -> RawPointer {
-        self.0.raw()
-    }
-
-    /// Is a value a Starlark `None`.
-    #[inline]
-    pub fn is_none(self) -> bool {
-        self.to_value().is_none()
-    }
-
-    /// Return the [`bool`] if the value is a boolean, otherwise [`None`].
-    #[inline]
-    pub fn unpack_bool(self) -> Option<bool> {
-        self.to_value().unpack_bool()
-    }
-
-    /// Obtain the underlying integer if it fits in an `i32`.
-    /// Note floats are not considered integers, i. e. `unpack_i32` for `1.0` will return `None`.
-    #[inline]
-    pub fn unpack_i32(self) -> Option<i32> {
-        self.to_value().unpack_i32()
-    }
-
-    // The resulting `str` is alive as long as the `FrozenHeap` is,
-    // but we don't have that lifetime available to us. Therefore,
-    // we cheat a little, and use the lifetime of the `FrozenValue`.
-    // Because of this cheating, we don't expose it outside Starlark.
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    #[inline]
-    pub(crate) fn unpack_str<'v>(&'v self) -> Option<&'v str> {
-        self.to_value().unpack_str()
-    }
-
-    /// Convert a [`FrozenValue`] back to a [`Value`], at any brand and without recording a heap
-    /// dependency; see the type documentation.
-    #[inline]
-    pub fn to_value<'v>(self) -> Value<'v> {
-        Value::new_frozen(self)
-    }
-}
-
 impl<'v> Serialize for Value<'v> {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
     where
@@ -1207,30 +1085,6 @@ impl<'v> Serialize for Value<'v> {
             Ok(_guard) => erased_serde::serialize(self.get_ref().as_serialize(), s),
             Err(..) => Err(serde::ser::Error::custom(ToJsonCycleError(self.get_type()))),
         }
-    }
-}
-
-impl Serialize for FrozenValue {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.to_value().serialize(s)
-    }
-}
-
-impl StarlarkSerialize for FrozenValue {
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        ctx.serialize_value(self.to_value())
-    }
-}
-
-impl StarlarkDeserialize for FrozenValue {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        Ok(ctx
-            .deserialize_value()?
-            .unpack_frozen()
-            .expect("the deserializer only produces frozen values"))
     }
 }
 
@@ -1252,35 +1106,21 @@ impl<'v> StarlarkDeserialize for Value<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for Value<'v> {
-    type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        FrozenValue::starlark_type_repr()
-    }
-}
-
-impl StarlarkTypeRepr for FrozenValue {
-    type Canonical = Self;
+    type Canonical = Value<'static>;
 
     fn starlark_type_repr() -> Ty {
         Ty::any()
     }
 }
 
-/// Abstract over [`Value`] and [`FrozenValue`].
+/// The subset of [`Value`]'s API that container implementations are written against.
 ///
-/// The methods on this trait are those required to implement containers,
-/// allowing container implementations to be agnostic of their contained type.
-/// For details about each function, see the documentation for [`Value`],
-/// which provides the same functions (and more).
+/// [`Value`] is its only implementation; see the documentation of the same-named methods there.
 pub trait ValueLike<'v>:
     ValueLifetimeless + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
 {
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
-
-    /// Convert from [`FrozenValue`].
-    fn from_frozen_value(v: FrozenValue) -> Self;
 
     /// Call this value as a function with given arguments.
     fn invoke(
@@ -1351,11 +1191,6 @@ impl<'v> ValueLike<'v> for Value<'v> {
         self
     }
 
-    #[inline]
-    fn from_frozen_value(v: FrozenValue) -> Self {
-        v.to_value()
-    }
-
     fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         if T::static_type_id() == StarlarkStr::static_type_id() {
             if self.is_str() {
@@ -1416,58 +1251,6 @@ impl<'v> ValueLike<'v> for Value<'v> {
         let _guard = stack_guard::stack_guard()?;
         self.get_ref().compare(other)
     }
-}
-
-impl Sealed for FrozenValue {}
-
-impl ValueLifetimeless for FrozenValue {}
-
-impl<'v> ValueLike<'v> for FrozenValue {
-    #[inline]
-    fn to_value(self) -> Value<'v> {
-        Value::new_frozen(self)
-    }
-
-    #[inline]
-    fn from_frozen_value(v: FrozenValue) -> Self {
-        v
-    }
-
-    #[inline]
-    fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
-        self.to_value().downcast_ref()
-    }
-
-    #[inline]
-    fn collect_repr(self, collector: &mut String) {
-        self.to_value().collect_repr(collector)
-    }
-
-    #[inline]
-    fn collect_str(self, collector: &mut String) {
-        self.to_value().collect_str(collector)
-    }
-
-    #[inline]
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
-        self.to_value().write_hash(hasher)
-    }
-
-    #[inline]
-    fn equals(self, other: Value<'v>) -> crate::Result<bool> {
-        self.to_value().equals(other)
-    }
-
-    #[inline]
-    fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
-        self.to_value().compare(other)
-    }
-}
-
-fn _test_send_sync()
-where
-    FrozenValue: Send + Sync,
-{
 }
 
 #[cfg(test)]

@@ -24,7 +24,7 @@ use serde::Serialize;
 
 use crate::sealed::Sealed;
 
-/// Implemented by [`Value`](crate::values::Value) and [`FrozenValue`](crate::values::FrozenValue).
+/// Implemented by [`Value`](crate::values::Value).
 pub trait ValueLifetimeless:
     Sealed + Eq + Copy + Dupe + Debug + Default + Display + Serialize + Allocative + Sized
 {

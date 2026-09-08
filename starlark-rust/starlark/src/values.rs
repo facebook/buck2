@@ -79,7 +79,6 @@ pub use crate::values::layout::typed::FrozenValueTyped;
 pub use crate::values::layout::typed::ValueTyped;
 pub use crate::values::layout::typed::string::StringValue;
 pub use crate::values::layout::typed::string::StringValueLike;
-pub use crate::values::layout::value::FrozenValue;
 pub use crate::values::layout::value::Value;
 pub use crate::values::layout::value::ValueLike;
 pub use crate::values::layout::value_lifetimeless::ValueLifetimeless;

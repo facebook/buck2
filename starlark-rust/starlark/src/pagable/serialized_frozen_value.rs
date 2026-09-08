@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//! Wire format for serialized `FrozenValue` references.
+//! Wire format for serialized frozen value references.
 
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
@@ -25,7 +25,7 @@ use pagable::PagableSerializer;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::static_value::StaticValueId;
 
-/// Wire representation of a `FrozenValue`. Heap pointers always carry
+/// Wire representation of a frozen value reference. Heap pointers always carry
 /// an explicit `heap_id` so the encoding doesn't depend on which heap
 /// is currently being (de)serialized.
 ///

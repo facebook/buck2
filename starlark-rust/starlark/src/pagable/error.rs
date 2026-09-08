@@ -111,13 +111,13 @@ pub enum PagableError {
         cause: Arc<str>,
     },
 
-    /// A `FrozenValue` being serialized points into a heap whose chunk index
+    /// A frozen value being serialized points into a heap whose chunk index
     /// was never registered, so its `value_index` cannot be resolved.
     #[error(
-        "FrozenValue pointer {raw_ptr:#x} not found in any registered heap's chunk index; target type: `{target_type}`; chunk index: {chunk_index_diagnostic}; live heap scan: {live_heap_diagnostic}"
+        "Frozen value pointer {raw_ptr:#x} not found in any registered heap's chunk index; target type: `{target_type}`; chunk index: {chunk_index_diagnostic}; live heap scan: {live_heap_diagnostic}"
     )]
     FrozenValueNotRegistered {
-        /// Payload address of the unresolved `FrozenValue`.
+        /// Payload address of the unresolved value.
         raw_ptr: usize,
         /// Starlark type of the unresolved value.
         target_type: &'static str,

@@ -38,7 +38,6 @@ use crate::values::AllocValue;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkPagable;
@@ -135,7 +134,7 @@ impl<'v> AllocValue<'v> for SetData<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for SetData<'v> {
-    type Canonical = <SetType<FrozenValue> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <SetType<Value<'static>> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
         SetType::<Value<'v>>::starlark_type_repr()

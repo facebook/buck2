@@ -121,7 +121,7 @@ impl PagableSerialize for Globals {
         // Force-register chunk indices for the heap and its transitive deps. The
         // pagable arc may not run heap serialization yet, but we need the
         // chunk indices now so the upcoming starlark serializer can resolve
-        // FrozenValue pointers. Same trick as `OwnedFrozen` and `FrozenModule`.
+        // value pointers. Same trick as `OwnedFrozen` and `FrozenModule`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_chunk_index_registered(data.heap_arc())?;
         let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, data.heap_arc());
@@ -144,7 +144,7 @@ impl<'de> PagableDeserialize<'de> for Globals {
         let heap = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
         // The preceding heap deserialization registers its heap state in this
-        // page-in scope, so Starlark fields can resolve `FrozenValue` pointers.
+        // page-in scope, so Starlark fields can resolve value pointers.
         let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
             .map_err(|e: crate::Error| e.into_anyhow())?;
 

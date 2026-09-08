@@ -18,7 +18,7 @@
 //! Derive macro generating `StarlarkSerialize` / `StarlarkDeserialize` impls
 //! that bridge to the type's existing `pagable::PagableSerialize` /
 //! `pagable::PagableDeserialize` impls — use on types that are `Pagable` but
-//! don't reference any Starlark `Value`/`FrozenValue`.
+//! don't reference any Starlark `Value`.
 
 use quote::quote_spanned;
 use syn::DeriveInput;

@@ -114,24 +114,31 @@
 //!  - `HeapEdge::immortal` is the edge from every heap to the `'static` brand, at which only
 //!    immortal data exists: statics, and the `Methods` tables reached through `&'static Methods`.
 //!    `at()` on the static holders is this edge behind a name.
+//!  - `HeapEdge::identity` is the edge from a heap to itself, for code written against two brands
+//!    that is handed one heap for both.
 //!
 //! `HeapEdge::unchecked_new` is `unsafe` and these minters are its only callers.
 //!
-//! ### The `FrozenValue` hole
+//! ### What is trusted rather than proven
 //!
-//! There is one gap in all of the above. `FrozenValue` carries no brand, and
-//! `FrozenValue::to_value` hands one back at *any* `'v`. A `Value<'v>` obtained that way may
-//! therefore live in a frozen heap that the `Heap<'v>` does not depend on, and nothing is keeping
-//! that heap alive.
+//! Three brand changes have no edge behind them. Each rests on a contract stated at the site,
+//! and together they are the complete list of places where a brand is only as good as the code
+//! that minted it:
 //!
-//! The typed handle of the same family shares the hole: a `FrozenValueTyped<'static, T>` can be
-//! minted from any frozen heap, yet its `as_ref` hands out a `&'static T` and its `to_value` a
-//! `'static`-branded value, all without saying who keeps the heap alive. As long as they exist, "at the `'static` brand there is only
-//! immortal data" - the contract that `HeapEdge::immortal` and the `Value<'static>` storage of the
-//! owning carriers rely on - is only true of code that does not use them to lie.
+//!  - `OptCtx::demote` (eval/compiler/opt_ctx.rs). The optimizer folds frozen values it observed
+//!    at a module's value heap `'v` into IR allocated at the module's frozen heap `'fm`. No edge
+//!    points that way; the contract is `OptCtxEval`'s (the two heaps are one `ModuleHeaps`'s),
+//!    and the reasoning about where a frozen value at `'v` can live is spelled out on `demote`.
+//!  - `StarlarkDeserializeContext::deserialize_value` (pagable). A value being paged in carries
+//!    no brand that says which heap owns it. The framework re-brands it at the heap being paged
+//!    in when the owner is later reached, so `StarlarkDeserialize` impls must keep the result only
+//!    inside the value they are deserializing; see the method's documentation.
+//!  - `Freezer::freeze`'s already-frozen fast path (values/layout/freezer.rs). A value that is
+//!    already frozen is handed back at `'fv` without being copied. The contract is on
+//!    `Freezer::new`: the target heap inherits the references of the heap being frozen
+//!    (`ModuleHeaps::seal_with`, for `Module::freeze`) or is scoped within it.
 //!
-//! So a brand is currently only as good as the code that mints `FrozenValue`s. This is why the
-//! APIs that would otherwise be sound on lifetimes alone - a standalone token permitting
-//! `X<'b> -> X<'a>` rebrands, or a zero-sized witness that a brand is frozen - do not exist, and
-//! the ones that do (`OwnedFrozen`, `OwnedFrozenRef`, `HeapEdge`) all carry the keep-alive with
-//! them. Closing the hole means removing `FrozenValue::to_value` and the typed `'static` handles.
+//! Everything else that hands out a brand records the dependency it certifies, and the
+//! `'static` brand is honest: apart from the private erased storage of the owning carriers
+//! (`OwnedFrozen`, `FrozenModule`, `Globals`), which is only ever read back at a brand those
+//! carriers vouch for, the only data at `'static` is immortal.

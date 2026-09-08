@@ -882,7 +882,7 @@ impl StarlarkDeserScope {
 /// Concrete implementation of StarlarkDeserializeContext.
 ///
 /// Wraps a `PagableDeserializer` and a shared `StarlarkDeserScope` to
-/// resolve `FrozenValue` references during deserialization.
+/// resolve value references during deserialization.
 pub struct StarlarkDeserializerImpl<'a, 'de> {
     pagable: &'a mut dyn PagableDeserializer<'de>,
     /// Shared registry of per-heap deserialization state. Cross-heap pointer

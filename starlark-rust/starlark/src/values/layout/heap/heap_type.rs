@@ -804,8 +804,8 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
                         ))
                     })?
                     .dupe();
-                // Publish the live heap graph so cross-heap `FrozenValue`
-                // pointers into it (or its dependencies) resolve.
+                // Publish the live heap graph so cross-heap value pointers into it (or its
+                // dependencies) resolve.
                 heap.register_in_deser_scope(deserializer.as_dyn())?;
                 Ok(heap)
             }
@@ -947,7 +947,7 @@ impl FrozenHeapArc {
             return Ok(());
         }
 
-        // A cached owner can contain FrozenValue pointers into any transitive
+        // A cached owner can contain value pointers into any transitive
         // dependency, so publish the complete graph before the owner binding.
         for dep in self.refs_slice() {
             dep.heap_arc().register_heap_graph_in_deser_scope(scope)?;

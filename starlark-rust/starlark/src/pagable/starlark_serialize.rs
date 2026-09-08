@@ -62,7 +62,7 @@ pub trait StarlarkSerializeContext {
 
     /// Serialize a reference to `v`.
     ///
-    /// Only frozen heaps are serialized, so `v` must be frozen; an unfrozen value is an error.
+    /// Only frozen heaps are serialized, so `v` is frozen; an unfrozen value is an internal error.
     fn serialize_value(&mut self, v: Value<'_>) -> crate::Result<()>;
 
     /// Capture the Starlark ownership context for serialization delegated to pagable code.

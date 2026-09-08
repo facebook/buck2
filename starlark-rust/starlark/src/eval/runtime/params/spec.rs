@@ -185,7 +185,6 @@ pub(crate) struct ParametersSpecPrototype {
 
 /// Define a list of parameters. This code assumes that all names are distinct and that
 /// `*args`/`**kwargs` occur in well-formed locations.
-// V = Value, or FrozenValue
 #[derive(Debug, Clone, Trace, Allocative, ProvidesStaticType, StarlarkPagable)]
 #[repr(C)]
 #[starlark_pagable(bound = "V: StarlarkPagable")]

@@ -40,7 +40,6 @@ use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use crate::collections::SmallMap;
-use crate::values::FrozenValue;
 use crate::values::Tracer;
 use crate::values::Value;
 
@@ -198,10 +197,6 @@ unsafe impl<'v> Trace<'v> for Value<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         tracer.trace(self)
     }
-}
-
-unsafe impl<'v> Trace<'v> for FrozenValue {
-    fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }
 
 unsafe impl<'v> Trace<'v> for String {

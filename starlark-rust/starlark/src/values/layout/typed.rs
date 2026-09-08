@@ -50,7 +50,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
@@ -206,8 +205,10 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         repr: &'static AValueRepr<AValueImpl<'static, A>>,
     ) -> ValueTyped<'v, T> {
         // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
-        let frozen = FrozenValue::new_ptr(&repr.header, A::IS_STR);
-        ValueTyped(Value::new_frozen(frozen), marker::PhantomData)
+        ValueTyped(
+            Value::new_frozen_ptr(&repr.header, A::IS_STR),
+            marker::PhantomData,
+        )
     }
 
     /// Erase the type.
@@ -253,16 +254,6 @@ impl<T: StarlarkValue<'static>> ValueTyped<'static, T> {
         for<'lt> ReinfectStatic<'lt, T>: StarlarkValue<'lt> + Sized,
     {
         HeapEdge::immortal().rebrand(self)
-    }
-
-    /// The value as a frozen handle.
-    ///
-    /// For the compiler's IR and the `FrozenValueTyped<'static, _>` family, which still name
-    /// immortal values as frozen handles; everything else should stay at the brand.
-    #[inline]
-    pub(crate) fn to_frozen(self) -> FrozenValueTyped<'static, T> {
-        FrozenValueTyped::new(self.0)
-            .expect("data at the `'static` brand is immortal, and immortal data is frozen")
     }
 }
 
@@ -346,13 +337,6 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
             Value::new_frozen_ptr(&repr.header, A::IS_STR),
             marker::PhantomData,
         )
-    }
-
-    /// Erase the type and the brand.
-    #[inline]
-    pub fn to_frozen_value(self) -> FrozenValue {
-        // SAFETY: The frozen bit is set, see the type doc.
-        unsafe { self.0.unpack_frozen_unchecked() }
     }
 
     /// Erase the type.

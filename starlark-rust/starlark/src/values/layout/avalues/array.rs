@@ -225,7 +225,7 @@ impl<'fh> FrozenHeap<'fh> {
         values: &[T],
     ) -> ValueTyped<'fh, AnyArray<T>> {
         // Always allocate via AnyArray, even for empty/single elements.
-        // This ensures the reverse calculation to FrozenValue is valid.
+        // This keeps the pointer arithmetic from the elements back to the value valid.
         let (any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         maybe_uninit_write_slice_cloned(content, values);

@@ -134,9 +134,7 @@ enum GenericsShape {
     None,
     /// Lifetime parameters only, e.g. `Foo<'v>` or `FooGen<Bar<'v>>`.
     LifetimesOnly,
-    /// One type parameter bound by `ValueLike<'v>`, e.g. `FooGen<'v, V>`.
-    ValueLike,
-    /// Anything else: const params, several `ValueLike` params, non-`ValueLike` type params.
+    /// Anything else: const params, non-`ValueLike` type params.
     Other,
 }
 
@@ -567,94 +565,6 @@ impl ImplStarlarkValue {
         }
     }
 
-    /// Make frozen type by replacing ValueLike param with FrozenValue
-    /// and lifetime params with 'static.
-    /// This is similar to `do_make_canonical_type` but for the frozen variant.
-    ///
-    /// e.g.
-    /// FooGen<'v, T> -> FooGen<'static, FrozenValue>
-    /// or
-    /// FooGen<T> -> FooGen<FrozenValue>
-    fn make_frozen_type(&self) -> syn::Result<syn::Type> {
-        let mut path = self.extract_self_ty_path()?;
-
-        struct PatchToFrozen;
-
-        impl syn::visit_mut::VisitMut for PatchToFrozen {
-            fn visit_type_mut(&mut self, i: &mut syn::Type) {
-                *i = syn::parse_quote! {
-                    starlark::values::FrozenValue
-                };
-            }
-
-            fn visit_lifetime_mut(&mut self, i: &mut syn::Lifetime) {
-                *i = syn::parse_quote! { 'static };
-            }
-        }
-
-        syn::visit_mut::VisitMut::visit_path_mut(&mut PatchToFrozen, &mut path);
-
-        Ok(syn::parse_quote! { #path })
-    }
-
-    /// Produce the unfrozen form of a `ValueLike`-parameterized `Self`, with
-    /// lifetimes elided. Used for Ty vtable registration.
-    ///
-    /// Why elided: the unfrozen form is used as a type argument for getting
-    /// `static TyStarlarkValueVTable`:
-    ///   `static VTABLE: TyStarlarkValueVTable = TyStarlarkValueVTableGet::<#elided>::VTABLE;`
-    /// Statics can't have lifetime parameters, so every `'v` is rewritten to
-    /// `'_`, which Rust elides to `'static` in this position.
-    ///
-    /// e.g. `FooGen<'v, V: ValueLike>` → `FooGen<'_, Value<'_>>`.
-    fn make_unfrozen_type_elided(&self) -> syn::Result<syn::Type> {
-        let mut path = self.extract_self_ty_path()?;
-
-        struct PatchToUnfrozen;
-
-        impl syn::visit_mut::VisitMut for PatchToUnfrozen {
-            fn visit_type_mut(&mut self, i: &mut syn::Type) {
-                *i = syn::parse_quote! {
-                    starlark::values::Value<'_>
-                };
-            }
-
-            fn visit_lifetime_mut(&mut self, i: &mut syn::Lifetime) {
-                *i = syn::parse_quote! { '_ };
-            }
-        }
-
-        syn::visit_mut::VisitMut::visit_path_mut(&mut PatchToUnfrozen, &mut path);
-
-        Ok(syn::parse_quote! { #path })
-    }
-
-    /// Make unfrozen type for the impl position: substitute `V` with
-    /// `Value<'v>`, where `'v` is the shared StarlarkValue lifetime.
-    ///
-    /// e.g. `FooGen<'v, V>` -> `FooGen<'v, Value<'v>>`
-    fn make_unfrozen_type_with_lifetime(&self) -> syn::Result<syn::Type> {
-        let mut path = self.extract_self_ty_path()?;
-        let lt = self.lifetime_param.clone();
-
-        struct PatchToUnfrozen {
-            lifetime: syn::Lifetime,
-        }
-
-        impl syn::visit_mut::VisitMut for PatchToUnfrozen {
-            fn visit_type_mut(&mut self, i: &mut syn::Type) {
-                let lt = &self.lifetime;
-                *i = syn::parse_quote! {
-                    starlark::values::Value< #lt >
-                };
-            }
-        }
-
-        syn::visit_mut::VisitMut::visit_path_mut(&mut PatchToUnfrozen { lifetime: lt }, &mut path);
-
-        Ok(syn::parse_quote! { #path })
-    }
-
     /// Classify `Self`'s generics for `vtable_registration`.
     fn generics_shape(&self) -> syn::Result<GenericsShape> {
         let mut value_like_count = 0usize;
@@ -672,11 +582,15 @@ impl ImplStarlarkValue {
                 }
             }
         }
-        if has_unsupported_kind || value_like_count > 1 {
-            return Ok(GenericsShape::Other);
+        if value_like_count > 0 {
+            return Err(syn::Error::new_spanned(
+                &self.input.self_ty,
+                "a `ValueLike` type parameter has no frozen instantiation to register: \
+                 write the type over `Value<'v>` and use `frozen_vtable` for the frozen form",
+            ));
         }
-        if value_like_count == 1 {
-            return Ok(GenericsShape::ValueLike);
+        if has_unsupported_kind {
+            return Ok(GenericsShape::Other);
         }
         let self_has_args = matches!(&*self.input.self_ty, syn::Type::Path(p)
             if p.path.segments.last()
@@ -697,13 +611,13 @@ impl ImplStarlarkValue {
     /// | none, e.g. `Foo`                     | `Foo`                      | `Foo`                                                  |
     /// | lifetimes only, e.g. `Foo<'v>`       | none                       | `Foo<'_>`                                              |
     /// | lifetimes only + `frozen_vtable`     | `Foo<'static>`             | `Foo<'_>`                                              |
-    /// | one `ValueLike`, e.g. `Foo<'v, V>`   | `Foo<'static, FrozenValue>`| `Foo<'static, FrozenValue>` and `Foo<'_, Value<'_>>`   |
-    /// | otherwise (const, several `ValueLike`, non-`ValueLike` type param) | none: the caller registers each instantiation manually |
+    /// | otherwise (const or type params)     | none: the caller registers each instantiation manually |
     ///
     /// The lifetimes-only row is the shape of both halves of a frozen/unfrozen pair and of
     /// branded types that are their own frozen form; only the flag tells them apart.
     /// For the first two rows, `skip_vtable` drops all registrations and
-    /// `ty_vtable_no_freeze` the AValue one.
+    /// `ty_vtable_no_freeze` the AValue one. A type parameter bound by `ValueLike` is
+    /// rejected: there is no frozen instantiation of it to register.
     ///
     /// `is_special` (user-defined `fn is_special`) suppresses the AValue vtable
     /// emit — the user is expected to register AValue externally.
@@ -718,26 +632,6 @@ impl ImplStarlarkValue {
                  register the frozen instantiations with `register_simple_vtable_entry!`",
             ),
             (GenericsShape::Other, _) => Ok(None),
-            (GenericsShape::ValueLike, VtableMode::Frozen) => frozen_vtable_err(
-                "`frozen_vtable` is redundant: the `FrozenValue` instantiation of a \
-                 `ValueLike`-parameterized type is registered by default",
-            ),
-            (GenericsShape::ValueLike, _) => {
-                let frozen_ty = self.make_frozen_type()?;
-                let frozen_part =
-                    self.emit_frozen_avalue_vtable_and_ty_vtable(is_special, &frozen_ty);
-                let unfrozen_ty_elided = self.make_unfrozen_type_elided()?;
-                let unfrozen_ty_with_lifetime = self.make_unfrozen_type_with_lifetime()?;
-                let lifetimes = self.unfrozen_lifetimes();
-                Ok(Some(quote! {
-                    #frozen_part
-                    starlark::register_ty_starlark_value!(
-                        generic = < #lifetimes >,
-                        elided_ty = #unfrozen_ty_elided,
-                        impl_ty = #unfrozen_ty_with_lifetime
-                    );
-                }))
-            }
             (GenericsShape::None, VtableMode::Frozen) => frozen_vtable_err(
                 "`frozen_vtable` is redundant: a type without lifetime parameters is \
                  registered as its own frozen form by default",
@@ -819,27 +713,6 @@ impl ImplStarlarkValue {
         let mut ty = (*self.input.self_ty).clone();
         syn::visit_mut::VisitMut::visit_type_mut(&mut ReplaceLifetimes(lifetime), &mut ty);
         ty
-    }
-
-    /// Lifetimes used in the unfrozen Ty's `impl_ty`. If `Self` has its own
-    /// lifetime params, reuse them; otherwise introduce a fresh `'v`.
-    fn unfrozen_lifetimes(&self) -> proc_macro2::TokenStream {
-        let lifetimes: Vec<_> = self
-            .input
-            .generics
-            .params
-            .iter()
-            .filter_map(|p| match p {
-                syn::GenericParam::Lifetime(lt) => Some(&lt.lifetime),
-                _ => None,
-            })
-            .collect();
-        if lifetimes.is_empty() {
-            let lt = &self.lifetime_param;
-            quote! { #lt }
-        } else {
-            quote! { #(#lifetimes),* }
-        }
     }
 }
 

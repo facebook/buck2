@@ -210,7 +210,7 @@ fn serialize_owned_frozen(
 
     // Ensure offset maps are registered for the owner heap and its transitive dependencies.
     // `serialize_arc` for `Arc<FrozenFrozenHeap>` can defer the actual heap serialization, so
-    // the offset maps may not exist yet when we need to serialize the `FrozenValue`.
+    // the offset maps may not exist yet when we need to serialize the value.
     let state = StarlarkSerializerImpl::get_or_create_state(serializer);
     state.ensure_chunk_index_registered(owner)?;
 

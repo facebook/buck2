@@ -51,7 +51,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -105,7 +104,7 @@ pub struct Dict<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for Dict<'v> {
-    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <DictType<Value<'static>, Value<'static>> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
         Self::Canonical::starlark_type_repr()
@@ -181,12 +180,6 @@ impl<'a> Hash for ValueStr<'a> {
 
 impl<'v> Equivalent<Value<'v>> for ValueStr<'_> {
     fn equivalent(&self, key: &Value<'v>) -> bool {
-        key.unpack_str() == Some(self.0)
-    }
-}
-
-impl Equivalent<FrozenValue> for ValueStr<'_> {
-    fn equivalent(&self, key: &FrozenValue) -> bool {
         key.unpack_str() == Some(self.0)
     }
 }

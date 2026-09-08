@@ -81,8 +81,7 @@ is. The invariant everything relies on is:
 The safe APIs maintain this without the caller thinking about it. Every way of
 obtaining a `Value<'v>` from a sealed heap adds the reference as a side effect:
 `add_to_heap` does, and so does minting a `HeapEdge` from a reconstructor. The
-only way to obtain a branded value without recording a dependency is
-`FrozenValue::to_value` and the typed handles built on it, see the end of this
+three places that change a brand without an edge are listed at the end of this
 page.
 
 ## Heap edges
@@ -109,8 +108,9 @@ are three ways to get one:
   `AllocStaticSimple::at` and `ValueTyped::<'static, _>::at` (which covers
   `const_frozen_string!`) are this edge behind a name.
 
-`HeapEdge::unchecked_new` is `unsafe`, and the three minters above are its only
-callers; there should be no reason to call it elsewhere.
+`HeapEdge::unchecked_new` is `unsafe`, and the minters above (plus
+`HeapEdge::identity`, the edge from a heap to itself) are its only callers;
+there should be no reason to call it elsewhere.
 
 ## Heap containers
 
@@ -172,14 +172,20 @@ fn copy<'v>(from: &FrozenModule, to: &Module<'v>) -> anyhow::Result<()> {
 hands the value back at `'v`. When `to` is frozen, the reference is copied into
 its sealed heap, so the resulting `FrozenModule` keeps `from`'s heap alive too.
 
-## `FrozenValue`
+## What is trusted
 
-`FrozenValue` is a pointer to a frozen value with no brand. It is the currency
-of the freezer, of pagable serialization, and of the compiler's IR, which are
-the places that deal in pointers rather than in values of a particular heap.
-It is not the general way to hold a frozen value: `FrozenValue::to_value` hands
-a brand back without recording any dependency, and a value obtained that way
-may outlive its heap. New code should hold `OwnedFrozen<T>`,
-`OwnedFrozenRef<'_, T>`, or a branded `Value<'fv>` inside the scope that owns
-it. The "`FrozenValue` hole" section of the `branding` module describes what
-this costs and what closes it.
+Three brand changes rest on a contract rather than on an edge; the `branding`
+module documents each in full.
+
+- `OptCtx::demote`: the optimizer folds frozen values it observed at a module's
+  value heap into IR allocated at the module's frozen heap. The contract is that
+  the two heaps are one `ModuleHeaps`'s.
+- `StarlarkDeserializeContext::deserialize_value`: a value being paged in
+  carries no brand; the framework re-brands it at the heap being paged in when
+  the owner is reached, so `StarlarkDeserialize` impls must keep the result
+  only inside the value they are deserializing.
+- `Freezer::freeze` on a value that is already frozen hands it back at the
+  freezer's brand without a copy; `Freezer::new` requires the target heap to
+  inherit the references of the heap being frozen, or to be scoped within it.
+
+Everything else that hands out a brand records the dependency it certifies.

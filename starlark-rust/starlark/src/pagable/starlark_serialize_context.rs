@@ -31,7 +31,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::StorageContext;
 use pagable::StorageState;
-use starlark_syntax::value_error;
+use starlark_syntax::internal_error;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -150,7 +150,7 @@ impl StarlarkSerState {
     /// Recursively ensure that chunk indices are registered for a heap
     /// and all of its transitive dependencies.
     ///
-    /// This is needed when serializing `FrozenValue` pointers outside the
+    /// This is needed when serializing value pointers outside the
     /// heap serialization flow (e.g. in `OwnedFrozen`), where the
     /// pagable arc mechanism defers heap serialization but we need the
     /// value-index maps immediately to resolve pointers.
@@ -300,7 +300,7 @@ impl StarlarkSerState {
         Some((entry.heap_id, entry.values_before + k))
     }
 
-    /// A `FrozenValue` reachable from the source heap may be owned by any transitive heap
+    /// A value reachable from the source heap may be owned by any transitive heap
     /// dependency, not only the source heap or one of its direct refs. If a restored owner
     /// lazily materialized the value after a clean ancestor was registered, the normal fast
     /// path can leave its chunk index stale. On lookup miss, revisit the source heap's reachable
@@ -429,12 +429,12 @@ impl StarlarkSerState {
 /// Concrete implementation of StarlarkSerializeContext.
 ///
 /// Wraps a `PagableSerializer` and a shared `StarlarkSerState` to
-/// resolve `FrozenValue` references during serialization.
+/// resolve value references during serialization.
 pub struct StarlarkSerializerImpl<'a> {
     pagable: &'a mut dyn PagableSerializer,
     /// Shared state for heap chunk-index lookups across all heaps.
     state: Arc<StarlarkSerState>,
-    /// Root of the ownership graph containing `FrozenValue`s serialized by this context.
+    /// Root of the ownership graph containing the values serialized by this context.
     ///
     /// It is carried across pagable-only boundaries and used only when pointer lookup must
     /// revisit the source graph to refresh a lazily materialized heap index.
@@ -501,8 +501,10 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
 
     fn serialize_value(&mut self, v: Value<'_>) -> crate::Result<()> {
         if !v.is_frozen() {
-            return Err(value_error!(
-                "Attempted to serialize a non-frozen value; only frozen heaps can be serialized"
+            // Only frozen heaps are serialized, and they hold no unfrozen values.
+            return Err(internal_error!(
+                "Attempted to serialize a non-frozen value of type `{}`",
+                v.get_type()
             ));
         }
         match v.ptr_value().tags() {

@@ -26,7 +26,6 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -77,12 +76,6 @@ impl<'v> ListRef<'v> {
             let ptr = x.downcast_ref::<ListGen<ListData>>()?;
             Some(ListRef::new(ptr.0.content()))
         }
-    }
-
-    /// Downcast the list.
-    pub fn from_frozen_value<'f>(x: FrozenValue) -> Option<&'f ListRef<'f>> {
-        x.downcast_ref::<ListGen<FrozenListData<'f>>>()
-            .map(|x| ListRef::new(x.0.content()))
     }
 }
 

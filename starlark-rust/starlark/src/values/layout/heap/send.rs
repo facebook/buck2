@@ -23,11 +23,7 @@ use starlark_derive::Trace;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::values::FrozenValue;
 use crate::values::Value;
-
-unsafe impl Send for FrozenValue {}
-unsafe impl Sync for FrozenValue {}
 
 /// See the documentation on `HeapSendable`
 unsafe impl Send for Value<'static> {}

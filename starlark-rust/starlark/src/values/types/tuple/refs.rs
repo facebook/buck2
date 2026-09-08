@@ -23,7 +23,6 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::tuple::UnpackTuple;
@@ -49,11 +48,6 @@ impl<'v> TupleRef<'v> {
         Some(Self::new(Tuple::from_value(value)?.content()))
     }
 
-    /// Downcast a value to a tuple.
-    pub fn from_frozen_value(value: FrozenValue) -> Option<&'v TupleRef<'v>> {
-        Self::from_value(value.to_value())
-    }
-
     /// Number of elements.
     pub fn len(&self) -> usize {
         self.contents.len()
@@ -71,7 +65,7 @@ impl<'v> TupleRef<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for &'v TupleRef<'v> {
-    type Canonical = <UnpackTuple<FrozenValue> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <UnpackTuple<Value<'static>> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
         Ty::any_tuple()

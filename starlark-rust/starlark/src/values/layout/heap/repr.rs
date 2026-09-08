@@ -23,7 +23,6 @@ use std::ptr;
 use dupe::Dupe;
 
 use crate::any::AnyLifetime;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::layout::avalue::AValue;
@@ -95,7 +94,7 @@ impl ForwardPtr {
     /// It's caller responsibility to ensure that forward pointer points to a frozen value in the
     /// heap of `'v`.
     pub(crate) unsafe fn unpack_frozen_value<'v>(self) -> Value<'v> {
-        FrozenValue::new_ptr_usize_with_str_tag(self.0).to_value()
+        unsafe { Value::new_frozen_ptr_usize_with_str_tag(self.0) }
     }
 
     /// It's caller responsibility to ensure that forward pointer points to an unfrozen value.

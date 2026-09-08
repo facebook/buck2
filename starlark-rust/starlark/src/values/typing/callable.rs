@@ -47,8 +47,8 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -102,7 +102,7 @@ See also [`typing.Callable` in the Python documentation][1].
     }
 
     fn eval_type(&self) -> Option<Ty> {
-        Some(StarlarkCallable::<StarlarkCallableParamAny, FrozenValue>::starlark_type_repr())
+        Some(StarlarkCallable::<StarlarkCallableParamAny, Value<'static>>::starlark_type_repr())
     }
 
     fn at2(
@@ -162,7 +162,7 @@ impl<'v> StarlarkValue<'v> for TypingCallableAt2 {
 pub struct StarlarkCallable<
     'v,
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
-    R: StarlarkTypeRepr = FrozenValue,
+    R: StarlarkTypeRepr = Value<'static>,
 >(pub Value<'v>, PhantomData<PhantomData<AtomicPtr<(P, R)>>>);
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for StarlarkCallable<'v, P, R> {}
@@ -194,13 +194,6 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkCallable<'v,
     /// Wrap the value.
     pub fn unchecked_new(value: Value<'v>) -> Self {
         StarlarkCallable(value, PhantomData)
-    }
-
-    /// Convert to `FrozenValue` version.
-    pub fn unpack_frozen(self) -> Option<FrozenStarlarkCallable<P, R>> {
-        self.0
-            .unpack_frozen()
-            .map(FrozenStarlarkCallable::unchecked_new)
     }
 
     /// Erase parameter and return types.
@@ -243,14 +236,15 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
     }
 }
 
-/// Marker for a callable value.
+/// [`StarlarkCallable`] at the `'static` brand, at which only immortal data exists; mostly used
+/// as a type-repr marker.
 #[derive(Allocative)]
 #[allocative(bound = "")]
 #[derive(StarlarkPagable)]
 pub struct FrozenStarlarkCallable<
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
-    R: StarlarkTypeRepr = FrozenValue,
->(pub FrozenValue, PhantomData<AtomicPtr<(P, R)>>);
+    R: StarlarkTypeRepr = Value<'static>,
+>(pub Value<'static>, PhantomData<AtomicPtr<(P, R)>>);
 
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for FrozenStarlarkCallable<P, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -279,15 +273,14 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Dupe for FrozenStarlarkC
 unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
     for FrozenStarlarkCallable<P, R>
 {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        // TODO: implement `#[trace(bound = "")]`.
-        self.0.trace(tracer);
+    fn trace(&mut self, _tracer: &Tracer<'v>) {
+        // The value is frozen.
     }
 }
 
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
     /// Wrap the value.
-    pub fn unchecked_new(value: FrozenValue) -> Self {
+    pub fn unchecked_new(value: Value<'static>) -> Self {
         FrozenStarlarkCallable(value, PhantomData)
     }
 
@@ -311,7 +304,7 @@ impl<'fv, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue<'f
     for FrozenStarlarkCallable<P, R>
 {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        self.0.to_value()
+        HeapEdge::immortal().rebrand(self.0)
     }
 }
 
@@ -328,10 +321,10 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded
 }
 
 impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
-    /// Convert to `Value`-version.
+    /// The callable at any brand: `'static` data is immortal, see [`HeapEdge::immortal`].
     #[inline]
     pub fn to_callable<'v>(self) -> StarlarkCallable<'v, P, R> {
-        StarlarkCallable::<P, R>::unchecked_new(self.0.to_value())
+        StarlarkCallable::<P, R>::unchecked_new(HeapEdge::immortal().rebrand(self.0))
     }
 }
 

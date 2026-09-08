@@ -25,7 +25,6 @@ use dupe::Dupe;
 use either::Either;
 
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
@@ -115,10 +114,10 @@ impl<'v> Deref for DictRef<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for DictRef<'v> {
-    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <DictType<Value<'static>, Value<'static>> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
-        DictType::<FrozenValue, FrozenValue>::starlark_type_repr()
+        DictType::<Value<'static>, Value<'static>>::starlark_type_repr()
     }
 }
 

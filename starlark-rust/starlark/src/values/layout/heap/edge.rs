@@ -91,10 +91,6 @@ impl<'v> HeapEdge<'v, 'static> {
     /// ([`AllocStaticSimple::at`], [`ValueTyped::at`]), which is this edge's
     /// [`rebrand`](HeapEdge::rebrand) behind a name.
     ///
-    /// Like the other minters, this is sound in the end state. `FrozenValue::to_value` and the
-    /// typed `'static` handles can today produce `'static`-branded values that are not immortal;
-    /// see "The `FrozenValue` hole" in the `branding` module.
-    ///
     /// [`AllocStaticSimple`]: crate::values::AllocStaticSimple
     /// [`AllocStaticSimple::at`]: crate::values::AllocStaticSimple::at
     /// [`ValueTyped::at`]: crate::values::ValueTyped::at
@@ -103,8 +99,7 @@ impl<'v> HeapEdge<'v, 'static> {
     pub fn immortal() -> Self {
         // SAFETY: `'static` is a brand: no stack data can be borrowed at it, so a `'static`-branded
         // value can only be immortal data, which every heap keeps alive by virtue of it never
-        // being freed. (The holes listed in the doc comment are the ones the `branding` module
-        // tracks for all minters.)
+        // being freed. The `branding` module states where that is guaranteed.
         unsafe { Self::unchecked_new() }
     }
 }

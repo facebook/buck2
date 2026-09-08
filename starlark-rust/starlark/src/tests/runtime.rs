@@ -234,11 +234,12 @@ fn test_display_debug() {
     });
 
     FrozenHeap::temp(|frozen_heap| {
-        let v = frozen_heap.alloc("test").unpack_frozen().unwrap();
+        let v = frozen_heap.alloc("test");
+        assert!(v.is_frozen());
         assert_eq!(format!("{v}"), "\"test\"");
-        assert_eq!(v.to_value().to_repr(), "\"test\"");
-        assert_eq!(v.to_value().to_str(), "test");
-        assert_eq!(format!("{v:?}"), "FrozenValue(\"test\")");
-        assert_eq!(format!("{v:#?}"), "FrozenValue(\n    \"test\",\n)");
+        assert_eq!(v.to_repr(), "\"test\"");
+        assert_eq!(v.to_str(), "test");
+        assert_eq!(format!("{v:?}"), "Value(\"test\")");
+        assert_eq!(format!("{v:#?}"), "Value(\n    \"test\",\n)");
     });
 }

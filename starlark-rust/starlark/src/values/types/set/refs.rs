@@ -25,7 +25,6 @@ use either::Either;
 
 use super::value::SetData;
 use crate::typing::Ty;
-use crate::values::FrozenValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
@@ -105,7 +104,7 @@ impl<'v> SetMut<'v> {
 }
 
 impl<'v> StarlarkTypeRepr for SetRef<'v> {
-    type Canonical = <SetType<FrozenValue> as StarlarkTypeRepr>::Canonical;
+    type Canonical = <SetType<Value<'static>> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
         <Self::Canonical as StarlarkTypeRepr>::starlark_type_repr()

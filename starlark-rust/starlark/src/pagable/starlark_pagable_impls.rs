@@ -53,9 +53,7 @@ use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
-use crate::values::FrozenValue;
 use crate::values::StringValue;
-use crate::values::ValueLike;
 
 /// Implement `StarlarkSerialize` and `StarlarkDeserialize` for a type
 /// by delegating to its `PagableSerialize`/`PagableDeserialize` impls.
@@ -261,17 +259,8 @@ where
     }
 }
 
-/// FrozenValue: no `Hash` trait, use `get_hashed()` from `ValueLike`.
-/// The value is already ensure_initialized by `deserialize_value`.
-impl SmallMapKeyDeserialize for FrozenValue {
-    fn starlark_deserialize_hashed(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
-    ) -> crate::Result<Hashed<Self>> {
-        let fv = FrozenValue::starlark_deserialize(ctx)?;
-        fv.get_hashed()
-    }
-}
-
+/// `Value` has no `Hash` impl; `get_hashed()` from `ValueLike` hashes it, and the value is
+/// initialized by `deserialize_value` before it gets here.
 impl<'v> SmallMapKeyDeserialize for crate::values::Value<'v> {
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_>,

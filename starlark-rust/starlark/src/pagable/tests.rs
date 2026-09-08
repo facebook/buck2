@@ -51,7 +51,6 @@ use crate::starlark_simple_value;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapName;
-use crate::values::FrozenValue;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
@@ -83,15 +82,18 @@ pagable::static_str!(METHOD_TEST_HEAP_NAME = "method_test");
 
 /// A frozen heap under construction whose allocations come back brand-erased.
 ///
-/// These tests hand `FrozenValue`s straight to the pagable plumbing underneath the branded API,
-/// which is what that plumbing is written in terms of. Production code keeps the brand that
-/// [`FrozenHeap`] hands out.
+/// These tests hand values straight to the pagable plumbing underneath the branded API and build
+/// heaps that reference each other freely, so they store values as `Value<'static>` the way the
+/// owning carriers do internally (`OwnedFrozen::erase_brand`). Production code keeps the brand
+/// that [`FrozenHeap`] hands out. Every test keeps the sealed heap alive for as long as it uses
+/// the values erased from it, and only allocates erased values into the heap they came from or
+/// into a heap that references it.
 struct ErasingHeap(OwnedFrozenHeap);
 
 /// See [`ErasingHeap`].
-fn erased(v: Value<'_>) -> FrozenValue {
-    v.unpack_frozen()
-        .expect("statics, inline ints and values in frozen heaps are frozen")
+fn erase(v: Value<'_>) -> Value<'static> {
+    // SAFETY: The test keeps the owning heap alive, see `ErasingHeap`.
+    unsafe { OwnedFrozen::<Value<'static>>::erase_brand(v) }
 }
 
 impl ErasingHeap {
@@ -103,31 +105,37 @@ impl ErasingHeap {
         self.0.with(f)
     }
 
-    fn alloc<T: for<'fh> AllocFrozenValue<'fh>>(&self, x: T) -> FrozenValue {
-        self.with(|heap| erased(heap.alloc(x)))
+    fn alloc<T: for<'fh> AllocFrozenValue<'fh>>(&self, x: T) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc(x)))
     }
 
-    fn alloc_simple<T: for<'fh> AValueSimpleBound<'fh>>(&self, x: T) -> FrozenValue {
-        self.with(|heap| {
-            heap.alloc_simple(x)
-                .unpack_frozen()
-                .expect("value allocated in a frozen heap is frozen")
-        })
+    fn alloc_simple<T: for<'fh> AValueSimpleBound<'fh>>(&self, x: T) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc_simple(x)))
     }
 
-    fn alloc_str(&self, s: &str) -> FrozenValue {
-        self.with(|heap| erased(heap.alloc_str(s).to_value()))
+    fn alloc_str(&self, s: &str) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc_str(s).to_value()))
     }
 
-    fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
-        self.with(|heap| erased(heap.alloc(AllocList(elems.iter().map(|v| v.to_value())))))
+    /// Bring erased values back to the heap's brand, for allocating containers of them.
+    fn restore<'fh>(_heap: FrozenHeap<'fh>, elems: &[Value<'static>]) -> Vec<Value<'fh>> {
+        elems
+            .iter()
+            // SAFETY: The elements were erased from this heap or from heaps it references, see
+            // `ErasingHeap`.
+            .map(|v| unsafe { OwnedFrozen::<Value<'static>>::restore_brand(*v) })
+            .collect()
     }
 
-    fn alloc_tuple(&self, elems: &[FrozenValue]) -> FrozenValue {
-        self.with(|heap| erased(heap.alloc(AllocTuple(elems.iter().map(|v| v.to_value())))))
+    fn alloc_list(&self, elems: &[Value<'static>]) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc(AllocList(Self::restore(heap, elems)))))
     }
 
-    fn alloc_any_value<T: StarlarkAnyRegistered>(&self, x: T) -> FrozenValue {
+    fn alloc_tuple(&self, elems: &[Value<'static>]) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc(AllocTuple(Self::restore(heap, elems)))))
+    }
+
+    fn alloc_any_value<T: StarlarkAnyRegistered>(&self, x: T) -> Value<'static> {
         self.alloc_simple(StarlarkAny::new(x))
     }
 
@@ -136,13 +144,8 @@ impl ErasingHeap {
     >(
         &self,
         xs: &[T],
-    ) -> FrozenValue {
-        self.with(|heap| {
-            heap.alloc_any_array_value(xs)
-                .to_value()
-                .unpack_frozen()
-                .expect("value allocated in a frozen heap is frozen")
-        })
+    ) -> Value<'static> {
+        self.with(|heap| erase(heap.alloc_any_array_value(xs).to_value()))
     }
 
     fn add_reference(&self, heap: OwnedFrozenRef<'_, ()>) {
@@ -191,11 +194,10 @@ impl<'v> StarlarkValue<'v> for SimpleData {
 /// Round-trip an `OwnedFrozen` through the testing serializer. Returns the restored value.
 fn round_trip_owned(
     heap_ref: OwnedFrozen<()>,
-    root_fv: FrozenValue,
+    root_fv: Value<'static>,
 ) -> crate::Result<OwnedFrozen<Value<'static>>> {
     // SAFETY: `heap_ref` owns the arena hosting `root_fv`.
-    let owned: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(heap_ref, root_fv.to_value()) };
+    let owned: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref, root_fv) };
     let mut ser = pagable::testing::TestingSerializer::new();
     owned
         .pagable_serialize(&mut ser)
@@ -483,14 +485,12 @@ impl<'v> StarlarkValue<'v> for BrandedData<'v> {
 #[test]
 fn test_frozen_vtable_flag_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let inner = heap.alloc("inner");
     let root = heap.with(|heap| {
-        heap.alloc_simple(BrandedData {
+        let inner = heap.alloc("inner");
+        erase(heap.alloc_simple(BrandedData {
             label: "branded".to_owned(),
-            inner: inner.to_value(),
-        })
-        .unpack_frozen()
-        .expect("value allocated in a frozen heap is frozen")
+            inner,
+        }))
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_vtable_flag"));
 
@@ -506,7 +506,7 @@ fn test_frozen_vtable_flag_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
-/// A test type with a FrozenValue field that references another value in the same heap.
+/// A test type with a value field that references another value in the same heap.
 #[derive(
     Debug,
     Display,
@@ -518,7 +518,7 @@ fn test_frozen_vtable_flag_round_trip() -> crate::Result<()> {
 #[display("RefData({})", self.label)]
 struct RefData {
     label: usize,
-    target: FrozenValue,
+    target: Value<'static>,
 }
 
 starlark_simple_value!(RefData);
@@ -552,7 +552,7 @@ fn test_frozen_value_ref_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
-/// A test type with Drop (due to Vec) that holds a FrozenValue reference.
+/// A test type with Drop (due to Vec) that holds a value reference.
 #[derive(
     Debug,
     Display,
@@ -564,7 +564,7 @@ fn test_frozen_value_ref_round_trip() -> crate::Result<()> {
 #[display("DropRefData({:?})", self.items)]
 struct DropRefData {
     items: Vec<u32>,
-    target: FrozenValue,
+    target: Value<'static>,
 }
 
 starlark_simple_value!(DropRefData);
@@ -712,7 +712,7 @@ fn test_frozen_str_value_round_trip() -> crate::Result<()> {
     let restored = round_trip_owned(heap_ref, root)?;
     let ref_data: &RefData = restored.as_ref().value().downcast_ref::<RefData>().unwrap();
     assert_eq!(ref_data.label, 42);
-    assert!(ref_data.target.to_value().is_str());
+    assert!(ref_data.target.is_str());
     assert_eq!(ref_data.target.unpack_str().unwrap(), "hello world");
 
     Ok(())
@@ -721,7 +721,7 @@ fn test_frozen_str_value_round_trip() -> crate::Result<()> {
 #[test]
 fn test_frozen_value_inline_int_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let int_fv = erased(Value::testing_new_int(42));
+    let int_fv = Value::testing_new_int(42);
     let root = heap.alloc_simple(RefData {
         label: 1,
         target: int_fv,
@@ -795,9 +795,8 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     });
     let heap_c_ref = heap_c.into_ref_named(TestHeapName::heap_name("c"));
 
-    // Use a Box<[FrozenValue]> via FrozenAnyArray-style wrapper: build a list
-    // whose elements are the two RefData roots so a single OFV reaches both
-    // heaps' bindings transitively. Simpler: link them through a top wrapper.
+    // Link the two roots through a list in a top heap, so that a single owner reaches both
+    // heaps' bindings transitively.
     let heap_a = ErasingHeap::new();
     heap_a.add_reference(heap_b_ref.owner());
     heap_a.add_reference(heap_c_ref.owner());
@@ -834,7 +833,7 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
 }
 
 /// Three heaps with chunks interleaved by address; cross-heap
-/// `FrozenValue`s in heap B target known interior values in A and C.
+/// values in heap B target known interior values in A and C.
 /// Asserts `state.lookup_ptr` returns the right `(heap_id, value_index)`
 /// for every registered header, regardless of cross-heap address mixing.
 #[test]
@@ -851,7 +850,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
 
     // Build a leaf heap of `SimpleData`; returns the 7th allocation
     // as a known cross-heap target (deep enough to land past chunk 0).
-    fn build_leaf_heap(name: &str) -> (OwnedFrozen<()>, HeapRefId, Vec<usize>, FrozenValue) {
+    fn build_leaf_heap(name: &str) -> (OwnedFrozen<()>, HeapRefId, Vec<usize>, Value<'static>) {
         let heap = ErasingHeap::new();
         let mut allocated = Vec::with_capacity(VALUES_PER_HEAP);
         for v in 0..VALUES_PER_HEAP {
@@ -909,8 +908,8 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
     let b_ref_to_c: &RefData = b_undrop_headers[1].unpack().downcast_ref().unwrap();
     assert_eq!(b_ref_to_a.label, 0);
     assert_eq!(b_ref_to_c.label, 1);
-    let ptr_in_a = b_ref_to_a.target.to_value().get_ref().value.ptr as usize;
-    let ptr_in_c = b_ref_to_c.target.to_value().get_ref().value.ptr as usize;
+    let ptr_in_a = b_ref_to_a.target.get_ref().value.ptr as usize;
+    let ptr_in_c = b_ref_to_c.target.get_ref().value.ptr as usize;
 
     // Guard against a regression where each heap fits in one chunk —
     // the chunk-spanning lookup arithmetic would never get exercised.
@@ -1052,8 +1051,7 @@ fn test_deser_state_retained_bytes_tracks_cached_heap_memory() -> crate::Result<
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("deser_state_retained_bytes"));
     // SAFETY: `heap_ref` owns the arena hosting `value`.
-    let root: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(heap_ref, value.to_value()) };
+    let root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref, value) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -1160,24 +1158,24 @@ fn test_frozen_value_typed_round_trip() -> crate::Result<()> {
         flag: true,
         count: 77,
     });
-    let typed = FrozenValueTyped::<SimpleData>::new(fv.to_value()).unwrap();
+    let typed = FrozenValueTyped::<SimpleData>::new(fv).unwrap();
 
     let root = heap.alloc_simple(RefData {
         label: 3,
-        target: typed.to_frozen_value(),
+        target: typed.to_value(),
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_fvt"));
 
     let restored = round_trip_owned(heap_ref, root)?;
     let ref_data: &RefData = restored.as_ref().value().downcast_ref::<RefData>().unwrap();
-    let restored_typed = FrozenValueTyped::<SimpleData>::new(ref_data.target.to_value()).unwrap();
+    let restored_typed = FrozenValueTyped::<SimpleData>::new(ref_data.target).unwrap();
     assert_eq!(restored_typed.flag, true);
     assert_eq!(restored_typed.count, 77);
 
     Ok(())
 }
 
-/// A test type with SmallMap<String, FrozenValue> — has Drop (SmallMap), goes in drop bump.
+/// A test type with `SmallMap<String, Value>` — has Drop (SmallMap), goes in drop bump.
 #[derive(
     Debug,
     Display,
@@ -1188,7 +1186,7 @@ fn test_frozen_value_typed_round_trip() -> crate::Result<()> {
 )]
 #[display("SmallMapData")]
 struct SmallMapData {
-    entries: starlark_map::small_map::SmallMap<String, FrozenValue>,
+    entries: starlark_map::small_map::SmallMap<String, Value<'static>>,
 }
 
 starlark_simple_value!(SmallMapData);
@@ -1198,7 +1196,7 @@ impl<'v> StarlarkValue<'v> for SmallMapData {
     type Canonical = Self;
 }
 
-/// A test type with SmallMap<FrozenValue, FrozenValue>.
+/// A test type with `SmallMap<Value, Value>`.
 #[derive(
     Debug,
     Display,
@@ -1209,7 +1207,7 @@ impl<'v> StarlarkValue<'v> for SmallMapData {
 )]
 #[display("SmallMapFvData")]
 struct SmallMapFvData {
-    entries: starlark_map::small_map::SmallMap<FrozenValue, FrozenValue>,
+    entries: starlark_map::small_map::SmallMap<Value<'static>, Value<'static>>,
 }
 
 starlark_simple_value!(SmallMapFvData);
@@ -1223,7 +1221,7 @@ impl<'v> StarlarkValue<'v> for SmallMapFvData {
 fn test_small_map_string_key_round_trip() -> crate::Result<()> {
     use starlark_map::small_map::SmallMap;
 
-    // SmallMap<String, FrozenValue> with values pointing to SimpleData (undrop bump).
+    // SmallMap<String, Value> with values pointing to SimpleData (undrop bump).
     // SmallMapData is in drop bump.
     let heap = ErasingHeap::new();
     let v1 = heap.alloc_simple(SimpleData {
@@ -1277,7 +1275,7 @@ fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
 
     use crate::values::ValueLike;
 
-    // Backward reference: SmallMapFvData (drop bump) has FrozenValue keys
+    // Backward reference: SmallMapFvData (drop bump) has value keys
     // pointing to frozen strings (undrop bump) and values pointing to HeapData
     // (also drop bump). HeapData is allocated BEFORE SmallMapFvData, so during
     // deserialization it's already initialized when SmallMap is deserialized.
@@ -1348,7 +1346,7 @@ fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     use crate::values::ValueLike;
 
     // Forward reference test: SmallMap is in drop bump (deserialized first),
-    // its FrozenValue keys point to frozen strings in undrop bump (deserialized later).
+    // its keys point to frozen strings in undrop bump (deserialized later).
     // During SmallMap deserialization, the string targets are NOT yet initialized.
     // `ensure_initialized` must seek forward to initialize them before `get_hashed()`.
     //
@@ -1361,8 +1359,8 @@ fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     let k2 = heap.alloc_str("world");
 
     // Values: inline ints (no heap allocation needed).
-    let v1 = erased(Value::testing_new_int(111));
-    let v2 = erased(Value::testing_new_int(222));
+    let v1 = Value::testing_new_int(111);
+    let v2 = Value::testing_new_int(222);
 
     let mut entries = SmallMap::new();
     entries.insert_hashed(k1.get_hashed()?, v1);
@@ -1647,11 +1645,7 @@ fn test_frozen_set_round_trip() -> crate::Result<()> {
         content.insert_hashed(Value::testing_new_int(1).get_hashed()?);
         content.insert_hashed(Value::testing_new_int(2).get_hashed()?);
         content.insert_hashed(Value::testing_new_int(3).get_hashed()?);
-        crate::Result::Ok(
-            heap.alloc_simple(SetGen(SetData { content }))
-                .unpack_frozen()
-                .expect("value allocated in a frozen heap is frozen"),
-        )
+        crate::Result::Ok(erase(heap.alloc_simple(SetGen(SetData { content }))))
     })?;
 
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_set"));
@@ -1731,31 +1725,25 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
             fields
         };
 
-        let rt_a_fv = heap
-            .alloc_simple(FrozenRecordType {
-                id: id_a,
-                ty_record_data: RecordVariantFrozen {
-                    ty: Some(shared.clone()),
-                },
-                fields: make_fields(),
-            })
-            .unpack_frozen()
-            .expect("value allocated in a frozen heap is frozen");
-        let rt_b_fv = heap
-            .alloc_simple(FrozenRecordType {
-                id: id_b,
-                ty_record_data: RecordVariantFrozen { ty: Some(shared) },
-                fields: make_fields(),
-            })
-            .unpack_frozen()
-            .expect("value allocated in a frozen heap is frozen");
+        let rt_a_fv = erase(heap.alloc_simple(FrozenRecordType {
+            id: id_a,
+            ty_record_data: RecordVariantFrozen {
+                ty: Some(shared.clone()),
+            },
+            fields: make_fields(),
+        }));
+        let rt_b_fv = erase(heap.alloc_simple(FrozenRecordType {
+            id: id_b,
+            ty_record_data: RecordVariantFrozen { ty: Some(shared) },
+            fields: make_fields(),
+        }));
         (rt_a_fv, rt_b_fv)
     });
     let root = heap.alloc_tuple(&[rt_a_fv, rt_b_fv]);
 
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_record_type"));
     // SAFETY: heap_ref owns the arena hosting root.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
     let tuple: &crate::values::types::tuple::value::Tuple = restored
@@ -1804,13 +1792,11 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
 fn test_static_frozen_value_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
 
-    let none_fv = erased(Value::new_none());
-    let true_fv = erased(Value::new_bool(true));
-    let false_fv = erased(Value::new_bool(false));
-    let empty_tuple_fv = erased(VALUE_EMPTY_TUPLE.unpack().to_value());
-    let static_str_fv = const_frozen_string!("static_test_str")
-        .to_frozen()
-        .to_frozen_value();
+    let none_fv = Value::new_none();
+    let true_fv = Value::new_bool(true);
+    let false_fv = Value::new_bool(false);
+    let empty_tuple_fv = VALUE_EMPTY_TUPLE.unpack().to_value();
+    let static_str_fv = const_frozen_string!("static_test_str").to_value();
 
     let r0 = heap.alloc_simple(RefData {
         label: 1,
@@ -1911,9 +1897,9 @@ starlark::methods_static!(
 );
 
 fn assert_static_value_round_trip(
-    static_fv: FrozenValue,
+    static_fv: Value<'static>,
     label: usize,
-) -> crate::Result<FrozenValue> {
+) -> crate::Result<Value<'static>> {
     let heap = ErasingHeap::new();
     let root = heap.alloc_simple(RefData {
         label,
@@ -1933,17 +1919,16 @@ fn assert_static_value_round_trip(
 
 #[test]
 fn test_globals_static_heap_value_round_trip() -> crate::Result<()> {
-    let static_fv = PAGABLE_TEST_STATIC_GLOBALS
-        .globals()
-        .get_ref("global_value")
-        .expect("static global should exist")
-        .value()
-        .unpack_frozen()
-        .expect("static global is frozen");
+    let static_fv = erase(
+        PAGABLE_TEST_STATIC_GLOBALS
+            .globals()
+            .get_ref("global_value")
+            .expect("static global should exist")
+            .value(),
+    );
 
     let restored = assert_static_value_round_trip(static_fv, 8)?;
     let restored_data = restored
-        .to_value()
         .downcast_ref::<SimpleData>()
         .expect("static global should still point to SimpleData");
     assert_eq!(restored_data.flag, true);
@@ -1957,9 +1942,7 @@ fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
         .methods()
         .members()
         .find_map(|(name, value)| (name == "method_value").then_some(value))
-        .expect("static method attribute should exist")
-        .unpack_frozen()
-        .expect("static method attribute is frozen");
+        .expect("static method attribute should exist");
 
     assert_static_value_round_trip(static_fv, 9)?;
     Ok(())
@@ -2060,7 +2043,7 @@ fn test_static_heap_paging_does_not_poison_inline_serialization() -> crate::Resu
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("paged_static_heap_user"));
     // SAFETY: `heap_ref` owns the arena hosting `root`.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
     assert!(
         restored.owner().refs().any(|r| r == static_heap),
@@ -2103,10 +2086,7 @@ crate::declare_starlark_value_as_type!(AS_TYPE_RT_STATIC, AsTypeRoundTripTestTyp
 #[test]
 fn test_starlark_value_as_type_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let static_fv = AS_TYPE_RT_STATIC
-        .to_value()
-        .unpack_frozen()
-        .expect("statics are frozen");
+    let static_fv = AS_TYPE_RT_STATIC.to_value();
     let root = heap.alloc_simple(RefData {
         label: 7,
         target: static_fv,
@@ -2130,10 +2110,10 @@ fn test_starlark_value_as_type_round_trip() -> crate::Result<()> {
 // the `Arc<T>: StarlarkSerialize` blanket, no manual bridge.
 // ============================================================================
 
-/// Inner type carries inside an `Arc` and h a `FrozenValue`
+/// Inner type, carried inside an `Arc`, holding a value
 #[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
 struct ArcBlanketInner {
-    target: FrozenValue,
+    target: Value<'static>,
     label: u32,
 }
 
@@ -2187,7 +2167,7 @@ fn test_arc_blanket_round_trip() -> crate::Result<()> {
 
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_arc_blanket"));
     // SAFETY: heap_ref owns the arena hosting root.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
     let tuple: &crate::values::types::tuple::value::Tuple = restored
@@ -2385,12 +2365,10 @@ fn test_atomic_value_typed_option_some_round_trip() -> crate::Result<()> {
             label: "target".to_owned(),
             numbers: vec![42],
         }));
-        heap.alloc_simple(AtomicHost {
+        erase(heap.alloc_simple(AtomicHost {
             label: "host_with_some".to_owned(),
             option: AtomicValueTypedOption::new(Some(payload)),
-        })
-        .unpack_frozen()
-        .expect("value allocated in a frozen heap is frozen")
+        }))
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
         "test_atomic_value_typed_option_some",
@@ -2416,12 +2394,10 @@ fn test_atomic_value_typed_option_some_round_trip() -> crate::Result<()> {
 fn test_atomic_value_typed_option_none_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
     let root = heap.with(|heap| {
-        heap.alloc_simple(AtomicHost {
+        erase(heap.alloc_simple(AtomicHost {
             label: "host_with_none".to_owned(),
             option: AtomicValueTypedOption::new(None),
-        })
-        .unpack_frozen()
-        .expect("value allocated in a frozen heap is frozen")
+        }))
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
         "test_atomic_value_typed_option_none",
@@ -2788,7 +2764,7 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
     let main_heap_ref = main_heap.into_ref_named(TestHeapName::heap_name("main_storage"));
 
     // SAFETY: `main_heap_ref` keeps the arena hosting `ref_fv` alive.
-    let owned = unsafe { OwnedFrozen::unchecked_new(main_heap_ref, ref_fv.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(main_heap_ref, ref_fv) };
     drop(dep_heap_ref);
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
@@ -2798,16 +2774,15 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
     assert_eq!(ref_data.label, 99);
     let resolved: &SimpleData = ref_data
         .target
-        .to_value()
         .downcast_ref::<SimpleData>()
-        .expect("FrozenValue should resolve to SimpleData in dep heap");
+        .expect("target should resolve to SimpleData in dep heap");
     assert_eq!(resolved.flag, true);
     assert_eq!(resolved.count, 77);
     Ok(())
 }
 
 /// Storage-path counterpart to `test_arc_blanket_round_trip`.
-/// `ArcBlanketOuter` owns `Arc<ArcBlanketInner>` whose inner holds a `FrozenValue`.
+/// `ArcBlanketOuter` owns `Arc<ArcBlanketInner>` whose inner holds a value.
 /// `PagableDeserializerImpl` reads the inner `Arc` body through its own
 /// sub-deserializer, so a naive `seek(target.abs_pos)` would land in the
 /// wrong stream; `ensure` instead seeks a deserializer reconstructed from
@@ -2839,7 +2814,7 @@ fn test_arc_blanket_round_trip_via_storage() {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_arc_blanket_storage"));
 
     // SAFETY: `heap_ref` keeps the arena hosting `outer_a_fv` alive.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, outer_a_fv.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, outer_a_fv) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned).expect("round-trip via storage");
 
     // Partial deser: only the root `ArcBlanketOuter` (and its transitive deps)
@@ -2853,20 +2828,19 @@ fn test_arc_blanket_round_trip_via_storage() {
     let resolved: &SimpleData = outer_a
         .inner
         .target
-        .to_value()
         .downcast_ref::<SimpleData>()
-        .expect("FrozenValue inside Arc<ArcBlanketInner> should resolve");
+        .expect("value inside Arc<ArcBlanketInner> should resolve");
     assert_eq!(resolved.count, 314);
 }
 
 /// In D104180037 we unified `SameHeapPtr` and `CrossHeapPtr` into a single
 /// `HeapPtr { heap_id, .. }`. Under partial deser, a shared `Arc<T>` body
 /// encoded under `HA`'s context can be decoded under `HB`'s — without an
-/// explicit `heap_id` the embedded `FrozenValue` would misroute.
+/// explicit `heap_id` the embedded value pointer would misroute.
 ///
 /// `HA` owns the target; `HB` refs `HA` and shares the `Arc<ArcBlanketInner>`.
 /// Serializing `OFV(HB)` encodes the Arc body under `HA` (walked first as
-/// `HB`'s ref); deser of `HB` then checks the `FrozenValue` still lands in
+/// `HB`'s ref); deser of `HB` then checks the value still lands in
 /// `HA`.
 #[test]
 fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> {
@@ -2905,7 +2879,7 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     ));
 
     // SAFETY: heap_b_ref keeps the arena hosting outer_b_fv alive.
-    let ofv_b = unsafe { OwnedFrozen::unchecked_new(heap_b_ref, outer_b_fv.to_value()) };
+    let ofv_b = unsafe { OwnedFrozen::from_erased(heap_b_ref, outer_b_fv) };
 
     // Serializing OFV(HB, …) walks HB.refs first inside `page_out_item`, so HA
     // — and the ArcBlanketInner Arc body reachable through HA — is encoded under
@@ -2919,7 +2893,7 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
 
     // Deserialize HB. The Arc body bytes — produced under HA's serialize
     // context — are decoded inside HB's deserialize. The explicit `heap_id`
-    // must still route the embedded FrozenValue into HA's arena.
+    // must still route the embedded value pointer into HA's arena.
     let restored_b = deser_owned_frozen_from_storage(&backing, &handle, &key_b)?;
     let outer_b: &ArcBlanketOuter = restored_b
         .as_ref()
@@ -2940,21 +2914,21 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     assert_eq!(
         ha_undrop.len(),
         1,
-        "HA's SimpleData should be materialized on demand via the Arc body's FrozenValue",
+        "HA's SimpleData should be materialized on demand via the Arc body's value",
     );
     let target_data: &SimpleData = ha_undrop[0].unpack().downcast_ref().unwrap();
     assert_eq!(target_data.flag, true);
     assert_eq!(target_data.count, 271);
 
     // The core post-fix invariant: even though the Arc body was encoded under
-    // HA and decoded under HB, the embedded FrozenValue resolves into HA's
+    // HA and decoded under HB, the embedded value pointer resolves into HA's
     // arena — because the wire carries an explicit `heap_id: HA` instead of
     // a context-dependent SameHeapPtr.
     let target_addr = ha_undrop[0] as *const _ as usize;
     assert_eq!(
         outer_b.inner.target.ptr_value().ptr_value_untagged(),
         target_addr,
-        "FrozenValue cached inside the shared Arc must resolve into HA \
+        "value cached inside the shared Arc must resolve into HA \
          even though HB is the decoder",
     );
 
@@ -2983,7 +2957,7 @@ fn test_partial_deser_skips_unreachable_values() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("partial_skip"));
 
     // SAFETY: `heap_ref` keeps the arena alive.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, reachable_fv.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, reachable_fv) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
     let undrop = restored.owner().heap_arc().collect_undrop_headers_ordered();
@@ -3014,7 +2988,7 @@ fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("demand_order"));
 
     // SAFETY: `heap_ref` keeps the arena alive.
-    let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root_fv.to_value()) };
+    let owned = unsafe { OwnedFrozen::from_erased(heap_ref, root_fv) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
     let undrop = restored.owner().heap_arc().collect_undrop_headers_ordered();
@@ -3032,7 +3006,7 @@ fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
     assert_eq!(first.label, 7);
     assert_eq!(second.count, 42);
 
-    // The root's `target` FrozenValue resolves to the SimpleData allocation.
+    // The root's `target` resolves to the SimpleData allocation.
     assert_eq!(
         first.target.ptr_value().ptr_value_untagged(),
         undrop[1] as *const _ as usize,
@@ -3118,8 +3092,7 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     });
     let owner0 = heap0.into_ref_named(TestHeapName::heap_name("same_name_independent_roots"));
     // SAFETY: `owner0` owns the arena hosting `value0`.
-    let root0: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(owner0, value0.to_value()) };
+    let root0: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner0, value0) };
 
     let heap1 = ErasingHeap::new();
     let value1 = heap1.alloc_simple(SimpleData {
@@ -3128,8 +3101,7 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     });
     let owner1 = heap1.into_ref_named(TestHeapName::heap_name("same_name_independent_roots"));
     // SAFETY: `owner1` owns the arena hosting `value1`.
-    let root1: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(owner1, value1.to_value()) };
+    let root1: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner1, value1) };
 
     assert_eq!(
         HeapRefId::from_heap_name(root0.owner().name().unwrap()),
@@ -3188,7 +3160,7 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
     owner_heap.add_reference(leaf_ref.owner());
     let owner_ref = owner_heap.into_ref_named(TestHeapName::heap_name("cached_scope_owner"));
     // SAFETY: `owner_ref` retains `leaf_ref`, which owns `leaf_value`.
-    let root = unsafe { OwnedFrozen::unchecked_new(owner_ref, leaf_value.to_value()) };
+    let root = unsafe { OwnedFrozen::from_erased(owner_ref, leaf_value) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -3268,9 +3240,8 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
     let x_ptr = x.ptr_value().ptr_value_untagged();
 
     // SAFETY: both `OwnedFrozen`s keep their shared heap alive.
-    let owned_x: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(heap_ref.dupe(), x.to_value()) };
-    let owned_y: OwnedFrozen<Value> = unsafe { OwnedFrozen::unchecked_new(heap_ref, y.to_value()) };
+    let owned_x: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref.dupe(), x) };
+    let owned_y: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref, y) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -3374,10 +3345,8 @@ fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Resul
         parent_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_parent"));
 
     // SAFETY: each owner keeps the heap containing its value alive.
-    let owned_parent =
-        unsafe { OwnedFrozen::unchecked_new(parent_heap_ref, parent_root.to_value()) };
-    let owned_demand_root =
-        unsafe { OwnedFrozen::unchecked_new(dep_heap_ref.clone(), demand_root.to_value()) };
+    let owned_parent = unsafe { OwnedFrozen::from_erased(parent_heap_ref, parent_root) };
+    let owned_demand_root = unsafe { OwnedFrozen::from_erased(dep_heap_ref.clone(), demand_root) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -3417,13 +3386,8 @@ fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Resul
     // owner registers H1's current physical order in the resident index.
     let new_parent_heap = ErasingHeap::new();
     // `add_to_frozen_heap` adds H1 as a dependency of `new_parent_heap`.
-    let restored_root = new_parent_heap.with(|heap| {
-        restored_demand_root
-            .as_ref()
-            .add_to_frozen_heap(heap)
-            .unpack_frozen()
-            .expect("value in a frozen heap is frozen")
-    });
+    let restored_root =
+        new_parent_heap.with(|heap| erase(restored_demand_root.as_ref().add_to_frozen_heap(heap)));
     let new_parent_root = new_parent_heap.alloc_simple(RefData {
         label: 11,
         target: restored_root,
@@ -3432,7 +3396,7 @@ fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Resul
         new_parent_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_new_parent"));
     // SAFETY: `new_parent_heap_ref` keeps C0 and its H1 dependency alive.
     let owned_new_parent =
-        unsafe { OwnedFrozen::unchecked_new(new_parent_heap_ref, new_parent_root.to_value()) };
+        unsafe { OwnedFrozen::from_erased(new_parent_heap_ref, new_parent_root) };
     let new_parent_key = ser_owned_frozen_value_into_storage(&backing, &owned_new_parent)?;
     drop(owned_new_parent);
 
@@ -3550,9 +3514,9 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name("incr_b"));
 
     // SAFETY: each heap_ref keeps its arena alive.
-    let ofv1 = unsafe { OwnedFrozen::unchecked_new(heap_a_ref, a_fv.to_value()) };
-    let ofv2 = unsafe { OwnedFrozen::unchecked_new(heap_b_ref.clone(), b_fv.to_value()) };
-    let ofv3 = unsafe { OwnedFrozen::unchecked_new(dep_heap_ref.clone(), d1_fv.to_value()) };
+    let ofv1 = unsafe { OwnedFrozen::from_erased(heap_a_ref, a_fv) };
+    let ofv2 = unsafe { OwnedFrozen::from_erased(heap_b_ref.clone(), b_fv) };
+    let ofv3 = unsafe { OwnedFrozen::from_erased(dep_heap_ref.clone(), d1_fv) };
 
     // ---- 2. Serialize all three into a SHARED storage. ----
     let backing = InMemoryPagableStorage::new();
@@ -3653,7 +3617,7 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
         "step2: d1 must remain at the same allocation (fast path hit, no re-materialize)"
     );
 
-    // OFV1's target FrozenValue still resolves to the same d1 address.
+    // OFV1's target still resolves to the same d1 address.
     assert_eq!(
         a_data.target.ptr_value().ptr_value_untagged(),
         d1_ptr_after_1
@@ -3661,7 +3625,6 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     // OFV2's target resolves to d2 (the newly-materialized slot).
     let b_target: &SimpleData = b_data
         .target
-        .to_value()
         .downcast_ref::<SimpleData>()
         .expect("b.target is SimpleData");
     assert_eq!(b_target.count, 2);
@@ -3716,18 +3679,11 @@ fn test_restored_heap_refreshes_index_after_later_materialization() -> crate::Re
     ) -> crate::Result<pagable::DataKey> {
         let heap = ErasingHeap::new();
         // This adds the target's owning heap to `heap.refs`.
-        let target = heap.with(|h| {
-            target
-                .as_ref()
-                .add_to_frozen_heap(h)
-                .unpack_frozen()
-                .expect("value in a frozen heap is frozen")
-        });
+        let target = heap.with(|h| erase(target.as_ref().add_to_frozen_heap(h)));
         let root = heap.alloc_simple(RefData { label: 9, target });
         let heap_ref = heap.into_ref_named(TestHeapName::heap_name(heap_name));
         // SAFETY: `heap_ref` owns the arena containing `root`.
-        let root: OwnedFrozen<Value> =
-            unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+        let root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
         ser_owned_frozen_value_into_storage(backing, &root)
     }
 
@@ -3742,8 +3698,8 @@ fn test_restored_heap_refreshes_index_after_later_materialization() -> crate::Re
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("refresh_later_dep"));
     // SAFETY: both values belong to `heap_ref`.
-    let first = unsafe { OwnedFrozen::unchecked_new(heap_ref.clone(), first.to_value()) };
-    let second = unsafe { OwnedFrozen::unchecked_new(heap_ref, second.to_value()) };
+    let first = unsafe { OwnedFrozen::from_erased(heap_ref.clone(), first) };
+    let second = unsafe { OwnedFrozen::from_erased(heap_ref, second) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -3824,9 +3780,8 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     });
     let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("repair_dirty_dep"));
     // SAFETY: all values belong to `dep_heap_ref`.
-    let first = unsafe { OwnedFrozen::unchecked_new(dep_heap_ref.clone(), first.to_value()) };
-    let second: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(dep_heap_ref, second.to_value()) };
+    let first = unsafe { OwnedFrozen::from_erased(dep_heap_ref.clone(), first) };
+    let second: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(dep_heap_ref, second) };
     let third: OwnedFrozen<Value> =
         unsafe { OwnedFrozen::unchecked_new(second.owner().to_owned(), third.to_value()) };
 
@@ -3841,13 +3796,8 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
 
     let restored_first = deser_owned_frozen_from_storage(&backing, &handle, &first_key)?;
     let middle_heap = ErasingHeap::new();
-    let first_in_middle = middle_heap.with(|heap| {
-        restored_first
-            .as_ref()
-            .add_to_frozen_heap(heap)
-            .unpack_frozen()
-            .expect("value added from a frozen heap remains frozen")
-    });
+    let first_in_middle =
+        middle_heap.with(|heap| erase(restored_first.as_ref().add_to_frozen_heap(heap)));
     let middle_root = middle_heap.alloc_simple(RefData {
         label: 2,
         target: first_in_middle,
@@ -3855,16 +3805,11 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let middle_heap_ref = middle_heap.into_ref_named(TestHeapName::heap_name("repair_middle"));
     // SAFETY: `middle_heap_ref` owns `middle_root`.
     let middle_root: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(middle_heap_ref.clone(), middle_root.to_value()) };
+        unsafe { OwnedFrozen::from_erased(middle_heap_ref.clone(), middle_root) };
 
     let owner_heap = ErasingHeap::new();
-    let middle_in_owner = owner_heap.with(|heap| {
-        middle_root
-            .as_ref()
-            .add_to_frozen_heap(heap)
-            .unpack_frozen()
-            .expect("value added from a frozen heap remains frozen")
-    });
+    let middle_in_owner =
+        owner_heap.with(|heap| erase(middle_root.as_ref().add_to_frozen_heap(heap)));
     let owner_root = owner_heap.alloc_simple(RefData {
         label: 1,
         target: middle_in_owner,
@@ -3872,7 +3817,7 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let owner_heap_ref = owner_heap.into_ref_named(TestHeapName::heap_name("repair_owner"));
     // SAFETY: `owner_heap_ref` owns `owner_root`.
     let owner_root: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(owner_heap_ref.clone(), owner_root.to_value()) };
+        unsafe { OwnedFrozen::from_erased(owner_heap_ref.clone(), owner_root) };
     assert_eq!(
         owner_heap_ref.heap_arc().refs_slice(),
         std::slice::from_ref(&middle_heap_ref),
@@ -3928,9 +3873,7 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     // Pagable serializes Arc payloads after the enclosing Starlark serializer returns, so
     // the captured scope must preserve the clean owner's identity for a targeted repair.
     let deferred = Arc::new(ArcBlanketInner {
-        target: third_value
-            .unpack_frozen()
-            .expect("value restored from a frozen heap remains frozen"),
+        target: erase(third_value),
         label: 3,
     });
     let storage = backing.handle();
@@ -4094,7 +4037,7 @@ impl BenchResult {
 fn bench_owned_frozen_value_round_trip(
     label: &'static str,
     heap_ref: OwnedFrozen<()>,
-    root: FrozenValue,
+    root: Value<'static>,
     count: usize,
 ) -> crate::Result<BenchResult> {
     use std::any::TypeId;
@@ -4105,8 +4048,7 @@ fn bench_owned_frozen_value_round_trip(
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
 
-    let owned: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
+    let owned: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(heap_ref, root) };
 
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
@@ -4159,7 +4101,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
     {
         let n = 5000;
         let heap = ErasingHeap::new();
-        let mut root = erased(Value::new_none());
+        let mut root = Value::new_none();
         for i in 0..n {
             root = heap.alloc_simple(SimpleData {
                 flag: i % 2 == 0,
@@ -4174,7 +4116,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
     {
         let n = 5000;
         let heap = ErasingHeap::new();
-        let mut root = erased(Value::new_none());
+        let mut root = Value::new_none();
         for i in 0..n {
             root = heap.alloc_simple(HeapData {
                 items: vec![i as u32; 10],
@@ -4191,7 +4133,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let n = 2000;
         let heap = ErasingHeap::new();
         let s: String = "x".repeat(str_len);
-        let mut root = erased(Value::new_none());
+        let mut root = Value::new_none();
         for _ in 0..n {
             root = heap.alloc_str(&s);
         }
@@ -4424,8 +4366,8 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
 
     // Two roots from the same heap: the key alone, and the map.
     // SAFETY: `heap_ref` owns the arena hosting both values.
-    let ofv_key = unsafe { OwnedFrozen::unchecked_new(heap_ref.dupe(), key_fv.to_value()) };
-    let ofv_map = unsafe { OwnedFrozen::unchecked_new(heap_ref.dupe(), map_fv.to_value()) };
+    let ofv_key = unsafe { OwnedFrozen::from_erased(heap_ref.dupe(), key_fv) };
+    let ofv_map = unsafe { OwnedFrozen::from_erased(heap_ref.dupe(), map_fv) };
 
     // Serialize each root through the production storage path.
     let backing = InMemoryPagableStorage::new();
@@ -4629,23 +4571,19 @@ def many_locals():
     Module::with_temp_heap(|call_module| -> crate::Result<()> {
         let mut eval = Evaluator::new(&call_module);
 
-        // SAFETY: `owned_frozen_value` roots `restored`'s heap into the call
-        // module's frozen heap (alive for this closure), so the `FrozenValue`
-        // stays valid for the `eval_function` calls below.
-        let get_fn = |name: &str| -> crate::Result<FrozenValue> {
+        // Each restored function comes to the call module's brand through the module edge,
+        // which makes `restored`'s heap a reference of the call module's frozen heap.
+        let get_fn = |name: &str| {
             let f = restored.get_owned(name)?;
-            Ok(call_module.frozen_heap(|fh, _| {
-                f.as_ref()
-                    .add_to_frozen_heap(fh)
-                    .unpack_frozen()
-                    .expect("value in a frozen heap is frozen")
-            }))
+            crate::Result::Ok(
+                call_module.frozen_heap(|fh, edge| edge.rebrand(f.as_ref().add_to_frozen_heap(fh))),
+            )
         };
 
         let two = eval.heap().alloc(2);
         let three = eval.heap().alloc(3);
         assert_eq!(
-            eval.eval_function(get_fn("add")?.to_value(), &[two, three], &[])?
+            eval.eval_function(get_fn("add")?, &[two, three], &[])?
                 .unpack_i32(),
             Some(5),
             "add(2, 3)"
@@ -4654,7 +4592,7 @@ def many_locals():
         // for-loop / LoopDepth; 0+1+2+3+4 == 10.
         let five = eval.heap().alloc(5);
         assert_eq!(
-            eval.eval_function(get_fn("use_loop")?.to_value(), &[five], &[])?
+            eval.eval_function(get_fn("use_loop")?, &[five], &[])?
                 .unpack_i32(),
             Some(10),
             "use_loop(5)"
@@ -4662,7 +4600,7 @@ def many_locals():
 
         // KnownMethod (str method).
         assert_eq!(
-            eval.eval_function(get_fn("use_string_method")?.to_value(), &[], &[])?
+            eval.eval_function(get_fn("use_string_method")?, &[], &[])?
                 .unpack_str(),
             Some("ABC"),
             "use_string_method()"
@@ -4677,7 +4615,7 @@ def many_locals():
             ("use_comprehension", "[0, 1, 4, 9]"),
             ("many_locals", "21"), // non-empty InstrEnd local_names
         ] {
-            let got = eval.eval_function(get_fn(name)?.to_value(), &[], &[])?;
+            let got = eval.eval_function(get_fn(name)?, &[], &[])?;
             assert_eq!(got.to_string(), expected, "calling restored `{name}`");
         }
 

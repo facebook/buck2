@@ -161,11 +161,15 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
     /// can live: in the module's own frozen heap; in a heap that heap references (the globals,
     /// `load`ed modules); in `'static` data; or in a foreign heap that only the value heap
     /// references, which `ModuleHeaps` copies into the frozen heap when it is sealed. Each of
-    /// those is kept alive as long as anything at `'fm`. Like every brand argument today, this
-    /// takes `'v` values to be honest; see the `FrozenValue` hole in the `branding` module.
+    /// those is kept alive as long as anything at `'fm`. The `branding` module lists this among
+    /// the brand changes that rest on such a contract rather than on an edge.
     pub(crate) fn demote(&self, v: Value<'v>) -> Option<Value<'fm>> {
-        // The compiler's one use of `FrozenValue::to_value`: it is the brand change itself.
-        Some(v.unpack_frozen()?.to_value())
+        if !v.is_frozen() {
+            return None;
+        }
+        // SAFETY: `OptCtxEval`'s contract pairs the two heaps, and the reasoning above then covers
+        // every frozen heap the value can live in.
+        Some(unsafe { v.rebrand_frozen_unchecked() })
     }
 
     /// The placeholders for the first `count` local slots, see [`LocalAsValue`]: one allocation

@@ -31,6 +31,12 @@ use crate::values::layout::value::Value;
 
 /// Used to `freeze` values by
 /// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
+///
+/// A value that is already frozen is not copied: [`freeze`](Freezer::freeze) hands it back at
+/// `'fv` as it is. That is sound because of a property of every heap a freezer is created for
+/// (see `Freezer::new`): the heap either inherits the references of the heap being frozen
+/// (`ModuleHeaps::seal_with`, for `Module::freeze`) or is scoped within it (the tests). The
+/// `branding` module lists this among the brand changes that rest on such a contract.
 pub struct Freezer<'fv> {
     /// Freezing into this heap.
     pub(crate) heap: FrozenHeap<'fv>,
@@ -39,6 +45,8 @@ pub struct Freezer<'fv> {
 }
 
 impl<'fv> Freezer<'fv> {
+    /// `heap` must inherit the frozen-heap references of, or be scoped within, every heap whose
+    /// values are frozen through the freezer; see the type documentation.
     pub(crate) fn new(heap: FrozenHeap<'fv>) -> Self {
         Freezer {
             heap,
@@ -65,9 +73,10 @@ impl<'fv> Freezer<'fv> {
 
     /// Freeze a nested value while freezing yourself.
     pub fn freeze<'v>(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
-        // Case 1: We have our value encoded in our pointer
-        if let Some(x) = value.unpack_frozen() {
-            return Ok(x.to_value());
+        // Case 1: Already frozen, so nothing to copy.
+        if value.is_frozen() {
+            // SAFETY: `Freezer::new`'s contract, see the type documentation.
+            return Ok(unsafe { value.rebrand_frozen_unchecked() });
         }
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
