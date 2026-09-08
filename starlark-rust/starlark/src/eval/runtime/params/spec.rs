@@ -32,6 +32,7 @@ use triomphe::Arc;
 
 use crate as starlark;
 use crate::__macro_refs::coerce;
+use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
@@ -186,7 +187,7 @@ pub(crate) struct ParametersSpecPrototype {
 /// Define a list of parameters. This code assumes that all names are distinct and that
 /// `*args`/`**kwargs` occur in well-formed locations.
 // V = Value, or FrozenValue
-#[derive(Debug, Clone, Trace, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, Allocative, ProvidesStaticType, StarlarkPagable)]
 #[repr(C)]
 #[starlark_pagable(bound = "V: StarlarkPagable")]
 pub struct ParametersSpec<V> {

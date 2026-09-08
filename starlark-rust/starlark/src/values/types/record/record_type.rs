@@ -55,8 +55,8 @@ use crate::values::AllocValue;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
@@ -249,10 +249,12 @@ impl<'v, V: RecordVariant> RecordTypeGen<'v, V> {
             .dupe()
     }
 
-    pub(crate) fn make_parameter_spec(
+    /// The constructor's signature, which has no default values: the fields' defaults are read
+    /// from the fields at call time.
+    pub(crate) fn make_parameter_spec<'a>(
         name: &str,
         fields: &SmallMap<String, Field<'_>>,
-    ) -> ParametersSpec<FrozenValue> {
+    ) -> ParametersSpec<Value<'a>> {
         ParametersSpec::new_named_only(
             name,
             fields.iter().map(|(name, field)| {
@@ -297,8 +299,8 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
 
         let this = me;
 
-        ty_record_data
-            .parameter_spec
+        HeapEdge::immortal()
+            .rebrand_ref(&ty_record_data.parameter_spec)
             .parser(args, eval, |param_parser, eval| {
                 let fields = record_fields(AnyRecordType::unpack_value_err(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());

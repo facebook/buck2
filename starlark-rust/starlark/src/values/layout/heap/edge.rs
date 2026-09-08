@@ -64,6 +64,18 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
         // guaranteed by the construction contract of `self`)
         unsafe { transmute!(U, <U::StaticType as IsStaticType>::Reinfect<'v>, v) }
     }
+
+    /// [`rebrand`](HeapEdge::rebrand), behind a reference.
+    pub fn rebrand_ref<'a, U>(self, v: &'a U) -> &'a <U::StaticType as IsStaticType>::Reinfect<'v>
+    where
+        U: ProvidesStaticType<'dep>,
+        U::StaticType: IsStaticType + Sized,
+        <U::StaticType as IsStaticType>::Reinfect<'v>: Sized,
+    {
+        // SAFETY: As for `rebrand`; references to two types that differ only in lifetimes have
+        // the same layout, and the borrow is kept.
+        unsafe { transmute!(&'a U, &'a <U::StaticType as IsStaticType>::Reinfect<'v>, v) }
+    }
 }
 
 impl<'v> HeapEdge<'v, 'static> {

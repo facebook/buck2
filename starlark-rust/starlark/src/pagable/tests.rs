@@ -1689,7 +1689,7 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
         name: "MyRec".to_owned(),
         ty_record: Ty::any(),
         ty_record_type: Ty::any(),
-        parameter_spec: ParametersSpec::<FrozenValue>::new_named_only(
+        parameter_spec: ParametersSpec::new_named_only(
             "MyRec",
             [
                 ("x", ParametersSpecParam::Required),

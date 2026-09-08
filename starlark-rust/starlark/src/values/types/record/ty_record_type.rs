@@ -21,7 +21,7 @@ use starlark_derive::StarlarkPagable;
 use crate as starlark;
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
-use crate::values::FrozenValue;
+use crate::values::Value;
 
 #[derive(Allocative, Debug, StarlarkPagable)]
 #[doc(hidden)]
@@ -36,7 +36,10 @@ pub struct TyRecordData {
     pub(crate) ty_record_type: Ty,
     /// Creating these on every invoke is pretty expensive (profiling shows)
     /// so compute them in advance and cache.
-    pub(crate) parameter_spec: ParametersSpec<FrozenValue>,
+    ///
+    /// The spec has no default values, so it holds nothing at any brand and is stored at
+    /// `'static`; `HeapEdge::immortal` reads it at the brand of the call.
+    pub(crate) parameter_spec: ParametersSpec<Value<'static>>,
 }
 
 #[cfg(test)]
