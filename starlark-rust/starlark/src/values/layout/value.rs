@@ -239,7 +239,7 @@ impl Equivalent<Value<'_>> for FrozenValue {
 /// A [`Value`] that can never be changed. Can be converted back to a [`Value`] with [`to_value`](FrozenValue::to_value).
 ///
 /// A [`FrozenValue`] exists on a [`FrozenHeap`](crate::values::FrozenHeap), which in turn can be kept
-/// alive by a [`FrozenHeapRef`](crate::values::FrozenHeapRef). If the frozen heap gets dropped
+/// alive by an [`OwnedFrozen<()>`](crate::values::OwnedFrozen). If the frozen heap gets dropped
 /// while a [`FrozenValue`] from it still exists, the program will probably segfault, so be careful
 /// when working directly with [`FrozenValue`]s. See the type [`OwnedFrozen`](crate::values::OwnedFrozen)
 /// for a little bit more safety.

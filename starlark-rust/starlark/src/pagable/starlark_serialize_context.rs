@@ -27,7 +27,6 @@ use allocative::Allocative;
 use allocative::size_of_reachable;
 use dashmap::DashMap;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::StorageContext;
@@ -41,8 +40,8 @@ use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ChunkInfo;
+use crate::values::layout::heap::heap_type::FrozenHeapArc;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
-use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::heap::heap_type::FrozenValueOwnerSearchResult;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -156,7 +155,7 @@ impl StarlarkSerState {
     /// value-index maps immediately to resolve pointers.
     pub(crate) fn ensure_chunk_index_registered(
         self: &Arc<Self>,
-        heap_ref: &FrozenHeapRef,
+        heap_ref: &FrozenHeapArc,
     ) -> pagable::Result<()> {
         self.ensure_chunk_index_registered_impl(heap_ref, true)
     }
@@ -164,7 +163,7 @@ impl StarlarkSerState {
     #[cold]
     fn ensure_current_chunk_index_registered(
         self: &Arc<Self>,
-        heap_ref: &FrozenHeapRef,
+        heap_ref: &FrozenHeapArc,
     ) -> pagable::Result<()> {
         // `repair_and_lookup_ptr` owns dependency traversal and deduplication.
         self.ensure_chunk_index_registered_impl(heap_ref, false)
@@ -172,7 +171,7 @@ impl StarlarkSerState {
 
     fn ensure_chunk_index_registered_impl(
         self: &Arc<Self>,
-        heap_ref: &FrozenHeapRef,
+        heap_ref: &FrozenHeapArc,
         ensure_dependencies: bool,
     ) -> pagable::Result<()> {
         let Some(name) = heap_ref.name() else {
@@ -181,7 +180,7 @@ impl StarlarkSerState {
         let heap_id = HeapRefId::from_heap_name(name);
         let heap = heap_ref
             .downgrade()
-            .expect("named FrozenHeapRef should have an inner heap");
+            .expect("named heap should have an inner allocation");
         let heap_ptr = heap.heap_ptr();
         let deser_state = heap_ref.deser_state();
         let uses_recipe_indices = deser_state.is_some();
@@ -194,7 +193,7 @@ impl StarlarkSerState {
 
         if ensure_dependencies {
             for dep in heap_ref.refs_slice() {
-                self.ensure_chunk_index_registered(dep)?;
+                self.ensure_chunk_index_registered(dep.heap_arc())?;
             }
         }
 
@@ -325,7 +324,7 @@ impl StarlarkSerState {
                 continue;
             }
 
-            pending.extend(heap.refs().duped());
+            pending.extend(heap.refs_slice().iter().map(|dep| dep.heap_arc().dupe()));
             self.ensure_current_chunk_index_registered(&heap)?;
         }
 
@@ -333,7 +332,7 @@ impl StarlarkSerState {
     }
 
     #[cold]
-    fn registered_heap(&self, heap_ptr: FrozenHeapPtr) -> Option<FrozenHeapRef> {
+    fn registered_heap(&self, heap_ptr: FrozenHeapPtr) -> Option<FrozenHeapArc> {
         self.registered_heaps.get(&heap_ptr)?.heap.upgrade()
     }
 
@@ -461,7 +460,7 @@ impl<'a> StarlarkSerializerImpl<'a> {
     pub(crate) fn new_with_root(
         pagable: &'a mut dyn PagableSerializer,
         state: Arc<StarlarkSerState>,
-        root: &FrozenHeapRef,
+        root: &FrozenHeapArc,
     ) -> Self {
         Self::recover_from_pagable(
             pagable,

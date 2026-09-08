@@ -29,7 +29,6 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
@@ -38,6 +37,7 @@ use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueTyped;
+use crate::values::layout::heap::heap_type::FrozenHeapArc;
 
 /// An alias for `FnOnce`.
 ///
@@ -180,6 +180,7 @@ where
 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
+        visitor.visit_field(allocative::Key::new("owner"), self.heap_arc());
         self.by_ref(|v| v.visit(&mut visitor));
         visitor.exit();
     }
@@ -196,16 +197,16 @@ where
     }
 }
 
-/// The wire format for every `OwnedFrozen` is the owner heap ref followed by the frozen value.
+/// The wire format for every `OwnedFrozen` is the owner heap followed by the frozen value.
 ///
 /// It is shared by the `Value` and `ValueTyped` forms so the two can be swapped at a field
 /// without a format change.
 fn serialize_owned_frozen(
-    owner: &FrozenHeapRef,
+    owner: &FrozenHeapArc,
     value: FrozenValue,
     serializer: &mut dyn PagableSerializer,
 ) -> pagable::Result<()> {
-    // Serialize the owner heap ref (via pagable arc mechanism).
+    // Serialize the owner heap (via pagable arc mechanism).
     owner.pagable_serialize(serializer)?;
 
     // Ensure offset maps are registered for the owner heap and its transitive dependencies.
@@ -224,9 +225,9 @@ fn serialize_owned_frozen(
 /// See [`serialize_owned_frozen`].
 fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
-) -> pagable::Result<(FrozenHeapRef, FrozenValue)> {
-    // Deserialize the owner heap ref.
-    let owner = FrozenHeapRef::pagable_deserialize(deserializer)?;
+) -> pagable::Result<(OwnedFrozen<()>, FrozenValue)> {
+    // Deserialize the owner heap.
+    let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
     // Recover the page-in scope registered by the preceding owner heap so cross-heap pointer
     // resolution can find it.
@@ -245,7 +246,7 @@ impl PagableSerialize for OwnedFrozen<Value<'static>> {
         // The value lives in a frozen heap, so it is frozen even though the branded API hands it
         // out as a `Value`.
         let fv = self.by_ref(|v| v.unpack_frozen().expect("value in a frozen heap is frozen"));
-        serialize_owned_frozen(self.owner(), fv, serializer)
+        serialize_owned_frozen(self.heap_arc(), fv, serializer)
     }
 }
 
@@ -270,7 +271,7 @@ where
                 .unpack_frozen()
                 .expect("value in a frozen heap is frozen")
         });
-        serialize_owned_frozen(self.owner(), fv, serializer)
+        serialize_owned_frozen(self.heap_arc(), fv, serializer)
     }
 }
 
@@ -371,7 +372,7 @@ mod tests {
 
         let r = owned.as_ref();
         assert_eq!(r.value().unpack_str(), Some("contents"));
-        assert!(std::ptr::eq(r.owner(), owned.owner()));
+        assert!(r.owner() == owned.owner());
 
         let r = r
             .maybe_map::<Value<'static>, _>(|v| Some(v))

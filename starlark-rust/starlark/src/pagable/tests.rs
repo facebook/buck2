@@ -49,9 +49,9 @@ use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -105,7 +105,7 @@ impl<'v> StarlarkValue<'v> for SimpleData {
 
 /// Round-trip an `OwnedFrozen` through the testing serializer. Returns the restored value.
 fn round_trip_owned(
-    heap_ref: FrozenHeapRef,
+    heap_ref: OwnedFrozen<()>,
     root_fv: FrozenValue,
 ) -> crate::Result<OwnedFrozen<Value<'static>>> {
     // SAFETY: `heap_ref` owns the arena hosting `root_fv`.
@@ -121,15 +121,17 @@ fn round_trip_owned(
     <OwnedFrozen<Value>>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
-fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> crate::Result<FrozenHeapRef> {
+fn round_trip_heap_ref(heap_ref: OwnedFrozenRef<'_, ()>) -> crate::Result<OwnedFrozen<()>> {
     let mut ser = pagable::testing::TestingSerializer::new();
     heap_ref
+        .heap_arc()
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
     let bytes = ser.finish();
 
     let mut de = pagable::testing::TestingDeserializer::new(&bytes);
-    let restored = FrozenHeapRef::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let restored =
+        OwnedFrozen::<()>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
     Ok(restored)
 }
 
@@ -181,53 +183,43 @@ fn test_frozen_heap_ref_round_trip_preserves_name() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("preserved_name"));
     let expected_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
 
-    let restored = round_trip_heap_ref(&heap_ref)?;
+    let restored = round_trip_heap_ref(heap_ref.owner())?;
     let restored_name = restored.name().expect("heap name should round-trip");
     assert_eq!(HeapRefId::from_heap_name(restored_name), expected_id);
     assert_eq!(restored_name.to_string(), "TestHeapName(preserved_name)");
     Ok(())
 }
 
-/// The bare heap handle `OwnedFrozen<()>` has the same wire format as `FrozenHeapRef`, for all
-/// three kinds of heap: empty, paged, and registered static.
+/// The bare heap handle round-trips for all three kinds of heap, each under its own wire tag:
+/// empty, paged, and registered static.
 #[test]
-fn test_owned_frozen_unit_wire_format() -> crate::Result<()> {
-    fn serialize(value: &impl PagableSerialize) -> crate::Result<Vec<u8>> {
+fn test_owned_frozen_unit_round_trip() -> crate::Result<()> {
+    fn round_trip(heap: &OwnedFrozen<()>, expected_tag: u8) -> crate::Result<OwnedFrozen<()>> {
         let mut ser = pagable::testing::TestingSerializer::new();
-        value
-            .pagable_serialize(&mut ser)
+        heap.pagable_serialize(&mut ser)
             .map_err(crate::Error::new_other)?;
-        Ok(ser.finish())
-    }
-
-    fn round_trip(heap_ref: &FrozenHeapRef) -> crate::Result<OwnedFrozen<()>> {
-        let owned = OwnedFrozen::<()>::for_heap(heap_ref.clone());
-        let bytes = serialize(&owned)?;
-        assert_eq!(
-            bytes,
-            serialize(heap_ref)?,
-            "wire format must not depend on the handle type"
-        );
+        let bytes = ser.finish();
+        assert_eq!(bytes[0], expected_tag);
         let mut de = pagable::testing::TestingDeserializer::new(&bytes);
         <OwnedFrozen<()>>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
     }
 
-    let restored = round_trip(&FrozenHeapRef::default())?;
+    let restored = round_trip(&OwnedFrozen::<()>::default(), 0)?;
     assert!(restored == OwnedFrozen::<()>::default());
 
     let heap = FrozenHeap::new();
     heap.alloc("value");
-    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("owned_frozen_unit_wire"));
-    let restored = round_trip(&heap_ref)?;
+    let heap = heap.into_ref_named(TestHeapName::heap_name("owned_frozen_unit_round_trip"));
+    let restored = round_trip(&heap, 1)?;
     assert_eq!(
         restored.name().map(ToString::to_string),
-        heap_ref.name().map(ToString::to_string)
+        heap.name().map(ToString::to_string)
     );
 
-    let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap();
-    let restored = round_trip(static_heap)?;
+    let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap().to_owned();
+    let restored = round_trip(&static_heap, 2)?;
     assert!(
-        restored == OwnedFrozen::<()>::for_heap(static_heap.clone()),
+        restored == static_heap,
         "a registered static heap resolves to the live allocation"
     );
     Ok(())
@@ -665,7 +657,7 @@ fn test_cross_heap_frozen_value_round_trip() -> crate::Result<()> {
     let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("dep"));
 
     let main_heap = FrozenHeap::new();
-    main_heap.add_reference(&dep_heap_ref);
+    main_heap.add_reference(dep_heap_ref.owner());
     let root = main_heap.alloc_simple(RefData {
         label: 99,
         target: dep_fv,
@@ -699,7 +691,7 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     let heap_d_ref = heap_d.into_ref_named(TestHeapName::heap_name("d"));
 
     let heap_b = FrozenHeap::new();
-    heap_b.add_reference(&heap_d_ref);
+    heap_b.add_reference(heap_d_ref.owner());
     let b_root = heap_b.alloc_simple(RefData {
         label: 2,
         target: d_fv,
@@ -707,7 +699,7 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name("b"));
 
     let heap_c = FrozenHeap::new();
-    heap_c.add_reference(&heap_d_ref);
+    heap_c.add_reference(heap_d_ref.owner());
     let c_root = heap_c.alloc_simple(RefData {
         label: 3,
         target: d_fv,
@@ -718,8 +710,8 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     // whose elements are the two RefData roots so a single OFV reaches both
     // heaps' bindings transitively. Simpler: link them through a top wrapper.
     let heap_a = FrozenHeap::new();
-    heap_a.add_reference(&heap_b_ref);
-    heap_a.add_reference(&heap_c_ref);
+    heap_a.add_reference(heap_b_ref.owner());
+    heap_a.add_reference(heap_c_ref.owner());
     let root = heap_a.alloc_list(&[b_root, c_root]);
     let heap_a_ref = heap_a.into_ref_named(TestHeapName::heap_name("a"));
 
@@ -770,7 +762,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
 
     // Build a leaf heap of `SimpleData`; returns the 7th allocation
     // as a known cross-heap target (deep enough to land past chunk 0).
-    fn build_leaf_heap(name: &str) -> (FrozenHeapRef, HeapRefId, Vec<usize>, FrozenValue) {
+    fn build_leaf_heap(name: &str) -> (OwnedFrozen<()>, HeapRefId, Vec<usize>, FrozenValue) {
         let heap = FrozenHeap::new();
         let mut allocated = Vec::with_capacity(VALUES_PER_HEAP);
         for v in 0..VALUES_PER_HEAP {
@@ -783,6 +775,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
         let heap_ref = heap.into_ref_named(TestHeapName::heap_name(name));
         let heap_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
         let ptrs_in_serialization_order: Vec<usize> = heap_ref
+            .heap_arc()
             .collect_undrop_headers_ordered()
             .iter()
             .map(|hp| hp.payload_ptr().ptr as usize)
@@ -794,8 +787,8 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
     let (heap_c_ref, heap_c_id, heap_c_ptrs, target_in_c) = build_leaf_heap("ser_state_lookup_C");
 
     let heap_b = FrozenHeap::new();
-    heap_b.add_reference(&heap_a_ref);
-    heap_b.add_reference(&heap_c_ref);
+    heap_b.add_reference(heap_a_ref.owner());
+    heap_b.add_reference(heap_c_ref.owner());
     heap_b.alloc_simple(RefData {
         label: 0,
         target: target_in_a,
@@ -815,12 +808,13 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
     // RefData + SimpleData are both non-drop, so heap B has only a
     // non-drop bump.
     let heap_b_ptrs: Vec<usize> = heap_b_ref
+        .heap_arc()
         .collect_undrop_headers_ordered()
         .iter()
         .map(|hp| hp.payload_ptr().ptr as usize)
         .collect();
 
-    let b_undrop_headers = heap_b_ref.collect_undrop_headers_ordered();
+    let b_undrop_headers = heap_b_ref.heap_arc().collect_undrop_headers_ordered();
     assert!(b_undrop_headers.len() >= 2);
     let b_ref_to_a: &RefData = b_undrop_headers[0].unpack().downcast_ref().unwrap();
     let b_ref_to_c: &RefData = b_undrop_headers[1].unpack().downcast_ref().unwrap();
@@ -831,9 +825,9 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
 
     // Guard against a regression where each heap fits in one chunk —
     // the chunk-spanning lookup arithmetic would never get exercised.
-    let a_chunks = heap_a_ref.build_chunk_index().len();
-    let b_chunks = heap_b_ref.build_chunk_index().len();
-    let c_chunks = heap_c_ref.build_chunk_index().len();
+    let a_chunks = heap_a_ref.heap_arc().build_chunk_index().len();
+    let b_chunks = heap_b_ref.heap_arc().build_chunk_index().len();
+    let c_chunks = heap_c_ref.heap_arc().build_chunk_index().len();
     eprintln!(
         "chunks per heap: A={a_chunks} B={b_chunks} C={c_chunks} \
          (values_per_heap={VALUES_PER_HEAP})"
@@ -844,13 +838,13 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
 
     let state = Arc::new(StarlarkSerState::new());
     state
-        .ensure_chunk_index_registered(&heap_a_ref)
+        .ensure_chunk_index_registered(heap_a_ref.heap_arc())
         .expect("register heap A chunk index");
     state
-        .ensure_chunk_index_registered(&heap_b_ref)
+        .ensure_chunk_index_registered(heap_b_ref.heap_arc())
         .expect("register heap B chunk index");
     state
-        .ensure_chunk_index_registered(&heap_c_ref)
+        .ensure_chunk_index_registered(heap_c_ref.heap_arc())
         .expect("register heap C chunk index");
 
     for (heap, heap_id, ptrs) in [
@@ -859,6 +853,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
         (&heap_c_ref, heap_c_id, &heap_c_ptrs),
     ] {
         let heap_ptr = heap
+            .heap_arc()
             .downgrade()
             .expect("heap should have an allocation")
             .heap_ptr();
@@ -914,15 +909,15 @@ fn test_heap_registration_supports_different_ser_states() {
 
     let first_state = Arc::new(StarlarkSerState::new());
     first_state
-        .ensure_chunk_index_registered(&heap_ref)
+        .ensure_chunk_index_registered(heap_ref.heap_arc())
         .expect("register heap in first state");
     first_state
-        .ensure_chunk_index_registered(&heap_ref)
+        .ensure_chunk_index_registered(heap_ref.heap_arc())
         .expect("repeat registration in the same state");
 
     let second_state = Arc::new(StarlarkSerState::new());
     second_state
-        .ensure_chunk_index_registered(&heap_ref)
+        .ensure_chunk_index_registered(heap_ref.heap_arc())
         .expect("register heap in a different state");
 }
 
@@ -940,7 +935,7 @@ fn test_ser_state_retained_bytes_tracks_registered_heap_memory() {
     }
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("ser_state_retained_bytes"));
     state
-        .ensure_chunk_index_registered(&heap_ref)
+        .ensure_chunk_index_registered(heap_ref.heap_arc())
         .expect("register heap chunk index");
 
     let populated_bytes = starlark_serialization_state_retained_bytes(&storage);
@@ -1016,20 +1011,29 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
     scope
         .register_heap(
             heap_id,
-            first.downgrade().expect("heap should have an allocation"),
+            first
+                .heap_arc()
+                .downgrade()
+                .expect("heap should have an allocation"),
         )
         .expect("first binding should be accepted");
     scope
         .register_heap(
             heap_id,
-            first.downgrade().expect("heap should have an allocation"),
+            first
+                .heap_arc()
+                .downgrade()
+                .expect("heap should have an allocation"),
         )
         .expect("repeating the exact binding should be accepted");
 
     let error = scope
         .register_heap(
             heap_id,
-            second.downgrade().expect("heap should have an allocation"),
+            second
+                .heap_arc()
+                .downgrade()
+                .expect("heap should have an allocation"),
         )
         .expect_err("a different live heap with the same ID should be rejected");
     assert!(matches!(
@@ -1048,10 +1052,13 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
     scope
         .register_heap(
             heap_id,
-            second.downgrade().expect("heap should have an allocation"),
+            second
+                .heap_arc()
+                .downgrade()
+                .expect("heap should have an allocation"),
         )
         .expect("an expired binding should be replaceable");
-    assert_eq!(scope.get_heap(&heap_id).as_ref(), Some(&second));
+    assert_eq!(scope.get_heap(&heap_id).as_ref(), Some(second.heap_arc()));
 }
 
 #[test]
@@ -1849,7 +1856,7 @@ fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
-fn colliding_static_heap_a() -> &'static FrozenHeapRef {
+fn colliding_static_heap_a() -> OwnedFrozenRef<'static, ()> {
     starlark::globals_static!(
         COLLIDING_STATIC_GLOBALS = |globals| {
             globals.set(
@@ -1864,7 +1871,7 @@ fn colliding_static_heap_a() -> &'static FrozenHeapRef {
     COLLIDING_STATIC_GLOBALS.globals().heap()
 }
 
-fn colliding_static_heap_b() -> &'static FrozenHeapRef {
+fn colliding_static_heap_b() -> OwnedFrozenRef<'static, ()> {
     starlark::globals_static!(
         COLLIDING_STATIC_GLOBALS = |globals| {
             globals.set(
@@ -1892,18 +1899,18 @@ fn test_same_named_static_heaps_round_trip_to_distinct_heaps() -> crate::Result<
         "test premise: the two static heaps share a name"
     );
     assert!(
-        *heap_a != *heap_b,
+        heap_a != heap_b,
         "test premise: the two static heaps are distinct allocations"
     );
 
     let restored_a = round_trip_heap_ref(heap_a)?;
     let restored_b = round_trip_heap_ref(heap_b)?;
     assert!(
-        restored_a == *heap_a,
+        restored_a.owner() == heap_a,
         "ref to heap A should resolve to heap A's live allocation"
     );
     assert!(
-        restored_b == *heap_b,
+        restored_b.owner() == heap_b,
         "ref to heap B should resolve to heap B's live allocation"
     );
     Ok(())
@@ -1916,7 +1923,7 @@ fn test_static_heap_ref_round_trip_is_identity() -> crate::Result<()> {
     let static_heap = PAGABLE_TEST_STATIC_GLOBALS.globals().heap();
     let restored = round_trip_heap_ref(static_heap)?;
     assert!(
-        restored == *static_heap,
+        restored.owner() == static_heap,
         "static heap ref should resolve to the live heap"
     );
     Ok(())
@@ -1947,7 +1954,7 @@ fn test_static_heap_paging_does_not_poison_inline_serialization() -> crate::Resu
     let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root.to_value()) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
     assert!(
-        restored.owner().refs().any(|r| *r == *static_heap),
+        restored.owner().refs().any(|r| r == static_heap),
         "restored heap should reference the live static heap"
     );
 
@@ -2674,7 +2681,7 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
     let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("dep_storage"));
 
     let main_heap = FrozenHeap::new();
-    main_heap.add_reference(&dep_heap_ref);
+    main_heap.add_reference(dep_heap_ref.owner());
     let ref_fv = main_heap.alloc_simple(RefData {
         label: 99,
         target: dep_fv,
@@ -2686,7 +2693,7 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
     drop(dep_heap_ref);
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
-    let undrop_headers = restored.owner().collect_undrop_headers_ordered();
+    let undrop_headers = restored.owner().heap_arc().collect_undrop_headers_ordered();
     assert_eq!(undrop_headers.len(), 1);
     let ref_data: &RefData = undrop_headers[0].unpack().downcast_ref().unwrap();
     assert_eq!(ref_data.label, 99);
@@ -2739,7 +2746,7 @@ fn test_arc_blanket_round_trip_via_storage() {
     // Partial deser: only the root `ArcBlanketOuter` (and its transitive deps)
     // is materialized. The second `ArcBlanketOuter`, which is unreachable from
     // the root, is never allocated.
-    let drop_headers = restored.owner().collect_drop_headers_ordered();
+    let drop_headers = restored.owner().heap_arc().collect_drop_headers_ordered();
     assert_eq!(drop_headers.len(), 1);
     let outer_a: &ArcBlanketOuter = drop_headers[0].unpack().downcast_ref().unwrap();
     assert_eq!(outer_a.outer_label, 1);
@@ -2788,7 +2795,7 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
 
     // HB: refs HA, holds ArcBlanketOuter_B with a clone of the same Arc.
     let heap_b = FrozenHeap::new();
-    heap_b.add_reference(&heap_a_ref);
+    heap_b.add_reference(heap_a_ref.owner());
     let outer_b_fv = heap_b.alloc_simple(ArcBlanketOuter {
         inner: shared,
         outer_label: 2,
@@ -2829,8 +2836,8 @@ fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> 
     // is unreachable from HB's root and intentionally stays unmaterialized.
     let hb_refs: Vec<_> = restored_b.owner().refs().collect();
     assert_eq!(hb_refs.len(), 1, "HB should retain its ref to HA");
-    let restored_ha = hb_refs[0].clone();
-    let ha_undrop = restored_ha.collect_undrop_headers_ordered();
+    let restored_ha = hb_refs[0];
+    let ha_undrop = restored_ha.heap_arc().collect_undrop_headers_ordered();
     assert_eq!(
         ha_undrop.len(),
         1,
@@ -2880,7 +2887,7 @@ fn test_partial_deser_skips_unreachable_values() -> crate::Result<()> {
     let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, reachable_fv.to_value()) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
-    let undrop = restored.owner().collect_undrop_headers_ordered();
+    let undrop = restored.owner().heap_arc().collect_undrop_headers_ordered();
     // Only the reachable SimpleData is materialized; the other two are skipped.
     assert_eq!(undrop.len(), 1);
     let data: &SimpleData = undrop[0].unpack().downcast_ref().unwrap();
@@ -2911,7 +2918,7 @@ fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
     let owned = unsafe { OwnedFrozen::unchecked_new(heap_ref, root_fv.to_value()) };
     let restored = round_trip_owned_pagable_ser_de_impl(owned)?;
 
-    let undrop = restored.owner().collect_undrop_headers_ordered();
+    let undrop = restored.owner().heap_arc().collect_undrop_headers_ordered();
     assert_eq!(undrop.len(), 2);
     // Demand-walk order: root B (RefData) was materialized first, then its
     // target A (SimpleData). Original allocation order was the reverse.
@@ -3079,7 +3086,7 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
     let leaf_ref = leaf_heap.into_ref_named(TestHeapName::heap_name("cached_scope_leaf"));
 
     let owner_heap = FrozenHeap::new();
-    owner_heap.add_reference(&leaf_ref);
+    owner_heap.add_reference(leaf_ref.owner());
     let owner_ref = owner_heap.into_ref_named(TestHeapName::heap_name("cached_scope_owner"));
     // SAFETY: `owner_ref` retains `leaf_ref`, which owns `leaf_value`.
     let root = unsafe { OwnedFrozen::unchecked_new(owner_ref, leaf_value.to_value()) };
@@ -3124,7 +3131,7 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
     );
     assert_eq!(
         second_scope.get_heap(&leaf_id).as_ref(),
-        Some(second_leaf_ref),
+        Some(second_leaf_ref.heap_arc()),
         "the cache hit must bind transitive heap L in the second root scope",
     );
     assert_eq!(
@@ -3188,7 +3195,7 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
     );
     assert_eq!(
         scope.get_heap(&heap_id).as_ref(),
-        Some(restored_x.owner()),
+        Some(restored_x.heap_arc()),
         "the current root scope should bind the reused native heap",
     );
     assert_eq!(
@@ -3262,7 +3269,7 @@ fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Resul
     let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_dep"));
 
     let parent_heap = FrozenHeap::new();
-    parent_heap.add_reference(&dep_heap_ref);
+    parent_heap.add_reference(dep_heap_ref.owner());
     let parent_root = parent_heap.alloc_simple(RefData { label: 9, target });
     let parent_heap_ref =
         parent_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_parent"));
@@ -3289,6 +3296,7 @@ fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Resul
         deser_owned_frozen_from_storage(&backing, &handle, &demand_root_key)?;
     let restored_headers = restored_demand_root
         .owner()
+        .heap_arc()
         .collect_undrop_headers_ordered();
     assert_eq!(restored_headers.len(), 2);
     assert!(
@@ -3425,7 +3433,7 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("incr_dep"));
 
     let heap_a = FrozenHeap::new();
-    heap_a.add_reference(&dep_heap_ref);
+    heap_a.add_reference(dep_heap_ref.owner());
     let a_fv = heap_a.alloc_simple(RefData {
         label: 11,
         target: d1_fv,
@@ -3433,7 +3441,7 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     let heap_a_ref = heap_a.into_ref_named(TestHeapName::heap_name("incr_a"));
 
     let heap_b = FrozenHeap::new();
-    heap_b.add_reference(&dep_heap_ref);
+    heap_b.add_reference(dep_heap_ref.owner());
     let b_fv = heap_b.alloc_simple(RefData {
         label: 22,
         target: d2_fv,
@@ -3469,7 +3477,10 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     assert_eq!(a_data.label, 11);
 
     // heap_a has exactly one materialized value (the root).
-    let a_undrop = restored_ofv1.owner().collect_undrop_headers_ordered();
+    let a_undrop = restored_ofv1
+        .owner()
+        .heap_arc()
+        .collect_undrop_headers_ordered();
     assert_eq!(
         a_undrop.len(),
         1,
@@ -3481,9 +3492,9 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     let dep_after_1 = {
         let refs: Vec<_> = restored_ofv1.owner().refs().collect();
         assert_eq!(refs.len(), 1, "step1: heap_a refs only dep_heap");
-        refs[0].clone()
+        refs[0]
     };
-    let dep_undrop_after_1 = dep_after_1.collect_undrop_headers_ordered();
+    let dep_undrop_after_1 = dep_after_1.heap_arc().collect_undrop_headers_ordered();
     assert_eq!(
         dep_undrop_after_1.len(),
         1,
@@ -3504,7 +3515,10 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     assert_eq!(b_data.label, 22);
 
     // heap_b has only its root.
-    let b_undrop = restored_ofv2.owner().collect_undrop_headers_ordered();
+    let b_undrop = restored_ofv2
+        .owner()
+        .heap_arc()
+        .collect_undrop_headers_ordered();
     assert_eq!(
         b_undrop.len(),
         1,
@@ -3513,11 +3527,11 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
 
     // The dep_heap arc returned to OFV2 is the SAME allocation as OFV1's
     // (the storage's arc cache deduplicates `Arc<FrozenFrozenHeap>` by
-    // `DataKey`; `FrozenHeapRef::eq` is `Arc::ptr_eq`).
+    // `DataKey`; `OwnedFrozen<()>` equality is `Arc::ptr_eq`).
     let dep_after_2 = {
         let refs: Vec<_> = restored_ofv2.owner().refs().collect();
         assert_eq!(refs.len(), 1);
-        refs[0].clone()
+        refs[0]
     };
     assert_eq!(
         dep_after_1, dep_after_2,
@@ -3525,7 +3539,7 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     );
 
     // Now dep_heap holds [d1, d2] — d2 was just materialized by OFV2.
-    let dep_undrop_after_2 = dep_after_2.collect_undrop_headers_ordered();
+    let dep_undrop_after_2 = dep_after_2.heap_arc().collect_undrop_headers_ordered();
     assert_eq!(
         dep_undrop_after_2.len(),
         2,
@@ -3563,12 +3577,12 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
 
     // OFV3 owns the dep_heap arc directly; arc-cache dedup means it's the
     // same Arc allocation.
-    let dep_after_3 = restored_ofv3.owner().clone();
+    let dep_after_3 = restored_ofv3.owner();
     assert_eq!(
         dep_after_1, dep_after_3,
         "step3: dep_heap must remain the same Arc allocation"
     );
-    let dep_undrop_after_3 = dep_after_3.collect_undrop_headers_ordered();
+    let dep_undrop_after_3 = dep_after_3.heap_arc().collect_undrop_headers_ordered();
     assert_eq!(
         dep_undrop_after_3.len(),
         2,
@@ -3711,7 +3725,7 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let second: OwnedFrozen<Value> =
         unsafe { OwnedFrozen::unchecked_new(dep_heap_ref, second.to_value()) };
     let third: OwnedFrozen<Value> =
-        unsafe { OwnedFrozen::unchecked_new(second.owner().clone(), third.to_value()) };
+        unsafe { OwnedFrozen::unchecked_new(second.owner().to_owned(), third.to_value()) };
 
     let backing = InMemoryPagableStorage::new();
     let handle = PagableStorageHandle::new(backing.handle());
@@ -3753,13 +3767,13 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let owner_root: OwnedFrozen<Value> =
         unsafe { OwnedFrozen::unchecked_new(owner_heap_ref.clone(), owner_root.to_value()) };
     assert_eq!(
-        owner_heap_ref.refs_slice(),
+        owner_heap_ref.heap_arc().refs_slice(),
         std::slice::from_ref(&middle_heap_ref),
         "the owner should reference only the intermediate heap directly",
     );
     assert_eq!(
-        middle_heap_ref.refs_slice(),
-        std::slice::from_ref(restored_first.owner()),
+        middle_heap_ref.heap_arc().refs_slice(),
+        std::slice::from_ref(&restored_first.owner().to_owned()),
         "the restored dependency should be reachable only through the intermediate heap",
     );
     let _owner_key = ser_owned_frozen_value_into_storage(&backing, &owner_root)?;
@@ -3815,7 +3829,7 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let storage = backing.handle();
     let storage_ctx = storage.storage_context();
     let mut serializer = pagable::storage::support::SerializerForPaging::new(storage_ctx);
-    ser_state.ensure_chunk_index_registered(&owner_heap_ref)?;
+    ser_state.ensure_chunk_index_registered(owner_heap_ref.heap_arc())?;
     assert!(
         ser_state.lookup_ptr(third_ptr).is_none(),
         "the clean owner fast path should still hide the dirty dependency",
@@ -3823,7 +3837,7 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
     let mut ctx = crate::pagable::StarlarkSerializerImpl::new_with_root(
         &mut serializer,
         ser_state.clone(),
-        &owner_heap_ref,
+        owner_heap_ref.heap_arc(),
     );
     <Arc<ArcBlanketInner> as crate::pagable::StarlarkSerialize>::starlark_serialize(
         &deferred, &mut ctx,
@@ -3972,7 +3986,7 @@ impl BenchResult {
 
 fn bench_owned_frozen_value_round_trip(
     label: &'static str,
-    heap_ref: FrozenHeapRef,
+    heap_ref: OwnedFrozen<()>,
     root: FrozenValue,
     count: usize,
 ) -> crate::Result<BenchResult> {

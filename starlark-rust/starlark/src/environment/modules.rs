@@ -59,7 +59,6 @@ use crate::singleton_heap_name;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -89,11 +88,11 @@ enum ModuleError {
 /// these values after the [`FrozenModule`] has been released unless you obtain a reference
 /// to the frozen heap.
 #[derive(Debug, Clone, Dupe, Allocative)]
-// We store the two elements separately since the FrozenHeapRef contains
+// We store the two elements separately since the frozen heap contains
 // a copy of the FrozenModuleData inside it.
 // Two Arc's should still be plenty cheap enough to qualify for `Dupe`.
 pub struct FrozenModule {
-    heap: FrozenHeapRef,
+    heap: OwnedFrozen<()>,
     module: FrozenAnyValue<FrozenModuleData>,
     extra_value: Option<FrozenValue>,
     /// Module evaluation duration:
@@ -114,8 +113,9 @@ impl PagableSerialize for FrozenModule {
         // chunk indices now so the upcoming starlark serializer can resolve
         // FrozenValue pointers. Same trick as `OwnedFrozen`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(&self.heap)?;
-        let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, &self.heap);
+        state.ensure_chunk_index_registered(self.heap.heap_arc())?;
+        let mut ctx =
+            StarlarkSerializerImpl::new_with_root(serializer, state, self.heap.heap_arc());
 
         self.module
             .starlark_serialize(&mut ctx)
@@ -136,7 +136,7 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
+        let heap = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
         // The preceding heap deserialization registers its heap state in this
         // page-in scope, so Starlark fields can resolve `FrozenValue` pointers.
@@ -295,7 +295,7 @@ impl FrozenModule {
             // keeps it alive — directly, or through its heap references for slot values that
             // arrived via `load()`.
             Some((value, Visibility::Public)) => Ok(Some(unsafe {
-                OwnedFrozenRef::unchecked_new(&self.heap, value.to_value())
+                OwnedFrozenRef::unchecked_new(self.heap.owner(), value.to_value())
             })),
         }
     }
@@ -317,9 +317,9 @@ impl FrozenModule {
         self.module.names()
     }
 
-    /// Obtain the [`FrozenHeapRef`] which owns the storage of all values defined in this module.
-    pub fn frozen_heap(&self) -> &FrozenHeapRef {
-        &self.heap
+    /// The heap which owns the storage of all values defined in this module.
+    pub fn frozen_heap(&self) -> OwnedFrozenRef<'_, ()> {
+        self.heap.owner()
     }
 
     /// Print out some approximation of the module definitions.
@@ -540,7 +540,7 @@ impl<'v> Module<'v> {
     /// Freeze the environment and assign a name to the contained frozen heap.
     ///
     /// The `name` identifies the contained frozen heap and should be unique.
-    /// See [`FrozenHeapRef::name`] for more details.
+    /// See [`OwnedFrozen::name`] for more details.
     pub fn freeze_named(self, name: FrozenHeapName) -> FreezeResult<FrozenModule> {
         self.freeze_impl(Some(name))
     }
@@ -565,7 +565,7 @@ impl<'v> Module<'v> {
         let freezer = Freezer::new(&frozen_heap);
         // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
         for r in heap.referenced_heaps() {
-            frozen_heap.add_reference(&r);
+            frozen_heap.add_reference(r.owner());
         }
         let slots = slots.freeze(&freezer)?;
         let extra_value = extra_value
@@ -634,7 +634,7 @@ impl<'v> Module<'v> {
 
     /// Import symbols from a module, similar to what is done during `load()`.
     pub fn import_public_symbols(&self, module: &FrozenModule) {
-        self.frozen_heap.add_reference(&module.heap);
+        self.frozen_heap.add_reference(module.heap.owner());
         for (k, slot) in module.module.names.symbols() {
             if Self::default_visibility(&k) == Visibility::Public {
                 if let Some(value) = module.module.slots.get_slot(slot) {
@@ -656,7 +656,7 @@ impl<'v> Module<'v> {
         }
         match module.get_slot_any_visibility_err(symbol)? {
             (v, Visibility::Public) => {
-                self.heap().add_reference(&module.heap);
+                self.heap().add_reference(module.heap.owner());
                 // The heap reference we just added keeps the value alive for `'v`.
                 Ok(Value::new_frozen(v))
             }

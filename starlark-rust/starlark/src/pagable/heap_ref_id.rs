@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-//! Deduplication and non-inline serialization support for `FrozenHeapRef`.
+//! Deduplication and non-inline serialization support for `OwnedFrozen<()>`.
 //!
 //! Heaps are serialized in a separate heap table (topologically sorted,
-//! dependencies first), and `FrozenHeapRef` references within arena values
+//! dependencies first), and `OwnedFrozen<()>` references within arena values
 //! are just `HeapRefId`s pointing into the table.
 //!
 //! ## Wire format
@@ -30,7 +30,7 @@
 //!     [HeapRefId: u64]
 //!     [FrozenFrozenHeap arena data...]
 //!
-//! FrozenHeapRef reference (within arena values):
+//! `OwnedFrozen<()>` reference (within arena values):
 //!   [u8: tag]
 //!     0 = None (empty heap ref)
 //!     1 = Ref  [HeapRefId: u64]
@@ -46,7 +46,7 @@ use strong_hash::StrongHash;
 
 use crate::values::FrozenHeapName;
 
-/// Stable identifier for a `FrozenHeapRef`, derived from a strong hash of its
+/// Stable identifier for a `OwnedFrozen<()>`, derived from a strong hash of its
 /// `FrozenHeapName`. The hash is computed with blake3 via [`StrongHash`] so
 /// the same heap name produces the same ID across processes (unlike
 /// `DefaultHasher`, which uses a per-process random seed).

@@ -7,13 +7,13 @@ In Starlark, there are three interesting heap-related points of interest:
 - A `Heap` has `Value`'s allocated on it and cannot be cloned or shared.
 - A `FrozenHeap` has `FrozenValue`'s allocated on it and cannot be cloned or
   shared.
-- A `FrozenHeapRef` is a `FrozenHeap` that is now read-only and can now be
-  cloned and shared.
+- An `OwnedFrozen<()>` is a sealed `FrozenHeap`: read-only, and can be cloned
+  and shared.
 
-A `FrozenHeapRef` keeps a heap alive. While you have a `FrozenValue`, it is
-important that you have either the `FrozenHeap` itself, or more usually, a
-`FrozenHeapRef` to it. A `FrozenHeap` may contains a set of `FrozenHeapRef`'s to
-keep the `FrozenHeap`s it references alive.
+An `OwnedFrozen<()>` keeps a heap alive. While you have a `FrozenValue`, it is
+important that you have either the `FrozenHeap` itself, or more usually, an
+`OwnedFrozen<()>` for it. A `FrozenHeap` may contain a set of `OwnedFrozen<()>`s
+to keep the `FrozenHeap`s it references alive.
 
 ## Heap Containers
 
@@ -23,11 +23,11 @@ Heaps are included in other data types:
   `FrozenHeap` (stores references to other frozen heaps and has compilation
   constants allocated on it). The `Heap` portion is garbage collected. At the
   end, when you call `freeze`, `Value`'s referenced by name in the `Module` are
-  moved to the `FrozenHeap` and then then `FrozenHeap` is sealed to produce a
-  `FrozenHeapRef`.
-- A `FrozenModule` contains a `FrozenHeapRef`.
+  moved to the `FrozenHeap` and then then `FrozenHeap` is sealed to produce an
+  `OwnedFrozen<()>`.
+- A `FrozenModule` contains an `OwnedFrozen<()>`.
 - A `GlobalsBuilder` contains a `FrozenHeap` onto which values are allocated.
-- A `Globals` contains a `FrozenHeapRef`.
+- A `Globals` contains an `OwnedFrozen<()>`.
 
 ## Heap References
 
@@ -40,10 +40,10 @@ As a concrete example in pseudo-code:
 ```rust
 let h1 = FrozenHeap::new();
 let s = "test".alloc(h1);
-let h1 : FrozenHeapRef = h1.into_ref();
+let h1: OwnedFrozen<()> = h1.into_ref_named(name);
 
 let h2 = Heap::new();
-h2.add_reference(h1);
+h2.add_reference(h1.owner());
 vec![s].alloc(h2);
 ```
 
@@ -72,8 +72,8 @@ Following are some places where heap references are added by Starlark:
 ## `OwnedFrozen`
 
 When you get a value from a `FrozenModule`, it will be an
-`OwnedFrozen<Value<'static>>`. This structure is a pair of a `FrozenHeapRef` and
-a value, where the ref keeps the value alive. You can move that `OwnedFrozen`
+`OwnedFrozen<Value<'static>>`. This structure is a pair of a sealed heap and a
+value, where the heap keeps the value alive. You can move that `OwnedFrozen`
 into the value of a module with code such as:
 
 ```rust

@@ -753,22 +753,22 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
         "CheckDepsPagedOut should hydrate C0 after recomputing C1",
     );
 
-    let h1 = c1.owner().dupe();
+    let h1 = c1.owner().to_owned();
     let p1 = make_root(&c1, 1);
     assert!(
-        p1.owner().refs().any(|dependency| dependency == &h1),
+        p1.owner().refs().any(|dependency| dependency == h1.owner()),
         "P1 should retain the exact H1 allocation",
     );
     let root = CollisionRootValue {
         direct: c1,
         enclosing: p1,
     };
-    assert_eq!(root.direct.owner(), &h1);
+    assert_eq!(root.direct.owner(), h1.owner());
     assert!(
         root.enclosing
             .owner()
             .refs()
-            .any(|dependency| dependency == &h1),
+            .any(|dependency| dependency == h1.owner()),
         "both pre-page-out paths should reach the exact H1 allocation",
     );
     drop(tx);
@@ -777,13 +777,13 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
     updater.changed_to([(CollisionRootInput, root)])?;
     let tx = updater.commit().await;
     let resident_root = tx.compute(&CollisionRootKey).await?;
-    assert_eq!(resident_root.direct.owner(), &h1);
+    assert_eq!(resident_root.direct.owner(), h1.owner());
     assert!(
         resident_root
             .enclosing
             .owner()
             .refs()
-            .any(|dependency| dependency == &h1),
+            .any(|dependency| dependency == h1.owner()),
     );
     drop(tx);
 
@@ -807,13 +807,13 @@ async fn page_in_prefers_resident_heap_for_consistent_dice_root_impl()
         0,
         "R1 should hydrate instead of recomputing",
     );
-    assert_eq!(restored.direct.owner(), &h1);
+    assert_eq!(restored.direct.owner(), h1.owner());
     assert!(
         restored
             .enclosing
             .owner()
             .refs()
-            .any(|dependency| dependency == &h1),
+            .any(|dependency| dependency == h1.owner()),
         "the recomputed root should still consistently reference H1",
     );
 

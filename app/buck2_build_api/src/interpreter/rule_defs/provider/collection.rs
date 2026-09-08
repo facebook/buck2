@@ -43,7 +43,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -606,7 +605,7 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
         self.inner.value()
     }
 
-    pub fn owner(self) -> &'f FrozenHeapRef {
+    pub fn owner(self) -> OwnedFrozenRef<'f, ()> {
         self.inner.owner()
     }
 

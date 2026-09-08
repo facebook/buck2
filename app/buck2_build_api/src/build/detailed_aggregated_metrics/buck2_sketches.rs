@@ -47,7 +47,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::FrozenHeapName;
-use starlark::values::FrozenHeapRef;
+use starlark::values::OwnedFrozenRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroup;
@@ -385,13 +385,14 @@ impl Key for LoadGraphPropertiesKey {
             .try_compute_join(imports.iter(), async |ctx, import| {
                 ctx.get_loaded_module_from_import_path(import)
                     .await
-                    .map(|m| m.env().frozen_heap().dupe())
+                    .map(|m| m.env().frozen_heap().to_owned())
             })
             .await?;
 
-        let mut visited: BuckMutSet<&FrozenHeapRef> = BuckMutSet::default();
-        let mut queue: Vec<&FrozenHeapRef> = Vec::new();
+        let mut visited: BuckMutSet<OwnedFrozenRef<()>> = BuckMutSet::default();
+        let mut queue: Vec<OwnedFrozenRef<()>> = Vec::new();
         for heap in &loaded_modules {
+            let heap = heap.owner();
             if visited.insert(heap) {
                 queue.push(heap);
             }
@@ -404,7 +405,7 @@ impl Key for LoadGraphPropertiesKey {
                     }
                 }
             }
-            queue.extend(item.refs().filter(|f| visited.insert(f)));
+            queue.extend(item.refs().filter(|f| visited.insert(*f)));
         }
 
         Ok(MaybeCompatible::Compatible(
@@ -431,7 +432,7 @@ impl Key for LoadGraphPropertiesKey {
 /// at what the graph is, while probably possible in practice, is a bit brittle. It would also mean
 /// that we wouldn't know about anon targets, which would be a bit of a shame.
 fn gather_heap_graph_sketch(
-    root: &FrozenHeapRef,
+    root: OwnedFrozenRef<'_, ()>,
     compute_retained: bool,
     compute_peak: bool,
 ) -> AnalysisHeapSketches {

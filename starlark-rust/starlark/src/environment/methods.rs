@@ -30,9 +30,10 @@ use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenRef;
 use crate::values::Value;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMeth;
@@ -45,7 +46,7 @@ use crate::values::types::unbound::UnboundValue;
 #[derive(Clone, Debug)]
 pub struct Methods {
     /// This field holds the objects referenced in `members`.
-    heap: FrozenHeapRef,
+    heap: OwnedFrozen<()>,
     members: SymbolMap<UnboundValue>,
     docstring: Option<String>,
 }
@@ -98,8 +99,8 @@ impl Methods {
     }
 
     /// The heap that owns the values in these methods.
-    pub fn heap(&self) -> &FrozenHeapRef {
-        &self.heap
+    pub fn heap(&self) -> OwnedFrozenRef<'_, ()> {
+        self.heap.owner()
     }
 
     #[inline]
@@ -314,7 +315,7 @@ impl MethodsStatic {
         for (name, value) in methods.members.iter() {
             out.members.insert(name.as_str(), value.clone());
         }
-        out.heap.add_reference(&methods.heap);
+        out.heap.add_reference(methods.heap.owner());
         out.docstring = methods.docstring.clone();
     }
 }

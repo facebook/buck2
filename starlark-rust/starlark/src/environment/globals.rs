@@ -47,10 +47,10 @@ pub use crate::stdlib::LibraryExtension;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkPagable;
 use crate::values::StringValueLike;
 use crate::values::Value;
@@ -76,7 +76,7 @@ struct GlobalValue {
 
 #[derive(Debug, Allocative)]
 struct GlobalsData {
-    heap: FrozenHeapRef,
+    heap: OwnedFrozen<()>,
     variables: SymbolMap<GlobalValue>,
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
@@ -92,8 +92,9 @@ impl PagableSerialize for GlobalsData {
         // chunk indices now so the upcoming starlark serializer can resolve
         // FrozenValue pointers. Same trick as `OwnedFrozen` and `FrozenModule`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(&self.heap)?;
-        let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, &self.heap);
+        state.ensure_chunk_index_registered(self.heap.heap_arc())?;
+        let mut ctx =
+            StarlarkSerializerImpl::new_with_root(serializer, state, self.heap.heap_arc());
 
         self.variables
             .starlark_serialize(&mut ctx)
@@ -113,7 +114,7 @@ impl<'de> PagableDeserialize<'de> for GlobalsData {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
+        let heap = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
         // The preceding heap deserialization registers its heap state in this
         // page-in scope, so Starlark fields can resolve `FrozenValue` pointers.
@@ -210,7 +211,7 @@ impl Globals {
     pub(crate) fn get_owned(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
         let v = self.get_frozen(name)?;
         // SAFETY: We know the heap this is allocated in
-        unsafe { Some(OwnedFrozen::unchecked_new(self.heap().dupe(), v.to_value())) }
+        unsafe { Some(OwnedFrozen::unchecked_new(self.0.heap.dupe(), v.to_value())) }
     }
 
     /// Get all the names defined in this environment.
@@ -225,8 +226,8 @@ impl Globals {
     }
 
     /// The heap that owns the values in this globals.
-    pub fn heap(&self) -> &FrozenHeapRef {
-        &self.0.heap
+    pub fn heap(&self) -> OwnedFrozenRef<'_, ()> {
+        self.0.heap.owner()
     }
 
     /// Print information about the values in this object.

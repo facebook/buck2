@@ -55,8 +55,8 @@ use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::arena::ChunkInfo;
+use crate::values::layout::heap::heap_type::FrozenHeapArc;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
-use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::heap_type::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -783,9 +783,9 @@ impl Drop for WaitGuard {
 #[cold]
 fn conflicting_heap_binding(
     heap_id: HeapRefId,
-    bound: &FrozenHeapRef,
+    bound: &FrozenHeapArc,
     bound_heap_ptr: FrozenHeapPtr,
-    conflicting: Option<&FrozenHeapRef>,
+    conflicting: Option<&FrozenHeapArc>,
     conflicting_heap_ptr: FrozenHeapPtr,
 ) -> PagableError {
     PagableError::ConflictingHeapBinding {
@@ -796,7 +796,7 @@ fn conflicting_heap_binding(
         bound_heap_ptr: bound_heap_ptr.addr(),
         bound_origin: bound.allocation_origin(),
         conflicting_heap_ptr: conflicting_heap_ptr.addr(),
-        conflicting_origin: conflicting.map(FrozenHeapRef::allocation_origin),
+        conflicting_origin: conflicting.map(FrozenHeapArc::allocation_origin),
     }
 }
 
@@ -840,7 +840,7 @@ impl StarlarkDeserScope {
     pub(crate) fn is_heap_bound(
         &self,
         heap_id: HeapRefId,
-        heap: &FrozenHeapRef,
+        heap: &FrozenHeapArc,
     ) -> Result<bool, PagableError> {
         let heap_ptr = heap
             .downgrade()
@@ -872,7 +872,7 @@ impl StarlarkDeserScope {
         }
     }
 
-    pub(crate) fn get_heap(&self, heap_id: &HeapRefId) -> Option<FrozenHeapRef> {
+    pub(crate) fn get_heap(&self, heap_id: &HeapRefId) -> Option<FrozenHeapArc> {
         self.heap_bindings
             .get(heap_id)
             .and_then(|heap| heap.upgrade())

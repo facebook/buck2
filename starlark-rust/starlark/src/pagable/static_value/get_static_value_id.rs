@@ -95,7 +95,7 @@ fn get_static_values() -> impl Iterator<Item = FrozenValue> {
 }
 
 fn get_static_heap_values() -> impl Iterator<Item = FrozenValue> {
-    StaticHeapEntry::iter_sorted().flat_map(|e| (e.get_heap)().iter_values())
+    StaticHeapEntry::iter_sorted().flat_map(|e| (e.get_heap)().heap_arc().iter_values())
 }
 
 /// Look up a `FrozenValue` by its `StaticValueId`.

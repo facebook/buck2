@@ -27,8 +27,8 @@
 
 use itertools::Itertools;
 
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
+use crate::values::OwnedFrozenRef;
 
 /// Unified registry entry for a static frozen value.
 ///
@@ -78,7 +78,7 @@ pub struct StaticHeapEntry {
     ///
     /// We use a function pointer instead of storing the heap directly so the
     /// `inventory::submit!` payload can remain const-compatible.
-    pub get_heap: fn() -> &'static FrozenHeapRef,
+    pub get_heap: fn() -> OwnedFrozenRef<'static, ()>,
 }
 
 inventory::collect!(StaticHeapEntry);

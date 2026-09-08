@@ -30,7 +30,7 @@ use std::sync::LazyLock;
 use pagable::Pagable;
 
 use crate::pagable::static_value::registry::StaticHeapEntry;
-use crate::values::FrozenHeapRef;
+use crate::values::layout::heap::heap_type::FrozenHeapArc;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 
 /// A unique identifier for a registered static heap.
@@ -48,14 +48,14 @@ struct StaticHeapMaps {
     /// Heap allocation identity → id (serialization).
     ptr_to_id: HashMap<FrozenHeapPtr, StaticHeapId>,
     /// Id → registered static heap (deserialization resolution).
-    id_to_heap: Vec<&'static FrozenHeapRef>,
+    id_to_heap: Vec<&'static FrozenHeapArc>,
 }
 
 static STATIC_HEAP_MAPS: LazyLock<StaticHeapMaps> = LazyLock::new(|| {
     let mut ptr_to_id = HashMap::new();
-    let mut id_to_heap: Vec<&'static FrozenHeapRef> = Vec::new();
+    let mut id_to_heap: Vec<&'static FrozenHeapArc> = Vec::new();
     for entry in StaticHeapEntry::iter_sorted() {
-        let heap = (entry.get_heap)();
+        let heap = (entry.get_heap)().heap_arc();
         // An empty static heap has no inner allocation; it serializes as the
         // `None` ref and never needs an id.
         let Some(ptr) = heap.downgrade().map(|weak| weak.heap_ptr()) else {
@@ -80,13 +80,13 @@ static STATIC_HEAP_MAPS: LazyLock<StaticHeapMaps> = LazyLock::new(|| {
 
 /// The id of `heap`, if it is one of the process-wide static heaps registered
 /// through [`StaticHeapEntry`].
-pub(crate) fn get_static_heap_id(heap: &FrozenHeapRef) -> Option<StaticHeapId> {
+pub(crate) fn get_static_heap_id(heap: &FrozenHeapArc) -> Option<StaticHeapId> {
     let weak = heap.downgrade()?;
     STATIC_HEAP_MAPS.ptr_to_id.get(&weak.heap_ptr()).copied()
 }
 
 /// Resolve a registered static heap by id.
-pub(crate) fn get_static_heap_by_id(id: StaticHeapId) -> Option<&'static FrozenHeapRef> {
+pub(crate) fn get_static_heap_by_id(id: StaticHeapId) -> Option<&'static FrozenHeapArc> {
     STATIC_HEAP_MAPS.id_to_heap.get(id.0 as usize).copied()
 }
 
@@ -98,7 +98,7 @@ mod tests {
     fn test_id_round_trips_to_the_same_allocation() {
         let mut checked = 0;
         for entry in StaticHeapEntry::iter_sorted() {
-            let heap = (entry.get_heap)();
+            let heap = (entry.get_heap)().heap_arc();
             let Some(id) = get_static_heap_id(heap) else {
                 // Empty heaps are not registered.
                 continue;

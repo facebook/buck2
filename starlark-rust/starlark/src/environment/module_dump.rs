@@ -19,8 +19,8 @@ use std::fmt::Write;
 
 use crate::environment::FrozenModule;
 use crate::eval::compiler::def::FrozenDef;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValueTyped;
+use crate::values::OwnedFrozenRef;
 
 impl FrozenModule {
     /// Print a lot of module internals for debugging.
@@ -29,7 +29,7 @@ impl FrozenModule {
 
         writeln!(w, "Eval duration: {:.3}s", self.eval_duration.as_secs_f64()).unwrap();
         writeln!(w, "Heap stats:").unwrap();
-        w.push_str(&self.frozen_heap().dump_debug());
+        w.push_str(&dump_heap_debug(self.frozen_heap()));
 
         for (name, value) in self.all_items() {
             // TODO(nga): this prints public, private and imported symbols.
@@ -46,11 +46,9 @@ impl FrozenModule {
     }
 }
 
-impl FrozenHeapRef {
-    fn dump_debug(&self) -> String {
-        let mut w = String::new();
-        writeln!(w, "Allocated bytes: {}", self.allocated_bytes()).unwrap();
-        writeln!(w, "Available bytes: {}", self.available_bytes()).unwrap();
-        w
-    }
+fn dump_heap_debug(heap: OwnedFrozenRef<'_, ()>) -> String {
+    let mut w = String::new();
+    writeln!(w, "Allocated bytes: {}", heap.allocated_bytes()).unwrap();
+    writeln!(w, "Available bytes: {}", heap.available_bytes()).unwrap();
+    w
 }

@@ -32,8 +32,8 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
 use crate::values::FrozenValueTyped;
+use crate::values::OwnedFrozen;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
@@ -65,7 +65,7 @@ pub(crate) fn local_as_value(
 ) -> Option<FrozenValueTyped<'static, LocalAsValue>> {
     // 100 is practically enough.
     static LOCALS: LazyLock<(
-        FrozenHeapRef,
+        OwnedFrozen<()>,
         [FrozenValueTyped<'static, LocalAsValue>; 100],
     )> = LazyLock::new(|| {
         let heap = FrozenHeap::new();

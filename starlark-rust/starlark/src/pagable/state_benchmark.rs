@@ -47,7 +47,7 @@ use crate::pagable::starlark_serialize_context::ChunkEntry;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
-use crate::values::FrozenHeapRef;
+use crate::values::OwnedFrozen;
 use crate::values::StarlarkValue;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 
@@ -89,7 +89,7 @@ impl BenchHeapName {
 fn build_synthetic_heaps(
     num_heaps: usize,
     values_per_heap: usize,
-) -> Vec<(FrozenHeapRef, HeapRefId, Vec<usize>)> {
+) -> Vec<(OwnedFrozen<()>, HeapRefId, Vec<usize>)> {
     (0..num_heaps)
         .map(|h| {
             let heap = FrozenHeap::new();
@@ -104,12 +104,14 @@ fn build_synthetic_heaps(
             let mut ptrs: Vec<usize> = Vec::new();
             ptrs.extend(
                 heap_ref
+                    .heap_arc()
                     .collect_drop_headers_ordered()
                     .iter()
                     .map(|hp| hp.payload_ptr().ptr as usize),
             );
             ptrs.extend(
                 heap_ref
+                    .heap_arc()
                     .collect_undrop_headers_ordered()
                     .iter()
                     .map(|hp| hp.payload_ptr().ptr as usize),
@@ -123,7 +125,7 @@ fn build_synthetic_heaps(
 /// shipped in `starlark_serialize_context.rs` before the chunk-index
 /// rewrite. Used here as the OLD baseline in side-by-side comparisons.
 fn build_per_value_dashmap(
-    heaps: &[(FrozenHeapRef, HeapRefId, Vec<usize>)],
+    heaps: &[(OwnedFrozen<()>, HeapRefId, Vec<usize>)],
 ) -> DashMap<usize, (HeapRefId, u32)> {
     let total_values: usize = heaps.iter().map(|(_, _, ptrs)| ptrs.len()).sum();
     let map: DashMap<usize, (HeapRefId, u32)> = DashMap::with_capacity(total_values);
@@ -188,7 +190,7 @@ fn test_chunk_index_beats_per_value_hashmap_memory_and_speed() {
     let new_build_start = Instant::now();
     for (heap_ref, _, _) in &heaps {
         state
-            .ensure_chunk_index_registered(heap_ref)
+            .ensure_chunk_index_registered(heap_ref.heap_arc())
             .expect("register chunk index");
     }
     let new_build_elapsed = new_build_start.elapsed();
@@ -200,7 +202,7 @@ fn test_chunk_index_beats_per_value_hashmap_memory_and_speed() {
 
     let chunks_total: usize = heaps
         .iter()
-        .map(|(h, _, _)| h.build_chunk_index().len())
+        .map(|(h, _, _)| h.heap_arc().build_chunk_index().len())
         .sum();
     // `size_of::<ChunkEntry>` covers the `Box<[u32]>` header but not the
     // boxed contents — add those explicitly.
@@ -334,7 +336,7 @@ fn test_chunk_index_lookup_is_correct_and_fast() {
     let state = Arc::new(StarlarkSerState::new());
     for (heap_ref, _, _) in &heaps {
         state
-            .ensure_chunk_index_registered(heap_ref)
+            .ensure_chunk_index_registered(heap_ref.heap_arc())
             .expect("register chunk index");
     }
 
@@ -372,7 +374,7 @@ fn test_lookup_misses_when_ptr_not_in_any_chunk() {
     let state = Arc::new(StarlarkSerState::new());
     for (heap_ref, _, _) in &heaps {
         state
-            .ensure_chunk_index_registered(heap_ref)
+            .ensure_chunk_index_registered(heap_ref.heap_arc())
             .expect("register chunk index");
     }
 
@@ -381,7 +383,7 @@ fn test_lookup_misses_when_ptr_not_in_any_chunk() {
 
     let max_chunk_end = heaps
         .iter()
-        .flat_map(|(h, _, _)| h.build_chunk_index().into_iter())
+        .flat_map(|(h, _, _)| h.heap_arc().build_chunk_index().into_iter())
         .map(|c| c.base + c.size as usize)
         .max()
         .unwrap_or(0);
