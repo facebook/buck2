@@ -314,8 +314,8 @@ impl<'v> FreezeBranded for DictGen<RefCell<Dict<'v>>> {
         let mut content = SmallMap::with_capacity(entries.len());
         for (key, value) in entries.into_iter_hashed() {
             // Freezing does not change the hash.
-            let key = Hashed::new_unchecked(key.hash(), freezer.freeze_branded(key.into_key())?);
-            content.insert_hashed_unique_unchecked(key, freezer.freeze_branded(value)?);
+            let key = Hashed::new_unchecked(key.hash(), freezer.freeze(key.into_key())?);
+            content.insert_hashed_unique_unchecked(key, freezer.freeze(value)?);
         }
         Ok(DictGen(Dict { content }))
     }

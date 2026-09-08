@@ -195,7 +195,7 @@ impl<'v> FreezeBranded for Transition<'v> {
     type Frozen<'fv> = FrozenTransition<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenTransition<'fv>> {
-        let implementation = self.implementation.freeze_branded(freezer)?;
+        let implementation = self.implementation.freeze(freezer)?;
         let id = self.id.into_inner().ok_or(FreezeError::new(
             TransitionError::TransitionNotAssigned.to_string(),
         ))?;
@@ -203,11 +203,11 @@ impl<'v> FreezeBranded for Transition<'v> {
         // which can cause over-allocations in frozen containers.
         let mut refs = SmallMap::with_capacity(self.refs.len());
         for (k, v) in self.refs {
-            refs.insert(k.freeze_branded(freezer)?, v.0);
+            refs.insert(k.freeze(freezer)?, v.0);
         }
         let attrs = self
             .attrs
-            .map(|a| a.into_try_map(|a| a.freeze_branded(freezer)))
+            .map(|a| a.into_try_map(|a| a.freeze(freezer)))
             .transpose()?;
         let split = self.split;
         Ok(FrozenTransition {

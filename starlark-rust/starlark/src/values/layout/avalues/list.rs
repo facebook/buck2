@@ -99,7 +99,7 @@ impl<'v> AValue<'v> for AValueList {
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
-                elem_place.write(freezer.freeze_branded(*elem)?);
+                elem_place.write(freezer.freeze(*elem)?);
             }
             r.fill(ListGen(FrozenListData::new(content.len())));
             Ok(fv)

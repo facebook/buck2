@@ -145,7 +145,7 @@ impl<'v> FreezeBranded for StarlarkPackageValue<'v> {
     type Frozen<'fv> = StarlarkPackageValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<StarlarkPackageValue<'fv>> {
-        let frozen = self.0.freeze_branded(freezer)?;
+        let frozen = self.0.freeze(freezer)?;
 
         // Error is possible if either:
         // * package value is modified after `write_package_value`

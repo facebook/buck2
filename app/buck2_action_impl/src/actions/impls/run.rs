@@ -363,6 +363,17 @@ impl<'v> AllocValue<'v> for StarlarkRunActionValues<'v> {
     }
 }
 
+/// See the comment on `FrozenStarlarkRunActionValues::category`.
+fn unbranded(s: StringValue<'_>) -> FrozenStringValue {
+    FrozenStringValue::new(
+        s.to_value()
+            .unpack_frozen()
+            .expect("a freezer hands out frozen values")
+            .to_value(),
+    )
+    .expect("froze a string")
+}
+
 impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
     type Frozen<'fv> = FrozenStarlarkRunActionValues<'fv>;
 
@@ -384,8 +395,10 @@ impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
             env: FreezeBranded::freeze(env, freezer)?,
             worker: FreezeBranded::freeze(worker, freezer)?,
             remote_worker: FreezeBranded::freeze(remote_worker, freezer)?,
-            category: category.freeze(freezer)?,
-            identifier: identifier.map(|i| i.freeze(freezer)).transpose()?,
+            category: unbranded(category.freeze(freezer)?),
+            identifier: identifier
+                .map(|i| Ok(unbranded(i.freeze(freezer)?)))
+                .transpose()?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,
             // which can cause over-allocations in frozen containers.
             outputs_for_error_handler: {

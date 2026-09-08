@@ -483,7 +483,7 @@ where
     type Frozen<'fv> = ValueTyped<'fv, <T as FreezeBranded>::Frozen<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(ValueTyped::new_err(self.0.freeze_branded(freezer)?)
+        Ok(ValueTyped::new_err(self.0.freeze(freezer)?)
             .expect("Freezing a value is known to be well-behaved"))
     }
 }
@@ -499,7 +499,7 @@ where
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // The value is already frozen, so the freezer only re-brands it (the target heap takes
         // over the source heap's dependencies); its type does not change.
-        Ok(FrozenValueTyped::new_err(self.0.freeze_branded(freezer)?)
+        Ok(FrozenValueTyped::new_err(self.0.freeze(freezer)?)
             .expect("a frozen value's type does not change across brands"))
     }
 }

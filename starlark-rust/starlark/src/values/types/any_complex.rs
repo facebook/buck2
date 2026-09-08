@@ -259,8 +259,8 @@ mod tests {
 
         fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenData<'fv>> {
             Ok(FrozenData {
-                string: self.string.freeze_branded(freezer)?,
-                other: freezer.freeze_branded(self.other)?,
+                string: self.string.freeze(freezer)?,
+                other: freezer.freeze(self.other)?,
             })
         }
     }

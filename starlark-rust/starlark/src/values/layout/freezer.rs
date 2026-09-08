@@ -65,25 +65,22 @@ impl<'fv> Freezer<'fv> {
     }
 
     /// Freeze a nested value while freezing yourself.
-    pub fn freeze(&self, value: Value) -> FreezeResult<FrozenValue> {
+    pub fn freeze<'v>(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
         // Case 1: We have our value encoded in our pointer
         if let Some(x) = value.unpack_frozen() {
-            return Ok(x);
+            return Ok(x.to_value());
         }
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
         let value = value.0.unpack_ptr().unwrap();
         match value.unpack() {
             AValueOrForwardUnpack::Forward(x) => {
-                Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
+                Ok(unsafe { x.forward_ptr().unpack_frozen_value() }.to_value())
             }
-            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_freeze(self) },
+            AValueOrForwardUnpack::Header(v) => {
+                unsafe { v.unpack().heap_freeze(self) }.map(|fv| fv.to_value())
+            }
         }
-    }
-
-    /// Freeze a nested value while freezing yourself.
-    pub fn freeze_branded<'v>(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
-        self.freeze(value).map(|fv| fv.to_value())
     }
 
     /// Frozen heap where the values are frozen to.

@@ -548,7 +548,7 @@ impl<'v> Module<'v> {
             let slots = slots.freeze(&freezer)?;
             let extra_value = extra_value
                 .into_inner()
-                .map(|v| freezer.freeze_branded(v))
+                .map(|v| freezer.freeze(v))
                 .transpose()?;
             let heap_profile = if let Some(mode) = heap_profile_on_freeze.get() {
                 // TODO(nga): retained heap profile does not store information about data

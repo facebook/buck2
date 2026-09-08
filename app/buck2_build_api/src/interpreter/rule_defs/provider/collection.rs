@@ -455,7 +455,7 @@ impl<'v> FreezeBranded for ProviderCollection<'v> {
         // which can cause over-allocations in frozen containers.
         let mut providers = SmallMap::with_capacity(self.providers.len());
         for (k, v) in self.providers {
-            providers.insert(k, freezer.freeze_branded(v)?);
+            providers.insert(k, freezer.freeze(v)?);
         }
 
         Ok(ProviderCollection { providers })

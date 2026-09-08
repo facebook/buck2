@@ -20,7 +20,7 @@
 //! This module contains code for working with Starlark values:
 //!
 //! * Most code dealing with Starlark will use [`Value`], as it represents the fundamental values used in
-//!   Starlark. When frozen, they become [`FrozenValue`].
+//!   Starlark. Freezing (see [`Freezer`]) moves them into a [`FrozenHeap`].
 //! * Values are garbage-collected, so a given [`Value`] lives on a [`Heap`].
 //! * Rust values (e.g. [`String`], [`Vec`]) can be added to the [`Heap`] with [`AllocValue`],
 //!   and deconstructed from a [`Value`] with [`UnpackValue`]

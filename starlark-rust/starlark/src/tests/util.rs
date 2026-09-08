@@ -60,7 +60,12 @@ impl<'v> FreezeBranded for TestComplexValue<Value<'v>> {
     type Frozen<'fv> = TestComplexValue<FrozenValue>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(TestComplexValue(freezer.freeze(self.0)?))
+        Ok(TestComplexValue(
+            freezer
+                .freeze(self.0)?
+                .unpack_frozen()
+                .expect("a freezer hands out frozen values"),
+        ))
     }
 }
 

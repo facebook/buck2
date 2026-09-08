@@ -390,7 +390,7 @@ impl<'v> FreezeBranded for CommandLineOptions<'v> {
 
         let mut options = Vec::new();
         if let Some((relative_to, parent)) = relative_to {
-            let relative_to = freezer.freeze_branded(relative_to.get())?;
+            let relative_to = freezer.freeze(relative_to.get())?;
             options.push(FrozenCommandLineOption::RelativeTo(
                 ValueOfUnchecked::new(relative_to),
                 parent,

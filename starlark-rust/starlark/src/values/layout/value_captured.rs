@@ -85,10 +85,7 @@ impl<'v> FreezeBranded for ValueCaptured<'v> {
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured<'fv>> {
         Ok(FrozenValueCaptured(
-            self.0
-                .get()
-                .map(|v| freezer.freeze_branded(v))
-                .transpose()?,
+            self.0.get().map(|v| freezer.freeze(v)).transpose()?,
         ))
     }
 }

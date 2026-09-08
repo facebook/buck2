@@ -225,7 +225,7 @@ impl<'v> FreezeBranded for Value<'v> {
     type Frozen<'fv> = Value<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
-        freezer.freeze_branded(self)
+        freezer.freeze(self)
     }
 }
 

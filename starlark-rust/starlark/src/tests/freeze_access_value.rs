@@ -32,7 +32,7 @@ impl<'v> FreezeBranded for Test<Value<'v>> {
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let test = Test {
-            field: self.field.freeze_branded(freezer)?,
+            field: self.field.freeze(freezer)?,
         };
         let members = ListRef::from_value(test.field).unwrap();
         assert_eq!(members[0].unpack_num().unwrap().as_int().unwrap(), 1);

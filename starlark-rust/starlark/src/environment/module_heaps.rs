@@ -167,7 +167,7 @@ mod tests {
             heaps
                 .seal_with::<Value<'static>, ()>(None, |fh, _edge| {
                     let v = foreign.as_ref().add_to_heap(heap);
-                    Ok(Freezer::new(fh).freeze_branded(v).unwrap())
+                    Ok(Freezer::new(fh).freeze(v).unwrap())
                 })
                 .unwrap()
         });

@@ -180,7 +180,7 @@ fn freeze_names<'fv>(
     let mut frozen = SmallMap::with_capacity(names.len());
     for (name, slot) in names.into_iter_hashed() {
         let hash = name.hash();
-        let name = name.into_key().freeze_branded(freezer)?;
+        let name = name.into_key().freeze(freezer)?;
         // Freezing keeps a string's hash.
         frozen.insert_hashed_unique_unchecked(Hashed::new_unchecked(hash, name), slot);
     }

@@ -142,12 +142,12 @@ impl<'v> FreezeBranded for Partial<'v> {
     type Frozen<'fv> = Partial<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(Partial {
-            func: self.func.freeze_branded(freezer)?,
-            pos: freezer.freeze_branded(self.pos)?,
-            named: self.named.try_map(|x| x.freeze_branded(freezer))?,
+            func: self.func.freeze(freezer)?,
+            pos: freezer.freeze(self.pos)?,
+            named: self.named.try_map(|x| x.freeze(freezer))?,
             names: self
                 .names
-                .into_try_map(|(s, x)| Ok((s, x.freeze_branded(freezer)?)))?,
+                .into_try_map(|(s, x)| Ok((s, x.freeze(freezer)?)))?,
             names_index: self.names_index,
         })
     }

@@ -922,14 +922,9 @@ impl<'v> Value<'v> {
         }
     }
 
-    /// Convert a value to a [`FrozenValue`] using a supplied [`Freezer`].
-    pub fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
+    /// Freeze the value into the [`Freezer`]'s heap.
+    pub fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
         freezer.freeze(self)
-    }
-
-    /// Convert a value to a frozen value using a supplied [`Freezer`].
-    pub fn freeze_branded<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
-        freezer.freeze_branded(self)
     }
 
     /// Implement the `str()` function - converts a string value to itself,

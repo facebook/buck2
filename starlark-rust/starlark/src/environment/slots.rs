@@ -108,7 +108,7 @@ impl<'v> MutableSlots<'v> {
         let slots = self
             .0
             .into_inner()
-            .into_try_map(|slot| slot.map(|v| freezer.freeze_branded(v)).transpose())?;
+            .into_try_map(|slot| slot.map(|v| freezer.freeze(v)).transpose())?;
         Ok(FrozenSlots(slots))
     }
 }

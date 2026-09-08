@@ -99,7 +99,7 @@ impl<'v> AValue<'v> for AValueTuple {
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
-                elem_place.write(freezer.freeze_branded(*elem)?);
+                elem_place.write(freezer.freeze(*elem)?);
             }
             r.fill(Tuple::new(content.len()));
 

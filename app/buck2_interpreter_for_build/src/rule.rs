@@ -442,10 +442,7 @@ impl<'v> FreezeBranded for StarlarkRuleCallable<'v> {
             Some(artifacts) => {
                 let mut mappings = SmallMap::new();
                 for (name, implementation) in artifacts.mappings {
-                    mappings.insert(
-                        name.freeze_branded(freezer)?,
-                        implementation.freeze_branded(freezer)?,
-                    );
+                    mappings.insert(name.freeze(freezer)?, implementation.freeze(freezer)?);
                 }
                 Some(FrozenArtifactPromiseMappings { mappings })
             }

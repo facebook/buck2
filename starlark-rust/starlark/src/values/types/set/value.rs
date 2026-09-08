@@ -150,8 +150,7 @@ impl<'v> FreezeBranded for MutableSet<'v> {
         let mut content = SmallSet::with_capacity(values.len());
         for value in values.into_iter_hashed() {
             // Freezing does not change the hash.
-            let value =
-                Hashed::new_unchecked(value.hash(), freezer.freeze_branded(value.into_key())?);
+            let value = Hashed::new_unchecked(value.hash(), freezer.freeze(value.into_key())?);
             content.insert_hashed_unique_unchecked(value);
         }
         Ok(SetGen(SetData { content }))

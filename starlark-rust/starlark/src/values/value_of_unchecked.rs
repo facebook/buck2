@@ -148,7 +148,7 @@ impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
     type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let frozen = self.0.freeze_branded(freezer)?;
+        let frozen = self.0.freeze(freezer)?;
         Ok(ValueOfUncheckedGeneric::new(frozen))
     }
 }

@@ -515,14 +515,14 @@ impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
         let mut frozen_transitive_sets = Vec::with_capacity(transitive_sets.len());
         for v in transitive_sets {
             frozen_transitive_sets.push(
-                FrozenValueTyped::new_err(freezer.freeze_branded(v.to_value())?)
+                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             );
         }
         let result_value = match result_value.into_inner() {
             None => None,
             Some(v) => Some(
-                FrozenValueTyped::new_err(freezer.freeze_branded(v.to_value())?)
+                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
                     .map_err(|e| FreezeError::new(e.to_string()))?,
             ),
         };

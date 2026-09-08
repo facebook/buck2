@@ -72,7 +72,7 @@ impl<'v> FreezeBranded for CommandLineArg<'v> {
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<CommandLineArg<'fv>> {
         // Freezing does not change a value's type, so the constructor check carries over.
-        Ok(CommandLineArg(self.0.freeze_branded(freezer)?))
+        Ok(CommandLineArg(self.0.freeze(freezer)?))
     }
 }
 

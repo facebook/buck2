@@ -273,9 +273,10 @@ mod tests {
     use crate::values::dict::AllocDict;
     use crate::values::freeze_error::FreezeResult;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
-    use crate::values::types::list::value::FrozenList;
+    use crate::values::types::list::value::FrozenListData;
     use crate::values::types::list::value::ListData;
-    use crate::values::types::tuple::value::FrozenTuple;
+    use crate::values::types::list::value::ListGen;
+    use crate::values::types::tuple::value::Tuple;
 
     #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative)]
     struct ReentrantTupleFreeze<'v>(RefCell<Option<Value<'v>>>);
@@ -313,7 +314,7 @@ mod tests {
                 .expect("test value should point back to the tuple containing it");
             let owner = freezer.freeze(owner)?;
             assert!(
-                owner.downcast_ref::<FrozenTuple>().is_none(),
+                owner.downcast_ref::<Tuple<'fv>>().is_none(),
                 "tuple should not be observable until its inline elements are initialized",
             );
             Ok(FrozenReentrantTupleFreeze)
@@ -356,7 +357,9 @@ mod tests {
                 .expect("test value should point back to the list containing it");
             let owner = freezer.freeze(owner)?;
             assert!(
-                owner.downcast_ref::<FrozenList>().is_none(),
+                owner
+                    .downcast_ref::<ListGen<FrozenListData<'fv>>>()
+                    .is_none(),
                 "list should not be observable until its inline elements are initialized",
             );
             Ok(FrozenReentrantListFreeze)
