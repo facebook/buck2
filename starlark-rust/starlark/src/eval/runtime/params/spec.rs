@@ -33,7 +33,6 @@ use triomphe::Arc;
 use crate as starlark;
 use crate::__macro_refs::coerce;
 use crate::any::ProvidesStaticType;
-use crate::cast::transmute;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
 use crate::docs::DocParams;
@@ -659,15 +658,7 @@ impl<V> ParametersSpec<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
-    /// The spec at the reader's brand. `ParametersSpec<FrozenValue>` is the signature type of
-    /// the native-function machinery, which builds specs with no heap in reach; this is where
-    /// such a spec is read at a lifetime.
-    pub(crate) fn as_value(&self) -> &ParametersSpec<Value<'v>> {
-        // Everything is `repr(C)` and `Value` and `FrozenValue` have the same layout.
-        unsafe { transmute!(&ParametersSpec<V>, &ParametersSpec<Value>, self) }
-    }
-
+impl<V> ParametersSpec<V> {
     /// Number of function parameters.
     pub fn len(&self) -> usize {
         self.prototype.param_kinds.len()
@@ -678,7 +669,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     /// Move parameters from [`Arguments`] to a list of [`Value`],
     /// using the supplied [`ParametersSpec`].
     #[inline]
-    fn collect_impl(
+    pub fn collect(
         &self,
         args: &Arguments<'v, '_>,
         slots: &mut [Option<Value<'v>>],
@@ -691,7 +682,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     ///
     /// This function is called by generated code.
     #[inline]
-    fn collect_into_impl<const N: usize>(
+    pub fn collect_into<const N: usize>(
         &self,
         args: &Arguments<'v, '_>,
         heap: Heap<'v>,
@@ -704,7 +695,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     /// A variant of `collect` that is always inlined
     /// for Def and NativeFunction that are hot-spots
     #[inline(always)]
-    fn collect_inline_impl<'a, A: ArgumentsImpl<'v, 'a>>(
+    pub(crate) fn collect_inline<'a, A: ArgumentsImpl<'v, 'a>>(
         &self,
         args: &A,
         slots: &mut [Option<Value<'v>>],
@@ -959,7 +950,7 @@ impl<'v> ParametersSpec<Value<'v>> {
 
     /// Check if current parameters can be filled with given arguments signature.
     #[allow(clippy::needless_range_loop)]
-    fn can_fill_with_args_impl(&self, pos: usize, names: &[&str]) -> bool {
+    pub fn can_fill_with_args(&self, pos: usize, names: &[&str]) -> bool {
         let mut filled = vec![false; self.prototype.param_kinds.len()];
         for p in 0..pos {
             if p < (self.prototype.indices.num_positional as usize) {
@@ -1008,7 +999,7 @@ impl<'v> ParametersSpec<Value<'v>> {
 
     /// Create a [`ParametersParser`] for given arguments.
     #[inline]
-    fn parser_impl<R, F>(
+    pub fn parser<R, F>(
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -1036,81 +1027,20 @@ impl<'v> ParametersSpec<Value<'v>> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
-    /// Collect `N` arguments.
-    ///
-    /// This function is called by generated code.
-    #[inline]
-    pub fn collect_into<const N: usize>(
-        &self,
-        args: &Arguments<'v, '_>,
-        heap: Heap<'v>,
-    ) -> crate::Result<[Option<Value<'v>>; N]> {
-        self.as_value().collect_into_impl(args, heap)
-    }
-
-    /// Move parameters from [`Arguments`] to a list of [`Value`],
-    /// using the supplied [`ParametersSpec`].
-    #[inline]
-    pub fn collect(
-        &self,
-        args: &Arguments<'v, '_>,
-        slots: &mut [Option<Value<'v>>],
-        heap: Heap<'v>,
-    ) -> crate::Result<()> {
-        self.as_value().collect_impl(args, slots, heap)
-    }
-
+impl<'v> ParametersSpec<Value<'v>> {
     /// Generate documentation for each of the parameters.
     ///
     /// # Arguments
     /// * `parameter_types` should be a mapping of parameter index to type
     /// * `parameter_docs` should be a mapping of parameter name to possible documentation for
     ///                    that parameter
-    #[inline]
     pub fn documentation(
         &self,
         parameter_types: Vec<Ty>,
         parameter_docs: HashMap<String, Option<DocString>>,
     ) -> DocParams {
-        self.as_value().documentation_with_default_value_formatter(
-            parameter_types,
-            parameter_docs,
-            |v| v.to_value().to_repr(),
-        )
-    }
-
-    /// Create a [`ParametersParser`] for given arguments.
-    #[inline]
-    pub fn parser<R, F>(
-        &self,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-        k: F,
-    ) -> crate::Result<R>
-    where
-        F: FnOnce(&mut ParametersParser<'v, '_>, &mut Evaluator<'v, '_, '_>) -> crate::Result<R>,
-    {
-        self.as_value().parser_impl(args, eval, k)
-    }
-
-    /// A variant of `collect` that is always inlined
-    /// for Def and NativeFunction that are hot-spots
-    #[inline(always)]
-    pub(crate) fn collect_inline<'a, A: ArgumentsImpl<'v, 'a>>(
-        &self,
-        args: &A,
-        slots: &mut [Option<Value<'v>>],
-        heap: Heap<'v>,
-    ) -> crate::Result<()>
-    where
-        'v: 'a,
-    {
-        self.as_value().collect_inline_impl(args, slots, heap)
-    }
-
-    /// Check if current parameters can be filled with given arguments signature.
-    pub fn can_fill_with_args(&self, pos: usize, names: &[&str]) -> bool {
-        self.as_value().can_fill_with_args_impl(pos, names)
+        self.documentation_with_default_value_formatter(parameter_types, parameter_docs, |v| {
+            v.to_repr()
+        })
     }
 }

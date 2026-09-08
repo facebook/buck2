@@ -95,13 +95,13 @@ mod tests {
     use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
-    use crate::values::FrozenValue;
+    use crate::values::Value;
     use crate::values::ValueLike;
 
     #[test]
     fn test_documentation() -> anyhow::Result<()> {
         // Make sure that documentation for some odder parameter specs works properly.
-        let p = ParametersSpec::<FrozenValue>::new_parts(
+        let p = ParametersSpec::<Value>::new_parts(
             "f",
             [],
             [],
