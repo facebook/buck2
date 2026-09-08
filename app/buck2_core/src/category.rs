@@ -97,7 +97,7 @@ impl<'de> PagableDeserialize<'de> for Category {
 }
 
 impl<'a> CategoryRef<'a> {
-    pub fn unchecked_new(s: &'static str) -> Self {
+    pub fn unchecked_new(s: &'a str) -> Self {
         CategoryRef(s)
     }
 

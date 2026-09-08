@@ -112,7 +112,6 @@ use starlark::values::AllocValue;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
@@ -342,10 +341,8 @@ pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
-    // The strings stay unbranded so that `category`/`identifier` can hand out
-    // `&'static str`s.
-    pub(crate) category: FrozenStringValue,
-    pub(crate) identifier: Option<FrozenStringValue>,
+    pub(crate) category: StringValue<'v>,
+    pub(crate) identifier: Option<StringValue<'v>>,
     pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>>,
 }
 
@@ -361,17 +358,6 @@ impl<'v> AllocValue<'v> for StarlarkRunActionValues<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_branded(self)
     }
-}
-
-/// See the comment on `FrozenStarlarkRunActionValues::category`.
-fn unbranded(s: StringValue<'_>) -> FrozenStringValue {
-    FrozenStringValue::new(
-        s.to_value()
-            .unpack_frozen()
-            .expect("a freezer hands out frozen values")
-            .to_value(),
-    )
-    .expect("froze a string")
 }
 
 impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
@@ -395,10 +381,8 @@ impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
             env: FreezeBranded::freeze(env, freezer)?,
             worker: FreezeBranded::freeze(worker, freezer)?,
             remote_worker: FreezeBranded::freeze(remote_worker, freezer)?,
-            category: unbranded(category.freeze(freezer)?),
-            identifier: identifier
-                .map(|i| Ok(unbranded(i.freeze(freezer)?)))
-                .transpose()?,
+            category: category.freeze(freezer)?,
+            identifier: identifier.map(|i| i.freeze(freezer)).transpose()?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,
             // which can cause over-allocations in frozen containers.
             outputs_for_error_handler: {
