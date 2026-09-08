@@ -1427,6 +1427,10 @@ fn test_frozen_dict_round_trip() -> crate::Result<()> {
         .collect();
     assert!(keys.contains(&"hello"));
     assert!(keys.contains(&"world"));
+    // Looking a key up uses the hash that deserialization stored alongside it; iterating
+    // the entries would pass even if that hash were wrong.
+    assert_eq!(dict.0.get_str("hello").unwrap().unpack_i32(), Some(1));
+    assert_eq!(dict.0.get_str("world").unwrap().unpack_i32(), Some(2));
 
     Ok(())
 }
@@ -1477,6 +1481,9 @@ fn test_frozen_set_round_trip() -> crate::Result<()> {
     assert!(values.contains(&1));
     assert!(values.contains(&2));
     assert!(values.contains(&3));
+    // As for the dict: only a lookup checks the hash deserialization stored.
+    let probe = FrozenValue::testing_new_int(2).to_value().get_hashed()?;
+    assert!(set.0.content.contains_hashed(probe.as_ref()));
 
     Ok(())
 }
