@@ -531,8 +531,7 @@ def merge_to_split_dex(
 
     # Create lib metadata mapping: identifier -> owner target label
     # This is used by the sort tool to determine which module each lib belongs to.
-    # Gated behind [android].use_sort_pre_dexed_files_tool buckconfig flag (default: false).
-    use_sort_tool = read_root_config("android", "use_sort_pre_dexed_files_tool", "false").lower() == "true"
+    use_sort_tool = read_root_config("android", "use_sort_pre_dexed_files_tool", "true").lower() == "true"
     sort_pre_dexed_files_tool = getattr(android_toolchain, "sort_pre_dexed_files", None) if use_sort_tool else None
     dex_plan_file = None
 
