@@ -211,9 +211,9 @@ impl<'v> Heap<'v> {
 }
 
 /// A heap on which [`FrozenValue`]s can be allocated.
-/// Sealed into an [`OwnedFrozen<()>`] by [`into_ref_named`](FrozenHeap::into_ref_named).
+/// Sealed into an [`OwnedFrozen<()>`] by [`into_ref_named`](OwnedFrozenHeap::into_ref_named).
 #[derive(Default)]
-pub struct FrozenHeap {
+pub struct OwnedFrozenHeap {
     /// My memory.
     arena: Arena<ChunkAllocator>,
     /// Memory I depend on.
@@ -828,7 +828,7 @@ fn deserialize_heap_arc_with_recipe(
     Ok(Box::new(arc))
 }
 
-impl Debug for FrozenHeap {
+impl Debug for OwnedFrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
         x.field("bytes", &self.arena.allocated_bytes());
@@ -1061,7 +1061,10 @@ impl FrozenHeapArc {
     }
 }
 
-impl FrozenHeap {
+/// The name under which the unsealed frozen heap is reached.
+pub type FrozenHeap = OwnedFrozenHeap;
+
+impl OwnedFrozenHeap {
     /// Create a new [`FrozenHeap`].
     pub fn new() -> Self {
         Self::default()
@@ -1082,7 +1085,7 @@ impl FrozenHeap {
         name: Option<FrozenHeapName>,
         peak_allocated_bytes: Option<usize>,
     ) -> OwnedFrozen<()> {
-        let FrozenHeap {
+        let OwnedFrozenHeap {
             mut arena, refs, ..
         } = self;
         arena.finish();
