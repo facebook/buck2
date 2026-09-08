@@ -29,6 +29,7 @@ use pagable::StaticStr;
 
 use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
+use crate::any::IsStaticType;
 use crate::collections::SmallMap;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocItem;
@@ -48,14 +49,13 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkPagable;
-use crate::values::StringValueLike;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
@@ -100,11 +100,11 @@ pub(crate) struct GlobalsData<'v> {
     pub(crate) variables: SymbolMap<GlobalValue<'v>>,
 }
 
-/// A value in a [`GlobalsBuilder`]. The builder has no brand, so it keeps the values it allocates
-/// as `FrozenValue`s until `build` pairs them with the sealed heap.
+/// A value in a [`GlobalsBuilder`]: allocated in the builder's heap or in a heap it references,
+/// and stored with the brand erased until `build` pairs it with the sealed heap.
 #[derive(Clone, Copy, Dupe, Debug)]
 struct BuilderValue {
-    value: FrozenValue,
+    value: Value<'static>,
     doc_hidden: bool,
 }
 
@@ -184,8 +184,9 @@ pub struct GlobalsBuilder {
     heap: OwnedFrozenHeap,
     // Normal top-level variables, e.g. True/hash
     variables: SymbolMap<BuilderValue>,
-    // The list of struct fields, pushed to the end
-    namespace_fields: Vec<SmallMap<FrozenStringValue, BuilderValue>>,
+    /// The fields of the namespaces being built, innermost last. The keys are stored like the
+    /// values, see [`BuilderValue`].
+    namespace_fields: Vec<SmallMap<StringValue<'static>, BuilderValue>>,
     /// The raw docstring for this module
     ///
     /// FIXME(JakobDegen): This should probably be removed. Having a docstring on a `GlobalsBuilder`
@@ -376,18 +377,55 @@ impl GlobalsBuilder {
             let fields = fields
                 .into_iter()
                 .map(|(name, value)| {
+                    // SAFETY: `erase` stored both in `self.heap`, whose handle `heap` is.
+                    let (name, v) = unsafe {
+                        (
+                            Self::at_brand(heap, name),
+                            Self::at_brand(heap, value.value),
+                        )
+                    };
                     (
-                        name.to_string_value(),
+                        name,
                         MaybeDocHiddenValue {
-                            value: value.value.to_value(),
+                            value: v,
                             doc_hidden: value.doc_hidden,
                         },
                     )
                 })
                 .collect();
-            heap.alloc_frozen(Namespace::new(fields))
+            // SAFETY: Allocated in `self.heap` just here.
+            unsafe { Self::erase(heap.alloc(Namespace::new(fields))) }
         });
-        self.set_inner(name, namespace, doc_hidden);
+        // SAFETY: Allocated in `self.heap` just above.
+        unsafe { self.set_inner(name, namespace, doc_hidden) }
+    }
+
+    /// Forget the brand of a value, for storage in this builder.
+    ///
+    /// # Safety
+    ///
+    /// `v` must be allocated in `self.heap` or in a heap it references.
+    unsafe fn erase<'fh, T: IsStaticType>(v: T::Reinfect<'fh>) -> T
+    where
+        for<'fv> T::Reinfect<'fv>: Sized,
+    {
+        // SAFETY: `self.heap` keeps the value alive until `build`, and the `Globals` it becomes
+        // does afterwards.
+        unsafe { OwnedFrozen::<T>::erase_brand(v) }
+    }
+
+    /// A stored value, back at the brand of this builder's heap; `_heap` only names the brand.
+    ///
+    /// # Safety
+    ///
+    /// `v` must be allocated in the heap `_heap` is the handle of, or in a heap it references.
+    unsafe fn at_brand<'fh, T: IsStaticType>(_heap: FrozenHeap<'fh>, v: T) -> T::Reinfect<'fh>
+    where
+        for<'fv> T::Reinfect<'fv>: Sized,
+    {
+        // SAFETY: The caller's obligation; `'fh` is closure-introduced, so it names nothing but
+        // `_heap`.
+        unsafe { OwnedFrozen::<T>::restore_brand(v) }
     }
 
     /// A fluent API for modifying [`GlobalsBuilder`] and returning the result.
@@ -422,21 +460,30 @@ impl GlobalsBuilder {
         variable_names.sort();
         let heap = self.heap.seal_impl(name.map(FrozenHeapName::Global), None);
         let variables = self.variables.map_values(|v| GlobalValue {
-            value: v.value.to_value(),
+            value: v.value,
             doc_hidden: v.doc_hidden,
         });
-        // SAFETY: `set` allocates in `self.heap`, which was just sealed into `heap`, and
-        // `populate` copies values only after making `self.heap` reference their heap.
+        // SAFETY: `set_inner`'s contract: every stored value is in `self.heap`, which was just
+        // sealed into `heap`, or in a heap it references.
         unsafe { Globals::from_parts(heap, variables, variable_names, self.docstring) }
     }
 
     /// Set a value in the [`GlobalsBuilder`].
     pub fn set<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v mut self, name: &str, value: V) {
-        let value = self.heap.with(|heap| heap.alloc_frozen(value));
-        self.set_inner(name, value, false)
+        // SAFETY: Allocated in `self.heap` just here.
+        let value = self
+            .heap
+            .with(|heap| unsafe { Self::erase(heap.alloc(value)) });
+        // SAFETY: Allocated in `self.heap` just above.
+        unsafe { self.set_inner(name, value, false) }
     }
 
-    fn set_inner<'v>(&'v mut self, name: &str, value: FrozenValue, doc_hidden: bool) {
+    /// Store a value.
+    ///
+    /// # Safety
+    ///
+    /// `value` must be allocated in `self.heap` or in a heap it references.
+    unsafe fn set_inner<'v>(&'v mut self, name: &str, value: Value<'static>, doc_hidden: bool) {
         let value = BuilderValue { value, doc_hidden };
         match self.namespace_fields.last_mut() {
             None => {
@@ -444,7 +491,10 @@ impl GlobalsBuilder {
                 self.variables.insert(name, value)
             }
             Some(fields) => {
-                let name = self.heap.with(|heap| heap.alloc_str_intern(name));
+                // SAFETY: Allocated in `self.heap` just here.
+                let name = self
+                    .heap
+                    .with(|heap| unsafe { Self::erase(heap.alloc_str(name)) });
                 fields.insert(name, value)
             }
         };
@@ -468,9 +518,9 @@ impl GlobalsBuilder {
         let speculative_exec_safe = components.speculative_exec_safe;
         let as_type_ty = as_type.as_ref().map(|x| x.0.dupe());
         let ty = ty.unwrap_or_else(|| components.make_type(as_type_ty.dupe()));
-        let docs = components.into_docs(as_type);
         let value = self.heap.with(|heap| {
-            heap.alloc_frozen(NativeFunction {
+            let docs = components.into_docs(as_type, heap);
+            let function = heap.alloc(NativeFunction {
                 function: NativeFunc(f, sig(heap)),
                 name: name.to_owned(),
                 speculative_exec_safe,
@@ -478,21 +528,17 @@ impl GlobalsBuilder {
                 ty,
                 docs,
                 special_builtin_function,
-            })
+            });
+            // SAFETY: Allocated in `self.heap` just here.
+            unsafe { Self::erase(function) }
         });
-        self.set_inner(name, value, false)
+        // SAFETY: Allocated in `self.heap` just above.
+        unsafe { self.set_inner(name, value, false) }
     }
 
     /// Allocate on the heap where globals are allocated.
     pub fn frozen_heap<R>(&self, f: impl for<'fh> FnOnce(FrozenHeap<'fh>) -> R) -> R {
         self.heap.with(f)
-    }
-
-    /// Allocate a value using the same underlying heap as the [`GlobalsBuilder`],
-    /// only intended for values that are referred to by those which are passed
-    /// to [`set`](GlobalsBuilder::set).
-    pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
-        self.heap.with(|heap| heap.alloc_frozen(value))
     }
 
     /// Set per module docstring.
@@ -566,11 +612,12 @@ impl GlobalsStatic {
         out.heap.with(|heap| heap.add_reference(globals.heap()));
         globals.0.data.by_ref(|data| {
             for (name, value) in data.variables.iter() {
-                let frozen = value
-                    .value
-                    .unpack_frozen()
-                    .expect("globals live in frozen heaps");
-                out.set_inner(name.as_str(), frozen, value.doc_hidden)
+                // SAFETY: `out.heap` references the heap of `globals`, which keeps the value
+                // alive, since just above.
+                unsafe {
+                    let value_erased = GlobalsBuilder::erase(value.value);
+                    out.set_inner(name.as_str(), value_erased, value.doc_hidden)
+                }
             }
         });
         out.docstring = globals.0.docstring.clone();
@@ -630,6 +677,7 @@ register_starlark_any!(Globals);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::values::none::NoneType;
 
     #[test]
     fn test_send_sync()
@@ -644,7 +692,7 @@ mod tests {
         globals.namespace_no_docs("ns_hidden", |_| {});
         globals.namespace("ns", |globals| {
             globals.namespace_no_docs("nested_ns_hidden", |_| {});
-            globals.set("x", FrozenValue::new_none());
+            globals.set("x", NoneType);
         });
         let docs = globals.build().documentation();
 

@@ -30,7 +30,6 @@ use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
@@ -271,18 +270,13 @@ impl MethodsBuilder {
                 function: NativeMeth(f, sig(heap)),
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
-                docs: components.into_docs(None),
+                docs: components.into_docs(None, heap),
                 ty,
             });
             // SAFETY: Allocated in `self.heap` just above.
             unsafe { erase_member(UnboundValue::Method(method)) }
         });
         self.members.insert(name, method);
-    }
-
-    /// Allocate a value using the same underlying heap as the [`MethodsBuilder`]
-    pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
-        self.heap.with(|heap| heap.alloc_frozen(value))
     }
 }
 

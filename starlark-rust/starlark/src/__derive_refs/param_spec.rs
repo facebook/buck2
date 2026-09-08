@@ -24,11 +24,13 @@ use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::macro_support::unpack_args_item_ty;
 use crate::typing::macro_support::unpack_kwargs_value_ty;
 use crate::util::arc_str::ArcStr;
-use crate::values::FrozenValue;
+use crate::values::FrozenHeap;
+use crate::values::Value;
 
 pub enum NativeCallableParamDefaultValue {
-    /// Value is used for documentation only, not when the function is called.
-    Value(FrozenValue),
+    /// Allocates the default on the builder's heap. Used for documentation only, not when the
+    /// function is called.
+    Value(for<'fh> fn(FrozenHeap<'fh>) -> Value<'fh>),
     Optional,
 }
 

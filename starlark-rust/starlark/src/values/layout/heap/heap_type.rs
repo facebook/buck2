@@ -1802,6 +1802,17 @@ where
         unsafe { transmute!(T::Reinfect<'fv>, T, v) }
     }
 
+    /// Give `v`, which had its brand forgotten by [`erase_brand`](OwnedFrozen::erase_brand), a
+    /// brand again.
+    ///
+    /// # SAFETY
+    ///
+    /// The heap identified by `'fv` must keep `v` alive.
+    pub(crate) unsafe fn restore_brand<'fv>(v: T) -> T::Reinfect<'fv> {
+        // SAFETY: As for `erase_brand`.
+        unsafe { transmute!(T, T::Reinfect<'fv>, v) }
+    }
+
     /// Build a value in a fresh frozen heap and return it kept alive by that heap.
     ///
     /// The heap is private to `f`, which can only get data out of it by returning it at the

@@ -517,9 +517,9 @@ fn render_regular_native_callable_param(arg: &StarArg) -> syn::Result<syn::Expr>
             // For things that aren't type value, use optional and then next_opt/unwrap
             // to avoid the to/from value conversion.
             let default = if arg.is_value() {
-                Some(syn::parse_quote! { globals_builder.alloc(#default) })
+                Some(syn::parse_quote! { |__heap| __heap.alloc(#default) })
             } else {
-                render_default_as_frozen_value(default)
+                render_default_as_value(default)
             };
             render_some(match default {
                 None => {
@@ -733,16 +733,16 @@ fn parameter_spec_args(star_args: &[StarArg]) -> syn::Result<ParametersSpecArgs>
 }
 
 /// We have an argument that the user wants to use as a default.
-/// That _might_ have a valid `FrozenValue` representation, if so, it would be great to use for documentation.
-/// Try and synthesise it if we can.
-fn render_default_as_frozen_value(default: &Expr) -> Option<syn::Expr> {
+/// That _might_ have a valid Starlark value representation, if so, it would be great to use for
+/// documentation. Try and synthesise it if we can, as a function of the builder's heap.
+fn render_default_as_value(default: &Expr) -> Option<syn::Expr> {
     let x = quote!(#default).to_string();
     if let Ok(x) = x.trim_end_matches("i32").parse::<i32>() {
-        Some(syn::parse_quote! { globals_builder.alloc(#x) })
+        Some(syn::parse_quote! { |__heap| __heap.alloc(#x) })
     } else if let Ok(x) = x.parse::<bool>() {
-        Some(syn::parse_quote! { starlark::values::FrozenValue::new_bool(#x) })
+        Some(syn::parse_quote! { |_| starlark::values::Value::new_bool(#x) })
     } else if x == "NoneOr :: None" {
-        Some(syn::parse_quote! { starlark::values::FrozenValue::new_none() })
+        Some(syn::parse_quote! { |_| starlark::values::Value::new_none() })
     } else if matches!(
         default,
         Expr::Lit(ExprLit {
@@ -751,11 +751,11 @@ fn render_default_as_frozen_value(default: &Expr) -> Option<syn::Expr> {
         })
     ) {
         // Make sure we don't splice in `x` again, or we double quote the string
-        Some(syn::parse_quote! { globals_builder.alloc(#default) })
+        Some(syn::parse_quote! { |__heap| __heap.alloc(#default) })
     } else if x == "UnpackListOrTuple :: default()" || x == "UnpackList :: default()" {
-        Some(syn::parse_quote! { starlark::values::FrozenValue::new_empty_list() })
+        Some(syn::parse_quote! { |_| starlark::values::Value::new_empty_list() })
     } else if x == "SmallMap :: new()" {
-        Some(syn::parse_quote! { starlark::values::FrozenValue::new_empty_dict() })
+        Some(syn::parse_quote! { |_| starlark::values::Value::new_empty_dict() })
     } else {
         None
     }

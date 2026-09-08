@@ -29,6 +29,7 @@ use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::typing::Ty;
+use crate::values::FrozenHeap;
 
 /// A wrapper for the parameters to `GlobalsBuilder::set_function` and `MethodBuilder::set_method`
 pub struct NativeCallableComponents {
@@ -39,8 +40,9 @@ pub struct NativeCallableComponents {
 }
 
 impl NativeCallableComponents {
-    fn doc_params(&self) -> DocParams {
-        fn doc_param(p: &NativeCallableParam) -> DocParam {
+    /// `heap` is the builder's, for the default values to render.
+    fn doc_params(&self, heap: FrozenHeap<'_>) -> DocParams {
+        let doc_param = |p: &NativeCallableParam| {
             let NativeCallableParam { name, ty, required } = p;
             DocParam {
                 name: name.as_str().to_owned(),
@@ -51,10 +53,12 @@ impl NativeCallableComponents {
                     Some(NativeCallableParamDefaultValue::Optional) => {
                         Some(PARAM_FMT_OPTIONAL.to_owned())
                     }
-                    Some(NativeCallableParamDefaultValue::Value(v)) => Some(v.to_value().to_repr()),
+                    Some(NativeCallableParamDefaultValue::Value(default)) => {
+                        Some(default(heap).to_repr())
+                    }
                 },
             }
-        }
+        };
 
         DocParams {
             pos_only: self.param_spec.pos_only.iter().map(doc_param).collect(),
@@ -65,10 +69,11 @@ impl NativeCallableComponents {
         }
     }
 
-    pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>) -> DocItem {
+    /// `heap` is the builder's, for the default values to render.
+    pub(crate) fn into_docs(self, as_type: Option<(Ty, DocType)>, heap: FrozenHeap<'_>) -> DocItem {
         let func_docs = DocFunction::from_docstring(
             DocStringKind::Rust,
-            self.doc_params(),
+            self.doc_params(heap),
             self.return_type.clone(),
             self.rust_docstring,
         );
