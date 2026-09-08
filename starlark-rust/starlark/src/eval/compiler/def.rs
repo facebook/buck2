@@ -719,10 +719,12 @@ impl<'v> Def<'v> {
     }
 }
 
-/// `Frozen` ignores the brand: a frozen def is invoked at whatever brand its caller runs at,
-/// through `Bc`, whose operands - `FrozenValueTyped<'static, FrozenDef>` and raw `FrozenValue`
-/// constants - are structurally unbranded. Branding the frozen def waits for the phase that
-/// brands `FrozenValue` itself.
+/// `Frozen` ignores the brand, deliberately. A frozen def is invoked at whatever brand its caller
+/// runs at, through `Bc`, whose operands - `FrozenValueTyped<'static, FrozenDef>` and raw
+/// `FrozenValue` constants - are the compiler's own domain, and `DefLike::FROZEN` turns the
+/// frozen/unfrozen split into a constant that `bc()` dispatches on. That is a distinction the
+/// compiler wants statically; collapsing it into one branded type would put a runtime
+/// discriminant on a hot path.
 impl<'v> FreezeBranded for Def<'v> {
     type Frozen<'fv> = FrozenDef;
 

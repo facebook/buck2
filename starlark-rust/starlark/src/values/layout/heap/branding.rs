@@ -99,3 +99,16 @@
 //! heap, and then hands the value back at `'v`; the `'v` lifetime in the return value essentially
 //! acts as a proof/endorsement that the given value is sound to use "within the context of that
 //! heap."
+//!
+//! ### The `FrozenValue` hole
+//!
+//! There is one gap in all of the above. `FrozenValue` carries no brand, and
+//! `FrozenValue::to_value` hands one back at *any* `'v`. A `Value<'v>` obtained that way may
+//! therefore live in a frozen heap that the `Heap<'v>` does not depend on, and nothing is keeping
+//! that heap alive.
+//!
+//! So a brand is currently only as good as the code that mints `FrozenValue`s. This is why the
+//! APIs that would otherwise be sound on lifetimes alone - a standalone token permitting
+//! `X<'b> -> X<'a>` rebrands, or a zero-sized witness that a brand is frozen - do not exist, and
+//! the ones that do (`OwnedFrozen`, `OwnedFrozenRef`, `HeapEdge`) all carry the keep-alive with
+//! them. Closing the hole means removing `FrozenValue::to_value`.
