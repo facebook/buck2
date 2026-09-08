@@ -34,7 +34,7 @@ load(":toolchains_common.bzl", "toolchains_common")
 
 CompressionAlgorithm = ["xz", "zstd"]
 
-DexStore = ["raw", "raw_subdir", "jar", "xz", "xzs"]
+DexStore = ["raw", "raw_subdir", "jar", "xzs"]
 
 DuplicateResourceBehaviour = ["allow_by_default", "ban_by_default"]
 

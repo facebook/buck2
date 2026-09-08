@@ -85,14 +85,14 @@ public class SecondaryDexCompressionExecutableMain {
   private void run() throws IOException {
     Path rawSecondaryDexesDirPath = Paths.get(rawSecondaryDexesDir);
     Preconditions.checkState(
-        ImmutableList.of("raw", "raw_subdir", "jar", "xz", "xzs").contains(compression),
-        "Only raw, raw_subdir, jar, xz and xzs compression is supported!");
+        ImmutableList.of("raw", "raw_subdir", "jar", "xzs").contains(compression),
+        "Only raw, raw_subdir, jar and xzs compression is supported!");
     Preconditions.checkState(
         compression.equals("raw")
             || compression.equals("raw_subdir")
             || compression.equals("jar")
             || xzCompressionLevel != -1,
-        "Must specify a valid compression level when xz or xzs compression is used!");
+        "Must specify a valid compression level when xzs compression is used!");
 
     if (bootstrapDexDirString != null) {
       Path bootstrapDexDir = Paths.get(bootstrapDexDirString);
@@ -156,16 +156,9 @@ public class SecondaryDexCompressionExecutableMain {
         D8Utils.writeSecondaryDexJarAndMetadataFile(
             secondaryDexOutputJarPath, metadataPath, rawSecondaryDexPath, compression);
 
-        Path secondaryDexOutput;
-        if (compression.equals("xz")) {
-          secondaryDexOutput = doXzCompression(secondaryDexOutputJarPath);
-        } else {
-          secondaryDexOutput = secondaryDexOutputJarPath;
-        }
-
         metadataLines.add(
             D8Utils.getSecondaryDexMetadataString(
-                secondaryDexOutput,
+                secondaryDexOutputJarPath,
                 CanaryUtils.getFullyQualifiedCanaryClassName(canaryClassName, i)));
       }
 
@@ -198,24 +191,6 @@ public class SecondaryDexCompressionExecutableMain {
   private String getSecondaryDexName(String module, int index, String suffix) {
     return String.format(
         "%s-%d.dex%s", APKModule.isRootModule(module) ? "secondary" : module, index + 1, suffix);
-  }
-
-  private Path doXzCompression(Path secondaryDexOutputJarPath) throws IOException {
-    Path xzCompressedOutputJarPath =
-        secondaryDexOutputJarPath.resolveSibling(secondaryDexOutputJarPath.getFileName() + ".xz");
-
-    try (InputStream in =
-            new BufferedInputStream(new FileInputStream(secondaryDexOutputJarPath.toFile()));
-        OutputStream out =
-            new BufferedOutputStream(new FileOutputStream(xzCompressedOutputJarPath.toFile()));
-        XZOutputStream xzOut =
-            new XZOutputStream(out, new LZMA2Options(xzCompressionLevel), XZ.CHECK_CRC32)) {
-      ByteStreams.copy(in, xzOut);
-    }
-
-    Files.delete(secondaryDexOutputJarPath);
-
-    return xzCompressedOutputJarPath;
   }
 
   private void doXzsCompression(Path secondaryDexSubdir, ImmutableList<Path> secondaryDexJarPaths)

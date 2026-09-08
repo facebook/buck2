@@ -34,7 +34,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 #
 # The primary DEX is always stored in the root directory of the APK as `classes.dex`.
 #
-# We have 5 different ways of storing our secondary DEX files, which are specified via the
+# We have 4 different ways of storing our secondary DEX files, which are specified via the
 # `dex_compression` attribute:
 # 1) `raw` compression. This means that we create `classes2.dex`, `classes3.dex`, ...,
 #    `classesN.dex` and store each of them in the root directory of the APK.
@@ -45,9 +45,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 #    secondary dex subdirectory instead of to the root directory of the APK.
 # 3) `jar` compression. For each secondary DEX file, we put a `classes.dex` entry into a
 #    JAR file, and store it as an asset at `assets/secondary-program-dex-jars/secondary-I.dex.jar`
-# 4) `xz` compression. This is the same as `jar` compression, except that we run `xz` on the
-#    JAR file to produce `assets/secondary-program-dex-jars/secondary-I.dex.jar.xz`.
-# 5) `xzs` compression. We do the same as `jar` compression, then concatenate all the jars
+# 4) `xzs` compression. We do the same as `jar` compression, then concatenate all the jars
 #    together and do `xz` compression on the result to produce a single
 #    `assets/secondary-program-dex-jars/secondary.dex.jar.xzs`.
 #
@@ -79,8 +77,8 @@ def _get_dex_compression(ctx: AnalysisContext) -> str:
     default_dex_compression = "jar" if is_exopackage_enabled_for_secondary_dexes else "raw"
     dex_compression = getattr(ctx.attrs, "dex_compression", None) or default_dex_compression
     expect(
-        dex_compression in ["raw", "raw_subdir", "jar", "xz", "xzs"],
-        "Only 'raw', 'raw_subdir', 'jar', 'xz' and 'xzs' dex compression are supported at this time!",
+        dex_compression in ["raw", "raw_subdir", "jar", "xzs"],
+        "Only 'raw', 'raw_subdir', 'jar' and 'xzs' dex compression are supported at this time!",
     )
 
     return dex_compression

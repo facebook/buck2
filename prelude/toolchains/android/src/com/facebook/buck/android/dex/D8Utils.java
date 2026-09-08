@@ -298,7 +298,7 @@ public class D8Utils {
             new BufferedInputStream(new FileInputStream(rawSecondaryDexPath.toFile()))) {
 
       ZipEntry customEntry = new ZipEntry("classes.dex");
-      if (compression.equals("xz") || compression.equals("xzs")) {
+      if (compression.equals("xzs")) {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
           ByteStreams.copy(secondaryDexInputStream, bos);
           byte[] bytes = bos.toByteArray();
@@ -343,10 +343,10 @@ public class D8Utils {
       }
 
       long jarSize = Files.size(secondaryDexOutputJarPath);
-      if (compression.equals("xz") || compression.equals("xzs")) {
+      if (compression.equals("xzs")) {
         Preconditions.checkState(
             uncompressedSize + 120 == jarSize,
-            "For xz and xzs compression, we expect the .dex to be stored uncompressed and the "
+            "For xzs compression, we expect the .dex to be stored uncompressed and the "
                 + "overhead of the .jar itself to be 120 bytes!");
       }
 
