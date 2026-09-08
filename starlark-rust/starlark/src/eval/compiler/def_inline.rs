@@ -254,11 +254,12 @@ impl InlineDefCallSite<'_, '_, '_, '_, '_, '_> {
             },
             ExprCompiled::Local(local) => {
                 let value = self.slots[local.0 as usize];
-                let expr = if let Some(local) = FrozenValueTyped::<LocalAsValue>::new(value) {
-                    ExprCompiled::Local(local.local)
-                } else {
-                    ExprCompiled::Value(value)
-                };
+                let expr =
+                    if let Some(local) = FrozenValueTyped::<LocalAsValue>::new(value.to_value()) {
+                        ExprCompiled::Local(local.local)
+                    } else {
+                        ExprCompiled::Value(value)
+                    };
                 IrSpanned { span, node: expr }
             }
             ExprCompiled::If(c_t_f) => {

@@ -727,11 +727,13 @@ impl<'v> Def<'v> {
     ///
     /// Bytecode operands and `ExprCompiled::Value` constants name defs as
     /// `FrozenValueTyped<'static, FrozenDef>`, and a `Def<'static>`'s parameters and captures
-    /// cannot be read at `'v`. This is the one `to_value` site that brings such a def to `'v`. It
-    /// rechecks the type - a vtable compare - rather than casting; handing the brand across the
-    /// compiler boundary directly, as an edge rebrand, would make the recheck unnecessary.
+    /// cannot be read at `'v`. This is the one `FrozenValue::to_value` site that brings such a
+    /// def to `'v`. It rechecks the type - a vtable compare - rather than casting; handing the
+    /// brand across the compiler boundary directly, as an edge rebrand, would make the recheck
+    /// unnecessary.
     pub(crate) fn at_brand(def: FrozenValueTyped<'static, FrozenDef>) -> ValueTyped<'v, Def<'v>> {
-        ValueTyped::new(def.to_value()).expect("a frozen def is a def at every brand")
+        ValueTyped::new(def.to_frozen_value().to_value())
+            .expect("a frozen def is a def at every brand")
     }
 }
 

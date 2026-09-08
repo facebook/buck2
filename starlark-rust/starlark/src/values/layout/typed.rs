@@ -40,7 +40,6 @@ use crate::any::AnyLifetime;
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 use crate::any::ReinfectStatic;
-use crate::cast;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
@@ -52,21 +51,18 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueOfUnchecked;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
-use crate::values::StringValueLike;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
-use crate::values::alloc_value::AllocFrozenStringValue;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
@@ -80,11 +76,14 @@ use crate::values::type_repr::StarlarkTypeRepr;
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
 pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
-/// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
+/// [`Value`] wrapper which asserts contained value is of type `<T>` and is frozen.
+///
+/// The frozen bit of the pointer is set; every constructor establishes that, and the accessors
+/// rely on it.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
 #[repr(transparent)]
-pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(FrozenValue, marker::PhantomData<&'v T>);
+pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 
 unsafe impl<'v, T: StarlarkValue<'v>> Coerce<ValueTyped<'v, T>> for ValueTyped<'v, T> {}
 unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<ValueTyped<'v, T>> for ValueTyped<'v, T> {}
@@ -222,9 +221,8 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     /// Attempt to convert to a frozen-value handle without rechecking the type.
     #[inline]
     pub fn unpack_frozen(self) -> Option<FrozenValueTyped<'v, T>> {
-        let value = self.to_value().unpack_frozen()?;
-        // SAFETY: Type was checked when `self` was constructed.
-        Some(unsafe { FrozenValueTyped::new_unchecked(value) })
+        self.0.unpack_frozen()?;
+        Some(FrozenValueTyped(self.0, marker::PhantomData))
     }
 
     /// Get the reference to the pointed value.
@@ -277,6 +275,13 @@ impl<T: StarlarkValue<'static>> ValueTyped<'static, T> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+#[error("Expected frozen value of type `{expected}`, got unfrozen: `{value}`")]
+struct NotFrozenError {
+    expected: Ty,
+    value: String,
+}
+
 impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     pub(crate) fn is_str() -> bool {
         T::static_type_id() == StarlarkStr::static_type_id()
@@ -286,9 +291,14 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         PointerI32::type_is_pointer_i32::<T>()
     }
 
-    /// Construct `FrozenValueTyped` without checking that the value is of correct type.
+    /// Construct `FrozenValueTyped` without checking the value.
+    ///
+    /// # Safety
+    ///
+    /// `value` must be of type `T` and frozen.
     #[inline]
-    pub unsafe fn new_unchecked(value: FrozenValue) -> FrozenValueTyped<'v, T> {
+    pub unsafe fn new_unchecked(value: Value<'v>) -> FrozenValueTyped<'v, T> {
+        debug_assert!(value.unpack_frozen().is_some());
         debug_assert!(value.downcast_ref::<T>().is_some());
         FrozenValueTyped(value, marker::PhantomData)
     }
@@ -297,22 +307,41 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     ///
     /// Unlike [`new_unchecked`](Self::new_unchecked), this omits even the
     /// `debug_assert` type-check. This is useful in pagable deserialization.
+    ///
+    /// # Safety
+    ///
+    /// As for [`new_unchecked`](Self::new_unchecked), once the value is initialized.
     #[inline]
-    pub(crate) unsafe fn new_allow_uninitialized(value: FrozenValue) -> FrozenValueTyped<'v, T> {
+    pub(crate) unsafe fn new_allow_uninitialized(value: Value<'v>) -> FrozenValueTyped<'v, T> {
+        debug_assert!(value.unpack_frozen().is_some());
         FrozenValueTyped(value, marker::PhantomData)
     }
 
-    /// Downcast.
+    /// Downcast a value known to be frozen.
     #[inline]
-    pub fn new(value: FrozenValue) -> Option<FrozenValueTyped<'v, T>> {
+    fn new_frozen(value: Value<'v>) -> Option<FrozenValueTyped<'v, T>> {
+        debug_assert!(value.unpack_frozen().is_some());
         value.downcast_ref::<T>()?;
         Some(FrozenValueTyped(value, marker::PhantomData))
     }
 
-    /// Downcast.
+    /// Downcast; `None` if the value is not of type `T` or not frozen.
     #[inline]
-    pub fn new_err(value: FrozenValue) -> crate::Result<FrozenValueTyped<'v, T>> {
+    pub fn new(value: Value<'v>) -> Option<FrozenValueTyped<'v, T>> {
+        value.unpack_frozen()?;
+        Self::new_frozen(value)
+    }
+
+    /// Downcast; an error if the value is not of type `T` or not frozen.
+    #[inline]
+    pub fn new_err(value: Value<'v>) -> crate::Result<FrozenValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
+        if value.unpack_frozen().is_none() {
+            return Err(crate::Error::new_value(NotFrozenError {
+                expected: T::starlark_type_repr(),
+                value: value.to_string_for_type_error(),
+            }));
+        }
         Ok(FrozenValueTyped(value, marker::PhantomData))
     }
 
@@ -320,35 +349,35 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
         repr: &'v AValueRepr<AValueImpl<'v, A>>,
     ) -> FrozenValueTyped<'v, T> {
-        // drop lifetime: `FrozenValue` is not (yet) parameterized with lifetime.
-        let header = unsafe { cast::ptr_lifetime(&repr.header) };
-        FrozenValueTyped(FrozenValue::new_ptr(header, A::IS_STR), marker::PhantomData)
+        FrozenValueTyped(
+            Value::new_frozen_ptr(&repr.header, A::IS_STR),
+            marker::PhantomData,
+        )
+    }
+
+    /// Erase the type and the brand.
+    #[inline]
+    pub fn to_frozen_value(self) -> FrozenValue {
+        // SAFETY: The frozen bit is set, see the type doc.
+        unsafe { self.0.unpack_frozen_unchecked() }
     }
 
     /// Erase the type.
     #[inline]
-    pub fn to_frozen_value(self) -> FrozenValue {
+    pub fn to_value(self) -> Value<'v> {
         self.0
     }
 
     /// Convert to the value.
     #[inline]
-    pub fn to_value<'v2>(self) -> Value<'v2>
-    where
-        'v: 'v2,
-    {
-        self.0.to_value()
-    }
-
-    /// Convert to the value.
-    #[inline]
     pub fn to_value_typed(self) -> ValueTyped<'v, T> {
-        unsafe { ValueTyped::new_unchecked(self.0.to_value()) }
+        unsafe { ValueTyped::new_unchecked(self.0) }
     }
 
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {
+        // SAFETY: Type checked in the constructors; the frozen bit is set, see the type doc.
         if Self::is_pointer_i32() {
             unsafe { transmute!(&PointerI32, &T, self.0.0.unpack_pointer_i32_unchecked()) }
         } else if Self::is_str() {
@@ -366,6 +395,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
             unsafe {
                 self.0
                     .0
+                    .to_frozen_pointer_unchecked()
                     .unpack_ptr_no_int_no_str_unchecked()
                     .unpack_header_unchecked()
                     .payload::<T>()
@@ -466,10 +496,10 @@ where
 {
     type Frozen<'fv> = FrozenValueTyped<'fv, <T as FreezeBranded>::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        // The value is already frozen; the target heap takes over the source heap's
-        // dependencies, so re-typing at the new brand is all that's needed.
-        Ok(FrozenValueTyped::new_err(self.0)
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        // The value is already frozen, so the freezer only re-brands it (the target heap takes
+        // over the source heap's dependencies); its type does not change.
+        Ok(FrozenValueTyped::new_err(self.0.freeze_branded(freezer)?)
             .expect("a frozen value's type does not change across brands"))
     }
 }
@@ -492,43 +522,28 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
     type Error = crate::Error;
 
     fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
-        if let Some(value) = value.unpack_frozen() {
-            if let Some(value) = FrozenValueTyped::new(value) {
-                return Ok(Some(value));
-            }
+        if value.unpack_frozen().is_some() {
+            Ok(FrozenValueTyped::new_frozen(value))
         } else if StarlarkTypeId::of::<T>() == value.vtable().starlark_type_id {
-            #[derive(thiserror::Error, Debug)]
-            #[error("Expected frozen value of type `{expected}`, got unfrozen: `{value}`")]
-            struct NotFrozenError {
-                expected: Ty,
-                value: String,
-            }
-
-            return Err(crate::Error::new_value(NotFrozenError {
+            Err(crate::Error::new_value(NotFrozenError {
                 expected: T::starlark_type_repr(),
                 value: value.to_string_for_type_error(),
-            }));
+            }))
+        } else {
+            Ok(None)
         }
-
-        Ok(None)
     }
 }
 
-impl<'v, 'f, T: StarlarkValue<'f>> AllocValue<'v> for FrozenValueTyped<'f, T> {
+impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for FrozenValueTyped<'v, T> {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        self.0.to_value()
+        self.0
     }
 }
 
-impl<'v> AllocStringValue<'v> for FrozenStringValue {
-    fn alloc_string_value(self, _heap: Heap<'v>) -> StringValue<'v> {
-        self.to_string_value()
-    }
-}
-
-impl<'fv, 'v, T: StarlarkValue<'v>> AllocFrozenValue<'fv> for FrozenValueTyped<'v, T> {
-    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        self.0.to_value()
+impl<'v, T: StarlarkValue<'v>> AllocFrozenValue<'v> for FrozenValueTyped<'v, T> {
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'v>) -> Value<'v> {
+        self.0
     }
 }
 
@@ -545,10 +560,10 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for FrozenVal
     fn starlark_deserialize(
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
     ) -> crate::Result<Self> {
-        let fv = FrozenValue::starlark_deserialize(ctx)?;
+        let v = Value::starlark_deserialize(ctx)?;
         // SAFETY: pagable deserializes this field through the same Rust type
-        // that serialized it.
-        Ok(unsafe { FrozenValueTyped::new_allow_uninitialized(fv) })
+        // that serialized it, and it deserializes only frozen heaps.
+        Ok(unsafe { FrozenValueTyped::new_allow_uninitialized(v) })
     }
 }
 
@@ -568,12 +583,6 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for ValueType
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
     ) -> crate::Result<Self> {
         Ok(FrozenValueTyped::<T>::starlark_deserialize(ctx)?.to_value_typed())
-    }
-}
-
-impl<'fv> AllocFrozenStringValue<'fv> for FrozenStringValue {
-    fn alloc_frozen_string_value(self, _heap: FrozenHeap<'fv>) -> StringValue<'fv> {
-        self.to_string_value()
     }
 }
 
@@ -688,7 +697,7 @@ mod tests {
 
     #[test]
     fn int() {
-        let v = FrozenValueTyped::<PointerI32>::new(FrozenValue::testing_new_int(17)).unwrap();
+        let v = FrozenValueTyped::<PointerI32>::new(Value::testing_new_int(17)).unwrap();
         assert_eq!(17, v.as_ref().get().to_i32());
     }
 

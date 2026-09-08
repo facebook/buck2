@@ -72,7 +72,7 @@ impl BcNativeFunction {
 
     #[inline]
     pub(crate) fn to_value<'v>(&self) -> Value<'v> {
-        self.fun.to_value()
+        self.fun.to_frozen_value().to_value()
     }
 
     #[inline]

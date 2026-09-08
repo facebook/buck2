@@ -81,7 +81,7 @@ impl<'v> ExecutionPlatformRegistrationInfo<'v> {
     // TODO(cjhopman): Validity could be checked when constructed rather than only when used.
     pub fn platforms(
         &self,
-    ) -> buck2_error::Result<Vec<FrozenValueTyped<'static, FrozenExecutionPlatformInfo>>> {
+    ) -> buck2_error::Result<Vec<FrozenValueTyped<'v, ExecutionPlatformInfo<'v>>>> {
         ListRef::from_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
@@ -91,15 +91,13 @@ impl<'v> ExecutionPlatformRegistrationInfo<'v> {
             })?
             .iter()
             .map(|v| {
-                FrozenValueTyped::new(v.unpack_frozen().expect("should be frozen")).ok_or_else(
-                    || {
-                        ExecutionPlatformRegistrationTypeError::NotAPlatform(
-                            v.to_repr(),
-                            v.get_type().to_owned(),
-                        )
-                        .into()
-                    },
-                )
+                FrozenValueTyped::new(v).ok_or_else(|| {
+                    ExecutionPlatformRegistrationTypeError::NotAPlatform(
+                        v.to_repr(),
+                        v.get_type().to_owned(),
+                    )
+                    .into()
+                })
             })
             .collect::<buck2_error::Result<_>>()
     }

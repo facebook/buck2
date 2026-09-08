@@ -109,7 +109,7 @@ impl<'fh> FrozenHeap<'fh> {
     where
         T: for<'a> AValueSimpleBound<'a> + Send + Sync + 'static,
     {
-        let v = self.alloc_raw(simple(val)).to_frozen_value();
+        let v = self.alloc_raw(simple(val)).to_frozen_value().to_value();
         FrozenValueTyped::new(v).expect("just allocated value must have the right type")
     }
 

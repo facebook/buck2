@@ -49,7 +49,7 @@ pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<Value<'v>> {
         let buckconfigs = &BuildContext::from_context(eval)?.buckconfigs;
         match buckconfigs.current_cell_get(section, key, eval)? {
-            Some(v) => Ok(v.to_value()),
+            Some(v) => Ok(v.to_string_value().to_value()),
             None => Ok(default.unwrap_or_else(Value::new_none)),
         }
     }

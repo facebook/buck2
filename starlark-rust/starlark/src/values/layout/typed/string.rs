@@ -122,7 +122,11 @@ impl FrozenStringValue {
 impl<'v> StringValue<'v> {
     /// Convert a value to a [`FrozenStringValue`] using a supplied [`Freezer`].
     pub fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenStringValue> {
-        Ok(unsafe { FrozenStringValue::new_unchecked(freezer.freeze(self.to_value())?) })
+        Ok(
+            unsafe {
+                FrozenStringValue::new_unchecked(freezer.freeze(self.to_value())?.to_value())
+            },
+        )
     }
 
     /// Convert a value to a frozen string value using a supplied [`Freezer`].
@@ -185,19 +189,19 @@ impl Sealed for FrozenStringValue {}
 
 impl<'v> StringValueLike<'v> for FrozenStringValue {
     fn to_string_value(self) -> StringValue<'v> {
-        self.to_value_typed()
+        self.to_value_typed().at()
     }
 }
 
 impl<'v> PartialEq<StringValue<'v>> for FrozenStringValue {
     fn eq(&self, other: &StringValue<'v>) -> bool {
-        &self.to_value_typed() == other
+        &self.to_string_value() == other
     }
 }
 
 impl<'v> PartialEq<FrozenStringValue> for StringValue<'v> {
     fn eq(&self, other: &FrozenStringValue) -> bool {
-        self == &other.to_value_typed()
+        self == &other.to_string_value()
     }
 }
 

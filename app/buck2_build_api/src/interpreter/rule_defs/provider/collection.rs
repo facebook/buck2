@@ -541,12 +541,7 @@ impl FrozenProviderCollectionValue {
             .value
             .as_ref()
             .map::<FrozenValueTyped<'static, ProviderCollection<'static>>, _>(|v| {
-                FrozenValueTyped::new(
-                    v.to_value()
-                        .unpack_frozen()
-                        .expect("value is in a frozen heap"),
-                )
-                .expect("value is a `ProviderCollection`")
+                v.unpack_frozen().expect("value is in a frozen heap")
             });
         FrozenProviderCollectionValueRef { inner }
     }

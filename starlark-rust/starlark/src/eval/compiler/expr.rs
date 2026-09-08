@@ -298,12 +298,12 @@ impl ExprCompiled {
 
     /// Expression is known to be a constant which is a `def`.
     pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<'static, FrozenDef>> {
-        FrozenValueTyped::new(self.as_value()?)
+        FrozenValueTyped::new(self.as_value()?.to_value())
     }
 
     /// Expression is known to be a frozen bound method.
     pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<'_, BoundMethod<'_>>> {
-        FrozenValueTyped::new(self.as_value()?)
+        FrozenValueTyped::new(self.as_value()?.to_value())
     }
 
     /// Expression is builtin `len` function.
@@ -356,7 +356,7 @@ impl ExprCompiled {
 
     /// Is expression a constant string?
     pub(crate) fn as_string(&self) -> Option<FrozenStringValue> {
-        FrozenStringValue::new(self.as_value()?)
+        FrozenStringValue::new(self.as_value()?.to_value())
     }
 
     /// Iterable produced by this expression results in empty.

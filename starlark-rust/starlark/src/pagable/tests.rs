@@ -1150,7 +1150,7 @@ fn test_frozen_value_typed_round_trip() -> crate::Result<()> {
         flag: true,
         count: 77,
     });
-    let typed = FrozenValueTyped::<SimpleData>::new(fv).unwrap();
+    let typed = FrozenValueTyped::<SimpleData>::new(fv.to_value()).unwrap();
 
     let root = heap.alloc_simple(RefData {
         label: 3,
@@ -1160,7 +1160,7 @@ fn test_frozen_value_typed_round_trip() -> crate::Result<()> {
 
     let restored = round_trip_owned(heap_ref, root)?;
     let ref_data: &RefData = restored.as_ref().value().downcast_ref::<RefData>().unwrap();
-    let restored_typed = FrozenValueTyped::<SimpleData>::new(ref_data.target).unwrap();
+    let restored_typed = FrozenValueTyped::<SimpleData>::new(ref_data.target.to_value()).unwrap();
     assert_eq!(restored_typed.flag, true);
     assert_eq!(restored_typed.count, 77);
 

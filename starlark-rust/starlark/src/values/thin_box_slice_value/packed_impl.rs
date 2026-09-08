@@ -229,7 +229,10 @@ mod tests {
                 .to_value(),
             heap.alloc_list(&[]),
             Value::testing_new_int(17),
-            frozen_heap.alloc_str_intern("frozen").to_value(),
+            frozen_heap
+                .alloc_str_intern("frozen")
+                .to_frozen_value()
+                .to_value(),
             heap.alloc_str("unfrozen").to_value(),
         ]
     }

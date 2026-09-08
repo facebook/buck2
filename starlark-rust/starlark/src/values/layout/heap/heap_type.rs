@@ -1254,10 +1254,7 @@ impl<'fh> FrozenHeap<'fh> {
     ) -> FrozenStringValue {
         let v = self.0.arena.alloc_str_init(len, hash, init);
 
-        unsafe {
-            let value = FrozenValue::new_ptr(&*v, true);
-            FrozenStringValue::new_unchecked(value)
-        }
+        unsafe { FrozenStringValue::new_unchecked(Value::new_frozen_ptr(&*v, true)) }
     }
 
     /// Allocate a new value on this heap.

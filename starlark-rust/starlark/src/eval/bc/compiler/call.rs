@@ -130,7 +130,7 @@ impl IrSpanned<CallCompiled> {
         bc: &mut BcWriter,
     ) {
         let file_span = bc.alloc_file_span(span);
-        if let Some(fun) = FrozenValueTyped::<FrozenDef>::new(fun) {
+        if let Some(fun) = FrozenValueTyped::<FrozenDef>::new(fun.to_value()) {
             Self::write_args(args, bc, |args, bc| match args {
                 Either::Left(npops) => {
                     bc.write_instr::<InstrCallFrozenDefPos>(span, (fun, npops, file_span, target))
@@ -140,7 +140,7 @@ impl IrSpanned<CallCompiled> {
                     (fun, args.resolve(fun.as_ref()), file_span, target),
                 ),
             })
-        } else if let Some(fun) = FrozenValueTyped::<NativeFunction>::new(fun) {
+        } else if let Some(fun) = FrozenValueTyped::<NativeFunction>::new(fun.to_value()) {
             let fun = BcNativeFunction::new(fun);
             Self::write_args(args, bc, |args, bc| match args {
                 Either::Left(npops) => {

@@ -137,7 +137,8 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
                     fh.alloc_str(&v)
                         .to_value()
                         .unpack_frozen()
-                        .expect("value allocated in a frozen heap is frozen"),
+                        .expect("value allocated in a frozen heap is frozen")
+                        .to_value(),
                 )
                 .expect("just allocated a string")
             })

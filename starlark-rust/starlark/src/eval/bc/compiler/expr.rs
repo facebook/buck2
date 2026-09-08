@@ -284,7 +284,7 @@ impl IrSpanned<ExprCompiled> {
                 bc.write_instr::<InstrEqInt>(span, (a, b, target));
             } else if b.eq_is_ptr_eq() {
                 bc.write_instr::<InstrEqPtr>(span, (a, b, target));
-            } else if let Some(b) = FrozenStringValue::new(b) {
+            } else if let Some(b) = FrozenStringValue::new(b.to_value()) {
                 bc.write_instr::<InstrEqStr>(span, (a, b, target));
             } else if let Some(b) = FrozenValueNotSpecial::new(b) {
                 bc.write_instr::<InstrEqConst>(span, (a, b, target));

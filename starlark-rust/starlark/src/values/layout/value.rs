@@ -279,6 +279,12 @@ impl<'v> Value<'v> {
         Self::new_ptr(&x.header, T::IS_STR)
     }
 
+    /// A value in a frozen heap, at the brand of the reference to it.
+    #[inline]
+    pub(crate) fn new_frozen_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
+        Self(FrozenPointer::new_frozen(x, is_str).to_pointer())
+    }
+
     #[inline]
     pub(crate) unsafe fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         unsafe { Self(Pointer::new_unfrozen_usize_with_str_tag(x)) }
@@ -353,8 +359,11 @@ impl<'v> Value<'v> {
         }
     }
 
+    /// # Safety
+    ///
+    /// The value must be frozen.
     #[inline]
-    unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
+    pub(crate) unsafe fn unpack_frozen_unchecked(self) -> FrozenValue {
         unsafe {
             debug_assert!(!self.0.is_unfrozen());
             FrozenValue(self.0.cast_lifetime().to_frozen_pointer_unchecked())
@@ -437,14 +446,10 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'static, PointerI32>> {
+    pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'v, PointerI32>> {
         if self.unpack_inline_int().is_some() {
-            // SAFETY: We've just checked the value is an int.
-            unsafe {
-                Some(FrozenValueTyped::new_unchecked(
-                    self.unpack_frozen_unchecked(),
-                ))
-            }
+            // SAFETY: We've just checked the value is an int, and ints are frozen.
+            unsafe { Some(FrozenValueTyped::new_unchecked(self)) }
         } else {
             None
         }
@@ -1213,20 +1218,20 @@ impl FrozenValue {
             || self.unpack_bool().is_some()
             || NumRef::unpack_value(self.to_value()).is_ok_and(|n| n.is_some())
             || FrozenListData::from_frozen_value(&self).is_some()
-            || FrozenValueTyped::<FrozenDict>::new(self).is_some()
-            || FrozenValueTyped::<FrozenTuple>::new(self).is_some()
-            || FrozenValueTyped::<Range>::new(self).is_some()
-            || FrozenValueTyped::<FrozenDef>::new(self).is_some()
-            || FrozenValueTyped::<NativeFunction>::new(self).is_some()
-            || FrozenValueTyped::<Struct>::new(self).is_some()
+            || FrozenValueTyped::<FrozenDict>::new(self.to_value()).is_some()
+            || FrozenValueTyped::<FrozenTuple>::new(self.to_value()).is_some()
+            || FrozenValueTyped::<Range>::new(self.to_value()).is_some()
+            || FrozenValueTyped::<FrozenDef>::new(self.to_value()).is_some()
+            || FrozenValueTyped::<NativeFunction>::new(self.to_value()).is_some()
+            || FrozenValueTyped::<Struct>::new(self.to_value()).is_some()
     }
 
     /// Can `invoke` be called on this object speculatively?
     /// (E. g. at compiled time when all the arguments are known.)
     pub(crate) fn speculative_exec_safe(self) -> bool {
-        if let Some(v) = FrozenValueTyped::<NativeFunction>::new(self) {
+        if let Some(v) = FrozenValueTyped::<NativeFunction>::new(self.to_value()) {
             v.speculative_exec_safe
-        } else if let Some(v) = FrozenValueTyped::<BoundMethod>::new(self) {
+        } else if let Some(v) = FrozenValueTyped::<BoundMethod>::new(self.to_value()) {
             v.method.speculative_exec_safe
         } else {
             false

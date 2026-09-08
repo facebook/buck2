@@ -235,7 +235,7 @@ impl<'fh> FrozenHeap<'fh> {
         let (any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         maybe_uninit_write_slice_cloned(content, values);
-        FrozenValueTyped::new(any_array.to_frozen_value())
+        FrozenValueTyped::new(any_array.to_frozen_value().to_value())
             .expect("just allocated value must have the right type")
     }
 }
