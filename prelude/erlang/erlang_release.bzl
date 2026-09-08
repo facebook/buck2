@@ -266,7 +266,9 @@ def build_lib_dir(ctx: AnalysisContext, all_apps: ErlAppDependencies) -> dict[st
     return {"lib": lib_dir}
 
 def _otp_applications(config: ReleaseConfig, all_apps: ErlAppDependencies) -> dict[str, Artifact]:
-    applications = {}
+    applications = {
+        "erts": config.toolchain.erts_toolchain_info.applications["erts"],
+    }
     for dep in all_apps.values():
         if ErlangAppInfo not in dep or not dep[ErlangAppInfo].virtual:
             continue
