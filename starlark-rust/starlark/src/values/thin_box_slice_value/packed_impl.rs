@@ -212,7 +212,6 @@ mod tests {
     use super::PackedImpl;
     use super::ThinBoxSliceValue;
     use crate::values::FrozenHeap;
-    use crate::values::FrozenValue;
     use crate::values::Heap;
     use crate::values::Value;
     use crate::values::layout::pointer::TAG_MASK;
@@ -315,7 +314,7 @@ mod tests {
         let a: [_; 16] = [
             Value::new_none(),
             Value::testing_new_int(0),
-            FrozenValue::new_empty_list().to_value(),
+            Value::new_empty_list(),
             Value::new_bool(true),
         ]
         .repeat(4)

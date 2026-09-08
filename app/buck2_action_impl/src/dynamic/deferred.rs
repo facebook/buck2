@@ -69,7 +69,6 @@ use futures::FutureExt;
 use smallvec::SmallVec;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::UnpackValue;
@@ -153,9 +152,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
                     return_value.to_string_for_type_error()
                 ));
             }
-            ProviderCollection::try_from_value_dynamic_output(
-                FrozenValue::new_empty_list().to_value(),
-            )?
+            ProviderCollection::try_from_value_dynamic_output(Value::new_empty_list())?
         }
         DynamicLambdaArgs::DynamicActionsNamed { .. } => {
             ProviderCollection::try_from_value_dynamic_output(return_value)?

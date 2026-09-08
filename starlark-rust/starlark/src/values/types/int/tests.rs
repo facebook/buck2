@@ -18,7 +18,6 @@
 #![cfg(test)]
 
 use crate::assert;
-use crate::values::FrozenValue;
 use crate::values::Value;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::types::int::inline_int::InlineInt;
@@ -51,7 +50,7 @@ fn test_minus() {
 #[test]
 fn test_int_tag() {
     fn check(x: InlineInt) {
-        assert_eq!(x, FrozenValue::new_int(x).unpack_inline_int().unwrap());
+        assert_eq!(x, Value::new_int(x).unpack_inline_int().unwrap());
     }
 
     for x in -10..10 {

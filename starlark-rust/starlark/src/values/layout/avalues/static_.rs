@@ -22,8 +22,6 @@ use crate::any::ReinfectStatic;
 use crate::pagable::StaticValueRegistered;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -99,27 +97,11 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
         ValueTyped::new_static_repr(&self.0)
     }
 
-    /// The value as a typed frozen handle.
-    ///
-    /// For the compiler's IR and the `FrozenValueTyped<'static, _>` family, which still name
-    /// statics as frozen handles.
-    pub(crate) fn unpack_frozen(&'static self) -> FrozenValueTyped<'static, T> {
-        let _ = std::ptr::from_ref(&self.0).expose_provenance();
-        FrozenValueTyped::new_repr(&self.0)
-    }
-
-    /// The value as a [`FrozenValue`], for the pagable static registry and the freezer.
-    pub fn to_frozen_value(&'static self) -> FrozenValue {
-        self.unpack_frozen().to_frozen_value()
-    }
-
     /// Get a reference to the payload value.
     pub const fn as_payload(&'static self) -> &'static T {
         &self.0.payload.1
     }
-}
 
-impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     /// The value, usable with any heap.
     ///
     /// A static is immortal, so it can be used at every brand, see

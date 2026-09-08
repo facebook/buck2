@@ -20,7 +20,6 @@
 use either::Either;
 
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -84,12 +83,6 @@ pub trait AllocStringValue<'v>: AllocValue<'v> + Sized {
     fn alloc_string_value(self, heap: Heap<'v>) -> StringValue<'v>;
 }
 
-impl<'v> AllocValue<'v> for FrozenValue {
-    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        self.to_value()
-    }
-}
-
 impl<'v> AllocValue<'v> for Value<'v> {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self
@@ -143,12 +136,6 @@ pub trait AllocFrozenValue<'fv>: StarlarkTypeRepr {
 pub trait AllocFrozenStringValue<'fv>: AllocFrozenValue<'fv> + Sized {
     /// Allocate a string.
     fn alloc_frozen_string_value(self, heap: FrozenHeap<'fv>) -> StringValue<'fv>;
-}
-
-impl<'fv> AllocFrozenValue<'fv> for FrozenValue {
-    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        self.to_value()
-    }
 }
 
 impl<'fv> AllocFrozenValue<'fv> for Value<'fv> {

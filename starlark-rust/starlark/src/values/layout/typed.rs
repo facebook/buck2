@@ -709,7 +709,8 @@ mod tests {
                 Ok(TestComplexValue(Value::new_none()))
             }
 
-            const FROZEN: TestComplexValue<FrozenValue> = TestComplexValue(FrozenValue::new_none());
+            const FROZEN: TestComplexValue<FrozenValue> =
+                TestComplexValue(Value::new_none().unpack_frozen().unwrap());
 
             fn takes_frozen_value_typed<'v>(
                 value: FrozenValueTyped<'v, TestComplexValue<FrozenValue>>,

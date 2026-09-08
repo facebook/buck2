@@ -1258,20 +1258,6 @@ impl<'fh> FrozenHeap<'fh> {
         ValueOfUnchecked::new(self.alloc(val))
     }
 
-    /// Allocate a value and erase its brand.
-    ///
-    /// For the pagable tests, which drive the plumbing beneath the branded API in `FrozenValue`s;
-    /// everything else should keep the brand that [`alloc`](FrozenHeap::alloc) hands out.
-    #[cfg(test)]
-    pub(crate) fn alloc_frozen<T: AllocFrozenValue<'fh>>(
-        self,
-        val: T,
-    ) -> crate::values::FrozenValue {
-        self.alloc(val)
-            .unpack_frozen()
-            .expect("value allocated in a frozen heap is frozen")
-    }
-
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
     pub fn allocated_bytes(self) -> usize {

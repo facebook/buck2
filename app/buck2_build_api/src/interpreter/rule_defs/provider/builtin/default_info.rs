@@ -27,7 +27,6 @@ use starlark::eval::Evaluator;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -393,7 +392,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneOr::None)] default_outputs: NoneOr<
             ValueOf<'v, UnpackList<UnpackAndDiscard<ValueIsInputArtifactAnnotation>>>,
         >,
-        #[starlark(default = ValueOf { value: FrozenValue::new_empty_list().to_value(), typed: UnpackList::default()})]
+        #[starlark(default = ValueOf { value: Value::new_empty_list(), typed: UnpackList::default()})]
         other_outputs: ValueOf<
             'v,
             UnpackList<UnpackAndDiscard<ValueAsCommandLineLike<'v>>>,

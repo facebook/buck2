@@ -21,7 +21,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::tuple::UnpackTuple;
@@ -43,9 +42,9 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// ```
 pub struct AllocTuple<T>(pub T);
 
-impl AllocTuple<iter::Empty<FrozenValue>> {
+impl<'v> AllocTuple<iter::Empty<Value<'v>>> {
     /// Allocate an empty tuple.
-    pub const EMPTY: AllocTuple<iter::Empty<FrozenValue>> = AllocTuple(iter::empty());
+    pub const EMPTY: AllocTuple<iter::Empty<Value<'v>>> = AllocTuple(iter::empty());
 }
 
 impl<T> StarlarkTypeRepr for AllocTuple<T>

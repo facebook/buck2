@@ -158,7 +158,7 @@ impl Default for Value<'_> {
 
 impl Default for FrozenValue {
     fn default() -> Self {
-        Self::new_none()
+        VALUE_NONE.unpack().to_frozen().to_frozen_value()
     }
 }
 
@@ -1150,43 +1150,6 @@ impl FrozenValue {
     #[inline]
     pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
-    }
-
-    /// Create a new value representing `None` in Starlark.
-    #[inline]
-    pub fn new_none() -> Self {
-        VALUE_NONE.to_frozen_value()
-    }
-
-    /// Create a new boolean in Starlark.
-    #[inline]
-    pub fn new_bool(x: bool) -> Self {
-        // Implemented by indexing into a static so that
-        // the compiler makes this function branchless.
-        VALUE_FALSE_TRUE[x as usize].to_frozen_value()
-    }
-
-    /// Create a new int in Starlark.
-    #[inline]
-    pub(crate) fn new_int(x: InlineInt) -> Self {
-        Self(FrozenPointer::new_int(x))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn testing_new_int(x: i32) -> Self {
-        Self::new_int(InlineInt::try_from(x).ok().unwrap())
-    }
-
-    /// Create a new empty list.
-    #[inline]
-    pub fn new_empty_list() -> Self {
-        VALUE_EMPTY_FROZEN_LIST.to_frozen_value()
-    }
-
-    /// Create a new empty dict.
-    #[inline]
-    pub fn new_empty_dict() -> Self {
-        VALUE_EMPTY_FROZEN_DICT.to_frozen_value()
     }
 
     #[inline]

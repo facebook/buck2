@@ -69,6 +69,7 @@ use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
 use crate::values::layout::typed::AtomicValueTypedOption;
 use crate::values::list::AllocList;
 use crate::values::list::globals::register_list;
+use crate::values::none::NoneType;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::types::any_array::AnyArrayRegistered;
@@ -88,6 +89,12 @@ pagable::static_str!(METHOD_TEST_HEAP_NAME = "method_test");
 /// [`FrozenHeap`] hands out.
 struct ErasingHeap(OwnedFrozenHeap);
 
+/// See [`ErasingHeap`].
+fn erased(v: Value<'_>) -> FrozenValue {
+    v.unpack_frozen()
+        .expect("statics, inline ints and values in frozen heaps are frozen")
+}
+
 impl ErasingHeap {
     fn new() -> Self {
         Self(OwnedFrozenHeap::new())
@@ -98,7 +105,7 @@ impl ErasingHeap {
     }
 
     fn alloc<T: for<'fh> AllocFrozenValue<'fh>>(&self, x: T) -> FrozenValue {
-        self.with(|heap| heap.alloc_frozen(x))
+        self.with(|heap| erased(heap.alloc(x)))
     }
 
     fn alloc_simple<T: for<'fh> AValueSimpleBound<'fh>>(&self, x: T) -> FrozenValue {
@@ -114,11 +121,11 @@ impl ErasingHeap {
     }
 
     fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
-        self.alloc(AllocList(elems.iter().copied()))
+        self.with(|heap| erased(heap.alloc(AllocList(elems.iter().map(|v| v.to_value())))))
     }
 
     fn alloc_tuple(&self, elems: &[FrozenValue]) -> FrozenValue {
-        self.alloc(AllocTuple(elems.iter().copied()))
+        self.with(|heap| erased(heap.alloc(AllocTuple(elems.iter().map(|v| v.to_value())))))
     }
 
     fn alloc_any_value<T: StarlarkAnyRegistered>(&self, x: T) -> FrozenValue {
@@ -715,7 +722,7 @@ fn test_frozen_str_value_round_trip() -> crate::Result<()> {
 #[test]
 fn test_frozen_value_inline_int_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let int_fv = FrozenValue::testing_new_int(42);
+    let int_fv = erased(Value::testing_new_int(42));
     let root = heap.alloc_simple(RefData {
         label: 1,
         target: int_fv,
@@ -1355,8 +1362,8 @@ fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     let k2 = heap.alloc_str("world").to_frozen_value();
 
     // Values: inline ints (no heap allocation needed).
-    let v1 = FrozenValue::testing_new_int(111);
-    let v2 = FrozenValue::testing_new_int(222);
+    let v1 = erased(Value::testing_new_int(111));
+    let v2 = erased(Value::testing_new_int(222));
 
     let mut entries = SmallMap::new();
     entries.insert_hashed(k1.get_hashed()?, v1);
@@ -1638,9 +1645,9 @@ fn test_frozen_set_round_trip() -> crate::Result<()> {
 
     let root = heap.with(|heap| {
         let mut content: SmallSet<Value> = SmallSet::new();
-        content.insert_hashed(FrozenValue::testing_new_int(1).to_value().get_hashed()?);
-        content.insert_hashed(FrozenValue::testing_new_int(2).to_value().get_hashed()?);
-        content.insert_hashed(FrozenValue::testing_new_int(3).to_value().get_hashed()?);
+        content.insert_hashed(Value::testing_new_int(1).get_hashed()?);
+        content.insert_hashed(Value::testing_new_int(2).get_hashed()?);
+        content.insert_hashed(Value::testing_new_int(3).get_hashed()?);
         crate::Result::Ok(
             heap.alloc_simple(SetGen(SetData { content }))
                 .unpack_frozen()
@@ -1663,7 +1670,7 @@ fn test_frozen_set_round_trip() -> crate::Result<()> {
     assert!(values.contains(&2));
     assert!(values.contains(&3));
     // As for the dict: only a lookup checks the hash deserialization stored.
-    let probe = FrozenValue::testing_new_int(2).to_value().get_hashed()?;
+    let probe = Value::testing_new_int(2).get_hashed()?;
     assert!(set.0.content.contains_hashed(probe.as_ref()));
 
     Ok(())
@@ -1798,10 +1805,10 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
 fn test_static_frozen_value_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
 
-    let none_fv = FrozenValue::new_none();
-    let true_fv = FrozenValue::new_bool(true);
-    let false_fv = FrozenValue::new_bool(false);
-    let empty_tuple_fv = VALUE_EMPTY_TUPLE.to_frozen_value();
+    let none_fv = erased(Value::new_none());
+    let true_fv = erased(Value::new_bool(true));
+    let false_fv = erased(Value::new_bool(false));
+    let empty_tuple_fv = erased(VALUE_EMPTY_TUPLE.unpack().to_value());
     let static_str_fv = const_frozen_string!("static_test_str")
         .to_frozen()
         .to_frozen_value();
@@ -2532,10 +2539,7 @@ fn test_type_compiled_impl_with_is_str_round_trip() -> crate::Result<()> {
         got.impl_for_test()
             .matches(const_frozen_string!("hi").at().to_value())
     );
-    assert!(
-        !got.impl_for_test()
-            .matches(FrozenValue::new_bool(true).to_value())
-    );
+    assert!(!got.impl_for_test().matches(Value::new_bool(true)));
 
     Ok(())
 }
@@ -2562,10 +2566,7 @@ fn test_type_compiled_impl_with_is_int_round_trip() -> crate::Result<()> {
         .downcast_ref::<TypeCompiledImplAsStarlarkValue<IsInt>>()
         .unwrap();
     assert_eq!(got.ty_for_test(), &original_ty);
-    assert!(
-        got.impl_for_test()
-            .matches(FrozenValue::testing_new_int(42).to_value())
-    );
+    assert!(got.impl_for_test().matches(Value::testing_new_int(42)));
     assert!(
         !got.impl_for_test()
             .matches(const_frozen_string!("x").at().to_value())
@@ -2605,14 +2606,8 @@ fn test_type_compiled_impl_with_is_any_of_round_trip() -> crate::Result<()> {
         got.impl_for_test()
             .matches(const_frozen_string!("s").at().to_value())
     );
-    assert!(
-        got.impl_for_test()
-            .matches(FrozenValue::testing_new_int(1).to_value())
-    );
-    assert!(
-        !got.impl_for_test()
-            .matches(FrozenValue::new_bool(true).to_value())
-    );
+    assert!(got.impl_for_test().matches(Value::testing_new_int(1)));
+    assert!(!got.impl_for_test().matches(Value::new_bool(true)));
 
     Ok(())
 }
@@ -2704,7 +2699,7 @@ fn register_foo(builder: &mut GlobalsBuilder) {
 
 starlark::globals_static!(
     STATIC_GLOBALS = |static_globals| {
-        static_globals.set("x", FrozenValue::new_none());
+        static_globals.set("x", NoneType);
     }
 );
 
@@ -2718,7 +2713,7 @@ fn test_globals_roundtrip() {
     globals.namespace_no_docs("ns_hidden", |_| {});
     globals.namespace("ns", |globals| {
         globals.namespace_no_docs("nested_ns_hidden", |_| {});
-        globals.set("x", FrozenValue::new_none());
+        globals.set("x", NoneType);
         register_dict(globals);
     });
 
@@ -4165,7 +4160,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
     {
         let n = 5000;
         let heap = ErasingHeap::new();
-        let mut root = FrozenValue::new_none();
+        let mut root = erased(Value::new_none());
         for i in 0..n {
             root = heap.alloc_simple(SimpleData {
                 flag: i % 2 == 0,
@@ -4180,7 +4175,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
     {
         let n = 5000;
         let heap = ErasingHeap::new();
-        let mut root = FrozenValue::new_none();
+        let mut root = erased(Value::new_none());
         for i in 0..n {
             root = heap.alloc_simple(HeapData {
                 items: vec![i as u32; 10],
@@ -4197,7 +4192,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let n = 2000;
         let heap = ErasingHeap::new();
         let s: String = "x".repeat(str_len);
-        let mut root = FrozenValue::new_none();
+        let mut root = erased(Value::new_none());
         for _ in 0..n {
             root = heap.alloc_str(&s).to_frozen_value();
         }

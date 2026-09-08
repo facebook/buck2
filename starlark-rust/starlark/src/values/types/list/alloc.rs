@@ -21,7 +21,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -41,9 +40,9 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// ```
 pub struct AllocList<L>(pub L);
 
-impl AllocList<iter::Empty<FrozenValue>> {
+impl<'v> AllocList<iter::Empty<Value<'v>>> {
     /// Allocate an empty list.
-    pub const EMPTY: AllocList<iter::Empty<FrozenValue>> = AllocList(iter::empty());
+    pub const EMPTY: AllocList<iter::Empty<Value<'v>>> = AllocList(iter::empty());
 }
 
 impl<L> StarlarkTypeRepr for AllocList<L>

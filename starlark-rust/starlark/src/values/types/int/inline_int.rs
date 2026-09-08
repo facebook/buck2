@@ -34,7 +34,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -368,7 +367,7 @@ impl<'v> AllocValue<'v> for InlineInt {
 
 impl<'fv> AllocFrozenValue<'fv> for InlineInt {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        FrozenValue::new_int(self).to_value()
+        Value::new_int(self)
     }
 }
 

@@ -23,7 +23,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::dict::Dict;
@@ -52,9 +51,9 @@ use crate::values::types::dict::dict_type::DictType;
 /// ```
 pub struct AllocDict<D>(pub D);
 
-impl AllocDict<iter::Empty<(FrozenValue, FrozenValue)>> {
+impl<'v> AllocDict<iter::Empty<(Value<'v>, Value<'v>)>> {
     /// Allocate an empty dict.
-    pub const EMPTY: AllocDict<iter::Empty<(FrozenValue, FrozenValue)>> = AllocDict(iter::empty());
+    pub const EMPTY: AllocDict<iter::Empty<(Value<'v>, Value<'v>)>> = AllocDict(iter::empty());
 }
 
 impl<D, K, V> StarlarkTypeRepr for AllocDict<D>

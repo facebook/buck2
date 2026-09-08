@@ -220,7 +220,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(
             require = named,
             default = ValueOf {
-                value: starlark::values::FrozenValue::new_empty_dict().to_value(),
+                value: starlark::values::Value::new_empty_dict(),
                 typed: UnpackDictEntries::default()
             }
         )]
