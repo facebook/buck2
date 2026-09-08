@@ -33,7 +33,7 @@ use crate::codemap::ResolvedFileSpan;
 use crate::collections::alloca::Alloca;
 use crate::collections::string_pool::StringPool;
 use crate::const_frozen_string;
-use crate::environment::FrozenModuleData;
+use crate::environment::FrozenModuleValue;
 use crate::environment::Module;
 use crate::environment::slots::ModuleSlotId;
 use crate::eval::CallStack;
@@ -583,7 +583,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                     .mutable_names()
                     .get_slot(slot)
                     .map(|s| s.as_str().to_owned()),
-                Ok(Some(e)) => e.get_slot_name(slot).map(|s| s.as_str().to_owned()),
+                Ok(Some(e)) => e.value.get_slot_name(slot).map(|s| s.as_str().to_owned()),
             }
             .unwrap_or_else(|| "<unknown>".to_owned());
             crate::Error::new_other(EvaluatorError::LocalVariableReferencedBeforeAssignment(
@@ -593,7 +593,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
         match self.top_frame_def_frozen_module(false)? {
             None => self.module_env.slots().get_slot(slot),
-            Some(e) => e.get_slot(slot).map(Value::new_frozen),
+            Some(e) => e.value.get_slot(slot),
         }
         .ok_or_else(|| error(self, slot))
     }
@@ -757,7 +757,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     pub(crate) fn top_frame_def_frozen_module(
         &self,
         for_debugger: bool,
-    ) -> anyhow::Result<Option<FrozenAnyValue<FrozenModuleData>>> {
+    ) -> anyhow::Result<Option<FrozenModuleValue<'v>>> {
         let func = self.top_frame_maybe_for_debugger(for_debugger)?;
         if let Some(func) = func.downcast_ref::<Def>() {
             Ok(func.module.load_relaxed())

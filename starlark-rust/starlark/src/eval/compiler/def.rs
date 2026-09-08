@@ -54,6 +54,7 @@ use crate::docs::DocMember;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::FrozenModuleData;
+use crate::environment::FrozenModuleValue;
 use crate::environment::Globals;
 use crate::eval::Arguments;
 use crate::eval::bc::bytecode::Bc;
@@ -104,9 +105,10 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
-use crate::values::any::AtomicFrozenAnyValueOption;
 use crate::values::any::FrozenAnyValue;
+use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::function::FUNCTION_TYPE;
+use crate::values::layout::typed::AtomicValueTypedOption;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::any_array::FrozenAnyArray;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
@@ -647,8 +649,7 @@ pub(crate) struct Def<'v> {
     /// When the module is not frozen yet, this field contains `None`, and function's module
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
-    #[freeze_branded(identity)]
-    pub(crate) module: AtomicFrozenAnyValueOption<FrozenModuleData>,
+    pub(crate) module: AtomicValueTypedOption<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>,
     /// See [`StmtCompiledCell`].
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -715,7 +716,7 @@ impl<'v> Def<'v> {
             parameter_captures: stmt.parameter_captures,
             return_type,
             captured,
-            module: AtomicFrozenAnyValueOption::new(eval.top_frame_def_frozen_module(false)?),
+            module: AtomicValueTypedOption::new(eval.top_frame_def_frozen_module(false)?),
             optimized_on_freeze_stmt: StmtCompiledCell::new(),
             def_info: stmt,
         }))
@@ -924,9 +925,9 @@ impl<'v> Def<'v> {
 
     pub(crate) fn post_freeze(
         &self,
-        module: FrozenAnyValue<FrozenModuleData>,
+        module: FrozenModuleValue<'v>,
         heap: Heap<'_>,
-        frozen_heap: FrozenHeap<'_>,
+        frozen_heap: FrozenHeap<'v>,
     ) {
         // Module passed to this function is not always module where the function is declared:
         // A function can be created in a frozen module and frozen later in another module.
@@ -946,7 +947,7 @@ impl<'v> Def<'v> {
             .body_stmts
             .optimize(&mut OptCtx::new(
                 &mut OptimizeOnFreezeContext {
-                    module: &def_module,
+                    module: &def_module.as_ref().value,
                     heap,
                     frozen_heap,
                 },

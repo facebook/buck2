@@ -62,9 +62,11 @@ use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::any::FrozenAnyValue;
 use crate::values::any::StarlarkAnyRegistered;
+use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::dict::globals::register_dict;
 use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
+use crate::values::layout::typed::AtomicValueTypedOption;
 use crate::values::list::AllocList;
 use crate::values::list::globals::register_list;
 use crate::values::tuple::AllocTuple;
@@ -2333,16 +2335,16 @@ fn test_frozen_any_array_empty_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
-/// Host type holding an `AtomicFrozenAnyValueOption<AnyPayload>` field.
+/// Host type holding an `AtomicValueTypedOption` field.
 #[derive(Display, Allocative, ProvidesStaticType, NoSerialize, StarlarkPagable)]
 #[display("AtomicHost({})", self.label)]
-struct AtomicHost {
+struct AtomicHost<'v> {
     label: String,
     #[allocative(skip)]
-    option: crate::values::any::AtomicFrozenAnyValueOption<AnyPayload>,
+    option: AtomicValueTypedOption<'v, StarlarkAnyComplex<FrozenComplexPayload>>,
 }
 
-impl std::fmt::Debug for AtomicHost {
+impl std::fmt::Debug for AtomicHost<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AtomicHost")
             .field("label", &self.label)
@@ -2351,26 +2353,28 @@ impl std::fmt::Debug for AtomicHost {
     }
 }
 
-starlark_simple_value!(AtomicHost);
-
-#[starlark_value(type = "AtomicHost")]
-impl<'v> StarlarkValue<'v> for AtomicHost {
+#[starlark_value(type = "AtomicHost", frozen_vtable)]
+impl<'v> StarlarkValue<'v> for AtomicHost<'v> {
     type Canonical = Self;
 }
 
 #[test]
-fn test_atomic_frozen_any_value_option_some_round_trip() -> crate::Result<()> {
+fn test_atomic_value_typed_option_some_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let payload_fv = heap.alloc_any_value(AnyPayload {
-        name: "target".to_owned(),
-        count: 42,
-    });
-    let root = heap.alloc_simple(AtomicHost {
-        label: "host_with_some".to_owned(),
-        option: crate::values::any::AtomicFrozenAnyValueOption::new(Some(payload_fv)),
+    let root = heap.with(|heap| {
+        let payload = heap.alloc_simple_typed(StarlarkAnyComplex::new(FrozenComplexPayload {
+            label: "target".to_owned(),
+            numbers: vec![42],
+        }));
+        heap.alloc_simple(AtomicHost {
+            label: "host_with_some".to_owned(),
+            option: AtomicValueTypedOption::new(Some(payload)),
+        })
+        .unpack_frozen()
+        .expect("value allocated in a frozen heap is frozen")
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
-        "test_atomic_frozen_any_value_option_some",
+        "test_atomic_value_typed_option_some",
     ));
 
     let restored = round_trip_owned(heap_ref, root)?;
@@ -2382,27 +2386,26 @@ fn test_atomic_frozen_any_value_option_some_round_trip() -> crate::Result<()> {
     assert_eq!(host.label, "host_with_some");
 
     let loaded = host.option.load_relaxed();
-    let fv = loaded.expect("option should be Some after round-trip");
-    assert_eq!(
-        *fv.as_ref(),
-        AnyPayload {
-            name: "target".to_owned(),
-            count: 42,
-        }
-    );
+    let payload = loaded.expect("option should be Some after round-trip");
+    assert_eq!(payload.value.label, "target");
+    assert_eq!(payload.value.numbers, vec![42]);
 
     Ok(())
 }
 
 #[test]
-fn test_atomic_frozen_any_value_option_none_round_trip() -> crate::Result<()> {
+fn test_atomic_value_typed_option_none_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let root = heap.alloc_simple(AtomicHost {
-        label: "host_with_none".to_owned(),
-        option: crate::values::any::AtomicFrozenAnyValueOption::new(None),
+    let root = heap.with(|heap| {
+        heap.alloc_simple(AtomicHost {
+            label: "host_with_none".to_owned(),
+            option: AtomicValueTypedOption::new(None),
+        })
+        .unpack_frozen()
+        .expect("value allocated in a frozen heap is frozen")
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
-        "test_atomic_frozen_any_value_option_none",
+        "test_atomic_value_typed_option_none",
     ));
 
     let restored = round_trip_owned(heap_ref, root)?;

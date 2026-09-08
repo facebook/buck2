@@ -112,7 +112,7 @@ pub(crate) struct StmtCompileContext {
 }
 
 pub(crate) struct OptimizeOnFreezeContext<'v, 'a, 'fv> {
-    pub(crate) module: &'a FrozenModuleData,
+    pub(crate) module: &'a FrozenModuleData<'fv>,
     /// Nothing useful should be left in the heap after the freeze,
     /// but having a heap is useful to allocate objects temporarily
     /// (when invoking operations which require heap).

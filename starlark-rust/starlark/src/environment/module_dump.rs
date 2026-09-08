@@ -18,9 +18,9 @@
 use std::fmt::Write;
 
 use crate::environment::FrozenModule;
-use crate::eval::compiler::def::FrozenDef;
-use crate::values::FrozenValueTyped;
+use crate::eval::compiler::def::Def;
 use crate::values::OwnedFrozenRef;
+use crate::values::ValueLike;
 
 impl FrozenModule {
     /// Print a lot of module internals for debugging.
@@ -31,17 +31,19 @@ impl FrozenModule {
         writeln!(w, "Heap stats:").unwrap();
         w.push_str(&dump_heap_debug(self.frozen_heap()));
 
-        for (name, value) in self.all_items() {
-            // TODO(nga): this prints public, private and imported symbols.
-            //   We only care about public and private symbols, but no imported.
-            writeln!(w).unwrap();
-            writeln!(w, "{name} = {value}").unwrap();
-            if let Some(def) = FrozenValueTyped::<FrozenDef>::new(value) {
-                def.dump_debug()
-                    .lines()
-                    .for_each(|line| writeln!(w, "  {line}").unwrap());
+        self.with_data(|data| {
+            for (name, value) in data.all_items() {
+                // TODO(nga): this prints public, private and imported symbols.
+                //   We only care about public and private symbols, but no imported.
+                writeln!(w).unwrap();
+                writeln!(w, "{name} = {value}").unwrap();
+                if let Some(def) = value.downcast_ref::<Def>() {
+                    def.dump_debug()
+                        .lines()
+                        .for_each(|line| writeln!(w, "  {line}").unwrap());
+                }
             }
-        }
+        });
         w
     }
 }

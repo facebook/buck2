@@ -23,7 +23,10 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker;
+use std::mem;
 use std::ops::Deref;
+use std::sync::atomic::AtomicPtr;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dupe::Clone_;
@@ -536,6 +539,98 @@ impl<'fv> AllocFrozenStringValue<'fv> for FrozenStringValue {
 
 // Register FrozenValueTyped<StarlarkStr> for use with alloc_any_slice in pagable mode.
 register_starlark_any!(FrozenValueTyped<'static, StarlarkStr>);
+
+/// `Atomic<Option<ValueTyped<'v, T>>>`, for a `T` that only lives in frozen heaps.
+///
+/// Holds a back reference that is filled in after its holder has been frozen and can no longer be
+/// mutated: a [`Def`](crate::eval::compiler::def::Def)'s module. Because the value is frozen it is
+/// not traced, and freezing the holder only re-types it at the new brand.
+pub(crate) struct AtomicValueTypedOption<'v, T> {
+    ptr: AtomicPtr<()>,
+    /// The auto traits of the `ValueTyped<'v, T>` held.
+    _marker: marker::PhantomData<(Value<'v>, T)>,
+}
+
+// `encode` and `decode` transmute `Option<Value>` <-> `*mut ()`; the niche maps `None` to null.
+const _: () = assert!(mem::size_of::<Option<Value<'static>>>() == mem::size_of::<*mut ()>());
+
+impl<'v, T: StarlarkValue<'v>> AtomicValueTypedOption<'v, T> {
+    fn encode(value: Option<ValueTyped<'v, T>>) -> *mut () {
+        let value: Option<Value<'v>> = value.map(ValueTyped::to_value);
+        debug_assert!(value.is_none_or(|v| v.unpack_frozen().is_some()));
+        // SAFETY: The sizes match (asserted above), and `Option<Value>` has no padding: `None`
+        // is the null niche of the pointer.
+        unsafe { mem::transmute(value) }
+    }
+
+    /// # Safety
+    ///
+    /// `raw` must come from `encode` on this type.
+    unsafe fn decode(raw: *mut ()) -> Option<ValueTyped<'v, T>> {
+        // SAFETY: The caller's obligation.
+        let value: Option<Value<'v>> = unsafe { mem::transmute(raw) };
+        // SAFETY: `encode` took a `ValueTyped<'v, T>`.
+        value.map(|v| unsafe { ValueTyped::new_unchecked(v) })
+    }
+
+    pub(crate) fn new(value: Option<ValueTyped<'v, T>>) -> Self {
+        Self {
+            ptr: AtomicPtr::new(Self::encode(value)),
+            _marker: marker::PhantomData,
+        }
+    }
+
+    pub(crate) fn load_relaxed(&self) -> Option<ValueTyped<'v, T>> {
+        // SAFETY: Only `encode`d pointers are stored.
+        unsafe { Self::decode(self.ptr.load(Ordering::Relaxed)) }
+    }
+
+    pub(crate) fn store_relaxed(&self, value: ValueTyped<'v, T>) {
+        self.ptr.store(Self::encode(Some(value)), Ordering::Relaxed);
+    }
+}
+
+unsafe impl<'v, T: StarlarkValue<'v>> Trace<'v> for AtomicValueTypedOption<'v, T> {
+    fn trace(&mut self, _: &Tracer<'v>) {
+        // The value is frozen.
+    }
+}
+
+impl<'v, T> FreezeBranded for AtomicValueTypedOption<'v, T>
+where
+    T: StarlarkValue<'v>,
+    T: FreezeBranded,
+    for<'fv> <T as FreezeBranded>::Frozen<'fv>: StarlarkValue<'fv>,
+{
+    type Frozen<'fv> = AtomicValueTypedOption<'fv, <T as FreezeBranded>::Frozen<'fv>>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(AtomicValueTypedOption::new(
+            self.load_relaxed().map(|v| v.freeze(freezer)).transpose()?,
+        ))
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for AtomicValueTypedOption<'v, T> {
+    fn starlark_serialize(
+        &self,
+        ctx: &mut dyn crate::pagable::starlark_serialize::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        self.load_relaxed().starlark_serialize(ctx)
+    }
+}
+
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize
+    for AtomicValueTypedOption<'v, T>
+{
+    fn starlark_deserialize(
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        Ok(Self::new(
+            <Option<ValueTyped<'v, T>> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+        ))
+    }
+}
 
 #[cfg(test)]
 mod tests {

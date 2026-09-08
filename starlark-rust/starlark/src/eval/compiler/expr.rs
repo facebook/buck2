@@ -497,7 +497,7 @@ impl IrSpanned<ExprCompiled> {
             | ExprCompiled::Local(..)
             | ExprCompiled::LocalCaptured(..)) => e.clone(),
             ExprCompiled::Module(slot) => {
-                match ctx.frozen_module().and_then(|m| m.get_slot(*slot)) {
+                match ctx.frozen_module().and_then(|m| m.get_slot_frozen(*slot)) {
                     None => {
                         // Let if fail at runtime.
                         ExprCompiled::Module(*slot)

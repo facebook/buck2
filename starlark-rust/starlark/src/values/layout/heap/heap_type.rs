@@ -21,6 +21,7 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::cmp;
 use std::collections::HashSet;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -1088,6 +1089,50 @@ impl OwnedFrozenHeap {
         self.seal_impl(Some(name), None)
     }
 
+    /// Allocate a root value through the handle, then seal the heap and return the value kept
+    /// alive by it.
+    ///
+    /// `f` can only produce the value at the handle's brand, so the value is paired with its
+    /// owner by construction; [`OwnedFrozen::build`] is this on a fresh heap. The heap is sealed
+    /// whether or not `f` succeeds.
+    pub fn seal_with<T, E, F>(self, name: FrozenHeapName, f: F) -> Result<OwnedFrozen<T>, E>
+    where
+        T: IsStaticType,
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fh> F: FnOnce(FrozenHeap<'fh>) -> Result<T::Reinfect<'fh>, E>,
+    {
+        self.seal_with_impl(Some(name), || None, f).1
+    }
+
+    /// [`seal_with`](OwnedFrozenHeap::seal_with), also returning the sealed heap on its own, which
+    /// exists even when `f` failed. `peak_allocated_bytes` is asked after `f` has run.
+    pub(crate) fn seal_with_impl<T, E, F>(
+        self,
+        name: Option<FrozenHeapName>,
+        peak_allocated_bytes: impl FnOnce() -> Option<usize>,
+        f: F,
+    ) -> (OwnedFrozen<()>, Result<OwnedFrozen<T>, E>)
+    where
+        T: IsStaticType,
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fh> F: FnOnce(FrozenHeap<'fh>) -> Result<T::Reinfect<'fh>, E>,
+    {
+        // The brand of the value is the borrow of `self`, which has to end before `self` can be
+        // sealed, so the brand is erased before sealing rather than by `unchecked_new` afterwards.
+        //
+        // SAFETY: `'fh` is the brand of `self`, which is sealed right below into the owner stored
+        // alongside the value. Being closure-introduced, `'fh` names nothing else.
+        let v =
+            f(FrozenHeap(&self, PhantomData)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) });
+        let sealed = self.seal_impl(name, peak_allocated_bytes());
+        let v = v.map(|v| OwnedFrozen {
+            heap_ref: sealed.heap_ref.dupe(),
+            v,
+            _no_auto_traits: PhantomData,
+        });
+        (sealed, v)
+    }
+
     pub(crate) fn seal_impl(
         self,
         name: Option<FrozenHeapName>,
@@ -1774,17 +1819,8 @@ where
         for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
         for<'fh> F: FnOnce(FrozenHeap<'fh>) -> T::Reinfect<'fh>,
     {
-        let heap = OwnedFrozenHeap::new();
-        // The brand of `v` is the borrow of `heap`, which has to end before `heap` can be sealed,
-        // so the brand is erased before sealing rather than by `unchecked_new` afterwards.
-        //
-        // SAFETY: `'fh` is the brand of `heap`, which is sealed right below into the owner stored
-        // alongside `v`. Being closure-introduced, `'fh` names nothing else.
-        let v = unsafe { Self::erase_brand(f(FrozenHeap(&heap, PhantomData))) };
-        Self {
-            heap_ref: heap.seal(name).heap_ref,
-            v,
-            _no_auto_traits: PhantomData,
+        match OwnedFrozenHeap::new().seal_with(name, |heap| Ok::<_, Infallible>(f(heap))) {
+            Ok(v) => v,
         }
     }
 

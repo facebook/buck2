@@ -26,9 +26,10 @@ use starlark_derive::StarlarkPagableViaPagable;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
+use crate::values::ProvidesStaticType;
 use crate::values::Value;
 
 #[derive(
@@ -55,9 +56,10 @@ impl ModuleSlotId {
 #[derive(Debug)]
 pub(crate) struct MutableSlots<'v>(RefCell<Vec<Option<Value<'v>>>>);
 
-// Indexed slots of a module. May contain unassigned values as `None`.
-#[derive(Debug, Allocative, StarlarkPagable)]
-pub(crate) struct FrozenSlots(Vec<Option<FrozenValue>>);
+// Indexed slots of a frozen module, at the brand of the heap that holds them. May contain
+// unassigned values as `None`.
+#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
+pub(crate) struct FrozenSlots<'v>(Vec<Option<Value<'v>>>);
 
 impl<'v> MutableSlots<'v> {
     pub fn new() -> Self {
@@ -102,17 +104,17 @@ impl<'v> MutableSlots<'v> {
             .collect()
     }
 
-    pub(crate) fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenSlots> {
+    pub(crate) fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenSlots<'fv>> {
         let slots = self
             .0
             .into_inner()
-            .into_try_map(|slot| slot.map(|v| freezer.freeze(v)).transpose())?;
+            .into_try_map(|slot| slot.map(|v| freezer.freeze_branded(v)).transpose())?;
         Ok(FrozenSlots(slots))
     }
 }
 
-impl FrozenSlots {
-    pub fn get_slot(&self, slot: ModuleSlotId) -> Option<FrozenValue> {
+impl<'v> FrozenSlots<'v> {
+    pub fn get_slot(&self, slot: ModuleSlotId) -> Option<Value<'v>> {
         self.0[slot.0 as usize]
     }
 }

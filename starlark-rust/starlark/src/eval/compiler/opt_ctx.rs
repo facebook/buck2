@@ -26,7 +26,7 @@ pub(crate) trait OptCtxEval<'v, 'a, 'e, 'fm> {
     fn heap(&self) -> Heap<'v>;
     fn frozen_heap(&self) -> FrozenHeap<'fm>;
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>>;
-    fn frozen_module(&self) -> Option<&FrozenModuleData>;
+    fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>>;
 }
 
 impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v, 'a, 'fv> {
@@ -42,7 +42,7 @@ impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v
         None
     }
 
-    fn frozen_module(&self) -> Option<&FrozenModuleData> {
+    fn frozen_module(&self) -> Option<&FrozenModuleData<'fv>> {
         Some(self.module)
     }
 }
@@ -60,7 +60,7 @@ impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a, 'e, '
         Some(self.eval)
     }
 
-    fn frozen_module(&self) -> Option<&FrozenModuleData> {
+    fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>> {
         None
     }
 }
@@ -96,7 +96,7 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
         self.eval.eval()
     }
 
-    pub(crate) fn frozen_module(&self) -> Option<&FrozenModuleData> {
+    pub(crate) fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>> {
         self.eval.frozen_module()
     }
 }

@@ -51,12 +51,9 @@ use crate::environment::slots::MutableSlots;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
-use crate::pagable::StarlarkDeserialize;
-use crate::pagable::StarlarkDeserializerImpl;
-use crate::pagable::StarlarkSerialize;
-use crate::pagable::StarlarkSerializerImpl;
-use crate::register_starlark_any;
+use crate::register_starlark_any_complex;
 use crate::singleton_heap_name;
+use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -66,10 +63,12 @@ use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenRef;
+use crate::values::ProvidesStaticType;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
-use crate::values::any::FrozenAnyValue;
+use crate::values::ValueTyped;
+use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
@@ -90,13 +89,8 @@ enum ModuleError {
 /// these values after the [`FrozenModule`] has been released unless you obtain a reference
 /// to the frozen heap.
 #[derive(Debug, Clone, Dupe, Allocative)]
-// We store the two elements separately since the frozen heap contains
-// a copy of the FrozenModuleData inside it.
-// Two Arc's should still be plenty cheap enough to qualify for `Dupe`.
 pub struct FrozenModule {
-    heap: OwnedFrozen<()>,
-    module: FrozenAnyValue<FrozenModuleData>,
-    extra_value: Option<FrozenValue>,
+    data: OwnedFrozenModuleData,
     /// Module evaluation duration:
     /// * evaluation of the top-level statements
     /// * optimizations during that evaluation
@@ -105,32 +99,18 @@ pub struct FrozenModule {
     pub(crate) eval_duration: Duration,
 }
 
+/// What a [`FrozenModule`] owns: its [`FrozenModuleData`], allocated on the module's heap.
+type OwnedFrozenModuleData =
+    OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenModuleData<'static>>>>;
+
+/// A [`FrozenModule`]'s data as the value it is allocated as, at the brand of the module's heap.
+pub(crate) type FrozenModuleValue<'v> = ValueTyped<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>;
+
 impl PagableSerialize for FrozenModule {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // Serialize the heap (via pagable arc — actual heap data may be deferred).
-        self.heap.pagable_serialize(serializer)?;
-
-        // Force-register chunk indices for the heap and its transitive deps. The
-        // pagable arc may not run heap serialization yet, but we need the
-        // chunk indices now so the upcoming starlark serializer can resolve
-        // FrozenValue pointers. Same trick as `OwnedFrozen`.
-        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(self.heap.heap_arc())?;
-        let mut ctx =
-            StarlarkSerializerImpl::new_with_root(serializer, state, self.heap.heap_arc());
-
-        self.module
-            .starlark_serialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        self.extra_value
-            .starlark_serialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        drop(ctx);
-
         // `eval_duration` is runtime telemetry, not content. Skipping it keeps the
         // page-out `DataKey` stable across runs; restored as `ZERO` on page-in.
-
-        Ok(())
+        self.data.pagable_serialize(serializer)
     }
 }
 
@@ -138,42 +118,36 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let heap = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
-
-        // The preceding heap deserialization registers its heap state in this
-        // page-in scope, so Starlark fields can resolve `FrozenValue` pointers.
-        let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-
-        let module = <FrozenAnyValue<FrozenModuleData>>::starlark_deserialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        let extra_value = <Option<FrozenValue>>::starlark_deserialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        drop(ctx);
-
-        // Not serialized (see `pagable_serialize`); restore the default.
-        let eval_duration = Duration::ZERO;
-
         Ok(Self {
-            heap,
-            module,
-            extra_value,
-            eval_duration,
+            data: OwnedFrozenModuleData::pagable_deserialize(deserializer)?,
+            eval_duration: Duration::ZERO,
         })
     }
 }
 
-#[derive(Debug, Allocative, StarlarkPagable)]
-pub(crate) struct FrozenModuleData {
+/// The contents of a [`FrozenModule`], at the brand of the heap they live in.
+// `FreezeBranded` only ever re-types this at another frozen heap's brand: a `Def` carries its
+// module and can be frozen into a later module. Frozen data is not frozen again, so the impl is
+// never run over the fields.
+#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
+pub(crate) struct FrozenModuleData<'v> {
+    /// The names are `FrozenStringValue`s, which the brand does not reach; they are interned in
+    /// the module's heap or in a heap it references.
+    #[freeze_branded(identity)]
     pub(crate) names: FrozenNames,
-    pub(crate) slots: FrozenSlots,
+    pub(crate) slots: FrozenSlots<'v>,
+    extra_value: Option<Value<'v>>,
+    #[freeze_branded(identity)]
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
     /// Runtime profiling data — not meaningful to round-trip, so we skip
     /// serialization and restore as `None`.
+    #[freeze_branded(identity)]
     #[starlark_pagable(skip)]
     heap_profile: Option<RetainedHeapProfile>,
 }
+
+register_starlark_any_complex!(frozen FrozenModuleData<'_>);
 
 /// A container for user values, used during execution.
 ///
@@ -225,13 +199,18 @@ impl FrozenModule {
         })
     }
 
-    fn get_slot_any_visibility(&self, name: &str) -> Option<(FrozenValue, Visibility)> {
-        let (slot, vis) = self.module.names.get_name(name)?;
-        Some((self.module.slots.get_slot(slot)?, vis))
+    /// Read the module's data at the brand of its heap.
+    pub(crate) fn with_data<R>(&self, f: impl for<'fv> FnOnce(&FrozenModuleData<'fv>) -> R) -> R {
+        self.data.by_ref(|data| f(&data.value))
     }
 
-    fn get_slot_any_visibility_err(&self, name: &str) -> anyhow::Result<(FrozenValue, Visibility)> {
-        self.get_slot_any_visibility(name).ok_or_else(|| {
+    /// The slot of `name` and its visibility, if the module defines `name` and assigned it.
+    fn lookup(&self, name: &str) -> Option<(ModuleSlotId, Visibility)> {
+        self.with_data(|data| data.lookup(name))
+    }
+
+    fn lookup_err(&self, name: &str) -> anyhow::Result<(ModuleSlotId, Visibility)> {
+        self.lookup(name).ok_or_else(|| {
             match did_you_mean(name, self.names().map(|s| s.as_str())) {
                 Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
                     name.to_owned(),
@@ -243,11 +222,34 @@ impl FrozenModule {
         })
     }
 
-    /// Pair a value belonging to this module with the heap that keeps it alive.
-    fn own_value(&self, value: FrozenValue) -> OwnedFrozen<Value<'static>> {
-        // SAFETY: The value is one of this module's own, so this module's heap keeps it alive —
-        // directly, or through its heap references for values that arrived via `load()`.
-        unsafe { OwnedFrozen::unchecked_new(self.heap.dupe(), value.to_value()) }
+    /// The slot of the exported `name`: `None` if the module does not define it, an error if it
+    /// is private.
+    fn exported_slot(&self, name: &str) -> anyhow::Result<Option<ModuleSlotId>> {
+        match self.lookup(name) {
+            None => Ok(None),
+            Some((_, Visibility::Private)) => {
+                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
+            }
+            Some((slot, Visibility::Public)) => Ok(Some(slot)),
+        }
+    }
+
+    /// The value of a slot that [`lookup`](FrozenModule::lookup) found, kept alive by this
+    /// module's heap.
+    fn slot_owned(&self, slot: ModuleSlotId) -> OwnedFrozen<Value<'static>> {
+        self.data
+            .dupe()
+            .maybe_map::<Value<'static>, _>(|data| data.value.slots.get_slot(slot))
+            .expect("`lookup` found the slot assigned")
+    }
+
+    /// Like [`slot_owned`](FrozenModule::slot_owned), borrowing this module instead of sharing
+    /// ownership of its heap.
+    fn slot_ref(&self, slot: ModuleSlotId) -> OwnedFrozenRef<'_, Value<'static>> {
+        self.data
+            .as_ref()
+            .maybe_map::<Value<'static>, _>(|data| data.value.slots.get_slot(slot))
+            .expect("`lookup` found the slot assigned")
     }
 
     /// Get value, exported or private by name, kept alive by this module's heap.
@@ -258,8 +260,8 @@ impl FrozenModule {
         &self,
         name: &str,
     ) -> anyhow::Result<(OwnedFrozen<Value<'static>>, Visibility)> {
-        let (value, vis) = self.get_slot_any_visibility_err(name)?;
-        Ok((self.own_value(value), vis))
+        let (slot, vis) = self.lookup_err(name)?;
+        Ok((self.slot_owned(slot), vis))
     }
 
     /// Get the value of the exported variable `name`, kept alive by this module's heap.
@@ -271,13 +273,7 @@ impl FrozenModule {
         &self,
         name: &str,
     ) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
-        match self.get_slot_any_visibility(name) {
-            None => Ok(None),
-            Some((_, Visibility::Private)) => {
-                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
-            }
-            Some((value, Visibility::Public)) => Ok(Some(self.own_value(value))),
-        }
+        Ok(self.exported_slot(name)?.map(|slot| self.slot_owned(slot)))
     }
 
     /// Like [`get_option_owned`](FrozenModule::get_option_owned), but borrowing this module
@@ -286,115 +282,118 @@ impl FrozenModule {
         &self,
         name: &str,
     ) -> anyhow::Result<Option<OwnedFrozenRef<'_, Value<'static>>>> {
-        match self.get_slot_any_visibility(name) {
-            None => Ok(None),
-            Some((_, Visibility::Private)) => {
-                Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
-            }
-            // SAFETY: The value came out of a slot of this module, so the heap we are borrowing
-            // keeps it alive — directly, or through its heap references for slot values that
-            // arrived via `load()`.
-            Some((value, Visibility::Public)) => Ok(Some(unsafe {
-                OwnedFrozenRef::unchecked_new(self.heap.owner(), value.to_value())
-            })),
-        }
+        Ok(self.exported_slot(name)?.map(|slot| self.slot_ref(slot)))
     }
 
     /// Get the value of the exported variable `name`, kept alive by this module's heap.
     /// Returns an error if the variable isn't defined in the module or it is private.
     pub fn get_owned(&self, name: &str) -> anyhow::Result<OwnedFrozen<Value<'static>>> {
-        match self.get_slot_any_visibility_err(name)? {
+        match self.lookup_err(name)? {
             (_, Visibility::Private) => {
                 Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
             }
-            (value, Visibility::Public) => Ok(self.own_value(value)),
+            (slot, Visibility::Public) => Ok(self.slot_owned(slot)),
         }
     }
 
     /// Iterate through all the names defined in this module.
     /// Only includes symbols that are publicly exposed.
     pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
-        self.module.names()
+        self.with_data(|data| data.names().collect::<Vec<_>>())
+            .into_iter()
     }
 
     /// The heap which owns the storage of all values defined in this module.
     pub fn frozen_heap(&self) -> OwnedFrozenRef<'_, ()> {
-        self.heap.owner()
+        self.data.owner()
     }
 
     /// Print out some approximation of the module definitions.
     pub fn describe(&self) -> String {
-        self.module.describe()
-    }
-
-    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
-        self.module.all_items()
+        self.with_data(|data| data.describe())
     }
 
     /// The documentation for the module, and all of its top level values
     ///
     /// Returns `(<module documentation>, { <symbol> : <that symbol's documentation> })`
     pub fn documentation(&self) -> DocModule {
-        let members = self
-            .all_items()
-            .filter(|n| {
-                // We only want to show public symbols in the documentation
-                self.get_slot_any_visibility(n.0.as_str())
-                    .is_some_and(|(_, vis)| vis == Visibility::Public)
-            })
-            .map(|(k, v)| (k.as_str().to_owned(), v.to_value().documentation()))
-            .collect();
-
-        DocModule {
-            docs: self.module.documentation(),
-            members,
-        }
+        self.with_data(|data| DocModule {
+            docs: data.documentation(),
+            // Only public symbols are shown in the documentation.
+            members: data
+                .items()
+                .map(|(k, v)| (k.as_str().to_owned(), v.documentation()))
+                .collect(),
+        })
     }
 
     /// Retained memory info, or error if not enabled.
     pub fn heap_profile(&self) -> anyhow::Result<ProfileData> {
-        match &self.module.heap_profile {
+        self.with_data(|data| match &data.heap_profile {
             None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
             Some(p) => Ok(p.to_profile()),
-        }
+        })
     }
 
     /// `extra_value` field from `Module`, frozen.
     pub fn extra_value(&self) -> Option<FrozenValue> {
-        self.extra_value
+        self.with_data(|data| data.extra_value.map(frozen_value))
     }
 
     /// `extra_value` field from `Module`, frozen, kept alive by this module's heap.
     pub fn extra_value_owned(&self) -> Option<OwnedFrozen<Value<'static>>> {
-        self.extra_value.map(|v| self.own_value(v))
+        self.data
+            .dupe()
+            .maybe_map::<Value<'static>, _>(|data| data.value.extra_value)
     }
 }
 
-impl FrozenModuleData {
+/// The `FrozenValue` form of a value stored by a frozen module, for the readers that still hold
+/// module values as `FrozenValue`: the compiler IR and [`FrozenModule::extra_value`].
+fn frozen_value(v: Value) -> FrozenValue {
+    v.unpack_frozen()
+        .expect("frozen modules store frozen values")
+}
+
+impl<'v> FrozenModuleData<'v> {
+    /// The slot of `name` and its visibility, if the module defines `name` and assigned it.
+    fn lookup(&self, name: &str) -> Option<(ModuleSlotId, Visibility)> {
+        let (slot, vis) = self.names.get_name(name)?;
+        self.slots.get_slot(slot)?;
+        Some((slot, vis))
+    }
+
     fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
         self.names.symbols().map(|x| x.0)
     }
 
     fn describe(&self) -> String {
         self.items()
-            .map(|(name, val)| val.to_value().describe(&name))
+            .map(|(name, val)| val.describe(&name))
             .join("\n")
     }
 
-    fn items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
+    /// The exported symbols and their values.
+    fn items(&self) -> impl Iterator<Item = (FrozenStringValue, Value<'v>)> + '_ {
         self.names
             .symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
     }
 
-    fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, FrozenValue)> + '_ {
+    /// All symbols and their values, including the private and the imported ones.
+    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, Value<'v>)> + '_ {
         self.names
             .all_symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
     }
 
-    pub(crate) fn get_slot(&self, slot: ModuleSlotId) -> Option<FrozenValue> {
+    pub(crate) fn get_slot(&self, slot: ModuleSlotId) -> Option<Value<'v>> {
         self.slots.get_slot(slot)
+    }
+
+    /// See [`frozen_value`].
+    pub(crate) fn get_slot_frozen(&self, slot: ModuleSlotId) -> Option<FrozenValue> {
+        self.get_slot(slot).map(frozen_value)
     }
 
     /// Try and go back from a slot to a name.
@@ -573,7 +572,7 @@ impl<'v> Module<'v> {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let (frozen_module_ref, extra_value) = heaps.frozen_heap(|fh, _| {
+        let data = heaps.seal_with(name, |fh| {
             let freezer = Freezer::new(fh);
             // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
             for r in heap.referenced_heaps() {
@@ -582,9 +581,9 @@ impl<'v> Module<'v> {
             let slots = slots.freeze(&freezer)?;
             let extra_value = extra_value
                 .into_inner()
-                .map(|v| freezer.freeze(v))
+                .map(|v| freezer.freeze_branded(v))
                 .transpose()?;
-            let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
+            let heap_profile = if let Some(mode) = heap_profile_on_freeze.get() {
                 // TODO(nga): retained heap profile does not store information about data
                 //   allocated in frozen heap before freeze starts.
                 let heap_profile = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
@@ -595,24 +594,21 @@ impl<'v> Module<'v> {
             } else {
                 None
             };
-            let rest = FrozenModuleData {
+            let data = fh.alloc_simple_typed(StarlarkAnyComplex::new(FrozenModuleData {
                 names: names.freeze(),
                 slots,
+                extra_value,
                 docstring: docstring.into_inner(),
-                heap_profile: stacks,
-            };
-            let frozen_module_ref = fh.alloc_any_value(rest);
+                heap_profile,
+            }));
             for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-                frozen_def.post_freeze(frozen_module_ref, heap, fh);
+                frozen_def.post_freeze(data, heap, fh);
             }
-            FreezeResult::Ok((frozen_module_ref, extra_value))
+            FreezeResult::Ok(data)
         })?;
-        let sealed = heaps.seal(name);
 
         Ok(FrozenModule {
-            heap: sealed,
-            module: frozen_module_ref,
-            extra_value,
+            data,
             #[cfg(not(target_arch = "wasm32"))]
             eval_duration: start.elapsed() + eval_duration.get(),
             #[cfg(target_arch = "wasm32")]
@@ -650,15 +646,16 @@ impl<'v> Module<'v> {
 
     /// Import symbols from a module, similar to what is done during `load()`.
     pub fn import_public_symbols(&self, module: &FrozenModule) {
-        self.heaps
-            .frozen_heap(|fh, _| fh.add_reference(module.heap.owner()));
-        for (k, slot) in module.module.names.symbols() {
-            if Self::default_visibility(&k) == Visibility::Public {
-                if let Some(value) = module.module.slots.get_slot(slot) {
-                    self.set_private(k, Value::new_frozen(value))
+        self.frozen_heap(|fh, edge| {
+            let data = module.data.as_ref().add_to_frozen_heap(fh);
+            for (k, slot) in data.value.names.symbols() {
+                if Self::default_visibility(&k) == Visibility::Public {
+                    if let Some(value) = data.value.slots.get_slot(slot) {
+                        self.set_private(k, edge.rebrand(value));
+                    }
                 }
             }
-        }
+        })
     }
 
     pub(crate) fn load_symbol(
@@ -671,12 +668,8 @@ impl<'v> Module<'v> {
                 EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()),
             ));
         }
-        match module.get_slot_any_visibility_err(symbol)? {
-            (v, Visibility::Public) => {
-                self.heap().add_reference(module.heap.owner());
-                // The heap reference we just added keeps the value alive for `'v`.
-                Ok(Value::new_frozen(v))
-            }
+        match module.lookup_err(symbol)? {
+            (slot, Visibility::Public) => Ok(module.slot_ref(slot).add_to_heap(self.heap())),
             (_, Visibility::Private) => Err(crate::Error::new_other(
                 EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
             )),
@@ -868,5 +861,3 @@ x = f(1)
         })
     }
 }
-
-register_starlark_any!(FrozenModuleData);
