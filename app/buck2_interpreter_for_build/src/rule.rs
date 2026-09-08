@@ -436,9 +436,6 @@ impl<'v> FreezeBranded for StarlarkRuleCallable<'v> {
         let rule_type = Arc::new(id);
         let rule_name = rule_type.name.to_owned();
 
-        // For StarlarkRuleCallable, it doesn't rely on `signature` to get the default value, instead we get the default value from `Rule.attributes`,
-        // so use `signature(rule_name)` method here.
-        // TODO(nero): It need to some refactor to make it more clear, e.g. add a new type `ParametersSpec<NoDefaults>` here.
         let signature = self.attributes.signature(rule_name);
 
         let artifact_promise_mappings = match self.artifact_promise_mappings {
@@ -490,9 +487,8 @@ pub struct FrozenStarlarkRuleCallable<'v> {
     #[starlark_pagable(pagable)]
     rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenRuleImpl<'v>,
-    /// We don't need rely on `signature` to get the default value here, instead we get the default
-    /// value from `Rule.attributes`. So use in the ParametersSpecNoDefaults for more clarity
-    signature: ParametersSpec<FrozenValue>,
+    /// Defaults are read from `rule.attributes`, never from here.
+    signature: ParametersSpec<Value<'v>>,
     #[starlark_pagable(pagable)]
     rule_docs: DocItem,
     #[starlark_pagable(pagable)]

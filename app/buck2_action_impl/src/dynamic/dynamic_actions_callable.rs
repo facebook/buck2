@@ -34,7 +34,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -132,7 +131,7 @@ pub struct FrozenStarlarkDynamicActionsCallable<'v> {
         StarlarkCallable<'v, DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
     pub(crate) attrs: SmallMap<String, DynamicAttrType>,
     name: String,
-    signature: ParametersSpec<FrozenValue>,
+    signature: ParametersSpec<Value<'v>>,
 }
 
 starlark::methods_static!(DYNAMIC_ACTION_CALLABLE_METHODS = dynamic_action_callable_methods);
@@ -262,7 +261,7 @@ impl<'v> FreezeBranded for FrozenStarlarkDynamicActionsCallable<'v> {
             implementation: implementation.freeze(freezer)?,
             attrs,
             name,
-            signature,
+            signature: signature.freeze(freezer)?,
         })
     }
 }
