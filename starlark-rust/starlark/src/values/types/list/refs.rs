@@ -70,7 +70,7 @@ impl<'v> ListRef<'v> {
 
     /// Downcast the value to the list or frozen list (both are represented by `ListRef`).
     pub fn from_value(x: Value<'v>) -> Option<&'v ListRef<'v>> {
-        if x.unpack_frozen().is_some() {
+        if x.is_frozen() {
             x.downcast_ref::<ListGen<FrozenListData<'v>>>()
                 .map(|x| ListRef::new(x.0.content()))
         } else {

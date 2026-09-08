@@ -441,7 +441,7 @@ impl<'p> FrozenPointer<'p> {
         }
     }
 
-    #[inline]
+    #[cfg(test)]
     pub(crate) fn raw(self) -> RawPointer {
         self.ptr
     }

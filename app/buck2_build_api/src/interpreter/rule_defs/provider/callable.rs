@@ -730,7 +730,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             Some(x) => {
                 // The default is shared by every instance, so it must be immutable: frozen, or
                 // the immutable empty list or dict.
-                if x.unpack_frozen().is_some() {
+                if x.is_frozen() {
                     Some(x)
                 } else if ListRef::from_value(x).is_some_and(|x| x.is_empty()) {
                     Some(Value::new_empty_list())

@@ -211,6 +211,7 @@ mod tests {
     use super::AllocatedThinBoxSlice;
     use super::PackedImpl;
     use super::ThinBoxSliceValue;
+    use crate::const_frozen_string;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
     use crate::values::Value;
@@ -218,22 +219,13 @@ mod tests {
 
     /// One value for each of the five tags a `Value` can carry.
     ///
-    /// The frozen values are brought over as `FrozenValue`s: only their tags matter here.
-    fn one_of_each_tag<'v>(heap: Heap<'v>, frozen_heap: FrozenHeap<'_>) -> [Value<'v>; 5] {
+    /// The frozen ones are statics: only their tags matter here.
+    fn one_of_each_tag<'v>(heap: Heap<'v>) -> [Value<'v>; 5] {
         [
-            frozen_heap
-                .alloc_list(&[])
-                .unpack_frozen()
-                .unwrap()
-                .to_value(),
+            Value::new_empty_list(),
             heap.alloc_list(&[]),
             Value::testing_new_int(17),
-            frozen_heap
-                .alloc_str("frozen")
-                .to_value()
-                .unpack_frozen()
-                .unwrap()
-                .to_value(),
+            const_frozen_string!("frozen").at().to_value(),
             heap.alloc_str("unfrozen").to_value(),
         ]
     }
@@ -256,31 +248,27 @@ mod tests {
 
     #[test]
     fn test_no_value_is_an_allocated_word() {
-        FrozenHeap::temp(|frozen_heap| {
-            Heap::temp(|heap| {
-                for value in one_of_each_tag(heap, frozen_heap) {
-                    assert!(
-                        !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().0.get()),
-                        "{value:?}"
-                    );
-                }
-            });
+        Heap::temp(|heap| {
+            for value in one_of_each_tag(heap) {
+                assert!(
+                    !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().0.get()),
+                    "{value:?}"
+                );
+            }
         });
     }
 
     #[test]
     fn test_one_of_each_tag() {
-        FrozenHeap::temp(|frozen_heap| {
-            Heap::temp(|heap| {
-                let a: [_; 16] = one_of_each_tag(heap, frozen_heap)
-                    .into_iter()
-                    .cycle()
-                    .take(16)
-                    .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap();
-                across_lengths(a);
-            });
+        Heap::temp(|heap| {
+            let a: [_; 16] = one_of_each_tag(heap)
+                .into_iter()
+                .cycle()
+                .take(16)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap();
+            across_lengths(a);
         });
     }
 

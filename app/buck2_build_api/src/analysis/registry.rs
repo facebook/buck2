@@ -716,10 +716,8 @@ impl RecordedAnalysisValues {
                     .iter()
                     .sorted_by_key(|(key, _)| key.index().0)
                     .map(|(_key, tset)| {
-                        tset.as_ref()
-                            .add_to_frozen_heap(heap)
-                            .unpack_frozen()
-                            .expect("value is in a frozen heap")
+                        let tset = tset.as_ref().add_to_frozen_heap(heap);
+                        FrozenValueTyped::new(tset.to_value()).expect("value is in a frozen heap")
                     })
                     .collect();
 

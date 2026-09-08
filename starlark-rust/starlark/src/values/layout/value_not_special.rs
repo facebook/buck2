@@ -30,8 +30,7 @@ pub(crate) struct ValueNotSpecial<'v>(Value<'v>);
 impl<'v> ValueNotSpecial<'v> {
     #[inline]
     pub(crate) fn new(value: Value<'v>) -> Option<ValueNotSpecial<'v>> {
-        if value.is_str() || value.unpack_inline_int().is_some() || value.unpack_frozen().is_none()
-        {
+        if value.is_str() || value.unpack_inline_int().is_some() || !value.is_frozen() {
             None
         } else {
             Some(ValueNotSpecial(value))

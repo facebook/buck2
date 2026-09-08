@@ -82,13 +82,13 @@ impl ForwardPtr {
 
     /// Create a forward pointer to a frozen value. This is used during heap freeze.
     pub(crate) fn new_frozen(value: Value) -> ForwardPtr {
-        debug_assert!(value.unpack_frozen().is_some());
+        debug_assert!(value.is_frozen());
         ForwardPtr::new(value.0.raw().ptr_value())
     }
 
     /// Create a forward pointer to an unfrozen value. This is used during heap GC.
     pub(crate) fn new_unfrozen(value: Value) -> ForwardPtr {
-        debug_assert!(value.unpack_frozen().is_none());
+        debug_assert!(!value.is_frozen());
         ForwardPtr::new(value.0.raw().ptr_value() & !1)
     }
 

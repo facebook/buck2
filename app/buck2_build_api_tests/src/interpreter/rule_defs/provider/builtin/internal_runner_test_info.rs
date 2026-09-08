@@ -9,6 +9,7 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_build_api::interpreter::rule_defs::required_test_local_resource::register_required_test_local_resource;
@@ -974,11 +975,8 @@ mod tests {
         "#
         ))?;
 
-        let entries = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_listing_output("test_foo\ntest_bar\n")?;
+        let entries =
+            InternalRunnerTestInfo::parse_test_listing_output(&info, "test_foo\ntest_bar\n")?;
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "test_foo");
         assert_eq!(entries[0].filter, "test_foo");
@@ -1000,11 +998,7 @@ mod tests {
         "#
         ))?;
 
-        let entries = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_listing_output("")?;
+        let entries = InternalRunnerTestInfo::parse_test_listing_output(&info, "")?;
         assert_eq!(entries.len(), 0);
         Ok(())
     }
@@ -1028,11 +1022,7 @@ mod tests {
         "#
         ))?;
 
-        let entries = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_listing_output("ignored")?;
+        let entries = InternalRunnerTestInfo::parse_test_listing_output(&info, "ignored")?;
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "Test Addition");
         assert_eq!(entries[0].filter, "math::TestAddition");
@@ -1052,12 +1042,7 @@ mod tests {
         "#
         ))?;
 
-        let err = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_listing_output("x")
-            .unwrap_err();
+        let err = InternalRunnerTestInfo::parse_test_listing_output(&info, "x").unwrap_err();
         assert!(err.to_string().contains("missing required key"), "{}", err);
         Ok(())
     }
@@ -1085,21 +1070,13 @@ mod tests {
         "#
         ))?;
 
-        let results = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 0)?;
+        let results = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 0)?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "test_all");
         assert_eq!(results[0].status, TestStatus::PASS);
         assert!(results[0].message.is_none());
 
-        let results = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "oops", 1)?;
+        let results = InternalRunnerTestInfo::parse_test_result_output(&info, "", "oops", 1)?;
         assert_eq!(results[0].status, TestStatus::FAIL);
         assert_eq!(results[0].message.as_deref(), Some("oops"));
         Ok(())
@@ -1127,11 +1104,7 @@ mod tests {
         "#
         ))?;
 
-        let results = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 1)?;
+        let results = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 1)?;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "test_math");
         assert_eq!(results[0].status, TestStatus::FAIL);
@@ -1160,11 +1133,7 @@ mod tests {
         "#
         ))?;
 
-        let results = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 0)?;
+        let results = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 0)?;
         assert_eq!(results[0].duration, Some(std::time::Duration::from_secs(5)));
         Ok(())
     }
@@ -1185,12 +1154,7 @@ mod tests {
         "#
         ))?;
 
-        let err = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 0)
-            .unwrap_err();
+        let err = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 0).unwrap_err();
         assert!(err.to_string().contains("non-negative"), "{}", err);
         Ok(())
     }
@@ -1211,12 +1175,7 @@ mod tests {
         "#
         ))?;
 
-        let err = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 0)
-            .unwrap_err();
+        let err = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 0).unwrap_err();
         assert!(err.to_string().contains("Unknown test status"), "{}", err);
         Ok(())
     }
@@ -1237,12 +1196,7 @@ mod tests {
         "#
         ))?;
 
-        let err = info
-            .as_ref()
-            .value()
-            .as_ref()
-            .parse_test_result_output("", "", 0)
-            .unwrap_err();
+        let err = InternalRunnerTestInfo::parse_test_result_output(&info, "", "", 0).unwrap_err();
         assert!(err.to_string().contains("missing required key"), "{}", err);
         Ok(())
     }

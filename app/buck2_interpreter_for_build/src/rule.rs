@@ -497,7 +497,7 @@ pub struct FrozenStarlarkRuleCallable<'v> {
     artifact_promise_mappings: Option<FrozenArtifactPromiseMappings<'v>>,
 }
 
-fn unpack_frozen_rule<'v>(
+fn downcast_frozen_rule<'v>(
     rule: Value<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
     ValueTyped::new(rule).internal_error("Expecting FrozenRuleCallable")
@@ -505,19 +505,19 @@ fn unpack_frozen_rule<'v>(
 
 /// The `AttributeSpec` of a frozen `rule()` / `anon_rule()` / `bxl.anon_rule()` value.
 pub fn frozen_rule_attribute_spec<'v>(rule: Value<'v>) -> buck2_error::Result<&'v AttributeSpec> {
-    Ok(unpack_frozen_rule(rule)?.as_ref().attributes())
+    Ok(downcast_frozen_rule(rule)?.as_ref().attributes())
 }
 
 pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
-        let rule = unpack_frozen_rule(rule)?;
+        let rule = downcast_frozen_rule(rule)?;
         Ok(rule.as_ref().implementation.dupe().into_value())
     })
 }
 
 pub(crate) fn init_frozen_promise_artifact_mappings_get_impl() {
     FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.init(|rule| {
-        let rule = unpack_frozen_rule(rule)?;
+        let rule = downcast_frozen_rule(rule)?;
         Ok(rule
             .as_ref()
             .artifact_promise_mappings

@@ -27,6 +27,7 @@ use buck2_node::attrs::attr_type::arg::StringWithMacros;
 use buck2_node::attrs::attr_type::arg::UnrecognizedMacro;
 use dupe::Dupe;
 use either::Either;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 
 use crate::attrs::resolve::attr_type::arg::query::ConfiguredQueryMacroBaseExt;
@@ -122,10 +123,8 @@ fn resolve_configured_macro<'v>(
             let providers_value = ctx.get_dep(label)?;
             // `ResolvedMacro::Location` wants the frozen witness; dep provider collections are
             // always frozen, so this cannot fail.
-            let default_info = providers_value
-                .as_ref()
-                .default_info()?
-                .unpack_frozen()
+            let default_info = providers_value.as_ref().default_info()?;
+            let default_info = FrozenValueTyped::new(default_info.to_value())
                 .internal_error("dep provider collections are frozen")?;
             Ok(ResolvedMacro::Location(default_info))
         }

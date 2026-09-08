@@ -383,14 +383,14 @@ impl FrozenProviderCollection {
     pub fn testing_new_default<'v>(
         heap: FrozenHeap<'v>,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
-        heap.alloc_typed(ProviderCollection {
+        let collection = heap.alloc_typed(ProviderCollection {
             providers: SmallMap::from_iter([(
                 CollectionKey(DefaultInfoCallable::provider_id().dupe()),
                 DefaultInfo::testing_empty(heap).to_value(),
             )]),
-        })
-        .unpack_frozen()
-        .expect("value allocated in a frozen heap is frozen")
+        });
+        FrozenValueTyped::new(collection.to_value())
+            .expect("value allocated in a frozen heap is frozen")
     }
 }
 
@@ -503,7 +503,7 @@ impl<'v> ProviderCollection<'v> {
     }
 }
 
-/// Thin wrapper around `FrozenValue` that can only be constructed if that value is a `FrozenProviderCollection`
+/// A `ProviderCollection` kept alive by its owning frozen heap.
 #[derive(Debug, Clone, Dupe, Allocative, starlark::StarlarkPagable)]
 pub struct FrozenProviderCollectionValue {
     #[allocative(skip)] // TODO(nga): do not skip.
@@ -541,7 +541,7 @@ impl FrozenProviderCollectionValue {
             .value
             .as_ref()
             .map::<FrozenValueTyped<'static, ProviderCollection<'static>>, _>(|v| {
-                v.unpack_frozen().expect("value is in a frozen heap")
+                FrozenValueTyped::new(v.to_value()).expect("value is in a frozen heap")
             });
         FrozenProviderCollectionValueRef { inner }
     }
@@ -658,8 +658,7 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
                             // This wrapper type's constructors only accept collections stored in
                             // frozen heaps, and sub-target collections of a frozen `DefaultInfo`
                             // are themselves frozen.
-                            Ok(collection_value
-                                .unpack_frozen()
+                            Ok(FrozenValueTyped::new(collection_value.to_value())
                                 .expect("wrapper holds a frozen collection"))
                         },
                     )?;
@@ -685,7 +684,6 @@ pub mod tester {
     use starlark::values::ValueLike;
 
     use crate::interpreter::rule_defs::provider::ProviderCollection;
-    use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
     #[starlark_module]
     pub fn collection_creator(builder: &mut GlobalsBuilder) {
@@ -694,9 +692,7 @@ pub mod tester {
         }
 
         fn get_default_info_default_outputs<'v>(value: Value<'v>) -> starlark::Result<Value<'v>> {
-            value
-                .unpack_frozen()
-                .expect("a frozen value to fetch DefaultInfo");
+            assert!(value.is_frozen(), "a frozen value to fetch DefaultInfo");
             let collection = value.downcast_ref::<ProviderCollection>().ok_or_else(|| {
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::StarlarkError,
@@ -710,9 +706,7 @@ pub mod tester {
         }
 
         fn get_default_info_sub_targets<'v>(value: Value<'v>) -> starlark::Result<Value<'v>> {
-            value
-                .unpack_frozen()
-                .expect("a frozen value to fetch DefaultInfo");
+            assert!(value.is_frozen(), "a frozen value to fetch DefaultInfo");
             let collection = value.downcast_ref::<ProviderCollection>().ok_or_else(|| {
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::StarlarkError,
@@ -736,10 +730,9 @@ pub mod tester {
                 .unwrap()
                 .dupe();
 
+            assert!(collection.is_frozen(), "a frozen value");
             let res = collection
-                .unpack_frozen()
-                .expect("a frozen value")
-                .downcast_ref::<FrozenProviderCollection>()
+                .downcast_ref::<ProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::StarlarkError,
@@ -753,10 +746,9 @@ pub mod tester {
         }
 
         fn providers_list<'v>(collection: Value<'v>) -> starlark::Result<Vec<String>> {
+            assert!(collection.is_frozen(), "a frozen value");
             Ok(collection
-                .unpack_frozen()
-                .expect("a frozen value")
-                .downcast_ref::<FrozenProviderCollection>()
+                .downcast_ref::<ProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::StarlarkError,

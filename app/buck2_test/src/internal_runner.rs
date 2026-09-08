@@ -16,6 +16,7 @@
 
 use std::time::Duration;
 
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_error::BuckErrorContext;
 use buck2_test_api::data::ArgValue;
@@ -116,12 +117,9 @@ pub async fn run_internal_test(
     };
 
     // Step 2: Parse listing output via Starlark callback
-    let discovered_tests = provider
-        .as_ref()
-        .value()
-        .as_ref()
-        .parse_test_listing_output(&listing_output)
-        .buck_error_context("Failed to parse test listing output")?;
+    let discovered_tests =
+        InternalRunnerTestInfo::parse_test_listing_output(provider, &listing_output)
+            .buck_error_context("Failed to parse test listing output")?;
 
     // Step 3: Report discovered tests
     let test_names: Vec<String> = discovered_tests.iter().map(|t| t.name.clone()).collect();
@@ -205,12 +203,13 @@ pub async fn run_internal_test(
                     ExecutionStream::Inline(bytes) => String::from_utf8_lossy(bytes).to_string(),
                 };
 
-                let result_entries = provider
-                    .as_ref()
-                    .value()
-                    .as_ref()
-                    .parse_test_result_output(&stdout_str, &stderr_str, exit_code)
-                    .buck_error_context("Failed to parse test result output")?;
+                let result_entries = InternalRunnerTestInfo::parse_test_result_output(
+                    provider,
+                    &stdout_str,
+                    &stderr_str,
+                    exit_code,
+                )
+                .buck_error_context("Failed to parse test result output")?;
 
                 if result_entries.is_empty() {
                     // Parser returned no results — synthesize a fallback based on

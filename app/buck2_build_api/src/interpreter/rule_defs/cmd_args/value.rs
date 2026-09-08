@@ -38,7 +38,7 @@ where
     s.collect_str(v)
 }
 
-/// A tiny wrapper around `Value`/`FrozenValue` that proxies `CommandLineArgLike` calls.
+/// A tiny wrapper around `Value` that proxies `CommandLineArgLike` calls.
 ///
 /// This should be unnecessary, however I'm not smart enough to figure out how to get
 /// things to live long enough, in `ValueAsCommandLineArgLike`, so I'm moving on with my life

@@ -30,7 +30,6 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
-use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -257,41 +256,30 @@ impl<'v> InternalRunnerTestInfo<'v> {
         self.worker.map(|v| v.as_ref())
     }
 
-    /// Panics when called on an unfrozen instance.
-    pub fn parse_test_listing(&self) -> FrozenValue {
-        self.parse_test_listing
-            .get()
-            .unpack_frozen()
-            .expect("only usable on frozen instances")
-    }
-
-    /// Panics when called on an unfrozen instance.
-    pub fn parse_test_result(&self) -> FrozenValue {
-        self.parse_test_result
-            .get()
-            .unpack_frozen()
-            .expect("only usable on frozen instances")
-    }
-
     /// Invoke the `parse_test_listing` Starlark callback with raw listing
     /// output and return structured `TestListingEntry` values.
     ///
-    /// Panics when called on an unfrozen instance.
+    /// The callback runs on a scratch module, which needs to reference the provider's heap; hence
+    /// the owner rather than a view.
     pub fn parse_test_listing_output(
-        &self,
+        provider: &OwnedInternalRunnerTestInfo,
         listing_content: &str,
     ) -> buck2_error::Result<Vec<TestListingEntry>> {
-        let callback = self.parse_test_listing();
-
         // calling frozen callback
         // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
             let heap = env.heap();
             let mut eval = Evaluator::new(&env);
+            let callback = provider
+                .as_ref()
+                .add_to_heap(heap)
+                .as_ref()
+                .parse_test_listing
+                .get();
 
             let listing_arg = heap.alloc(listing_content);
             let result = eval
-                .eval_function(callback.to_value(), &[listing_arg], &[])
+                .eval_function(callback, &[listing_arg], &[])
                 .map_err(|e| buck2_error!(buck2_error::ErrorTag::Input, "{}", e))?;
 
             let list = ListRef::from_value(result).ok_or_else(|| {
@@ -374,30 +362,31 @@ impl<'v> InternalRunnerTestInfo<'v> {
     /// Invoke the `parse_test_result` Starlark callback with raw execution
     /// output and return structured `TestResultEntry` values.
     ///
-    /// Panics when called on an unfrozen instance.
+    /// The callback runs on a scratch module, which needs to reference the provider's heap; hence
+    /// the owner rather than a view.
     pub fn parse_test_result_output(
-        &self,
+        provider: &OwnedInternalRunnerTestInfo,
         stdout: &str,
         stderr: &str,
         exit_code: i32,
     ) -> buck2_error::Result<Vec<TestResultEntry>> {
-        let callback = self.parse_test_result();
-
         // calling frozen callback
         // ast-grep-ignore: rust/buck2-no-starlark-module
         Module::with_temp_heap(|env| {
             let heap = env.heap();
             let mut eval = Evaluator::new(&env);
+            let callback = provider
+                .as_ref()
+                .add_to_heap(heap)
+                .as_ref()
+                .parse_test_result
+                .get();
 
             let stdout_arg = heap.alloc(stdout);
             let stderr_arg = heap.alloc(stderr);
             let exit_code_arg = heap.alloc(exit_code);
             let result = eval
-                .eval_function(
-                    callback.to_value(),
-                    &[stdout_arg, stderr_arg, exit_code_arg],
-                    &[],
-                )
+                .eval_function(callback, &[stdout_arg, stderr_arg, exit_code_arg], &[])
                 .map_err(|e| buck2_error!(buck2_error::ErrorTag::Input, "{}", e))?;
 
             let list = ListRef::from_value(result).ok_or_else(|| {

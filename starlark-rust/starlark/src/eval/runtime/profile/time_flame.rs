@@ -119,8 +119,8 @@ unsafe impl<'v> Trace<'v> for ValueIndex<'v> {
 impl<'v> ValueIndex<'v> {
     /// Map `Value` to `ValueId`.
     fn index(&mut self, value: Value<'v>) -> ValueId {
-        match value.unpack_frozen() {
-            Some(_) => match self.frozen_map.entry(value.ptr_value()) {
+        if value.is_frozen() {
+            match self.frozen_map.entry(value.ptr_value()) {
                 Entry::Occupied(e) => ValueId::Frozen(*e.get()),
                 Entry::Vacant(e) => {
                     let res = FrozenValueId(self.frozen_values.len());
@@ -128,8 +128,9 @@ impl<'v> ValueIndex<'v> {
                     e.insert(res);
                     ValueId::Frozen(res)
                 }
-            },
-            None => match self.mutable_map.entry(value.ptr_value()) {
+            }
+        } else {
+            match self.mutable_map.entry(value.ptr_value()) {
                 Entry::Occupied(e) => ValueId::Mutable(*e.get()),
                 Entry::Vacant(e) => {
                     let res = MutableValueId(self.mutable_values.len());
@@ -137,7 +138,7 @@ impl<'v> ValueIndex<'v> {
                     e.insert(res);
                     ValueId::Mutable(res)
                 }
-            },
+            }
         }
     }
 }

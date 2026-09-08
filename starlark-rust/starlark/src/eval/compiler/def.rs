@@ -927,7 +927,7 @@ impl<'v> Def<'v> {
             }
         }
 
-        debug_assert!(me.unpack_frozen().is_none() || self.module.load_relaxed().is_some());
+        debug_assert!(!me.is_frozen() || self.module.load_relaxed().is_some());
 
         eval.eval_bc(me, self.bc())
             .map_err(EvalException::into_error)

@@ -347,6 +347,12 @@ impl<'v> Value<'v> {
         Self(x.0.to_pointer())
     }
 
+    /// Whether the value is frozen: allocated in a frozen heap, a static, or an inline integer.
+    #[inline]
+    pub fn is_frozen(self) -> bool {
+        !self.0.is_unfrozen()
+    }
+
     /// Obtain the underlying [`FrozenValue`] from inside the [`Value`], if it is one.
     #[inline]
     pub fn unpack_frozen(self) -> Option<FrozenValue> {
@@ -1150,7 +1156,7 @@ impl FrozenValue {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }
 
-    #[inline]
+    #[cfg(test)]
     pub(crate) fn ptr_value(self) -> RawPointer {
         self.0.raw()
     }
@@ -1172,11 +1178,6 @@ impl FrozenValue {
     #[inline]
     pub fn unpack_i32(self) -> Option<i32> {
         self.to_value().unpack_i32()
-    }
-
-    #[inline]
-    pub(crate) fn unpack_inline_int(self) -> Option<InlineInt> {
-        self.to_value().unpack_inline_int()
     }
 
     // The resulting `str` is alive as long as the `FrozenHeap` is,
@@ -1518,9 +1519,13 @@ mod tests {
     }
 
     #[test]
-    fn test_unpack_frozen() {
-        assert!(Value::new_none().unpack_frozen().is_some());
-        assert!(Value::testing_new_int(10).unpack_frozen().is_some());
+    fn test_is_frozen() {
+        assert!(Value::new_none().is_frozen());
+        assert!(Value::testing_new_int(10).is_frozen());
+        Heap::temp(|heap| {
+            assert!(!heap.alloc_str("unfrozen").to_value().is_frozen());
+            assert!(!heap.alloc(AllocList([Value::new_none()])).is_frozen());
+        });
     }
 
     #[test]

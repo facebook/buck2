@@ -216,13 +216,6 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         self.0
     }
 
-    /// Attempt to convert to a frozen-value handle without rechecking the type.
-    #[inline]
-    pub fn unpack_frozen(self) -> Option<FrozenValueTyped<'v, T>> {
-        self.0.unpack_frozen()?;
-        Some(FrozenValueTyped(self.0, marker::PhantomData))
-    }
-
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {
@@ -268,7 +261,7 @@ impl<T: StarlarkValue<'static>> ValueTyped<'static, T> {
     /// immortal values as frozen handles; everything else should stay at the brand.
     #[inline]
     pub(crate) fn to_frozen(self) -> FrozenValueTyped<'static, T> {
-        self.unpack_frozen()
+        FrozenValueTyped::new(self.0)
             .expect("data at the `'static` brand is immortal, and immortal data is frozen")
     }
 }
@@ -296,7 +289,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// `value` must be of type `T` and frozen.
     #[inline]
     pub unsafe fn new_unchecked(value: Value<'v>) -> FrozenValueTyped<'v, T> {
-        debug_assert!(value.unpack_frozen().is_some());
+        debug_assert!(value.is_frozen());
         debug_assert!(value.downcast_ref::<T>().is_some());
         FrozenValueTyped(value, marker::PhantomData)
     }
@@ -311,14 +304,14 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// As for [`new_unchecked`](Self::new_unchecked), once the value is initialized.
     #[inline]
     pub(crate) unsafe fn new_allow_uninitialized(value: Value<'v>) -> FrozenValueTyped<'v, T> {
-        debug_assert!(value.unpack_frozen().is_some());
+        debug_assert!(value.is_frozen());
         FrozenValueTyped(value, marker::PhantomData)
     }
 
     /// Downcast a value known to be frozen.
     #[inline]
     fn new_frozen(value: Value<'v>) -> Option<FrozenValueTyped<'v, T>> {
-        debug_assert!(value.unpack_frozen().is_some());
+        debug_assert!(value.is_frozen());
         value.downcast_ref::<T>()?;
         Some(FrozenValueTyped(value, marker::PhantomData))
     }
@@ -326,7 +319,9 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// Downcast; `None` if the value is not of type `T` or not frozen.
     #[inline]
     pub fn new(value: Value<'v>) -> Option<FrozenValueTyped<'v, T>> {
-        value.unpack_frozen()?;
+        if !value.is_frozen() {
+            return None;
+        }
         Self::new_frozen(value)
     }
 
@@ -334,7 +329,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     #[inline]
     pub fn new_err(value: Value<'v>) -> crate::Result<FrozenValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
-        if value.unpack_frozen().is_none() {
+        if !value.is_frozen() {
             return Err(crate::Error::new_value(NotFrozenError {
                 expected: T::starlark_type_repr(),
                 value: value.to_string_for_type_error(),
@@ -520,7 +515,7 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
     type Error = crate::Error;
 
     fn unpack_value_impl(value: Value<'v>) -> crate::Result<Option<Self>> {
-        if value.unpack_frozen().is_some() {
+        if value.is_frozen() {
             Ok(FrozenValueTyped::new_frozen(value))
         } else if StarlarkTypeId::of::<T>() == value.vtable().starlark_type_id {
             Err(crate::Error::new_value(NotFrozenError {
@@ -601,7 +596,7 @@ const _: () = assert!(mem::size_of::<Option<Value<'static>>>() == mem::size_of::
 impl<'v, T: StarlarkValue<'v>> AtomicValueTypedOption<'v, T> {
     fn encode(value: Option<ValueTyped<'v, T>>) -> *mut () {
         let value: Option<Value<'v>> = value.map(ValueTyped::to_value);
-        debug_assert!(value.is_none_or(|v| v.unpack_frozen().is_some()));
+        debug_assert!(value.is_none_or(|v| v.is_frozen()));
         // SAFETY: The sizes match (asserted above), and `Option<Value>` has no padding: `None`
         // is the null niche of the pointer.
         unsafe { mem::transmute(value) }

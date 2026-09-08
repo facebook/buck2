@@ -500,12 +500,12 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
     }
 
     fn serialize_value(&mut self, v: Value<'_>) -> crate::Result<()> {
-        let Some(fv) = v.unpack_frozen() else {
+        if !v.is_frozen() {
             return Err(value_error!(
                 "Attempted to serialize a non-frozen value; only frozen heaps can be serialized"
             ));
-        };
-        match fv.ptr_value().tags() {
+        }
+        match v.ptr_value().tags() {
             PointerTags::OtherFrozen | PointerTags::StrFrozen => {
                 // Check if this is a static value first.
                 if let Some(static_id) = get_static_value_id(v) {
@@ -514,9 +514,9 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                     return Ok(());
                 }
 
-                let is_str = fv.ptr_value().tags() == PointerTags::StrFrozen;
+                let is_str = v.ptr_value().tags() == PointerTags::StrFrozen;
                 // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
-                let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
+                let raw_ptr = v.get_ref().value.ptr as usize;
 
                 let resolved = match self.state.lookup_ptr(raw_ptr) {
                     Some(resolved) => Some(resolved),
@@ -531,7 +531,7 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 let Some((heap_id, value_index)) = resolved else {
                     return Err(PagableError::FrozenValueNotRegistered {
                         raw_ptr,
-                        target_type: fv.to_value().get_type(),
+                        target_type: v.get_type(),
                         chunk_index_diagnostic: self.state.lookup_ptr_diagnostic(raw_ptr),
                         live_heap_diagnostic: self.state.lookup_live_heap_diagnostic(raw_ptr),
                     }
@@ -547,7 +547,7 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 return Ok(());
             }
             PointerTags::Int => {
-                let int_val = fv.unpack_inline_int().expect("Int tag implies inline int");
+                let int_val = v.unpack_inline_int().expect("Int tag implies inline int");
                 let serialized = SerializedFrozenValue::InlineInt(int_val.to_i32());
                 serialized.pagable_serialize(self.pagable)?;
             }

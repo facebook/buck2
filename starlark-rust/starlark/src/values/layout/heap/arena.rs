@@ -563,8 +563,8 @@ impl<A: ArenaAllocator> Arena<A> {
     ) {
         unsafe {
             fn fix_function<'v>(function: Value<'v>, forward_heap_kind: HeapKind) -> Value<'v> {
-                if let Some(function) = function.unpack_frozen() {
-                    return function.to_value();
+                if function.is_frozen() {
+                    return function;
                 }
 
                 unsafe {
