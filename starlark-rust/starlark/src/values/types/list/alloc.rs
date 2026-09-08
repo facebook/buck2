@@ -34,7 +34,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::list::AllocList;
 ///
 /// # use starlark::values::{FrozenHeap, Heap};
-/// # fn alloc(heap: Heap<'_>, frozen_heap: &FrozenHeap) {
+/// # fn alloc(heap: Heap<'_>, frozen_heap: FrozenHeap<'_>) {
 /// let l = heap.alloc(AllocList([1, 2, 3]));
 /// let ls = frozen_heap.alloc(AllocList([1, 2, 3]));
 /// # }
@@ -73,7 +73,7 @@ where
     L: IntoIterator,
     L::Item: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_list_iter(self.0.into_iter().map(|x| heap.alloc(x)))
     }
 }

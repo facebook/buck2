@@ -25,7 +25,6 @@ use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 
-use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -186,41 +185,33 @@ impl<'v> AValue<'v> for AValueFrozenList {
     }
 }
 
-impl FrozenHeap {
+impl<'fh> FrozenHeap<'fh> {
     /// Allocate a list with the given elements on this heap.
-    pub(crate) fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
-        if elems.is_empty() {
-            return VALUE_EMPTY_FROZEN_LIST.to_frozen_value();
-        }
-
-        unsafe {
-            let (v, elem_places) = self.alloc_raw_extra(frozen_list_avalue(elems.len()));
-            let elem_places = &mut *elem_places;
-            maybe_uninit_write_slice(elem_places, elems);
-            v.to_frozen_value()
-        }
+    pub(crate) fn alloc_list(self, elems: &[Value<'fh>]) -> Value<'fh> {
+        self.alloc_list_iter(elems.iter().copied())
     }
 
-    pub(crate) fn alloc_list_iter(
-        &self,
-        elems: impl IntoIterator<Item = FrozenValue>,
-    ) -> FrozenValue {
+    pub(crate) fn alloc_list_iter(self, elems: impl IntoIterator<Item = Value<'fh>>) -> Value<'fh> {
         let elems = elems.into_iter();
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return VALUE_EMPTY_FROZEN_LIST.to_frozen_value();
+                return VALUE_EMPTY_FROZEN_LIST.to_frozen_value().to_value();
             }
 
             unsafe {
                 let (v, elem_places) = self.alloc_raw_extra(frozen_list_avalue(lower));
                 let elem_places = &mut *elem_places;
+                // The frozen list stores its elements as `FrozenValue`s.
                 maybe_uninit_write_from_exact_size_iter(
                     elem_places,
-                    elems,
+                    elems.map(|v| {
+                        v.unpack_frozen()
+                            .expect("value allocated in a frozen heap is frozen")
+                    }),
                     FrozenValue::new_none(),
                 );
-                v.to_frozen_value()
+                v.to_value()
             }
         } else {
             self.alloc_list(&elems.collect::<Vec<_>>())

@@ -46,8 +46,8 @@ use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::starlark_serialize_context::ChunkEntry;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::starlark_simple_value;
-use crate::values::FrozenHeap;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenHeap;
 use crate::values::StarlarkValue;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 
@@ -92,14 +92,16 @@ fn build_synthetic_heaps(
 ) -> Vec<(OwnedFrozen<()>, HeapRefId, Vec<usize>)> {
     (0..num_heaps)
         .map(|h| {
-            let heap = FrozenHeap::new();
-            for v in 0..values_per_heap {
-                heap.alloc_simple(BenchValue {
-                    flag: (v & 1) == 0,
-                    count: v,
-                });
-            }
-            let heap_ref = heap.into_ref_named(BenchHeapName::make(&format!("bench_{h}")));
+            let heap = OwnedFrozenHeap::new();
+            heap.with(|heap| {
+                for v in 0..values_per_heap {
+                    heap.alloc_simple(BenchValue {
+                        flag: (v & 1) == 0,
+                        count: v,
+                    });
+                }
+            });
+            let heap_ref = heap.seal(BenchHeapName::make(&format!("bench_{h}")));
             let heap_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
             let mut ptrs: Vec<usize> = Vec::new();
             ptrs.extend(

@@ -302,14 +302,12 @@ starlark::__starlark_pagable_only! {
             let owned: OwnedBxlFunction = OwnedFrozen::build(
                 FrozenHeapName::user("frozen_bxl_function_round_trips"),
                 |heap| {
-                    let f = heap.alloc_simple_typed(FrozenBxlFunction {
-                        implementation: heap.alloc("implementation").to_value(),
+                    heap.alloc_simple_typed(FrozenBxlFunction {
+                        implementation: heap.alloc("implementation"),
                         cli_args: SmallMap::new(),
                         bxl_id: Arc::new(expected_label.clone()),
                         docs: Some("test docs".to_owned()),
-                    });
-                    ValueTyped::new(f.to_frozen_value().to_value())
-                        .expect("value was just allocated as this type")
+                    })
                 },
             );
 

@@ -18,7 +18,6 @@
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 
@@ -29,7 +28,7 @@ impl<'v> AllocValue<'v> for bool {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for bool {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_bool(self)
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        Value::new_bool(self)
     }
 }

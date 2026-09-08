@@ -41,8 +41,9 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
                 panic!();
             }
         };
-        let collection = FrozenProviderCollection::testing_new_default(eval.frozen_heap());
-        let collection = eval.frozen_heap_edge().rebrand(collection);
+        let collection = eval.frozen_heap(|fh, edge| {
+            edge.rebrand(FrozenProviderCollection::testing_new_default(fh))
+        });
 
         Ok(Dependency::new(
             eval.heap(),

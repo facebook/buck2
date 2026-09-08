@@ -76,83 +76,81 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
 
         let (codemap, statement, dialect, typecheck) = ast.into_parts();
 
-        let codemap = self
-            .module_env
-            .frozen_heap()
-            .alloc_any_value(codemap.dupe());
+        // Compilation and execution happen within one scope on the module's frozen heap; the
+        // compiler's products live there.
+        let module_env = self.module_env;
+        let res = module_env.frozen_heap(|fh, _| {
+            let codemap = fh.alloc_any_value(codemap.dupe());
 
-        let globals = self
-            .module_env
-            .frozen_heap()
-            .alloc_any_value(globals.dupe());
+            let globals = fh.alloc_any_value(globals.dupe());
 
-        if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
-            self.module_env.set_docstring(docstring)
-        }
+            if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
+                module_env.set_docstring(docstring)
+            }
 
-        let ModuleScopes {
-            cst,
-            module_slot_count,
-            scope_data,
-            top_level_stmt_count,
-        } = ModuleScopes::check_module_err(
-            self.module_env.mutable_names(),
-            self.module_env.frozen_heap(),
-            &HashMap::new(),
-            statement,
-            ScopeResolverGlobals {
-                globals: Some(globals),
-            },
-            codemap,
-            &dialect,
-        )?;
+            let ModuleScopes {
+                cst,
+                module_slot_count,
+                scope_data,
+                top_level_stmt_count,
+            } = ModuleScopes::check_module_err(
+                module_env.mutable_names(),
+                fh,
+                &HashMap::new(),
+                statement,
+                ScopeResolverGlobals {
+                    globals: Some(globals),
+                },
+                codemap,
+                &dialect,
+            )?;
 
-        self.frozen_heap().add_reference(globals.heap());
+            fh.add_reference(globals.heap());
 
-        let scope_names = scope_data.get_scope(ScopeId::module());
-        let local_names = self.frozen_heap().alloc_any_array_value(&scope_names.used);
+            let scope_names = scope_data.get_scope(ScopeId::module());
+            let local_names = fh.alloc_any_array_value(&scope_names.used);
 
-        self.module_env.slots().ensure_slots(module_slot_count);
-        let old_def_info = self.module_def_info.replace(
-            self.module_env
-                .frozen_heap()
-                .alloc_any_value(DefInfo::for_module(
-                    codemap,
-                    local_names,
-                    self.module_env
-                        .frozen_heap()
-                        .alloc_any_array_value(&scope_names.parent),
-                    globals,
-                )),
-        );
+            module_env.slots().ensure_slots(module_slot_count);
+            let old_def_info =
+                self.module_def_info
+                    .replace(fh.alloc_any_value(DefInfo::for_module(
+                        codemap,
+                        local_names,
+                        fh.alloc_any_array_value(&scope_names.parent),
+                        globals,
+                    )));
 
-        self.call_stack.alloc_if_needed(
-            self.max_callstack_size
-                .unwrap_or(evaluator::DEFAULT_STACK_SIZE),
-        )?;
+            self.call_stack.alloc_if_needed(
+                self.max_callstack_size
+                    .unwrap_or(evaluator::DEFAULT_STACK_SIZE),
+            )?;
 
-        // Set up the world to allow evaluation (do NOT use ? from now on)
+            // Set up the world to allow evaluation (do NOT use ? from now on)
 
-        self.call_stack.push(Value::new_none(), None).unwrap();
+            self.call_stack.push(Value::new_none(), None).unwrap();
 
-        // Evaluation
-        let mut compiler = Compiler {
-            scope_data,
-            locals: Vec::new(),
-            globals,
-            codemap,
-            eval: self,
-            check_types: dialect.enable_types == DialectTypes::Enable,
-            top_level_stmt_count,
-            typecheck,
-        };
+            // Evaluation
+            let mut compiler = Compiler {
+                scope_data,
+                locals: Vec::new(),
+                globals,
+                codemap,
+                eval: self,
+                fh,
+                check_types: dialect.enable_types == DialectTypes::Enable,
+                top_level_stmt_count,
+                typecheck,
+            };
 
-        let res = compiler.eval_module(cst, local_names);
+            let res = compiler.eval_module(cst, local_names);
 
-        // Clean up the world, putting everything back
-        self.call_stack.pop();
+            // Clean up the world, putting everything back
+            self.call_stack.pop();
 
-        self.module_def_info = old_def_info;
+            self.module_def_info = old_def_info;
+
+            crate::Result::Ok(res)
+        })?;
 
         #[cfg(not(target_arch = "wasm32"))]
         self.module_env.add_eval_duration(start.elapsed());

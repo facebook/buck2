@@ -233,8 +233,8 @@ impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for StarlarkValueAsType<T> {
 }
 
 impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for StarlarkValueAsType<T> {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        self.0.to_frozen_value()
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.0.to_frozen_value().to_value()
     }
 }
 

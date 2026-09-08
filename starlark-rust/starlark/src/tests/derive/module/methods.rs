@@ -30,7 +30,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -85,7 +84,7 @@ impl<'v> StarlarkValue<'v> for Applaud {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for Applaud {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_simple(self)
     }
 }

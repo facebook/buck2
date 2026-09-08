@@ -31,8 +31,8 @@ use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::type_repr::StarlarkTypeRepr;
 
 enum NonInstantiable {}
@@ -90,8 +90,8 @@ See also [`typing.Iterable` in the Python documentation][2].
 static_starlark_value!(ITERABLE: TypingIterable = TypingIterable);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingIterable {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        ITERABLE.to_frozen_value()
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        ITERABLE.to_frozen_value().to_value()
     }
 }
 

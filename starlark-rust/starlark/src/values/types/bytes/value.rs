@@ -35,7 +35,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
@@ -79,7 +78,7 @@ impl<'v> AllocValue<'v> for &'_ [u8] {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for &'_ [u8] {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkBytes::new(self))
     }
 }
@@ -99,7 +98,7 @@ impl<'v> AllocValue<'v> for Vec<u8> {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for Vec<u8> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkBytes::from_vec(self))
     }
 }

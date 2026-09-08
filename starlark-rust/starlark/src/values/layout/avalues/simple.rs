@@ -18,7 +18,6 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use crate::cast;
 use crate::private::Private;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -28,6 +27,7 @@ use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimpleBound;
@@ -99,35 +99,37 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
     }
 }
 
-impl FrozenHeap {
-    pub(crate) fn alloc_simple_typed_static<T: AValueSimpleBound<'static> + Send + Sync>(
-        &self,
-        val: T,
-    ) -> FrozenValueTyped<'static, T> {
-        // SAFETY: Not.
-        let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
-        this.alloc_raw(simple(val))
+impl<'fh> FrozenHeap<'fh> {
+    /// Allocate a simple value and return the `'static`-branded typed handle to it.
+    ///
+    /// For the handle types that predate branding (`FrozenAnyValue`, the native method tables):
+    /// their `'static` says nothing about what keeps the heap alive, so prefer
+    /// [`alloc_simple_typed`](FrozenHeap::alloc_simple_typed) where the brand can be kept.
+    pub(crate) fn alloc_simple_typed_static<T>(self, val: T) -> FrozenValueTyped<'static, T>
+    where
+        T: for<'a> AValueSimpleBound<'a> + Send + Sync + 'static,
+    {
+        let v = self.alloc_raw(simple(val)).to_frozen_value();
+        FrozenValueTyped::new(v).expect("just allocated value must have the right type")
     }
 
     /// Allocate a value on the heap
-    pub fn alloc_simple_typed<'fv, T: AValueSimpleBound<'fv>>(
-        &'fv self,
-        val: T,
-    ) -> FrozenValueTyped<'fv, T> {
-        self.alloc_raw(simple(val))
+    pub fn alloc_simple_typed<T: AValueSimpleBound<'fh>>(self, val: T) -> ValueTyped<'fh, T> {
+        self.alloc_raw(simple(val)).to_value_typed()
     }
 
     /// Allocate a simple [`StarlarkValue`](crate::values::StarlarkValue) on this heap.
     ///
     /// Simple value is any starlark value which:
-    /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
+    /// * does not need to be traced or frozen, so it can only reference other values at this
+    ///   heap's brand
     /// * is not special builtin (e.g. `None`)
     ///
     /// Under the `pagable` feature, `T` must also be registered via
     /// [`register_avalue_simple_frozen!`](crate::register_avalue_simple_frozen)
     /// (bundled into `AValueSimpleBound`).
-    pub fn alloc_simple<T: AValueSimpleBound<'static> + Send + Sync>(&self, val: T) -> FrozenValue {
-        self.alloc_simple_typed_static(val).to_frozen_value()
+    pub fn alloc_simple<T: AValueSimpleBound<'fh>>(self, val: T) -> Value<'fh> {
+        self.alloc_simple_typed(val).to_value()
     }
 }
 

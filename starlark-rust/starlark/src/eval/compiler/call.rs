@@ -213,7 +213,7 @@ impl CallCompiled {
         span: FrameSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
-        ctx: &mut OptCtx<'v, '_, '_, '_>,
+        ctx: &mut OptCtx<'v, '_, '_, '_, '_>,
     ) -> Option<ExprCompiled> {
         let fun = fun.as_value()?;
 
@@ -221,12 +221,13 @@ impl CallCompiled {
             return None;
         }
 
+        let frozen_heap = ctx.frozen_heap();
         let eval = ctx.eval()?;
 
         // Only if all call arguments are frozen values.
         args.all_values(|arguments| {
             let v = fun.to_value().invoke(arguments.frozen_to_v(), eval).ok()?;
-            ExprCompiled::try_value(span, v, eval.module_env.frozen_heap())
+            ExprCompiled::try_value(span, v, frozen_heap)
         })?
     }
 

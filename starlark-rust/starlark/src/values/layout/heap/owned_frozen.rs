@@ -367,7 +367,7 @@ mod tests {
     fn test_owned_frozen_ref() {
         let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
             crate::values::layout::heap::heap_type::StarlarkTestHeapName::frozen_heap_name(),
-            |heap| heap.alloc("contents").to_value(),
+            |heap| heap.alloc("contents"),
         );
 
         let r = owned.as_ref();
@@ -391,8 +391,9 @@ mod tests {
             assert_eq!(v.unpack_str(), Some("contents"));
         });
 
-        let other = crate::values::FrozenHeap::new();
-        let v = owned.as_ref().add_to_frozen_heap(&other);
-        assert_eq!(v.unpack_str(), Some("contents"));
+        crate::values::FrozenHeap::temp(|other| {
+            let v = owned.as_ref().add_to_frozen_heap(other);
+            assert_eq!(v.unpack_str(), Some("contents"));
+        });
     }
 }

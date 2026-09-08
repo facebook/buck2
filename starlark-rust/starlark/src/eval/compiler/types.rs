@@ -54,7 +54,7 @@ enum TypesError {
     TypeIndexOnNonDictOrTuple,
 }
 
-impl<'v> Compiler<'v, '_, '_, '_> {
+impl<'v> Compiler<'v, '_, '_, '_, '_> {
     /// Compile expression when it is expected to be interpreted as type.
     pub(crate) fn expr_for_type(
         &mut self,
@@ -81,7 +81,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
         if type_value.is_runtime_wildcard() {
             return None;
         }
-        let type_value = type_value.to_frozen(self.eval.frozen_heap());
+        let type_value = type_value.to_frozen(self.fh);
         Some(IrSpanned {
             span,
             node: type_value,

@@ -560,20 +560,15 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.module_env
     }
 
-    /// The frozen heap. It's possible to allocate [`FrozenValue`](crate::values::FrozenValue)s here,
-    /// but often not a great idea, as they will remain allocated as long
-    /// as the results of this execution are required.
-    /// Suitable for use with [`add_reference`](FrozenHeap::add_reference).
-    pub fn frozen_heap(&self) -> &'a FrozenHeap {
-        self.module_env.frozen_heap()
-    }
-
-    /// Witness that values in the module's [`frozen_heap`](Evaluator::frozen_heap) remain valid
-    /// in the context of the module's own heap.
-    pub fn frozen_heap_edge(&self) -> HeapEdge<'v, 'a> {
-        // SAFETY: The module keeps its frozen heap alive at least as long as its value heap; at
-        // freeze time, the value heap's contents move into the frozen heap
-        unsafe { HeapEdge::unchecked_new() }
+    /// Allocate on the module's frozen heap, see [`Module::frozen_heap`].
+    ///
+    /// It's possible to allocate values there, but often not a great idea, as they will remain
+    /// allocated as long as the results of this execution are required.
+    pub fn frozen_heap<R>(
+        &self,
+        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
+    ) -> R {
+        self.module_env.frozen_heap(f)
     }
 
     pub(crate) fn get_slot_module(&self, slot: ModuleSlotId) -> crate::Result<Value<'v>> {
@@ -1022,7 +1017,8 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     pub fn check_heap_size_limit(&mut self) -> Option<ResourceCheckResult> {
         let limit = self.max_heap_size?;
 
-        let current = self.heap().peak_allocated_bytes() + self.frozen_heap().allocated_bytes();
+        let current =
+            self.heap().peak_allocated_bytes() + self.module_env.frozen_heap_allocated_bytes();
 
         if current > limit {
             Some(ResourceCheckResult::Exceeded(crate::Error::new_other(

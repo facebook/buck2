@@ -131,7 +131,17 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
                 property: key.key(),
             })?
         }
-        .map(|v| eval.frozen_heap().alloc_str(&v));
+        .map(|v| {
+            eval.frozen_heap(|fh, _| {
+                FrozenStringValue::new(
+                    fh.alloc_str(&v)
+                        .to_value()
+                        .unpack_frozen()
+                        .expect("value allocated in a frozen heap is frozen"),
+                )
+                .expect("just allocated a string")
+            })
+        });
 
         cache.insert_unique(
             hash,

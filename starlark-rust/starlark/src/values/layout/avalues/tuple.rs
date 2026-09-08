@@ -210,38 +210,37 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
     }
 }
 
-impl FrozenHeap {
+impl<'fh> FrozenHeap<'fh> {
     /// Allocate a tuple with the given elements on this heap.
-    pub(crate) fn alloc_tuple(&self, elems: &[FrozenValue]) -> FrozenValue {
-        if elems.is_empty() {
-            return FrozenValue::new_empty_tuple();
-        }
-
-        unsafe {
-            let (v, extra) = self.alloc_raw_extra::<_>(frozen_tuple_avalue(elems.len()));
-            let extra = &mut *extra;
-            maybe_uninit_write_slice(extra, elems);
-            v.to_frozen_value()
-        }
+    pub(crate) fn alloc_tuple(self, elems: &[Value<'fh>]) -> Value<'fh> {
+        self.alloc_tuple_iter(elems.iter().copied())
     }
 
     /// Allocate a tuple from iterator of elements.
     pub(crate) fn alloc_tuple_iter(
-        &self,
-        elems: impl IntoIterator<Item = FrozenValue>,
-    ) -> FrozenValue {
+        self,
+        elems: impl IntoIterator<Item = Value<'fh>>,
+    ) -> Value<'fh> {
         let elems = elems.into_iter();
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return FrozenValue::new_empty_tuple();
+                return Value::new_empty_tuple();
             }
 
             unsafe {
                 let (v, extra) = self.alloc_raw_extra(frozen_tuple_avalue(lower));
                 let extra = &mut *extra;
-                maybe_uninit_write_from_exact_size_iter(extra, elems, FrozenValue::new_none());
-                v.to_frozen_value()
+                // The frozen tuple stores its elements as `FrozenValue`s.
+                maybe_uninit_write_from_exact_size_iter(
+                    extra,
+                    elems.map(|v| {
+                        v.unpack_frozen()
+                            .expect("value allocated in a frozen heap is frozen")
+                    }),
+                    FrozenValue::new_none(),
+                );
+                v.to_value()
             }
         } else {
             self.alloc_tuple(&elems.collect::<Vec<_>>())

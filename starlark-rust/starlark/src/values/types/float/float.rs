@@ -39,7 +39,6 @@ use crate::typing::TypingBinOp;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
@@ -240,7 +239,7 @@ impl<'v> AllocValue<'v> for StarlarkFloat {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for StarlarkFloat {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_simple(self)
     }
 }
@@ -252,7 +251,7 @@ impl<'v> AllocValue<'v> for f64 {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for f64 {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkFloat(self))
     }
 }

@@ -90,13 +90,15 @@ mod tests {
 
     #[test]
     fn test_intern() {
-        let heap1 = FrozenHeap::new();
-        let heap2 = FrozenHeap::new();
-        let mut intern = FrozenStringValueInterner::default();
+        FrozenHeap::temp(|heap1| {
+            FrozenHeap::temp(|heap2| {
+                let mut intern = FrozenStringValueInterner::default();
 
-        let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str("xx"));
-        let xx2 = intern.intern(Hashed::new("xx"), || heap2.alloc_str("xx"));
-        assert!(xx1.to_value().ptr_eq(xx2.to_value()));
+                let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str_intern("xx"));
+                let xx2 = intern.intern(Hashed::new("xx"), || heap2.alloc_str_intern("xx"));
+                assert!(xx1.to_value().ptr_eq(xx2.to_value()));
+            })
+        });
     }
 
     #[test]

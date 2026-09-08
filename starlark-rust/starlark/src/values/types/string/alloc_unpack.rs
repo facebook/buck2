@@ -23,8 +23,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
@@ -34,25 +32,25 @@ use crate::values::alloc_value::AllocStringValue;
 use crate::values::type_repr::StarlarkTypeRepr;
 
 impl<'fv> AllocFrozenValue<'fv> for String {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        self.alloc_frozen_string_value(heap).to_frozen_value()
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.alloc_frozen_string_value(heap).to_value()
     }
 }
 
 impl<'fv> AllocFrozenStringValue<'fv> for String {
-    fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue {
+    fn alloc_frozen_string_value(self, heap: FrozenHeap<'fv>) -> StringValue<'fv> {
         heap.alloc_str(self.as_str())
     }
 }
 
 impl<'fv, 'a> AllocFrozenValue<'fv> for &'a str {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
-        self.alloc_frozen_string_value(heap).to_frozen_value()
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.alloc_frozen_string_value(heap).to_value()
     }
 }
 
 impl<'fv, 'a> AllocFrozenStringValue<'fv> for &'a str {
-    fn alloc_frozen_string_value(self, heap: &FrozenHeap) -> FrozenStringValue {
+    fn alloc_frozen_string_value(self, heap: FrozenHeap<'fv>) -> StringValue<'fv> {
         heap.alloc_str(self)
     }
 }

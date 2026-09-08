@@ -62,7 +62,9 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -175,14 +177,13 @@ pub(crate) struct FrozenModuleData {
 
 /// A container for user values, used during execution.
 ///
-/// A module contains both a [`FrozenHeap`] and [`Heap`] on which different values are allocated.
-/// You can get references to these heaps with [`frozen_heap`](Module::frozen_heap) and
-/// [`heap`](Module::heap). Be careful not to use these values after the [`Module`] has been
-/// released unless you obtain a reference to the frozen heap.
+/// A module contains both a frozen heap and a [`Heap`] on which different values are allocated.
+/// You can reach these heaps with [`frozen_heap`](Module::frozen_heap) and
+/// [`heap`](Module::heap).
 #[derive(Debug)]
 pub struct Module<'v> {
     heap: Heap<'v>,
-    frozen_heap: FrozenHeap,
+    frozen_heap: OwnedFrozenHeap,
     names: MutableNames,
     // Should really be MutableSlots<'v>, where &'v self
     // Values are allocated from heap. Because of variance
@@ -211,7 +212,9 @@ impl FrozenModule {
     /// but we prefer not to panic if there's some high level logic error.
     pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
         Module::with_temp_heap(|module| {
-            module.frozen_heap.add_reference(globals.heap());
+            module
+                .frozen_heap
+                .with(|fh| fh.add_reference(globals.heap()));
 
             for (name, value) in globals.iter() {
                 module.set(name, value.to_value());
@@ -453,7 +456,7 @@ impl<'v> Module<'v> {
     pub(crate) fn with_heap(heap: Heap<'v>) -> Self {
         Self {
             heap,
-            frozen_heap: FrozenHeap::new(),
+            frozen_heap: OwnedFrozenHeap::new(),
             names: MutableNames::new(),
             slots: MutableSlots::new(),
             docstring: RefCell::new(None),
@@ -472,9 +475,32 @@ impl<'v> Module<'v> {
         self.heap
     }
 
-    /// Get the frozen heap on which frozen values are allocated by this module.
-    pub fn frozen_heap(&self) -> &FrozenHeap {
-        &self.frozen_heap
+    /// Allocate on the frozen heap of this module.
+    ///
+    /// The handle is branded with a lifetime private to `f`, so values allocated through it must
+    /// be rebranded with the [`HeapEdge`] to be used with values of this module. They stay alive
+    /// as long as values of this module do, including after the module is frozen.
+    pub fn frozen_heap<R>(
+        &self,
+        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
+    ) -> R {
+        self.frozen_heap.with(|fh| {
+            // SAFETY: While the module lives it owns both heaps, and `freeze` consumes the module
+            // and gives the value heap a reference to the sealed frozen heap, so `'v` keeps
+            // `'fm`'s allocations alive. `'fm` is closure-introduced, so it is a true brand.
+            //
+            // A module dropped without being frozen while `Value<'v>`s minted here are still in
+            // use is the gap in that argument. It predates this edge: every allocation on the
+            // frozen heap has always been reachable at `'v` through `Value::new_frozen`. It
+            // closes once dropping a module also seals its frozen heap into the value heap's
+            // references.
+            let edge = unsafe { HeapEdge::unchecked_new() };
+            f(fh, edge)
+        })
+    }
+
+    pub(crate) fn frozen_heap_allocated_bytes(&self) -> usize {
+        self.frozen_heap.allocated_bytes()
     }
 
     /// Iterate through all the names defined in this module.
@@ -562,40 +588,47 @@ impl<'v> Module<'v> {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let freezer = Freezer::new(&frozen_heap);
-        // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
-        for r in heap.referenced_heaps() {
-            frozen_heap.add_reference(r.owner());
-        }
-        let slots = slots.freeze(&freezer)?;
-        let extra_value = extra_value
-            .into_inner()
-            .map(|v| freezer.freeze(v))
-            .transpose()?;
-        let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
-            // TODO(nga): retained heap profile does not store information about data
-            //   allocated in frozen heap before freeze starts.
-            let heap_profile = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
-            Some(RetainedHeapProfile {
-                info: heap_profile,
-                mode,
-            })
-        } else {
-            None
-        };
-        let rest = FrozenModuleData {
-            names: names.freeze(),
-            slots,
-            docstring: docstring.into_inner(),
-            heap_profile: stacks,
-        };
-        let frozen_module_ref = freezer.heap.alloc_any_value(rest);
-        for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-            frozen_def.post_freeze(frozen_module_ref, heap, freezer.heap);
-        }
+        let (frozen_module_ref, extra_value) = frozen_heap.with(|fh| {
+            let freezer = Freezer::new(fh);
+            // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
+            for r in heap.referenced_heaps() {
+                fh.add_reference(r.owner());
+            }
+            let slots = slots.freeze(&freezer)?;
+            let extra_value = extra_value
+                .into_inner()
+                .map(|v| freezer.freeze(v))
+                .transpose()?;
+            let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
+                // TODO(nga): retained heap profile does not store information about data
+                //   allocated in frozen heap before freeze starts.
+                let heap_profile = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
+                Some(RetainedHeapProfile {
+                    info: heap_profile,
+                    mode,
+                })
+            } else {
+                None
+            };
+            let rest = FrozenModuleData {
+                names: names.freeze(),
+                slots,
+                docstring: docstring.into_inner(),
+                heap_profile: stacks,
+            };
+            let frozen_module_ref = fh.alloc_any_value(rest);
+            for frozen_def in freezer.frozen_defs.borrow().as_slice() {
+                frozen_def.post_freeze(frozen_module_ref, heap, fh);
+            }
+            FreezeResult::Ok((frozen_module_ref, extra_value))
+        })?;
+        let sealed = frozen_heap.seal_impl(name, Some(heap.peak_allocated_bytes()));
+        // Values of the frozen heap were usable at `'v` while this module lived (see
+        // `frozen_heap`); keep them so now that the module is gone.
+        heap.add_reference(sealed.owner());
 
         Ok(FrozenModule {
-            heap: frozen_heap.into_ref_impl(name, Some(heap.peak_allocated_bytes())),
+            heap: sealed,
             module: frozen_module_ref,
             extra_value,
             #[cfg(not(target_arch = "wasm32"))]
@@ -609,7 +642,8 @@ impl<'v> Module<'v> {
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
     pub fn set(&self, name: &str, value: Value<'v>) {
-        let slot = self.names.add_name(self.frozen_heap.alloc_str_intern(name));
+        let name = self.frozen_heap.with(|fh| fh.alloc_str_intern(name));
+        let slot = self.names.add_name(name);
         let slots = self.slots();
         slots.ensure_slot(slot);
         slots.set_slot(slot, value);
@@ -634,7 +668,8 @@ impl<'v> Module<'v> {
 
     /// Import symbols from a module, similar to what is done during `load()`.
     pub fn import_public_symbols(&self, module: &FrozenModule) {
-        self.frozen_heap.add_reference(module.heap.owner());
+        self.frozen_heap
+            .with(|fh| fh.add_reference(module.heap.owner()));
         for (k, slot) in module.module.names.symbols() {
             if Self::default_visibility(&k) == Visibility::Public {
                 if let Some(value) = module.module.slots.get_slot(slot) {

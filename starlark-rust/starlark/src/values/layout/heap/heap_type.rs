@@ -54,6 +54,7 @@ use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
 
 use crate::any::IsStaticType;
+use crate::any::ProvidesStaticType;
 use crate::cast;
 use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
@@ -74,7 +75,6 @@ use crate::pagable::static_value::get_static_heap_id;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
-use crate::values::FrozenValueOfUnchecked;
 use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
@@ -210,8 +210,10 @@ impl<'v> Heap<'v> {
     }
 }
 
-/// A heap on which [`FrozenValue`]s can be allocated.
-/// Sealed into an [`OwnedFrozen<()>`] by [`into_ref_named`](OwnedFrozenHeap::into_ref_named).
+/// A frozen heap under construction: an owned heap on which values can be allocated through the
+/// [`FrozenHeap`] handle that [`with`](OwnedFrozenHeap::with) hands out, until it is
+/// [`seal`](OwnedFrozenHeap::seal)ed into an [`OwnedFrozen<()>`] that can be shared between
+/// threads.
 #[derive(Default)]
 pub struct OwnedFrozenHeap {
     /// My memory.
@@ -1061,26 +1063,32 @@ impl FrozenHeapArc {
     }
 }
 
-/// The name under which the unsealed frozen heap is reached.
-pub type FrozenHeap = OwnedFrozenHeap;
-
 impl OwnedFrozenHeap {
-    /// Create a new [`FrozenHeap`].
+    /// Create a new, empty heap.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// After all values have been allocated, seal the [`FrozenHeap`] into a named
-    /// [`OwnedFrozen<()>`], which can be [`clone`](Clone::clone)d, shared between threads, and
-    /// keeps the values allocated on the [`FrozenHeap`] alive.
+    /// Allocate on this heap through a [`FrozenHeap`] handle that is valid within `f`.
+    ///
+    /// Values allocated through the handle are branded with its lifetime, so they cannot outlive
+    /// the call. To keep them, [`seal`](OwnedFrozenHeap::seal) the heap afterwards and pair them
+    /// with the result; [`OwnedFrozen::build`] does both steps for a single root value.
+    pub fn with<R>(&self, f: impl for<'fh> FnOnce(FrozenHeap<'fh>) -> R) -> R {
+        f(FrozenHeap(self, PhantomData))
+    }
+
+    /// After all values have been allocated, seal the heap into a named [`OwnedFrozen<()>`], which
+    /// can be [`clone`](Clone::clone)d, shared between threads, and keeps the values allocated on
+    /// the heap alive.
     ///
     /// The `name` identifies this heap and should be unique across heaps.
     /// See [`OwnedFrozen::name`] for more details.
-    pub fn into_ref_named(self, name: FrozenHeapName) -> OwnedFrozen<()> {
-        self.into_ref_impl(Some(name), None)
+    pub fn seal(self, name: FrozenHeapName) -> OwnedFrozen<()> {
+        self.seal_impl(Some(name), None)
     }
 
-    pub(crate) fn into_ref_impl(
+    pub(crate) fn seal_impl(
         self,
         name: Option<FrozenHeapName>,
         peak_allocated_bytes: Option<usize>,
@@ -1106,60 +1114,94 @@ impl OwnedFrozenHeap {
         }
     }
 
-    /// Keep the argument heap alive as long as this [`FrozenHeap`] is kept alive. Used if a
-    /// [`FrozenValue`] in this heap points at values in another [`FrozenHeap`].
-    pub fn add_reference(&self, heap: OwnedFrozenRef<'_, ()>) {
+    /// Number of bytes allocated on this heap, not including any memory
+    /// allocated outside of the starlark heap.
+    pub fn allocated_bytes(&self) -> usize {
+        self.arena.allocated_bytes()
+    }
+}
+
+/// A handle to an [`OwnedFrozenHeap`] on which values can be allocated. The values will be
+/// annotated with the heap lifetime, see the `branding` module for what that means.
+///
+/// Obtained from [`OwnedFrozenHeap::with`], [`FrozenHeap::temp`] or [`OwnedFrozen::build`].
+#[derive(Copy, Clone, Dupe)]
+// `PhantomData` is needed to make the type invariant in `'fh` - without that, branding doesn't mean
+// anything.
+pub struct FrozenHeap<'fh>(&'fh OwnedFrozenHeap, PhantomData<fn(&'fh ()) -> &'fh ()>);
+
+// The handle is a borrow of the heap, not a value kept alive by it: rebranding it through a
+// `HeapEdge` would let the borrow outlive the scope that introduced it.
+static_assertions::assert_not_impl_any!(FrozenHeap<'static>: ProvidesStaticType<'static>);
+
+impl<'fh> Debug for FrozenHeap<'fh> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(self.0, f)
+    }
+}
+
+impl<'fh> FrozenHeap<'fh> {
+    /// Create a heap and use it within the closure.
+    ///
+    /// Heap is discarded at the end of the closure.
+    pub fn temp<R>(f: impl for<'fh2> FnOnce(FrozenHeap<'fh2>) -> R) -> R {
+        OwnedFrozenHeap::new().with(f)
+    }
+
+    /// Keep the argument heap alive as long as this heap is kept alive. Used if a value in this
+    /// heap points at values in another frozen heap.
+    pub fn add_reference(self, heap: OwnedFrozenRef<'_, ()>) {
         if heap.heap_ref.0.is_none() {
             return;
         }
 
-        self.refs.borrow_mut().insert(heap.to_owned());
+        self.0.refs.borrow_mut().insert(heap.to_owned());
     }
 
     pub(in crate::values::layout) fn string_interner(
-        &self,
-    ) -> RefMut<'_, FrozenStringValueInterner> {
-        self.str_interner.borrow_mut()
+        self,
+    ) -> RefMut<'fh, FrozenStringValueInterner> {
+        self.0.str_interner.borrow_mut()
     }
 
-    pub(in crate::values::layout) fn alloc_raw<'fv, T>(
-        &'fv self,
-        x: AValueImpl<'fv, T>,
-    ) -> FrozenValueTyped<'fv, T::StarlarkValue>
+    pub(in crate::values::layout) fn alloc_raw<T>(
+        self,
+        x: AValueImpl<'fh, T>,
+    ) -> FrozenValueTyped<'fh, T::StarlarkValue>
     where
-        T: AValue<'fv, ExtraElem = ()>,
-        T::StarlarkValue: HeapSendable<'fv>,
-        T::StarlarkValue: HeapSyncable<'fv>,
+        T: AValue<'fh, ExtraElem = ()>,
+        T::StarlarkValue: HeapSendable<'fh>,
+        T::StarlarkValue: HeapSyncable<'fh>,
     {
-        let v: &AValueRepr<AValueImpl<T>> = self.arena.alloc(x);
+        let v: &'fh AValueRepr<AValueImpl<T>> = self.0.arena.alloc(x);
         FrozenValueTyped::new_repr(v)
     }
 
-    pub(in crate::values::layout) fn alloc_raw_extra<'fv, T>(
-        &'fv self,
-        x: AValueImpl<'fv, T>,
+    pub(in crate::values::layout) fn alloc_raw_extra<T>(
+        self,
+        x: AValueImpl<'fh, T>,
     ) -> (
-        FrozenValueTyped<'fv, T::StarlarkValue>,
+        FrozenValueTyped<'fh, T::StarlarkValue>,
         *mut [MaybeUninit<T::ExtraElem>],
     )
     where
-        T: AValue<'fv>,
-        T::StarlarkValue: HeapSendable<'fv>,
-        T::StarlarkValue: HeapSyncable<'fv>,
+        T: AValue<'fh>,
+        T::StarlarkValue: HeapSendable<'fh>,
+        T::StarlarkValue: HeapSyncable<'fh>,
     {
-        let (v, extra) = self.arena.alloc_extra(x);
+        let (v, extra) = self.0.arena.alloc_extra(x);
         let v = unsafe { FrozenValueTyped::new_repr(&*v) };
         (v, extra)
     }
 
     #[inline]
     pub(in crate::values::layout) fn alloc_str_init(
-        &self,
+        self,
         len: usize,
         hash: StarlarkHashValue,
         init: impl FnOnce(*mut u8),
     ) -> FrozenStringValue {
-        let v = self.arena.alloc_str_init(len, hash, init);
+        let v = self.0.arena.alloc_str_init(len, hash, init);
 
         unsafe {
             let value = FrozenValue::new_ptr(&*v, true);
@@ -1167,37 +1209,56 @@ impl OwnedFrozenHeap {
         }
     }
 
-    /// Allocate a new value on a [`FrozenHeap`].
-    pub fn alloc<'fv, T: AllocFrozenValue<'fv>>(&'fv self, val: T) -> FrozenValue {
+    /// Allocate a new value on this heap.
+    pub fn alloc<T: AllocFrozenValue<'fh>>(self, val: T) -> Value<'fh> {
         val.alloc_frozen_value(self)
     }
 
-    /// Allocate a value and return [`ValueOfUnchecked`] of it.
-    pub fn alloc_typed_unchecked<'fv, T: AllocFrozenValue<'fv>>(
-        &'fv self,
+    /// Allocate a value and return [`ValueTyped`] of it.
+    /// Can fail if the [`AllocFrozenValue`] trait generates a different type on the heap.
+    pub fn alloc_typed<T: AllocFrozenValue<'fh> + StarlarkValue<'fh>>(
+        self,
         val: T,
-    ) -> FrozenValueOfUnchecked<'static, T> {
-        FrozenValueOfUnchecked::new(val.alloc_frozen_value(self))
+    ) -> ValueTyped<'fh, T> {
+        ValueTyped::new(self.alloc(val)).expect("just allocated value must have the right type")
+    }
+
+    /// Allocate a value and return [`ValueOfUnchecked`] of it.
+    pub fn alloc_typed_unchecked<T: AllocFrozenValue<'fh>>(
+        self,
+        val: T,
+    ) -> ValueOfUnchecked<'fh, T> {
+        ValueOfUnchecked::new(self.alloc(val))
+    }
+
+    /// Allocate a value and erase its brand.
+    ///
+    /// For the compiler's products, which are `FrozenValue`-typed; everything else should keep the
+    /// brand that [`alloc`](FrozenHeap::alloc) hands out.
+    pub(crate) fn alloc_frozen<T: AllocFrozenValue<'fh>>(self, val: T) -> FrozenValue {
+        self.alloc(val)
+            .unpack_frozen()
+            .expect("value allocated in a frozen heap is frozen")
     }
 
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
-    pub fn allocated_bytes(&self) -> usize {
-        self.arena.allocated_bytes()
+    pub fn allocated_bytes(self) -> usize {
+        self.0.arena.allocated_bytes()
     }
 
     /// Number of bytes allocated by the heap but not yet filled.
-    pub fn available_bytes(&self) -> usize {
-        self.arena.available_bytes()
+    pub fn available_bytes(self) -> usize {
+        self.0.arena.available_bytes()
     }
 
     /// Obtain a summary of how much memory is currently allocated by this heap.
-    pub fn allocated_summary(&self) -> HeapSummary {
-        self.arena.allocated_summary()
+    pub fn allocated_summary(self) -> HeapSummary {
+        self.0.arena.allocated_summary()
     }
 
-    pub(crate) fn reserve_with_extra<'v, 'v2, T>(
-        &'v self,
+    pub(crate) fn reserve_with_extra<'v2, T>(
+        self,
         extra_len: usize,
     ) -> (
         FrozenValue,
@@ -1209,7 +1270,7 @@ impl OwnedFrozenHeap {
         T::StarlarkValue: HeapSendable<'v2>,
         T::StarlarkValue: HeapSyncable<'v2>,
     {
-        let (r, extra) = self.arena.reserve_with_extra::<T>(extra_len);
+        let (r, extra) = self.0.arena.reserve_with_extra::<T>(extra_len);
         let fv = FrozenValue::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
         (fv, r, extra)
     }
@@ -1628,8 +1689,8 @@ impl FrozenHeapArc {
 ///
 /// `OwnedFrozen<()>` is a bare heap handle: it keeps a heap alive without picking out any value in
 /// it, and offers only the heap-identity API (`name`, `refs`, the size accessors). It compares and
-/// hashes by heap identity. Sealing a [`FrozenHeap`] produces one, see
-/// [`FrozenHeap::into_ref_named`], and it is the currency of [`Heap::add_reference`] and
+/// hashes by heap identity. Sealing an [`OwnedFrozenHeap`] produces one, see
+/// [`OwnedFrozenHeap::seal`], and it is the currency of [`Heap::add_reference`] and
 /// [`FrozenHeap::add_reference`].
 pub struct OwnedFrozen<T> {
     heap_ref: FrozenHeapArc,
@@ -1675,45 +1736,50 @@ where
     {
         Self {
             heap_ref: owner.heap_ref,
-            // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
-            // lifetimes, and the caller guarantees that `owner`, whose heap is stored alongside,
-            // keeps `'fv` alive.
-            v: unsafe { transmute!(T::Reinfect<'fv>, T, v) },
+            // SAFETY: The caller guarantees that `owner`, whose heap is stored alongside, keeps
+            // `'fv` alive.
+            v: unsafe { Self::erase_brand(v) },
             _no_auto_traits: PhantomData,
         }
     }
 
-    /// Build a value in a fresh [`FrozenHeap`] and return it kept alive by that heap.
+    /// Forget the brand of `v`.
     ///
-    /// The heap is private to `f`, which can only get data out of it by returning it, so the
-    /// result is paired with its owner by construction. Use this instead of allocating into a
-    /// heap of your own and reaching for [`unchecked_new`](OwnedFrozen::unchecked_new).
+    /// # SAFETY
     ///
-    /// The brand of the result is independent of the borrow of the heap that `f` is handed, so no
-    /// part of the result can be a borrow of the heap. `f` gets data out solely by allocating into
-    /// the heap and injecting the resulting [`FrozenValue`]s at the brand.
+    /// The result must be stored alongside an owner that keeps `'fv` alive.
+    unsafe fn erase_brand<'fv>(v: T::Reinfect<'fv>) -> T {
+        // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
+        // lifetimes; keeping `'fv` alive is the caller's obligation.
+        unsafe { transmute!(T::Reinfect<'fv>, T, v) }
+    }
+
+    /// Build a value in a fresh frozen heap and return it kept alive by that heap.
+    ///
+    /// The heap is private to `f`, which can only get data out of it by returning it at the
+    /// heap's brand, so the result is paired with its owner by construction. Use this instead of
+    /// allocating into a heap of your own and reaching for
+    /// [`unchecked_new`](OwnedFrozen::unchecked_new).
     ///
     /// The `name` identifies the heap; see [`OwnedFrozen::name`].
     pub fn build<F>(name: FrozenHeapName, f: F) -> Self
     where
         // See comments on `Send` and `Sync` impls below
         for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
-        // `'fv` (the brand of the result) and `'h` (the borrow of the heap) are quantified
-        // separately on purpose; the safety argument below rests on it.
-        for<'fv, 'h> F: FnOncish<&'h FrozenHeap, T::Reinfect<'fv>>,
+        for<'fh> F: FnOnce(FrozenHeap<'fh>) -> T::Reinfect<'fh>,
     {
-        let heap = FrozenHeap::new();
-        let v = f(&heap);
-        let heap_ref = heap.into_ref_named(name);
-        // SAFETY: Nothing is alive at `'fv`: it appears nowhere in `f`'s arguments, and being
-        // universally quantified it cannot be named by `f`'s captures either. Nor can `'h`-tied
-        // borrows of `heap` reach the result, since `'h` does not appear in the return type. So
-        // everything branded `'fv` in `v` was injected from unbranded frozen data, which is either
-        // an allocation into `heap` — whose arena the move into `heap_ref` preserves, it moves
-        // only bookkeeping — or a foreign `FrozenValue`, the global brand hole described in the
-        // `branding` module. Either way `heap_ref` keeps `'fv` alive exactly as well as any other
-        // brand is kept alive.
-        unsafe { Self::unchecked_new(heap_ref, v) }
+        let heap = OwnedFrozenHeap::new();
+        // The brand of `v` is the borrow of `heap`, which has to end before `heap` can be sealed,
+        // so the brand is erased before sealing rather than by `unchecked_new` afterwards.
+        //
+        // SAFETY: `'fh` is the brand of `heap`, which is sealed right below into the owner stored
+        // alongside `v`. Being closure-introduced, `'fh` names nothing else.
+        let v = unsafe { Self::erase_brand(f(FrozenHeap(&heap, PhantomData))) };
+        Self {
+            heap_ref: heap.seal(name).heap_ref,
+            v,
+            _no_auto_traits: PhantomData,
+        }
     }
 
     /// Get access to this value within the provided heap
@@ -1828,7 +1894,7 @@ unsafe impl<T> Sync for OwnedFrozen<T> {}
 ///
 /// let v: OwnedFrozen<Value<'static>> =
 ///     OwnedFrozen::build(FrozenHeapName::user("example"), |heap| {
-///         heap.alloc("contents").to_value()
+///         heap.alloc("contents")
 ///     });
 /// assert_eq!(v.name().unwrap().to_string(), "example");
 /// assert!(v.allocated_bytes() > 0);
@@ -1846,7 +1912,7 @@ impl<T> OwnedFrozen<T> {
 
     /// The name of the owning heap.
     ///
-    /// Names are assigned when sealing frozen heaps, see [`FrozenHeap::into_ref_named`]; in
+    /// Names are assigned when sealing frozen heaps, see [`OwnedFrozenHeap::seal`]; in
     /// practice, this is done when freezing modules, see
     /// [`Module::freeze_named`](crate::environment::Module::freeze_named).
     ///
@@ -1984,7 +2050,7 @@ impl<'fv> OwnedFrozenReconstructor<'fv> {
     }
 
     /// Like [`edge`](OwnedFrozenReconstructor::edge), but for a frozen heap
-    pub fn frozen_edge<'v>(&self, heap: &'v FrozenHeap) -> HeapEdge<'v, 'fv> {
+    pub fn frozen_edge<'v>(&self, heap: FrozenHeap<'v>) -> HeapEdge<'v, 'fv> {
         heap.add_reference(OwnedFrozenRef::for_heap(self.heap_ref));
 
         // SAFETY: The reference we just added keeps our heap alive for `'v`, and `'fv` is a
@@ -2062,11 +2128,10 @@ where
     }
 
     /// Like [`add_to_heap`](OwnedFrozenRef::add_to_heap), but for a frozen heap
-    pub fn add_to_frozen_heap<'v>(self, heap: &'v FrozenHeap) -> T::Reinfect<'v> {
+    pub fn add_to_frozen_heap<'v>(self, heap: FrozenHeap<'v>) -> T::Reinfect<'v> {
         heap.add_reference(self.owner());
 
-        // SAFETY: The heap we just added the reference to keeps this alive as long as it lives,
-        // which is at least `'v`
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
         unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
     }
 
@@ -2213,10 +2278,10 @@ mod tests {
     use dupe::Dupe;
     use starlark_derive::starlark_module;
 
-    use super::FrozenHeap;
     use super::FrozenHeapName;
     use super::Heap;
     use super::OwnedFrozen;
+    use super::OwnedFrozenHeap;
     use super::OwnedFrozenRef;
     use crate as starlark;
     use crate::assert::Assert;
@@ -2231,18 +2296,22 @@ mod tests {
     }
 
     fn sealed_heap(name: &str) -> OwnedFrozen<()> {
-        let heap = FrozenHeap::new();
-        heap.alloc("contents");
-        heap.into_ref_named(FrozenHeapName::user(name))
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+        });
+        heap.seal(FrozenHeapName::user(name))
     }
 
     #[test]
     fn test_heap_identity_api() {
         let dep = sealed_heap("dep");
-        let heap = FrozenHeap::new();
-        heap.alloc("contents");
-        heap.add_reference(dep.owner());
-        let owned = heap.into_ref_named(FrozenHeapName::user("heap"));
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+            heap.add_reference(dep.owner());
+        });
+        let owned = heap.seal(FrozenHeapName::user("heap"));
 
         assert_eq!(owned.name().unwrap().to_string(), "heap");
         assert!(owned.allocated_bytes() > 0);

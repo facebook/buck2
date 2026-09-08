@@ -260,7 +260,7 @@ impl StmtsCompiled {
         compiler: &StmtCompileContext,
         local_names: FrozenAnyArray<FrozenStringValue>,
         param_count: u32,
-        heap: &FrozenHeap,
+        heap: FrozenHeap<'_>,
     ) -> Bc {
         let mut bc = BcWriter::new(local_names, param_count, heap);
         self.write_bc(compiler, &mut bc);

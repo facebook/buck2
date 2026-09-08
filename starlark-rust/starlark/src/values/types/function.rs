@@ -134,7 +134,7 @@ pub(crate) struct NativeFunction {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for NativeFunction {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_simple(self)
     }
 }

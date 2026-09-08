@@ -96,7 +96,7 @@ enum TypingError {
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn is_runtime_wildcard_dyn(&self) -> bool;
-    fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue>;
+    fn to_frozen_dyn(&self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue>;
 }
 
 // TODO(nga): derive.
@@ -114,8 +114,12 @@ where
     fn is_runtime_wildcard_dyn(&self) -> bool {
         self.type_compiled_impl.is_wildcard()
     }
-    fn to_frozen_dyn(&self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
-        TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
+    fn to_frozen_dyn(&self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
+        TypeCompiled(
+            heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self))
+                .unpack_frozen()
+                .expect("value allocated in a frozen heap is frozen"),
+        )
     }
 }
 
@@ -420,7 +424,7 @@ impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
 
 impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     /// Reallocate the type in a frozen heap.
-    pub fn to_frozen(self, heap: &FrozenHeap) -> TypeCompiled<FrozenValue> {
+    pub fn to_frozen(self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
         if let Some(v) = self.0.to_value().unpack_frozen() {
             TypeCompiled(v)
         } else {
@@ -561,7 +565,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
 impl TypeCompiled<FrozenValue> {
     /// Evaluate type annotation at runtime.
-    pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: &FrozenHeap) -> anyhow::Result<Self> {
+    pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: FrozenHeap<'_>) -> anyhow::Result<Self> {
         // TODO(nga): trip to a heap is not free.
         Heap::temp(|heap| {
             let ty = TypeCompiled::new(ty.to_value(), heap)?;

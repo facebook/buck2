@@ -261,10 +261,11 @@ mod tests {
             assert_eq!(expected, v.get_hashed().unwrap().hash());
         });
 
-        let heap = FrozenHeap::new();
-        let fs: FrozenStringValue = heap.alloc_str("xyz");
-        assert_eq!(expected, Hashed::new(fs).hash());
-        let fv: FrozenValue = heap.alloc_str("xyz").to_frozen_value();
-        assert_eq!(expected, fv.get_hashed().unwrap().hash());
+        FrozenHeap::temp(|heap| {
+            let fs: FrozenStringValue = heap.alloc_str_intern("xyz");
+            assert_eq!(expected, Hashed::new(fs).hash());
+            let fv: FrozenValue = heap.alloc_str_intern("xyz").to_frozen_value();
+            assert_eq!(expected, fv.get_hashed().unwrap().hash());
+        });
     }
 }

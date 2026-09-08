@@ -43,7 +43,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::HeapSendable;
@@ -192,11 +191,11 @@ impl<'v> AllocValue<'v> for ProviderCollection<'v> {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for ProviderCollection<'fv> {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         if self.providers.is_empty() {
-            empty_provider_collection_value().to_frozen_value()
+            empty_provider_collection_value().to_value()
         } else {
-            heap.alloc_simple_typed(self).to_frozen_value()
+            heap.alloc_simple_typed(self).to_value()
         }
     }
 }
@@ -386,19 +385,16 @@ impl<'v> ProviderCollection<'v> {
 
 impl FrozenProviderCollection {
     pub fn testing_new_default<'v>(
-        heap: &'v FrozenHeap,
+        heap: FrozenHeap<'v>,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
-        FrozenValueTyped::new_err(
-            heap.alloc(ProviderCollection {
-                providers: SmallMap::from_iter([(
-                    CollectionKey(DefaultInfoCallable::provider_id().dupe()),
-                    DefaultInfo::testing_empty(heap)
-                        .to_frozen_value()
-                        .to_value(),
-                )]),
-            }),
-        )
-        .unwrap()
+        heap.alloc_typed(ProviderCollection {
+            providers: SmallMap::from_iter([(
+                CollectionKey(DefaultInfoCallable::provider_id().dupe()),
+                DefaultInfo::testing_empty(heap).to_value(),
+            )]),
+        })
+        .unpack_frozen()
+        .expect("value allocated in a frozen heap is frozen")
     }
 }
 
@@ -565,7 +561,7 @@ impl FrozenProviderCollectionValue {
 
     pub fn add_frozen_heap_ref<'v>(
         &self,
-        heap: &'v FrozenHeap,
+        heap: FrozenHeap<'v>,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
         self.as_ref().add_frozen_heap_ref(heap)
     }
@@ -623,7 +619,7 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
 
     pub fn add_frozen_heap_ref<'v>(
         self,
-        heap: &'v FrozenHeap,
+        heap: FrozenHeap<'v>,
     ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
         self.inner.add_to_frozen_heap(heap)
     }

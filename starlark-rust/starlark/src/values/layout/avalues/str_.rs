@@ -97,7 +97,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
             );
 
             let s = (*me).payload.as_str();
-            let fv = freezer.alloc(s);
+            let fv = freezer.frozen_heap().alloc_str_intern(s).to_frozen_value();
             debug_assert!(fv.is_str());
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
@@ -163,23 +163,29 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
     }
 }
 
-impl FrozenHeap {
-    /// Allocate a string on this heap. Be careful about the warnings around
-    /// [`FrozenValue`].
+impl<'fh> FrozenHeap<'fh> {
+    /// Allocate a string on this heap.
     ///
     /// Since the heap is frozen, we always prefer to intern the string in order
     /// to deduplicate it and save some memory.
-    pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
-        self.alloc_str_intern(x)
-    }
-
-    /// Intern string.
-    pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
-        self.alloc_str_hashed(Hashed::new(s))
+    pub fn alloc_str(self, x: &str) -> StringValue<'fh> {
+        self.alloc_str_hashed(Hashed::new(x))
     }
 
     /// Allocate prehashed string.
-    pub fn alloc_str_hashed(&self, s: Hashed<&str>) -> FrozenStringValue {
+    pub fn alloc_str_hashed(self, s: Hashed<&str>) -> StringValue<'fh> {
+        self.alloc_str_intern_hashed(s).to_string_value()
+    }
+
+    /// Intern a string and erase its brand.
+    ///
+    /// For the compiler's products, which are `FrozenValue`-typed; everything else should keep the
+    /// brand that [`alloc_str`](FrozenHeap::alloc_str) hands out.
+    pub(crate) fn alloc_str_intern(self, s: &str) -> FrozenStringValue {
+        self.alloc_str_intern_hashed(Hashed::new(s))
+    }
+
+    fn alloc_str_intern_hashed(self, s: Hashed<&str>) -> FrozenStringValue {
         if let Some(s) = constant_string(*s) {
             s
         } else {

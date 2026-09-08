@@ -116,12 +116,12 @@ impl InlinedFrames {
 
 /// Heap allocator for `InlinedFrame` which attempts to reuse previous allocation.
 pub(crate) struct InlinedFrameAlloc<'f> {
-    frozen_heap: &'f FrozenHeap,
+    frozen_heap: FrozenHeap<'f>,
     last_alloc: Option<FrozenAnyValue<InlinedFrame>>,
 }
 
 impl<'f> InlinedFrameAlloc<'f> {
-    pub(crate) fn new(frozen_heap: &'f FrozenHeap) -> Self {
+    pub(crate) fn new(frozen_heap: FrozenHeap<'f>) -> Self {
         Self {
             frozen_heap,
             last_alloc: None,
@@ -172,72 +172,72 @@ mod tests {
         // and then `c` is inlined into `d` (which is already inlined into `f`),
         // the resulting stack trace should be `f`, `e`, `d`, `c`, `b`, `a`.
 
-        let frozen_heap = FrozenHeap::new();
-
-        fn make_span(heap: &FrozenHeap, text: &str) -> FrameSpan {
-            let codemap = CodeMap::new(format!("{text}.bzl"), text.to_owned());
-            let codemap = heap.alloc_any_value(codemap);
-            FrameSpan {
-                span: FrozenFileSpan::new(codemap, codemap.full_span()),
-                inlined_frames: InlinedFrames::default(),
+        FrozenHeap::temp(|frozen_heap| {
+            fn make_span(heap: FrozenHeap<'_>, text: &str) -> FrameSpan {
+                let codemap = CodeMap::new(format!("{text}.bzl"), text.to_owned());
+                let codemap = heap.alloc_any_value(codemap);
+                FrameSpan {
+                    span: FrozenFileSpan::new(codemap, codemap.full_span()),
+                    inlined_frames: InlinedFrames::default(),
+                }
             }
-        }
 
-        let mut span_alloc = InlinedFrameAlloc::new(&frozen_heap);
+            let mut span_alloc = InlinedFrameAlloc::new(frozen_heap);
 
-        fn assert_stack(expected: &[&str], span: &FrameSpan) {
-            let mut frames = Vec::new();
-            span.inlined_frames.extend_frames(&mut frames);
-            let frames = frames.map(|f| {
-                let span = f.location.as_ref().unwrap().source_span();
-                let f = f.name.trim_matches('"');
-                format!("{span} in {f}")
-            });
-            assert_eq!(expected, &frames);
-        }
+            fn assert_stack(expected: &[&str], span: &FrameSpan) {
+                let mut frames = Vec::new();
+                span.inlined_frames.extend_frames(&mut frames);
+                let frames = frames.map(|f| {
+                    let span = f.location.as_ref().unwrap().source_span();
+                    let f = f.name.trim_matches('"');
+                    format!("{span} in {f}")
+                });
+                assert_eq!(expected, &frames);
+            }
 
-        let mut a = make_span(&frozen_heap, "{}");
-        let b = make_span(&frozen_heap, "a()");
-        let c = make_span(&frozen_heap, "b()");
-        a.inlined_frames.inline_into(
-            b,
-            frozen_heap.alloc_str("b").to_frozen_value(),
-            &mut span_alloc,
-        );
-        a.inlined_frames.inline_into(
-            c,
-            frozen_heap.alloc_str("c").to_frozen_value(),
-            &mut span_alloc,
-        );
+            let mut a = make_span(frozen_heap, "{}");
+            let b = make_span(frozen_heap, "a()");
+            let c = make_span(frozen_heap, "b()");
+            a.inlined_frames.inline_into(
+                b,
+                frozen_heap.alloc_str_intern("b").to_frozen_value(),
+                &mut span_alloc,
+            );
+            a.inlined_frames.inline_into(
+                c,
+                frozen_heap.alloc_str_intern("c").to_frozen_value(),
+                &mut span_alloc,
+            );
 
-        assert_stack(&["b() in c", "a() in b"], &a);
+            assert_stack(&["b() in c", "a() in b"], &a);
 
-        let mut d = make_span(&frozen_heap, "c()");
-        let e = make_span(&frozen_heap, "d()");
-        let f = make_span(&frozen_heap, "e()");
+            let mut d = make_span(frozen_heap, "c()");
+            let e = make_span(frozen_heap, "d()");
+            let f = make_span(frozen_heap, "e()");
 
-        d.inlined_frames.inline_into(
-            e,
-            frozen_heap.alloc_str("e").to_frozen_value(),
-            &mut span_alloc,
-        );
-        d.inlined_frames.inline_into(
-            f,
-            frozen_heap.alloc_str("f").to_frozen_value(),
-            &mut span_alloc,
-        );
+            d.inlined_frames.inline_into(
+                e,
+                frozen_heap.alloc_str_intern("e").to_frozen_value(),
+                &mut span_alloc,
+            );
+            d.inlined_frames.inline_into(
+                f,
+                frozen_heap.alloc_str_intern("f").to_frozen_value(),
+                &mut span_alloc,
+            );
 
-        assert_stack(&["e() in f", "d() in e"], &d);
+            assert_stack(&["e() in f", "d() in e"], &d);
 
-        a.inlined_frames.inline_into(
-            d,
-            frozen_heap.alloc_str("d").to_frozen_value(),
-            &mut span_alloc,
-        );
+            a.inlined_frames.inline_into(
+                d,
+                frozen_heap.alloc_str_intern("d").to_frozen_value(),
+                &mut span_alloc,
+            );
 
-        assert_stack(
-            &["e() in f", "d() in e", "c() in d", "b() in c", "a() in b"],
-            &a,
-        );
+            assert_stack(
+                &["e() in f", "d() in e", "c() in d", "b() in c", "a() in b"],
+                &a,
+            );
+        });
     }
 }

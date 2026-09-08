@@ -499,13 +499,13 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
             buck2_error::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
-                data: eval
-                    .frozen_heap()
-                    .alloc_any_value(UserProviderCallableData {
+                data: eval.frozen_heap(|fh, _| {
+                    fh.alloc_any_value(UserProviderCallableData {
                         provider_id,
                         fields: self.fields.clone(),
                         ty_provider_type_instance_id,
-                    }),
+                    })
+                }),
                 ty_provider,
                 ty_callable,
             })
@@ -646,7 +646,7 @@ fn provider_field_parse_type<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
     TypeCompiled::new(ty, eval.heap())
-        .map(|ty| ty.to_frozen(eval.frozen_heap()))
+        .map(|ty| eval.frozen_heap(|fh, _| ty.to_frozen(fh)))
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
 
@@ -666,9 +666,17 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                 if let Some(x) = x.unpack_frozen() {
                     Some(x)
                 } else if ListRef::from_value(x).is_some_and(|x| x.is_empty()) {
-                    Some(eval.frozen_heap().alloc(AllocList::EMPTY))
+                    Some(eval.frozen_heap(|fh, _| {
+                        fh.alloc(AllocList::EMPTY)
+                            .unpack_frozen()
+                            .expect("value allocated in a frozen heap is frozen")
+                    }))
                 } else if DictRef::from_value(x).is_some_and(|x| x.is_empty()) {
-                    Some(eval.frozen_heap().alloc(AllocDict::EMPTY))
+                    Some(eval.frozen_heap(|fh, _| {
+                        fh.alloc(AllocDict::EMPTY)
+                            .unpack_frozen()
+                            .expect("value allocated in a frozen heap is frozen")
+                    }))
                 } else {
                     // Dealing only with frozen values is much easier.
                     return Err(buck2_error::Error::from(

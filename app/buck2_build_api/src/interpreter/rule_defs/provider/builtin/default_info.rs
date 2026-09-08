@@ -28,7 +28,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
-use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -194,15 +193,12 @@ impl<'v> DefaultInfo<'v> {
         }
     }
 
-    pub(crate) fn testing_empty(heap: &'v FrozenHeap) -> FrozenValueTyped<'v, DefaultInfo<'v>> {
+    pub(crate) fn testing_empty(heap: FrozenHeap<'v>) -> ValueTyped<'v, DefaultInfo<'v>> {
         let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(
-            heap.alloc(AllocDict(iter::empty::<(String, ProviderCollection)>()))
-                .to_value(),
+            heap.alloc(AllocDict(iter::empty::<(String, ProviderCollection)>())),
         );
-        let default_outputs =
-            ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY).to_value());
-        let other_outputs =
-            ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY).to_value());
+        let default_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
+        let other_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         heap.alloc_simple_typed(DefaultInfo {
             sub_targets,
             default_outputs,

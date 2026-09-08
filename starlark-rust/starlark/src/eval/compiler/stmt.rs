@@ -111,13 +111,13 @@ pub(crate) struct StmtCompileContext {
     pub(crate) has_return_type: bool,
 }
 
-pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
+pub(crate) struct OptimizeOnFreezeContext<'v, 'a, 'fv> {
     pub(crate) module: &'a FrozenModuleData,
     /// Nothing useful should be left in the heap after the freeze,
     /// but having a heap is useful to allocate objects temporarily
     /// (when invoking operations which require heap).
     pub(crate) heap: Heap<'v>,
-    pub(crate) frozen_heap: &'a FrozenHeap,
+    pub(crate) frozen_heap: FrozenHeap<'fv>,
 }
 
 impl AssignModifyLhs {
@@ -395,7 +395,7 @@ impl IrSpanned<AssignCompiledValue> {
     }
 }
 
-impl Compiler<'_, '_, '_, '_> {
+impl Compiler<'_, '_, '_, '_, '_> {
     pub fn assign_target(
         &mut self,
         expr: &CstAssignTarget,
@@ -639,7 +639,7 @@ pub(crate) fn add_assign<'v>(
     }
 }
 
-impl Compiler<'_, '_, '_, '_> {
+impl Compiler<'_, '_, '_, '_, '_> {
     pub(crate) fn compile_context(&self, has_return_type: bool) -> StmtCompileContext {
         StmtCompileContext { has_return_type }
     }

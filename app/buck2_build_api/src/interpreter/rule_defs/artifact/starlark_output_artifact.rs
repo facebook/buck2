@@ -33,7 +33,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -100,8 +99,8 @@ impl<'v> AllocValue<'v> for StarlarkOutputArtifact<'v> {
 
 impl<'fv> AllocFrozenValue<'fv> for FrozenStarlarkOutputArtifact<'fv> {
     #[inline]
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
-        heap.alloc_simple_typed(self).to_frozen_value()
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
+        heap.alloc_simple_typed(self).to_value()
     }
 }
 

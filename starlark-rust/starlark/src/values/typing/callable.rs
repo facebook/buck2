@@ -129,8 +129,8 @@ See also [`typing.Callable` in the Python documentation][1].
 static_starlark_value!(CALLABLE: TypingCallable = TypingCallable);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingCallable {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        CALLABLE.to_frozen_value()
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        CALLABLE.to_frozen_value().to_value()
     }
 }
 
@@ -310,8 +310,8 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
 impl<'fv, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue<'fv>
     for FrozenStarlarkCallable<P, R>
 {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        self.0
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.0.to_value()
     }
 }
 

@@ -183,6 +183,7 @@ mod tests {
     use crate as starlark;
     use crate::register_starlark_any;
     use crate::values::FrozenHeap;
+    use crate::values::OwnedFrozenHeap;
 
     // Type used for drop test - must be at module level for registration.
     #[derive(Debug, Clone, Dupe, starlark_derive::StarlarkPagablePanic)]
@@ -203,14 +204,16 @@ mod tests {
         let counter1 = Arc::new(AtomicU32::new(0));
         let counter2 = Arc::new(AtomicU32::new(0));
 
-        let heap = FrozenHeap::new();
-        let values = heap.alloc_any_array_value(&[
-            IncrementOnDrop(counter1.dupe()),
-            IncrementOnDrop(counter1.dupe()),
-            IncrementOnDrop(counter2.dupe()),
-            IncrementOnDrop(counter1.dupe()),
-            IncrementOnDrop(counter2.dupe()),
-        ]);
+        let heap = OwnedFrozenHeap::new();
+        let values = heap.with(|heap| {
+            heap.alloc_any_array_value(&[
+                IncrementOnDrop(counter1.dupe()),
+                IncrementOnDrop(counter1.dupe()),
+                IncrementOnDrop(counter2.dupe()),
+                IncrementOnDrop(counter1.dupe()),
+                IncrementOnDrop(counter2.dupe()),
+            ])
+        });
 
         assert_eq!(5, values.len());
 
@@ -235,10 +238,11 @@ mod tests {
 
     #[test]
     fn test_allocation_size() {
-        let heap = FrozenHeap::new();
-        heap.alloc_any_array_value(&[1, 2, 3]);
-        let quake = heap.alloc_str("quake");
-        // Test array allocation did not overwrite the string.
-        assert_eq!(quake.as_str(), "quake");
+        FrozenHeap::temp(|heap| {
+            heap.alloc_any_array_value(&[1, 2, 3]);
+            let quake = heap.alloc_str("quake");
+            // Test array allocation did not overwrite the string.
+            assert_eq!(quake.as_str(), "quake");
+        });
     }
 }

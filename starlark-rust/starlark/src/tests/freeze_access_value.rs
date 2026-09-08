@@ -48,11 +48,11 @@ fn test() -> anyhow::Result<()> {
 
         let t = Test { field: list };
 
-        let frozen_heap = FrozenHeap::new();
-        let freezer = Freezer::new(&frozen_heap);
-        list.freeze(&freezer)?;
-        t.freeze(&freezer)?;
-
-        Ok(())
+        FrozenHeap::temp(|frozen_heap| {
+            let freezer = Freezer::new(frozen_heap);
+            list.freeze(&freezer)?;
+            t.freeze(&freezer)?;
+            anyhow::Ok(())
+        })
     })
 }

@@ -34,13 +34,13 @@ use crate::values::layout::value::Value;
 /// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
 pub struct Freezer<'fv> {
     /// Freezing into this heap.
-    pub(crate) heap: &'fv FrozenHeap,
+    pub(crate) heap: FrozenHeap<'fv>,
     /// Defs frozen by this freezer.
     pub(crate) frozen_defs: RefCell<Vec<ValueTyped<'fv, Def<'fv>>>>,
 }
 
 impl<'fv> Freezer<'fv> {
-    pub(crate) fn new(heap: &'fv FrozenHeap) -> Self {
+    pub(crate) fn new(heap: FrozenHeap<'fv>) -> Self {
         Freezer {
             heap,
             frozen_defs: RefCell::new(Vec::new()),
@@ -48,8 +48,8 @@ impl<'fv> Freezer<'fv> {
     }
 
     /// Allocate a new value while freezing. Usually not a great idea.
-    pub fn alloc<'v, T: AllocFrozenValue<'fv>>(&'v self, val: T) -> FrozenValue {
-        val.alloc_frozen_value(self.heap)
+    pub fn alloc<T: AllocFrozenValue<'fv>>(&self, val: T) -> Value<'fv> {
+        self.heap.alloc(val)
     }
 
     pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> (FrozenValue, Reservation<'v2, T>)
@@ -89,7 +89,7 @@ impl<'fv> Freezer<'fv> {
     /// Frozen heap where the values are frozen to.
     ///
     /// Can be used to allocate additional values while freezing.
-    pub fn frozen_heap(&self) -> &'fv FrozenHeap {
+    pub fn frozen_heap(&self) -> FrozenHeap<'fv> {
         self.heap
     }
 }

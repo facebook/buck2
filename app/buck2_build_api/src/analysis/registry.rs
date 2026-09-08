@@ -716,17 +716,14 @@ impl RecordedAnalysisValues {
                     .iter()
                     .sorted_by_key(|(key, _)| key.index().0)
                     .map(|(_key, tset)| {
-                        let tset = tset.as_ref().add_to_frozen_heap(heap);
-                        FrozenValueTyped::new(
-                            tset.to_value()
-                                .unpack_frozen()
-                                .expect("value is in a frozen heap"),
-                        )
-                        .expect("value is a `TransitiveSet`")
+                        tset.as_ref()
+                            .add_to_frozen_heap(heap)
+                            .unpack_frozen()
+                            .expect("value is in a frozen heap")
                     })
                     .collect();
 
-                let storage = heap.alloc_simple_typed(StarlarkAnyComplex {
+                heap.alloc_simple_typed(StarlarkAnyComplex {
                     value: FrozenAnalysisValueStorage {
                         self_key: self_key.dupe(),
                         action_data: SmallMap::new(),
@@ -737,9 +734,7 @@ impl RecordedAnalysisValues {
                             .new_frozen_dynamic_lambda_params_storage(),
                         result_value: Some(FrozenProviderCollection::testing_new_default(heap)),
                     },
-                });
-                ValueTyped::new(storage.to_frozen_value().to_value())
-                    .expect("value was just allocated as this type")
+                })
             });
         Self {
             self_key,

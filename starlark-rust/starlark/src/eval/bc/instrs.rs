@@ -567,25 +567,26 @@ mod tests {
 
     #[test]
     fn display() {
-        let heap = FrozenHeap::new();
-        let local_names = heap.alloc_any_array_value(&[const_frozen_string!("abc")]);
-        let mut bc = BcInstrsWriter::new();
-        bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
-        bc.write::<InstrReturn>(BcSlot(0).to_in());
-        let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
-        if mem::size_of::<usize>() == 8 {
-            assert_eq!(
-                "0: Const True ->&abc; 24: Return &abc; 32: End",
-                bc.to_string()
-            );
-            assert_eq!(
-                " 0: Const True ->&abc\n24: Return &abc\n32: End\n",
-                bc.dump_debug()
-            );
-        } else if mem::size_of::<usize>() == 4 {
-            // Starlark doesn't work now on 32-bit CPU
-        } else {
-            panic!("unknown word size: {}", mem::size_of::<usize>());
-        }
+        FrozenHeap::temp(|heap| {
+            let local_names = heap.alloc_any_array_value(&[const_frozen_string!("abc")]);
+            let mut bc = BcInstrsWriter::new();
+            bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
+            bc.write::<InstrReturn>(BcSlot(0).to_in());
+            let bc = bc.finish(Vec::new(), BcStatementLocations::new(), local_names);
+            if mem::size_of::<usize>() == 8 {
+                assert_eq!(
+                    "0: Const True ->&abc; 24: Return &abc; 32: End",
+                    bc.to_string()
+                );
+                assert_eq!(
+                    " 0: Const True ->&abc\n24: Return &abc\n32: End\n",
+                    bc.dump_debug()
+                );
+            } else if mem::size_of::<usize>() == 4 {
+                // Starlark doesn't work now on 32-bit CPU
+            } else {
+                panic!("unknown word size: {}", mem::size_of::<usize>());
+            }
+        });
     }
 }

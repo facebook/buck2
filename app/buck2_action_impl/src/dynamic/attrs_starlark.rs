@@ -95,7 +95,7 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
         let ty = TypeCompiled::new(ty.value, eval.heap())?;
         // We allocate a type in the frozen heap (which is not garbage collected),
         // which is fine because this code is not meant to be executed outside top-level code.
-        let ty = ty.to_frozen(eval.frozen_heap());
+        let ty = eval.frozen_heap(|fh, _| ty.to_frozen(fh));
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Value(ty),
         })
@@ -119,7 +119,7 @@ fn struct_dynattrs(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<StarlarkDynamicAttrType> {
         let key = TypeCompiled::new(key.value, eval.heap())?;
         // See the comment above about frozen heap.
-        let key = key.to_frozen(eval.frozen_heap());
+        let key = eval.frozen_heap(|fh, _| key.to_frozen(fh));
         let value = value.ty.clone();
         Ok(StarlarkDynamicAttrType {
             ty: DynamicAttrType::Dict(Box::new((key, value))),

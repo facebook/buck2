@@ -25,7 +25,6 @@ use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 
-use crate::cast;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::pagable::StarlarkPagable;
@@ -33,6 +32,7 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -56,9 +56,9 @@ fn array_avalue<'v>(
     AValueImpl::<AValueArray>::new(unsafe { Array::new(0, cap) })
 }
 
-fn any_array_avalue<T: AnyArrayRegistered + StarlarkPagable>(
+fn any_array_avalue<'v, T: AnyArrayRegistered + StarlarkPagable>(
     cap: usize,
-) -> AValueImpl<'static, impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T>> {
+) -> AValueImpl<'v, impl AValue<'v, StarlarkValue = AnyArray<T>, ExtraElem = T>> {
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
 }
 
@@ -219,22 +219,24 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
     }
 }
 
-impl FrozenHeap {
+impl<'fh> FrozenHeap<'fh> {
     /// Allocate a slice in the frozen heap, returning a [`FrozenAnyArray`].
+    ///
+    /// The handle type predates branding: its `'static` says nothing about what keeps the heap
+    /// alive.
     pub(crate) fn alloc_any_array_value<
         T: AnyArrayRegistered + StarlarkPagable + Send + Sync + Clone,
     >(
-        &self,
+        self,
         values: &[T],
     ) -> FrozenAnyArray<T> {
         // Always allocate via AnyArray, even for empty/single elements.
         // This ensures the reverse calculation to FrozenValue is valid.
-        // SAFETY: Not.
-        let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
-        let (any_array, content) = this.alloc_raw_extra(any_array_avalue(values.len()));
+        let (any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         maybe_uninit_write_slice_cloned(content, values);
-        any_array
+        FrozenValueTyped::new(any_array.to_frozen_value())
+            .expect("just allocated value must have the right type")
     }
 }
 

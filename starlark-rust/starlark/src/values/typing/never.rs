@@ -46,8 +46,8 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
+use crate::values::Value;
 use crate::values::starlark_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -92,8 +92,8 @@ See also [`typing.Never` in the Python documentation][1].
 static_starlark_value!(NEVER: TypingNever = TypingNever);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingNever {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        NEVER.to_frozen_value()
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        NEVER.to_frozen_value().to_value()
     }
 }
 

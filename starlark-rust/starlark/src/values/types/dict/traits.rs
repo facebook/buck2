@@ -25,7 +25,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -45,7 +44,7 @@ impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V>
 impl<'fv, K: AllocFrozenValue<'fv>, V: AllocFrozenValue<'fv>> AllocFrozenValue<'fv>
     for SmallMap<K, V>
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -67,7 +66,7 @@ where
     &'a K: AllocFrozenValue<'fv>,
     &'a V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -122,7 +121,7 @@ impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for BTreeMap<K, V>
 impl<'fv, K: AllocFrozenValue<'fv>, V: AllocFrozenValue<'fv>> AllocFrozenValue<'fv>
     for BTreeMap<K, V>
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }
@@ -144,7 +143,7 @@ where
     &'a K: AllocFrozenValue<'fv>,
     &'a V: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         AllocDict(self).alloc_frozen_value(heap)
     }
 }

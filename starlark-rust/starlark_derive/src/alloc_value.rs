@@ -90,8 +90,8 @@ fn derive_alloc_value_impl(
                 impl #generics starlark::values::AllocFrozenValue<'v> for #type_name #type_generics #where_clause {
                     fn alloc_frozen_value(
                         self,
-                        heap: &starlark::values::FrozenHeap,
-                    ) -> starlark::values::FrozenValue {
+                        heap: starlark::values::FrozenHeap<'v>,
+                    ) -> starlark::values::Value<'v> {
                         let _ignore_heap_for_empty_enums = heap;
                         #body
                     }

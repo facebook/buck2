@@ -21,7 +21,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -39,7 +38,7 @@ impl<'v> AllocValue<'v> for i32 {
 }
 impl<'fv> AllocFrozenValue<'fv> for i32 {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }

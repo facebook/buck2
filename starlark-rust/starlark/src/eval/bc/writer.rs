@@ -178,7 +178,7 @@ pub(crate) struct BcWriter<'f> {
     max_loop_depth: LoopDepth,
 
     /// Allocate various objects here.
-    pub(crate) heap: &'f FrozenHeap,
+    pub(crate) heap: FrozenHeap<'f>,
 }
 
 impl<'f> BcWriter<'f> {
@@ -186,7 +186,7 @@ impl<'f> BcWriter<'f> {
     pub(crate) fn new(
         local_names: FrozenAnyArray<FrozenStringValue>,
         param_count: u32,
-        heap: &'f FrozenHeap,
+        heap: FrozenHeap<'f>,
     ) -> BcWriter<'f> {
         assert!(param_count as usize <= local_names.len());
         let mut definitely_assigned =

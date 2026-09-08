@@ -167,7 +167,7 @@ impl ArgsCompiledValue {
     }
 }
 
-impl Compiler<'_, '_, '_, '_> {
+impl Compiler<'_, '_, '_, '_, '_> {
     pub(crate) fn args(
         &mut self,
         args: &CallArgsP<CstPayload>,
@@ -177,11 +177,7 @@ impl Compiler<'_, '_, '_, '_> {
             match &x.node {
                 ArgumentP::Positional(x) => res.pos_named.push(self.expr(x)?),
                 ArgumentP::Named(name, value) => {
-                    let fv = self
-                        .eval
-                        .module_env
-                        .frozen_heap()
-                        .alloc_str_intern(name.node.as_str());
+                    let fv = self.fh.alloc_str_intern(name.node.as_str());
                     res.names.push((Symbol::new(&name.node), fv));
                     res.pos_named.push(self.expr(value)?);
                 }

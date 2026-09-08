@@ -36,7 +36,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// ```
 /// # use starlark::values::{FrozenHeap, Heap};
 /// # use starlark::values::tuple::AllocTuple;
-/// # fn alloc(heap: Heap<'_>, frozen_heap: &FrozenHeap) {
+/// # fn alloc(heap: Heap<'_>, frozen_heap: FrozenHeap<'_>) {
 /// let l = heap.alloc(AllocTuple([1, 2, 3]));
 /// let ls = frozen_heap.alloc(AllocTuple([1, 2, 3]));
 /// # }
@@ -75,7 +75,7 @@ where
     T: IntoIterator,
     T::Item: AllocFrozenValue<'fv>,
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_tuple_iter(self.0.into_iter().map(|x| x.alloc_frozen_value(heap)))
     }
 }
@@ -107,25 +107,19 @@ mod tests {
 
     #[test]
     fn test_alloc_frozen_tuple() {
-        let heap = FrozenHeap::new();
+        FrozenHeap::temp(|heap| {
+            let a = heap.alloc(AllocTuple([""; 0]));
+            let b = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|_| false)));
+            assert_eq!(0, TupleRef::from_value(a).unwrap().content().len());
+            assert!(a.ptr_eq(b));
 
-        let a = heap.alloc(AllocTuple([""; 0]));
-        let b = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|_| false)));
-        assert_eq!(0, TupleRef::from_frozen_value(a).unwrap().content().len());
-        assert!(a.to_value().ptr_eq(b.to_value()));
+            // Fixed length iterator.
+            let c = heap.alloc(AllocTuple([1, 2]));
+            assert_eq!(2, TupleRef::from_value(c).unwrap().content().len());
 
-        // Fixed length iterator.
-        let c = heap.alloc(AllocTuple([1, 2]));
-        assert_eq!(
-            2,
-            TupleRef::from_value(c.to_value()).unwrap().content().len()
-        );
-
-        // Iterator of unknown length.
-        let d = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|c| *c > 1)));
-        assert_eq!(
-            2,
-            TupleRef::from_value(d.to_value()).unwrap().content().len()
-        );
+            // Iterator of unknown length.
+            let d = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|c| *c > 1)));
+            assert_eq!(2, TupleRef::from_value(d).unwrap().content().len());
+        });
     }
 }

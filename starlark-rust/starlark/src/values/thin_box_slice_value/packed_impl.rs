@@ -218,12 +218,18 @@ mod tests {
     use crate::values::layout::pointer::TAG_MASK;
 
     /// One value for each of the five tags a `Value` can carry.
-    fn one_of_each_tag<'v>(heap: Heap<'v>, frozen_heap: &FrozenHeap) -> [Value<'v>; 5] {
+    ///
+    /// The frozen values are brought over as `FrozenValue`s: only their tags matter here.
+    fn one_of_each_tag<'v>(heap: Heap<'v>, frozen_heap: FrozenHeap<'_>) -> [Value<'v>; 5] {
         [
-            frozen_heap.alloc_list(&[]).to_value(),
+            frozen_heap
+                .alloc_list(&[])
+                .unpack_frozen()
+                .unwrap()
+                .to_value(),
             heap.alloc_list(&[]),
             Value::testing_new_int(17),
-            frozen_heap.alloc_str("frozen").to_value(),
+            frozen_heap.alloc_str_intern("frozen").to_value(),
             heap.alloc_str("unfrozen").to_value(),
         ]
     }
@@ -246,41 +252,48 @@ mod tests {
 
     #[test]
     fn test_no_value_is_an_allocated_word() {
-        let frozen_heap = FrozenHeap::new();
-        Heap::temp(|heap| {
-            for value in one_of_each_tag(heap, &frozen_heap) {
-                assert!(
-                    !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().0.get()),
-                    "{value:?}"
-                );
-            }
+        FrozenHeap::temp(|frozen_heap| {
+            Heap::temp(|heap| {
+                for value in one_of_each_tag(heap, frozen_heap) {
+                    assert!(
+                        !AllocatedThinBoxSlice::<Value>::is_word(value.ptr_value().0.get()),
+                        "{value:?}"
+                    );
+                }
+            });
         });
     }
 
     #[test]
     fn test_one_of_each_tag() {
-        let frozen_heap = FrozenHeap::new();
-        Heap::temp(|heap| {
-            let a: [_; 16] = one_of_each_tag(heap, &frozen_heap)
-                .into_iter()
-                .cycle()
-                .take(16)
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap();
-            across_lengths(a);
+        FrozenHeap::temp(|frozen_heap| {
+            Heap::temp(|heap| {
+                let a: [_; 16] = one_of_each_tag(heap, frozen_heap)
+                    .into_iter()
+                    .cycle()
+                    .take(16)
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
+                across_lengths(a);
+            });
         });
     }
 
     #[test]
     fn test_strings() {
-        let frozen_heap = FrozenHeap::new();
-        Heap::temp(|heap| {
-            let s: [_; 16] = ["", "abc", "def", "ghijkl"].repeat(4).try_into().unwrap();
-            let s = s.map(|s| heap.alloc_str(s).to_value());
-            across_lengths(s);
-            let s = s.map(|s| frozen_heap.alloc_str(s.unpack_str().unwrap()).to_value());
-            across_lengths(s);
+        FrozenHeap::temp(|frozen_heap| {
+            Heap::temp(|heap| {
+                let s: [_; 16] = ["", "abc", "def", "ghijkl"].repeat(4).try_into().unwrap();
+                let s = s.map(|s| heap.alloc_str(s).to_value());
+                across_lengths(s);
+                let s = s.map(|s| {
+                    frozen_heap
+                        .alloc_str_intern(s.unpack_str().unwrap())
+                        .to_value()
+                });
+                across_lengths(s);
+            });
         });
     }
 

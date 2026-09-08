@@ -71,7 +71,7 @@ impl<'v> AllocValue<'v> for TestComplexValue<Value<'v>> {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for TestComplexValue<FrozenValue> {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_simple(self)
     }
 }

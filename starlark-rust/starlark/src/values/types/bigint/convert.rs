@@ -21,7 +21,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -46,7 +45,7 @@ impl<'v> AllocValue<'v> for u32 {
 
 impl<'fv> AllocFrozenValue<'fv> for u32 {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }
@@ -68,7 +67,7 @@ impl<'v> AllocValue<'v> for u64 {
 
 impl<'fv> AllocFrozenValue<'fv> for u64 {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }
@@ -90,7 +89,7 @@ impl<'v> AllocValue<'v> for i64 {
 
 impl<'fv> AllocFrozenValue<'fv> for i64 {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }
@@ -112,7 +111,7 @@ impl<'v> AllocValue<'v> for usize {
 
 impl<'fv> AllocFrozenValue<'fv> for usize {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }
@@ -134,7 +133,7 @@ impl<'v> AllocValue<'v> for isize {
 
 impl<'fv> AllocFrozenValue<'fv> for isize {
     #[inline]
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }
@@ -155,7 +154,7 @@ impl<'v> AllocValue<'v> for BigInt {
 }
 
 impl<'fv> AllocFrozenValue<'fv> for BigInt {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc(StarlarkInt::from(self))
     }
 }

@@ -36,7 +36,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
@@ -115,8 +114,8 @@ impl Serialize for NoneType {
 static_starlark_value!(pub(crate) VALUE_NONE: NoneType = NoneType);
 
 impl<'fv> AllocFrozenValue<'fv> for NoneType {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_none()
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        Value::new_none()
     }
 }
 

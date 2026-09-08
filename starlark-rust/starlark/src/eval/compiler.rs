@@ -42,6 +42,7 @@ use crate::eval::compiler::scope::ModuleScopeData;
 use crate::eval::compiler::scope::ScopeId;
 use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::values::FrozenHeap;
 use crate::values::any::FrozenAnyValue;
 
 #[cold]
@@ -82,8 +83,10 @@ pub(crate) fn expr_throw_starlark_result<'v, T>(
     }
 }
 
-pub(crate) struct Compiler<'v, 'a, 'e, 'x> {
+pub(crate) struct Compiler<'v, 'a, 'e, 'x, 'fm> {
     pub(crate) eval: &'x mut Evaluator<'v, 'a, 'e>,
+    /// The module's frozen heap, where the products of compilation are allocated.
+    pub(crate) fh: FrozenHeap<'fm>,
     pub(crate) scope_data: ModuleScopeData<'x>,
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: FrozenAnyValue<Globals>,
@@ -94,7 +97,7 @@ pub(crate) struct Compiler<'v, 'a, 'e, 'x> {
     pub(crate) typecheck: bool,
 }
 
-impl Compiler<'_, '_, '_, '_> {
+impl Compiler<'_, '_, '_, '_, '_> {
     pub(crate) fn enter_scope(&mut self, scope_id: ScopeId) {
         self.locals.push(scope_id);
     }

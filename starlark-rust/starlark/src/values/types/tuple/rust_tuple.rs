@@ -23,7 +23,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -55,13 +54,13 @@ impl<'v, T1: AllocValue<'v>, T2: AllocValue<'v>, T3: AllocValue<'v>> AllocValue<
 }
 
 impl<'fv, T1: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for (T1,) {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_tuple(&[self.0.alloc_frozen_value(heap)])
     }
 }
 
 impl<'fv, T1: AllocFrozenValue<'fv>, T2: AllocFrozenValue<'fv>> AllocFrozenValue<'fv> for (T1, T2) {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_tuple(&[
             self.0.alloc_frozen_value(heap),
             self.1.alloc_frozen_value(heap),
@@ -72,7 +71,7 @@ impl<'fv, T1: AllocFrozenValue<'fv>, T2: AllocFrozenValue<'fv>> AllocFrozenValue
 impl<'fv, T1: AllocFrozenValue<'fv>, T2: AllocFrozenValue<'fv>, T3: AllocFrozenValue<'fv>>
     AllocFrozenValue<'fv> for (T1, T2, T3)
 {
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_tuple(&[
             self.0.alloc_frozen_value(heap),
             self.1.alloc_frozen_value(heap),

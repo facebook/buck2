@@ -92,10 +92,10 @@ impl From<ScopeError> for crate::Error {
 }
 
 /// All scopes and bindings in a module.
-struct ModuleScopeBuilder<'a> {
-    scope_data: ModuleScopeData<'a>,
+struct ModuleScopeBuilder<'a, 'f> {
+    scope_data: ModuleScopeData<'f>,
     module: &'a MutableNames,
-    frozen_heap: &'a FrozenHeap,
+    frozen_heap: FrozenHeap<'f>,
     module_bindings: SmallMap<FrozenStringValue, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
     // The rest are scopes for functions (which include their comprehensions).
@@ -248,7 +248,7 @@ enum ResolveIdentScope {
     GlobalForTypeExpression,
 }
 
-impl<'f> ModuleScopeBuilder<'f> {
+impl<'a, 'f> ModuleScopeBuilder<'a, 'f> {
     fn top_scope_id(&self) -> ScopeId {
         *self.locals.last().unwrap()
     }
@@ -270,14 +270,14 @@ impl<'f> ModuleScopeBuilder<'f> {
     ///
     /// This function does not fail, errors are stored in the `errors` field.
     fn enter_module(
-        module: &'f MutableNames,
-        frozen_heap: &'f FrozenHeap,
+        module: &'a MutableNames,
+        frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
-    ) -> (CstStmt, ModuleScopeBuilder<'f>) {
+    ) -> (CstStmt, ModuleScopeBuilder<'a, 'f>) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
@@ -351,7 +351,7 @@ impl<'f> ModuleScopeBuilder<'f> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'f> {
+impl<'f> ModuleScopeBuilder<'_, 'f> {
     // Number of module slots I need, a struct holding all scopes, and module bindings.
     fn exit_module(
         mut self,
@@ -376,8 +376,8 @@ impl<'f> ModuleScopeBuilder<'f> {
 
 impl<'f> ModuleScopes<'f> {
     pub(crate) fn check_module_err(
-        module: &'f MutableNames,
-        frozen_heap: &'f FrozenHeap,
+        module: &MutableNames,
+        frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals,
@@ -393,8 +393,8 @@ impl<'f> ModuleScopes<'f> {
     }
 
     pub(crate) fn check_module(
-        module: &'f MutableNames,
-        frozen_heap: &'f FrozenHeap,
+        module: &MutableNames,
+        frozen_heap: FrozenHeap<'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals,
@@ -425,14 +425,14 @@ impl<'f> ModuleScopes<'f> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'f> {
+impl<'f> ModuleScopeBuilder<'_, 'f> {
     fn collect_defines_in_def(
         scope_data: &mut ModuleScopeData,
         scope_id: ScopeId,
         params: &mut [CstParameter],
         body: Option<&mut CstStmt>,
 
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -481,7 +481,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         scope_data: &mut ModuleScopeData,
         code: &mut CstStmt,
 
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -524,7 +524,7 @@ impl<'f> ModuleScopeBuilder<'f> {
         scope_data: &mut ModuleScopeData,
         code: &mut CstExpr,
 
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -850,7 +850,7 @@ trait StmtCollectDefines {
         stmt: &'a mut CstStmt,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
         dialect: &Dialect,
     );
@@ -862,7 +862,7 @@ impl StmtCollectDefines for Stmt {
         stmt: &'a mut CstStmt,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
         dialect: &Dialect,
     ) {
@@ -928,7 +928,7 @@ trait AssignIdentCollect {
         in_loop: InLoop,
         vis: Visibility,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     );
 }
@@ -939,7 +939,7 @@ impl AssignIdentCollect for AssignIdent {
         in_loop: InLoop,
         vis: Visibility,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
         // Helper function to untangle lifetimes: we read and modify `assign` fields.
@@ -1007,7 +1007,7 @@ trait AssignTargetCollectDefinesLvalue {
         expr: &'a mut CstAssignTarget,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     );
 }
@@ -1019,7 +1019,7 @@ impl AssignTargetCollectDefinesLvalue for AssignTarget {
         expr: &'a mut CstAssignTarget,
         in_loop: InLoop,
         scope_data: &mut ModuleScopeData,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
         result: &mut SmallMap<FrozenStringValue, BindingId>,
     ) {
         expr.node.visit_lvalue_mut(|x| {

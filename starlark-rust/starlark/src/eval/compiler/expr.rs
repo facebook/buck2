@@ -77,6 +77,7 @@ use crate::values::function::BoundMethod;
 use crate::values::list::ListRef;
 use crate::values::range::Range;
 use crate::values::string::interpolation::parse_percent_s_one;
+use crate::values::tuple::AllocTuple;
 use crate::values::types::bytes::value::StarlarkBytes;
 use crate::values::types::dict::Dict;
 use crate::values::types::ellipsis::Ellipsis;
@@ -147,7 +148,7 @@ pub(crate) enum Builtin1 {
 }
 
 impl Builtin1 {
-    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_, '_>) -> Option<Value<'v>> {
+    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_, '_, '_>) -> Option<Value<'v>> {
         match self {
             Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
             Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
@@ -792,7 +793,7 @@ impl ExprCompiled {
     fn try_values(
         span: FrameSpan,
         values: &[Value],
-        heap: &FrozenHeap,
+        heap: FrozenHeap<'_>,
     ) -> Option<Vec<IrSpanned<ExprCompiled>>> {
         values
             .try_map(|v| {
@@ -804,7 +805,11 @@ impl ExprCompiled {
     }
 
     /// Try convert a maybe not frozen value to an expression, or discard it.
-    pub(crate) fn try_value(span: FrameSpan, v: Value, heap: &FrozenHeap) -> Option<ExprCompiled> {
+    pub(crate) fn try_value(
+        span: FrameSpan,
+        v: Value,
+        heap: FrozenHeap<'_>,
+    ) -> Option<ExprCompiled> {
         if let Some(v) = v.unpack_frozen() {
             // If frozen, we are lucky.
             Some(ExprCompiled::Value(v))
@@ -820,9 +825,9 @@ impl ExprCompiled {
                 None
             }
         } else if let Some(v) = v.downcast_ref::<StarlarkFloat>() {
-            Some(ExprCompiled::Value(heap.alloc(*v)))
+            Some(ExprCompiled::Value(heap.alloc_frozen(*v)))
         } else if let Some(v) = v.downcast_ref::<Range>() {
-            Some(ExprCompiled::Value(heap.alloc(*v)))
+            Some(ExprCompiled::Value(heap.alloc_frozen(*v)))
         } else if let Some(v) = ListRef::from_value(v) {
             // When spec-safe function returned a non-frozen list,
             // we try to convert that list to a list of constants instruction.
@@ -857,9 +862,9 @@ impl ExprCompiled {
     }
 
     /// Construct tuple expression from elements optimizing to frozen tuple value when possible.
-    pub(crate) fn tuple(elems: Vec<IrSpanned<ExprCompiled>>, heap: &FrozenHeap) -> ExprCompiled {
+    pub(crate) fn tuple(elems: Vec<IrSpanned<ExprCompiled>>, heap: FrozenHeap<'_>) -> ExprCompiled {
         if let Ok(elems) = elems.try_map(|e| e.as_value().ok_or(())) {
-            ExprCompiled::Value(heap.alloc_tuple(&elems))
+            ExprCompiled::Value(heap.alloc_frozen(AllocTuple(elems)))
         } else {
             ExprCompiled::Tuple(elems)
         }
@@ -876,7 +881,7 @@ impl ExprCompiled {
             MemberOrValue::Member(m) => match m {
                 UnboundValue::Method(m) => Some(
                     ctx.frozen_heap()
-                        .alloc(BoundMethod::new(left.to_value(), *m)),
+                        .alloc_frozen(BoundMethod::new(left.to_value(), *m)),
                 ),
                 UnboundValue::Attr(..) => None,
             },
@@ -1043,17 +1048,17 @@ fn try_eval_type_is(
 }
 
 trait AstLiteralCompile {
-    fn compile(&self, heap: &FrozenHeap) -> FrozenValue;
+    fn compile(&self, heap: FrozenHeap<'_>) -> FrozenValue;
 }
 
 impl AstLiteralCompile for AstLiteral {
-    fn compile(&self, heap: &FrozenHeap) -> FrozenValue {
+    fn compile(&self, heap: FrozenHeap<'_>) -> FrozenValue {
         match self {
-            AstLiteral::Int(i) => heap.alloc(StarlarkInt::from(i.node.clone())),
-            AstLiteral::Float(f) => heap.alloc(f.node),
-            AstLiteral::String(x) => heap.alloc(x.node.as_str()),
-            AstLiteral::Bytes(b) => heap.alloc(StarlarkBytes::new(&b.node)),
-            AstLiteral::Ellipsis => heap.alloc(Ellipsis),
+            AstLiteral::Int(i) => heap.alloc_frozen(StarlarkInt::from(i.node.clone())),
+            AstLiteral::Float(f) => heap.alloc_frozen(f.node),
+            AstLiteral::String(x) => heap.alloc_frozen(x.node.as_str()),
+            AstLiteral::Bytes(b) => heap.alloc_frozen(StarlarkBytes::new(&b.node)),
+            AstLiteral::Ellipsis => heap.alloc_frozen(Ellipsis),
         }
     }
 }
@@ -1181,7 +1186,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
     }
 }
 
-impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
+impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
     fn expr_ident(&mut self, ident: &CstIdent) -> ExprCompiled {
         let resolved_ident = ident
             .node
@@ -1220,9 +1225,9 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
         }
     }
 
-    fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 'e, 's> {
+    fn opt_ctx<'s>(&'s mut self) -> OptCtx<'v, 'a, 'e, 's, 'fm> {
         let param_count = self.current_scope().param_count();
-        OptCtx::new(self.eval, param_count)
+        OptCtx::new(self, param_count)
     }
 
     pub(crate) fn expr(
@@ -1250,7 +1255,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
             }
             ExprP::Tuple(exprs) => {
                 let xs = self.exprs(exprs)?;
-                ExprCompiled::tuple(xs, self.eval.module_env.frozen_heap())
+                ExprCompiled::tuple(xs, self.fh)
             }
             ExprP::List(exprs) => {
                 let xs = self.exprs(exprs)?;
@@ -1322,7 +1327,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                     // Note there's const propagation for `+` on compiled expressions,
                     // but special handling of `+` on AST might be slightly more efficient
                     // (no unnecessary allocations on the heap). So keep it.
-                    let val = self.eval.module_env.frozen_heap().alloc(x);
+                    let val = self.fh.alloc_frozen(x);
                     ExprCompiled::Value(val)
                 } else {
                     let right = if *op == BinOp::In || *op == BinOp::NotIn {
@@ -1424,7 +1429,7 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                 self.dict_comprehension(k, v, for_, clauses)?
             }
             ExprP::Literal(x) => {
-                let val = x.compile(self.eval.module_env.frozen_heap());
+                let val = x.compile(self.fh);
                 ExprCompiled::Value(val)
             }
             ExprP::FString(fstring) => {
@@ -1440,10 +1445,8 @@ impl<'v, 'a, 'e> Compiler<'v, 'a, 'e, '_> {
                 let fstring_span = FrameSpan::new(FrozenFileSpan::new(self.codemap, *fstring_span));
 
                 // Desugar f"foo{x}bar{y}" to "foo{}bar{}.format(x, y)"
-                let heap = self.eval.module_env.frozen_heap();
-
                 let format = IrSpanned {
-                    node: ExprCompiled::Value(heap.alloc(format.node.as_str())),
+                    node: ExprCompiled::Value(self.fh.alloc_frozen(format.node.as_str())),
                     span: fstring_span,
                 };
                 let method = IrSpanned {

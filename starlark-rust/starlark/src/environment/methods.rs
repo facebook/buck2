@@ -29,10 +29,10 @@ use crate::environment::common_documentation;
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
-use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::Value;
 use crate::values::function::NativeAttribute;
@@ -69,7 +69,7 @@ impl std::fmt::Display for MethodFrozenHeapName {
 #[derive(Debug)]
 pub struct MethodsBuilder {
     /// The heap everything is allocated in.
-    heap: FrozenHeap,
+    heap: OwnedFrozenHeap,
     /// Members, either `NativeMethod` or `NativeAttribute`.
     members: SymbolMap<UnboundValue>,
     /// The raw docstring for the main object.
@@ -158,7 +158,7 @@ impl MethodsBuilder {
     /// Create an empty [`MethodsBuilder`], with no functions in scope.
     pub fn new() -> Self {
         MethodsBuilder {
-            heap: FrozenHeap::new(),
+            heap: OwnedFrozenHeap::new(),
             members: SymbolMap::new(),
             docstring: None,
             heap_name: None,
@@ -169,7 +169,7 @@ impl MethodsBuilder {
     pub fn build(self) -> Methods {
         let heap = self
             .heap
-            .into_ref_impl(self.heap_name.map(FrozenHeapName::Method), None);
+            .seal_impl(self.heap_name.map(FrozenHeapName::Method), None);
         Methods {
             heap,
             members: self.members,
@@ -197,18 +197,18 @@ impl MethodsBuilder {
         docstring: Option<String>,
     ) {
         // We want to build an attribute, that ignores its self argument, and does no subsequent allocation.
-        let value = self.heap.alloc(value);
-        self.members.insert(
-            name,
-            UnboundValue::Attr(self.heap.alloc_simple_typed_static(NativeAttribute {
+        let attr = self.heap.with(|heap| {
+            let value = heap.alloc_frozen(value);
+            heap.alloc_simple_typed_static(NativeAttribute {
                 speculative_exec_safe: true,
                 docstring,
                 typ: V::starlark_type_repr(),
                 data: Some(value),
                 // SAFETY: Set to `Some` immediately above
                 callable: |value, _, _| Ok(unsafe { value.unwrap_unchecked() }.to_value()),
-            })),
-        );
+            })
+        });
+        self.members.insert(name, UnboundValue::Attr(attr));
     }
 
     /// Set an attribute. Only used by `starlark_module` macro
@@ -222,16 +222,16 @@ impl MethodsBuilder {
         // The first argument is always `None`
         f: for<'v> fn(Option<FrozenValue>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
     ) {
-        self.members.insert(
-            name,
-            UnboundValue::Attr(self.heap.alloc_simple_typed_static(NativeAttribute {
+        let attr = self.heap.with(|heap| {
+            heap.alloc_simple_typed_static(NativeAttribute {
                 speculative_exec_safe,
                 docstring,
                 typ,
                 data: None,
                 callable: f,
-            })),
-        );
+            })
+        });
+        self.members.insert(name, UnboundValue::Attr(attr));
     }
 
     /// Set a method. Only used by `starlark_module` macro
@@ -245,21 +245,21 @@ impl MethodsBuilder {
     ) {
         let ty = components.make_type(None);
 
-        self.members.insert(
-            name,
-            UnboundValue::Method(self.heap.alloc_simple_typed_static(NativeMethod {
+        let method = self.heap.with(|heap| {
+            heap.alloc_simple_typed_static(NativeMethod {
                 function: NativeMeth(f, sig),
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
                 docs: components.into_docs(None),
                 ty,
-            })),
-        );
+            })
+        });
+        self.members.insert(name, UnboundValue::Method(method));
     }
 
     /// Allocate a value using the same underlying heap as the [`MethodsBuilder`]
     pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
-        value.alloc_frozen_value(&self.heap)
+        self.heap.with(|heap| heap.alloc_frozen(value))
     }
 }
 
@@ -315,7 +315,8 @@ impl MethodsStatic {
         for (name, value) in methods.members.iter() {
             out.members.insert(name.as_str(), value.clone());
         }
-        out.heap.add_reference(methods.heap.owner());
+        out.heap
+            .with(|heap| heap.add_reference(methods.heap.owner()));
         out.docstring = methods.docstring.clone();
     }
 }

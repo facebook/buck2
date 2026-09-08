@@ -161,7 +161,7 @@ pub fn resolve_query(
         Some(x) => {
             for (_, y) in x.result.iter() {
                 // IMPORTANT: Anything given back to the user must be kept alive
-                module.frozen_heap().add_reference(y.as_ref().owner());
+                module.frozen_heap(|fh, _| fh.add_reference(y.as_ref().owner()));
             }
             Ok(x.dupe())
         }

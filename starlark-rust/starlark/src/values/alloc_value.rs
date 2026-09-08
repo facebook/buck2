@@ -20,7 +20,6 @@
 use either::Either;
 
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StringValue;
@@ -111,7 +110,7 @@ impl<'fv, A: AllocFrozenValue<'fv>, B: AllocFrozenValue<'fv>> AllocFrozenValue<'
     for Either<A, B>
 {
     #[inline]
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         match self {
             Either::Left(a) => a.alloc_frozen_value(heap),
             Either::Right(b) => b.alloc_frozen_value(heap),
@@ -119,7 +118,7 @@ impl<'fv, A: AllocFrozenValue<'fv>, B: AllocFrozenValue<'fv>> AllocFrozenValue<'
     }
 }
 
-/// Trait for things that can be allocated on a [`FrozenHeap`] producing a [`FrozenValue`].
+/// Trait for things that can be allocated on a [`FrozenHeap`] producing a [`Value`].
 ///
 /// # Derive
 ///
@@ -137,17 +136,23 @@ impl<'fv, A: AllocFrozenValue<'fv>, B: AllocFrozenValue<'fv>> AllocFrozenValue<'
 /// ```
 pub trait AllocFrozenValue<'fv>: StarlarkTypeRepr {
     /// Allocate a value in the frozen heap and return a reference to the allocated value.
-    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue;
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv>;
 }
 
 /// Type which allocates a string.
 pub trait AllocFrozenStringValue<'fv>: AllocFrozenValue<'fv> + Sized {
     /// Allocate a string.
-    fn alloc_frozen_string_value(self, heap: &'fv FrozenHeap) -> FrozenStringValue;
+    fn alloc_frozen_string_value(self, heap: FrozenHeap<'fv>) -> StringValue<'fv>;
 }
 
 impl<'fv> AllocFrozenValue<'fv> for FrozenValue {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.to_value()
+    }
+}
+
+impl<'fv> AllocFrozenValue<'fv> for Value<'fv> {
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
         self
     }
 }

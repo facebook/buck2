@@ -294,19 +294,16 @@ impl Key for ScopeHeapKey {
             .expect("injected heap generation should compute");
         ScopeHeapValue::new(OwnedFrozen::build(
             FrozenHeapName::user("dice_scope_dependency"),
-            |heap| {
-                match generation {
-                    0 => heap.alloc_simple(ScopeLeafData {
-                        flag: true,
-                        count: 111,
-                    }),
-                    1 => heap.alloc_simple(ScopeLeafData {
-                        flag: false,
-                        count: 222,
-                    }),
-                    _ => unreachable!("unexpected heap generation {generation}"),
-                }
-                .to_value()
+            |heap| match generation {
+                0 => heap.alloc_simple(ScopeLeafData {
+                    flag: true,
+                    count: 111,
+                }),
+                1 => heap.alloc_simple(ScopeLeafData {
+                    flag: false,
+                    count: 222,
+                }),
+                _ => unreachable!("unexpected heap generation {generation}"),
             },
         ))
     }
@@ -359,7 +356,6 @@ fn make_root(dependency: &OwnedFrozen<Value<'static>>, root_id: u8) -> OwnedFroz
                 gate: PageInGateMarker(root_id == 0),
                 target,
             })
-            .to_value()
         },
     )
 }
@@ -613,7 +609,6 @@ impl Key for CollisionHeapKey {
                     flag: true,
                     count: 333,
                 })
-                .to_value()
             },
         ))
     }

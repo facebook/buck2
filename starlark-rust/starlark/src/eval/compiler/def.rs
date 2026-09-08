@@ -325,7 +325,7 @@ impl<T> ParametersCompiled<T> {
     }
 
     /// The type-annotated parameters, for [`DefInfo::parameter_types`].
-    pub(crate) fn parameter_types(&self, heap: &FrozenHeap) -> Vec<ParameterTypeCompiled> {
+    pub(crate) fn parameter_types(&self, heap: FrozenHeap<'_>) -> Vec<ParameterTypeCompiled> {
         self.params
             .iter()
             .enumerate()
@@ -490,7 +490,7 @@ pub(crate) struct DefCompiled {
     pub(crate) info: FrozenAnyValue<DefInfo>,
 }
 
-impl Compiler<'_, '_, '_, '_> {
+impl Compiler<'_, '_, '_, '_, '_> {
     fn parameter_name(&mut self, ident: &CstAssignIdent) -> ParameterName {
         let binding_id = ident.payload.expect("no binding for parameter");
         let binding = self.scope_data.get_binding(binding_id);
@@ -537,7 +537,7 @@ impl Compiler<'_, '_, '_, '_> {
     ) -> Result<ExprCompiled, CompilerInternalError> {
         let file = self.codemap.file_span(suite.span);
         let function_name = ArcStr::from(format!("{}.{}", file.file.filename(), name).as_str());
-        let name = self.eval.frozen_heap().alloc_str_intern(name);
+        let name = self.fh.alloc_str_intern(name);
 
         let DefParams { params, indices } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
@@ -576,34 +576,24 @@ impl Compiler<'_, '_, '_, '_> {
 
         let param_count = params.count_param_variables();
 
-        let used = self
-            .eval
-            .frozen_heap()
-            .alloc_any_array_value(&scope_names.used);
-        let info = self.eval.module_env.frozen_heap().alloc_any_value(DefInfo {
+        let used = self.fh.alloc_any_array_value(&scope_names.used);
+        let info = self.fh.alloc_any_value(DefInfo {
             name,
             signature_span,
-            parameter_captures: self
-                .eval
-                .frozen_heap()
-                .alloc_any_array_value(&params.parameter_captures()),
+            parameter_captures: self.fh.alloc_any_array_value(&params.parameter_captures()),
             parameter_types: self
-                .eval
-                .frozen_heap()
-                .alloc_any_array_value(&params.parameter_types(self.eval.frozen_heap())),
+                .fh
+                .alloc_any_array_value(&params.parameter_types(self.fh)),
             ty,
             codemap: self.codemap,
             docstring,
             used,
-            parent: self
-                .eval
-                .frozen_heap()
-                .alloc_any_array_value(&scope_names.parent),
+            parent: self.fh.alloc_any_array_value(&scope_names.parent),
             stmt_compiled: body.as_bc(
                 &self.compile_context(return_type.is_some()),
                 used,
                 param_count,
-                self.eval.module_env.frozen_heap(),
+                self.fh,
             ),
             body_stmts: body,
             inline_def_body,
@@ -936,7 +926,7 @@ impl<'v> Def<'v> {
         &self,
         module: FrozenAnyValue<FrozenModuleData>,
         heap: Heap<'_>,
-        frozen_heap: &FrozenHeap,
+        frozen_heap: FrozenHeap<'_>,
     ) {
         // Module passed to this function is not always module where the function is declared:
         // A function can be created in a frozen module and frozen later in another module.

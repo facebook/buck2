@@ -38,17 +38,19 @@ fn check_true(test: &Test) -> anyhow::Result<()> {
 #[test]
 fn test_ok() -> anyhow::Result<()> {
     let t = Test { field: true };
-    let frozen_heap = FrozenHeap::new();
-    let freezer = Freezer::new(&frozen_heap);
-    t.freeze(&freezer)?;
+    FrozenHeap::temp(|frozen_heap| {
+        let freezer = Freezer::new(frozen_heap);
+        t.freeze(&freezer).map(drop)
+    })?;
     Ok(())
 }
 
 #[test]
 fn test_fail() -> anyhow::Result<()> {
     let t = Test { field: false };
-    let frozen_heap = FrozenHeap::new();
-    let freezer = Freezer::new(&frozen_heap);
-    assert!(t.freeze(&freezer).is_err());
+    FrozenHeap::temp(|frozen_heap| {
+        let freezer = Freezer::new(frozen_heap);
+        assert!(t.freeze(&freezer).is_err());
+    });
     Ok(())
 }

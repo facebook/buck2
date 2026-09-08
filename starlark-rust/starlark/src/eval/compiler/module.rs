@@ -55,7 +55,7 @@ enum ModuleError {
     TopLevelStmtCountMismatch,
 }
 
-impl<'v> Compiler<'v, '_, '_, '_> {
+impl<'v> Compiler<'v, '_, '_, '_, '_> {
     fn eval_load(&mut self, load: Spanned<&LoadP<CstPayload>>) -> Result<(), EvalException> {
         let name = &load.node.module.node;
 
@@ -111,12 +111,7 @@ impl<'v> Compiler<'v, '_, '_, '_> {
         let stmt = self
             .module_top_level_stmt(stmt)
             .map_err(|e| e.into_eval_exception())?;
-        let bc = stmt.as_bc(
-            &self.compile_context(false),
-            local_names,
-            0,
-            self.eval.module_env.frozen_heap(),
-        );
+        let bc = stmt.as_bc(&self.compile_context(false), local_names, 0, self.fh);
         // We don't preserve locals between top level statements.
         // That is OK for now: the only locals used in module evaluation
         // are comprehension bindings.

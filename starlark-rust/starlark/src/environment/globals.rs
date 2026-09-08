@@ -50,6 +50,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::OwnedFrozen;
+use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkPagable;
 use crate::values::StringValueLike;
@@ -155,7 +156,7 @@ impl std::fmt::Display for GlobalFrozenHeapName {
 #[derive(Debug)]
 pub struct GlobalsBuilder {
     // The heap everything is allocated in
-    heap: FrozenHeap,
+    heap: OwnedFrozenHeap,
     // Normal top-level variables, e.g. True/hash
     variables: SymbolMap<GlobalValue>,
     // The list of struct fields, pushed to the end
@@ -265,7 +266,7 @@ impl GlobalsBuilder {
     /// Create an empty [`GlobalsBuilder`], with no functions in scope.
     pub fn new() -> Self {
         Self {
-            heap: FrozenHeap::new(),
+            heap: OwnedFrozenHeap::new(),
             variables: SymbolMap::new(),
             namespace_fields: Vec::new(),
             docstring: None,
@@ -314,19 +315,21 @@ impl GlobalsBuilder {
         self.namespace_fields.push(SmallMap::new());
         f(self);
         let fields = self.namespace_fields.pop().unwrap();
-        let fields = fields
-            .into_iter()
-            .map(|(name, value)| {
-                (
-                    name.to_string_value(),
-                    MaybeDocHiddenValue {
-                        value: value.value.to_value(),
-                        doc_hidden: value.doc_hidden,
-                    },
-                )
-            })
-            .collect();
-        let namespace = self.heap.alloc(Namespace::new(fields));
+        let namespace = self.heap.with(|heap| {
+            let fields = fields
+                .into_iter()
+                .map(|(name, value)| {
+                    (
+                        name.to_string_value(),
+                        MaybeDocHiddenValue {
+                            value: value.value.to_value(),
+                            doc_hidden: value.doc_hidden,
+                        },
+                    )
+                })
+                .collect();
+            heap.alloc_frozen(Namespace::new(fields))
+        });
         self.set_inner(name, namespace, doc_hidden);
     }
 
@@ -353,15 +356,14 @@ impl GlobalsBuilder {
     }
 
     fn build_impl(self, name: Option<GlobalFrozenHeapName>) -> Globals {
-        let mut variable_names: Vec<_> = self
-            .variables
-            .keys()
-            .map(|x| self.heap.alloc_str_intern(x.as_str()))
-            .collect();
+        let mut variable_names: Vec<_> = self.heap.with(|heap| {
+            self.variables
+                .keys()
+                .map(|x| heap.alloc_str_intern(x.as_str()))
+                .collect()
+        });
         variable_names.sort();
-        let heap = self
-            .heap
-            .into_ref_impl(name.map(FrozenHeapName::Global), None);
+        let heap = self.heap.seal_impl(name.map(FrozenHeapName::Global), None);
         Globals(Arc::new(GlobalsData {
             heap,
             variables: self.variables,
@@ -372,7 +374,7 @@ impl GlobalsBuilder {
 
     /// Set a value in the [`GlobalsBuilder`].
     pub fn set<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v mut self, name: &str, value: V) {
-        let value = value.alloc_frozen_value(&self.heap);
+        let value = self.heap.with(|heap| heap.alloc_frozen(value));
         self.set_inner(name, value, false)
     }
 
@@ -384,7 +386,7 @@ impl GlobalsBuilder {
                 self.variables.insert(name, value)
             }
             Some(fields) => {
-                let name = self.heap.alloc_str(name);
+                let name = self.heap.with(|heap| heap.alloc_str_intern(name));
                 fields.insert(name, value)
             }
         };
@@ -417,16 +419,16 @@ impl GlobalsBuilder {
         )
     }
 
-    /// Heap where globals are allocated. Can be used to allocate additional values.
-    pub fn frozen_heap(&self) -> &FrozenHeap {
-        &self.heap
+    /// Allocate on the heap where globals are allocated.
+    pub fn frozen_heap<R>(&self, f: impl for<'fh> FnOnce(FrozenHeap<'fh>) -> R) -> R {
+        self.heap.with(f)
     }
 
     /// Allocate a value using the same underlying heap as the [`GlobalsBuilder`],
     /// only intended for values that are referred to by those which are passed
     /// to [`set`](GlobalsBuilder::set).
     pub fn alloc<'v, V: for<'fv> AllocFrozenValue<'fv>>(&'v self, value: V) -> FrozenValue {
-        value.alloc_frozen_value(&self.heap)
+        self.heap.with(|heap| heap.alloc_frozen(value))
     }
 
     /// Set per module docstring.
@@ -490,7 +492,7 @@ impl GlobalsStatic {
     /// recorded for downstream consumers (e.g. pagable serialization).
     pub fn populate(&'static self, out: &mut GlobalsBuilder) {
         let globals = self.globals();
-        out.heap.add_reference(globals.heap());
+        out.heap.with(|heap| heap.add_reference(globals.heap()));
         for (name, value) in globals.0.variables.iter() {
             out.set_inner(name.as_str(), value.value, value.doc_hidden)
         }

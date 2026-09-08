@@ -21,7 +21,6 @@ use starlark::starlark_module;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapName;
-use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozen;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
@@ -31,9 +30,9 @@ use starlark::values::structs::StructRef;
 use crate::interpreter::build_context::BuildContext;
 
 fn new_struct<'fv, V: AllocFrozenValue<'fv> + Copy>(
-    heap: &'fv FrozenHeap,
+    heap: FrozenHeap<'fv>,
     values: &[(&str, V)],
-) -> FrozenValue {
+) -> Value<'fv> {
     heap.alloc(AllocStruct(values.iter().copied()))
 }
 
@@ -78,7 +77,7 @@ fn new_host_info(
         let xcode = {
             let mk_value = |sel: fn(&XcodeVersionInfo) -> &String| match xcode_info {
                 Some(i) => heap.alloc(sel(i).as_str()),
-                None => FrozenValue::new_none(),
+                None => Value::new_none(),
             };
 
             new_struct(
@@ -93,7 +92,7 @@ fn new_host_info(
             )
         };
 
-        let info = new_struct(
+        new_struct(
             heap,
             &[
                 ("os", os),
@@ -101,12 +100,10 @@ fn new_host_info(
                 // TODO(cjhopman): Remove in favour of version_info() in Buck v1 and v2
                 // We want to be able to determine if we are on Buck v2 or not, this mechanism
                 // is quick, cheap and Buck v1 compatible.
-                ("buck2", FrozenValue::new_bool(true)),
+                ("buck2", Value::new_bool(true)),
                 ("xcode", xcode),
             ],
-        );
-
-        info.to_value()
+        )
     })
 }
 

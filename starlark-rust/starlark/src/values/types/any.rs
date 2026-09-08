@@ -468,9 +468,12 @@ impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize
     }
 }
 
-impl FrozenHeap {
+impl<'fh> FrozenHeap<'fh> {
     /// Allocate any value on the frozen heap, returning a [`FrozenAnyValue`].
-    pub fn alloc_any_value<T: StarlarkAnyRegistered>(&self, value: T) -> FrozenAnyValue<T> {
+    ///
+    /// The handle type predates branding: its `'static` says nothing about what keeps the heap
+    /// alive.
+    pub fn alloc_any_value<T: StarlarkAnyRegistered>(self, value: T) -> FrozenAnyValue<T> {
         FrozenAnyValue::from_typed(self.alloc_simple_typed_static(StarlarkAny::new(value)))
     }
 }

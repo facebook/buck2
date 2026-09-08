@@ -484,8 +484,8 @@ impl<'v> AllocStringValue<'v> for FrozenStringValue {
 }
 
 impl<'fv, 'v, T: StarlarkValue<'v>> AllocFrozenValue<'fv> for FrozenValueTyped<'v, T> {
-    fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        self.0
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.0.to_value()
     }
 }
 
@@ -529,8 +529,8 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for ValueType
 }
 
 impl<'fv> AllocFrozenStringValue<'fv> for FrozenStringValue {
-    fn alloc_frozen_string_value(self, _heap: &'fv FrozenHeap) -> FrozenStringValue {
-        self
+    fn alloc_frozen_string_value(self, _heap: FrozenHeap<'fv>) -> StringValue<'fv> {
+        self.to_string_value()
     }
 }
 
