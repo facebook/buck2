@@ -571,12 +571,6 @@ impl<'v> Module<'v> {
         // they are used.
         let data = heaps.seal_with(name, |fh| {
             let freezer = Freezer::new(fh);
-            // Frozen values may point into any heap the value heap references, so the frozen heap
-            // takes those references over.
-            // FIXME(JakobDegen): This belongs in `Freezer::new`, so that it cannot be forgotten.
-            for r in heap.referenced_heaps() {
-                fh.add_reference(r.owner());
-            }
             let slots = slots.freeze(&freezer)?;
             let extra_value = extra_value
                 .into_inner()

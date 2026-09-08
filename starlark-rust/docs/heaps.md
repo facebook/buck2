@@ -117,10 +117,11 @@ callers; there should be no reason to call it elsewhere.
 - A `Module<'v>` owns a `Heap<'v>` and an `OwnedFrozenHeap`, together, in a
   `ModuleHeaps`. Values are allocated on the heap; the frozen heap holds the
   compiler's products and anything a user allocates through
-  `Module::frozen_heap`. The frozen heap is sealed when the module is frozen,
-  and also when an unfrozen module is dropped; in both cases the sealed heap is
-  added to the value heap's references, so `'v` values that came out of the
-  frozen heap stay valid as long as the value heap does.
+  `Module::frozen_heap`. The frozen heap is sealed when the module is frozen
+  (whether freezing succeeds, fails or panics), and also when an unfrozen
+  module is dropped; in both cases the sealed heap is added to the value heap's
+  references, so `'v` values that came out of the frozen heap stay valid as
+  long as the value heap does.
 - A `FrozenModule` is an owned carrier: an `OwnedFrozen` of the module's data
   (its slots and extra value) allocated on the sealed heap. Every accessor is a
   projection of that owner: `get_owned` returns an
@@ -143,14 +144,14 @@ callers; there should be no reason to call it elsewhere.
 - **Compiling a module** adds the `Globals` heap as a reference of the module's
   frozen heap, through a reconstructor edge, so the compiled code can name
   globals directly.
-- **`load()`** adds the loaded `FrozenModule`'s heap as a reference of the
-  loading module's value heap (`add_to_heap` on the looked-up slot).
-  `Module::import_public_symbols` does the same into the frozen heap, through
-  the module edge.
+- **`load()`** and `Module::import_public_symbols` add the loaded
+  `FrozenModule`'s heap as a reference of the loading module's frozen heap
+  (`add_to_frozen_heap` on the looked-up slot), and the value reaches the value
+  heap through the module edge.
 - **Freezing** seals the module's frozen heap into the `FrozenModule`. The
-  `Freezer` copies the value heap's references into the frozen heap first, so
-  everything the module could reach stays reachable from its frozen form, and
-  the values named by the module are moved into the frozen heap.
+  values named by the module are moved into the frozen heap, and when it is
+  sealed, `ModuleHeaps` copies the value heap's references into it, so
+  everything the module could reach stays reachable from its frozen form.
 - **Dropping** an unfrozen module seals its frozen heap into the value heap's
   references.
 
@@ -169,7 +170,7 @@ fn copy<'v>(from: &FrozenModule, to: &Module<'v>) -> anyhow::Result<()> {
 
 `add_to_heap` records `from`'s heap as a reference of `to`'s value heap and
 hands the value back at `'v`. When `to` is frozen, the reference is copied into
-its frozen heap, so the resulting `FrozenModule` keeps `from`'s heap alive too.
+its sealed heap, so the resulting `FrozenModule` keeps `from`'s heap alive too.
 
 ## `FrozenValue`
 

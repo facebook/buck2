@@ -35,6 +35,10 @@ use crate::values::layout::heap::heap_type::FrozenHeapName;
 /// closure returns `Ok` or `Err`, and `Drop` covers a module that is never frozen as well as a
 /// closure that unwinds. The edge therefore exists from the moment the two heaps do, with nothing
 /// to remember at the end.
+///
+/// The other direction is covered too: the sealed heap takes over every heap the value heap
+/// references at the moment of sealing, so a frozen value that was copied by pointer out of one
+/// of those heaps stays alive as long as the sealed heap does.
 #[derive(Debug)]
 pub(crate) struct ModuleHeaps<'v> {
     heap: Heap<'v>,
@@ -105,6 +109,14 @@ impl<'v> ModuleHeaps<'v> {
             .frozen
             .take()
             .expect("the builder is only taken by `seal_with`, which consumes `self`");
+        // Frozen values may point into any heap the value heap references (a `load`ed module's
+        // heap, a value that `add_to_heap` brought over), so the sealed heap takes those references
+        // over. This runs after `f` so that references `f` itself added are included.
+        frozen.with(|fh| {
+            for r in self.heap.referenced_heaps() {
+                fh.add_reference(r.owner());
+            }
+        });
         let sealed = frozen.seal_impl(name, Some(self.heap.peak_allocated_bytes()));
         self.heap.add_reference(sealed.owner());
         // SAFETY: `sealed` is the heap that `'fm` named.
@@ -116,7 +128,9 @@ impl<'v> Drop for ModuleHeaps<'v> {
     fn drop(&mut self) {
         // A module that is dropped rather than frozen, or a `seal_with` closure that unwound: the
         // frozen heap has to outlive the module all the same, see the type doc. An empty builder
-        // would seal into the empty heap, which keeps nothing alive, so it is skipped.
+        // would seal into the empty heap, which keeps nothing alive, so it is skipped. The value
+        // heap's references are not handed over here: the sealed heap is reachable only from the
+        // value heap, which holds them itself.
         if let Some(frozen) = self.frozen.take()
             && !frozen.is_empty()
         {
@@ -126,10 +140,43 @@ impl<'v> Drop for ModuleHeaps<'v> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::environment::module_heaps::ModuleHeaps;
+    use crate::values::Freezer;
+    use crate::values::Heap;
+    use crate::values::OwnedFrozen;
+    use crate::values::Value;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+
+    /// A frozen value from a heap that only the value heap references is frozen by pointer copy,
+    /// so the sealed heap has to reference that heap too, even when the reference was added
+    /// while sealing.
+    #[test]
+    fn test_seal_with_inherits_references_added_while_sealing() {
+        let expected = "a string that lives on a heap of its own".repeat(8);
+        let foreign =
+            OwnedFrozen::<Value<'static>>::build(StarlarkTestHeapName::frozen_heap_name(), |fh| {
+                fh.alloc(expected.as_str())
+            });
+        let root = Heap::temp(|heap| {
+            let heaps = ModuleHeaps::new(heap);
+            heaps
+                .seal_with::<Value<'static>, ()>(None, |fh| {
+                    let v = foreign.as_ref().add_to_heap(heap);
+                    Ok(Freezer::new(fh).freeze_branded(v).unwrap())
+                })
+                .unwrap()
+        });
+        assert!(root.refs().any(|r| r == foreign.owner()));
+        root.by_ref(|v| assert_eq!(v.unpack_str(), Some(expected.as_str())));
+    }
+}
+
 // `catch_unwind` needs an unwinding panic runtime; under `panic = "abort"` the hole this guards
 // against cannot be exercised, since a panic ends the process.
 #[cfg(all(test, panic = "unwind"))]
-mod tests {
+mod unwind_tests {
     use std::panic::AssertUnwindSafe;
     use std::panic::catch_unwind;
 
