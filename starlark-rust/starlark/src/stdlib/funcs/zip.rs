@@ -29,7 +29,6 @@ use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
 use crate::typing::error::TypingOrInternalError;
 use crate::typing::function::TyCustomFunctionImpl;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
@@ -88,7 +87,7 @@ pub(crate) fn register_zip(globals: &mut GlobalsBuilder) {
     /// ```
     #[starlark(speculative_exec_safe, ty_custom_function = ZipType)]
     fn zip<'v>(
-        #[starlark(args)] args: UnpackTuple<ValueOfUnchecked<'v, StarlarkIter<FrozenValue>>>,
+        #[starlark(args)] args: UnpackTuple<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
         heap: Heap<'v>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let mut v = Vec::new();

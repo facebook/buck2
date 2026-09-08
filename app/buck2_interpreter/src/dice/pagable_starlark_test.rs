@@ -45,8 +45,9 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_simple_value;
+use starlark::values::AllocFrozenValue;
+use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapName;
-use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
 use starlark::values::ProvidesStaticType;
@@ -191,16 +192,20 @@ impl<'v> StarlarkValue<'v> for ScopeLeafData {
     StarlarkPagable
 )]
 #[display("ScopeRootData({})", self.label)]
-struct ScopeRootData {
+struct ScopeRootData<'v> {
     label: usize,
     gate: PageInGateMarker,
-    target: FrozenValue,
+    target: Value<'v>,
 }
 
-starlark_simple_value!(ScopeRootData);
+impl<'fv> AllocFrozenValue<'fv> for ScopeRootData<'fv> {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
+        heap.alloc_simple(self)
+    }
+}
 
-#[starlark_value(type = "ScopeRootData")]
-impl<'v> StarlarkValue<'v> for ScopeRootData {
+#[starlark_value(type = "ScopeRootData", frozen_vtable)]
+impl<'v> StarlarkValue<'v> for ScopeRootData<'v> {
     type Canonical = Self;
 }
 
@@ -346,11 +351,7 @@ fn make_root(dependency: &OwnedFrozen<Value<'static>>, root_id: u8) -> OwnedFroz
     OwnedFrozen::build(
         FrozenHeapName::user(format!("dice_scope_root_{root_id}")),
         |heap| {
-            let target = dependency
-                .as_ref()
-                .add_to_frozen_heap(heap)
-                .unpack_frozen()
-                .expect("value is in a frozen heap");
+            let target = dependency.as_ref().add_to_frozen_heap(heap);
             heap.alloc_simple(ScopeRootData {
                 label: if root_id == 0 { 10 } else { 20 },
                 gate: PageInGateMarker(root_id == 0),
@@ -360,7 +361,7 @@ fn make_root(dependency: &OwnedFrozen<Value<'static>>, root_id: u8) -> OwnedFroz
     )
 }
 
-fn root_data<'a>(value: &'a OwnedFrozen<Value<'static>>) -> &'a ScopeRootData {
+fn root_data<'a>(value: &'a OwnedFrozen<Value<'static>>) -> &'a ScopeRootData<'a> {
     value
         .as_ref()
         .value()

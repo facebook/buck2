@@ -28,7 +28,7 @@ use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
-use starlark::values::FrozenValue;
+use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
@@ -148,7 +148,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         #[starlark(require = named)] f: StarlarkCallable<
             'v,
             (
-                FrozenValue,
+                Value<'static>,
                 SmallMap<StarlarkArtifact, StarlarkArtifactValue>,
                 SmallMap<StarlarkArtifact, StarlarkDeclaredArtifact>,
             ),

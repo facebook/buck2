@@ -53,7 +53,6 @@ use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::util::ArcStr;
-use starlark::values::FrozenValue;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
@@ -118,7 +117,7 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = SmallMap::default())]
         artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
+            StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkRuleCallable<'v>> {

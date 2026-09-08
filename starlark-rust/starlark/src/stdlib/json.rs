@@ -31,7 +31,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::dict::AllocDict;
@@ -158,7 +157,7 @@ impl<'a> StarlarkTypeRepr for &'a serde_json::Value {
 }
 
 impl StarlarkTypeRepr for serde_json::Value {
-    type Canonical = <FrozenValue as StarlarkTypeRepr>::Canonical;
+    type Canonical = <Value<'static> as StarlarkTypeRepr>::Canonical;
 
     fn starlark_type_repr() -> Ty {
         // Any.

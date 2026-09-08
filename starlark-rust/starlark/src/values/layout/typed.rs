@@ -688,8 +688,8 @@ mod tests {
     use crate as starlark;
     use crate::assert::Assert;
     use crate::environment::GlobalsBuilder;
+    use crate::eval::Evaluator;
     use crate::tests::util::TestComplexValue;
-    use crate::values::FrozenValue;
     use crate::values::FrozenValueTyped;
     use crate::values::Value;
     use crate::values::int::pointer_i32::PointerI32;
@@ -705,15 +705,18 @@ mod tests {
     fn test_unpack_value_for_frozen_value_typed() {
         #[starlark_module]
         fn module(globals: &mut GlobalsBuilder) {
-            fn mutable<'v>() -> anyhow::Result<TestComplexValue<Value<'v>>> {
+            fn mutable<'v>() -> anyhow::Result<TestComplexValue<'v>> {
                 Ok(TestComplexValue(Value::new_none()))
             }
 
-            const FROZEN: TestComplexValue<FrozenValue> =
-                TestComplexValue(Value::new_none().unpack_frozen().unwrap());
+            fn frozen<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Value<'v>> {
+                Ok(eval.frozen_heap(|fh, edge| {
+                    edge.rebrand(fh.alloc(TestComplexValue(Value::new_none())))
+                }))
+            }
 
             fn takes_frozen_value_typed<'v>(
-                value: FrozenValueTyped<'v, TestComplexValue<FrozenValue>>,
+                value: FrozenValueTyped<'v, TestComplexValue<'v>>,
             ) -> anyhow::Result<NoneType> {
                 let _ = value;
                 Ok(NoneType)
@@ -723,7 +726,7 @@ mod tests {
         let mut a = Assert::new();
         a.globals_add(module);
 
-        a.pass("takes_frozen_value_typed(FROZEN)");
+        a.pass("takes_frozen_value_typed(frozen())");
         a.fail("takes_frozen_value_typed(1)", "Type of parameter `value` doesn't match, expected `TestComplexValue`, actual `int (repr: 1)`");
         a.fail(
             "takes_frozen_value_typed(mutable())",

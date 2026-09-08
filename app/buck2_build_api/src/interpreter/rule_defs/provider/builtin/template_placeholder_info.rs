@@ -17,7 +17,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenValue;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -91,9 +90,11 @@ enum TemplatePlaceholderInfoError {
 pub struct TemplatePlaceholderInfo<'v> {
     // `Value` in both fields is command line arg.
     // TODO(nga): specify type more precisely.
-    unkeyed_variables: ValueOfUnchecked<'v, DictType<String, FrozenValue>>,
-    keyed_variables:
-        ValueOfUnchecked<'v, DictType<String, Either<FrozenValue, DictType<String, FrozenValue>>>>,
+    unkeyed_variables: ValueOfUnchecked<'v, DictType<String, Value<'static>>>,
+    keyed_variables: ValueOfUnchecked<
+        'v,
+        DictType<String, Either<Value<'static>, DictType<String, Value<'static>>>>,
+    >,
 }
 
 impl<'v> TemplatePlaceholderInfo<'v> {

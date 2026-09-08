@@ -16,8 +16,6 @@ use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenStringValue;
-use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -70,11 +68,11 @@ pub struct ExecutionPlatformRegistrationInfo<'v> {
     /// - An `ExecutionPlatformInfo`: Use this specific platform as a fallback when no other
     ///   platform from the `platforms` list matches.
     // TODO(nga): specify type more precisely.
-    fallback: ValueOfUnchecked<'v, FrozenValue>,
+    fallback: ValueOfUnchecked<'v, Value<'static>>,
     /// Optional marker constraint that identifies platforms as execution platforms.
     /// If set, every execution platform in `platforms` will be marked with this constraint,
     /// allowing to distinguish execution platforms from target platforms.
-    exec_marker_constraint: ValueOfUnchecked<'v, Option<FrozenStringValue>>,
+    exec_marker_constraint: ValueOfUnchecked<'v, Option<String>>,
 }
 
 impl<'v> ExecutionPlatformRegistrationInfo<'v> {

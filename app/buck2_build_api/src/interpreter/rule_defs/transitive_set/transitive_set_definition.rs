@@ -37,7 +37,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkPagableViaPagable;
@@ -102,7 +101,7 @@ impl TransitiveSetProjectionKind {
 pub struct TransitiveSetProjectionSpec<'v> {
     #[freeze_branded(identity)]
     pub kind: TransitiveSetProjectionKind,
-    pub projection: ValueOfUnchecked<'v, FrozenStarlarkCallable<(FrozenValue,), FrozenValue>>,
+    pub projection: ValueOfUnchecked<'v, FrozenStarlarkCallable<(Value<'static>,), Value<'static>>>,
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
@@ -146,7 +145,7 @@ pub struct TransitiveSetOperations<'v> {
         String,
         ValueOfUnchecked<
             'v,
-            FrozenStarlarkCallable<(ListType<FrozenValue>, FrozenValue), FrozenValue>,
+            FrozenStarlarkCallable<(ListType<Value<'static>>, Value<'static>), Value<'static>>,
         >,
     >,
 }

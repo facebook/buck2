@@ -25,7 +25,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
-use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -71,12 +70,12 @@ pub struct ExternalRunnerTestInfo<'v> {
 
     /// A Starlark value representing the command for this test. The external test runner is what
     /// gives meaning to this command.
-    command: ValueOfUnchecked<'v, Vec<Either<String, FrozenValue>>>,
+    command: ValueOfUnchecked<'v, Vec<Either<String, Value<'static>>>>,
 
     /// A Starlark value representing the environment for this test. Here again, the external test
     /// runner is what will this meaning.
     /// This is of type `dict[str, ArgLike]`.
-    env: ValueOfUnchecked<'v, DictType<String, FrozenValue>>,
+    env: ValueOfUnchecked<'v, DictType<String, Value<'static>>>,
 
     /// A starlark value representing the labels for this test.
     labels: ValueOfUnchecked<'v, Vec<String>>,

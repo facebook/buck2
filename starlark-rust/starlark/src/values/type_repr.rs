@@ -137,21 +137,3 @@ pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, V, E>(
 ) -> Ty {
     T::starlark_type_repr()
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::tests::util::TestComplexValue;
-    use crate::util::non_static_type_id::non_static_type_id;
-    use crate::values::FrozenValue;
-    use crate::values::Value;
-    use crate::values::type_repr::StarlarkTypeRepr;
-
-    #[test]
-    fn test_canonical_for_complex_value() {
-        // TODO(nga): `StarlarkTypeRepr::Canonical` should be equal.
-        assert_ne!(
-            non_static_type_id::<<TestComplexValue<Value> as StarlarkTypeRepr>::Canonical>(),
-            non_static_type_id::<<TestComplexValue<FrozenValue> as StarlarkTypeRepr>::Canonical>(),
-        );
-    }
-}

@@ -54,7 +54,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -85,8 +84,8 @@ pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 
 #[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative, Clone, Copy)]
 enum RuleImpl<'v> {
-    BuildRule(StarlarkCallable<'v, (FrozenValue,), ListType<FrozenValue>>),
-    BxlAnon(StarlarkCallable<'v, (FrozenValue, FrozenValue), ListType<FrozenValue>>),
+    BuildRule(StarlarkCallable<'v, (Value<'static>,), ListType<Value<'static>>>),
+    BxlAnon(StarlarkCallable<'v, (Value<'static>, Value<'static>), ListType<Value<'static>>>),
 }
 
 /// The callable that's returned from a `rule()` call. Once frozen, and called, it adds targets'
@@ -271,7 +270,7 @@ impl<'v> StarlarkRuleCallable<'v> {
         doc: &str,
         artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
+            StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<Self> {
@@ -295,12 +294,12 @@ impl<'v> StarlarkRuleCallable<'v> {
     }
 
     fn new_anon(
-        implementation: StarlarkCallable<'v, (FrozenValue,), ListType<FrozenValue>>,
+        implementation: StarlarkCallable<'v, (Value<'static>,), ListType<Value<'static>>>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
         artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
+            StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<Self> {
@@ -314,12 +313,16 @@ impl<'v> StarlarkRuleCallable<'v> {
     }
 
     pub fn new_bxl_anon(
-        implementation: StarlarkCallable<'v, (FrozenValue, FrozenValue), ListType<FrozenValue>>,
+        implementation: StarlarkCallable<
+            'v,
+            (Value<'static>, Value<'static>),
+            ListType<Value<'static>>,
+        >,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         doc: &str,
         artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
+            StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<Self> {
@@ -396,8 +399,8 @@ impl<'v> StarlarkValue<'v> for StarlarkRuleCallable<'v> {
 
 #[derive(Debug, ProvidesStaticType, Allocative, Clone, Dupe, StarlarkPagable)]
 enum FrozenRuleImpl<'v> {
-    BuildRule(StarlarkCallable<'v, (FrozenValue,), ListType<FrozenValue>>),
-    BxlAnon(StarlarkCallable<'v, (FrozenValue, FrozenValue), ListType<FrozenValue>>),
+    BuildRule(StarlarkCallable<'v, (Value<'static>,), ListType<Value<'static>>>),
+    BxlAnon(StarlarkCallable<'v, (Value<'static>, Value<'static>), ListType<Value<'static>>>),
 }
 
 impl<'v> FrozenRuleImpl<'v> {
@@ -642,14 +645,14 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
     fn anon_rule<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallable<
             'v,
-            (FrozenValue,),
-            ListType<FrozenValue>,
+            (Value<'static>,),
+            ListType<Value<'static>>,
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] artifact_promise_mappings: SmallMap<
             StringValue<'v>,
-            StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
+            StarlarkCallable<'v, (Value<'static>,), UnpackList<Value<'static>>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkRuleCallable<'v>> {

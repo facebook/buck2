@@ -86,17 +86,17 @@ pub struct InternalRunnerTestInfo<'v> {
 
     /// A Starlark value representing the command for this test. The test runner is what
     /// gives meaning to this command.
-    command: ValueOfUnchecked<'v, Vec<Either<String, FrozenValue>>>,
+    command: ValueOfUnchecked<'v, Vec<Either<String, Value<'static>>>>,
 
     /// A Starlark value representing the command used for test discovery (listing).
     /// This is the command that runs the test binary with framework-specific listing
     /// flags (e.g., `["binary", "--gtest_list_tests"]` for GTest). The internal runner
     /// uses this for the listing step, while `command` is used for execution.
-    listing_command: ValueOfUnchecked<'v, Vec<Either<String, FrozenValue>>>,
+    listing_command: ValueOfUnchecked<'v, Vec<Either<String, Value<'static>>>>,
 
     /// A Starlark value representing the environment for this test.
     /// This is of type `dict[str, ArgLike]`.
-    env: ValueOfUnchecked<'v, DictType<String, FrozenValue>>,
+    env: ValueOfUnchecked<'v, DictType<String, Value<'static>>>,
 
     /// A starlark value representing the labels for this test.
     labels: ValueOfUnchecked<'v, Vec<String>>,
@@ -147,7 +147,7 @@ pub struct InternalRunnerTestInfo<'v> {
     /// ```
     parse_test_listing: ValueOfUnchecked<
         'v,
-        FrozenStarlarkCallable<(String,), ListType<DictType<String, FrozenValue>>>,
+        FrozenStarlarkCallable<(String,), ListType<DictType<String, Value<'static>>>>,
     >,
 
     /// A Starlark callable that parses test execution output into structured
@@ -165,7 +165,7 @@ pub struct InternalRunnerTestInfo<'v> {
     /// ```
     parse_test_result: ValueOfUnchecked<
         'v,
-        FrozenStarlarkCallable<(String, String, i32), ListType<DictType<String, FrozenValue>>>,
+        FrozenStarlarkCallable<(String, String, i32), ListType<DictType<String, Value<'static>>>>,
     >,
 }
 

@@ -31,12 +31,9 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLifetimeless;
-use crate::values::ValueLike;
 
 #[derive(
     Trace,
@@ -48,34 +45,26 @@ use crate::values::ValueLike;
     StarlarkPagable
 )]
 #[display("TestComplexValue<{}>", _0)]
-pub(crate) struct TestComplexValue<V: ValueLifetimeless>(pub(crate) V);
+pub(crate) struct TestComplexValue<'v>(pub(crate) Value<'v>);
 
-#[starlark_value(type = "TestComplexValue")]
-impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexValue<V> where
-    Self: ProvidesStaticType<'v>
-{
-}
+#[starlark_value(type = "TestComplexValue", frozen_vtable)]
+impl<'v> StarlarkValue<'v> for TestComplexValue<'v> {}
 
-impl<'v> FreezeBranded for TestComplexValue<Value<'v>> {
-    type Frozen<'fv> = TestComplexValue<FrozenValue>;
+impl<'v> FreezeBranded for TestComplexValue<'v> {
+    type Frozen<'fv> = TestComplexValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(TestComplexValue(
-            freezer
-                .freeze(self.0)?
-                .unpack_frozen()
-                .expect("a freezer hands out frozen values"),
-        ))
+        Ok(TestComplexValue(freezer.freeze(self.0)?))
     }
 }
 
-impl<'v> AllocValue<'v> for TestComplexValue<Value<'v>> {
+impl<'v> AllocValue<'v> for TestComplexValue<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_branded(self)
     }
 }
 
-impl<'fv> AllocFrozenValue<'fv> for TestComplexValue<FrozenValue> {
+impl<'fv> AllocFrozenValue<'fv> for TestComplexValue<'fv> {
     fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         heap.alloc_simple(self)
     }
