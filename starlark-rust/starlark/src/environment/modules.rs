@@ -668,7 +668,14 @@ impl<'v> Module<'v> {
             ));
         }
         match module.lookup_err(symbol)? {
-            (slot, Visibility::Public) => Ok(module.slot_ref(slot).add_to_heap(self.heap())),
+            (slot, Visibility::Public) => {
+                // The compiler folds loaded values into constants in the frozen heap, so the
+                // loaded heap has to be kept alive from there, not just from the value heap:
+                // freezing would carry the reference over, but the constants exist before that.
+                Ok(self.frozen_heap(|fh, edge| {
+                    edge.rebrand(module.slot_ref(slot).add_to_frozen_heap(fh))
+                }))
+            }
             (_, Visibility::Private) => Err(crate::Error::new_other(
                 EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
             )),
