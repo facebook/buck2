@@ -31,10 +31,9 @@ use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::Heap;
+use crate::values::OwnedFrozen;
 use crate::values::StringValue;
-use crate::values::StringValueLike as _;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::constant_string;
@@ -173,28 +172,19 @@ impl<'fh> FrozenHeap<'fh> {
 
     /// Allocate prehashed string.
     pub fn alloc_str_hashed(self, s: Hashed<&str>) -> StringValue<'fh> {
-        self.alloc_str_intern_hashed(s).to_string_value()
-    }
-
-    /// Intern a string and erase its brand.
-    ///
-    /// For the pagable tests, which drive the plumbing beneath the branded API in `FrozenValue`s;
-    /// everything else should keep the brand that [`alloc_str`](FrozenHeap::alloc_str) hands out.
-    #[cfg(test)]
-    pub(crate) fn alloc_str_intern(self, s: &str) -> FrozenStringValue {
-        self.alloc_str_intern_hashed(Hashed::new(s))
-    }
-
-    fn alloc_str_intern_hashed(self, s: Hashed<&str>) -> FrozenStringValue {
         if let Some(s) = constant_string(*s) {
-            s.to_frozen()
-        } else {
-            self.string_interner().intern(s, || {
-                self.alloc_str_init(s.len(), s.hash(), |dest| unsafe {
-                    copy_nonoverlapping(s.as_ptr(), dest, s.len())
-                })
-            })
+            return s.at();
         }
+        let erased = self.string_interner().intern(s, || {
+            let string = self.alloc_str_init(s.len(), s.hash(), |dest| unsafe {
+                copy_nonoverlapping(s.as_ptr(), dest, s.len())
+            });
+            // SAFETY: Stored in this heap's interner, which lives exactly as long as the heap.
+            unsafe { OwnedFrozen::<StringValue<'static>>::erase_brand(string) }
+        });
+        // SAFETY: Every entry of this heap's interner was allocated in this heap (just above),
+        // and `'fh` is this heap's brand.
+        unsafe { OwnedFrozen::<StringValue<'static>>::restore_brand(erased) }
     }
 }
 

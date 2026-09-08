@@ -21,39 +21,10 @@ use hashbrown::HashTable;
 
 use crate as starlark;
 use crate::collections::Hashed;
-use crate::values::FrozenStringValue;
 use crate::values::StringValue;
 use crate::values::Trace;
 
-/// `[FrozenStringValue]` interner.
-#[derive(Default)]
-pub(crate) struct FrozenStringValueInterner {
-    map: HashTable<FrozenStringValue>,
-}
-
-impl FrozenStringValueInterner {
-    pub(crate) fn intern(
-        &mut self,
-        s: Hashed<&str>,
-        alloc: impl FnOnce() -> FrozenStringValue,
-    ) -> FrozenStringValue {
-        match self
-            .map
-            .find(s.hash().promote(), |x| s == x.get_hashed_str())
-        {
-            Some(frozen_string) => *frozen_string,
-            None => {
-                let frozen_string = alloc();
-                self.map
-                    .insert_unique(s.hash().promote(), frozen_string, |x| {
-                        x.get_hash().promote()
-                    });
-                frozen_string
-            }
-        }
-    }
-}
-
+/// Interner of the strings of one heap.
 #[derive(Default, Trace)]
 pub(crate) struct StringValueInterner<'v> {
     map: HashTable<StringValue<'v>>,
@@ -85,19 +56,18 @@ mod tests {
     use crate::collections::Hashed;
     use crate::values::FrozenHeap;
     use crate::values::Heap;
-    use crate::values::string::intern::interner::FrozenStringValueInterner;
     use crate::values::string::intern::interner::StringValueInterner;
 
     #[test]
     fn test_intern() {
-        FrozenHeap::temp(|heap1| {
-            FrozenHeap::temp(|heap2| {
-                let mut intern = FrozenStringValueInterner::default();
+        FrozenHeap::temp(|heap| {
+            let mut intern = StringValueInterner::default();
 
-                let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str_intern("xx"));
-                let xx2 = intern.intern(Hashed::new("xx"), || heap2.alloc_str_intern("xx"));
-                assert!(xx1.to_value().ptr_eq(xx2.to_value()));
-            })
+            let xx1 = intern.intern(Hashed::new("xx"), || heap.alloc_str("xx"));
+            let xx2 = intern.intern(Hashed::new("xx"), || {
+                panic!("alloc_str should be only called once")
+            });
+            assert!(xx1.to_value().ptr_eq(xx2.to_value()));
         });
     }
 

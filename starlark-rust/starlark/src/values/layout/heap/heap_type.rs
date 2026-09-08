@@ -75,7 +75,6 @@ use crate::pagable::static_value::get_static_heap_by_id;
 use crate::pagable::static_value::get_static_heap_id;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
@@ -106,7 +105,6 @@ use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
-use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
 
 #[derive(Copy, Clone, Dupe)]
@@ -220,8 +218,9 @@ pub struct OwnedFrozenHeap {
     arena: Arena<ChunkAllocator>,
     /// Memory I depend on.
     refs: RefCell<SmallSet<OwnedFrozen<()>>>,
-    /// String interner.
-    str_interner: RefCell<FrozenStringValueInterner>,
+    /// String interner. Its entries are allocated in this heap and stored with the brand erased;
+    /// `FrozenHeap::alloc_str_hashed` restores it.
+    str_interner: RefCell<StringValueInterner<'static>>,
 }
 
 /// Object-safe trait for user-defined heap names that supports hashing and downcasting.
@@ -1190,7 +1189,7 @@ impl<'fh> FrozenHeap<'fh> {
 
     pub(in crate::values::layout) fn string_interner(
         self,
-    ) -> RefMut<'fh, FrozenStringValueInterner> {
+    ) -> RefMut<'fh, StringValueInterner<'static>> {
         self.0.str_interner.borrow_mut()
     }
 
@@ -1230,10 +1229,10 @@ impl<'fh> FrozenHeap<'fh> {
         len: usize,
         hash: StarlarkHashValue,
         init: impl FnOnce(*mut u8),
-    ) -> FrozenStringValue {
+    ) -> StringValue<'fh> {
         let v = self.0.arena.alloc_str_init(len, hash, init);
 
-        unsafe { FrozenStringValue::new_unchecked(Value::new_frozen_ptr(&*v, true)) }
+        unsafe { StringValue::new_unchecked(Value::new_frozen_ptr(&*v, true)) }
     }
 
     /// Allocate a new value on this heap.

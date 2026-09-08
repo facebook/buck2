@@ -33,7 +33,6 @@ use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::util::arc_str::ArcStr;
-use crate::values::FrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -98,7 +97,7 @@ struct ValueIndex<'v> {
     /// Map from `MutableValueId` to `Value`.
     mutable_values: Vec<Value<'v>>,
     /// Map from `FrozenValueId` to `Value`.
-    frozen_values: Vec<FrozenValue>,
+    frozen_values: Vec<Value<'v>>,
     /// Map from `Value` to `MutableValueId`.
     mutable_map: HashMap<RawPointer, MutableValueId, StarlarkHasherBuilder>,
     /// Map from `Value` to `FrozenValueId`.
@@ -121,11 +120,11 @@ impl<'v> ValueIndex<'v> {
     /// Map `Value` to `ValueId`.
     fn index(&mut self, value: Value<'v>) -> ValueId {
         match value.unpack_frozen() {
-            Some(frozen) => match self.frozen_map.entry(frozen.ptr_value()) {
+            Some(_) => match self.frozen_map.entry(value.ptr_value()) {
                 Entry::Occupied(e) => ValueId::Frozen(*e.get()),
                 Entry::Vacant(e) => {
                     let res = FrozenValueId(self.frozen_values.len());
-                    self.frozen_values.push(frozen);
+                    self.frozen_values.push(value);
                     e.insert(res);
                     ValueId::Frozen(res)
                 }
@@ -276,7 +275,7 @@ impl<'v> TimeFlameProfile<'v> {
         // root;calls1;calls2 1
         // All the numbers at the end must be whole numbers (we use milliseconds)
         let mutable_names = x.index.mutable_values.map(|x| x.to_repr());
-        let frozen_names = x.index.frozen_values.map(|x| x.to_value().to_repr());
+        let frozen_names = x.index.frozen_values.map(|x| x.to_repr());
         ProfileData {
             profile: ProfileDataImpl::TimeFlameProfile(
                 Stacks::new(&mutable_names, &frozen_names, &x.frames).render(),

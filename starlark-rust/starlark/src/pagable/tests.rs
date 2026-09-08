@@ -51,7 +51,6 @@ use crate::starlark_simple_value;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapName;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
@@ -116,8 +115,8 @@ impl ErasingHeap {
         })
     }
 
-    fn alloc_str(&self, s: &str) -> FrozenStringValue {
-        self.with(|heap| heap.alloc_str_intern(s))
+    fn alloc_str(&self, s: &str) -> FrozenValue {
+        self.with(|heap| erased(heap.alloc_str(s).to_value()))
     }
 
     fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
@@ -703,7 +702,7 @@ fn test_frozen_tuple_round_trip() -> crate::Result<()> {
 #[test]
 fn test_frozen_str_value_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let str_fv = heap.alloc_str("hello world").to_frozen_value();
+    let str_fv = heap.alloc_str("hello world");
     let root = heap.alloc_simple(RefData {
         label: 42,
         target: str_fv,
@@ -1286,8 +1285,8 @@ fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
     let heap = ErasingHeap::new();
 
     // Keys: frozen strings in undrop bump (hashable).
-    let k1 = heap.alloc_str("key_one").to_frozen_value();
-    let k2 = heap.alloc_str("key_two").to_frozen_value();
+    let k1 = heap.alloc_str("key_one");
+    let k2 = heap.alloc_str("key_two");
 
     // Values: HeapData in drop bump.
     let v1 = heap.alloc_simple(HeapData {
@@ -1358,8 +1357,8 @@ fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     let heap = ErasingHeap::new();
 
     // Allocate strings in undrop bump.
-    let k1 = heap.alloc_str("hello").to_frozen_value();
-    let k2 = heap.alloc_str("world").to_frozen_value();
+    let k1 = heap.alloc_str("hello");
+    let k2 = heap.alloc_str("world");
 
     // Values: inline ints (no heap allocation needed).
     let v1 = erased(Value::testing_new_int(111));
@@ -4194,7 +4193,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let s: String = "x".repeat(str_len);
         let mut root = erased(Value::new_none());
         for _ in 0..n {
-            root = heap.alloc_str(&s).to_frozen_value();
+            root = heap.alloc_str(&s);
         }
         let heap_ref =
             heap.into_ref_named(TestHeapName::heap_name(&format!("bench_str_{str_len}")));

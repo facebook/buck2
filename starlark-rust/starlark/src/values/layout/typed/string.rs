@@ -236,12 +236,9 @@ impl Ord for FrozenStringValue {
 mod tests {
     use crate::collections::Hashed;
     use crate::values::FrozenHeap;
-    use crate::values::FrozenStringValue;
-    use crate::values::FrozenValue;
     use crate::values::Heap;
     use crate::values::StringValue;
     use crate::values::Value;
-    use crate::values::ValueLike;
 
     #[test]
     fn test_string_hashes() {
@@ -256,9 +253,9 @@ mod tests {
         });
 
         FrozenHeap::temp(|heap| {
-            let fs: FrozenStringValue = heap.alloc_str_intern("xyz");
+            let fs: StringValue = heap.alloc_str("xyz");
             assert_eq!(expected, Hashed::new(fs).hash());
-            let fv: FrozenValue = heap.alloc_str_intern("xyz").to_frozen_value();
+            let fv: Value = heap.alloc_str("xyz").to_value();
             assert_eq!(expected, fv.get_hashed().unwrap().hash());
         });
     }
