@@ -550,7 +550,7 @@ fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
     Module::with_temp_heap(|import| {
         import.set("a", Value::testing_new_int(1));
         import.set_private(
-            import.frozen_heap(|fh, _| fh.alloc_str_intern("b")),
+            import.frozen_heap(|fh, edge| edge.rebrand(fh.alloc_str("b"))),
             Value::testing_new_int(2),
         );
 

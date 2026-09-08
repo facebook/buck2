@@ -54,6 +54,7 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
+use crate::values::HeapEdge;
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
@@ -206,6 +207,7 @@ impl AstModuleTypecheck for AstModule {
                 ModuleScopes::check_module(
                     &names,
                     frozen_heap,
+                    HeapEdge::identity(),
                     loads,
                     statement,
                     ScopeResolverGlobals {

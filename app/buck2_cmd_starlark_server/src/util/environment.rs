@@ -78,7 +78,7 @@ impl Environment {
         let mut names = IntentionallyStdHashSet::new();
 
         for x in self.globals.names() {
-            names.insert(x.as_str().to_owned());
+            names.insert(x.to_owned());
         }
 
         if let Some(prelude) = &self.prelude {
@@ -86,7 +86,7 @@ impl Environment {
                 .get_loaded_module_from_import_path(prelude.import_path())
                 .await?;
             for x in m.env().names() {
-                names.insert(x.as_str().to_owned());
+                names.insert(x.to_owned());
             }
             if path_type == StarlarkFileType::Buck {
                 if let Some(native) = m.native_globals_for_buck_files()? {
@@ -100,7 +100,7 @@ impl Environment {
         if let Some(preload) = &self.preload {
             let m = dice.get_loaded_module_from_import_path(preload).await?;
             for x in m.env().names() {
-                names.insert(x.as_str().to_owned());
+                names.insert(x.to_owned());
             }
         }
 

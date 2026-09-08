@@ -38,6 +38,7 @@ use crate::eval::compiler::scope::scope_resolver_globals::ScopeResolverGlobals;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
+use crate::values::HeapEdge;
 
 /// Unused load statement.
 pub(crate) struct UnusedLoad {
@@ -80,6 +81,7 @@ pub(crate) fn find_unused_loads(
         let module_scopes = ModuleScopes::check_module_err(
             &names,
             heap,
+            HeapEdge::identity(),
             &HashMap::new(),
             statement,
             ScopeResolverGlobals::unknown(),

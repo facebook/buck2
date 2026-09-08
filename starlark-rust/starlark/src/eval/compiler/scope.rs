@@ -73,6 +73,8 @@ use crate::typing::error::InternalError;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::HeapEdge;
+use crate::values::StringValueLike;
 use crate::values::any::FrozenAnyValue;
 
 #[derive(Debug, thiserror::Error)]
@@ -92,9 +94,9 @@ impl From<ScopeError> for crate::Error {
 }
 
 /// All scopes and bindings in a module.
-struct ModuleScopeBuilder<'a, 'f, 'g> {
+struct ModuleScopeBuilder<'a, 'v, 'f, 'g> {
     scope_data: ModuleScopeData<'f>,
-    module: &'a MutableNames,
+    module: &'a MutableNames<'v>,
     frozen_heap: FrozenHeap<'f>,
     module_bindings: SmallMap<FrozenStringValue, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
@@ -248,7 +250,7 @@ enum ResolveIdentScope {
     GlobalForTypeExpression,
 }
 
-impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
+impl<'a, 'v, 'f, 'g> ModuleScopeBuilder<'a, 'v, 'f, 'g> {
     fn top_scope_id(&self) -> ScopeId {
         *self.locals.last().unwrap()
     }
@@ -270,14 +272,15 @@ impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
     ///
     /// This function does not fail, errors are stored in the `errors` field.
     fn enter_module(
-        module: &'a MutableNames,
+        module: &'a MutableNames<'v>,
         frozen_heap: FrozenHeap<'f>,
+        edge: HeapEdge<'v, 'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'a, 'f, 'g>,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
-    ) -> (CstStmt, ModuleScopeBuilder<'a, 'f, 'g>) {
+    ) -> (CstStmt, ModuleScopeBuilder<'a, 'v, 'f, 'g>) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
@@ -291,12 +294,14 @@ impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
 
         let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
 
-        let existing_module_names_and_visibilites = module.all_names_and_visibilities();
-        for (name, vis) in existing_module_names_and_visibilites.iter() {
+        for (name, vis) in module.all_names_and_visibilities() {
+            // The scope names its bindings with strings interned at `'f`; a module name lives in
+            // that heap already or in one it references, so this is a lookup or a small copy.
+            let name = frozen_heap.alloc_str_intern(name.as_str());
             let (binding_id, _binding) = scope_data.new_binding(
-                *name,
+                name,
                 BindingSource::FromModule,
-                *vis,
+                vis,
                 AssignCount::AtMostOnce,
             );
             locals.insert_hashed(name.get_hashed(), binding_id);
@@ -316,7 +321,7 @@ impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
         let mut module_bindings = SmallMap::new();
         for (x, binding_id) in locals {
             let binding = scope_data.mut_binding(binding_id);
-            let slot = module.add_name_visibility(x, binding.vis);
+            let slot = module.add_name_visibility(edge.rebrand(x.to_string_value()), binding.vis);
             binding.init_slot(Slot::Module(slot), &codemap).unwrap();
             let old_binding = module_bindings.insert_hashed(x.get_hashed(), binding_id);
             assert!(old_binding.is_none());
@@ -351,7 +356,7 @@ impl<'a, 'f, 'g> ModuleScopeBuilder<'a, 'f, 'g> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'_, 'f, '_> {
+impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     // Number of module slots I need, a struct holding all scopes, and module bindings.
     fn exit_module(
         mut self,
@@ -375,26 +380,38 @@ impl<'f> ModuleScopeBuilder<'_, 'f, '_> {
 }
 
 impl<'f> ModuleScopes<'f> {
-    pub(crate) fn check_module_err(
-        module: &MutableNames,
+    pub(crate) fn check_module_err<'v>(
+        module: &MutableNames<'v>,
         frozen_heap: FrozenHeap<'f>,
+        edge: HeapEdge<'v, 'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'_, 'f, '_>,
         codemap: FrozenAnyValue<CodeMap>,
         dialect: &Dialect,
     ) -> crate::Result<ModuleScopes<'f>> {
-        let (errors, scopes) =
-            ModuleScopes::check_module(module, frozen_heap, loads, stmt, globals, codemap, dialect);
+        let (errors, scopes) = ModuleScopes::check_module(
+            module,
+            frozen_heap,
+            edge,
+            loads,
+            stmt,
+            globals,
+            codemap,
+            dialect,
+        );
         if let Some(error) = errors.into_iter().next() {
             return Err(error.into_error());
         }
         Ok(scopes)
     }
 
-    pub(crate) fn check_module(
-        module: &MutableNames,
+    /// `edge` brings the names the scope interns on `frozen_heap` to the brand of `module`; for a
+    /// scratch `module` at the heap's own brand, that is [`HeapEdge::identity`].
+    pub(crate) fn check_module<'v>(
+        module: &MutableNames<'v>,
         frozen_heap: FrozenHeap<'f>,
+        edge: HeapEdge<'v, 'f>,
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'_, 'f, '_>,
@@ -404,6 +421,7 @@ impl<'f> ModuleScopes<'f> {
         let (stmt, mut scope) = ModuleScopeBuilder::enter_module(
             module,
             frozen_heap,
+            edge,
             loads,
             stmt,
             globals,
@@ -425,7 +443,7 @@ impl<'f> ModuleScopes<'f> {
     }
 }
 
-impl<'f> ModuleScopeBuilder<'_, 'f, '_> {
+impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     fn collect_defines_in_def(
         scope_data: &mut ModuleScopeData,
         scope_id: ScopeId,

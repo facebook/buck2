@@ -291,7 +291,7 @@ impl<'v> Context<'v> {
             let mut globals = HashSet::new();
             for modu in &self.prelude {
                 for name in modu.names() {
-                    globals.insert(name.as_str().to_owned());
+                    globals.insert(name.to_owned());
                 }
             }
 

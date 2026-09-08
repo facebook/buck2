@@ -109,6 +109,18 @@ impl<'v> HeapEdge<'v, 'static> {
     }
 }
 
+impl<'v> HeapEdge<'v, 'v> {
+    /// The dependency of every heap on itself.
+    ///
+    /// For code that is written against an edge between two brands and is handed one heap for
+    /// both.
+    pub fn identity() -> Self {
+        // SAFETY: A heap keeps itself alive, and `'v` is a brand by the same assumption every use
+        // of it makes; with both sides equal, `rebrand` changes no type.
+        unsafe { Self::unchecked_new() }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::const_frozen_string;

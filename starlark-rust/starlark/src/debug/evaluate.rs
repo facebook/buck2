@@ -20,7 +20,7 @@ use crate::debug::inspect::to_scope_names_by_local_slot_id;
 use crate::eval::Evaluator;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::syntax::AstModule;
-use crate::values::FrozenStringValue;
+use crate::values::StringValue;
 use crate::values::Value;
 
 impl<'v> Evaluator<'v, '_, '_> {
@@ -43,7 +43,7 @@ impl<'v> Evaluator<'v, '_, '_> {
 
         // We want all the local variables to be available to the module, so we capture
         // everything before, shove the local variables into the module, and then revert after
-        let original_module: SmallMap<FrozenStringValue, Option<Value<'v>>> = self
+        let original_module: SmallMap<StringValue<'v>, Option<Value<'v>>> = self
             .module_env
             .mutable_names()
             .all_names_and_slots()

@@ -57,13 +57,13 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenRef;
 use crate::values::ProvidesStaticType;
+use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -130,10 +130,7 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
 // never run over the fields.
 #[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
 pub(crate) struct FrozenModuleData<'v> {
-    /// The names are `FrozenStringValue`s, which the brand does not reach; they are interned in
-    /// the module's heap or in a heap it references.
-    #[freeze_branded(identity)]
-    pub(crate) names: FrozenNames,
+    pub(crate) names: FrozenNames<'v>,
     pub(crate) slots: FrozenSlots<'v>,
     extra_value: Option<Value<'v>>,
     #[freeze_branded(identity)]
@@ -156,7 +153,7 @@ register_starlark_any_complex!(frozen FrozenModuleData<'_>);
 #[derive(Debug)]
 pub struct Module<'v> {
     heaps: ModuleHeaps<'v>,
-    names: MutableNames,
+    names: MutableNames<'v>,
     // Should really be MutableSlots<'v>, where &'v self
     // Values are allocated from heap. Because of variance
     // you can inject the wrong values in, so make sure slots aren't
@@ -207,16 +204,15 @@ impl FrozenModule {
     }
 
     fn lookup_err(&self, name: &str) -> anyhow::Result<(ModuleSlotId, Visibility)> {
-        self.lookup(name).ok_or_else(|| {
-            match did_you_mean(name, self.names().map(|s| s.as_str())) {
+        self.lookup(name)
+            .ok_or_else(|| match did_you_mean(name, self.names()) {
                 Some(better) => EnvironmentError::ModuleHasNoSymbolDidYouMean(
                     name.to_owned(),
                     better.to_owned(),
                 )
                 .into(),
                 None => EnvironmentError::ModuleHasNoSymbol(name.to_owned()).into(),
-            }
-        })
+            })
     }
 
     /// The slot of the exported `name`: `None` if the module does not define it, an error if it
@@ -295,9 +291,8 @@ impl FrozenModule {
 
     /// Iterate through all the names defined in this module.
     /// Only includes symbols that are publicly exposed.
-    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
-        self.with_data(|data| data.names().collect::<Vec<_>>())
-            .into_iter()
+    pub fn names(&self) -> impl Iterator<Item = &str> + '_ {
+        self.data.as_ref().value().as_ref().value.names()
     }
 
     /// The heap which owns the storage of all values defined in this module.
@@ -360,8 +355,8 @@ impl<'v> FrozenModuleData<'v> {
         Some((slot, vis))
     }
 
-    fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
-        self.names.symbols().map(|x| x.0)
+    fn names(&self) -> impl Iterator<Item = &'v str> + '_ {
+        self.names.symbols().map(|(name, _slot)| name.as_str())
     }
 
     fn describe(&self) -> String {
@@ -371,14 +366,14 @@ impl<'v> FrozenModuleData<'v> {
     }
 
     /// The exported symbols and their values.
-    fn items(&self) -> impl Iterator<Item = (FrozenStringValue, Value<'v>)> + '_ {
+    fn items(&self) -> impl Iterator<Item = (StringValue<'v>, Value<'v>)> + '_ {
         self.names
             .symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
     }
 
     /// All symbols and their values, including the private and the imported ones.
-    pub(crate) fn all_items(&self) -> impl Iterator<Item = (FrozenStringValue, Value<'v>)> + '_ {
+    pub(crate) fn all_items(&self) -> impl Iterator<Item = (StringValue<'v>, Value<'v>)> + '_ {
         self.names
             .all_symbols()
             .filter_map(|(name, slot)| Some((name, self.slots.get_slot(slot)?)))
@@ -395,7 +390,7 @@ impl<'v> FrozenModuleData<'v> {
 
     /// Try and go back from a slot to a name.
     /// Inefficient - only use in error paths.
-    pub(crate) fn get_slot_name(&self, slot: ModuleSlotId) -> Option<FrozenStringValue> {
+    pub(crate) fn get_slot_name(&self, slot: ModuleSlotId) -> Option<StringValue<'v>> {
         for (s, i) in self.names.symbols() {
             if i == slot {
                 return Some(s);
@@ -486,16 +481,11 @@ impl<'v> Module<'v> {
 
     /// Iterate through all the names defined in this module.
     /// Only includes symbols that are publicly exposed.
-    pub fn names(&self) -> impl Iterator<Item = FrozenStringValue> + '_ {
-        self.names
-            .all_names_and_visibilities()
-            .into_iter()
-            .filter_map(|(name, vis)| {
-                if vis == Visibility::Public {
-                    Some(name)
-                } else {
-                    None
-                }
+    pub fn names(&self) -> impl Iterator<Item = &'v str> + '_ {
+        self.names_and_visibilities()
+            .filter_map(|(name, vis)| match vis {
+                Visibility::Public => Some(name),
+                Visibility::Private => None,
             })
     }
 
@@ -504,13 +494,14 @@ impl<'v> Module<'v> {
     }
 
     /// Iterate through all the names defined in this module, including those that are private.
-    pub fn names_and_visibilities(
-        &self,
-    ) -> impl Iterator<Item = (FrozenStringValue, Visibility)> + '_ {
-        self.names.all_names_and_visibilities().into_iter()
+    pub fn names_and_visibilities(&self) -> impl Iterator<Item = (&'v str, Visibility)> + '_ {
+        self.names
+            .all_names_and_visibilities()
+            .into_iter()
+            .map(|(name, vis)| (name.as_str(), vis))
     }
 
-    pub(crate) fn mutable_names(&self) -> &MutableNames {
+    pub(crate) fn mutable_names(&self) -> &MutableNames<'v> {
         &self.names
     }
 
@@ -571,6 +562,7 @@ impl<'v> Module<'v> {
         // they are used.
         let data = heaps.seal_with(name, |fh| {
             let freezer = Freezer::new(fh);
+            let names = names.freeze(&freezer)?;
             let slots = slots.freeze(&freezer)?;
             let extra_value = extra_value
                 .into_inner()
@@ -588,7 +580,7 @@ impl<'v> Module<'v> {
                 None
             };
             let data = fh.alloc_simple_typed(StarlarkAnyComplex::new(FrozenModuleData {
-                names: names.freeze(),
+                names,
                 slots,
                 extra_value,
                 docstring: docstring.into_inner(),
@@ -613,7 +605,9 @@ impl<'v> Module<'v> {
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
     pub fn set(&self, name: &str, value: Value<'v>) {
-        let name = self.heaps.frozen_heap(|fh, _| fh.alloc_str_intern(name));
+        let name = self
+            .heaps
+            .frozen_heap(|fh, edge| edge.rebrand(fh.alloc_str(name)));
         let slot = self.names.add_name(name);
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -630,7 +624,7 @@ impl<'v> Module<'v> {
 
     /// Set the value of a variable in the environment. Set its visibliity to
     /// "private" to ensure that it is not re-exported
-    pub(crate) fn set_private(&self, name: FrozenStringValue, value: Value<'v>) {
+    pub(crate) fn set_private(&self, name: StringValue<'v>, value: Value<'v>) {
         let slot = self.names.add_name_visibility(name, Visibility::Private);
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -644,7 +638,7 @@ impl<'v> Module<'v> {
             for (k, slot) in data.value.names.symbols() {
                 if Self::default_visibility(&k) == Visibility::Public {
                     if let Some(value) = data.value.slots.get_slot(slot) {
-                        self.set_private(k, edge.rebrand(value));
+                        self.set_private(edge.rebrand(k), edge.rebrand(value));
                     }
                 }
             }

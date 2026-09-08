@@ -80,7 +80,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         // Compilation and execution happen within one scope on the module's frozen heap; the
         // compiler's products live there.
         let module_env = self.module_env;
-        let res = module_env.frozen_heap(|fh, _| {
+        let res = module_env.frozen_heap(|fh, edge| {
             let codemap = fh.alloc_any_value(codemap.dupe());
 
             if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
@@ -98,6 +98,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
                 ModuleScopes::check_module_err(
                     module_env.mutable_names(),
                     fh,
+                    edge,
                     &HashMap::new(),
                     statement,
                     ScopeResolverGlobals {
