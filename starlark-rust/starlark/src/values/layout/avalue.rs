@@ -430,11 +430,11 @@ mod tests {
             module.set_extra_value(module.heap().alloc((d0, d1)));
 
             let module = module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
-            let (d0, d1) =
-                <(Value, Value)>::unpack_value_err(module.extra_value().unwrap().to_value())
-                    .unwrap();
-            // Pointers are equal.
-            assert_eq!(d0.0.raw(), d1.0.raw());
+            module.extra_value_owned().unwrap().by_ref(|extra| {
+                let (d0, d1) = <(Value, Value)>::unpack_value_err(*extra).unwrap();
+                // Pointers are equal.
+                assert_eq!(d0.0.raw(), d1.0.raw());
+            });
             crate::Result::Ok(())
         })
         .unwrap();

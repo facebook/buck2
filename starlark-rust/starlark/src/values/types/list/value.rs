@@ -37,7 +37,6 @@ use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::environment::Methods;
 use crate::hint::likely;
 use crate::hint::unlikely;
@@ -47,7 +46,6 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -76,16 +74,16 @@ pub(crate) struct ListData<'v> {
     pub(crate) content: Cell<ValueTyped<'v, Array<'v>>>,
 }
 
-/// Define the frozen list type.
+/// Define the frozen list type. [`FrozenList`] is an alias for `ListGen<FrozenListData<'static>>`.
 #[derive(ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct FrozenListData {
+pub(crate) struct FrozenListData<'v> {
     len: usize,
-    /// The data stored by the tuple.
-    content: [FrozenValue; 0],
+    /// The data stored by the list.
+    content: [Value<'v>; 0],
 }
 
-impl Debug for FrozenListData {
+impl<'v> Debug for FrozenListData<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("FrozenList")
             .field("content", &self.content())
@@ -93,19 +91,19 @@ impl Debug for FrozenListData {
     }
 }
 
-/// Alias is used in `StarlarkDocs` derive.
-pub(crate) type FrozenList = ListGen<FrozenListData>;
+/// Runtime type of frozen list. Alias is used in `StarlarkDocs` derive.
+pub(crate) type FrozenList = ListGen<FrozenListData<'static>>;
 
 pub(crate) type List<'v> = ListGen<ListData<'v>>;
 
-static_starlark_value!(pub(crate) VALUE_EMPTY_FROZEN_LIST: ListGen<FrozenListData> = unsafe { ListGen(FrozenListData::new(0)) });
+static_starlark_value!(pub(crate) VALUE_EMPTY_FROZEN_LIST: FrozenList = unsafe { ListGen(FrozenListData::new(0)) });
 
-// ListGen's Canonical is FrozenList;
-crate::register_ty_starlark_value!(FrozenList);
+// ListGen's Canonical is ListGen<FrozenListData>;
+crate::register_ty_starlark_value!(ListGen<FrozenListData<'_>>);
 
-impl ListGen<FrozenListData> {
+impl<'v> ListGen<FrozenListData<'v>> {
     pub(crate) fn offset_of_content() -> usize {
-        mem::offset_of!(FrozenListData, content)
+        mem::offset_of!(FrozenListData<'v>, content)
     }
 }
 
@@ -119,7 +117,7 @@ impl<'v> ListData<'v> {
         #[cold]
         #[inline(never)]
         fn error<'v>(x: Value<'v>) -> anyhow::Error {
-            if x.downcast_ref::<ListGen<FrozenListData>>().is_some() {
+            if x.downcast_ref::<ListGen<FrozenListData<'v>>>().is_some() {
                 ValueError::CannotMutateImmutableValue.into()
             } else {
                 NotListError(x.get_type()).into()
@@ -143,7 +141,7 @@ impl<'v> ListData<'v> {
     }
 
     pub(crate) fn is_list_type(x: TypeId) -> bool {
-        x == TypeId::of::<ListGen<ListData>>() || x == TypeId::of::<ListGen<FrozenListData>>()
+        x == TypeId::of::<ListGen<ListData>>() || x == TypeId::of::<FrozenList>()
     }
 
     /// Return an error if there's at least one iterator over the list.
@@ -281,8 +279,8 @@ where
     }
 }
 
-impl FrozenListData {
-    pub(crate) const unsafe fn new(len: usize) -> FrozenListData {
+impl<'v> FrozenListData<'v> {
+    pub(crate) const unsafe fn new(len: usize) -> FrozenListData<'v> {
         FrozenListData { len, content: [] }
     }
 
@@ -290,7 +288,7 @@ impl FrozenListData {
         self.len
     }
 
-    pub(crate) fn content(&self) -> &[FrozenValue] {
+    pub(crate) fn content(&self) -> &[Value<'v>] {
         unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
     }
 }
@@ -301,7 +299,7 @@ impl<'v> ListData<'v> {
 
     /// Type of list as frozen string value.
     pub fn get_type_value_static() -> StringValue<'static> {
-        ListGen::<FrozenListData>::get_type_value_static()
+        FrozenList::get_type_value_static()
     }
 
     pub(crate) fn new(content: ValueTyped<'v, Array<'v>>) -> Self {
@@ -330,9 +328,9 @@ impl<'v> Display for ListData<'v> {
     }
 }
 
-impl Display for FrozenListData {
+impl<'v> Display for FrozenListData<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        display_list(coerce(&self.content()), f)
+        display_list(self.content(), f)
     }
 }
 
@@ -378,9 +376,9 @@ impl<'v> ListLike<'v> for ListData<'v> {
     }
 }
 
-impl<'v> ListLike<'v> for FrozenListData {
+impl<'v> ListLike<'v> for FrozenListData<'v> {
     fn content(&self) -> &[Value<'v>] {
-        coerce(self.content())
+        self.content()
     }
 
     fn set_at(&self, _i: usize, _v: Value<'v>) -> crate::Result<()> {
@@ -423,7 +421,7 @@ impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
     Self: ProvidesStaticType<'v> + Display,
 {
-    type Canonical = FrozenList;
+    type Canonical = ListGen<FrozenListData<'v>>;
 
     fn is_special(_: Private) -> bool
     where

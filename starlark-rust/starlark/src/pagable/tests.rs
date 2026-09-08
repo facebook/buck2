@@ -641,10 +641,10 @@ fn test_frozen_list_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test"));
 
     let restored = round_trip_owned(heap_ref, root)?;
-    let list_value: &ListGen<FrozenListData> = restored
+    let list_value: &ListGen<FrozenListData<'_>> = restored
         .as_ref()
         .value()
-        .downcast_ref::<ListGen<FrozenListData>>()
+        .downcast_ref::<ListGen<FrozenListData<'_>>>()
         .unwrap();
     let content = list_value.0.content();
     assert_eq!(content.len(), 2);
@@ -801,10 +801,10 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     let restored = round_trip_owned(heap_a_ref, root)?;
 
     // Walk via the list root.
-    let list_value: &ListGen<FrozenListData> = restored
+    let list_value: &ListGen<FrozenListData<'_>> = restored
         .as_ref()
         .value()
-        .downcast_ref::<ListGen<FrozenListData>>()
+        .downcast_ref::<ListGen<FrozenListData<'_>>>()
         .unwrap();
     let content = list_value.0.content();
     assert_eq!(content.len(), 2);

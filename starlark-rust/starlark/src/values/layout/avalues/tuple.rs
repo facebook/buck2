@@ -99,9 +99,9 @@ impl<'v> AValue<'v> for AValueTuple {
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
-                elem_place.write(freezer.freeze(*elem)?);
+                elem_place.write(freezer.freeze_branded(*elem)?);
             }
-            r.fill(FrozenTuple::new(content.len()));
+            r.fill(Tuple::new(content.len()));
 
             Ok(fv)
         }
@@ -144,7 +144,7 @@ struct AValueFrozenTuple;
 impl<'v> AValue<'v> for AValueFrozenTuple {
     type StarlarkValue = Tuple<'v>;
 
-    type ExtraElem = FrozenValue;
+    type ExtraElem = Value<'v>;
 
     fn extra_len(value: &Tuple<'v>) -> usize {
         value.len()
@@ -160,7 +160,7 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
     ) {
         visitor.visit_simple(
             Key::new("content"),
-            std::mem::size_of::<FrozenValue>() * value.len(),
+            std::mem::size_of::<Value>() * value.len(),
         );
     }
 
@@ -200,10 +200,10 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
             ptr::write(&mut (*me).payload, Tuple::new(len));
             let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
                 + <Self as AValue>::offset_of_extra();
-            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<FrozenValue>;
+            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'v>>;
             for i in 0..len {
                 let fv = ctx.deserialize_frozen_value()?;
-                (*extra_ptr.add(i)).write(fv);
+                (*extra_ptr.add(i)).write(fv.to_value());
             }
         }
         Ok(())
@@ -231,15 +231,7 @@ impl<'fh> FrozenHeap<'fh> {
             unsafe {
                 let (v, extra) = self.alloc_raw_extra(frozen_tuple_avalue(lower));
                 let extra = &mut *extra;
-                // The frozen tuple stores its elements as `FrozenValue`s.
-                maybe_uninit_write_from_exact_size_iter(
-                    extra,
-                    elems.map(|v| {
-                        v.unpack_frozen()
-                            .expect("value allocated in a frozen heap is frozen")
-                    }),
-                    FrozenValue::new_none(),
-                );
+                maybe_uninit_write_from_exact_size_iter(extra, elems, Value::new_none());
                 v.to_value()
             }
         } else {

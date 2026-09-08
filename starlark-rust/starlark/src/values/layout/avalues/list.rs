@@ -99,7 +99,7 @@ impl<'v> AValue<'v> for AValueList {
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
-                elem_place.write(freezer.freeze(*elem)?);
+                elem_place.write(freezer.freeze_branded(*elem)?);
             }
             r.fill(ListGen(FrozenListData::new(content.len())));
             Ok(fv)
@@ -117,26 +117,23 @@ impl<'v> AValue<'v> for AValueList {
 pub(crate) struct AValueFrozenList;
 
 impl<'v> AValue<'v> for AValueFrozenList {
-    type StarlarkValue = ListGen<FrozenListData>;
+    type StarlarkValue = ListGen<FrozenListData<'v>>;
 
-    type ExtraElem = FrozenValue;
+    type ExtraElem = Value<'v>;
 
-    fn extra_len(value: &ListGen<FrozenListData>) -> usize {
+    fn extra_len(value: &ListGen<FrozenListData<'v>>) -> usize {
         value.0.len()
     }
 
     fn offset_of_extra() -> usize {
-        ListGen::<FrozenListData>::offset_of_content()
+        ListGen::<FrozenListData<'v>>::offset_of_content()
     }
 
     fn visit_extra_allocative<'a, 'b: 'a>(
         value: &Self::StarlarkValue,
         visitor: &'a mut Visitor<'b>,
     ) {
-        visitor.visit_simple(
-            Key::new("content"),
-            mem::size_of::<FrozenValue>() * value.0.len(),
-        );
+        visitor.visit_simple(Key::new("content"), mem::size_of::<Value>() * value.0.len());
     }
 
     unsafe fn heap_freeze(
@@ -161,7 +158,7 @@ impl<'v> AValue<'v> for AValueFrozenList {
         let content = value.0.content();
         content.len().pagable_serialize(ctx.pagable())?;
         for elem in content {
-            ctx.serialize_frozen_value(*elem)?;
+            crate::pagable::StarlarkSerialize::starlark_serialize(elem, ctx)?;
         }
         Ok(())
     }
@@ -175,10 +172,10 @@ impl<'v> AValue<'v> for AValueFrozenList {
             ptr::write(&mut (*me).payload, ListGen(FrozenListData::new(len)));
             let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
                 + <Self as AValue>::offset_of_extra();
-            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<FrozenValue>;
+            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'v>>;
             for i in 0..len {
                 let fv = ctx.deserialize_frozen_value()?;
-                (*extra_ptr.add(i)).write(fv);
+                (*extra_ptr.add(i)).write(fv.to_value());
             }
         }
         Ok(())
@@ -202,15 +199,7 @@ impl<'fh> FrozenHeap<'fh> {
             unsafe {
                 let (v, elem_places) = self.alloc_raw_extra(frozen_list_avalue(lower));
                 let elem_places = &mut *elem_places;
-                // The frozen list stores its elements as `FrozenValue`s.
-                maybe_uninit_write_from_exact_size_iter(
-                    elem_places,
-                    elems.map(|v| {
-                        v.unpack_frozen()
-                            .expect("value allocated in a frozen heap is frozen")
-                    }),
-                    FrozenValue::new_none(),
-                );
+                maybe_uninit_write_from_exact_size_iter(elem_places, elems, Value::new_none());
                 v.to_value()
             }
         } else {
@@ -255,5 +244,5 @@ impl<'v> Heap<'v> {
     }
 }
 
-// Register vtable for ListGen<FrozenListData> (special type not handled by #[starlark_value] macro).
-register_special_avalue_frozen!(ListGen<FrozenListData>, AValueFrozenList);
+// Register vtable for FrozenList (special type not handled by #[starlark_value] macro).
+register_special_avalue_frozen!(crate::values::list::value::FrozenList, AValueFrozenList);

@@ -712,7 +712,7 @@ impl<'v> Value<'v> {
             || self.is_str()
             || self.unpack_bool().is_some()
             || NumRef::unpack_value(self).is_ok_and(|n| n.is_some())
-            || self.downcast_ref::<ListGen<FrozenListData>>().is_some()
+            || self.downcast_ref::<ListGen<FrozenListData<'v>>>().is_some()
             || self.downcast_ref::<DictGen<Dict<'v>>>().is_some()
             || self.downcast_ref::<Tuple<'v>>().is_some()
             || self.downcast_ref::<Range>().is_some()

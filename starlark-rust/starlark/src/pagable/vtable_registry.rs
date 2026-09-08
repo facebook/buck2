@@ -425,13 +425,12 @@ mod tests {
 
     #[test]
     fn test_frozen_list_is_registered() {
-        use crate::values::list::value::ListGen;
-        use crate::values::types::list::value::FrozenListData;
-        let type_id = DeserTypeId::of::<ListGen<FrozenListData>>();
+        use crate::values::list::value::FrozenList;
+        let type_id = DeserTypeId::of::<FrozenList>();
         let vtable = lookup_vtable(type_id);
         assert!(
             vtable.is_ok(),
-            "Expected ListGen<FrozenListData> to be registered. Available types: {:?}",
+            "Expected FrozenList to be registered. Available types: {:?}",
             registered_type_ids()
         );
         let vt = vtable.unwrap();

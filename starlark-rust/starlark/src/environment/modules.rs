@@ -57,7 +57,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
@@ -324,16 +323,6 @@ impl FrozenModule {
         self.with_data(|data| match &data.heap_profile {
             None => Err(ModuleError::RetainedMemoryProfileNotEnabled.into()),
             Some(p) => Ok(p.to_profile()),
-        })
-    }
-
-    /// `extra_value` field from `Module`, frozen.
-    pub fn extra_value(&self) -> Option<FrozenValue> {
-        self.with_data(|data| {
-            data.extra_value.map(|v| {
-                v.unpack_frozen()
-                    .expect("frozen modules store frozen values")
-            })
         })
     }
 
