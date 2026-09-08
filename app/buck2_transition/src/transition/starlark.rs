@@ -125,11 +125,6 @@ pub(crate) struct FrozenTransition<'v> {
     pub(crate) split: bool,
 }
 
-starlark::register_simple_vtable_entry!(FrozenTransition<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenTransition<'v> {}
-
 /// A `Transition` kept alive by its owning frozen heap; usable across threads and awaits.
 pub(crate) type OwnedTransition = OwnedFrozen<ValueTyped<'static, FrozenTransition<'static>>>;
 
@@ -181,7 +176,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     }
 }
 
-#[starlark_value(type = "Transition")]
+#[starlark_value(type = "Transition", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenTransition<'v> {
     type Canonical = Transition<'v>;
 

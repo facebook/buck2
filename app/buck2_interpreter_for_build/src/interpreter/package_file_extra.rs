@@ -93,15 +93,10 @@ pub static MAKE_CFG_CONSTRUCTOR: LateBinding<
 #[starlark_value(type = "PackageFileExtra")]
 impl<'v> StarlarkValue<'v> for PackageFileExtra<'v> {}
 
-#[starlark_value(type = "PackageFileExtra")]
+#[starlark_value(type = "PackageFileExtra", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenPackageFileExtra<'v> {
     type Canonical = PackageFileExtra<'v>;
 }
-
-starlark::register_simple_vtable_entry!(FrozenPackageFileExtra<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenPackageFileExtra<'v> {}
 
 impl<'v> FreezeBranded for PackageFileExtra<'v> {
     type Frozen<'fv> = FrozenPackageFileExtra<'fv>;

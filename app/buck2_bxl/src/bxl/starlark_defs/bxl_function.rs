@@ -213,15 +213,10 @@ pub(crate) struct FrozenBxlFunction<'v> {
     docs: Option<String>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenBxlFunction<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenBxlFunction<'v> {}
-
 /// A bxl function kept alive by its owning frozen heap; usable across threads and awaits.
 pub(crate) type OwnedBxlFunction = OwnedFrozen<ValueTyped<'static, FrozenBxlFunction<'static>>>;
 
-#[starlark_value(type = "bxl")]
+#[starlark_value(type = "bxl", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenBxlFunction<'v> {
     type Canonical = BxlFunction<'v>;
 }

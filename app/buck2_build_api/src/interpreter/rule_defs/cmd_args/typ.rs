@@ -383,11 +383,6 @@ pub struct FrozenStarlarkCmdArgs<'v> {
     options: FrozenCommandLineOptions<'v>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenStarlarkCmdArgs<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkCmdArgs<'v> {}
-
 static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs<'static> = FrozenStarlarkCmdArgs {
     items: ThinBoxSliceValue::empty(),
     hidden: ThinBoxSliceValue::empty(),
@@ -569,7 +564,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-#[starlark_value(type = "cmd_args", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "cmd_args", StarlarkTypeRepr, UnpackValue, frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs<'v> {
     type Canonical = StarlarkCmdArgs<'v>;
 

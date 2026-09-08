@@ -501,11 +501,6 @@ pub struct FrozenStarlarkRuleCallable<'v> {
     artifact_promise_mappings: Option<FrozenArtifactPromiseMappings<'v>>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenStarlarkRuleCallable<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkRuleCallable<'v> {}
-
 fn unpack_frozen_rule<'v>(
     rule: Value<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, FrozenStarlarkRuleCallable<'v>>> {
@@ -549,7 +544,7 @@ impl<'v> FrozenStarlarkRuleCallable<'v> {
     }
 }
 
-#[starlark_value(type = "Rule")]
+#[starlark_value(type = "Rule", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable<'v> {
     type Canonical = StarlarkRuleCallable<'v>;
 

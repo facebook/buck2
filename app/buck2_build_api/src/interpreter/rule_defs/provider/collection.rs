@@ -179,11 +179,6 @@ fn empty_provider_collection_value() -> FrozenValueTyped<'static, FrozenProvider
 /// Type of a frozen provider collection.
 pub type FrozenProviderCollection = ProviderCollection<'static>;
 
-starlark::register_simple_vtable_entry!(ProviderCollection<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for ProviderCollection<'v> {}
-
 // These are the hand-written equivalents of `starlark_complex_value_branded!`,
 // which we can't use because empty collections should be allocated as the
 // statically interned empty collection.
@@ -427,7 +422,7 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[starlark_value(type = "ProviderCollection")]
+#[starlark_value(type = "ProviderCollection", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for ProviderCollection<'v> {
     fn at(&self, index: Value<'v>, _heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {

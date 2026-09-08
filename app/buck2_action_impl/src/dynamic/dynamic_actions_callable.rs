@@ -135,14 +135,6 @@ pub struct FrozenStarlarkDynamicActionsCallable<'v> {
     signature: ParametersSpec<FrozenValue>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenStarlarkDynamicActionsCallable<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered
-    for FrozenStarlarkDynamicActionsCallable<'v>
-{
-}
-
 starlark::methods_static!(DYNAMIC_ACTION_CALLABLE_METHODS = dynamic_action_callable_methods);
 
 #[starlark_value(type = "DynamicActionCallable")]
@@ -178,7 +170,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-#[starlark_value(type = "DynamicActionCallable")]
+#[starlark_value(type = "DynamicActionCallable", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
     type Canonical = Self;
 

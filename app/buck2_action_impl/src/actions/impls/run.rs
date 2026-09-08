@@ -349,15 +349,10 @@ pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) outputs_for_error_handler: Vec<ValueTyped<'v, FrozenStarlarkOutputArtifact<'v>>>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenStarlarkRunActionValues<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkRunActionValues<'v> {}
-
 #[starlark_value(type = "RunActionValues")]
 impl<'v> StarlarkValue<'v> for StarlarkRunActionValues<'v> {}
 
-#[starlark_value(type = "RunActionValues")]
+#[starlark_value(type = "RunActionValues", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRunActionValues<'v> {
     type Canonical = StarlarkRunActionValues<'v>;
 }

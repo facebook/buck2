@@ -81,11 +81,6 @@ pub struct FrozenStarlarkOutputArtifact<'v> {
     artifact: ValueTyped<'v, StarlarkArtifact>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenStarlarkOutputArtifact<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkOutputArtifact<'v> {}
-
 impl<'v> FreezeBranded for StarlarkOutputArtifact<'v> {
     type Frozen<'fv> = FrozenStarlarkOutputArtifact<'fv>;
 
@@ -271,7 +266,7 @@ impl<'v> StarlarkValue<'v> for StarlarkOutputArtifact<'v> {
     }
 }
 
-#[starlark_value(type = "OutputArtifact", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "OutputArtifact", StarlarkTypeRepr, UnpackValue, frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkOutputArtifact<'v> {
     type Canonical = StarlarkOutputArtifact<'v>;
 

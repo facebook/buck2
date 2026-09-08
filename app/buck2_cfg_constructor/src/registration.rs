@@ -68,12 +68,7 @@ struct StarlarkCfgConstructor<'v> {
     extra_data: Option<Value<'v>>,
 }
 
-starlark::register_simple_vtable_entry!(StarlarkCfgConstructor<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for StarlarkCfgConstructor<'v> {}
-
-#[starlark_value(type = "StarlarkCfgConstructor")]
+#[starlark_value(type = "StarlarkCfgConstructor", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for StarlarkCfgConstructor<'v> {}
 
 fn make_cfg_constructor(

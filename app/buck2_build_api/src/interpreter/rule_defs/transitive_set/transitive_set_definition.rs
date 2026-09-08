@@ -317,11 +317,6 @@ pub struct FrozenTransitiveSetDefinition<'v> {
     operations: TransitiveSetOperations<'v>,
 }
 
-starlark::register_simple_vtable_entry!(FrozenTransitiveSetDefinition<'static>);
-// SAFETY: The vtable entry is registered above; the deser type id is
-// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
-unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenTransitiveSetDefinition<'v> {}
-
 impl<'v> fmt::Debug for FrozenTransitiveSetDefinition<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -341,7 +336,7 @@ impl<'v> Serialize for FrozenTransitiveSetDefinition<'v> {
     }
 }
 
-#[starlark_value(type = "TransitiveSetDefinition")]
+#[starlark_value(type = "TransitiveSetDefinition", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition<'v> {
     type Canonical = Self;
 
