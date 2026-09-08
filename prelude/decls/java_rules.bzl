@@ -19,7 +19,7 @@ load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//android:min_sdk_version.bzl", "get_min_sdk_version_constraint_value_name", "get_min_sdk_version_range")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":toolchains_common.bzl", "toolchains_common")
@@ -390,7 +390,6 @@ java_library = prelude_rule(
             "proguard_config": attrs.option(attrs.source(), default = None),
             "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
             "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
             "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
@@ -562,7 +561,6 @@ java_test = prelude_rule(
             "resources_root": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "specs": attrs.option(attrs.arg(json = True), default = None),
             "supports_test_execution_caching": attrs.bool(default = False),
@@ -618,7 +616,6 @@ java_test_runner = prelude_rule(
             "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source": attrs.option(attrs.string(), default = None),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),

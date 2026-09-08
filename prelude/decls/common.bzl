@@ -70,8 +70,6 @@ OnDuplicateEntry = ["fail", "overwrite", "append"]
 
 RawHeadersAsHeadersMode = ["enabled", "disabled"]
 
-SourceAbiVerificationMode = ["off", "log", "fail"]
-
 TestType = ["junit", "junit5", "testng"]
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]

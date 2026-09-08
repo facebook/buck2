@@ -24,7 +24,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "AnnotationProcessingTool", "TestType", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":java_rules.bzl", "dex_min_sdk_version")
@@ -500,7 +500,6 @@ android_aar = prelude_rule(
             "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source": attrs.option(attrs.string(), default = None),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "strip_libraries": attrs.default_only(attrs.bool(default = not DISABLE_STRIPPING)),
@@ -1110,7 +1109,6 @@ android_library = prelude_rule(
             "resource_union_package": attrs.option(attrs.string(), default = None),
             "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
             "_android_toolchain": toolchains_common.android(),
@@ -1810,7 +1808,6 @@ robolectric_test = prelude_rule(
             "run_test_separately": attrs.bool(default = False),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source": attrs.option(attrs.string(), default = None),
-            "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "supports_test_execution_caching": attrs.bool(default = False),
