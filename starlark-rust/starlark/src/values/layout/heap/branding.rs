@@ -125,7 +125,7 @@
 //! that heap alive.
 //!
 //! The typed handles of the same family share the hole: `FrozenValueTyped<'static, T>` (and so
-//! `FrozenStringValue` and `FrozenAnyValue`) can be minted from any frozen heap, yet their
+//! `FrozenStringValue`) can be minted from any frozen heap, yet their
 //! `as_ref` hands out a `&'static T` and their `to_value` a `'static`-branded value, all without
 //! saying who keeps the heap alive. As long as they exist, "at the `'static` brand there is only
 //! immortal data" - the contract that `HeapEdge::immortal` and the `Value<'static>` storage of the
