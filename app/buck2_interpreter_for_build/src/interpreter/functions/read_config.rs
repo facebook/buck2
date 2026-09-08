@@ -12,7 +12,6 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::StringValue;
-use starlark::values::StringValueLike;
 use starlark::values::Value;
 use starlark::values::none::NoneOr;
 
@@ -49,7 +48,7 @@ pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<Value<'v>> {
         let buckconfigs = &BuildContext::from_context(eval)?.buckconfigs;
         match buckconfigs.current_cell_get(section, key, eval)? {
-            Some(v) => Ok(v.to_string_value().to_value()),
+            Some(v) => Ok(v.to_value()),
             None => Ok(default.unwrap_or_else(Value::new_none)),
         }
     }
@@ -66,7 +65,7 @@ pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         let buckconfigs = &BuildContext::from_context(eval)?.buckconfigs;
         match buckconfigs.root_cell_get(section, key, eval)? {
-            Some(v) => Ok(NoneOr::Other(v.to_string_value())),
+            Some(v) => Ok(NoneOr::Other(v)),
             None => Ok(default),
         }
     }
