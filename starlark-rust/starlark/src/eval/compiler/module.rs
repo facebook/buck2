@@ -121,7 +121,7 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
             local_count,
             bc.max_stack_size,
             bc.max_loop_depth,
-            |eval| eval.eval_bc(const_frozen_string!("module").to_value(), &bc),
+            |eval| eval.eval_bc(const_frozen_string!("module").at().to_value(), &bc),
         )
     }
 

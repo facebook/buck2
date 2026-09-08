@@ -41,7 +41,11 @@ impl<'a, 'f, 'g> ScopeResolverGlobals<'a, 'f, 'g> {
                 // `ExprCompiled::Value` is branded.
                 Some(value.unpack_frozen().expect("globals live in frozen heaps"))
             }
-            None => Some(const_frozen_string!("unknown-global").to_frozen_value()),
+            None => Some(
+                const_frozen_string!("unknown-global")
+                    .to_frozen()
+                    .to_frozen_value(),
+            ),
         }
     }
 

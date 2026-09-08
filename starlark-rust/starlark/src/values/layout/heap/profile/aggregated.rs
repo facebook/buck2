@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn test_stacks_collect() {
         Heap::temp(|heap| {
-            heap.record_call_enter(const_frozen_string!("enter").to_value());
+            heap.record_call_enter(const_frozen_string!("enter").at().to_value());
             heap.alloc_str("xxyy");
             heap.alloc_str("zzww");
             heap.record_call_exit();
@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn test_stacks_collect_retained() {
         Heap::temp(|heap| {
-            heap.record_call_enter(const_frozen_string!("enter").to_value());
+            heap.record_call_enter(const_frozen_string!("enter").at().to_value());
             let s0 = heap.alloc_str("xxyy");
             let s1 = heap.alloc_str("zzww");
             heap.alloc_str("rrtt");
@@ -479,7 +479,7 @@ mod tests {
     fn test_merge() {
         fn make() -> AggregateHeapProfileInfo {
             Heap::temp(|heap| {
-                heap.record_call_enter(const_frozen_string!("xx").to_value());
+                heap.record_call_enter(const_frozen_string!("xx").at().to_value());
                 let s = heap.alloc_str("abc");
                 heap.record_call_exit();
                 FrozenHeap::temp(|frozen_heap| {

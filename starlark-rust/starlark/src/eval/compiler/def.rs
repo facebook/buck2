@@ -467,10 +467,10 @@ impl DefInfo {
         globals: FrozenAnyValue<Globals>,
     ) -> DefInfo {
         DefInfo {
-            name: const_frozen_string!("<module>"),
+            name: const_frozen_string!("<module>").to_frozen(),
             signature_span: FrozenFileSpan::default(),
-            parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.unpack(),
-            parameter_types: VALUE_EMPTY_PARAMETER_TYPES.unpack(),
+            parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.unpack_frozen(),
+            parameter_types: VALUE_EMPTY_PARAMETER_TYPES.unpack_frozen(),
             ty: Ty::any(),
             codemap,
             docstring: None,

@@ -51,7 +51,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -149,7 +148,7 @@ impl<'v> Heap<'v> {
 impl<'fv> AllocFrozenValue<'fv> for Dict<'fv> {
     fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         if self.content.is_empty() {
-            VALUE_EMPTY_FROZEN_DICT.to_frozen_value().to_value()
+            VALUE_EMPTY_FROZEN_DICT.at().to_value()
         } else {
             heap.alloc_simple_typed(DictGen(self)).to_value()
         }
@@ -197,7 +196,7 @@ impl<'v> Dict<'v> {
     pub const TYPE: &'static str = "dict";
 
     /// Dict type string as Starlark frozen string value.
-    pub fn get_type_value_static() -> FrozenStringValue {
+    pub fn get_type_value_static() -> StringValue<'static> {
         DictGen::<Dict>::get_type_value_static()
     }
 

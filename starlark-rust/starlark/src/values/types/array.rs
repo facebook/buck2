@@ -34,14 +34,13 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::cast::transmute;
 use crate::private::Private;
 use crate::values::AllocStaticSimple;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StaticValueRegistered;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::types::list::value::display_list;
 
 /// Fixed-capacity list.
@@ -109,16 +108,8 @@ inventory::submit! {
 }
 
 impl ValueEmptyArray {
-    pub(crate) fn unpack<'v>(&'static self) -> FrozenValueTyped<'v, Array<'v>> {
-        // SAFETY: `Array` is normally (correctly) invariant in `'v`, but for empty arrays it
-        // doesn't matter.
-        unsafe {
-            transmute!(
-                FrozenValueTyped<'static, Array<'static>>,
-                FrozenValueTyped<'v, Array<'v>>,
-                self.0.unpack()
-            )
-        }
+    pub(crate) fn unpack<'v>(&'static self) -> ValueTyped<'v, Array<'v>> {
+        self.0.at()
     }
 }
 

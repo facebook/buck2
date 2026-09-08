@@ -187,7 +187,7 @@ impl<'fh> FrozenHeap<'fh> {
 
     fn alloc_str_intern_hashed(self, s: Hashed<&str>) -> FrozenStringValue {
         if let Some(s) = constant_string(*s) {
-            s
+            s.to_frozen()
         } else {
             self.string_interner().intern(s, || {
                 self.alloc_str_init(s.len(), s.hash(), |dest| unsafe {
@@ -202,7 +202,7 @@ impl<'v> Heap<'v> {
     /// Allocate a string on the heap.
     pub fn alloc_str(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
-            x.to_string_value()
+            x.at()
         } else {
             self.alloc_str_init(x.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
                 copy_nonoverlapping(x.as_ptr(), dest, x.len())
@@ -213,7 +213,7 @@ impl<'v> Heap<'v> {
     /// Intern string.
     pub fn alloc_str_intern(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
-            x.to_string_value()
+            x.at()
         } else {
             let x = Hashed::new(x);
             self.string_interner().intern(x, || {

@@ -45,10 +45,10 @@ use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::demand::Demand;
@@ -347,7 +347,7 @@ impl AValueVTable {
     }
 
     #[inline]
-    pub(crate) fn type_value(&'static self) -> FrozenStringValue {
+    pub(crate) fn type_value(&'static self) -> StringValue<'static> {
         (self.starlark_value.get_type_value_static)()
     }
 

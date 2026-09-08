@@ -44,6 +44,6 @@ static_starlark_value!(OPAQUE_METADATA: OpaqueMetadata = OpaqueMetadata);
 
 impl<'v> AllocValue<'v> for OpaqueMetadata {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        OPAQUE_METADATA.to_frozen_value().to_value()
+        OPAQUE_METADATA.at().to_value()
     }
 }

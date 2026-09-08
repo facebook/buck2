@@ -183,7 +183,7 @@ mod tests {
         assert!(
             restored
                 .0
-                .matches_dyn(const_frozen_string!("hi").to_value())
+                .matches_dyn(const_frozen_string!("hi").at().to_value())
         );
         assert!(!restored.0.matches_dyn(Value::new_bool(true)));
     }
@@ -213,7 +213,11 @@ mod tests {
         let b = TypeMatcherBox::new(IsAnyOfTwo(IsNone, IsStr));
         let restored = round_trip(&b);
         assert!(restored.0.matches_dyn(Value::new_none()));
-        assert!(restored.0.matches_dyn(const_frozen_string!("x").to_value()));
+        assert!(
+            restored
+                .0
+                .matches_dyn(const_frozen_string!("x").at().to_value())
+        );
         assert!(!restored.0.matches_dyn(Value::new_bool(false)));
     }
 
@@ -234,7 +238,7 @@ mod tests {
 
         // a matches string, not int; b matches int, not string.
         Heap::temp(|heap| {
-            let str_val = const_frozen_string!("hi").to_value();
+            let str_val = const_frozen_string!("hi").at().to_value();
             let int_val = heap.alloc(42i32);
             assert!(restored_a.0.matches_dyn(str_val));
             assert!(!restored_a.0.matches_dyn(int_val));

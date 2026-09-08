@@ -21,14 +21,15 @@ use std::mem;
 use std::ptr;
 use std::sync::atomic::AtomicU32;
 
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::StringValue;
+use crate::values::Value;
 use crate::values::layout::avalues::str_::VALUE_STR_A_VALUE_PTR;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::string::str_type::StarlarkStrN;
 
-/// A constant string that can be converted to a [`FrozenValue`].
+/// A constant string that can be converted to a [`StringValue`].
 ///
 /// **Note** `N` is length in words, not length in bytes.
 #[repr(C)] // Must match this layout on the heap
@@ -80,8 +81,8 @@ impl<const N: usize> StarlarkStrNRepr<N> {
         }
     }
 
-    /// Obtain the [`FrozenValue`] for a [`StarlarkStrNRepr`].
-    pub fn unpack(&'static self) -> FrozenValue {
+    /// The string as a [`FrozenValue`], for the pagable static registry.
+    pub fn to_frozen_value(&'static self) -> FrozenValue {
         // The value is reached by casting the tagged integer inside `FrozenValue` back to a
         // pointer, and `StarlarkStr::get_hash` writes the memoised hash through it. Expose the
         // whole object, because the header alone is neither large enough nor writable.
@@ -89,9 +90,13 @@ impl<const N: usize> StarlarkStrNRepr<N> {
         FrozenValue::new_ptr(&self.repr.header, true)
     }
 
-    /// Erase the type parameter, giving a slightly nicer user experience.
-    pub fn erase(&'static self) -> FrozenStringValue {
-        unsafe { FrozenStringValue::new_unchecked(self.unpack()) }
+    /// The string, with the type parameter erased.
+    ///
+    /// A static is immortal, which is what the `'static` brand means; use
+    /// [`at`](StringValue::at) to bring it to the brand of the heap in use.
+    pub fn erase(&'static self) -> StringValue<'static> {
+        // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
+        unsafe { StringValue::new_unchecked(Value::new_frozen(self.to_frozen_value())) }
     }
 }
 
@@ -99,7 +104,7 @@ pub(crate) static VALUE_EMPTY_STRING: StarlarkStrNRepr<0> = StarlarkStrNRepr::ne
 
 #[doc(hidden)] // Use `const_frozen_string!` macro instead.
 #[inline(always)]
-pub fn constant_string(x: &str) -> Option<FrozenStringValue> {
+pub fn constant_string(x: &str) -> Option<StringValue<'static>> {
     if x.len() > 1 {
         None
     } else if x.is_empty() {

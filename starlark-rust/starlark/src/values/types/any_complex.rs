@@ -282,7 +282,7 @@ mod tests {
             }));
 
             assert_eq!(
-                const_frozen_string!("aaa"),
+                const_frozen_string!("aaa").at(),
                 StarlarkAnyComplex::<UnfrozenData>::get_err(data)
                     .unwrap()
                     .string

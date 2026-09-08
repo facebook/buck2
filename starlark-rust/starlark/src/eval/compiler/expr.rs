@@ -958,21 +958,29 @@ impl ExprCompiled {
     pub(crate) fn typ(span: FrameSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
         match &v.node {
             ExprCompiled::Value(v) => {
-                ExprCompiled::Value(v.to_value().get_type_value().to_frozen_value())
+                ExprCompiled::Value(v.to_value().get_type_value().to_frozen().to_frozen_value())
             }
             ExprCompiled::Tuple(xs) if xs.iter().all(|e| e.is_pure_infallible()) => {
-                ExprCompiled::Value(Tuple::get_type_value_static().to_frozen_value())
+                ExprCompiled::Value(Tuple::get_type_value_static().to_frozen().to_frozen_value())
             }
             ExprCompiled::List(xs) if xs.iter().all(|e| e.is_pure_infallible()) => {
-                ExprCompiled::Value(ListData::get_type_value_static().to_frozen_value())
+                ExprCompiled::Value(
+                    ListData::get_type_value_static()
+                        .to_frozen()
+                        .to_frozen_value(),
+                )
             }
             ExprCompiled::Dict(xs) if xs.is_empty() => {
-                ExprCompiled::Value(Dict::get_type_value_static().to_frozen_value())
+                ExprCompiled::Value(Dict::get_type_value_static().to_frozen().to_frozen_value())
             }
             ExprCompiled::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), x)
                 if x.is_pure_infallible() =>
             {
-                ExprCompiled::Value(StarlarkBool::get_type_value_static().to_frozen_value())
+                ExprCompiled::Value(
+                    StarlarkBool::get_type_value_static()
+                        .to_frozen()
+                        .to_frozen_value(),
+                )
             }
             _ => ExprCompiled::Call(Box::new(IrSpanned {
                 span,

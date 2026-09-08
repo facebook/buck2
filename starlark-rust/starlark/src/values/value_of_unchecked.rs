@@ -206,8 +206,8 @@ mod tests {
 
     #[test]
     fn test_cast_example() {
-        let a =
-            ValueOfUnchecked::<String>::new_checked(const_frozen_string!("a").to_value()).unwrap();
+        let a = ValueOfUnchecked::<String>::new_checked(const_frozen_string!("a").at().to_value())
+            .unwrap();
         let _b: ValueOfUnchecked<&str> = a.cast();
     }
 

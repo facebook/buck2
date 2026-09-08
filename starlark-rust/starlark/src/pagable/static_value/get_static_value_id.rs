@@ -128,21 +128,21 @@ mod tests {
     #[test]
     fn test_empty_string_has_id() {
         let empty = constant_string("").unwrap();
-        let id = get_static_value_id(empty.to_frozen_value());
+        let id = get_static_value_id(empty.to_frozen().to_frozen_value());
         assert!(id.is_some(), "empty string should be registered");
     }
 
     #[test]
     fn test_single_char_has_id() {
         let a = constant_string("a").unwrap();
-        let id = get_static_value_id(a.to_frozen_value());
+        let id = get_static_value_id(a.to_frozen().to_frozen_value());
         assert!(id.is_some(), "'a' should be registered");
     }
 
     #[test]
     fn test_multi_char_string_is_registered() {
         let s = const_frozen_string!("hello");
-        let id = get_static_value_id(s.to_frozen_value());
+        let id = get_static_value_id(s.to_frozen().to_frozen_value());
         assert!(id.is_some(), "const_frozen_string! should be registered");
     }
 
@@ -152,7 +152,7 @@ mod tests {
             let bytes = [i];
             let s = std::str::from_utf8(&bytes).unwrap();
             let fv = constant_string(s).unwrap();
-            let id = get_static_value_id(fv.to_frozen_value());
+            let id = get_static_value_id(fv.to_frozen().to_frozen_value());
             assert!(id.is_some(), "ASCII char {} should be registered", i);
         }
     }
@@ -162,13 +162,13 @@ mod tests {
         let mut ids = std::collections::HashSet::new();
         // empty string
         let empty = constant_string("").unwrap();
-        ids.insert(get_static_value_id(empty.to_frozen_value()).unwrap());
+        ids.insert(get_static_value_id(empty.to_frozen().to_frozen_value()).unwrap());
         // all 128 ASCII chars
         for i in 0u8..128 {
             let bytes = [i];
             let s = std::str::from_utf8(&bytes).unwrap();
             let fv = constant_string(s).unwrap();
-            ids.insert(get_static_value_id(fv.to_frozen_value()).unwrap());
+            ids.insert(get_static_value_id(fv.to_frozen().to_frozen_value()).unwrap());
         }
         assert_eq!(
             ids.len(),
@@ -181,8 +181,8 @@ mod tests {
     fn test_determinism() {
         let a1 = constant_string("a").unwrap();
         let a2 = constant_string("a").unwrap();
-        let id1 = get_static_value_id(a1.to_frozen_value());
-        let id2 = get_static_value_id(a2.to_frozen_value());
+        let id1 = get_static_value_id(a1.to_frozen().to_frozen_value());
+        let id2 = get_static_value_id(a2.to_frozen().to_frozen_value());
         assert_eq!(id1, id2, "same value should produce same ID");
     }
 
@@ -209,7 +209,9 @@ mod tests {
 
     #[test]
     fn test_singleton_empty_tuple_is_registered() {
-        let empty_tuple = FrozenValue::new_empty_tuple();
+        use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
+
+        let empty_tuple = VALUE_EMPTY_TUPLE.to_frozen_value();
         let id = get_static_value_id(empty_tuple);
         assert!(id.is_some(), "empty tuple should be registered");
     }
@@ -218,7 +220,7 @@ mod tests {
     fn test_singleton_empty_array_is_registered() {
         use crate::values::types::array::VALUE_EMPTY_ARRAY;
 
-        let empty_array = VALUE_EMPTY_ARRAY.unpack().to_frozen_value();
+        let empty_array = VALUE_EMPTY_ARRAY.unpack().to_frozen().to_frozen_value();
         let id = get_static_value_id(empty_array);
         assert!(id.is_some(), "empty array should be registered");
     }

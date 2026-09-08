@@ -155,7 +155,7 @@ impl<'v> Compiler<'v, '_, '_, '_, '_> {
         expr: Spanned<TypeExprUnpackP<CstPayload>>,
     ) -> Result<Value<'v>, EvalException> {
         match expr.node {
-            TypeExprUnpackP::Ellipsis => Ok(Ellipsis::new_value().to_value()),
+            TypeExprUnpackP::Ellipsis => Ok(Ellipsis::new_value()),
             TypeExprUnpackP::List(items) => {
                 let values: Vec<_> = items
                     .into_iter()

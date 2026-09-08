@@ -70,7 +70,7 @@ static_starlark_value!(ANY: TypingAny = TypingAny);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingAny {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        ANY.to_frozen_value().to_value()
+        ANY.at().to_value()
     }
 }
 

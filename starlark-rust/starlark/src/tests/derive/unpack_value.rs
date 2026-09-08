@@ -85,7 +85,7 @@ fn test_unpack_value() {
     );
     assert_eq!(
         Some(IntOrStr::Str("abc".to_owned())),
-        IntOrStr::unpack_value(const_frozen_string!("abc").to_value()).unwrap(),
+        IntOrStr::unpack_value(const_frozen_string!("abc").at().to_value()).unwrap(),
     );
 
     assert_eq!(
@@ -95,7 +95,7 @@ fn test_unpack_value() {
 
     assert_eq!(
         Some(WithLifetime::Str("def")),
-        WithLifetime::unpack_value(const_frozen_string!("def").to_value()).unwrap(),
+        WithLifetime::unpack_value(const_frozen_string!("def").at().to_value()).unwrap(),
     );
 
     assert_eq!(

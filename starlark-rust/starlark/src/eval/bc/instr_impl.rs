@@ -864,7 +864,7 @@ pub(crate) type InstrType = InstrUnOp<InstrTypeImpl>;
 impl InstrUnOpImpl for InstrTypeImpl {
     #[inline(always)]
     fn eval<'v>(v: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
-        Ok(v.get_type_value().to_frozen_value().to_value())
+        Ok(v.get_type_value().at().to_value())
     }
 }
 
@@ -1160,7 +1160,7 @@ impl InstrNoFlowImpl for InstrCheckTypeImpl {
         };
         let res = ty.check_type(expr, None);
         if let Some(start) = start {
-            let name = const_frozen_string!("assignment");
+            let name = const_frozen_string!("assignment").to_frozen();
             eval.typecheck_profile.add(name, start.elapsed());
         }
         res

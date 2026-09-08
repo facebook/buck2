@@ -130,7 +130,7 @@ static_starlark_value!(CALLABLE: TypingCallable = TypingCallable);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingCallable {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        CALLABLE.to_frozen_value().to_value()
+        CALLABLE.at().to_value()
     }
 }
 

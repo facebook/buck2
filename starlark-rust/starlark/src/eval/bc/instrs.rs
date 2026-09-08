@@ -113,7 +113,7 @@ fn empty_instrs() -> &'static [u64] {
             arg: BcInstrEndArg {
                 end_addr: BcAddr(0),
                 slow_args: Vec::new(),
-                local_names: VALUE_EMPTY_LOCAL_NAMES.unpack(),
+                local_names: VALUE_EMPTY_LOCAL_NAMES.unpack_frozen(),
             },
             _align: [],
         });
@@ -568,7 +568,8 @@ mod tests {
     #[test]
     fn display() {
         FrozenHeap::temp(|heap| {
-            let local_names = heap.alloc_any_array_value(&[const_frozen_string!("abc")]);
+            let local_names =
+                heap.alloc_any_array_value(&[const_frozen_string!("abc").to_frozen()]);
             let mut bc = BcInstrsWriter::new();
             bc.write::<InstrConst>((FrozenValue::new_bool(true), BcSlot(0).to_out()));
             bc.write::<InstrReturn>(BcSlot(0).to_in());

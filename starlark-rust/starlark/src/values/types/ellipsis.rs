@@ -25,7 +25,6 @@ use crate as starlark;
 use crate::static_starlark_value;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 
@@ -46,14 +45,14 @@ static_starlark_value!(pub(crate) VALUE_ELLIPSIS: Ellipsis = Ellipsis);
 impl<'v> StarlarkValue<'v> for Ellipsis {}
 
 impl Ellipsis {
-    pub(crate) fn new_value() -> FrozenValue {
-        VALUE_ELLIPSIS.to_frozen_value()
+    pub(crate) fn new_value<'v>() -> Value<'v> {
+        VALUE_ELLIPSIS.at().to_value()
     }
 }
 
 impl<'fv> AllocFrozenValue<'fv> for Ellipsis {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        Ellipsis::new_value().to_value()
+        Ellipsis::new_value()
     }
 }
 

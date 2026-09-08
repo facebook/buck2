@@ -791,7 +791,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.time_flame_profile
-            .record_call_enter(const_frozen_string!("trace/walk").to_value());
+            .record_call_enter(const_frozen_string!("trace/walk").at().to_value());
         self.module_env.trace(tracer);
         self.current_frame.trace(tracer);
         for frame in &mut self.frame_stack {
@@ -801,8 +801,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         }
         self.call_stack.trace(tracer);
         self.time_flame_profile.record_call_exit();
-        self.time_flame_profile
-            .record_call_enter(const_frozen_string!("trace/walk (profiling)").to_value());
+        self.time_flame_profile.record_call_enter(
+            const_frozen_string!("trace/walk (profiling)")
+                .at()
+                .to_value(),
+        );
         self.time_flame_profile.trace(tracer);
         self.time_flame_profile.record_call_exit();
     }
@@ -824,7 +827,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                 .before_stmt(rust_loc!().span.file_span_ref());
 
             self.time_flame_profile
-                .record_call_enter(const_frozen_string!("GC").to_value());
+                .record_call_enter(const_frozen_string!("GC").at().to_value());
 
             // Garbage collection does two time-consuming tasks:
             // 1. It calls the closure we provide here to trace the existing
@@ -845,7 +848,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                 // self.heap() lets it auto-drop on return from the
                 // .garbage_collect()
                 self.time_flame_profile
-                    .record_call_enter(const_frozen_string!("cleanup").to_value());
+                    .record_call_enter(const_frozen_string!("cleanup").at().to_value());
             });
             // This exists the "cleanup" in the closure above
             self.time_flame_profile.record_call_exit();

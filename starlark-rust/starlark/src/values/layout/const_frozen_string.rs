@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-/// Create a [`FrozenStringValue`](crate::values::FrozenStringValue).
+/// Create a [`StringValue<'static>`](crate::values::StringValue) from a string literal.
+///
+/// The string is a static, which is what the `'static` brand means; use
+/// [`at`](crate::values::StringValue::at) to bring it to the brand of the heap in use.
 ///
 /// Multi-char strings created by this macro are automatically registered
 /// for pagable serialization using the inventory crate.
@@ -42,7 +45,7 @@ macro_rules! const_frozen_string {
                 $crate::__derive_refs::StaticValueEntry::new(
                     file!(),
                     line!(),
-                    || X.erase().to_frozen_value()
+                    || X.to_frozen_value()
                 )
             }
 

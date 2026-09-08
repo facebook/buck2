@@ -17,7 +17,6 @@ use starlark::static_starlark_value;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -41,19 +40,15 @@ impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
 
 static_starlark_value!(STARLARK_PROJECT_ROOT: StarlarkProjectRoot = StarlarkProjectRoot);
 
-fn instance() -> FrozenValue {
-    STARLARK_PROJECT_ROOT.to_frozen_value()
-}
-
 impl<'v> AllocValue<'v> for StarlarkProjectRoot {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        instance().to_value()
+        STARLARK_PROJECT_ROOT.at().to_value()
     }
 }
 
 impl<'fv> AllocFrozenValue<'fv> for StarlarkProjectRoot {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        instance().to_value()
+        STARLARK_PROJECT_ROOT.at().to_value()
     }
 }
 

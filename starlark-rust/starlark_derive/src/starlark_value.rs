@@ -232,7 +232,7 @@ impl ImplStarlarkValue {
         let typ = &self.attrs.typ;
         syn::parse2(quote! {
             #[inline]
-            fn get_type_value_static() -> starlark::values::FrozenStringValue {
+            fn get_type_value_static() -> starlark::values::StringValue<'static> {
                 starlark::const_frozen_string!(#typ)
             }
         })

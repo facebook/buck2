@@ -170,10 +170,6 @@ static_starlark_value!(EMPTY_PROVIDER_COLLECTION: FrozenProviderCollection = Fro
     providers: SmallMap::new(),
 });
 
-fn empty_provider_collection_value() -> FrozenValueTyped<'static, FrozenProviderCollection> {
-    EMPTY_PROVIDER_COLLECTION.unpack()
-}
-
 /// Type of a frozen provider collection.
 pub type FrozenProviderCollection = ProviderCollection<'static>;
 
@@ -183,7 +179,7 @@ pub type FrozenProviderCollection = ProviderCollection<'static>;
 impl<'v> AllocValue<'v> for ProviderCollection<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         if self.providers.is_empty() {
-            empty_provider_collection_value().to_value()
+            EMPTY_PROVIDER_COLLECTION.at().to_value()
         } else {
             heap.alloc_complex_branded(self)
         }
@@ -193,7 +189,7 @@ impl<'v> AllocValue<'v> for ProviderCollection<'v> {
 impl<'fv> AllocFrozenValue<'fv> for ProviderCollection<'fv> {
     fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
         if self.providers.is_empty() {
-            empty_provider_collection_value().to_value()
+            EMPTY_PROVIDER_COLLECTION.at().to_value()
         } else {
             heap.alloc_simple_typed(self).to_value()
         }

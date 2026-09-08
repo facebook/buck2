@@ -91,7 +91,7 @@ static_starlark_value!(ITERABLE: TypingIterable = TypingIterable);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingIterable {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        ITERABLE.to_frozen_value().to_value()
+        ITERABLE.at().to_value()
     }
 }
 

@@ -17,6 +17,8 @@
 
 use std::marker::PhantomData;
 
+use crate::any::IsStaticType;
+use crate::any::ReinfectStatic;
 use crate::pagable::StaticValueRegistered;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -92,15 +94,26 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
         ))
     }
 
-    /// Get the value.
-    pub fn unpack(&'static self) -> FrozenValueTyped<'static, T> {
+    /// The value.
+    ///
+    /// A static is immortal, which is what the `'static` brand means; [`at`](AllocStaticSimple::at)
+    /// brings it to the brand of the heap in use.
+    pub fn unpack(&'static self) -> ValueTyped<'static, T> {
+        ValueTyped::new_static_repr(&self.0)
+    }
+
+    /// The value as a typed frozen handle.
+    ///
+    /// For the compiler's IR and the `FrozenValueTyped<'static, _>` family, which still name
+    /// statics as frozen handles.
+    pub(crate) fn unpack_frozen(&'static self) -> FrozenValueTyped<'static, T> {
         let _ = std::ptr::from_ref(&self.0).expose_provenance();
         FrozenValueTyped::new_repr(&self.0)
     }
 
-    /// Get the value.
+    /// The value as a [`FrozenValue`], for the pagable static registry and the freezer.
     pub fn to_frozen_value(&'static self) -> FrozenValue {
-        self.unpack().to_frozen_value()
+        self.unpack_frozen().to_frozen_value()
     }
 
     /// Get a reference to the payload value.
@@ -109,20 +122,25 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     }
 }
 
-impl<T: for<'lt> StarlarkValue<'lt>> AllocStaticSimple<T> {
+impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     /// The value, usable with any heap.
     ///
     /// A static is immortal, so it can be used at every brand, see
     /// [`HeapEdge::immortal`](crate::values::HeapEdge::immortal); `&'static self` is the proof.
-    pub fn at<'v>(&'static self) -> ValueTyped<'v, T> {
-        ValueTyped::new_static_repr(&self.0)
+    /// The type follows the brand, see [`ValueTyped::at`].
+    pub fn at<'v>(&'static self) -> ValueTyped<'v, ReinfectStatic<'v, T>>
+    where
+        T::StaticType: StarlarkValue<'static> + IsStaticType + Sized,
+        for<'lt> ReinfectStatic<'lt, T>: StarlarkValue<'lt> + Sized,
+    {
+        self.unpack().at()
     }
 }
 
 impl<T: StarlarkAnyRegistered> AllocStaticSimple<StarlarkAny<T>> {
     /// Unpack as a [`FrozenAnyValue`], providing direct access to the inner `T`.
     pub fn unpack_any(&'static self) -> FrozenAnyValue<T> {
-        FrozenAnyValue::from_typed(self.unpack())
+        FrozenAnyValue::from_typed(self.unpack_frozen())
     }
 }
 

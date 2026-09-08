@@ -32,10 +32,10 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -45,7 +45,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::unconfigured_attribute::CoercedAttrExt;
 
-type SelectDictKey = Either<StarlarkProvidersLabel, FrozenStringValue>;
+type SelectDictKey<'v> = Either<StarlarkProvidersLabel, StringValue<'v>>;
 
 #[derive(
     ProvidesStaticType,
@@ -140,13 +140,13 @@ impl<'v> StarlarkValue<'v> for StarlarkSelectDict {
 }
 
 #[inline(always)]
-fn key_to_starlark_type(key: &CoercedSelectorKeyRef) -> SelectDictKey {
+fn key_to_starlark_type<'v>(key: &CoercedSelectorKeyRef) -> SelectDictKey<'v> {
     match key {
         CoercedSelectorKeyRef::Target(configuration_setting_key) => Either::Left(
             StarlarkProvidersLabel::new(configuration_setting_key.0.dupe()),
         ),
         CoercedSelectorKeyRef::Default => {
-            Either::Right(const_frozen_string!(CoercedSelectorKeyRef::DEFAULT_KEY_STR))
+            Either::Right(const_frozen_string!(CoercedSelectorKeyRef::DEFAULT_KEY_STR).at())
         }
     }
 }
@@ -183,7 +183,7 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     fn select_items<'v>(
         this: &'v StarlarkSelectDict,
         heap: Heap<'v>,
-    ) -> starlark::Result<Vec<(SelectDictKey, Value<'v>)>> {
+    ) -> starlark::Result<Vec<(SelectDictKey<'v>, Value<'v>)>> {
         let items: Vec<(SelectDictKey, Value)> = this
             .selector
             .all_entries()
@@ -206,7 +206,7 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     ///     for key in attr.select_keys():
     ///         ctx.output.print(key)
     /// ```
-    fn select_keys<'v>(this: &'v StarlarkSelectDict) -> starlark::Result<Vec<SelectDictKey>> {
+    fn select_keys<'v>(this: &'v StarlarkSelectDict) -> starlark::Result<Vec<SelectDictKey<'v>>> {
         let keys = this
             .selector
             .all_entries()

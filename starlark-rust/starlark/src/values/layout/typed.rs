@@ -37,7 +37,9 @@ use starlark_map::Hashed;
 
 use crate as starlark;
 use crate::any::AnyLifetime;
+use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
+use crate::any::ReinfectStatic;
 use crate::cast;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
@@ -54,6 +56,7 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueOfUnchecked;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::StringValueLike;
@@ -245,6 +248,32 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     #[inline]
     pub fn to_value_of_unchecked(self) -> ValueOfUnchecked<'v, T> {
         ValueOfUnchecked::new(self.to_value())
+    }
+}
+
+impl<T: StarlarkValue<'static>> ValueTyped<'static, T> {
+    /// The value, for use with any heap.
+    ///
+    /// Data at the `'static` brand is immortal, so it can be used at every brand; see
+    /// [`HeapEdge::immortal`]. The type follows the brand: a `ValueTyped<'static, Tuple<'static>>`
+    /// becomes a `ValueTyped<'v, Tuple<'v>>`.
+    #[inline]
+    pub fn at<'v>(self) -> ValueTyped<'v, ReinfectStatic<'v, T>>
+    where
+        T::StaticType: StarlarkValue<'static> + IsStaticType + Sized,
+        for<'lt> ReinfectStatic<'lt, T>: StarlarkValue<'lt> + Sized,
+    {
+        HeapEdge::immortal().rebrand(self)
+    }
+
+    /// The value as a frozen handle.
+    ///
+    /// For the compiler's IR and the `FrozenValueTyped<'static, _>` family, which still name
+    /// immortal values as frozen handles; everything else should stay at the brand.
+    #[inline]
+    pub(crate) fn to_frozen(self) -> FrozenValueTyped<'static, T> {
+        self.unpack_frozen()
+            .expect("data at the `'static` brand is immortal, and immortal data is frozen")
     }
 }
 

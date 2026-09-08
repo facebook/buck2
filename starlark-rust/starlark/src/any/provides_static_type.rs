@@ -54,6 +54,10 @@ pub trait IsStaticType: 'static {
     type Reinfect<'lt>: ?Sized + ProvidesStaticType<'lt, StaticType = Self>;
 }
 
+/// `T`, which is at the `'static` brand, with `'lt` injected in its place.
+pub type ReinfectStatic<'lt, T> =
+    <<T as ProvidesStaticType<'static>>::StaticType as IsStaticType>::Reinfect<'lt>;
+
 #[cfg(test)]
 mod tests {
     use crate as starlark;

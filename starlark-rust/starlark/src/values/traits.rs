@@ -55,9 +55,9 @@ use crate::typing::TypingBinOp;
 use crate::typing::starlark_value::HasTyVTable;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::demand::Demand;
@@ -133,13 +133,15 @@ pub trait StarlarkValue<'v>:
     /// proc macro.
     const TYPE: &'static str;
 
-    /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
-    /// pointer to it. This function deliberately doesn't take a heap,
-    /// as it would not be performant to allocate a new value each time.
+    /// Like [`TYPE`](Self::TYPE), but returns a reusable [`StringValue`] pointer to it. The
+    /// string is a static, which is what the `'static` brand means; use
+    /// [`at`](StringValue::at) to bring it to the brand of the heap in use. This function
+    /// deliberately doesn't take a heap, as it would not be performant to allocate a new value
+    /// each time.
     ///
     /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
     /// proc macro.
-    fn get_type_value_static() -> FrozenStringValue {
+    fn get_type_value_static() -> StringValue<'static> {
         panic!("This function is implemented by #[starlark_value] proc macro")
     }
 

@@ -24,4 +24,5 @@ mod provides_static_type;
 pub use any_lifetime::AnyLifetime;
 pub use provides_static_type::IsStaticType;
 pub use provides_static_type::ProvidesStaticType;
+pub use provides_static_type::ReinfectStatic;
 pub use starlark_derive::ProvidesStaticType;

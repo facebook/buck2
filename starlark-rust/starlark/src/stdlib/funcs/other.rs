@@ -26,8 +26,8 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::AllocValue;
-use crate::values::FrozenStringValue;
 use crate::values::Heap;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
@@ -390,8 +390,8 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(speculative_exec_safe, as_type = AbstractType)]
-    fn r#type<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<FrozenStringValue> {
-        Ok(a.get_type_value())
+    fn r#type<'v>(#[starlark(require = pos)] a: Value) -> anyhow::Result<StringValue<'v>> {
+        Ok(a.get_type_value().at())
     }
 }
 

@@ -44,23 +44,22 @@ use crate::values::string::str_type::StarlarkStr;
 ///
 /// We use `FrozenValueTyped<StarlarkStr>` often, but also we define more operations
 /// on `FrozenValueTyped<StarlarkStr>` than on generic `FrozenValueTyped<T>`.
-///
-/// Note there's a macro `const_frozen_string!` to statically allocate `FrozenStringValue`:
-///
-/// ```
-/// use starlark::const_frozen_string;
-/// use starlark::values::FrozenStringValue;
-/// use starlark::values::FrozenValue;
-///
-/// let fv: FrozenStringValue = const_frozen_string!("magic");
-/// assert_eq!("magic", fv.as_str());
-/// ```
 pub type FrozenStringValue = FrozenValueTyped<'static, StarlarkStr>;
 
 /// Convenient type alias.
 ///
 /// We use `ValueTyped<StarlarkStr>` often, but also we define more operations
 /// on `ValueTyped<StarlarkStr>` than on generic `ValueTyped<T>`.
+///
+/// Note there's a macro `const_frozen_string!` to statically allocate a `StringValue<'static>`:
+///
+/// ```
+/// use starlark::const_frozen_string;
+/// use starlark::values::StringValue;
+///
+/// let s: StringValue<'static> = const_frozen_string!("magic");
+/// assert_eq!("magic", s.as_str());
+/// ```
 pub type StringValue<'v> = ValueTyped<'v, StarlarkStr>;
 
 // TODO(nga): figure out how to make these operations generic over `T`.
@@ -93,13 +92,13 @@ impl<'v> Equivalent<StringValue<'v>> for FrozenStringValue {
 
 impl<'v> Default for StringValue<'v> {
     fn default() -> Self {
-        FrozenStringValue::default().to_string_value()
+        VALUE_EMPTY_STRING.erase().at()
     }
 }
 
 impl Default for FrozenStringValue {
     fn default() -> Self {
-        VALUE_EMPTY_STRING.erase()
+        VALUE_EMPTY_STRING.erase().to_frozen()
     }
 }
 

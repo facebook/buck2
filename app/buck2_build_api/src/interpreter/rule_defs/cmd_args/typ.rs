@@ -557,7 +557,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
             options,
         } = &*self.0.borrow();
         if items.is_empty() && hidden.is_empty() && options.is_none() {
-            Some(Ok(EMPTY_FROZEN_CMD_ARGS.unpack().to_frozen_value()))
+            Some(Ok(EMPTY_FROZEN_CMD_ARGS.to_frozen_value()))
         } else {
             None
         }

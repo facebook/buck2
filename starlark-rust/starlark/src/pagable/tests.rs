@@ -70,6 +70,7 @@ use crate::values::layout::typed::AtomicValueTypedOption;
 use crate::values::list::AllocList;
 use crate::values::list::globals::register_list;
 use crate::values::tuple::AllocTuple;
+use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::types::any_array::AnyArrayRegistered;
 use crate::values::types::any_array::FrozenAnyArray;
 
@@ -1796,8 +1797,10 @@ fn test_static_frozen_value_round_trip() -> crate::Result<()> {
     let none_fv = FrozenValue::new_none();
     let true_fv = FrozenValue::new_bool(true);
     let false_fv = FrozenValue::new_bool(false);
-    let empty_tuple_fv = FrozenValue::new_empty_tuple();
-    let static_str_fv = const_frozen_string!("static_test_str").to_frozen_value();
+    let empty_tuple_fv = VALUE_EMPTY_TUPLE.to_frozen_value();
+    let static_str_fv = const_frozen_string!("static_test_str")
+        .to_frozen()
+        .to_frozen_value();
 
     let r0 = heap.alloc_simple(RefData {
         label: 1,
@@ -2522,7 +2525,7 @@ fn test_type_compiled_impl_with_is_str_round_trip() -> crate::Result<()> {
     assert_eq!(got.ty_for_test(), &original_ty);
     assert!(
         got.impl_for_test()
-            .matches(const_frozen_string!("hi").to_value())
+            .matches(const_frozen_string!("hi").at().to_value())
     );
     assert!(
         !got.impl_for_test()
@@ -2560,7 +2563,7 @@ fn test_type_compiled_impl_with_is_int_round_trip() -> crate::Result<()> {
     );
     assert!(
         !got.impl_for_test()
-            .matches(const_frozen_string!("x").to_value())
+            .matches(const_frozen_string!("x").at().to_value())
     );
 
     Ok(())
@@ -2595,7 +2598,7 @@ fn test_type_compiled_impl_with_is_any_of_round_trip() -> crate::Result<()> {
     assert_eq!(got.impl_for_test().0.len(), 2);
     assert!(
         got.impl_for_test()
-            .matches(const_frozen_string!("s").to_value())
+            .matches(const_frozen_string!("s").at().to_value())
     );
     assert!(
         got.impl_for_test()

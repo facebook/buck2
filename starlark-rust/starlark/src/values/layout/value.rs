@@ -283,48 +283,50 @@ impl<'v> Value<'v> {
     /// Create a new `None` value.
     #[inline]
     pub fn new_none() -> Self {
-        FrozenValue::new_none().to_value()
+        VALUE_NONE.at().to_value()
     }
 
     /// Create a new boolean.
     #[inline]
     pub fn new_bool(x: bool) -> Self {
-        FrozenValue::new_bool(x).to_value()
+        // Implemented by indexing into a static so that
+        // the compiler makes this function branchless.
+        VALUE_FALSE_TRUE[x as usize].at().to_value()
     }
 
     /// Create a new integer.
     #[inline]
     pub(crate) fn new_int(x: InlineInt) -> Self {
-        FrozenValue::new_int(x).to_value()
+        Self(FrozenPointer::new_int(x).to_pointer())
     }
 
     /// The immutable empty list.
     #[inline]
     pub fn new_empty_list() -> Self {
-        FrozenValue::new_empty_list().to_value()
+        VALUE_EMPTY_FROZEN_LIST.at().to_value()
     }
 
     /// The immutable empty dict.
     #[inline]
     pub fn new_empty_dict() -> Self {
-        FrozenValue::new_empty_dict().to_value()
+        VALUE_EMPTY_FROZEN_DICT.at().to_value()
     }
 
     #[cfg(test)]
     pub(crate) fn testing_new_int(x: i32) -> Self {
-        FrozenValue::testing_new_int(x).to_value()
+        Self::new_int(InlineInt::try_from(x).ok().unwrap())
     }
 
     /// Create a new blank string.
     #[inline]
     pub(crate) fn new_empty_string() -> Self {
-        FrozenValue::new_empty_string().to_value()
+        VALUE_EMPTY_STRING.erase().at().to_value()
     }
 
     /// Create a new empty tuple.
     #[inline]
     pub(crate) fn new_empty_tuple() -> Self {
-        FrozenValue::new_empty_tuple().to_value()
+        VALUE_EMPTY_TUPLE.at().to_value()
     }
 
     /// Turn a [`FrozenValue`] into a [`Value`]. See the safety warnings on
@@ -817,8 +819,9 @@ impl<'v> Value<'v> {
         Ok(())
     }
 
-    /// `type(x)`.
-    pub fn get_type_value(self) -> FrozenStringValue {
+    /// `type(x)`, at the `'static` brand: the type name is a static, see
+    /// [`StarlarkValue::get_type_value_static`].
+    pub fn get_type_value(self) -> StringValue<'static> {
         self.vtable().type_value()
     }
 
@@ -1131,18 +1134,6 @@ impl FrozenValue {
     #[cfg(test)]
     pub(crate) fn testing_new_int(x: i32) -> Self {
         Self::new_int(InlineInt::try_from(x).ok().unwrap())
-    }
-
-    /// Create a new empty string.
-    #[inline]
-    pub(crate) fn new_empty_string() -> Self {
-        VALUE_EMPTY_STRING.unpack()
-    }
-
-    /// Create a new empty tuple.
-    #[inline]
-    pub(crate) fn new_empty_tuple() -> Self {
-        VALUE_EMPTY_TUPLE.to_frozen_value()
     }
 
     /// Create a new empty list.

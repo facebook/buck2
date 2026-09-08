@@ -196,7 +196,7 @@ impl<'fh> FrozenHeap<'fh> {
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return VALUE_EMPTY_FROZEN_LIST.to_frozen_value().to_value();
+                return VALUE_EMPTY_FROZEN_LIST.at().to_value();
             }
 
             unsafe {

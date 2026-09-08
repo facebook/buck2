@@ -47,10 +47,10 @@ use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -307,7 +307,7 @@ impl<'v> ListData<'v> {
     pub const TYPE: &'static str = "list";
 
     /// Type of list as frozen string value.
-    pub fn get_type_value_static() -> FrozenStringValue {
+    pub fn get_type_value_static() -> StringValue<'static> {
         ListGen::<FrozenListData>::get_type_value_static()
     }
 

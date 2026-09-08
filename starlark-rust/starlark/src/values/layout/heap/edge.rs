@@ -81,16 +81,24 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
 impl<'v> HeapEdge<'v, 'static> {
     /// The dependency of every heap on the `'static` brand.
     ///
-    /// The only data at the `'static` brand is immortal: statics ([`AllocStaticSimple`]) and the
-    /// [`Methods`] tables reached through `&'static Methods`. Nothing keeps it alive because
-    /// nothing needs to, and the frozen bit already makes the garbage collector skip it, so every
-    /// heap trivially depends on it and the edge can be minted anywhere.
+    /// The only data at the `'static` brand is immortal: statics ([`AllocStaticSimple`],
+    /// [`const_frozen_string!`]) and the [`Methods`] tables reached through `&'static Methods`.
+    /// Nothing keeps it alive because nothing needs to, and the frozen bit already makes the
+    /// garbage collector skip it, so every heap trivially depends on it and the edge can be minted
+    /// anywhere.
+    ///
+    /// Such data is brought to the brand of the heap in use by spelling `at()`
+    /// ([`AllocStaticSimple::at`], [`ValueTyped::at`]), which is this edge's
+    /// [`rebrand`](HeapEdge::rebrand) behind a name.
     ///
     /// Like the other minters, this is sound in the end state. `FrozenValue::to_value` and the
     /// typed `'static` handles can today produce `'static`-branded values that are not immortal;
     /// see "The `FrozenValue` hole" in the `branding` module.
     ///
     /// [`AllocStaticSimple`]: crate::values::AllocStaticSimple
+    /// [`AllocStaticSimple::at`]: crate::values::AllocStaticSimple::at
+    /// [`ValueTyped::at`]: crate::values::ValueTyped::at
+    /// [`const_frozen_string!`]: crate::const_frozen_string
     /// [`Methods`]: crate::environment::Methods
     pub fn immortal() -> Self {
         // SAFETY: `'static` is a brand: no stack data can be borrowed at it, so a `'static`-branded
@@ -103,14 +111,19 @@ impl<'v> HeapEdge<'v, 'static> {
 
 #[cfg(test)]
 mod tests {
+    use crate::const_frozen_string;
     use crate::values::AllocStaticSimple;
     use crate::values::Heap;
+    use crate::values::StringValue;
     use crate::values::Value;
     use crate::values::ValueTyped;
     use crate::values::layout::heap::edge::HeapEdge;
     use crate::values::list::AllocList;
     use crate::values::list::ListRef;
     use crate::values::none::NoneType;
+    use crate::values::tuple::AllocTuple;
+    use crate::values::tuple::value::Tuple;
+    use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
     use crate::values::types::none::none_type::VALUE_NONE;
 
     /// Rebrands a static for the given heap; the heap only serves to name the brand.
@@ -134,5 +147,19 @@ mod tests {
                 assert!(ListRef::from_value(list2).unwrap().content()[0].is_none());
             });
         });
+    }
+
+    /// `at()` carries the type to the brand along with the value.
+    #[test]
+    fn test_at_follows_the_brand() {
+        fn check<'v>(heap: Heap<'v>) {
+            let tuple: ValueTyped<'v, Tuple<'v>> = VALUE_EMPTY_TUPLE.at();
+            assert_eq!(0, tuple.as_ref().len());
+            let name: StringValue<'v> = const_frozen_string!("static string").at();
+            assert_eq!("static string", name.as_str());
+            let both = heap.alloc(AllocTuple([tuple.to_value(), name.to_value()]));
+            assert_eq!("((), \"static string\")", both.to_string());
+        }
+        Heap::temp(check);
     }
 }

@@ -126,7 +126,7 @@ mod tests {
         let f = TypeMatcherFactory::new(IsStr);
         let restored = round_trip(&f);
         let m = restored.factory.matcher_box();
-        assert!(m.0.matches_dyn(const_frozen_string!("hi").to_value()));
+        assert!(m.0.matches_dyn(const_frozen_string!("hi").at().to_value()));
         assert!(!m.0.matches_dyn(Value::new_bool(true)));
     }
 
@@ -140,7 +140,7 @@ mod tests {
         let restored = round_trip(&f);
         let m = restored.factory.matcher_box();
         assert!(m.0.matches_dyn(Value::new_none()));
-        assert!(m.0.matches_dyn(const_frozen_string!("x").to_value()));
+        assert!(m.0.matches_dyn(const_frozen_string!("x").at().to_value()));
         assert!(!m.0.matches_dyn(Value::new_bool(false)));
     }
 

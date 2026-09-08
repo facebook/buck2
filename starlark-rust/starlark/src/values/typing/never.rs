@@ -93,7 +93,7 @@ static_starlark_value!(NEVER: TypingNever = TypingNever);
 
 impl<'fv> AllocFrozenValue<'fv> for TypingNever {
     fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        NEVER.to_frozen_value().to_value()
+        NEVER.at().to_value()
     }
 }
 

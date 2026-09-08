@@ -67,7 +67,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn none(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::none() {
-            TypeCompiled::unchecked_new(TYPE_COMPILED_NONE.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_NONE.at().to_value())
         } else {
             self.alloc(IsNone)
         }
@@ -75,7 +75,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn bool(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::bool() {
-            TypeCompiled::unchecked_new(TYPE_COMPILED_BOOL.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_BOOL.at().to_value())
         } else {
             self.alloc(IsBool)
         }
@@ -83,7 +83,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn int(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::int() {
-            TypeCompiled::unchecked_new(TYPE_COMPILED_INT.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_INT.at().to_value())
         } else {
             self.alloc(IsInt)
         }
@@ -91,7 +91,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn str(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::string() {
-            TypeCompiled::unchecked_new(TYPE_COMPILED_STRING.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_STRING.at().to_value())
         } else {
             self.alloc(IsStr)
         }

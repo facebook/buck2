@@ -659,11 +659,10 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                             return Ok(Ty::any());
                         };
                         let r0 = TypeCompiled::from_ty(&i0, self.heap);
-                        match a.get_ref().at2(
-                            r0.to_inner(),
-                            Ellipsis::new_value().to_value(),
-                            self.heap,
-                        ) {
+                        match a
+                            .get_ref()
+                            .at2(r0.to_inner(), Ellipsis::new_value(), self.heap)
+                        {
                             Ok(t) => match TypeCompiled::new(t, self.heap) {
                                 Ok(ty) => Ok(ty.as_ty().clone()),
                                 Err(_) => {

@@ -25,6 +25,6 @@ use crate::values::layout::static_string::VALUE_BYTE_STRINGS;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 
 pub(super) fn get_static_strings() -> impl Iterator<Item = FrozenValue> {
-    std::iter::once(VALUE_EMPTY_STRING.unpack())
-        .chain(VALUE_BYTE_STRINGS.iter().map(|repr| repr.unpack()))
+    std::iter::once(VALUE_EMPTY_STRING.to_frozen_value())
+        .chain(VALUE_BYTE_STRINGS.iter().map(|repr| repr.to_frozen_value()))
 }

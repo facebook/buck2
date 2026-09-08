@@ -523,7 +523,6 @@ impl<'a> Arguments<'static, 'a> {
 mod tests {
     use super::*;
     use crate::const_frozen_string;
-    use crate::values::StringValueLike;
 
     #[test]
     fn test_parameter_unpack() {
@@ -647,14 +646,8 @@ mod tests {
     #[test]
     fn test_names_map_repeated_name_in_arg_names() {
         let names = vec![
-            (
-                Symbol::new("a"),
-                const_frozen_string!("a").to_string_value(),
-            ),
-            (
-                Symbol::new("a"),
-                const_frozen_string!("a").to_string_value(),
-            ),
+            (Symbol::new("a"), const_frozen_string!("a").at()),
+            (Symbol::new("a"), const_frozen_string!("a").at()),
         ];
         assert!(ArgNames::new_check_unique(&names).is_err());
     }
