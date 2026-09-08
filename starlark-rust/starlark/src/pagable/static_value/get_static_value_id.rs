@@ -227,7 +227,7 @@ mod tests {
         use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
         let type_any = TypeCompiled::any();
-        let id = get_static_value_id(type_any.to_inner().to_value());
+        let id = get_static_value_id(type_any.to_inner());
         assert!(id.is_some(), "TypeCompiled::any() should be registered");
     }
 }

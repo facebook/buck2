@@ -59,7 +59,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn any(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::any() {
-            TypeCompiled::any().to_value()
+            TypeCompiled::any()
         } else {
             self.alloc(IsAny)
         }

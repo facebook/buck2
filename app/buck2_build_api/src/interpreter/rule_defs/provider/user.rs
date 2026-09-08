@@ -34,11 +34,11 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::any::FrozenAnyValue;
 use starlark::values::starlark_value;
 
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
+use crate::interpreter::rule_defs::provider::callable::UserProviderCallableDataValue;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -62,16 +62,15 @@ enum UserProviderError {
     StarlarkPagable
 )]
 pub struct UserProvider<'v> {
-    #[freeze_branded(identity)]
-    pub(crate) callable: FrozenAnyValue<UserProviderCallableData>,
+    pub(crate) callable: UserProviderCallableDataValue<'v>,
     attributes: Box<[Value<'v>]>,
 }
 
 starlark_complex_value_branded!(pub UserProvider);
 
 impl<'v> UserProvider<'v> {
-    pub(crate) fn callable_data(&self) -> &UserProviderCallableData {
-        &self.callable
+    pub(crate) fn callable_data(&self) -> &'v UserProviderCallableData<'v> {
+        &self.callable.as_ref().value
     }
 
     fn iter_items(&self) -> impl Iterator<Item = (&str, Value<'v>)> {
@@ -177,12 +176,12 @@ impl<'v> ProviderLike<'v> for UserProvider<'v> {
 
 /// Creates instances of mutable `UserProvider`s; called from a `NativeFunction`
 pub(crate) fn user_provider_creator<'v>(
-    callable: FrozenAnyValue<UserProviderCallableData>,
+    callable: UserProviderCallableDataValue<'v>,
     eval: &Evaluator<'v, '_, '_>,
     param_parser: &mut ParametersParser<'v, '_>,
 ) -> buck2_error::Result<Value<'v>> {
     let heap = eval.heap();
-    let callable_data: &UserProviderCallableData = &callable;
+    let callable_data: &UserProviderCallableData = &callable.as_ref().value;
     let values = callable_data
         .fields
         .iter()

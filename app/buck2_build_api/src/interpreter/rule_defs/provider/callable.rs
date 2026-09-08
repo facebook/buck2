@@ -41,7 +41,6 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
 use starlark::eval::param_specs;
-use starlark::register_starlark_any;
 use starlark::type_matcher;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
@@ -54,7 +53,6 @@ use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -64,7 +62,8 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::any::FrozenAnyValue;
+use starlark::values::ValueTyped;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -243,17 +242,34 @@ fn create_callable_function_signature<'v>(
 
 /// What provider instances know about their callable: the fields, by name and type. The
 /// defaults live in the callable's signature.
-#[derive(Debug, Allocative, StarlarkPagable)]
-pub(crate) struct UserProviderCallableData {
+///
+/// One copy per provider type, shared by the callable and every instance: allocated in the
+/// module's frozen heap as a `StarlarkAnyComplex` (see [`UserProviderCallableDataValue`]).
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
+pub(crate) struct UserProviderCallableData<'v> {
     #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields:
-        IndexMap<String, TypeCompiled<FrozenValue>, StarlarkHasherSmallPromoteBuilder>,
+    pub(crate) fields: IndexMap<String, TypeCompiled<Value<'v>>, StarlarkHasherSmallPromoteBuilder>,
 }
 
-register_starlark_any!(UserProviderCallableData);
+// Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what lets
+// the handle be a field of values that are.
+impl<'v> FreezeBranded for UserProviderCallableData<'v> {
+    type Frozen<'fv> = UserProviderCallableData<'fv>;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        unreachable!("only allocated in frozen heaps")
+    }
+}
+
+starlark::register_starlark_any_complex!(frozen UserProviderCallableData<'_>);
+
+/// A [`UserProviderCallableData`] as the value it is allocated as, at the brand of the heap that
+/// holds it.
+pub(crate) type UserProviderCallableDataValue<'v> =
+    ValueTyped<'v, StarlarkAnyComplex<UserProviderCallableData<'v>>>;
 
 /// Initialized after the name is assigned to the provider.
 #[derive(Debug, Trace, Allocative, StarlarkPagable)]
@@ -264,7 +280,7 @@ struct UserProviderCallableNamed<'v> {
     id: Arc<ProviderId>,
     signature: ParametersSpec<Value<'v>>,
     /// This field is shared with provider instances.
-    data: FrozenAnyValue<UserProviderCallableData>,
+    data: UserProviderCallableDataValue<'v>,
     /// Type of provider instance.
     #[starlark_pagable(pagable)]
     ty_provider: Ty,
@@ -299,7 +315,7 @@ impl<'v> FreezeBranded for UserProviderCallableNamed<'v> {
         Ok(UserProviderCallableNamed {
             id,
             signature: signature.freeze(freezer)?,
-            data,
+            data: data.freeze(freezer)?,
             ty_provider,
             ty_callable,
         })
@@ -319,8 +335,7 @@ impl<'v> FreezeBranded for UserProviderCallableNamed<'v> {
 )]
 pub(crate) struct UserProviderField<'v> {
     /// Field type.
-    #[freeze_branded(identity)]
-    pub(crate) ty: TypeCompiled<FrozenValue>,
+    pub(crate) ty: TypeCompiled<Value<'v>>,
     /// Default value. If `None`, the field is required. Always immutable, so that instances can
     /// share it.
     pub(crate) default: Option<Value<'v>>,
@@ -539,16 +554,18 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable<'v> {
             buck2_error::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
-                data: eval.frozen_heap(|fh, _| {
-                    fh.alloc_any_value(UserProviderCallableData {
-                        provider_id,
-                        fields: self
-                            .fields
-                            .iter()
-                            .map(|(name, field)| (name.clone(), field.ty.dupe()))
-                            .collect(),
-                        ty_provider_type_instance_id,
-                    })
+                data: eval.frozen_heap(|fh, edge| {
+                    let data =
+                        fh.alloc_simple_typed(StarlarkAnyComplex::new(UserProviderCallableData {
+                            provider_id,
+                            fields: self
+                                .fields
+                                .iter()
+                                .map(|(name, field)| (name.clone(), field.ty.to_frozen(fh)))
+                                .collect(),
+                            ty_provider_type_instance_id,
+                        }));
+                    edge.rebrand(data)
                 }),
                 ty_provider,
                 ty_callable,
@@ -693,9 +710,8 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable<'v> {
 fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
+) -> buck2_error::Result<TypeCompiled<Value<'v>>> {
     TypeCompiled::new(ty, eval.heap())
-        .map(|ty| eval.frozen_heap(|fh, _| ty.to_frozen_unbranded(fh)))
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
 

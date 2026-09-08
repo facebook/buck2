@@ -592,10 +592,10 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 }
 
-impl TypeCompiled<FrozenValue> {
+impl<'v> TypeCompiled<Value<'v>> {
     /// `typing.Any`.
-    pub fn any() -> TypeCompiled<FrozenValue> {
-        TypeCompiled::unchecked_new(TYPE_COMPILED_ANY.unpack().to_frozen().to_frozen_value())
+    pub fn any() -> TypeCompiled<Value<'v>> {
+        TypeCompiled(TYPE_COMPILED_ANY.at().to_value())
     }
 }
 

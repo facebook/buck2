@@ -1717,14 +1717,14 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
             fields.insert(
                 "x".to_owned(),
                 Field {
-                    typ: TypeCompiled::any().to_value(),
+                    typ: TypeCompiled::any(),
                     default: None,
                 },
             );
             fields.insert(
                 "y".to_owned(),
                 Field {
-                    typ: TypeCompiled::any().to_value(),
+                    typ: TypeCompiled::any(),
                     default: None,
                 },
             );
