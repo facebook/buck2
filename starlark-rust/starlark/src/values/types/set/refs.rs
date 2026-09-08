@@ -23,9 +23,7 @@ use std::convert::Infallible;
 use dupe::Dupe;
 use either::Either;
 
-use super::value::FrozenSetData;
 use super::value::SetData;
-use crate::coerce::coerce;
 use crate::typing::Ty;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
@@ -57,9 +55,9 @@ impl<'v> Clone for SetRef<'v> {
 impl<'v> SetRef<'v> {
     /// Downcast the value to a set.
     pub fn from_value(x: Value<'v>) -> Option<SetRef<'v>> {
-        if x.unpack_frozen().is_some() {
-            x.downcast_ref::<SetGen<FrozenSetData>>().map(|x| SetRef {
-                aref: Either::Right(coerce(&x.0)),
+        if let Some(x) = x.downcast_ref::<SetGen<SetData<'v>>>() {
+            Some(SetRef {
+                aref: Either::Right(&x.0),
             })
         } else {
             let ptr = x.downcast_ref::<SetGen<RefCell<SetData<'v>>>>()?;
@@ -88,7 +86,7 @@ impl<'v> SetMut<'v> {
         #[cold]
         #[inline(never)]
         fn error<'v>(x: Value<'v>) -> anyhow::Error {
-            if x.downcast_ref::<SetGen<FrozenSetData>>().is_some() {
+            if x.downcast_ref::<SetGen<SetData<'v>>>().is_some() {
                 ValueError::CannotMutateImmutableValue.into()
             } else {
                 NotSetError(x.get_type()).into()
@@ -118,19 +116,6 @@ impl<'v> UnpackValue<'v> for SetRef<'v> {
     type Error = Infallible;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<SetRef<'v>>, Infallible> {
-        let result = if let Some(value) = value.unpack_frozen() {
-            value
-                .downcast_ref::<SetGen<FrozenSetData>>()
-                .map(|x| SetRef {
-                    aref: Either::Right(coerce(&x.0)),
-                })
-        } else {
-            value
-                .downcast_ref::<SetGen<RefCell<SetData<'v>>>>()
-                .map(|ptr| SetRef {
-                    aref: Either::Left(ptr.0.borrow()),
-                })
-        };
-        Ok(result)
+        Ok(SetRef::from_value(value))
     }
 }

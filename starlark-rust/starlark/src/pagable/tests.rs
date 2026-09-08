@@ -1452,27 +1452,28 @@ fn test_frozen_struct_round_trip() -> crate::Result<()> {
 fn test_frozen_set_round_trip() -> crate::Result<()> {
     use starlark_map::small_set::SmallSet;
 
-    use crate::values::types::set::value::FrozenSet;
-    use crate::values::types::set::value::FrozenSetData;
+    use crate::values::types::set::value::SetData;
     use crate::values::types::set::value::SetGen;
 
     let heap = FrozenHeap::new();
 
-    let mut content: SmallSet<FrozenValue> = SmallSet::new();
-    content.insert_hashed(FrozenValue::testing_new_int(1).get_hashed()?);
-    content.insert_hashed(FrozenValue::testing_new_int(2).get_hashed()?);
-    content.insert_hashed(FrozenValue::testing_new_int(3).get_hashed()?);
-    let root = heap.alloc_simple(SetGen(FrozenSetData::new(content)));
+    let mut content: SmallSet<Value> = SmallSet::new();
+    content.insert_hashed(FrozenValue::testing_new_int(1).to_value().get_hashed()?);
+    content.insert_hashed(FrozenValue::testing_new_int(2).to_value().get_hashed()?);
+    content.insert_hashed(FrozenValue::testing_new_int(3).to_value().get_hashed()?);
+    let root = heap.alloc_simple(SetGen(SetData { content }));
 
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_set"));
     let restored = round_trip_owned(heap_ref, root)?;
-    let set: &FrozenSet = restored
-        .as_ref()
-        .value()
-        .downcast_ref::<FrozenSet>()
-        .unwrap();
-    assert_eq!(set.0.len(), 3);
-    let values: Vec<i32> = set.0.iter().map(|v| v.unpack_i32().unwrap()).collect();
+    let restored = restored.as_ref();
+    let set = restored.value().downcast_ref::<SetGen<SetData>>().unwrap();
+    assert_eq!(set.0.content.len(), 3);
+    let values: Vec<i32> = set
+        .0
+        .content
+        .iter()
+        .map(|v| v.unpack_i32().unwrap())
+        .collect();
     assert!(values.contains(&1));
     assert!(values.contains(&2));
     assert!(values.contains(&3));

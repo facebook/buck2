@@ -26,14 +26,11 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
-use starlark::register_avalue_simple_frozen;
 use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use super::refs::SetRef;
 use crate as starlark;
-use crate::coerce::Coerce;
-use crate::coerce::coerce;
 use crate::environment::Methods;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
@@ -68,8 +65,16 @@ use crate::values::type_repr::StarlarkTypeRepr;
 #[repr(transparent)]
 pub(crate) struct SetGen<T>(pub(crate) T);
 
-/// Define the mutable set type.
-#[derive(Default, Trace, Debug, ProvidesStaticType, Allocative, Clone)]
+/// Define the set type.
+#[derive(
+    Default,
+    Trace,
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    Clone,
+    StarlarkPagable
+)]
 pub(crate) struct SetData<'v> {
     /// The data stored by the list.
     pub(crate) content: SmallSet<Value<'v>>,
@@ -111,34 +116,17 @@ impl<'v> SetData<'v> {
     }
 }
 
-#[derive(Clone, Default, Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
-#[repr(transparent)]
-pub(crate) struct FrozenSetData {
-    /// The data stored by the set. The values must all be hashable values.
-    content: SmallSet<FrozenValue>,
-}
-
-#[cfg(all(test, feature = "pagable"))]
-impl FrozenSetData {
-    /// Construct a `FrozenSetData` from a pre-built set of frozen values.
-    pub(crate) fn new(content: SmallSet<FrozenValue>) -> Self {
-        Self { content }
-    }
-
-    /// Number of elements in the set.
-    pub(crate) fn len(&self) -> usize {
-        self.content.len()
-    }
-
-    /// Iterate over the frozen values in the set.
-    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = FrozenValue> + '_ {
-        self.content.iter().copied()
-    }
-}
-
 pub(crate) type MutableSet<'v> = SetGen<RefCell<SetData<'v>>>;
 
-pub(crate) type FrozenSet = SetGen<FrozenSetData>;
+/// A frozen set is a `SetData` without the `RefCell`: the two variants differ only in whether
+/// mutation is possible, and nothing ever hands out a `&mut` to the frozen one.
+pub(crate) type FrozenSet = SetGen<SetData<'static>>;
+
+crate::register_simple_vtable_entry!(FrozenSet);
+// SAFETY: The vtable entry is registered above. The deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> crate::__derive_refs::VtableRegistered for SetGen<SetData<'v>> {}
+crate::register_ty_starlark_value!(SetGen<SetData<'_>>);
 
 impl<'v> AllocValue<'v> for SetData<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
@@ -154,22 +142,19 @@ impl<'v> StarlarkTypeRepr for SetData<'v> {
     }
 }
 
-unsafe impl<'v> Coerce<SetData<'v>> for FrozenSetData {}
-
 // TODO Add optimizations not to allocate empty set.
-/// As for dict, `Frozen` ignores the brand: the frozen set keeps storing `FrozenValue`s, since
-/// `SetRef` reads the mutable and frozen sets through one API.
 impl<'v> FreezeBranded for MutableSet<'v> {
-    type Frozen<'fv> = SetGen<FrozenSetData>;
+    type Frozen<'fv> = SetGen<SetData<'fv>>;
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let values = self.0.into_inner().content;
         let mut content = SmallSet::with_capacity(values.len());
         for value in values.into_iter_hashed() {
             // Freezing does not change the hash.
-            let value = Hashed::new_unchecked(value.hash(), freezer.freeze(value.into_key())?);
+            let value =
+                Hashed::new_unchecked(value.hash(), freezer.freeze_branded(value.into_key())?);
             content.insert_hashed_unique_unchecked(value);
         }
-        Ok(SetGen(FrozenSetData { content }))
+        Ok(SetGen(SetData { content }))
     }
 }
 
@@ -217,7 +202,9 @@ impl<'v> SetLike<'v> for RefCell<SetData<'v>> {
     }
 }
 
-impl<'v> SetLike<'v> for FrozenSetData {
+/// The frozen half of the pair: `SetGen<SetData<'v>>`. Immutability is structural — there is no
+/// `RefCell`, so no caller can obtain the `&mut` the mutators need.
+impl<'v> SetLike<'v> for SetData<'v> {
     type ContentRef<'a>
         = &'a SmallSet<Value<'v>>
     where
@@ -225,7 +212,7 @@ impl<'v> SetLike<'v> for FrozenSetData {
         'v: 'a;
 
     fn content(&self) -> &SmallSet<Value<'v>> {
-        coerce(&self.content)
+        &self.content
     }
 
     unsafe fn iter_start(&self) {}
@@ -233,12 +220,9 @@ impl<'v> SetLike<'v> for FrozenSetData {
     unsafe fn iter_stop(&self) {}
 
     unsafe fn content_unchecked(&self) -> &SmallSet<Value<'v>> {
-        coerce(&self.content)
+        &self.content
     }
 }
-
-// Register vtable for FrozenSet (special type not handled by #[starlark_value] macro, because V is not ValueLike).
-register_avalue_simple_frozen!(FrozenSet);
 
 starlark::methods_static!(SET_METHODS = methods::set_methods);
 
@@ -247,7 +231,7 @@ impl<'v, T: SetLike<'v> + 'v> StarlarkValue<'v> for SetGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {
-    type Canonical = FrozenSet;
+    type Canonical = SetGen<SetData<'v>>;
 
     /// Returns the length of the value, if this value is a sequence.
     fn length(&self) -> crate::Result<i32> {
