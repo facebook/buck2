@@ -2422,6 +2422,17 @@ fn test_type_compiled_impl_with_is_any_of_round_trip() -> crate::Result<()> {
 // `starlark_deserialize_field` error context
 // ============================================================================
 
+/// The derive on an uninhabited enum: deserializing one is an error, so this must compile
+/// even though no value can be built.
+#[derive(Debug, StarlarkPagable)]
+enum Uninhabited {}
+
+#[test]
+fn test_uninhabited_enum_derives_pagable() {
+    fn assert_pagable<T: crate::pagable::StarlarkPagable>() {}
+    assert_pagable::<Uninhabited>();
+}
+
 #[derive(Debug, Allocative)]
 struct AlwaysFailDeserialize;
 

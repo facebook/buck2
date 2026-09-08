@@ -135,6 +135,13 @@ pub enum PagableError {
         /// The tag byte read from the input.
         tag: u8,
     },
+
+    /// The input claims to hold a value of an uninhabited type.
+    #[error("Corrupted data: a value of the uninhabited type `{type_name}` was serialized")]
+    UninhabitedType {
+        /// Name of the uninhabited type.
+        type_name: &'static str,
+    },
 }
 
 impl From<PagableError> for crate::Error {

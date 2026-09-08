@@ -766,8 +766,16 @@ fn gen_deserialize_enum(
     enum_name: &Ident,
     data: &syn::DataEnum,
 ) -> syn::Result<proc_macro2::TokenStream> {
+    let enum_name_str = enum_name.to_string();
+
+    // An uninhabited enum has no serialized form, so data claiming to hold one is corrupt.
     if data.variants.is_empty() {
-        return Ok(quote! { Ok(Self) });
+        return Ok(quote! {
+            Err(starlark::__derive_refs::PagableError::UninhabitedType {
+                type_name: #enum_name_str,
+            }
+            .into())
+        });
     }
 
     let mut arms = Vec::new();
@@ -851,7 +859,6 @@ fn gen_deserialize_enum(
         }
     }
 
-    let enum_name_str = enum_name.to_string();
     Ok(quote! {
         let tag = <u8 as pagable::PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
         match tag {
