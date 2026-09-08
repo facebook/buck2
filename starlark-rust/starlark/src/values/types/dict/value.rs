@@ -30,7 +30,6 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark::register_avalue_simple_frozen;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_value;
 use starlark_map::Equivalent;
@@ -38,7 +37,6 @@ use starlark_map::Equivalent;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::Coerce;
 use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
@@ -92,7 +90,15 @@ impl<'v> Display for Dict<'v> {
 }
 
 /// Define the dict type.
-#[derive(Clone, Default, Trace, Debug, ProvidesStaticType, Allocative)]
+#[derive(
+    Clone,
+    Default,
+    Trace,
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(transparent)]
 pub struct Dict<'v> {
     /// The data stored by the dictionary. The keys must all be hashable values.
@@ -107,25 +113,25 @@ impl<'v> StarlarkTypeRepr for Dict<'v> {
     }
 }
 
-#[derive(Clone, Default, Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
-#[repr(transparent)]
-pub(crate) struct FrozenDictData {
-    /// The data stored by the dictionary. The keys must all be hashable values.
-    pub(crate) content: SmallMap<FrozenValue, FrozenValue>,
-}
-
+/// A frozen dict is a `Dict` without the `RefCell`: the two variants differ only in whether
+/// mutation is possible, and nothing ever hands out a `&mut` to the frozen one.
+///
 /// Alias is used in `StarlarkDocs` derive.
-pub(crate) type FrozenDict = DictGen<FrozenDictData>;
+pub(crate) type FrozenDict = DictGen<Dict<'static>>;
 
 pub(crate) type MutableDict<'v> = DictGen<RefCell<Dict<'v>>>;
 
+crate::register_simple_vtable_entry!(FrozenDict);
+// SAFETY: The vtable entry is registered above. The deser type id is
+// lifetime-erased, so the `'static` instantiation covers all heap lifetimes.
+unsafe impl<'v> crate::__derive_refs::VtableRegistered for DictGen<Dict<'v>> {}
+crate::register_ty_starlark_value!(DictGen<Dict<'_>>);
+
 static_starlark_value!(
-    pub(crate) VALUE_EMPTY_FROZEN_DICT: DictGen<FrozenDictData> = DictGen(FrozenDictData {
+    pub(crate) VALUE_EMPTY_FROZEN_DICT: DictGen<Dict<'static>> = DictGen(Dict {
         content: SmallMap::new(),
     })
 );
-
-unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 
 impl<'v> AllocValue<'v> for Dict<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
@@ -140,27 +146,19 @@ impl<'v> Heap<'v> {
     }
 }
 
-impl StarlarkTypeRepr for FrozenDictData {
-    type Canonical = <DictType<FrozenValue, FrozenValue> as StarlarkTypeRepr>::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        Ty::dict(Ty::any(), Ty::any())
-    }
-}
-
-impl<'fv> AllocFrozenValue<'fv> for FrozenDictData {
-    fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
+impl<'fv> AllocFrozenValue<'fv> for Dict<'fv> {
+    fn alloc_frozen_value(self, heap: &'fv FrozenHeap) -> FrozenValue {
         if self.content.is_empty() {
             VALUE_EMPTY_FROZEN_DICT.to_frozen_value()
         } else {
-            heap.alloc_simple(DictGen(self))
+            heap.alloc_simple_typed(DictGen(self)).to_frozen_value()
         }
     }
 }
 
 impl<'v> Dict<'v> {
     pub(crate) fn is_dict_type(x: TypeId) -> bool {
-        x == TypeId::of::<DictGen<FrozenDictData>>()
+        x == TypeId::of::<DictGen<Dict<'static>>>()
             || x == TypeId::of::<DictGen<RefCell<Dict<'static>>>>()
     }
 
@@ -200,7 +198,7 @@ impl<'v> Dict<'v> {
 
     /// Dict type string as Starlark frozen string value.
     pub fn get_type_value_static() -> FrozenStringValue {
-        DictGen::<FrozenDictData>::get_type_value_static()
+        DictGen::<Dict>::get_type_value_static()
     }
 
     /// This function is deprecated.
@@ -310,33 +308,17 @@ impl<'v> Dict<'v> {
     }
 }
 
-impl FrozenDictData {
-    /// Iterate through the key/value pairs in the dictionary.
-    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + 'a {
-        self.content.iter().map(|(l, r)| (*l, *r))
-    }
-
-    /// Get the value associated with a particular string. Equivalent to allocating the
-    /// string on the heap, turning it into a value, and looking up using that.
-    pub fn get_str(&self, key: &str) -> Option<FrozenValue> {
-        self.content.get(&ValueStr(key)).copied()
-    }
-}
-
-/// `Frozen` ignores the brand: the frozen dict keeps storing `FrozenValue` entries, because
-/// `DictRef` and `FrozenDictRef` hand entries out of the mutable and frozen dict alike, at the
-/// reader's lifetime. Branding the entry storage waits for `FrozenValue` to be branded.
 impl<'v> FreezeBranded for DictGen<RefCell<Dict<'v>>> {
-    type Frozen<'fv> = DictGen<FrozenDictData>;
+    type Frozen<'fv> = DictGen<Dict<'fv>>;
     fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let entries = self.0.into_inner().content;
         let mut content = SmallMap::with_capacity(entries.len());
         for (key, value) in entries.into_iter_hashed() {
             // Freezing does not change the hash.
-            let key = Hashed::new_unchecked(key.hash(), freezer.freeze(key.into_key())?);
-            content.insert_hashed_unique_unchecked(key, freezer.freeze(value)?);
+            let key = Hashed::new_unchecked(key.hash(), freezer.freeze_branded(key.into_key())?);
+            content.insert_hashed_unique_unchecked(key, freezer.freeze_branded(value)?);
         }
-        Ok(DictGen(FrozenDictData { content }))
+        Ok(DictGen(Dict { content }))
     }
 }
 
@@ -396,7 +378,9 @@ impl<'v> DictLike<'v> for RefCell<Dict<'v>> {
     }
 }
 
-impl<'v> DictLike<'v> for FrozenDictData {
+/// The frozen half of the pair: `DictGen<Dict<'v>>`. Immutability is structural — there is no
+/// `RefCell`, so no caller can obtain the `&mut` the mutators need.
+impl<'v> DictLike<'v> for Dict<'v> {
     type ContentRef<'a>
         = &'a SmallMap<Value<'v>, Value<'v>>
     where
@@ -404,7 +388,7 @@ impl<'v> DictLike<'v> for FrozenDictData {
         'v: 'a;
 
     fn content<'a>(&'a self) -> &'a SmallMap<Value<'v>, Value<'v>> {
-        coerce(&self.content)
+        &self.content
     }
 
     unsafe fn iter_start(&self) {}
@@ -412,7 +396,7 @@ impl<'v> DictLike<'v> for FrozenDictData {
     unsafe fn iter_stop(&self) {}
 
     unsafe fn content_unchecked(&self) -> &SmallMap<Value<'v>, Value<'v>> {
-        coerce(&self.content)
+        &self.content
     }
 
     fn set_at(&self, _index: Hashed<Value<'v>>, _value: Value<'v>) -> crate::Result<()> {
@@ -422,9 +406,6 @@ impl<'v> DictLike<'v> for FrozenDictData {
     }
 }
 
-// Register vtable for FrozenDict (special type not handled by #[starlark_value] macro, because V is not ValueLike).
-register_avalue_simple_frozen!(FrozenDict);
-
 starlark::methods_static!(DICT_METHODS = crate::values::types::dict::methods::dict_methods);
 
 #[starlark_value(type = Dict::TYPE)]
@@ -432,7 +413,7 @@ impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
     Self: ProvidesStaticType<'v>,
 {
-    type Canonical = FrozenDict;
+    type Canonical = DictGen<Dict<'v>>;
 
     fn get_methods() -> Option<&'static Methods> {
         Some(DICT_METHODS.methods())

@@ -26,8 +26,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
-use crate::values::dict::value::FrozenDictData;
-use crate::values::layout::value::ValueLike;
+use crate::values::dict::Dict;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::dict::dict_type::DictType;
 
@@ -101,10 +100,10 @@ where
         let mut map = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {
             map.insert_hashed(
-                k.alloc_frozen_value(heap).get_hashed().unwrap(),
-                v.alloc_frozen_value(heap),
+                k.alloc_frozen_value(heap).to_value().get_hashed().unwrap(),
+                v.alloc_frozen_value(heap).to_value(),
             );
         }
-        heap.alloc(FrozenDictData { content: map })
+        heap.alloc(Dict::new(map))
     }
 }

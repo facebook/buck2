@@ -24,7 +24,6 @@ use std::ops::Deref;
 use dupe::Dupe;
 use either::Either;
 
-use crate::coerce::coerce;
 use crate::typing::Ty;
 use crate::values::FrozenValue;
 use crate::values::UnpackValue;
@@ -33,7 +32,6 @@ use crate::values::ValueError;
 use crate::values::ValueLike;
 use crate::values::dict::Dict;
 use crate::values::dict::value::DictGen;
-use crate::values::dict::value::FrozenDictData;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::dict::dict_type::DictType;
 
@@ -65,17 +63,16 @@ pub struct DictMut<'v> {
 
 /// Reference to frozen `Dict`.
 pub struct FrozenDictRef {
-    dict: &'static FrozenDictData,
+    dict: &'static Dict<'static>,
 }
 
 impl<'v> DictRef<'v> {
     /// Downcast the value to a dict.
     pub fn from_value(x: Value<'v>) -> Option<DictRef<'v>> {
-        if x.unpack_frozen().is_some() {
-            x.downcast_ref::<DictGen<FrozenDictData>>()
-                .map(|x| DictRef {
-                    aref: Either::Right(coerce(&x.0)),
-                })
+        if let Some(x) = x.downcast_ref::<DictGen<Dict<'v>>>() {
+            Some(DictRef {
+                aref: Either::Right(&x.0),
+            })
         } else {
             let ptr = x.downcast_ref::<DictGen<RefCell<Dict<'v>>>>()?;
             Some(DictRef {
@@ -96,7 +93,7 @@ impl<'v> DictMut<'v> {
         #[cold]
         #[inline(never)]
         fn error<'v>(x: Value<'v>) -> anyhow::Error {
-            if x.downcast_ref::<DictGen<FrozenDictData>>().is_some() {
+            if x.downcast_ref::<DictGen<Dict<'v>>>().is_some() {
                 ValueError::CannotMutateImmutableValue.into()
             } else {
                 NotDictError(x.get_type()).into()
@@ -117,19 +114,29 @@ impl<'v> DictMut<'v> {
 impl FrozenDictRef {
     /// Downcast to frozen dict.
     pub fn from_frozen_value(x: FrozenValue) -> Option<FrozenDictRef> {
-        x.downcast_ref::<DictGen<FrozenDictData>>()
+        x.downcast_ref::<DictGen<Dict<'static>>>()
             .map(|x| FrozenDictRef { dict: &x.0 })
     }
 
     /// Get value by a string key.
     pub fn get_str(&self, key: &str) -> Option<FrozenValue> {
-        self.dict.get_str(key)
+        self.dict.get_str(key).map(frozen_entry)
     }
 
     /// Iterate over dict entries.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (FrozenValue, FrozenValue)> + use<> {
-        self.dict.iter()
+        self.dict
+            .iter()
+            .map(|(k, v)| (frozen_entry(k), frozen_entry(v)))
     }
+}
+
+/// The entries of a dict in a frozen heap are frozen: freezing a dict freezes every key and
+/// value, and `FrozenDictRef` is only ever constructed from a `FrozenValue`.
+fn frozen_entry(value: Value<'static>) -> FrozenValue {
+    value
+        .unpack_frozen()
+        .expect("entry of a frozen dict is frozen")
 }
 
 impl<'v> Deref for DictRef<'v> {

@@ -1408,24 +1408,22 @@ fn test_native_codemap_round_trip() -> crate::Result<()> {
 #[test]
 fn test_frozen_dict_round_trip() -> crate::Result<()> {
     use crate::values::dict::AllocDict;
-    use crate::values::types::dict::value::FrozenDict;
+    use crate::values::dict::Dict;
+    use crate::values::types::dict::value::DictGen;
 
     let heap = FrozenHeap::new();
     let root = heap.alloc(AllocDict([("hello", 1), ("world", 2)]));
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_dict"));
 
     let restored = round_trip_owned(heap_ref, root)?;
-    let dict: &FrozenDict = restored
-        .as_ref()
-        .value()
-        .downcast_ref::<FrozenDict>()
-        .unwrap();
+    let restored = restored.as_ref();
+    let dict = restored.value().downcast_ref::<DictGen<Dict>>().unwrap();
     assert_eq!(dict.0.content.len(), 2);
     let keys: Vec<&str> = dict
         .0
         .content
         .keys()
-        .map(|k| k.to_value().unpack_str().unwrap())
+        .map(|k| k.unpack_str().unwrap())
         .collect();
     assert!(keys.contains(&"hello"));
     assert!(keys.contains(&"world"));
