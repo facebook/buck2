@@ -45,7 +45,7 @@ macro_rules! const_frozen_string {
                 $crate::__derive_refs::StaticValueEntry::new(
                     file!(),
                     line!(),
-                    || X.to_frozen_value()
+                    || X.erase().to_value()
                 )
             }
 

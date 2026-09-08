@@ -17,7 +17,7 @@
 
 //! Lookup function for static value identifiers.
 //!
-//! This module provides the main entry point for checking if a FrozenValue
+//! This module provides the main entry point for checking if a value
 //! is a static value and retrieving its identifier.
 
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ use pagable::Pagable;
 use super::registry::StaticValueEntry;
 use crate::pagable::static_value::registry::StaticHeapEntry;
 use crate::pagable::static_value::static_string::get_static_strings;
-use crate::values::FrozenValue;
+use crate::values::Value;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 
 /// A unique identifier for a statically-allocated Starlark value.
@@ -54,22 +54,19 @@ impl StaticValueId {
 /// Built once from both static strings and inventory-registered entries.
 /// The two maps are inverses of each other:
 /// - `addr_to_id`: pointer address → `StaticValueId` (for serialization)
-/// - `id_to_value`: `StaticValueId` → `FrozenValue` (for deserialization)
+/// - `id_to_value`: `StaticValueId` → value (for deserialization)
 struct StaticValueMaps {
     addr_to_id: HashMap<usize, StaticValueId>,
-    id_to_value: Vec<FrozenValue>,
+    id_to_value: Vec<Value<'static>>,
 }
 
 static STATIC_VALUE_MAPS: LazyLock<StaticValueMaps> = LazyLock::new(|| {
     let mut addr_to_id = HashMap::new();
     let mut id_to_value = Vec::new();
 
-    for (id, fv) in get_all_static_values().enumerate() {
-        addr_to_id.insert(
-            frozen_to_raw(fv).ptr as usize,
-            StaticValueId::new(id as u64),
-        );
-        id_to_value.push(fv);
+    for (id, v) in get_all_static_values().enumerate() {
+        addr_to_id.insert(value_to_raw(v).ptr as usize, StaticValueId::new(id as u64));
+        id_to_value.push(v);
     }
 
     StaticValueMaps {
@@ -78,44 +75,44 @@ static STATIC_VALUE_MAPS: LazyLock<StaticValueMaps> = LazyLock::new(|| {
     }
 });
 
-fn frozen_to_raw(fv: FrozenValue) -> StarlarkValueRawPtr {
-    fv.to_value().get_ref().value
+fn value_to_raw(v: Value<'_>) -> StarlarkValueRawPtr {
+    v.get_ref().value
 }
 
-fn get_all_static_values() -> impl Iterator<Item = FrozenValue> {
+fn get_all_static_values() -> impl Iterator<Item = Value<'static>> {
     get_static_strings()
         .chain(get_static_values())
         .chain(get_static_heap_values())
 }
 
-fn get_static_values() -> impl Iterator<Item = FrozenValue> {
+fn get_static_values() -> impl Iterator<Item = Value<'static>> {
     inventory::iter::<StaticValueEntry>()
         .sorted_by_key(|v| (&v.file, &v.line))
         .map(|e| (e.get_value)())
 }
 
-fn get_static_heap_values() -> impl Iterator<Item = FrozenValue> {
+fn get_static_heap_values() -> impl Iterator<Item = Value<'static>> {
     StaticHeapEntry::iter_sorted().flat_map(|e| (e.get_heap)().heap_arc().iter_values())
 }
 
-/// Look up a `FrozenValue` by its `StaticValueId`.
+/// Look up a static value by its `StaticValueId`.
 ///
 /// Used during deserialization to resolve static value references.
-pub(crate) fn get_frozen_value_by_static_id(id: StaticValueId) -> Option<FrozenValue> {
+pub(crate) fn get_static_value_by_id(id: StaticValueId) -> Option<Value<'static>> {
     STATIC_VALUE_MAPS.id_to_value.get(id.0 as usize).copied()
 }
 
-/// Check if a FrozenValue points to a static value.
+/// Check if a value points to a static value.
 ///
 /// Returns `Some(StaticValueId)` if the value is a registered static value,
 /// `None` otherwise.
-pub(crate) fn get_static_value_id(fv: FrozenValue) -> Option<StaticValueId> {
+pub(crate) fn get_static_value_id(v: Value<'_>) -> Option<StaticValueId> {
     // Only check for pointer values, not inline integers
-    if fv.ptr_value().is_int() {
+    if v.ptr_value().is_int() {
         return None;
     }
 
-    let addr = frozen_to_raw(fv).ptr as usize;
+    let addr = value_to_raw(v).ptr as usize;
     STATIC_VALUE_MAPS.addr_to_id.get(&addr).copied()
 }
 
@@ -128,21 +125,21 @@ mod tests {
     #[test]
     fn test_empty_string_has_id() {
         let empty = constant_string("").unwrap();
-        let id = get_static_value_id(empty.to_frozen().to_frozen_value());
+        let id = get_static_value_id(empty.to_value());
         assert!(id.is_some(), "empty string should be registered");
     }
 
     #[test]
     fn test_single_char_has_id() {
         let a = constant_string("a").unwrap();
-        let id = get_static_value_id(a.to_frozen().to_frozen_value());
+        let id = get_static_value_id(a.to_value());
         assert!(id.is_some(), "'a' should be registered");
     }
 
     #[test]
     fn test_multi_char_string_is_registered() {
         let s = const_frozen_string!("hello");
-        let id = get_static_value_id(s.to_frozen().to_frozen_value());
+        let id = get_static_value_id(s.to_value());
         assert!(id.is_some(), "const_frozen_string! should be registered");
     }
 
@@ -152,7 +149,7 @@ mod tests {
             let bytes = [i];
             let s = std::str::from_utf8(&bytes).unwrap();
             let fv = constant_string(s).unwrap();
-            let id = get_static_value_id(fv.to_frozen().to_frozen_value());
+            let id = get_static_value_id(fv.to_value());
             assert!(id.is_some(), "ASCII char {} should be registered", i);
         }
     }
@@ -162,13 +159,13 @@ mod tests {
         let mut ids = std::collections::HashSet::new();
         // empty string
         let empty = constant_string("").unwrap();
-        ids.insert(get_static_value_id(empty.to_frozen().to_frozen_value()).unwrap());
+        ids.insert(get_static_value_id(empty.to_value()).unwrap());
         // all 128 ASCII chars
         for i in 0u8..128 {
             let bytes = [i];
             let s = std::str::from_utf8(&bytes).unwrap();
             let fv = constant_string(s).unwrap();
-            ids.insert(get_static_value_id(fv.to_frozen().to_frozen_value()).unwrap());
+            ids.insert(get_static_value_id(fv.to_value()).unwrap());
         }
         assert_eq!(
             ids.len(),
@@ -181,22 +178,22 @@ mod tests {
     fn test_determinism() {
         let a1 = constant_string("a").unwrap();
         let a2 = constant_string("a").unwrap();
-        let id1 = get_static_value_id(a1.to_frozen().to_frozen_value());
-        let id2 = get_static_value_id(a2.to_frozen().to_frozen_value());
+        let id1 = get_static_value_id(a1.to_value());
+        let id2 = get_static_value_id(a2.to_value());
         assert_eq!(id1, id2, "same value should produce same ID");
     }
 
     #[test]
     fn test_singleton_none_is_registered() {
-        let none_val = FrozenValue::new_none();
+        let none_val = Value::new_none();
         let id = get_static_value_id(none_val);
         assert!(id.is_some(), "None should be registered");
     }
 
     #[test]
     fn test_singleton_bools_are_registered() {
-        let false_val = FrozenValue::new_bool(false);
-        let true_val = FrozenValue::new_bool(true);
+        let false_val = Value::new_bool(false);
+        let true_val = Value::new_bool(true);
         let false_id = get_static_value_id(false_val);
         let true_id = get_static_value_id(true_val);
         assert!(false_id.is_some(), "false should be registered");
@@ -211,7 +208,7 @@ mod tests {
     fn test_singleton_empty_tuple_is_registered() {
         use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 
-        let empty_tuple = VALUE_EMPTY_TUPLE.to_frozen_value();
+        let empty_tuple = VALUE_EMPTY_TUPLE.unpack().to_value();
         let id = get_static_value_id(empty_tuple);
         assert!(id.is_some(), "empty tuple should be registered");
     }
@@ -220,7 +217,7 @@ mod tests {
     fn test_singleton_empty_array_is_registered() {
         use crate::values::types::array::VALUE_EMPTY_ARRAY;
 
-        let empty_array = VALUE_EMPTY_ARRAY.unpack().to_frozen().to_frozen_value();
+        let empty_array = VALUE_EMPTY_ARRAY.unpack().to_value();
         let id = get_static_value_id(empty_array);
         assert!(id.is_some(), "empty array should be registered");
     }
@@ -230,7 +227,7 @@ mod tests {
         use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
         let type_any = TypeCompiled::any();
-        let id = get_static_value_id(type_any.to_inner());
+        let id = get_static_value_id(type_any.to_inner().to_value());
         assert!(id.is_some(), "TypeCompiled::any() should be registered");
     }
 }

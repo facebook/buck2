@@ -105,7 +105,6 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
-use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
@@ -1005,24 +1004,23 @@ impl FrozenHeapArc {
             .map(|heap| WeakFrozenHeapRef(PartialPagableArc::downgrade(heap)))
     }
 
-    pub(crate) fn iter_values(&self) -> impl Iterator<Item = FrozenValue> {
-        struct FrozenValueCollector(Vec<FrozenValue>);
-        let mut items = FrozenValueCollector(Vec::new());
+    /// The values in this heap, for the pagable static registry.
+    ///
+    /// The heap is a static, which is what the `'static` brand means.
+    pub(crate) fn iter_values(&'static self) -> impl Iterator<Item = Value<'static>> {
+        struct ValueCollector<'v>(Vec<Value<'v>>);
+        let mut items = ValueCollector(Vec::new());
         if let Some(heap) = &self.0 {
-            impl<'v> ArenaVisitor<'v> for FrozenValueCollector {
+            impl<'v> ArenaVisitor<'v> for ValueCollector<'v> {
                 fn enter_bump(&mut self) {}
 
                 fn regular_value(&mut self, value: &'v super::repr::AValueOrForward) {
-                    self.0.push(
-                        unsafe {
-                            value
-                                .unpack_header()
-                                .expect("static heap should not contain forwards")
-                                .unpack_value(HeapKind::Frozen)
-                        }
-                        .unpack_frozen()
-                        .expect("value from frozen heap should be frozen"),
-                    );
+                    self.0.push(unsafe {
+                        value
+                            .unpack_header()
+                            .expect("static heap should not contain forwards")
+                            .unpack_value(HeapKind::Frozen)
+                    });
                 }
 
                 fn call_enter(&mut self, _function: Value<'v>, _time: ProfilerInstant) {}
@@ -1265,7 +1263,10 @@ impl<'fh> FrozenHeap<'fh> {
     /// For the pagable tests, which drive the plumbing beneath the branded API in `FrozenValue`s;
     /// everything else should keep the brand that [`alloc`](FrozenHeap::alloc) hands out.
     #[cfg(test)]
-    pub(crate) fn alloc_frozen<T: AllocFrozenValue<'fh>>(self, val: T) -> FrozenValue {
+    pub(crate) fn alloc_frozen<T: AllocFrozenValue<'fh>>(
+        self,
+        val: T,
+    ) -> crate::values::FrozenValue {
         self.alloc(val)
             .unpack_frozen()
             .expect("value allocated in a frozen heap is frozen")

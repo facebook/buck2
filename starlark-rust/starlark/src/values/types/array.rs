@@ -103,7 +103,7 @@ inventory::submit! {
     crate::__derive_refs::StaticValueEntry::new(
         file!(),
         line!(),
-        || VALUE_EMPTY_ARRAY.0.to_frozen_value()
+        || VALUE_EMPTY_ARRAY.0.unpack().to_value()
     )
 }
 

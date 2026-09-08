@@ -300,7 +300,7 @@ macro_rules! static_starlark_any {
             $crate::__derive_refs::StaticValueEntry::new(
                 file!(),
                 line!(),
-                || $name.to_frozen_value()
+                || $name.unpack().to_value()
             )
         }
     };

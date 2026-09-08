@@ -21,7 +21,6 @@ use std::mem;
 use std::ptr;
 use std::sync::atomic::AtomicU32;
 
-use crate::values::FrozenValue;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::layout::avalues::str_::VALUE_STR_A_VALUE_PTR;
@@ -81,22 +80,19 @@ impl<const N: usize> StarlarkStrNRepr<N> {
         }
     }
 
-    /// The string as a [`FrozenValue`], for the pagable static registry.
-    pub fn to_frozen_value(&'static self) -> FrozenValue {
-        // The value is reached by casting the tagged integer inside `FrozenValue` back to a
-        // pointer, and `StarlarkStr::get_hash` writes the memoised hash through it. Expose the
-        // whole object, because the header alone is neither large enough nor writable.
-        let _ = ptr::from_ref(self).expose_provenance();
-        FrozenValue::new_ptr(&self.repr.header, true)
-    }
-
     /// The string, with the type parameter erased.
     ///
     /// A static is immortal, which is what the `'static` brand means; use
     /// [`at`](StringValue::at) to bring it to the brand of the heap in use.
     pub fn erase(&'static self) -> StringValue<'static> {
-        // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
-        unsafe { StringValue::new_unchecked(Value::new_frozen(self.to_frozen_value())) }
+        // The value is reached by casting the tagged integer inside `Value` back to a pointer,
+        // and `StarlarkStr::get_hash` writes the memoised hash through it. Expose the whole
+        // object, because the header alone is neither large enough nor writable.
+        let _ = ptr::from_ref(self).expose_provenance();
+        // SAFETY: `repr` is a string: its header is `VALUE_STR_A_VALUE_PTR` and its payload a
+        // `StarlarkStrN`. Statics carry the frozen tag, like every value not allocated in an
+        // unfrozen heap.
+        unsafe { StringValue::new_unchecked(Value::new_frozen_ptr(&self.repr.header, true)) }
     }
 }
 

@@ -47,7 +47,7 @@ pub(crate) unsafe trait TypeCompiledStaticRegistered {}
 ///     TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
 /// unsafe impl TypeCompiledStaticRegistered for IsAny {}
 /// inventory::submit! {
-///     StaticFrozenValueEntry::new("TYPE_ANY", || TYPE_ANY.to_frozen_value())
+///     StaticValueEntry::new(file!(), line!(), || TYPE_ANY.unpack().to_value())
 /// }
 /// ```
 macro_rules! static_type_compiled {
@@ -72,7 +72,7 @@ macro_rules! static_type_compiled {
             $crate::__derive_refs::StaticValueEntry::new(
                 file!(),
                 line!(),
-                || $name.to_frozen_value()
+                || $name.unpack().to_value()
             )
         }
     };

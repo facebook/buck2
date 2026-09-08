@@ -39,7 +39,6 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
-use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StaticValueRegistered;
@@ -211,10 +210,11 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
         )
     }
 
-    /// Get the FrozenValue for this type.
-    /// Used for pagable serialization registration.
-    pub fn to_frozen_value(&self) -> FrozenValue {
-        self.0.to_frozen_value()
+    /// The value for this type.
+    ///
+    /// A static is immortal, which is what the `'static` brand means.
+    pub fn to_value(&self) -> Value<'static> {
+        self.0.unpack().to_value()
     }
 }
 
@@ -282,7 +282,7 @@ macro_rules! declare_starlark_value_as_type {
             $crate::__derive_refs::StaticValueEntry::new(
                 file!(),
                 line!(),
-                || $name.to_frozen_value()
+                || $name.to_value()
             )
         }
     };

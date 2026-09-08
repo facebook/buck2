@@ -27,14 +27,14 @@
 
 use itertools::Itertools;
 
-use crate::values::FrozenValue;
 use crate::values::OwnedFrozenRef;
+use crate::values::Value;
 
 /// Unified registry entry for a static frozen value.
 ///
 /// Each entry stores the source location where it was registered
 /// (used to compute a deterministic hash-based ID at runtime)
-/// and a function to obtain the FrozenValue.
+/// and a function to obtain the value.
 pub struct StaticValueEntry {
     /// Source file where this static value was registered (from `file!()`).
     /// May include a `::name` suffix to disambiguate multiple values
@@ -43,17 +43,17 @@ pub struct StaticValueEntry {
     pub file: &'static str,
     /// Source line where this static value was registered (from `line!()`).
     pub line: u32,
-    /// Function to get the FrozenValue.
+    /// Function to get the value.
     ///
-    /// We use a function pointer instead of storing `FrozenValue` directly
+    /// We use a function pointer instead of storing the value directly
     /// because `inventory::submit!` requires const expressions, and
-    /// `FrozenValue` creation involves non-const method calls.
-    pub get_value: fn() -> FrozenValue,
+    /// creating the value involves non-const method calls.
+    pub get_value: fn() -> Value<'static>,
 }
 
 impl StaticValueEntry {
     /// Create a new registry entry.
-    pub const fn new(file: &'static str, line: u32, get_value: fn() -> FrozenValue) -> Self {
+    pub const fn new(file: &'static str, line: u32, get_value: fn() -> Value<'static>) -> Self {
         Self {
             file,
             line,

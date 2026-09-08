@@ -508,7 +508,7 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
         match fv.ptr_value().tags() {
             PointerTags::OtherFrozen | PointerTags::StrFrozen => {
                 // Check if this is a static value first.
-                if let Some(static_id) = get_static_value_id(fv) {
+                if let Some(static_id) = get_static_value_id(v) {
                     let serialized = SerializedFrozenValue::Static(static_id);
                     serialized.pagable_serialize(self.pagable)?;
                     return Ok(());

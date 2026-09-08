@@ -49,7 +49,7 @@ use crate::pagable::lookup_vtable;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
-use crate::pagable::static_value::get_frozen_value_by_static_id;
+use crate::pagable::static_value::get_static_value_by_id;
 use crate::values::Value;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
@@ -933,10 +933,10 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                 Ok(Value::new_int(inline))
             }
             SerializedFrozenValue::Static(id) => {
-                let fv = get_frozen_value_by_static_id(id).ok_or_else(|| {
+                let v = get_static_value_by_id(id).ok_or_else(|| {
                     anyhow::anyhow!("Static value ID {:?} not found in inventory registry", id)
                 })?;
-                Ok(fv.to_value())
+                Ok(v)
             }
         }
     }

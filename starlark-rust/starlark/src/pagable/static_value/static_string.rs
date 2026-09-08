@@ -20,11 +20,14 @@
 //! This module provides bidirectional mappings between static string value
 //! addresses/IDs (empty string and single ASCII characters).
 
-use crate::values::FrozenValue;
+use crate::values::Value;
 use crate::values::layout::static_string::VALUE_BYTE_STRINGS;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 
-pub(super) fn get_static_strings() -> impl Iterator<Item = FrozenValue> {
-    std::iter::once(VALUE_EMPTY_STRING.to_frozen_value())
-        .chain(VALUE_BYTE_STRINGS.iter().map(|repr| repr.to_frozen_value()))
+pub(super) fn get_static_strings() -> impl Iterator<Item = Value<'static>> {
+    std::iter::once(VALUE_EMPTY_STRING.erase().to_value()).chain(
+        VALUE_BYTE_STRINGS
+            .iter()
+            .map(|repr| repr.erase().to_value()),
+    )
 }

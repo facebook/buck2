@@ -2097,7 +2097,10 @@ crate::declare_starlark_value_as_type!(AS_TYPE_RT_STATIC, AsTypeRoundTripTestTyp
 #[test]
 fn test_starlark_value_as_type_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let static_fv = AS_TYPE_RT_STATIC.to_frozen_value();
+    let static_fv = AS_TYPE_RT_STATIC
+        .to_value()
+        .unpack_frozen()
+        .expect("statics are frozen");
     let root = heap.alloc_simple(RefData {
         label: 7,
         target: static_fv,

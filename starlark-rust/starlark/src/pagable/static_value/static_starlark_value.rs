@@ -68,7 +68,7 @@ macro_rules! static_starlark_value {
                 $crate::__derive_refs::StaticValueEntry::new(
                     concat!(file!(), "::", stringify!($name)),
                     line!(),
-                    || $name.to_frozen_value()
+                    || $name.unpack().to_value()
                 )
             }
         )+
@@ -93,7 +93,7 @@ macro_rules! static_starlark_value {
             $crate::__derive_refs::StaticValueEntry::new(
                 file!(),
                 line!(),
-                || $name.to_frozen_value()
+                || $name.unpack().to_value()
             )
         }
     };
