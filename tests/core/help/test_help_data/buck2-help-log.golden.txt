@@ -13,7 +13,7 @@ Commands:
   cmd                Show buck command line arguments from selected invocation
   what-up            Show the spans that were open when the log ended
   what-materialized  Outputs materializations from selected invocation
-  what-uploaded      Outputs stats about uploads to RE from the selected invocation
+  what-uploaded      Get what uploaded to RE/CAS from a buck invocation
   critical-path      Show the critical path for a selected build
   slowest-path       Show the slowest path for a selected build
   replay             Replay an event log
