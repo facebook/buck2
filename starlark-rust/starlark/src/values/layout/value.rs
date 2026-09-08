@@ -298,6 +298,18 @@ impl<'v> Value<'v> {
         FrozenValue::new_int(x).to_value()
     }
 
+    /// The immutable empty list.
+    #[inline]
+    pub fn new_empty_list() -> Self {
+        FrozenValue::new_empty_list().to_value()
+    }
+
+    /// The immutable empty dict.
+    #[inline]
+    pub fn new_empty_dict() -> Self {
+        FrozenValue::new_empty_dict().to_value()
+    }
+
     #[cfg(test)]
     pub(crate) fn testing_new_int(x: i32) -> Self {
         FrozenValue::testing_new_int(x).to_value()

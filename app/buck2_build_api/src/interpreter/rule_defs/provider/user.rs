@@ -186,22 +186,21 @@ pub(crate) fn user_provider_creator<'v>(
     let values = callable_data
         .fields
         .iter()
-        .map(|(name, field)| match param_parser.next_opt()? {
+        .map(|(name, ty)| match param_parser.next_opt()? {
             Some(value) => {
-                if !field.ty.matches(value) {
+                if !ty.matches(value) {
                     return Err(UserProviderError::MismatchedType(
                         name.to_owned(),
-                        field.ty.as_ty().dupe(),
+                        ty.as_ty().dupe(),
                         value.to_repr(),
                     )
                     .into());
                 }
                 Ok(value)
             }
-            None => match field.default {
-                Some(default) => Ok(default.to_value()),
-                None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
-            },
+            // The signature supplies the defaults, so a missing value is a missing required
+            // parameter, which the parser already rejected.
+            None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
         })
         .collect::<buck2_error::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {

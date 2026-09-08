@@ -46,12 +46,14 @@ use starlark::type_matcher;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
+use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::FreezeBranded;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
+use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -59,12 +61,11 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
+use starlark::values::Tracer;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::any::FrozenAnyValue;
-use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
-use starlark::values::list::AllocList;
 use starlark::values::list::ListRef;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::starlark_value;
@@ -213,11 +214,11 @@ impl Hasher for StarlarkHasherSmallPromote {
     }
 }
 
-fn create_callable_function_signature(
+fn create_callable_function_signature<'v>(
     function_name: &str,
-    fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    fields: &IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
-) -> buck2_error::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
+) -> buck2_error::Result<(ParametersSpec<Value<'v>>, TyCallable)> {
     let (parameters_spec, param_spec) = param_specs(
         function_name,
         [],
@@ -240,25 +241,28 @@ fn create_callable_function_signature(
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
 
+/// What provider instances know about their callable: the fields, by name and type. The
+/// defaults live in the callable's signature.
 #[derive(Debug, Allocative, StarlarkPagable)]
 pub(crate) struct UserProviderCallableData {
     #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    pub(crate) fields:
+        IndexMap<String, TypeCompiled<FrozenValue>, StarlarkHasherSmallPromoteBuilder>,
 }
 
 register_starlark_any!(UserProviderCallableData);
 
 /// Initialized after the name is assigned to the provider.
 #[derive(Debug, Trace, Allocative, StarlarkPagable)]
-struct UserProviderCallableNamed {
+struct UserProviderCallableNamed<'v> {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
     #[starlark_pagable(pagable)]
     id: Arc<ProviderId>,
-    signature: ParametersSpec<FrozenValue>,
+    signature: ParametersSpec<Value<'v>>,
     /// This field is shared with provider instances.
     data: FrozenAnyValue<UserProviderCallableData>,
     /// Type of provider instance.
@@ -269,8 +273,8 @@ struct UserProviderCallableNamed {
     ty_callable: Ty,
 }
 
-impl UserProviderCallableNamed {
-    fn invoke<'v>(
+impl<'v> UserProviderCallableNamed<'v> {
+    fn invoke(
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -281,9 +285,31 @@ impl UserProviderCallableNamed {
     }
 }
 
+impl<'v> FreezeBranded for UserProviderCallableNamed<'v> {
+    type Frozen<'fv> = UserProviderCallableNamed<'fv>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        let UserProviderCallableNamed {
+            id,
+            signature,
+            data,
+            ty_provider,
+            ty_callable,
+        } = self;
+        Ok(UserProviderCallableNamed {
+            id,
+            signature: signature.freeze(freezer)?,
+            data,
+            ty_provider,
+            ty_callable,
+        })
+    }
+}
+
 #[derive(
     Debug,
     Trace,
+    FreezeBranded,
     Allocative,
     ProvidesStaticType,
     NoSerialize,
@@ -291,20 +317,18 @@ impl UserProviderCallableNamed {
     Dupe,
     StarlarkPagable
 )]
-pub(crate) struct UserProviderField {
+pub(crate) struct UserProviderField<'v> {
     /// Field type.
+    #[freeze_branded(identity)]
     pub(crate) ty: TypeCompiled<FrozenValue>,
-    /// Default value. If `None`, the field is required.
-    pub(crate) default: Option<FrozenValue>,
+    /// Default value. If `None`, the field is required. Always immutable, so that instances can
+    /// share it.
+    pub(crate) default: Option<Value<'v>>,
 }
 
-impl<'v> AllocValue<'v> for UserProviderField {
-    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_simple(self)
-    }
-}
+starlark_complex_value_branded!(pub(crate) UserProviderField);
 
-impl Display for UserProviderField {
+impl<'v> Display for UserProviderField<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "ProviderField({}, ", self.ty)?;
         if let Some(default) = &self.default {
@@ -316,17 +340,17 @@ impl Display for UserProviderField {
     }
 }
 
-impl UserProviderField {
-    pub(crate) fn default() -> UserProviderField {
+impl<'v> UserProviderField<'v> {
+    pub(crate) fn default() -> UserProviderField<'v> {
         UserProviderField {
             ty: TypeCompiled::any(),
-            default: Some(FrozenValue::new_none()),
+            default: Some(Value::new_none()),
         }
     }
 }
 
 #[starlark_value(type = "ProviderField")]
-impl<'v> StarlarkValue<'v> for UserProviderField {}
+impl<'v> StarlarkValue<'v> for UserProviderField<'v> {}
 
 /// The result of calling `provider()`. This is a callable that accepts the fields
 /// provided in the `provider()` call, and generates a Starlark `UserProvider` object.
@@ -337,12 +361,11 @@ impl<'v> StarlarkValue<'v> for UserProviderField {}
 #[derive(
     Debug,
     ProvidesStaticType,
-    Trace,
     NoSerialize,
     Allocative,
     starlark::StarlarkPagable
 )]
-pub struct UserProviderCallable {
+pub struct UserProviderCallable<'v> {
     /// The path where this `ProviderCallable` is created and assigned
     #[starlark_pagable(pagable)]
     path: CellPath,
@@ -350,14 +373,14 @@ pub struct UserProviderCallable {
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
     /// Field is initialized after the provider is assigned to a variable.
-    callable: OnceCell<UserProviderCallableNamed>,
+    callable: OnceCell<UserProviderCallableNamed<'v>>,
 }
 
 fn user_provider_callable_display(
     id: Option<&Arc<ProviderId>>,
-    fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    fields: &IndexMap<String, UserProviderField<'_>, StarlarkHasherSmallPromoteBuilder>,
     f: &mut Formatter,
 ) -> fmt::Result {
     write!(f, "provider")?;
@@ -379,17 +402,26 @@ fn user_provider_callable_display(
     Ok(())
 }
 
-impl Display for UserProviderCallable {
+impl<'v> Display for UserProviderCallable<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         user_provider_callable_display(self.callable.get().map(|x| &x.id), &self.fields, f)
     }
 }
 
-impl UserProviderCallable {
+unsafe impl<'v> Trace<'v> for UserProviderCallable<'v> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        for field in self.fields.values_mut() {
+            field.trace(tracer);
+        }
+        self.callable.trace(tracer);
+    }
+}
+
+impl<'v> UserProviderCallable<'v> {
     fn new(
         path: CellPath,
         docs: Option<DocString>,
-        fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+        fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
     ) -> Self {
         Self {
             callable: OnceCell::new(),
@@ -400,7 +432,7 @@ impl UserProviderCallable {
     }
 }
 
-impl ProviderCallableLike for UserProviderCallable {
+impl<'v> ProviderCallableLike for UserProviderCallable<'v> {
     fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         self.callable
             .get()
@@ -409,15 +441,15 @@ impl ProviderCallableLike for UserProviderCallable {
     }
 }
 
-impl<'v> AllocValue<'v> for UserProviderCallable {
+impl<'v> AllocValue<'v> for UserProviderCallable<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_branded(self)
     }
 }
 
-impl FreezeBranded for UserProviderCallable {
-    type Frozen<'fv> = FrozenUserProviderCallable;
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+impl<'v> FreezeBranded for UserProviderCallable<'v> {
+    type Frozen<'fv> = FrozenUserProviderCallable<'fv>;
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let callable = self.callable.into_inner();
         let callable = match callable {
             Some(x) => x,
@@ -433,10 +465,18 @@ impl FreezeBranded for UserProviderCallable {
             }
         };
 
+        let mut fields = IndexMap::with_capacity_and_hasher(
+            self.fields.len(),
+            StarlarkHasherSmallPromoteBuilder::default(),
+        );
+        for (name, field) in self.fields {
+            fields.insert(name, field.freeze(freezer)?);
+        }
+
         Ok(FrozenUserProviderCallable::new(
             self.docs,
-            self.fields,
-            callable,
+            fields,
+            callable.freeze(freezer)?,
         ))
     }
 }
@@ -462,8 +502,8 @@ impl TypeMatcher for UserProviderMatcher {
 }
 
 #[starlark_value(type = "ProviderCallable", skip_vtable)]
-impl<'v> StarlarkValue<'v> for UserProviderCallable {
-    type Canonical = FrozenUserProviderCallable;
+impl<'v> StarlarkValue<'v> for UserProviderCallable<'v> {
+    type Canonical = FrozenUserProviderCallable<'v>;
 
     fn export_as(
         &self,
@@ -502,7 +542,11 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 data: eval.frozen_heap(|fh, _| {
                     fh.alloc_any_value(UserProviderCallableData {
                         provider_id,
-                        fields: self.fields.clone(),
+                        fields: self
+                            .fields
+                            .iter()
+                            .map(|(name, field)| (name.clone(), field.ty.dupe()))
+                            .collect(),
                         ty_provider_type_instance_id,
                     })
                 }),
@@ -563,28 +607,33 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
 }
 
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
-pub struct FrozenUserProviderCallable {
+pub struct FrozenUserProviderCallable<'v> {
     /// The docstring for this provider
     #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
-    fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
     /// The actual callable that creates instances of `UserProvider`
-    callable: UserProviderCallableNamed,
+    callable: UserProviderCallableNamed<'v>,
 }
-starlark_simple_value!(FrozenUserProviderCallable);
 
-impl Display for FrozenUserProviderCallable {
+impl<'fv> AllocFrozenValue<'fv> for FrozenUserProviderCallable<'fv> {
+    fn alloc_frozen_value(self, heap: FrozenHeap<'fv>) -> Value<'fv> {
+        heap.alloc_simple_typed(self).to_value()
+    }
+}
+
+impl<'v> Display for FrozenUserProviderCallable<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         user_provider_callable_display(Some(&self.callable.id), &self.fields, f)
     }
 }
 
-impl FrozenUserProviderCallable {
+impl<'v> FrozenUserProviderCallable<'v> {
     fn new(
         docs: Option<DocString>,
-        fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
-        callable: UserProviderCallableNamed,
+        fields: IndexMap<String, UserProviderField<'v>, StarlarkHasherSmallPromoteBuilder>,
+        callable: UserProviderCallableNamed<'v>,
     ) -> Self {
         Self {
             docs,
@@ -594,14 +643,14 @@ impl FrozenUserProviderCallable {
     }
 }
 
-impl ProviderCallableLike for FrozenUserProviderCallable {
+impl<'v> ProviderCallableLike for FrozenUserProviderCallable<'v> {
     fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         Ok(&self.callable.id)
     }
 }
 
-#[starlark_value(type = "ProviderCallable")]
-impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
+#[starlark_value(type = "ProviderCallable", frozen_vtable)]
+impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable<'v> {
     type Canonical = Self;
 
     fn invoke(
@@ -658,27 +707,20 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] ty: Value<'v>,
         #[starlark(require=named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<UserProviderField> {
+    ) -> starlark::Result<UserProviderField<'v>> {
         let ty = provider_field_parse_type(ty, eval)?;
         let default = match default {
             None => None,
             Some(x) => {
-                if let Some(x) = x.unpack_frozen() {
+                // The default is shared by every instance, so it must be immutable: frozen, or
+                // the immutable empty list or dict.
+                if x.unpack_frozen().is_some() {
                     Some(x)
                 } else if ListRef::from_value(x).is_some_and(|x| x.is_empty()) {
-                    Some(eval.frozen_heap(|fh, _| {
-                        fh.alloc(AllocList::EMPTY)
-                            .unpack_frozen()
-                            .expect("value allocated in a frozen heap is frozen")
-                    }))
+                    Some(Value::new_empty_list())
                 } else if DictRef::from_value(x).is_some_and(|x| x.is_empty()) {
-                    Some(eval.frozen_heap(|fh, _| {
-                        fh.alloc(AllocDict::EMPTY)
-                            .unpack_frozen()
-                            .expect("value allocated in a frozen heap is frozen")
-                    }))
+                    Some(Value::new_empty_dict())
                 } else {
-                    // Dealing only with frozen values is much easier.
                     return Err(buck2_error::Error::from(
                         ProviderCallableError::InvalidDefaultValue,
                     )
@@ -687,11 +729,11 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             }
         };
         if let Some(default) = default {
-            if !ty.matches(default.to_value()) {
+            if !ty.matches(default) {
                 return Err(buck2_error::Error::from(
                     ProviderCallableError::InvalidDefaultValueType(
                         default.to_string(),
-                        default.to_value().get_type(),
+                        default.get_type(),
                         ty.as_ty().dupe(),
                     ),
                 )
@@ -723,7 +765,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             SmallMap<String, Value<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<UserProviderCallable> {
+    ) -> starlark::Result<UserProviderCallable<'v>> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
@@ -731,7 +773,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             Either::Left(fields) => {
                 let new_fields: IndexMap<
                     String,
-                    UserProviderField,
+                    UserProviderField<'v>,
                     StarlarkHasherSmallPromoteBuilder,
                 > = fields
                     .items
