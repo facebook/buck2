@@ -43,7 +43,6 @@ use crate::any::ReinfectStatic;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
-use crate::register_starlark_any;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -585,9 +584,6 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for ValueType
         Ok(FrozenValueTyped::<T>::starlark_deserialize(ctx)?.to_value_typed())
     }
 }
-
-// Register FrozenValueTyped<StarlarkStr> for use with alloc_any_slice in pagable mode.
-register_starlark_any!(FrozenValueTyped<'static, StarlarkStr>);
 
 /// `Atomic<Option<ValueTyped<'v, T>>>`, for a `T` that only lives in frozen heaps.
 ///

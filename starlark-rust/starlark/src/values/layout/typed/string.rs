@@ -24,27 +24,17 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use dupe::Dupe;
 use serde::Serialize;
-use starlark_map::Equivalent;
 
-use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::sealed::Sealed;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
 use crate::values::string::str_type::StarlarkStr;
-
-/// Convenient type alias.
-///
-/// We use `FrozenValueTyped<StarlarkStr>` often, but also we define more operations
-/// on `FrozenValueTyped<StarlarkStr>` than on generic `FrozenValueTyped<T>`.
-pub type FrozenStringValue = FrozenValueTyped<'static, StarlarkStr>;
 
 /// Convenient type alias.
 ///
@@ -62,31 +52,9 @@ pub type FrozenStringValue = FrozenValueTyped<'static, StarlarkStr>;
 /// ```
 pub type StringValue<'v> = ValueTyped<'v, StarlarkStr>;
 
-// TODO(nga): figure out how to make these operations generic over `T`.
-unsafe impl<'v> Coerce<StringValue<'v>> for FrozenStringValue {}
-unsafe impl<'v> CoerceKey<StringValue<'v>> for FrozenStringValue {}
-
-impl Borrow<str> for FrozenStringValue {
-    fn borrow(&self) -> &str {
-        self.as_str()
-    }
-}
-
 impl<'v> Borrow<str> for StringValue<'v> {
     fn borrow(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl<'v> Equivalent<FrozenStringValue> for StringValue<'v> {
-    fn equivalent(&self, key: &FrozenStringValue) -> bool {
-        *self == key.to_string_value()
-    }
-}
-
-impl<'v> Equivalent<StringValue<'v>> for FrozenStringValue {
-    fn equivalent(&self, key: &StringValue<'v>) -> bool {
-        self.to_string_value() == *key
     }
 }
 
@@ -96,32 +64,10 @@ impl<'v> Default for StringValue<'v> {
     }
 }
 
-impl Default for FrozenStringValue {
-    fn default() -> Self {
-        VALUE_EMPTY_STRING.erase().to_frozen()
-    }
-}
-
-impl FrozenStringValue {
-    /// Get self along with the hash.
-    pub fn get_hashed(self) -> Hashed<Self> {
-        Hashed::new_unchecked(self.get_hash(), self)
-    }
-
-    /// Get the [`FrozenValue`] along with the hash.
-    pub fn get_hashed_value(self) -> Hashed<FrozenValue> {
-        Hashed::new_unchecked(self.get_hash(), self.to_frozen_value())
-    }
-
-    /// Get the string reference along with the hash.
-    pub fn get_hashed_str(self) -> Hashed<&'static str> {
-        Hashed::new_unchecked(self.get_hash(), self.as_str())
-    }
-}
-
 impl<'v> StringValue<'v> {
     /// Freeze the string into the [`Freezer`]'s heap.
     pub fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<StringValue<'fv>> {
+        // SAFETY: Freezing a string yields a string.
         Ok(unsafe { StringValue::new_unchecked(freezer.freeze(self.to_value())?) })
     }
 
@@ -141,7 +87,7 @@ impl<'v> StringValue<'v> {
     }
 }
 
-/// Common type for [`StringValue`] and [`FrozenStringValue`].
+/// What [`StringValue`] is generic code written against; it is the only implementation.
 pub trait StringValueLike<'v>:
     Trace<'v>
     + CoerceKey<StringValue<'v>>
@@ -176,33 +122,7 @@ impl<'v> StringValueLike<'v> for StringValue<'v> {
     }
 }
 
-impl Sealed for FrozenStringValue {}
-
-impl<'v> StringValueLike<'v> for FrozenStringValue {
-    fn to_string_value(self) -> StringValue<'v> {
-        self.to_value_typed().at()
-    }
-}
-
-impl<'v> PartialEq<StringValue<'v>> for FrozenStringValue {
-    fn eq(&self, other: &StringValue<'v>) -> bool {
-        &self.to_string_value() == other
-    }
-}
-
-impl<'v> PartialEq<FrozenStringValue> for StringValue<'v> {
-    fn eq(&self, other: &FrozenStringValue) -> bool {
-        self == &other.to_string_value()
-    }
-}
-
 impl<'v> Hash for StringValue<'v> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_ref().hash(state)
-    }
-}
-
-impl Hash for FrozenStringValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
@@ -215,18 +135,6 @@ impl<'v> PartialOrd for StringValue<'v> {
 }
 
 impl<'v> Ord for StringValue<'v> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.as_ref().cmp(other.as_ref())
-    }
-}
-
-impl PartialOrd for FrozenStringValue {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for FrozenStringValue {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.as_ref().cmp(other.as_ref())
     }

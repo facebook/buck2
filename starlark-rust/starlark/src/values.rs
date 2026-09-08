@@ -77,7 +77,6 @@ pub use crate::values::layout::static_string::StarlarkStrNRepr;
 pub use crate::values::layout::static_string::constant_string;
 pub use crate::values::layout::typed::FrozenValueTyped;
 pub use crate::values::layout::typed::ValueTyped;
-pub use crate::values::layout::typed::string::FrozenStringValue;
 pub use crate::values::layout::typed::string::StringValue;
 pub use crate::values::layout::typed::string::StringValueLike;
 pub use crate::values::layout::value::FrozenValue;

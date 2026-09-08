@@ -124,10 +124,9 @@
 //! therefore live in a frozen heap that the `Heap<'v>` does not depend on, and nothing is keeping
 //! that heap alive.
 //!
-//! The typed handles of the same family share the hole: `FrozenValueTyped<'static, T>` (and so
-//! `FrozenStringValue`) can be minted from any frozen heap, yet their
-//! `as_ref` hands out a `&'static T` and their `to_value` a `'static`-branded value, all without
-//! saying who keeps the heap alive. As long as they exist, "at the `'static` brand there is only
+//! The typed handle of the same family shares the hole: a `FrozenValueTyped<'static, T>` can be
+//! minted from any frozen heap, yet its `as_ref` hands out a `&'static T` and its `to_value` a
+//! `'static`-branded value, all without saying who keeps the heap alive. As long as they exist, "at the `'static` brand there is only
 //! immortal data" - the contract that `HeapEdge::immortal` and the `Value<'static>` storage of the
 //! owning carriers rely on - is only true of code that does not use them to lie.
 //!

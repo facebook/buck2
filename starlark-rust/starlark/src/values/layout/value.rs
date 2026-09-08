@@ -77,7 +77,6 @@ use crate::typing::TyCallable;
 use crate::util::ArcStr;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
@@ -106,7 +105,6 @@ use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
-use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::value_lifetimeless::ValueLifetimeless;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueDynFull;
@@ -1277,9 +1275,6 @@ impl StarlarkTypeRepr for FrozenValue {
 pub trait ValueLike<'v>:
     ValueLifetimeless + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
 {
-    /// `StringValue` or `FrozenStringValue`.
-    type String: StringValueLike<'v>;
-
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
 
@@ -1350,8 +1345,6 @@ impl<'v> Sealed for Value<'v> {}
 impl<'v> ValueLifetimeless for Value<'v> {}
 
 impl<'v> ValueLike<'v> for Value<'v> {
-    type String = StringValue<'v>;
-
     #[inline]
     fn to_value(self) -> Value<'v> {
         self
@@ -1429,8 +1422,6 @@ impl Sealed for FrozenValue {}
 impl ValueLifetimeless for FrozenValue {}
 
 impl<'v> ValueLike<'v> for FrozenValue {
-    type String = FrozenStringValue;
-
     #[inline]
     fn to_value(self) -> Value<'v> {
         Value::new_frozen(self)

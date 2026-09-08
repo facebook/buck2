@@ -53,10 +53,8 @@ use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
-use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::StringValue;
-use crate::values::StringValueLike;
 use crate::values::ValueLike;
 
 /// Implement `StarlarkSerialize` and `StarlarkDeserialize` for a type
@@ -282,27 +280,12 @@ impl<'v> SmallMapKeyDeserialize for crate::values::Value<'v> {
     }
 }
 
-/// FrozenStringValue: string hash is infallible.
-impl SmallMapKeyDeserialize for FrozenStringValue {
-    fn starlark_deserialize_hashed(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
-    ) -> crate::Result<Hashed<Self>> {
-        let fsv = FrozenStringValue::starlark_deserialize(ctx)?;
-        Ok(fsv.get_hashed())
-    }
-}
-
+/// String hash is infallible.
 impl<'v> SmallMapKeyDeserialize for StringValue<'v> {
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_>,
     ) -> crate::Result<Hashed<Self>> {
-        let fsv = FrozenStringValue::starlark_deserialize(ctx)?;
-        let hashed = fsv.get_hashed();
-        // Hash is unchanged by `StringValueLike::to_string_value`.
-        Ok(Hashed::new_unchecked(
-            hashed.hash(),
-            hashed.into_key().to_string_value(),
-        ))
+        Ok(StringValue::starlark_deserialize(ctx)?.get_hashed())
     }
 }
 
