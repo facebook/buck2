@@ -26,6 +26,7 @@
 mod globals;
 mod methods;
 mod module_dump;
+mod module_heaps;
 mod modules;
 pub(crate) mod names;
 pub(crate) mod slots;

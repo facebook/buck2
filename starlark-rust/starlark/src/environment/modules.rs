@@ -42,6 +42,7 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::EnvironmentError;
 use crate::environment::Globals;
+use crate::environment::module_heaps::ModuleHeaps;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
@@ -64,7 +65,6 @@ use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
-use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -182,8 +182,7 @@ pub(crate) struct FrozenModuleData {
 /// [`heap`](Module::heap).
 #[derive(Debug)]
 pub struct Module<'v> {
-    heap: Heap<'v>,
-    frozen_heap: OwnedFrozenHeap,
+    heaps: ModuleHeaps<'v>,
     names: MutableNames,
     // Should really be MutableSlots<'v>, where &'v self
     // Values are allocated from heap. Because of variance
@@ -212,9 +211,7 @@ impl FrozenModule {
     /// but we prefer not to panic if there's some high level logic error.
     pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
         Module::with_temp_heap(|module| {
-            module
-                .frozen_heap
-                .with(|fh| fh.add_reference(globals.heap()));
+            module.frozen_heap(|fh, _| fh.add_reference(globals.heap()));
 
             for (name, value) in globals.iter() {
                 module.set(name, value.to_value());
@@ -455,8 +452,7 @@ impl<'v> Module<'v> {
     // combination with that. Once GC is fixed, can be made public.
     pub(crate) fn with_heap(heap: Heap<'v>) -> Self {
         Self {
-            heap,
-            frozen_heap: OwnedFrozenHeap::new(),
+            heaps: ModuleHeaps::new(heap),
             names: MutableNames::new(),
             slots: MutableSlots::new(),
             docstring: RefCell::new(None),
@@ -472,35 +468,24 @@ impl<'v> Module<'v> {
 
     /// Get the heap on which values are allocated by this module.
     pub fn heap(&self) -> Heap<'v> {
-        self.heap
+        self.heaps.heap()
     }
 
     /// Allocate on the frozen heap of this module.
     ///
     /// The handle is branded with a lifetime private to `f`, so values allocated through it must
     /// be rebranded with the [`HeapEdge`] to be used with values of this module. They stay alive
-    /// as long as values of this module do, including after the module is frozen.
+    /// as long as values of this module's [`heap`](Module::heap) do, whether the module is frozen
+    /// or dropped.
     pub fn frozen_heap<R>(
         &self,
         f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
     ) -> R {
-        self.frozen_heap.with(|fh| {
-            // SAFETY: While the module lives it owns both heaps, and `freeze` consumes the module
-            // and gives the value heap a reference to the sealed frozen heap, so `'v` keeps
-            // `'fm`'s allocations alive. `'fm` is closure-introduced, so it is a true brand.
-            //
-            // A module dropped without being frozen while `Value<'v>`s minted here are still in
-            // use is the gap in that argument. It predates this edge: every allocation on the
-            // frozen heap has always been reachable at `'v` through `Value::new_frozen`. It
-            // closes once dropping a module also seals its frozen heap into the value heap's
-            // references.
-            let edge = unsafe { HeapEdge::unchecked_new() };
-            f(fh, edge)
-        })
+        self.heaps.frozen_heap(f)
     }
 
     pub(crate) fn frozen_heap_allocated_bytes(&self) -> usize {
-        self.frozen_heap.allocated_bytes()
+        self.heaps.frozen_heap_allocated_bytes()
     }
 
     /// Iterate through all the names defined in this module.
@@ -573,10 +558,9 @@ impl<'v> Module<'v> {
 
     fn freeze_impl(self, name: Option<FrozenHeapName>) -> FreezeResult<FrozenModule> {
         let Module {
+            heaps,
             names,
             slots,
-            frozen_heap,
-            heap,
             docstring,
             eval_duration,
             extra_value,
@@ -584,11 +568,12 @@ impl<'v> Module<'v> {
         } = self;
         #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
+        let heap = heaps.heap();
         // This is when we do the GC/freeze, using the module slots as roots
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let (frozen_module_ref, extra_value) = frozen_heap.with(|fh| {
+        let (frozen_module_ref, extra_value) = heaps.frozen_heap(|fh, _| {
             let freezer = Freezer::new(fh);
             // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
             for r in heap.referenced_heaps() {
@@ -622,10 +607,7 @@ impl<'v> Module<'v> {
             }
             FreezeResult::Ok((frozen_module_ref, extra_value))
         })?;
-        let sealed = frozen_heap.seal_impl(name, Some(heap.peak_allocated_bytes()));
-        // Values of the frozen heap were usable at `'v` while this module lived (see
-        // `frozen_heap`); keep them so now that the module is gone.
-        heap.add_reference(sealed.owner());
+        let sealed = heaps.seal(name);
 
         Ok(FrozenModule {
             heap: sealed,
@@ -642,7 +624,7 @@ impl<'v> Module<'v> {
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
     pub fn set(&self, name: &str, value: Value<'v>) {
-        let name = self.frozen_heap.with(|fh| fh.alloc_str_intern(name));
+        let name = self.heaps.frozen_heap(|fh, _| fh.alloc_str_intern(name));
         let slot = self.names.add_name(name);
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -668,8 +650,8 @@ impl<'v> Module<'v> {
 
     /// Import symbols from a module, similar to what is done during `load()`.
     pub fn import_public_symbols(&self, module: &FrozenModule) {
-        self.frozen_heap
-            .with(|fh| fh.add_reference(module.heap.owner()));
+        self.heaps
+            .frozen_heap(|fh, _| fh.add_reference(module.heap.owner()));
         for (k, slot) in module.module.names.symbols() {
             if Self::default_visibility(&k) == Visibility::Public {
                 if let Some(value) = module.module.slots.get_slot(slot) {
@@ -752,6 +734,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use allocative::Allocative;
     use starlark_derive::starlark_module;
 
     use crate as starlark;
@@ -763,8 +746,15 @@ mod tests {
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
+    use crate::values::NoSerialize;
+    use crate::values::ProvidesStaticType;
+    use crate::values::StarlarkPagablePanic;
+    use crate::values::StarlarkValue;
+    use crate::values::Trace;
+    use crate::values::Value;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::values::list::ListRef;
+    use crate::values::starlark_value;
 
     #[test]
     fn test_gen_heap_summary_profile() {
@@ -825,6 +815,57 @@ x = f(1)
                 .unwrap()
                 .len()
         );
+    }
+
+    /// A value of the module's frozen heap, stored in a list on the value heap.
+    fn frozen_heap_string_in_value_heap<'v>(module: &Module<'v>, expected: &str) -> Value<'v> {
+        let s = module.frozen_heap(|fh, edge| edge.rebrand(fh.alloc(expected)));
+        module.heap().alloc(vec![s])
+    }
+
+    fn assert_list_of_string(list: Value, expected: &str) {
+        let list = ListRef::from_value(list).unwrap();
+        assert_eq!(list.content()[0].unpack_str(), Some(expected));
+    }
+
+    #[test]
+    fn test_dropped_module_keeps_its_frozen_heap_alive() {
+        Module::with_temp_heap(|module| {
+            let expected = "a string that lives on the module's frozen heap".repeat(8);
+            let list = frozen_heap_string_in_value_heap(&module, &expected);
+            drop(module);
+            assert_list_of_string(list, &expected);
+        })
+    }
+
+    #[test]
+    fn test_failed_freeze_keeps_the_frozen_heap_alive() {
+        #[derive(
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType,
+            Trace,
+            Allocative,
+            NoSerialize,
+            StarlarkPagablePanic
+        )]
+        #[display("unfreezable")]
+        struct Unfreezable;
+
+        #[starlark_value(type = "unfreezable")]
+        impl<'v> StarlarkValue<'v> for Unfreezable {}
+
+        Module::with_temp_heap(|module| {
+            let expected = "a string that lives on the module's frozen heap".repeat(8);
+            let list = frozen_heap_string_in_value_heap(&module, &expected);
+            module.set("x", module.heap().alloc_complex_no_freeze(Unfreezable));
+            assert!(
+                module
+                    .freeze_named(StarlarkTestHeapName::frozen_heap_name())
+                    .is_err()
+            );
+            assert_list_of_string(list, &expected);
+        })
     }
 }
 

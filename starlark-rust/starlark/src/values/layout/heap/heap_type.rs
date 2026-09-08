@@ -1119,6 +1119,12 @@ impl OwnedFrozenHeap {
     pub fn allocated_bytes(&self) -> usize {
         self.arena.allocated_bytes()
     }
+
+    /// Whether nothing has been allocated on this heap and it references no other heap, in which
+    /// case sealing it would produce the empty [`OwnedFrozen<()>`].
+    pub(crate) fn is_empty(&self) -> bool {
+        self.arena.is_empty() && self.refs.borrow().is_empty()
+    }
 }
 
 /// A handle to an [`OwnedFrozenHeap`] on which values can be allocated. The values will be
