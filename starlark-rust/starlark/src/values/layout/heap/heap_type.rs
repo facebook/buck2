@@ -1094,24 +1094,10 @@ impl OwnedFrozenHeap {
     ///
     /// `f` can only produce the value at the handle's brand, so the value is paired with its
     /// owner by construction; [`OwnedFrozen::build`] is this on a fresh heap. The heap is sealed
-    /// whether or not `f` succeeds.
+    /// whether `f` succeeds or fails; if `f` panics it is dropped unsealed instead, which is fine
+    /// here because nothing outside `f` can hold a value at its brand (a module's builder is
+    /// different, see `ModuleHeaps`).
     pub fn seal_with<T, E, F>(self, name: FrozenHeapName, f: F) -> Result<OwnedFrozen<T>, E>
-    where
-        T: IsStaticType,
-        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-        for<'fh> F: FnOnce(FrozenHeap<'fh>) -> Result<T::Reinfect<'fh>, E>,
-    {
-        self.seal_with_impl(Some(name), || None, f).1
-    }
-
-    /// [`seal_with`](OwnedFrozenHeap::seal_with), also returning the sealed heap on its own, which
-    /// exists even when `f` failed. `peak_allocated_bytes` is asked after `f` has run.
-    pub(crate) fn seal_with_impl<T, E, F>(
-        self,
-        name: Option<FrozenHeapName>,
-        peak_allocated_bytes: impl FnOnce() -> Option<usize>,
-        f: F,
-    ) -> (OwnedFrozen<()>, Result<OwnedFrozen<T>, E>)
     where
         T: IsStaticType,
         for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
@@ -1120,17 +1106,12 @@ impl OwnedFrozenHeap {
         // The brand of the value is the borrow of `self`, which has to end before `self` can be
         // sealed, so the brand is erased before sealing rather than by `unchecked_new` afterwards.
         //
-        // SAFETY: `'fh` is the brand of `self`, which is sealed right below into the owner stored
-        // alongside the value. Being closure-introduced, `'fh` names nothing else.
-        let v =
-            f(FrozenHeap(&self, PhantomData)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) });
-        let sealed = self.seal_impl(name, peak_allocated_bytes());
-        let v = v.map(|v| OwnedFrozen {
-            heap_ref: sealed.heap_ref.dupe(),
-            v,
-            _no_auto_traits: PhantomData,
-        });
-        (sealed, v)
+        // SAFETY: `'fh` is the brand of `self`, which is sealed right below into the owner the
+        // value is paired with. Being closure-introduced, `'fh` names nothing else.
+        let v = self.with(|fh| f(fh).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) }));
+        let sealed = self.seal_impl(Some(name), None);
+        // SAFETY: `sealed` is the heap that `'fh` named.
+        v.map(|v| unsafe { OwnedFrozen::from_erased(sealed, v) })
     }
 
     pub(crate) fn seal_impl(
@@ -1782,11 +1763,24 @@ where
         // See comments on `Send` and `Sync` impls below
         for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
     {
+        // SAFETY: The caller guarantees that `owner` keeps `'fv` alive.
+        unsafe { Self::from_erased(owner, Self::erase_brand(v)) }
+    }
+
+    /// Pair `v`, which had its brand forgotten by [`erase_brand`](OwnedFrozen::erase_brand), with
+    /// the heap that keeps it alive.
+    ///
+    /// # SAFETY
+    ///
+    /// `owner` must keep the brand that `v` was erased from alive.
+    pub(crate) unsafe fn from_erased(owner: OwnedFrozen<()>, v: T) -> Self
+    where
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
+    {
         Self {
             heap_ref: owner.heap_ref,
-            // SAFETY: The caller guarantees that `owner`, whose heap is stored alongside, keeps
-            // `'fv` alive.
-            v: unsafe { Self::erase_brand(v) },
+            v,
             _no_auto_traits: PhantomData,
         }
     }

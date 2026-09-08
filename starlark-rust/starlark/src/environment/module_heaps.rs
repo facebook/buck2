@@ -31,8 +31,10 @@ use crate::values::layout::heap::heap_type::FrozenHeapName;
 /// Values allocated on the frozen heap are handed out at the value heap's brand, through the
 /// [`HeapEdge`] that [`frozen_heap`](ModuleHeaps::frozen_heap) provides. That is sound because the
 /// builder never leaves this type unsealed: [`seal_with`](ModuleHeaps::seal_with) and [`Drop`] are its
-/// only exits, and both seal it into the value heap's references. The edge therefore exists from the
-/// moment the two heaps do, with nothing to remember at the end.
+/// only exits, and both seal it into the value heap's references. `seal_with` does so whether its
+/// closure returns `Ok` or `Err`, and `Drop` covers a module that is never frozen as well as a
+/// closure that unwinds. The edge therefore exists from the moment the two heaps do, with nothing
+/// to remember at the end.
 #[derive(Debug)]
 pub(crate) struct ModuleHeaps<'v> {
     heap: Heap<'v>,
@@ -80,8 +82,8 @@ impl<'v> ModuleHeaps<'v> {
     /// Allocate the frozen heap's root value with `f`, then seal the heap into the value heap's
     /// references and return the root value kept alive by it.
     ///
-    /// The heap is sealed whether or not `f` succeeds. The `name` is the sealed heap's, see
-    /// [`OwnedFrozen::name`].
+    /// The heap is sealed whether `f` succeeds, fails or panics. The `name` is the sealed heap's,
+    /// see [`OwnedFrozen::name`].
     pub(crate) fn seal_with<T, E>(
         mut self,
         name: Option<FrozenHeapName>,
@@ -91,27 +93,66 @@ impl<'v> ModuleHeaps<'v> {
         T: IsStaticType,
         for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
     {
+        // The builder stays in `self` while `f` runs, so that if `f` unwinds, `Drop` seals it like
+        // on every other exit: the value heap may already hold pointers into it.
+        //
+        // SAFETY: `'fm` is the brand of the builder, which is sealed right below into the owner
+        // the value is paired with. Being closure-introduced, `'fm` names nothing else.
+        let root = self
+            .frozen()
+            .with(|fh| f(fh).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) }));
         let frozen = self
             .frozen
             .take()
             .expect("the builder is only taken by `seal_with`, which consumes `self`");
-        let (sealed, root) =
-            frozen.seal_with_impl(name, || Some(self.heap.peak_allocated_bytes()), f);
+        let sealed = frozen.seal_impl(name, Some(self.heap.peak_allocated_bytes()));
         self.heap.add_reference(sealed.owner());
-        root
+        // SAFETY: `sealed` is the heap that `'fm` named.
+        root.map(|v| unsafe { OwnedFrozen::from_erased(sealed, v) })
     }
 }
 
 impl<'v> Drop for ModuleHeaps<'v> {
     fn drop(&mut self) {
-        // A module that is dropped rather than frozen: its frozen heap has to outlive it all the
-        // same, see the type doc. An empty builder would seal into the empty heap, which keeps
-        // nothing alive, so it is skipped.
+        // A module that is dropped rather than frozen, or a `seal_with` closure that unwound: the
+        // frozen heap has to outlive the module all the same, see the type doc. An empty builder
+        // would seal into the empty heap, which keeps nothing alive, so it is skipped.
         if let Some(frozen) = self.frozen.take()
             && !frozen.is_empty()
         {
             let sealed = frozen.seal_impl(None, Some(self.heap.peak_allocated_bytes()));
             self.heap.add_reference(sealed.owner());
         }
+    }
+}
+
+// `catch_unwind` needs an unwinding panic runtime; under `panic = "abort"` the hole this guards
+// against cannot be exercised, since a panic ends the process.
+#[cfg(all(test, panic = "unwind"))]
+mod tests {
+    use std::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
+
+    use crate::environment::module_heaps::ModuleHeaps;
+    use crate::values::Heap;
+    use crate::values::Value;
+    use crate::values::list::ListRef;
+
+    /// The value heap can hold pointers into the frozen heap before it is sealed, so a panic
+    /// inside the sealing closure must still seal it.
+    #[test]
+    fn test_unwinding_out_of_seal_with_seals() {
+        Heap::temp(|heap| {
+            let heaps = ModuleHeaps::new(heap);
+            let expected = "a string that lives on the module's frozen heap".repeat(8);
+            let s = heaps.frozen_heap(|fh, edge| edge.rebrand(fh.alloc(expected.as_str())));
+            let list = heap.alloc(vec![s]);
+            let unwound = catch_unwind(AssertUnwindSafe(|| {
+                heaps.seal_with::<Value<'static>, ()>(None, |_fh| panic!("sealing failed"))
+            }));
+            assert!(unwound.is_err());
+            let list = ListRef::from_value(list).unwrap();
+            assert_eq!(list.content()[0].unpack_str(), Some(expected.as_str()));
+        })
     }
 }
