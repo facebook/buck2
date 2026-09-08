@@ -695,7 +695,7 @@ fn provider_field_parse_type<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
     TypeCompiled::new(ty, eval.heap())
-        .map(|ty| eval.frozen_heap(|fh, _| ty.to_frozen(fh)))
+        .map(|ty| eval.frozen_heap(|fh, _| ty.to_frozen_unbranded(fh)))
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
 

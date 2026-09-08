@@ -46,8 +46,8 @@ use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::compr::ComprCompiled;
 use crate::eval::compiler::constants::Constants;
+use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefCompiled;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr_bool::ExprCompiledBool;
 use crate::eval::compiler::known::list_to_tuple;
@@ -64,14 +64,13 @@ use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLike;
+use crate::values::ValueTyped;
 use crate::values::bool::StarlarkBool;
 use crate::values::function::BoundMethod;
 use crate::values::list::ListRef;
@@ -84,7 +83,6 @@ use crate::values::types::ellipsis::Ellipsis;
 use crate::values::types::float::StarlarkFloat;
 use crate::values::types::int::inline_int::InlineInt;
 use crate::values::types::int::int_or_big::StarlarkInt;
-use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 use crate::values::types::string::dot_format::format_one;
 use crate::values::types::string::interpolation::percent_s_one;
@@ -129,7 +127,7 @@ impl CompareOp {
 
 /// Builtin function with one argument.
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) enum Builtin1 {
+pub(crate) enum Builtin1<'f> {
     Minus,
     /// `+x`.
     Plus,
@@ -138,33 +136,35 @@ pub(crate) enum Builtin1 {
     /// `not x`.
     Not,
     /// `type(arg) == "y"`
-    TypeIs(FrozenStringValue),
+    TypeIs(StringValue<'f>),
     /// `"aaa%sbbb" % arg`
-    PercentSOne(FrozenStringValue, FrozenStringValue),
+    PercentSOne(StringValue<'f>, StringValue<'f>),
     /// `"aaa%sbbb".format(arg)`
-    FormatOne(FrozenStringValue, FrozenStringValue),
+    FormatOne(StringValue<'f>, StringValue<'f>),
     /// `x.field`.
     Dot(Symbol),
 }
 
-impl Builtin1 {
-    fn eval<'v>(&self, v: FrozenValue, ctx: &mut OptCtx<'v, '_, '_, '_, '_>) -> Option<Value<'v>> {
+impl<'f> Builtin1<'f> {
+    /// Apply to an IR constant, speculatively at the value heap.
+    fn eval<'v>(&self, v: Value<'f>, ctx: &mut OptCtx<'v, '_, '_, '_, 'f>) -> Option<Value<'v>> {
+        let edge = ctx.edge();
         match self {
-            Builtin1::Minus => v.to_value().minus(ctx.heap()).ok(),
-            Builtin1::Plus => v.to_value().plus(ctx.heap()).ok(),
-            Builtin1::BitNot => v.to_value().bit_not(ctx.heap()).ok(),
-            Builtin1::Not => Some(Value::new_bool(!v.to_value().to_bool())),
-            Builtin1::TypeIs(t) => Some(Value::new_bool(v.to_value().get_type_value() == *t)),
+            Builtin1::Minus => edge.rebrand(v).minus(ctx.heap()).ok(),
+            Builtin1::Plus => edge.rebrand(v).plus(ctx.heap()).ok(),
+            Builtin1::BitNot => edge.rebrand(v).bit_not(ctx.heap()).ok(),
+            Builtin1::Not => Some(Value::new_bool(!v.to_bool())),
+            Builtin1::TypeIs(t) => Some(Value::new_bool(v.get_type_value().at() == *t)),
             Builtin1::FormatOne(before, after) => {
-                Some(format_one(before, v.to_value(), after, ctx.heap()).to_value())
+                Some(format_one(before, edge.rebrand(v), after, ctx.heap()).to_value())
             }
             Builtin1::PercentSOne(before, after) => {
-                percent_s_one(before, v.to_value(), after, ctx.heap())
+                percent_s_one(before, edge.rebrand(v), after, ctx.heap())
                     .map(|s| s.to_value())
                     .ok()
             }
             Builtin1::Dot(field) => {
-                Some(ExprCompiled::compile_time_getattr(v, field, ctx)?.to_value())
+                Some(edge.rebrand(ExprCompiled::compile_time_getattr(v, field, ctx)?))
             }
         }
     }
@@ -234,69 +234,79 @@ pub(crate) enum ExprLogicalBinOp {
     Or,
 }
 
-/// The IR names values as `FrozenValue`s until `ExprCompiled::Value` is branded, so a value
-/// brought to the IR's brand by [`OptCtx::demote`] drops it again here.
-pub(crate) fn ir_value(v: Value<'_>) -> FrozenValue {
-    v.unpack_frozen()
-        .expect("`demote` only returns frozen values")
-}
-
+/// An expression of the IR, at the brand `'f` of the frozen heap its constants live in.
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) enum ExprCompiled {
-    Value(FrozenValue),
+pub(crate) enum ExprCompiled<'f> {
+    Value(Value<'f>),
     /// Read local non-captured variable.
     Local(LocalSlotId),
     /// Read local captured variable.
     LocalCaptured(LocalCapturedSlotId),
     Module(ModuleSlotId),
-    Tuple(Vec<IrSpanned<ExprCompiled>>),
-    List(Vec<IrSpanned<ExprCompiled>>),
-    Dict(Vec<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
+    Tuple(Vec<IrSpanned<'f, ExprCompiled<'f>>>),
+    List(Vec<IrSpanned<'f, ExprCompiled<'f>>>),
+    Dict(
+        Vec<(
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+        )>,
+    ),
     /// Comprehension.
-    Compr(ComprCompiled),
+    Compr(ComprCompiled<'f>),
     If(
         Box<(
             // Condition.
-            IrSpanned<ExprCompiled>,
+            IrSpanned<'f, ExprCompiled<'f>>,
             // Then branch.
-            IrSpanned<ExprCompiled>,
+            IrSpanned<'f, ExprCompiled<'f>>,
             // Else branch.
-            IrSpanned<ExprCompiled>,
+            IrSpanned<'f, ExprCompiled<'f>>,
         )>,
     ),
     Slice(
         Box<(
-            IrSpanned<ExprCompiled>,
-            Option<IrSpanned<ExprCompiled>>,
-            Option<IrSpanned<ExprCompiled>>,
-            Option<IrSpanned<ExprCompiled>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+            Option<IrSpanned<'f, ExprCompiled<'f>>>,
+            Option<IrSpanned<'f, ExprCompiled<'f>>>,
+            Option<IrSpanned<'f, ExprCompiled<'f>>>,
         )>,
     ),
-    Builtin1(Builtin1, Box<IrSpanned<ExprCompiled>>),
+    Builtin1(Builtin1<'f>, Box<IrSpanned<'f, ExprCompiled<'f>>>),
     LogicalBinOp(
         ExprLogicalBinOp,
-        Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
+        Box<(
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+        )>,
     ),
     /// Expression equivalent to `(x, y)[1]`: evaluate `x`, discard the result,
     /// then evaluate `y` and use its result.
-    Seq(Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>),
+    Seq(
+        Box<(
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+        )>,
+    ),
     Builtin2(
         Builtin2,
-        Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
+        Box<(
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+        )>,
     ),
     Index2(
         Box<(
-            IrSpanned<ExprCompiled>,
-            IrSpanned<ExprCompiled>,
-            IrSpanned<ExprCompiled>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
         )>,
     ),
-    Call(Box<IrSpanned<CallCompiled>>),
-    Def(DefCompiled),
+    Call(Box<IrSpanned<'f, CallCompiled<'f>>>),
+    Def(DefCompiled<'f>),
 }
 
-impl ExprCompiled {
-    pub fn as_value(&self) -> Option<FrozenValue> {
+impl<'f> ExprCompiled<'f> {
+    pub fn as_value(&self) -> Option<Value<'f>> {
         match self {
             Self::Value(x) => Some(*x),
             _ => None,
@@ -304,19 +314,19 @@ impl ExprCompiled {
     }
 
     /// Expression is known to be a constant which is a `def`.
-    pub(crate) fn as_frozen_def(&self) -> Option<FrozenValueTyped<'static, FrozenDef>> {
-        FrozenValueTyped::new(self.as_value()?.to_value())
+    pub(crate) fn as_def(&self) -> Option<ValueTyped<'f, Def<'f>>> {
+        ValueTyped::new(self.as_value()?)
     }
 
-    /// Expression is known to be a frozen bound method.
-    pub(crate) fn as_frozen_bound_method(&self) -> Option<FrozenValueTyped<'_, BoundMethod<'_>>> {
-        FrozenValueTyped::new(self.as_value()?.to_value())
+    /// Expression is known to be a constant bound method.
+    pub(crate) fn as_bound_method(&self) -> Option<ValueTyped<'f, BoundMethod<'f>>> {
+        ValueTyped::new(self.as_value()?)
     }
 
     /// Expression is builtin `len` function.
     pub(crate) fn is_fn_len(&self) -> bool {
         match self.as_value() {
-            Some(value) => value == Constants::get().fn_len,
+            Some(value) => Constants::get().fn_len.is(value),
             None => false,
         }
     }
@@ -324,7 +334,7 @@ impl ExprCompiled {
     /// Expression is builtin `type` function.
     pub(crate) fn is_fn_type(&self) -> bool {
         match self.as_value() {
-            Some(value) => value == Constants::get().fn_type,
+            Some(value) => Constants::get().fn_type.is(value),
             None => false,
         }
     }
@@ -332,13 +342,13 @@ impl ExprCompiled {
     /// Expression is builtin `isinstance` function.
     pub(crate) fn is_fn_isinstance(&self) -> bool {
         match self.as_value() {
-            Some(value) => value == Constants::get().fn_isinstance,
+            Some(value) => Constants::get().fn_isinstance.is(value),
             None => false,
         }
     }
 
     /// If expression is `type(x)`, return `x`.
-    pub(crate) fn as_type(&self) -> Option<&IrSpanned<ExprCompiled>> {
+    pub(crate) fn as_type(&self) -> Option<&IrSpanned<'f, ExprCompiled<'f>>> {
         match self {
             Self::Call(c) => c.as_type(),
             _ => None,
@@ -346,15 +356,15 @@ impl ExprCompiled {
     }
 
     /// If expression if `type(x) == t`, return `x` and `t`.
-    pub(crate) fn as_type_is(&self) -> Option<(&IrSpanned<ExprCompiled>, FrozenStringValue)> {
+    pub(crate) fn as_type_is(&self) -> Option<(&IrSpanned<'f, ExprCompiled<'f>>, StringValue<'f>)> {
         match self {
             ExprCompiled::Builtin1(Builtin1::TypeIs(t), x) => Some((x, *t)),
             _ => None,
         }
     }
 
-    /// Expression is a frozen value which is builtin.
-    pub(crate) fn as_builtin_value(&self) -> Option<FrozenValue> {
+    /// Expression is a constant which is builtin.
+    pub(crate) fn as_builtin_value(&self) -> Option<Value<'f>> {
         match self {
             Self::Value(x) if x.is_builtin() => Some(*x),
             _ => None,
@@ -362,8 +372,8 @@ impl ExprCompiled {
     }
 
     /// Is expression a constant string?
-    pub(crate) fn as_string(&self) -> Option<FrozenStringValue> {
-        FrozenStringValue::new(self.as_value()?.to_value())
+    pub(crate) fn as_string(&self) -> Option<StringValue<'f>> {
+        StringValue::new(self.as_value()?)
     }
 
     /// Iterable produced by this expression results in empty.
@@ -372,7 +382,7 @@ impl ExprCompiled {
             ExprCompiled::List(xs) => xs.is_empty(),
             ExprCompiled::Tuple(xs) => xs.is_empty(),
             ExprCompiled::Dict(xs) => xs.is_empty(),
-            ExprCompiled::Value(v) if v.is_builtin() => v.to_value().length().is_ok_and(|l| l == 0),
+            ExprCompiled::Value(v) if v.is_builtin() => v.length().is_ok_and(|l| l == 0),
             _ => false,
         }
     }
@@ -418,7 +428,7 @@ impl ExprCompiled {
     /// return truth of that value.
     pub(crate) fn is_pure_infallible_to_bool(&self) -> Option<bool> {
         match self {
-            ExprCompiled::Value(v) => Some(v.to_value().to_bool()),
+            ExprCompiled::Value(v) => Some(v.to_bool()),
             ExprCompiled::List(xs) | ExprCompiled::Tuple(xs)
                 if xs.iter().all(|x| x.is_pure_infallible()) =>
             {
@@ -454,13 +464,13 @@ impl ExprCompiled {
     }
 }
 
-enum ExprShortList<'a> {
-    Exprs(&'a [IrSpanned<ExprCompiled>]),
-    Constants(&'a [FrozenValue]),
+enum ExprShortList<'a, 'f> {
+    Exprs(&'a [IrSpanned<'f, ExprCompiled<'f>>]),
+    Constants(&'a [Value<'f>]),
 }
 
-impl<'a> IrSpanned<ExprShortList<'a>> {
-    fn as_exprs(&self) -> Vec<IrSpanned<ExprCompiled>> {
+impl<'a, 'f> IrSpanned<'f, ExprShortList<'a, 'f>> {
+    fn as_exprs(&self) -> Vec<IrSpanned<'f, ExprCompiled<'f>>> {
         match &self.node {
             ExprShortList::Exprs(exprs) => exprs.to_vec(),
             ExprShortList::Constants(constants) => constants
@@ -474,15 +484,15 @@ impl<'a> IrSpanned<ExprShortList<'a>> {
     }
 }
 
-impl IrSpanned<ExprCompiled> {
+impl<'f> IrSpanned<'f, ExprCompiled<'f>> {
     /// Try to extract `[e0, e1, ..., en]` from this expression.
-    fn as_short_list(&self) -> Option<IrSpanned<ExprShortList<'_>>> {
+    fn as_short_list(&self) -> Option<IrSpanned<'f, ExprShortList<'_, 'f>>> {
         // Prevent exponential explosion during optimization.
         const MAX_LEN: usize = 1000;
         match &self.node {
             ExprCompiled::List(xs) if xs.len() <= MAX_LEN => Some(ExprShortList::Exprs(xs)),
             ExprCompiled::Value(v) => {
-                let list = FrozenListData::from_frozen_value(v)?;
+                let list = ListRef::from_value(*v)?;
                 if list.len() <= MAX_LEN {
                     Some(ExprShortList::Constants(list.content()))
                 } else {
@@ -497,14 +507,17 @@ impl IrSpanned<ExprCompiled> {
         })
     }
 
-    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn optimize(
+        &self,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         let span = self.span;
         let expr = match &self.node {
             e @ (ExprCompiled::Value(..)
             | ExprCompiled::Local(..)
             | ExprCompiled::LocalCaptured(..)) => e.clone(),
             ExprCompiled::Module(slot) => {
-                match ctx.frozen_module().and_then(|m| m.get_slot_frozen(*slot)) {
+                match ctx.frozen_module().and_then(|m| m.get_slot(*slot)) {
                     None => {
                         // Let if fail at runtime.
                         ExprCompiled::Module(*slot)
@@ -571,15 +584,18 @@ impl IrSpanned<ExprCompiled> {
     }
 }
 
-impl ExprCompiled {
-    fn equals(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+impl<'f> ExprCompiled<'f> {
+    fn equals(
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         let span = l.span.merge(&r.span);
         if let (Some(l), Some(r)) = (l.as_value(), r.as_value()) {
             // If comparison fails, let it fail in runtime.
-            if let Ok(r) = l.equals(r.to_value()) {
+            if let Ok(r) = l.equals(r) {
                 return IrSpanned {
                     span,
-                    node: ExprCompiled::Value(FrozenValue::new_bool(r)),
+                    node: ExprCompiled::Value(Value::new_bool(r)),
                 };
             }
         }
@@ -600,10 +616,13 @@ impl ExprCompiled {
         }
     }
 
-    pub(crate) fn not(span: FrameSpan, expr: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+    pub(crate) fn not(
+        span: FrameSpan<'f>,
+        expr: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         match expr.node {
             ExprCompiled::Value(x) => IrSpanned {
-                node: ExprCompiled::Value(FrozenValue::new_bool(!x.to_value().to_bool())),
+                node: ExprCompiled::Value(Value::new_bool(!x.to_bool())),
                 span,
             },
             // Collapse `not not e` to `e` only if `e` is known to produce a boolean.
@@ -615,19 +634,25 @@ impl ExprCompiled {
         }
     }
 
-    fn or(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+    fn or(
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         Self::logical_bin_op(ExprLogicalBinOp::Or, l, r)
     }
 
-    fn and(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> IrSpanned<ExprCompiled> {
+    fn and(
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         Self::logical_bin_op(ExprLogicalBinOp::And, l, r)
     }
 
     pub(crate) fn logical_bin_op(
         op: ExprLogicalBinOp,
-        l: IrSpanned<ExprCompiled>,
-        r: IrSpanned<ExprCompiled>,
-    ) -> IrSpanned<ExprCompiled> {
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         if let Some(l_v) = l.is_pure_infallible_to_bool() {
             if l_v == (op == ExprLogicalBinOp::Or) {
                 l
@@ -644,9 +669,9 @@ impl ExprCompiled {
     }
 
     pub(crate) fn seq(
-        l: IrSpanned<ExprCompiled>,
-        r: IrSpanned<ExprCompiled>,
-    ) -> IrSpanned<ExprCompiled> {
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         if l.is_pure_infallible() {
             r
         } else {
@@ -659,14 +684,14 @@ impl ExprCompiled {
     }
 
     fn percent(
-        l: IrSpanned<ExprCompiled>,
-        r: IrSpanned<ExprCompiled>,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(v) = l.as_string() {
             if let Some((before, after)) = parse_percent_s_one(&v) {
-                let before = ctx.frozen_heap().alloc_str_intern(&before);
-                let after = ctx.frozen_heap().alloc_str_intern(&after);
+                let before = ctx.frozen_heap().alloc_str(&before);
+                let after = ctx.frozen_heap().alloc_str(&after);
                 return ExprCompiled::percent_s_one(before, r, after, ctx);
             }
         }
@@ -674,17 +699,20 @@ impl ExprCompiled {
     }
 
     fn percent_s_one(
-        before: FrozenStringValue,
-        arg: IrSpanned<ExprCompiled>,
-        after: FrozenStringValue,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        before: StringValue<'f>,
+        arg: IrSpanned<'f, ExprCompiled<'f>>,
+        after: StringValue<'f>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(arg) = arg.as_value() {
-            if let Ok(value) =
-                percent_s_one(before.as_str(), arg.to_value(), after.as_str(), ctx.heap())
-            {
-                let value = ctx.frozen_heap().alloc_str_intern(value.as_str());
-                return ExprCompiled::Value(value.to_frozen_value());
+            if let Ok(value) = percent_s_one(
+                before.as_str(),
+                ctx.edge().rebrand(arg),
+                after.as_str(),
+                ctx.heap(),
+            ) {
+                let value = ctx.frozen_heap().alloc_str(value.as_str());
+                return ExprCompiled::Value(value.to_value());
             }
         }
 
@@ -692,21 +720,24 @@ impl ExprCompiled {
     }
 
     pub(crate) fn format_one(
-        before: FrozenStringValue,
-        arg: IrSpanned<ExprCompiled>,
-        after: FrozenStringValue,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        before: StringValue<'f>,
+        arg: IrSpanned<'f, ExprCompiled<'f>>,
+        after: StringValue<'f>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(arg) = arg.as_value() {
-            let value = format_one(&before, arg.to_value(), &after, ctx.heap());
-            let value = ctx.frozen_heap().alloc_str_intern(value.as_str());
-            return ExprCompiled::Value(value.to_frozen_value());
+            let value = format_one(&before, ctx.edge().rebrand(arg), &after, ctx.heap());
+            let value = ctx.frozen_heap().alloc_str(value.as_str());
+            return ExprCompiled::Value(value.to_value());
         }
 
         ExprCompiled::Builtin1(Builtin1::FormatOne(before, after), Box::new(arg))
     }
 
-    fn add(l: IrSpanned<ExprCompiled>, r: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    fn add(
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> ExprCompiled<'f> {
         if let (Some(l), Some(r)) = (l.as_short_list(), r.as_short_list()) {
             return ExprCompiled::List(l.as_exprs().into_iter().chain(r.as_exprs()).collect());
         }
@@ -715,15 +746,16 @@ impl ExprCompiled {
 
     pub(crate) fn bin_op(
         bin_op: Builtin2,
-        l: IrSpanned<ExprCompiled>,
-        r: IrSpanned<ExprCompiled>,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        l: IrSpanned<'f, ExprCompiled<'f>>,
+        r: IrSpanned<'f, ExprCompiled<'f>>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         let span = l.span.merge(&r.span);
         // Binary operators should have no side effects,
         // but to avoid possible problems, we only fold binary operators on builtin types.
         if let (Some(l), Some(r)) = (l.as_builtin_value(), r.as_builtin_value()) {
-            if let Ok(v) = bin_op.eval(l.to_value(), r.to_value(), ctx.heap()) {
+            let edge = ctx.edge();
+            if let Ok(v) = bin_op.eval(edge.rebrand(l), edge.rebrand(r), ctx.heap()) {
                 if let Some(v) = ExprCompiled::try_value(span, v, ctx) {
                     return v;
                 }
@@ -740,10 +772,10 @@ impl ExprCompiled {
     }
 
     pub(crate) fn if_expr(
-        cond: IrSpanned<ExprCompiled>,
-        t: IrSpanned<ExprCompiled>,
-        f: IrSpanned<ExprCompiled>,
-    ) -> IrSpanned<ExprCompiled> {
+        cond: IrSpanned<'f, ExprCompiled<'f>>,
+        t: IrSpanned<'f, ExprCompiled<'f>>,
+        f: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> IrSpanned<'f, ExprCompiled<'f>> {
         let cond_span = cond.span;
         let cond = ExprCompiledBool::new(cond);
         match cond.node {
@@ -771,11 +803,11 @@ impl ExprCompiled {
     }
 
     pub(crate) fn un_op(
-        span: FrameSpan,
-        op: &Builtin1,
-        expr: IrSpanned<ExprCompiled>,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        span: FrameSpan<'f>,
+        op: &Builtin1<'f>,
+        expr: IrSpanned<'f, ExprCompiled<'f>>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(v) = expr.as_builtin_value() {
             if let Some(v) = op.eval(v, ctx) {
                 if let Some(v) = ExprCompiled::try_value(expr.span, v, ctx) {
@@ -798,10 +830,10 @@ impl ExprCompiled {
     }
 
     fn try_values<'v>(
-        span: FrameSpan,
+        span: FrameSpan<'f>,
         values: &[Value<'v>],
-        ctx: &OptCtx<'v, '_, '_, '_, '_>,
-    ) -> Option<Vec<IrSpanned<ExprCompiled>>> {
+        ctx: &OptCtx<'v, '_, '_, '_, 'f>,
+    ) -> Option<Vec<IrSpanned<'f, ExprCompiled<'f>>>> {
         values
             .try_map(|v| {
                 Self::try_value(span, *v, ctx)
@@ -813,29 +845,27 @@ impl ExprCompiled {
 
     /// Try convert a maybe not frozen value to an expression, or discard it.
     pub(crate) fn try_value<'v>(
-        span: FrameSpan,
+        span: FrameSpan<'f>,
         v: Value<'v>,
-        ctx: &OptCtx<'v, '_, '_, '_, '_>,
-    ) -> Option<ExprCompiled> {
+        ctx: &OptCtx<'v, '_, '_, '_, 'f>,
+    ) -> Option<ExprCompiled<'f>> {
         let heap = ctx.frozen_heap();
         if let Some(v) = ctx.demote(v) {
             // If frozen, we are lucky.
-            Some(ExprCompiled::Value(ir_value(v)))
+            Some(ExprCompiled::Value(v))
         } else if let Some(v) = v.unpack_str() {
             if v.len() <= 1000 {
                 // If string, copy it to frozen heap.
-                Some(ExprCompiled::Value(
-                    heap.alloc_str_intern(v).to_frozen_value(),
-                ))
+                Some(ExprCompiled::Value(heap.alloc_str(v).to_value()))
             } else {
                 // Long strings may lead to exponential explosion in the optimizer,
                 // so skips optimizations for them.
                 None
             }
         } else if let Some(v) = v.downcast_ref::<StarlarkFloat>() {
-            Some(ExprCompiled::Value(heap.alloc_frozen(*v)))
+            Some(ExprCompiled::Value(heap.alloc(*v)))
         } else if let Some(v) = v.downcast_ref::<Range>() {
-            Some(ExprCompiled::Value(heap.alloc_frozen(*v)))
+            Some(ExprCompiled::Value(heap.alloc(*v)))
         } else if let Some(v) = ListRef::from_value(v) {
             // When spec-safe function returned a non-frozen list,
             // we try to convert that list to a list of constants instruction.
@@ -849,7 +879,7 @@ impl ExprCompiled {
         }
     }
 
-    pub(crate) fn compr(compr: ComprCompiled) -> ExprCompiled {
+    pub(crate) fn compr(compr: ComprCompiled<'f>) -> ExprCompiled<'f> {
         match compr {
             ComprCompiled::List(x, clauses) => {
                 if clauses.is_nop() {
@@ -870,38 +900,38 @@ impl ExprCompiled {
     }
 
     /// Construct tuple expression from elements optimizing to frozen tuple value when possible.
-    pub(crate) fn tuple(elems: Vec<IrSpanned<ExprCompiled>>, heap: FrozenHeap<'_>) -> ExprCompiled {
+    pub(crate) fn tuple(
+        elems: Vec<IrSpanned<'f, ExprCompiled<'f>>>,
+        heap: FrozenHeap<'f>,
+    ) -> ExprCompiled<'f> {
         if let Ok(elems) = elems.try_map(|e| e.as_value().ok_or(())) {
-            ExprCompiled::Value(heap.alloc_frozen(AllocTuple(elems)))
+            ExprCompiled::Value(heap.alloc(AllocTuple(elems)))
         } else {
             ExprCompiled::Tuple(elems)
         }
     }
 
     pub(crate) fn compile_time_getattr(
-        left: FrozenValue,
+        left: Value<'f>,
         attr: &Symbol,
-        ctx: &mut OptCtx,
-    ) -> Option<FrozenValue> {
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> Option<Value<'f>> {
         // We assume `getattr` has no side effects.
-        let v = get_attr_hashed_raw(left.to_value(), attr, ctx.heap()).ok()?;
+        let v = get_attr_hashed_raw(ctx.edge().rebrand(left), attr, ctx.heap()).ok()?;
         match v {
             MemberOrValue::Member(m) => match m.at() {
-                UnboundValue::Method(m) => Some(
-                    ctx.frozen_heap()
-                        .alloc_frozen(BoundMethod::new(left.to_value(), m)),
-                ),
+                UnboundValue::Method(m) => Some(ctx.frozen_heap().alloc(BoundMethod::new(left, m))),
                 UnboundValue::Attr(..) => None,
             },
-            MemberOrValue::Value(v) => Some(ir_value(ctx.demote(v)?)),
+            MemberOrValue::Value(v) => ctx.demote(v),
         }
     }
 
     pub(crate) fn dot(
-        object: IrSpanned<ExprCompiled>,
+        object: IrSpanned<'f, ExprCompiled<'f>>,
         field: &Symbol,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(left) = object.as_value() {
             if let Some(v) = Self::compile_time_getattr(left, field, ctx) {
                 return ExprCompiled::Value(v);
@@ -912,23 +942,24 @@ impl ExprCompiled {
     }
 
     fn slice(
-        span: FrameSpan,
-        array: IrSpanned<ExprCompiled>,
-        start: Option<IrSpanned<ExprCompiled>>,
-        stop: Option<IrSpanned<ExprCompiled>>,
-        step: Option<IrSpanned<ExprCompiled>>,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        span: FrameSpan<'f>,
+        array: IrSpanned<'f, ExprCompiled<'f>>,
+        start: Option<IrSpanned<'f, ExprCompiled<'f>>>,
+        stop: Option<IrSpanned<'f, ExprCompiled<'f>>>,
+        step: Option<IrSpanned<'f, ExprCompiled<'f>>>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         if let (Some(array), Some(start), Some(stop), Some(step)) = (
             array.as_builtin_value(),
             start.as_ref().map(|e| e.as_value()),
             stop.as_ref().map(|e| e.as_value()),
             step.as_ref().map(|e| e.as_value()),
         ) {
-            if let Ok(v) = array.to_value().slice(
-                start.map(|v| v.to_value()),
-                stop.map(|v| v.to_value()),
-                step.map(|v| v.to_value()),
+            let edge = ctx.edge();
+            if let Ok(v) = edge.rebrand(array).slice(
+                start.map(|v| edge.rebrand(v)),
+                stop.map(|v| edge.rebrand(v)),
+                step.map(|v| edge.rebrand(v)),
                 ctx.heap(),
             ) {
                 if let Some(v) = ExprCompiled::try_value(span, v, ctx) {
@@ -940,13 +971,14 @@ impl ExprCompiled {
     }
 
     pub(crate) fn index(
-        array: IrSpanned<ExprCompiled>,
-        index: IrSpanned<ExprCompiled>,
-        ctx: &mut OptCtx,
-    ) -> ExprCompiled {
+        array: IrSpanned<'f, ExprCompiled<'f>>,
+        index: IrSpanned<'f, ExprCompiled<'f>>,
+        ctx: &mut OptCtx<'_, '_, '_, '_, 'f>,
+    ) -> ExprCompiled<'f> {
         let span = array.span.merge(&index.span);
         if let (Some(array), Some(index)) = (array.as_builtin_value(), index.as_value()) {
-            if let Ok(v) = array.to_value().at(index.to_value(), ctx.heap()) {
+            let edge = ctx.edge();
+            if let Ok(v) = edge.rebrand(array).at(edge.rebrand(index), ctx.heap()) {
                 if let Some(expr) = ExprCompiled::try_value(span, v, ctx) {
                     return expr;
                 }
@@ -956,46 +988,36 @@ impl ExprCompiled {
     }
 
     pub(crate) fn index2(
-        array: IrSpanned<ExprCompiled>,
-        index0: IrSpanned<ExprCompiled>,
-        index1: IrSpanned<ExprCompiled>,
-    ) -> ExprCompiled {
+        array: IrSpanned<'f, ExprCompiled<'f>>,
+        index0: IrSpanned<'f, ExprCompiled<'f>>,
+        index1: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> ExprCompiled<'f> {
         ExprCompiled::Index2(Box::new((array, index0, index1)))
     }
 
-    pub(crate) fn typ(span: FrameSpan, v: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn typ(span: FrameSpan<'f>, v: IrSpanned<'f, ExprCompiled<'f>>) -> ExprCompiled<'f> {
         match &v.node {
-            ExprCompiled::Value(v) => {
-                ExprCompiled::Value(v.to_value().get_type_value().to_frozen().to_frozen_value())
-            }
+            ExprCompiled::Value(v) => ExprCompiled::Value(v.get_type_value().at().to_value()),
             ExprCompiled::Tuple(xs) if xs.iter().all(|e| e.is_pure_infallible()) => {
-                ExprCompiled::Value(Tuple::get_type_value_static().to_frozen().to_frozen_value())
+                ExprCompiled::Value(Tuple::get_type_value_static().at().to_value())
             }
             ExprCompiled::List(xs) if xs.iter().all(|e| e.is_pure_infallible()) => {
-                ExprCompiled::Value(
-                    ListData::get_type_value_static()
-                        .to_frozen()
-                        .to_frozen_value(),
-                )
+                ExprCompiled::Value(ListData::get_type_value_static().at().to_value())
             }
             ExprCompiled::Dict(xs) if xs.is_empty() => {
-                ExprCompiled::Value(Dict::get_type_value_static().to_frozen().to_frozen_value())
+                ExprCompiled::Value(Dict::get_type_value_static().at().to_value())
             }
             ExprCompiled::Builtin1(Builtin1::Not | Builtin1::TypeIs(_), x)
                 if x.is_pure_infallible() =>
             {
-                ExprCompiled::Value(
-                    StarlarkBool::get_type_value_static()
-                        .to_frozen()
-                        .to_frozen_value(),
-                )
+                ExprCompiled::Value(StarlarkBool::get_type_value_static().at().to_value())
             }
             _ => ExprCompiled::Call(Box::new(IrSpanned {
                 span,
                 node: CallCompiled {
                     fun: IrSpanned {
                         span,
-                        node: ExprCompiled::Value(Constants::get().fn_type.frozen()),
+                        node: ExprCompiled::Value(Constants::get().fn_type.at()),
                     },
                     args: ArgsCompiledValue {
                         pos_named: vec![v],
@@ -1006,20 +1028,24 @@ impl ExprCompiled {
         }
     }
 
-    pub(crate) fn type_is(v: IrSpanned<ExprCompiled>, t: FrozenStringValue) -> ExprCompiled {
+    pub(crate) fn type_is(
+        v: IrSpanned<'f, ExprCompiled<'f>>,
+        t: StringValue<'f>,
+    ) -> ExprCompiled<'f> {
         if let Some(v) = v.as_value() {
-            return ExprCompiled::Value(FrozenValue::new_bool(
-                v.to_value().get_type() == t.as_str(),
-            ));
+            return ExprCompiled::Value(Value::new_bool(v.get_type() == t.as_str()));
         }
         ExprCompiled::Builtin1(Builtin1::TypeIs(t), Box::new(v))
     }
 
-    pub(crate) fn len(span: FrameSpan, arg: IrSpanned<ExprCompiled>) -> ExprCompiled {
+    pub(crate) fn len(
+        span: FrameSpan<'f>,
+        arg: IrSpanned<'f, ExprCompiled<'f>>,
+    ) -> ExprCompiled<'f> {
         if let Some(arg) = arg.as_value() {
-            if let Ok(len) = arg.to_value().length() {
+            if let Ok(len) = arg.length() {
                 if let Ok(len) = InlineInt::try_from(len) {
-                    return ExprCompiled::Value(FrozenValue::new_int(len));
+                    return ExprCompiled::Value(Value::new_int(len));
                 }
             }
         }
@@ -1028,7 +1054,7 @@ impl ExprCompiled {
             node: CallCompiled {
                 fun: IrSpanned {
                     span,
-                    node: ExprCompiled::Value(Constants::get().fn_len.frozen()),
+                    node: ExprCompiled::Value(Constants::get().fn_len.at()),
                 },
                 args: ArgsCompiledValue {
                     pos_named: vec![arg],
@@ -1048,10 +1074,16 @@ pub(crate) enum EvalError {
 /// Try fold expression `cmp(l == r)` into `cmp(type(x) == "y")`.
 /// Return original `l` and `r` arguments if fold was unsuccessful.
 #[allow(clippy::result_large_err)]
-fn try_eval_type_is(
-    l: IrSpanned<ExprCompiled>,
-    r: IrSpanned<ExprCompiled>,
-) -> Result<IrSpanned<ExprCompiled>, (IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)> {
+fn try_eval_type_is<'f>(
+    l: IrSpanned<'f, ExprCompiled<'f>>,
+    r: IrSpanned<'f, ExprCompiled<'f>>,
+) -> Result<
+    IrSpanned<'f, ExprCompiled<'f>>,
+    (
+        IrSpanned<'f, ExprCompiled<'f>>,
+        IrSpanned<'f, ExprCompiled<'f>>,
+    ),
+> {
     let span = l.span.merge(&r.span);
     if let (Some(l), Some(r)) = (l.as_type(), r.as_string()) {
         Ok(IrSpanned {
@@ -1064,17 +1096,17 @@ fn try_eval_type_is(
 }
 
 trait AstLiteralCompile {
-    fn compile(&self, heap: FrozenHeap<'_>) -> FrozenValue;
+    fn compile<'f>(&self, heap: FrozenHeap<'f>) -> Value<'f>;
 }
 
 impl AstLiteralCompile for AstLiteral {
-    fn compile(&self, heap: FrozenHeap<'_>) -> FrozenValue {
+    fn compile<'f>(&self, heap: FrozenHeap<'f>) -> Value<'f> {
         match self {
-            AstLiteral::Int(i) => heap.alloc_frozen(StarlarkInt::from(i.node.clone())),
-            AstLiteral::Float(f) => heap.alloc_frozen(f.node),
-            AstLiteral::String(x) => heap.alloc_frozen(x.node.as_str()),
-            AstLiteral::Bytes(b) => heap.alloc_frozen(StarlarkBytes::new(&b.node)),
-            AstLiteral::Ellipsis => heap.alloc_frozen(Ellipsis),
+            AstLiteral::Int(i) => heap.alloc(StarlarkInt::from(i.node.clone())),
+            AstLiteral::Float(f) => heap.alloc(f.node),
+            AstLiteral::String(x) => heap.alloc(x.node.as_str()),
+            AstLiteral::Bytes(b) => heap.alloc(StarlarkBytes::new(&b.node)),
+            AstLiteral::Ellipsis => heap.alloc(Ellipsis),
         }
     }
 }
@@ -1152,7 +1184,7 @@ impl<'v> MemberOrValue<'v> {
     pub(crate) fn invoke(
         &self,
         this: Value<'v>,
-        span: &'static FrameSpan,
+        span: &'v FrameSpan<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
@@ -1203,7 +1235,7 @@ pub(crate) fn get_attr_hashed_bind<'v>(
 }
 
 impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
-    fn expr_ident(&mut self, ident: &CstIdent) -> ExprCompiled {
+    fn expr_ident(&mut self, ident: &CstIdent<'fm>) -> ExprCompiled<'fm> {
         let resolved_ident = ident
             .node
             .payload
@@ -1230,7 +1262,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                         // We could inline non-frozen values, but these values
                         // can be garbage-collected, so it is somewhat harder to implement.
                         if let Some(v) = self.opt_ctx().demote(v) {
-                            return ExprCompiled::Value(ir_value(v));
+                            return ExprCompiled::Value(v);
                         }
                     }
                 }
@@ -1248,8 +1280,8 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
 
     pub(crate) fn expr(
         &mut self,
-        expr: &CstExpr,
-    ) -> Result<IrSpanned<ExprCompiled>, CompilerInternalError> {
+        expr: &CstExpr<'fm>,
+    ) -> Result<IrSpanned<'fm, ExprCompiled<'fm>>, CompilerInternalError> {
         // println!("compile {}", expr.node);
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
         let expr = match &expr.node {
@@ -1343,7 +1375,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                     // Note there's const propagation for `+` on compiled expressions,
                     // but special handling of `+` on AST might be slightly more efficient
                     // (no unnecessary allocations on the heap). So keep it.
-                    let val = self.fh.alloc_frozen(x);
+                    let val = self.fh.alloc(x);
                     ExprCompiled::Value(val)
                 } else {
                     let right = if *op == BinOp::In || *op == BinOp::NotIn {
@@ -1462,7 +1494,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
 
                 // Desugar f"foo{x}bar{y}" to "foo{}bar{}.format(x, y)"
                 let format = IrSpanned {
-                    node: ExprCompiled::Value(self.fh.alloc_frozen(format.node.as_str())),
+                    node: ExprCompiled::Value(self.fh.alloc(format.node.as_str())),
                     span: fstring_span,
                 };
                 let method = IrSpanned {
@@ -1485,16 +1517,16 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
     /// only the truth of the result is needed.
     pub(crate) fn expr_truth(
         &mut self,
-        expr: &CstExpr,
-    ) -> Result<IrSpanned<ExprCompiledBool>, CompilerInternalError> {
+        expr: &CstExpr<'fm>,
+    ) -> Result<IrSpanned<'fm, ExprCompiledBool<'fm>>, CompilerInternalError> {
         let expr = self.expr(expr)?;
         Ok(ExprCompiledBool::new(expr))
     }
 
     pub(crate) fn exprs(
         &mut self,
-        exprs: &[CstExpr],
-    ) -> Result<Vec<IrSpanned<ExprCompiled>>, CompilerInternalError> {
+        exprs: &[CstExpr<'fm>],
+    ) -> Result<Vec<IrSpanned<'fm, ExprCompiled<'fm>>>, CompilerInternalError> {
         exprs
             .iter()
             .map(|e| self.expr(e))

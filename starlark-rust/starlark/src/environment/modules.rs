@@ -329,7 +329,12 @@ impl FrozenModule {
 
     /// `extra_value` field from `Module`, frozen.
     pub fn extra_value(&self) -> Option<FrozenValue> {
-        self.with_data(|data| data.extra_value.map(frozen_value))
+        self.with_data(|data| {
+            data.extra_value.map(|v| {
+                v.unpack_frozen()
+                    .expect("frozen modules store frozen values")
+            })
+        })
     }
 
     /// `extra_value` field from `Module`, frozen, kept alive by this module's heap.
@@ -338,13 +343,6 @@ impl FrozenModule {
             .dupe()
             .maybe_map::<Value<'static>, _>(|data| data.value.extra_value)
     }
-}
-
-/// The `FrozenValue` form of a value stored by a frozen module, for the readers that still hold
-/// module values as `FrozenValue`: the compiler IR and [`FrozenModule::extra_value`].
-fn frozen_value(v: Value) -> FrozenValue {
-    v.unpack_frozen()
-        .expect("frozen modules store frozen values")
 }
 
 impl<'v> FrozenModuleData<'v> {
@@ -381,11 +379,6 @@ impl<'v> FrozenModuleData<'v> {
 
     pub(crate) fn get_slot(&self, slot: ModuleSlotId) -> Option<Value<'v>> {
         self.slots.get_slot(slot)
-    }
-
-    /// See [`frozen_value`].
-    pub(crate) fn get_slot_frozen(&self, slot: ModuleSlotId) -> Option<FrozenValue> {
-        self.get_slot(slot).map(frozen_value)
     }
 
     /// Try and go back from a slot to a name.
@@ -560,7 +553,7 @@ impl<'v> Module<'v> {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let data = heaps.seal_with(name, |fh| {
+        let data = heaps.seal_with(name, |fh, edge| {
             let freezer = Freezer::new(fh);
             let names = names.freeze(&freezer)?;
             let slots = slots.freeze(&freezer)?;
@@ -587,7 +580,7 @@ impl<'v> Module<'v> {
                 heap_profile,
             }));
             for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-                frozen_def.post_freeze(data, heap, fh);
+                frozen_def.post_freeze(data, heap, fh, edge);
             }
             FreezeResult::Ok(data)
         })?;

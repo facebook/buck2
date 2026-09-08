@@ -28,13 +28,10 @@ use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
-use crate::values::any::FrozenAnyValue;
-use crate::values::any::StarlarkAnyRegistered;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
-use crate::values::types::any::StarlarkAny;
 
 /// For types which are only allocated statically (never in heap).
 /// Technically we can use `AValueSimple` for these, but this is more explicit and safe.
@@ -134,13 +131,6 @@ impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
         for<'lt> ReinfectStatic<'lt, T>: StarlarkValue<'lt> + Sized,
     {
         self.unpack().at()
-    }
-}
-
-impl<T: StarlarkAnyRegistered> AllocStaticSimple<StarlarkAny<T>> {
-    /// Unpack as a [`FrozenAnyValue`], providing direct access to the inner `T`.
-    pub fn unpack_any(&'static self) -> FrozenAnyValue<T> {
-        FrozenAnyValue::from_typed(self.unpack_frozen())
     }
 }
 

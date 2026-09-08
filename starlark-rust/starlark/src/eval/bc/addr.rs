@@ -168,7 +168,9 @@ impl<'b> BcPtrAddr<'b> {
         unsafe { self.range.get_ref_if_debug().end().offset_from(self.ptr) as usize }
     }
 
-    pub(crate) fn get_instr<I: BcInstr>(self) -> &'b BcInstrRepr<I> {
+    /// The instruction at this address, whose operands are at the brand `'v` of the `Bc` the
+    /// address was taken from; `Bc::run` ties that brand to the evaluator's.
+    pub(crate) fn get_instr<'v, I: BcInstr<'v>>(self) -> &'b BcInstrRepr<'v, I> {
         debug_assert!(self.remaining_if_debug() >= mem::size_of::<BcInstrRepr<I>>());
         let ptr = self.ptr as *const BcInstrRepr<I>;
         let repr = unsafe { &*ptr };
@@ -176,7 +178,7 @@ impl<'b> BcPtrAddr<'b> {
         repr
     }
 
-    pub(crate) fn get_instr_checked<I: BcInstr>(self) -> Option<&'b BcInstrRepr<I>> {
+    pub(crate) fn get_instr_checked<'v, I: BcInstr<'v>>(self) -> Option<&'b BcInstrRepr<'v, I>> {
         if self.get_opcode() == BcOpcode::for_instr::<I>() {
             Some(self.get_instr())
         } else {
@@ -184,7 +186,7 @@ impl<'b> BcPtrAddr<'b> {
         }
     }
 
-    pub(crate) fn get_instr_mut<I: BcInstr>(self) -> *mut BcInstrRepr<I> {
+    pub(crate) fn get_instr_mut<'v, I: BcInstr<'v>>(self) -> *mut BcInstrRepr<'v, I> {
         debug_assert!(
             self.remaining_if_debug() >= mem::size_of::<BcInstrRepr<I>>(),
             "remaining: {}, instr size: {}",
@@ -238,7 +240,7 @@ impl<'b> BcPtrAddr<'b> {
         unsafe { BcPtrAddr::new(self.ptr.add(offset), self.range) }
     }
 
-    pub(crate) fn add_instr<I: BcInstr>(self) -> BcPtrAddr<'b> {
+    pub(crate) fn add_instr<'v, I: BcInstr<'v>>(self) -> BcPtrAddr<'b> {
         self.add_rel(BcAddrOffset::for_instr::<I>())
     }
 }
@@ -263,7 +265,7 @@ impl BcAddrOffset {
     pub(crate) const FORWARD: BcAddrOffset = BcAddrOffset(0xdeadbeef);
 
     /// Size of an instruction.
-    fn for_instr<I: BcInstr>() -> BcAddrOffset {
+    fn for_instr<'v, I: BcInstr<'v>>() -> BcAddrOffset {
         <BcInstrRepr<I>>::assert_align();
         BcAddrOffset(mem::size_of::<BcInstrRepr<I>>() as u32)
     }

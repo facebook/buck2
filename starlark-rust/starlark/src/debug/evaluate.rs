@@ -74,19 +74,19 @@ impl<'v> Evaluator<'v, '_, '_> {
                     .current_frame
                     .get_slot_slow(LocalSlotIdCapturedOrNot(slot as u32))
                 {
-                    self.module_env.set(name, value)
+                    self.module_env.set(name.as_str(), value)
                 }
             }
         }
 
-        let globals = self.top_frame_def_info_for_debugger()?.globals;
+        let globals = self.top_frame_def_info_for_debugger()?.value.globals;
         let res = self.eval_module(statements, &globals);
 
         // Now put the Module back how it was before we started, as best we can
         // and move things into locals if that makes sense
         if let Some(names) = &locals {
             for (slot, name) in names.iter().enumerate() {
-                if let Some(value) = self.module_env.get(name) {
+                if let Some(value) = self.module_env.get(name.as_str()) {
                     self.current_frame
                         .set_slot_slow(LocalSlotIdCapturedOrNot(slot as u32), value)
                 }

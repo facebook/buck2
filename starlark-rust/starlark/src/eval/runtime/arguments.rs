@@ -28,7 +28,6 @@ use starlark_syntax::value_error;
 use thiserror::Error;
 
 use crate as starlark;
-use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::coerce;
 use crate::collections::Hashed;
@@ -508,14 +507,6 @@ impl<'v, 'a> Arguments<'v, 'a> {
         // Could be implemented more directly, let's see if profiling shows it up
         let ([], [x]) = self.optional(heap)?;
         Ok(x)
-    }
-}
-
-impl<'a> Arguments<'static, 'a> {
-    /// Convert `Arguments` with `FrozenValue` (because no other values can have `'v` lifetime)
-    /// to arbitrary `'v` lifetime.
-    pub(crate) fn frozen_to_v<'v>(&self) -> &Arguments<'v, 'a> {
-        unsafe { transmute!(&Arguments, &Arguments, self) }
     }
 }
 

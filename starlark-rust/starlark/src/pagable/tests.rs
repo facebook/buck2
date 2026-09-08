@@ -60,7 +60,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
-use crate::values::any::FrozenAnyValue;
+use crate::values::any::StarlarkAny;
 use crate::values::any::StarlarkAnyRegistered;
 use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::dict::globals::register_dict;
@@ -72,7 +72,6 @@ use crate::values::list::globals::register_list;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::value::VALUE_EMPTY_TUPLE;
 use crate::values::types::any_array::AnyArrayRegistered;
-use crate::values::types::any_array::FrozenAnyArray;
 
 pagable::static_str!(TEST_EVAL_HEAP_NAME = "test_eval");
 pagable::static_str!(TESTING_GLOBALS_HEAP_NAME = "testing");
@@ -122,8 +121,8 @@ impl ErasingHeap {
         self.alloc(AllocTuple(elems.iter().copied()))
     }
 
-    fn alloc_any_value<T: StarlarkAnyRegistered>(&self, x: T) -> FrozenAnyValue<T> {
-        self.with(|heap| heap.alloc_any_value(x))
+    fn alloc_any_value<T: StarlarkAnyRegistered>(&self, x: T) -> FrozenValue {
+        self.alloc_simple(StarlarkAny::new(x))
     }
 
     fn alloc_any_array_value<
@@ -131,8 +130,13 @@ impl ErasingHeap {
     >(
         &self,
         xs: &[T],
-    ) -> FrozenAnyArray<T> {
-        self.with(|heap| heap.alloc_any_array_value(xs))
+    ) -> FrozenValue {
+        self.with(|heap| {
+            heap.alloc_any_array_value(xs)
+                .to_value()
+                .unpack_frozen()
+                .expect("value allocated in a frozen heap is frozen")
+        })
     }
 
     fn add_reference(&self, heap: OwnedFrozenRef<'_, ()>) {
@@ -2209,7 +2213,7 @@ fn test_arc_blanket_round_trip() -> crate::Result<()> {
 }
 
 // ============================================================================
-// StarlarkAny<T> / FrozenAnyValue<T> round-trip
+// StarlarkAny<T> round-trip
 // ============================================================================
 
 /// Pure-data payload for `StarlarkAny` tests. `StarlarkPagable` derive so the
@@ -2231,7 +2235,7 @@ fn test_starlark_any_round_trip() -> crate::Result<()> {
         name: "hello".to_owned(),
         count: 7,
     };
-    let root = heap.alloc_any_value(payload.clone()).to_frozen_value();
+    let root = heap.alloc_any_value(payload.clone());
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any"));
 
     let restored = round_trip_owned(heap_ref, root)?;
@@ -2256,8 +2260,8 @@ fn test_starlark_any_multiple_values_round_trip() -> crate::Result<()> {
         name: "second".to_owned(),
         count: 2,
     };
-    let a_fv = heap.alloc_any_value(a.clone()).to_frozen_value();
-    let b_fv = heap.alloc_any_value(b.clone()).to_frozen_value();
+    let a_fv = heap.alloc_any_value(a.clone());
+    let b_fv = heap.alloc_any_value(b.clone());
     let root = heap.alloc_tuple(&[a_fv, b_fv]);
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any_multi"));
 
@@ -2281,7 +2285,7 @@ fn test_starlark_any_multiple_values_round_trip() -> crate::Result<()> {
 }
 
 // ============================================================================
-// FrozenAnyArray<T> round-trip
+// AnyArray<T> round-trip
 //
 // `AnyArray<T>` uses `alloc_raw_extra` for a trailing elements array — the
 // elements live beyond the struct bounds. Its `AValue` impl
@@ -2307,7 +2311,7 @@ fn test_frozen_any_array_round_trip() -> crate::Result<()> {
             count: 30,
         },
     ];
-    let root = heap.alloc_any_array_value(&items).to_frozen_value();
+    let root = heap.alloc_any_array_value(&items);
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_any_array"));
 
     let restored = round_trip_owned(heap_ref, root)?;
@@ -2327,9 +2331,7 @@ fn test_frozen_any_array_round_trip() -> crate::Result<()> {
 #[test]
 fn test_frozen_any_array_empty_round_trip() -> crate::Result<()> {
     let heap = ErasingHeap::new();
-    let root = heap
-        .alloc_any_array_value::<AnyPayload>(&[])
-        .to_frozen_value();
+    let root = heap.alloc_any_array_value::<AnyPayload>(&[]);
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_any_array_empty"));
 
     let restored = round_trip_owned(heap_ref, root)?;

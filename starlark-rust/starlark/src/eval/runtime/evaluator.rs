@@ -47,6 +47,7 @@ use crate::eval::bc::writer::BcStatementLocations;
 use crate::eval::compiler::def::CopySlotFromParent;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::DefInfo;
+use crate::eval::compiler::def::DefInfoValue;
 use crate::eval::runtime::before_stmt::BeforeStmt;
 use crate::eval::runtime::before_stmt::BeforeStmtFunc;
 use crate::eval::runtime::cheap_call_stack::CheapCallStack;
@@ -78,7 +79,6 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueLike;
-use crate::values::any::FrozenAnyValue;
 use crate::values::function::NativeFunction;
 use crate::values::layout::value_captured::FrozenValueCaptured;
 use crate::values::layout::value_captured::ValueCaptured;
@@ -144,7 +144,7 @@ pub struct Evaluator<'v, 'a, 'e> {
     // `DefInfo` of currently executed module.
     // `DefInfo` of currently execution function can be obtained from call stack.
     // `None` only during `Evaluator` construction, before `eval_module` sets it.
-    pub(crate) module_def_info: Option<FrozenAnyValue<DefInfo>>,
+    pub(crate) module_def_info: Option<DefInfoValue<'v>>,
     // Should we enable heap profiling or not
     pub(crate) heap_profile: HeapProfile,
     // Should we enable flame profiling or not
@@ -532,7 +532,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     pub(crate) fn with_call_stack<R>(
         &mut self,
         function: Value<'v>,
-        span: Option<&'static FrameSpan>,
+        span: Option<&'v FrameSpan<'v>>,
         within: impl FnOnce(&mut Self) -> crate::Result<R>,
     ) -> crate::Result<R> {
         #[cold]
@@ -606,7 +606,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             Ok(def_info) => def_info,
             Err(e) => return e,
         };
-        let names = &def_info.used;
+        let names = &def_info.value.used;
         let name = names[slot.0 as usize].as_str().to_owned();
         crate::Error::new_other(EvaluatorError::LocalVariableReferencedBeforeAssignment(
             name,
@@ -640,7 +640,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     pub(crate) fn clone_slot_capture(
         &self,
         copy: &CopySlotFromParent,
-        target_def_info: &DefInfo,
+        target_def_info: &DefInfo<'v>,
     ) -> Value<'v> {
         match self.current_frame.get_slot(copy.parent) {
             Some(value_captured) => {
@@ -655,9 +655,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                     target_def_info
                         .used
                         .get(copy.child.0 as usize)
-                        .copied()
-                        .unwrap_or_default()
-                        .as_str(),
+                        .map_or("", |s| s.as_str()),
                     value_captured,
                     value_captured.get_type(),
                     target_def_info.signature_span,
@@ -736,7 +734,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         }
     }
 
-    fn func_to_def_info(&self, func: Value<'_>) -> crate::Result<FrozenAnyValue<DefInfo>> {
+    fn func_to_def_info(&self, func: Value<'v>) -> crate::Result<DefInfoValue<'v>> {
         if let Some(func) = func.downcast_ref::<Def>() {
             Ok(func.def_info)
         } else if func.is_none() {
@@ -749,7 +747,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         }
     }
 
-    pub(crate) fn top_frame_def_info(&self) -> crate::Result<FrozenAnyValue<DefInfo>> {
+    pub(crate) fn top_frame_def_info(&self) -> crate::Result<DefInfoValue<'v>> {
         let func = self.call_stack.top_nth_function(0)?;
         self.func_to_def_info(func)
     }
@@ -778,7 +776,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     /// Gets the "top frame" for debugging. If the real top frame is `breakpoint` or `debug_evaluate`
     /// it will be skipped. This should only be used for the starlark debugger.
-    pub(crate) fn top_frame_def_info_for_debugger(&self) -> crate::Result<FrozenAnyValue<DefInfo>> {
+    pub(crate) fn top_frame_def_info_for_debugger(&self) -> crate::Result<DefInfoValue<'v>> {
         let func = self.top_frame_maybe_for_debugger(true)?;
         self.func_to_def_info(func)
     }
@@ -911,7 +909,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     fn eval_bc_with_callbacks(
         &mut self,
         def: Value<'v>,
-        bc: &Bc,
+        bc: &Bc<'v>,
     ) -> Result<Value<'v>, EvalException> {
         debug_assert!(self.eval_instrumentation.enabled);
         if self.eval_instrumentation.heap_or_flame_profile {
@@ -950,7 +948,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     }
 
     #[inline(always)]
-    pub(crate) fn eval_bc(&mut self, def: Value<'v>, bc: &Bc) -> Result<Value<'v>, EvalException> {
+    pub(crate) fn eval_bc(
+        &mut self,
+        def: Value<'v>,
+        bc: &Bc<'v>,
+    ) -> Result<Value<'v>, EvalException> {
         if self.eval_instrumentation.enabled {
             self.eval_bc_with_callbacks(def, bc)
         } else {
@@ -1167,13 +1169,13 @@ pub(crate) enum EvalCallbacksMode {
     BeforeStmt,
 }
 
-pub(crate) struct EvalCallbacksEnabled<'a> {
+pub(crate) struct EvalCallbacksEnabled<'a, 'v> {
     pub(crate) mode: EvalCallbacksMode,
-    pub(crate) stmt_locs: &'a BcStatementLocations,
+    pub(crate) stmt_locs: &'a BcStatementLocations<'v>,
     pub(crate) bc_start_ptr: BcPtrAddr<'a>,
 }
 
-impl<'a> EvalCallbacksEnabled<'a> {
+impl<'a, 'v> EvalCallbacksEnabled<'a, 'v> {
     fn before_stmt(&mut self, eval: &mut Evaluator, ip: BcPtrAddr) -> crate::Result<()> {
         let offset = ip.offset_from(self.bc_start_ptr);
         if let Some((loc, continued)) = self.stmt_locs.stmt_at(offset) {
@@ -1183,7 +1185,7 @@ impl<'a> EvalCallbacksEnabled<'a> {
     }
 }
 
-impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
+impl<'a, 'v> EvaluationCallbacks for EvalCallbacksEnabled<'a, 'v> {
     #[inline(always)]
     fn before_instr(
         &mut self,
@@ -1206,7 +1208,7 @@ impl<'a> EvaluationCallbacks for EvalCallbacksEnabled<'a> {
 //
 // This function is called only if `before_stmt` is set before compilation start.
 pub(crate) fn before_stmt(
-    span: FrameSpan,
+    span: FrameSpan<'_>,
     continued: bool,
     eval: &mut Evaluator,
 ) -> crate::Result<()> {

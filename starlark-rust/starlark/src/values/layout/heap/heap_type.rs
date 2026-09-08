@@ -1262,8 +1262,9 @@ impl<'fh> FrozenHeap<'fh> {
 
     /// Allocate a value and erase its brand.
     ///
-    /// For the compiler's products, which are `FrozenValue`-typed; everything else should keep the
-    /// brand that [`alloc`](FrozenHeap::alloc) hands out.
+    /// For the pagable tests, which drive the plumbing beneath the branded API in `FrozenValue`s;
+    /// everything else should keep the brand that [`alloc`](FrozenHeap::alloc) hands out.
+    #[cfg(test)]
     pub(crate) fn alloc_frozen<T: AllocFrozenValue<'fh>>(self, val: T) -> FrozenValue {
         self.alloc(val)
             .unpack_frozen()

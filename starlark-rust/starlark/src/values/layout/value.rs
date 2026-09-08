@@ -63,7 +63,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::eval::compiler::def::Def;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::pagable::starlark_deserialize::StarlarkDeserialize;
@@ -89,7 +88,8 @@ use crate::values::ValueError;
 use crate::values::ValueIdentity;
 use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
-use crate::values::dict::value::FrozenDict;
+use crate::values::dict::Dict;
+use crate::values::dict::value::DictGen;
 use crate::values::dict::value::VALUE_EMPTY_FROZEN_DICT;
 use crate::values::function::BoundMethod;
 use crate::values::function::FUNCTION_TYPE;
@@ -124,8 +124,8 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::int::inline_int::InlineInt;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::types::list::value::FrozenListData;
+use crate::values::types::list::value::ListGen;
 use crate::values::types::num::value::NumRef;
-use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 
 // We already import another `ValueError`, hence the odd name.
@@ -703,9 +703,51 @@ impl<'v> Value<'v> {
         self.get_ref().right_shift(other, heap)
     }
 
+    /// Is this type builtin? We perform certain optimizations only on builtin types
+    /// because we know they have well defined semantics.
+    pub(crate) fn is_builtin(self) -> bool {
+        // The list is not comprehensive, this is fine.
+        // If some type is not listed here, some optimizations won't work for this type.
+        self.is_none()
+            || self.is_str()
+            || self.unpack_bool().is_some()
+            || NumRef::unpack_value(self).is_ok_and(|n| n.is_some())
+            || self.downcast_ref::<ListGen<FrozenListData>>().is_some()
+            || self.downcast_ref::<DictGen<Dict<'v>>>().is_some()
+            || self.downcast_ref::<Tuple<'v>>().is_some()
+            || self.downcast_ref::<Range>().is_some()
+            || self.downcast_ref::<Def<'v>>().is_some()
+            || self.downcast_ref::<NativeFunction<'v>>().is_some()
+            || self.downcast_ref::<Struct<'v>>().is_some()
+    }
+
+    /// Can `invoke` be called on this object speculatively?
+    /// (E. g. at compiled time when all the arguments are known.)
+    pub(crate) fn speculative_exec_safe(self) -> bool {
+        if let Some(v) = self.downcast_ref::<NativeFunction>() {
+            v.speculative_exec_safe
+        } else if let Some(v) = self.downcast_ref::<BoundMethod>() {
+            v.method.speculative_exec_safe
+        } else {
+            false
+        }
+    }
+
+    /// `self == b` is `ptr_eq`.
+    pub(crate) fn eq_is_ptr_eq(self) -> bool {
+        // Note `int` is not `ptr_eq` because `int` can be equal to `float`.
+
+        // If a value does not override equality, it is `ptr_eq`.
+        !self.get_ref().vtable().starlark_value.HAS_equals
+            // Strings of length <= 1 are statically allocated.
+            || matches!(self.unpack_str(), Some(s) if s.len() <= 1)
+            // Empty tuple is statically allocated.
+            || matches!(Tuple::from_value(self), Some(t) if t.len() == 0)
+    }
+
     pub(crate) fn invoke_with_loc(
         self,
-        location: Option<&'static FrameSpan>,
+        location: Option<&'v FrameSpan<'v>>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
@@ -726,7 +768,7 @@ impl<'v> Value<'v> {
     /// Works for user-defined functions (`def`/`lambda`) and native functions.
     pub fn function_name(self) -> Option<&'v str> {
         if let Some(def) = self.downcast_ref::<Def>() {
-            Some(def.def_info.name.as_str())
+            Some(def.def_info.value.name.as_str())
         } else if let Some(native) = self.downcast_ref::<NativeFunction>() {
             Some(&native.name)
         } else {
@@ -1206,48 +1248,6 @@ impl FrozenValue {
     #[inline]
     pub fn to_value<'v>(self) -> Value<'v> {
         Value::new_frozen(self)
-    }
-
-    /// Is this type builtin? We perform certain optimizations only on builtin types
-    /// because we know they have well defined semantics.
-    pub(crate) fn is_builtin(self) -> bool {
-        // The list is not comprehensive, this is fine.
-        // If some type is not listed here, some optimizations won't work for this type.
-        self.is_none()
-            || self.is_str()
-            || self.unpack_bool().is_some()
-            || NumRef::unpack_value(self.to_value()).is_ok_and(|n| n.is_some())
-            || FrozenListData::from_frozen_value(&self).is_some()
-            || FrozenValueTyped::<FrozenDict>::new(self.to_value()).is_some()
-            || FrozenValueTyped::<FrozenTuple>::new(self.to_value()).is_some()
-            || FrozenValueTyped::<Range>::new(self.to_value()).is_some()
-            || FrozenValueTyped::<FrozenDef>::new(self.to_value()).is_some()
-            || FrozenValueTyped::<NativeFunction>::new(self.to_value()).is_some()
-            || FrozenValueTyped::<Struct>::new(self.to_value()).is_some()
-    }
-
-    /// Can `invoke` be called on this object speculatively?
-    /// (E. g. at compiled time when all the arguments are known.)
-    pub(crate) fn speculative_exec_safe(self) -> bool {
-        if let Some(v) = FrozenValueTyped::<NativeFunction>::new(self.to_value()) {
-            v.speculative_exec_safe
-        } else if let Some(v) = FrozenValueTyped::<BoundMethod>::new(self.to_value()) {
-            v.method.speculative_exec_safe
-        } else {
-            false
-        }
-    }
-
-    /// `self == b` is `ptr_eq`.
-    pub(crate) fn eq_is_ptr_eq(self) -> bool {
-        // Note `int` is not `ptr_eq` because `int` can be equal to `float`.
-
-        // If a value does not override equality, it is `ptr_eq`.
-        !self.to_value().get_ref().vtable().starlark_value.HAS_equals
-            // Strings of length <= 1 are statically allocated.
-            || matches!(self.unpack_str(), Some(s) if s.len() <= 1)
-            // Empty tuple is statically allocated.
-            || matches!(Tuple::from_value(self.to_value()), Some(t) if t.len() == 0)
     }
 }
 

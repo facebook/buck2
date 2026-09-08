@@ -31,9 +31,9 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
 
-impl AssignCompiledValue {
+impl<'f> AssignCompiledValue<'f> {
     /// After evaluation of `(x, y[z]) = ...`, variables `x`, `y` and `z` as definitely assigned.
-    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter<'f>) {
         match self {
             AssignCompiledValue::Dot(object, field) => {
                 object.mark_definitely_assigned_after(bc);
@@ -57,8 +57,8 @@ impl AssignCompiledValue {
     }
 }
 
-impl IrSpanned<AssignCompiledValue> {
-    pub(crate) fn write_bc(&self, value: BcSlotIn, bc: &mut BcWriter) {
+impl<'f> IrSpanned<'f, AssignCompiledValue<'f>> {
+    pub(crate) fn write_bc(&self, value: BcSlotIn, bc: &mut BcWriter<'f>) {
         let span = self.span;
         match self.node {
             AssignCompiledValue::Dot(ref object, ref field) => {

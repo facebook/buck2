@@ -231,3 +231,21 @@ where
 {
     type Reinfect<'lt> = BTreeMap<K::Reinfect<'lt>, V::Reinfect<'lt>>;
 }
+
+unsafe impl<'a, A, B> ProvidesStaticType<'a> for (A, B)
+where
+    A: ProvidesStaticType<'a>,
+    B: ProvidesStaticType<'a>,
+    A::StaticType: Sized,
+    B::StaticType: Sized,
+{
+    type StaticType = (A::StaticType, B::StaticType);
+}
+
+impl<A: IsStaticType, B: IsStaticType> IsStaticType for (A, B)
+where
+    for<'lt> A::Reinfect<'lt>: Sized,
+    for<'lt> B::Reinfect<'lt>: Sized,
+{
+    type Reinfect<'lt> = (A::Reinfect<'lt>, B::Reinfect<'lt>);
+}

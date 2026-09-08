@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use dupe::Dupe;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpanRef;
+use starlark_syntax::codemap::Span;
 use starlark_syntax::codemap::Spanned;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::LoadArgP;
@@ -39,19 +40,30 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
 use crate::values::HeapEdge;
+use crate::values::any::StarlarkAny;
 
 /// Unused load statement.
 pub(crate) struct UnusedLoad {
-    /// Location of the statement (i.e. position of `load` keyword).
-    pub(crate) load: Spanned<LoadP<CstPayload>>,
+    /// Span of the whole statement.
+    pub(crate) span: Span,
+    /// Number of names the statement loads.
+    arg_count: usize,
     /// Unused local names, e. g. `x` in `load("foo", x="y")`.
-    pub(crate) unused_args: Vec<LoadArgP<CstPayload>>,
+    pub(crate) unused_args: Vec<UnusedLoadArg>,
+}
+
+/// Unused name in a `load` statement.
+pub(crate) struct UnusedLoadArg {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) span: Span,
+    /// The argument together with its trailing comma, if any.
+    pub(crate) span_with_trailing_comma: Span,
 }
 
 impl UnusedLoad {
     /// If the whole `load` statement is unused.
     pub(crate) fn all_unused(&self) -> bool {
-        self.unused_args.len() == self.load.args.len()
+        self.unused_args.len() == self.arg_count
     }
 }
 
@@ -77,7 +89,7 @@ pub(crate) fn find_unused_loads(
     FrozenHeap::temp(|heap| {
         let names = MutableNames::new();
         let (codemap, statement, dialect, ..) = module.into_parts();
-        let codemap = heap.alloc_any_value(codemap);
+        let codemap = heap.alloc_simple_typed(StarlarkAny::new(codemap));
         let module_scopes = ModuleScopes::check_module_err(
             &names,
             heap,
@@ -91,18 +103,18 @@ pub(crate) fn find_unused_loads(
 
         let mut loads = Vec::new();
 
-        struct LoadSymbol<'a> {
-            arg: &'a LoadArgP<CstPayload>,
+        struct LoadSymbol<'a, 'f> {
+            arg: &'a LoadArgP<CstPayload<'f>>,
             binding_id: BindingId,
             used: bool,
         }
 
-        struct LoadWip<'a> {
-            load: Spanned<&'a LoadP<CstPayload>>,
-            args: Vec<LoadSymbol<'a>>,
+        struct LoadWip<'a, 'f> {
+            load: Spanned<&'a LoadP<CstPayload<'f>>>,
+            args: Vec<LoadSymbol<'a, 'f>>,
         }
 
-        impl<'a> LoadWip<'a> {
+        impl LoadWip<'_, '_> {
             fn any_unused(&self) -> bool {
                 self.args.iter().any(|arg| !arg.used)
             }
@@ -167,7 +179,10 @@ pub(crate) fn find_unused_loads(
                     }) {
                         None
                     } else {
-                        Some(arg.arg.clone())
+                        Some(UnusedLoadArg {
+                            span: arg.arg.span(),
+                            span_with_trailing_comma: arg.arg.span_with_trailing_comma(),
+                        })
                     }
                 })
                 .collect();
@@ -175,7 +190,8 @@ pub(crate) fn find_unused_loads(
                 continue;
             }
             unused.push(UnusedLoad {
-                load: load.load.map(|load| load.clone()),
+                span: load.load.span,
+                arg_count: load.load.node.args.len(),
                 unused_args,
             });
         }

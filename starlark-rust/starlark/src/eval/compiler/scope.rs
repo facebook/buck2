@@ -21,7 +21,6 @@ mod tests;
 
 use std::collections::HashMap;
 use std::iter;
-use std::marker::PhantomData;
 use std::mem;
 
 use dupe::Dupe;
@@ -71,11 +70,11 @@ use crate::syntax::Dialect;
 use crate::typing::Interface;
 use crate::typing::error::InternalError;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
 use crate::values::HeapEdge;
-use crate::values::StringValueLike;
-use crate::values::any::FrozenAnyValue;
+use crate::values::StringValue;
+use crate::values::Value;
+use crate::values::ValueTyped;
+use crate::values::any::StarlarkAny;
 
 #[derive(Debug, thiserror::Error)]
 enum ScopeError {
@@ -98,12 +97,12 @@ struct ModuleScopeBuilder<'a, 'v, 'f, 'g> {
     scope_data: ModuleScopeData<'f>,
     module: &'a MutableNames<'v>,
     frozen_heap: FrozenHeap<'f>,
-    module_bindings: SmallMap<FrozenStringValue, BindingId>,
+    module_bindings: SmallMap<StringValue<'f>, BindingId>,
     // The first scope is a module-level scope (including comprehensions in module scope).
     // The rest are scopes for functions (which include their comprehensions).
     locals: Vec<ScopeId>,
-    unscopes: Vec<Unscope>,
-    codemap: FrozenAnyValue<CodeMap>,
+    unscopes: Vec<Unscope<'f>>,
+    codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
     globals: ScopeResolverGlobals<'a, 'f, 'g>,
     errors: Vec<EvalException>,
     top_level_stmt_count: usize,
@@ -112,7 +111,7 @@ struct ModuleScopeBuilder<'a, 'v, 'f, 'g> {
 pub(crate) struct ModuleScopes<'f> {
     pub(crate) scope_data: ModuleScopeData<'f>,
     pub(crate) module_slot_count: u32,
-    pub(crate) cst: CstStmt,
+    pub(crate) cst: CstStmt<'f>,
     /// Number of top-level statements in the module.
     pub(crate) top_level_stmt_count: usize,
 }
@@ -129,7 +128,7 @@ struct UnscopeBinding {
 }
 
 #[derive(Default)]
-struct Unscope(SmallMap<FrozenStringValue, UnscopeBinding>);
+struct Unscope<'f>(SmallMap<StringValue<'f>, UnscopeBinding>);
 
 #[derive(Default, Debug)]
 pub(crate) struct ScopeNames<'f> {
@@ -138,14 +137,12 @@ pub(crate) struct ScopeNames<'f> {
     pub param_count: Option<u32>,
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
-    pub used: Vec<FrozenStringValue>,
+    pub used: Vec<StringValue<'f>>,
     /// The names that are in this scope
-    pub mp: SmallMap<FrozenStringValue, (LocalSlotIdCapturedOrNot, BindingId)>,
+    pub mp: SmallMap<StringValue<'f>, (LocalSlotIdCapturedOrNot, BindingId)>,
     /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
     pub parent: Vec<CopySlotFromParent>,
-    /// We store frozen strings.
-    _heap: PhantomData<&'f ()>,
 }
 
 impl<'f> ScopeNames<'f> {
@@ -163,7 +160,7 @@ impl<'f> ScopeNames<'f> {
         &mut self,
         parent_slot: LocalSlotIdCapturedOrNot,
         binding_id: BindingId,
-        name: FrozenStringValue,
+        name: StringValue<'f>,
     ) -> LocalSlotIdCapturedOrNot {
         assert!(self.get_name(name).is_none()); // Or we'll be overwriting our variable
         let res = self.add_name(name, binding_id);
@@ -174,7 +171,7 @@ impl<'f> ScopeNames<'f> {
         res
     }
 
-    fn next_slot(&mut self, name: FrozenStringValue) -> LocalSlotIdCapturedOrNot {
+    fn next_slot(&mut self, name: StringValue<'f>) -> LocalSlotIdCapturedOrNot {
         let res = LocalSlotIdCapturedOrNot(self.used.len().try_into().unwrap());
         self.used.push(name);
         res
@@ -182,7 +179,7 @@ impl<'f> ScopeNames<'f> {
 
     fn add_name(
         &mut self,
-        name: FrozenStringValue,
+        name: StringValue<'f>,
         binding_id: BindingId,
     ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
@@ -193,9 +190,9 @@ impl<'f> ScopeNames<'f> {
 
     fn add_scoped(
         &mut self,
-        name: FrozenStringValue,
+        name: StringValue<'f>,
         binding_id: BindingId,
-        unscope: &mut Unscope,
+        unscope: &mut Unscope<'f>,
     ) -> LocalSlotIdCapturedOrNot {
         let slot = self.next_slot(name);
         let undo = match self.mp.get_mut_hashed(name.get_hashed().as_ref()) {
@@ -218,7 +215,7 @@ impl<'f> ScopeNames<'f> {
         slot
     }
 
-    fn unscope(&mut self, unscope: Unscope) {
+    fn unscope(&mut self, unscope: Unscope<'f>) {
         for (name, UnscopeBinding { undo }) in unscope.0 {
             match undo {
                 None => {
@@ -229,7 +226,7 @@ impl<'f> ScopeNames<'f> {
         }
     }
 
-    fn get_name(&self, name: FrozenStringValue) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
+    fn get_name(&self, name: StringValue<'f>) -> Option<(LocalSlotIdCapturedOrNot, BindingId)> {
         self.mp.get_hashed(name.get_hashed().as_ref()).copied()
     }
 }
@@ -278,9 +275,9 @@ impl<'a, 'v, 'f, 'g> ModuleScopeBuilder<'a, 'v, 'f, 'g> {
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'a, 'f, 'g>,
-        codemap: FrozenAnyValue<CodeMap>,
+        codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
         dialect: &Dialect,
-    ) -> (CstStmt, ModuleScopeBuilder<'a, 'v, 'f, 'g>) {
+    ) -> (CstStmt<'f>, ModuleScopeBuilder<'a, 'v, 'f, 'g>) {
         let mut scope_data = ModuleScopeData::new();
         let scope_id = scope_data.new_scope().0;
         let mut cst = CstStmt::from_ast(stmt, &mut scope_data, loads);
@@ -292,12 +289,12 @@ impl<'a, 'v, 'f, 'g> ModuleScopeBuilder<'a, 'v, 'f, 'g> {
 
         scope_data.mut_scope(scope_id).set_param_count(0);
 
-        let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
+        let mut locals: SmallMap<StringValue<'f>, _> = SmallMap::new();
 
         for (name, vis) in module.all_names_and_visibilities() {
             // The scope names its bindings with strings interned at `'f`; a module name lives in
             // that heap already or in one it references, so this is a lookup or a small copy.
-            let name = frozen_heap.alloc_str_intern(name.as_str());
+            let name = frozen_heap.alloc_str(name.as_str());
             let (binding_id, _binding) = scope_data.new_binding(
                 name,
                 BindingSource::FromModule,
@@ -321,7 +318,7 @@ impl<'a, 'v, 'f, 'g> ModuleScopeBuilder<'a, 'v, 'f, 'g> {
         let mut module_bindings = SmallMap::new();
         for (x, binding_id) in locals {
             let binding = scope_data.mut_binding(binding_id);
-            let slot = module.add_name_visibility(edge.rebrand(x.to_string_value()), binding.vis);
+            let slot = module.add_name_visibility(edge.rebrand(x), binding.vis);
             binding.init_slot(Slot::Module(slot), &codemap).unwrap();
             let old_binding = module_bindings.insert_hashed(x.get_hashed(), binding_id);
             assert!(old_binding.is_none());
@@ -363,7 +360,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     ) -> (
         u32,
         ModuleScopeData<'f>,
-        SmallMap<FrozenStringValue, BindingId>,
+        SmallMap<StringValue<'f>, BindingId>,
     ) {
         assert!(self.locals.len() == 1);
         assert!(self.unscopes.is_empty());
@@ -387,7 +384,7 @@ impl<'f> ModuleScopes<'f> {
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'_, 'f, '_>,
-        codemap: FrozenAnyValue<CodeMap>,
+        codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
         dialect: &Dialect,
     ) -> crate::Result<ModuleScopes<'f>> {
         let (errors, scopes) = ModuleScopes::check_module(
@@ -415,7 +412,7 @@ impl<'f> ModuleScopes<'f> {
         loads: &HashMap<String, Interface>,
         stmt: AstStmt,
         globals: ScopeResolverGlobals<'_, 'f, '_>,
-        codemap: FrozenAnyValue<CodeMap>,
+        codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
         dialect: &Dialect,
     ) -> (Vec<EvalException>, ModuleScopes<'f>) {
         let (stmt, mut scope) = ModuleScopeBuilder::enter_module(
@@ -445,12 +442,12 @@ impl<'f> ModuleScopes<'f> {
 
 impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     fn collect_defines_in_def(
-        scope_data: &mut ModuleScopeData,
+        scope_data: &mut ModuleScopeData<'f>,
         scope_id: ScopeId,
-        params: &mut [CstParameter],
-        body: Option<&mut CstStmt>,
+        params: &mut [CstParameter<'f>],
+        body: Option<&mut CstStmt<'f>>,
 
-        frozen_heap: FrozenHeap<'_>,
+        frozen_heap: FrozenHeap<'f>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -461,9 +458,9 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         scope_data
             .mut_scope(scope_id)
             .set_param_count(params.len().try_into().unwrap());
-        let mut locals: SmallMap<FrozenStringValue, _> = SmallMap::new();
+        let mut locals: SmallMap<StringValue<'f>, _> = SmallMap::new();
         for p in params {
-            let name = frozen_heap.alloc_str_intern(&p.ident);
+            let name = frozen_heap.alloc_str(&p.ident);
             // Subtle invariant: the slots for the params must be ordered and at the
             // beginning
             let binding_id = scope_data
@@ -496,10 +493,10 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     }
 
     fn collect_defines_recursively(
-        scope_data: &mut ModuleScopeData,
-        code: &mut CstStmt,
+        scope_data: &mut ModuleScopeData<'f>,
+        code: &mut CstStmt<'f>,
 
-        frozen_heap: FrozenHeap<'_>,
+        frozen_heap: FrozenHeap<'f>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -539,10 +536,10 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     }
 
     fn collect_defines_recursively_in_expr(
-        scope_data: &mut ModuleScopeData,
-        code: &mut CstExpr,
+        scope_data: &mut ModuleScopeData<'f>,
+        code: &mut CstExpr<'f>,
 
-        frozen_heap: FrozenHeap<'_>,
+        frozen_heap: FrozenHeap<'f>,
         dialect: &Dialect,
         codemap: &CodeMap,
     ) {
@@ -568,7 +565,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         });
     }
 
-    fn resolve_idents(&mut self, code: &mut CstStmt) {
+    fn resolve_idents(&mut self, code: &mut CstStmt<'f>) {
         match &mut code.node {
             StmtP::Def(DefP {
                 name: _,
@@ -597,17 +594,17 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         }
     }
 
-    fn resolve_idents_in_assign(&mut self, assign: &mut CstAssignTarget) {
+    fn resolve_idents_in_assign(&mut self, assign: &mut CstAssignTarget<'f>) {
         assign.visit_expr_mut(|expr| self.resolve_idents_in_expr(expr));
     }
 
     fn resolve_idents_in_def(
         &mut self,
         scope_id: ScopeId,
-        params: &mut [CstParameter],
-        ret: Option<&mut CstTypeExpr>,
-        body_stmt: Option<&mut CstStmt>,
-        body_expr: Option<&mut CstExpr>,
+        params: &mut [CstParameter<'f>],
+        ret: Option<&mut CstTypeExpr<'f>>,
+        body_stmt: Option<&mut CstStmt<'f>>,
+        body_expr: Option<&mut CstExpr<'f>>,
     ) {
         for param in params {
             let (_, ty, def) = param.split_mut();
@@ -632,7 +629,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         self.exit_def();
     }
 
-    fn resolve_idents_in_expr_impl(&mut self, scope: ResolveIdentScope, expr: &mut CstExpr) {
+    fn resolve_idents_in_expr_impl(&mut self, scope: ResolveIdentScope, expr: &mut CstExpr<'f>) {
         match &mut expr.node {
             ExprP::Identifier(ident) => self.resolve_ident(scope, ident),
             ExprP::Lambda(LambdaP {
@@ -651,11 +648,11 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         }
     }
 
-    fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr) {
+    fn resolve_idents_in_expr(&mut self, expr: &mut CstExpr<'f>) {
         self.resolve_idents_in_expr_impl(ResolveIdentScope::Any, expr);
     }
 
-    fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr) {
+    fn resolve_idents_in_type_expr(&mut self, expr: &mut CstTypeExpr<'f>) {
         self.resolve_idents_in_expr_impl(
             ResolveIdentScope::GlobalForTypeExpression,
             &mut expr.node.expr,
@@ -675,7 +672,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
     }
 
     #[cold]
-    fn variable_not_found_err(&self, ident: &CstIdent) -> EvalException {
+    fn variable_not_found_err(&self, ident: &CstIdent<'f>) -> EvalException {
         let variants = self
             .current_scope_all_visible_names_for_did_you_mean()
             .unwrap_or_default();
@@ -697,9 +694,9 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         )
     }
 
-    fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent) {
+    fn resolve_ident(&mut self, scope: ResolveIdentScope, ident: &mut CstIdent<'f>) {
         assert!(ident.node.payload.is_none());
-        let resolved = match self.get_name(self.frozen_heap.alloc_str_intern(&ident.node.ident)) {
+        let resolved = match self.get_name(self.frozen_heap.alloc_str(&ident.node.ident)) {
             None => {
                 // Must be a global, since we know all variables
                 match self.globals.get_global(&ident.node.ident) {
@@ -732,9 +729,9 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
 
     fn resolve_idents_in_compr(
         &mut self,
-        exprs: &mut [&mut CstExpr],
-        first_for: &mut ForClauseP<CstPayload>,
-        clauses: &mut [ClauseP<CstPayload>],
+        exprs: &mut [&mut CstExpr<'f>],
+        first_for: &mut ForClauseP<CstPayload<'f>>,
+        clauses: &mut [ClauseP<CstPayload<'f>>],
     ) {
         // First for is resolved in outer scope
         self.resolve_idents_in_for_clause(first_for);
@@ -770,7 +767,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         self.exit_compr();
     }
 
-    fn resolve_idents_in_for_clause(&mut self, for_clause: &mut ForClauseP<CstPayload>) {
+    fn resolve_idents_in_for_clause(&mut self, for_clause: &mut ForClauseP<CstPayload<'f>>) {
         self.resolve_idents_in_expr(&mut for_clause.over);
         self.resolve_idents_in_assign(&mut for_clause.var);
     }
@@ -792,7 +789,10 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
         self.unscopes.push(Unscope::default());
     }
 
-    fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssignTarget>) {
+    fn add_compr<'x>(&mut self, var: impl IntoIterator<Item = &'x mut CstAssignTarget<'f>>)
+    where
+        'f: 'x,
+    {
         let scope_id = self.top_scope_id();
         let mut locals = SmallMap::new();
         for var in var {
@@ -821,7 +821,7 @@ impl<'f> ModuleScopeBuilder<'_, '_, 'f, '_> {
             .unscope(self.unscopes.pop().unwrap());
     }
 
-    fn get_name(&mut self, name: FrozenStringValue) -> Option<(Slot, BindingId)> {
+    fn get_name(&mut self, name: StringValue<'f>) -> Option<(Slot, BindingId)> {
         // look upwards to find the first place the variable occurs
         // then copy that variable downwards
         for i in (0..self.locals.len()).rev() {
@@ -864,24 +864,24 @@ enum InLoop {
 }
 
 trait StmtCollectDefines {
-    fn collect_defines<'a>(
-        stmt: &'a mut CstStmt,
+    fn collect_defines<'a, 'f>(
+        stmt: &'a mut CstStmt<'f>,
         in_loop: InLoop,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
         dialect: &Dialect,
     );
 }
 
 impl StmtCollectDefines for Stmt {
     // Collect all the variables that are defined in this scope
-    fn collect_defines<'a>(
-        stmt: &'a mut CstStmt,
+    fn collect_defines<'a, 'f>(
+        stmt: &'a mut CstStmt<'f>,
         in_loop: InLoop,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
         dialect: &Dialect,
     ) {
         match &mut stmt.node {
@@ -941,35 +941,35 @@ impl StmtCollectDefines for Stmt {
 }
 
 trait AssignIdentCollect {
-    fn collect_assign_ident<'a>(
-        assign: &'a mut CstAssignIdent,
+    fn collect_assign_ident<'a, 'f>(
+        assign: &'a mut CstAssignIdent<'f>,
         in_loop: InLoop,
         vis: Visibility,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
     );
 }
 
 impl AssignIdentCollect for AssignIdent {
-    fn collect_assign_ident<'a>(
-        assign: &'a mut CstAssignIdent,
+    fn collect_assign_ident<'a, 'f>(
+        assign: &'a mut CstAssignIdent<'f>,
         in_loop: InLoop,
         vis: Visibility,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
     ) {
         // Helper function to untangle lifetimes: we read and modify `assign` fields.
-        fn assign_ident_impl<'b>(
-            name: FrozenStringValue,
+        fn assign_ident_impl<'b, 'f>(
+            name: StringValue<'f>,
             span: Span,
 
             binding: &'b mut Option<BindingId>,
             in_loop: InLoop,
             mut vis: Visibility,
-            scope_data: &mut ModuleScopeData,
-            result: &mut SmallMap<FrozenStringValue, BindingId>,
+            scope_data: &mut ModuleScopeData<'f>,
+            result: &mut SmallMap<StringValue<'f>, BindingId>,
         ) {
             assert!(
                 binding.is_none(),
@@ -1009,7 +1009,7 @@ impl AssignIdentCollect for AssignIdent {
             };
         }
         assign_ident_impl(
-            frozen_heap.alloc_str_intern(&assign.node.ident),
+            frozen_heap.alloc_str(&assign.node.ident),
             assign.span,
             &mut assign.node.payload,
             in_loop,
@@ -1021,24 +1021,24 @@ impl AssignIdentCollect for AssignIdent {
 }
 
 trait AssignTargetCollectDefinesLvalue {
-    fn collect_defines_lvalue<'a>(
-        expr: &'a mut CstAssignTarget,
+    fn collect_defines_lvalue<'a, 'f>(
+        expr: &'a mut CstAssignTarget<'f>,
         in_loop: InLoop,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
     );
 }
 
 impl AssignTargetCollectDefinesLvalue for AssignTarget {
     // Collect variables defined in an expression on the LHS of an assignment (or
     // for variable etc)
-    fn collect_defines_lvalue<'a>(
-        expr: &'a mut CstAssignTarget,
+    fn collect_defines_lvalue<'a, 'f>(
+        expr: &'a mut CstAssignTarget<'f>,
         in_loop: InLoop,
-        scope_data: &mut ModuleScopeData,
-        frozen_heap: FrozenHeap<'_>,
-        result: &mut SmallMap<FrozenStringValue, BindingId>,
+        scope_data: &mut ModuleScopeData<'f>,
+        frozen_heap: FrozenHeap<'f>,
+        result: &mut SmallMap<StringValue<'f>, BindingId>,
     ) {
         expr.node.visit_lvalue_mut(|x| {
             AssignIdent::collect_assign_ident(
@@ -1092,7 +1092,7 @@ pub(crate) enum BindingSource {
 /// In code `x = 1; def f(): x = 2`, there are two bindings for name `x`.
 #[derive(Debug)]
 pub(crate) struct Binding<'f> {
-    pub(crate) name: FrozenStringValue,
+    pub(crate) name: StringValue<'f>,
     pub(crate) source: BindingSource,
     pub(crate) vis: Visibility,
     /// `slot` is `None` when it is not initialized yet.
@@ -1103,12 +1103,11 @@ pub(crate) struct Binding<'f> {
     // (Comprehension scopes do not count, because they are considered
     // local by the runtime and do not allocate a frame).
     pub(crate) captured: Captured,
-    _marker: PhantomData<&'f ()>,
 }
 
 impl<'f> Binding<'f> {
     fn new(
-        name: FrozenStringValue,
+        name: StringValue<'f>,
         source: BindingSource,
         vis: Visibility,
         assign_count: AssignCount,
@@ -1120,7 +1119,6 @@ impl<'f> Binding<'f> {
             slot: None,
             assign_count,
             captured: Captured::No,
-            _marker: PhantomData,
         }
     }
 
@@ -1185,7 +1183,7 @@ impl<'f> ModuleScopeData<'f> {
 
     fn new_binding(
         &mut self,
-        name: FrozenStringValue,
+        name: StringValue<'f>,
         source: BindingSource,
         vis: Visibility,
         assigned_count: AssignCount,
@@ -1213,7 +1211,7 @@ impl<'f> ModuleScopeData<'f> {
     /// Get resolved slot for assigning identifier.
     pub(crate) fn get_assign_ident_slot(
         &self,
-        ident: &CstAssignIdent,
+        ident: &CstAssignIdent<'f>,
         codemap: &CodeMap,
     ) -> (Slot, Captured) {
         let binding_id = ident.payload.expect("binding not assigned for ident");
@@ -1223,8 +1221,10 @@ impl<'f> ModuleScopeData<'f> {
     }
 }
 
+/// How an identifier resolved, with a global at the brand of the frozen heap the compiler
+/// allocates on.
 #[derive(Debug, Clone, Dupe, Copy)]
-pub(crate) enum ResolvedIdent {
+pub(crate) enum ResolvedIdent<'f> {
     Slot(Slot, BindingId),
-    Global(FrozenValue),
+    Global(Value<'f>),
 }

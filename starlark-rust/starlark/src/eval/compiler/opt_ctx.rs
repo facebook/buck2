@@ -18,10 +18,14 @@
 use crate::environment::FrozenModuleData;
 use crate::eval::Evaluator;
 use crate::eval::compiler::Compiler;
+use crate::eval::compiler::def_inline::local_as_value::LocalAsValue;
 use crate::eval::compiler::stmt::OptimizeOnFreezeContext;
+use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::Value;
+use crate::values::ValueTyped;
 
 /// The context the optimizer runs in: a module's value heap, which it speculates on, and the
 /// module's frozen heap, where the IR it produces is allocated.
@@ -34,8 +38,13 @@ use crate::values::Value;
 pub(crate) unsafe trait OptCtxEval<'v, 'a, 'e, 'fm> {
     fn heap(&self) -> Heap<'v>;
     fn frozen_heap(&self) -> FrozenHeap<'fm>;
+    /// The edge from the value heap to the frozen heap, see `ModuleHeaps`.
+    fn edge(&self) -> HeapEdge<'v, 'fm>;
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>>;
     fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>>;
+    /// Storage for [`OptCtx::local_as_values`].
+    fn local_as_values(&self) -> &[ValueTyped<'fm, LocalAsValue>];
+    fn local_as_values_mut(&mut self) -> &mut Vec<ValueTyped<'fm, LocalAsValue>>;
 }
 
 // SAFETY: Constructed by `Def::post_freeze` alone, from the heaps `Module::freeze_impl` is
@@ -49,12 +58,24 @@ unsafe impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeCon
         self.frozen_heap
     }
 
+    fn edge(&self) -> HeapEdge<'v, 'fv> {
+        self.edge
+    }
+
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         None
     }
 
     fn frozen_module(&self) -> Option<&FrozenModuleData<'fv>> {
         Some(self.module)
+    }
+
+    fn local_as_values(&self) -> &[ValueTyped<'fv, LocalAsValue>] {
+        &self.local_as_values
+    }
+
+    fn local_as_values_mut(&mut self) -> &mut Vec<ValueTyped<'fv, LocalAsValue>> {
+        &mut self.local_as_values
     }
 }
 
@@ -69,12 +90,24 @@ unsafe impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a
         self.fh
     }
 
+    fn edge(&self) -> HeapEdge<'v, 'fm> {
+        self.edge
+    }
+
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         Some(self.eval)
     }
 
     fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>> {
         None
+    }
+
+    fn local_as_values(&self) -> &[ValueTyped<'fm, LocalAsValue>] {
+        &self.local_as_values
+    }
+
+    fn local_as_values_mut(&mut self) -> &mut Vec<ValueTyped<'fm, LocalAsValue>> {
+        &mut self.local_as_values
     }
 }
 
@@ -105,6 +138,12 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
         self.eval.frozen_heap()
     }
 
+    /// The edge from the value heap to the frozen heap: how the optimizer brings IR constants to
+    /// `'v` to evaluate on them.
+    pub(crate) fn edge(&self) -> HeapEdge<'v, 'fm> {
+        self.eval.edge()
+    }
+
     pub(crate) fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
         self.eval.eval()
     }
@@ -124,11 +163,21 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
     /// references, which `ModuleHeaps` copies into the frozen heap when it is sealed. Each of
     /// those is kept alive as long as anything at `'fm`. Like every brand argument today, this
     /// takes `'v` values to be honest; see the `FrozenValue` hole in the `branding` module.
-    ///
-    /// [`HeapEdge`]: crate::values::HeapEdge
     pub(crate) fn demote(&self, v: Value<'v>) -> Option<Value<'fm>> {
-        // Until the IR is branded the result is erased again at the call sites; once it is, this
-        // is the compiler's last use of `FrozenValue::to_value`.
+        // The compiler's one use of `FrozenValue::to_value`: it is the brand change itself.
         Some(v.unpack_frozen()?.to_value())
+    }
+
+    /// The placeholders for the first `count` local slots, see [`LocalAsValue`]: one allocation
+    /// per slot for the whole compilation, grown on demand.
+    pub(crate) fn local_as_values(&mut self, count: u32) -> &[ValueTyped<'fm, LocalAsValue>] {
+        let frozen_heap = self.frozen_heap();
+        let cache = self.eval.local_as_values_mut();
+        while cache.len() < count as usize {
+            cache.push(frozen_heap.alloc_simple_typed(LocalAsValue {
+                local: LocalSlotId(cache.len() as u32),
+            }));
+        }
+        &self.eval.local_as_values()[..count as usize]
     }
 }

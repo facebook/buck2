@@ -18,15 +18,18 @@
 use std::fmt;
 use std::fmt::Display;
 
+use allocative::Allocative;
 use dupe::Dupe;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
 use crate::codemap::FileSpanRef;
 use crate::codemap::NativeCodeMap;
 use crate::codemap::Span;
-use crate::values::any::FrozenAnyValue;
+use crate::values::ValueTyped;
+use crate::values::any::StarlarkAny;
 
 static EMPTY_NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new("", 0, 0);
 pagable::static_value!(
@@ -35,39 +38,55 @@ pagable::static_value!(
 );
 crate::static_starlark_any!(VALUE_EMPTY_CODEMAP: CodeMap = NativeCodeMap::to_codemap(EMPTY_NATIVE_CODEMAP_STATIC));
 
+/// A span in a file whose [`CodeMap`] is allocated in a frozen heap, at the brand of that heap.
 #[derive(
     Debug,
     Copy,
     Clone,
     Dupe,
-    PartialEq,
     Eq,
+    Allocative,
+    ProvidesStaticType,
     starlark_derive::StarlarkPagable
 )]
-pub(crate) struct FrozenFileSpan {
-    file: FrozenAnyValue<CodeMap>,
+pub(crate) struct FrozenFileSpan<'f> {
+    file: ValueTyped<'f, StarlarkAny<CodeMap>>,
+    #[allocative(skip)]
     #[starlark_pagable(pagable)]
     span: Span,
 }
 
-impl Display for FrozenFileSpan {
+impl<'f> PartialEq for FrozenFileSpan<'f> {
+    fn eq(&self, other: &Self) -> bool {
+        // `CodeMap` compares by identity.
+        self.file.as_ref().0 == other.file.as_ref().0 && self.span == other.span
+    }
+}
+
+impl<'f> Display for FrozenFileSpan<'f> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.to_file_span(), f)
     }
 }
 
-impl Default for FrozenFileSpan {
-    fn default() -> FrozenFileSpan {
-        FrozenFileSpan::new_unchecked(VALUE_EMPTY_CODEMAP.unpack_any(), Span::default())
+impl<'f> Default for FrozenFileSpan<'f> {
+    fn default() -> FrozenFileSpan<'f> {
+        FrozenFileSpan::new_unchecked(VALUE_EMPTY_CODEMAP.at(), Span::default())
     }
 }
 
-impl FrozenFileSpan {
-    pub(crate) const fn new_unchecked(file: FrozenAnyValue<CodeMap>, span: Span) -> FrozenFileSpan {
+impl<'f> FrozenFileSpan<'f> {
+    pub(crate) const fn new_unchecked(
+        file: ValueTyped<'f, StarlarkAny<CodeMap>>,
+        span: Span,
+    ) -> FrozenFileSpan<'f> {
         FrozenFileSpan { file, span }
     }
 
-    pub(crate) fn new(file: FrozenAnyValue<CodeMap>, span: Span) -> FrozenFileSpan {
+    pub(crate) fn new(
+        file: ValueTyped<'f, StarlarkAny<CodeMap>>,
+        span: Span,
+    ) -> FrozenFileSpan<'f> {
         // Spans outside their file have been observed in production, and
         // resolving one degrades to a clamped snippet rather than panicking.
         // Debug builds fail fast here; release builds report through the
@@ -95,7 +114,7 @@ impl FrozenFileSpan {
         Self::new_unchecked(file, span)
     }
 
-    pub(crate) fn file(&self) -> FrozenAnyValue<CodeMap> {
+    pub(crate) fn file(&self) -> ValueTyped<'f, StarlarkAny<CodeMap>> {
         self.file
     }
 
@@ -103,29 +122,29 @@ impl FrozenFileSpan {
         self.span
     }
 
-    pub(crate) fn end_span(&self) -> FrozenFileSpan {
+    pub(crate) fn end_span(&self) -> FrozenFileSpan<'f> {
         FrozenFileSpan {
             file: self.file,
             span: self.span.end_span(),
         }
     }
 
-    pub(crate) fn file_span_ref(&self) -> FileSpanRef<'static> {
+    pub(crate) fn file_span_ref(&self) -> FileSpanRef<'f> {
         FileSpanRef {
-            file: self.file.as_ref(),
+            file: &self.file.as_ref().0,
             span: self.span,
         }
     }
 
     pub(crate) fn to_file_span(&self) -> FileSpan {
         FileSpan {
-            file: (*self.file).dupe(),
+            file: self.file.as_ref().0.dupe(),
             span: self.span,
         }
     }
 
-    pub(crate) fn merge(&self, other: &FrozenFileSpan) -> FrozenFileSpan {
-        if self.file == other.file {
+    pub(crate) fn merge(&self, other: &FrozenFileSpan<'f>) -> FrozenFileSpan<'f> {
+        if self.file.as_ref().0 == other.file.as_ref().0 {
             FrozenFileSpan {
                 file: self.file,
                 span: self.span.merge(other.span),

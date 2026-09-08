@@ -84,14 +84,15 @@ impl<'v> ModuleHeaps<'v> {
     }
 
     /// Allocate the frozen heap's root value with `f`, then seal the heap into the value heap's
-    /// references and return the root value kept alive by it.
+    /// references and return the root value kept alive by it. `f` gets the same edge as
+    /// [`frozen_heap`](ModuleHeaps::frozen_heap).
     ///
     /// The heap is sealed whether `f` succeeds, fails or panics. The `name` is the sealed heap's,
     /// see [`OwnedFrozen::name`].
     pub(crate) fn seal_with<T, E>(
         mut self,
         name: Option<FrozenHeapName>,
-        f: impl for<'fm> FnOnce(FrozenHeap<'fm>) -> Result<T::Reinfect<'fm>, E>,
+        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> Result<T::Reinfect<'fm>, E>,
     ) -> Result<OwnedFrozen<T>, E>
     where
         T: IsStaticType,
@@ -101,10 +102,12 @@ impl<'v> ModuleHeaps<'v> {
         // on every other exit: the value heap may already hold pointers into it.
         //
         // SAFETY: `'fm` is the brand of the builder, which is sealed right below into the owner
-        // the value is paired with. Being closure-introduced, `'fm` names nothing else.
-        let root = self
-            .frozen()
-            .with(|fh| f(fh).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) }));
+        // the value is paired with. Being closure-introduced, `'fm` names nothing else. The edge
+        // is the one `frozen_heap` hands out, for the same reason.
+        let root = self.frozen().with(|fh| {
+            let edge = unsafe { HeapEdge::unchecked_new() };
+            f(fh, edge).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
+        });
         let frozen = self
             .frozen
             .take()
@@ -162,7 +165,7 @@ mod tests {
         let root = Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
             heaps
-                .seal_with::<Value<'static>, ()>(None, |fh| {
+                .seal_with::<Value<'static>, ()>(None, |fh, _edge| {
                     let v = foreign.as_ref().add_to_heap(heap);
                     Ok(Freezer::new(fh).freeze_branded(v).unwrap())
                 })
@@ -195,7 +198,7 @@ mod unwind_tests {
             let s = heaps.frozen_heap(|fh, edge| edge.rebrand(fh.alloc(expected.as_str())));
             let list = heap.alloc(vec![s]);
             let unwound = catch_unwind(AssertUnwindSafe(|| {
-                heaps.seal_with::<Value<'static>, ()>(None, |_fh| panic!("sealing failed"))
+                heaps.seal_with::<Value<'static>, ()>(None, |_fh, _edge| panic!("sealing failed"))
             }));
             assert!(unwound.is_err());
             let list = ListRef::from_value(list).unwrap();

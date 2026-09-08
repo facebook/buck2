@@ -19,9 +19,6 @@
 //!
 //! To be able to propagate the local slot number through parameter binding machinery.
 
-use std::array;
-use std::sync::LazyLock;
-
 use allocative::Allocative;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
@@ -29,17 +26,13 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::eval::runtime::slots::LocalSlotId;
-use crate::singleton_heap_name;
 use crate::starlark_simple_value;
-use crate::values::FrozenValueTyped;
-use crate::values::OwnedFrozen;
-use crate::values::OwnedFrozenHeap;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
 
-/// Local slot id as `FrozenValue`. This object only using during compilation
-/// and never appears in the executed program.
+/// Local slot id as a value. This object is only used during compilation, allocated on the
+/// compiler's frozen heap (see `OptCtx::local_as_values`), and never appears in the executed
+/// program.
 #[derive(
     derive_more::Display,
     Debug,
@@ -58,28 +51,3 @@ pub(crate) struct LocalAsValue {
 impl<'v> StarlarkValue<'v> for LocalAsValue {}
 
 starlark_simple_value!(LocalAsValue);
-
-/// Create a value which represents a reference to local slot id during optimization.
-pub(crate) fn local_as_value(
-    local: LocalSlotId,
-) -> Option<FrozenValueTyped<'static, LocalAsValue>> {
-    // 100 is practically enough.
-    static LOCALS: LazyLock<(
-        OwnedFrozen<()>,
-        [FrozenValueTyped<'static, LocalAsValue>; 100],
-    )> = LazyLock::new(|| {
-        let heap = OwnedFrozenHeap::new();
-        let locals = heap.with(|heap| {
-            array::from_fn(|i| {
-                heap.alloc_simple_typed_static(LocalAsValue {
-                    local: LocalSlotId(i as u32),
-                })
-            })
-        });
-        (
-            heap.seal(FrozenHeapName::Singleton(singleton_heap_name!())),
-            locals,
-        )
-    });
-    LOCALS.1.get(local.0 as usize).copied()
-}

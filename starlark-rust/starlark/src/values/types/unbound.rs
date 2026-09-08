@@ -86,7 +86,7 @@ impl<'v> UnboundValue<'v> {
     pub(crate) fn invoke_method(
         self,
         this: Value<'v>,
-        span: &'static FrameSpan,
+        span: &'v FrameSpan<'v>,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {

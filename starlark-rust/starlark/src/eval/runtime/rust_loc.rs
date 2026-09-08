@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-/// Initialize to `&'static FrameSpan` with rust file and line number.
+/// Initialize to `&'static FrameSpan<'static>` with rust file and line number; `FrameSpan::at`
+/// brings it to the brand of the heap in use.
 macro_rules! rust_loc {
     () => {{
         use std::sync::LazyLock;
@@ -35,9 +36,9 @@ macro_rules! rust_loc {
         crate::static_starlark_any!(
             @no_impl CODEMAP: CodeMap = NativeCodeMap::to_codemap(NATIVE_CODEMAP_STATIC)
         );
-        static FRAME_SPAN: LazyLock<FrameSpan> = LazyLock::new(|| {
+        static FRAME_SPAN: LazyLock<FrameSpan<'static>> = LazyLock::new(|| {
             FrameSpan::new(FrozenFileSpan::new_unchecked(
-                CODEMAP.unpack_any(),
+                CODEMAP.at(),
                 NativeCodeMap::FULL_SPAN,
             ))
         });
@@ -62,7 +63,7 @@ mod tests {
     #[starlark_module]
     fn rust_loc_globals(globals: &mut GlobalsBuilder) {
         fn invoke<'v>(f: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<Value<'v>> {
-            f.invoke_with_loc(Some(rust_loc!()), &Arguments::default(), eval)
+            f.invoke_with_loc(Some(rust_loc!().at()), &Arguments::default(), eval)
                 .into_anyhow_result()
         }
     }

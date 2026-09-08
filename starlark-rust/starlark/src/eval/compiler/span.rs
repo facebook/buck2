@@ -28,13 +28,13 @@ use crate::pagable::StarlarkPagable;
 /// For intermediate representation.
 #[derive(Clone, Copy, Debug, StarlarkPagable)]
 #[starlark_pagable(bound = "T: StarlarkPagable")]
-pub(crate) struct IrSpanned<T> {
-    pub(crate) span: FrameSpan,
+pub(crate) struct IrSpanned<'f, T> {
+    pub(crate) span: FrameSpan<'f>,
     pub(crate) node: T,
 }
 
-impl<T> IrSpanned<T> {
-    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> IrSpanned<U> {
+impl<'f, T> IrSpanned<'f, T> {
+    pub fn map<U>(&self, f: impl FnOnce(&T) -> U) -> IrSpanned<'f, U> {
         IrSpanned {
             node: f(&self.node),
             span: self.span,
@@ -42,7 +42,7 @@ impl<T> IrSpanned<T> {
     }
 }
 
-impl<T> Deref for IrSpanned<T> {
+impl<'f, T> Deref for IrSpanned<'f, T> {
     type Target = T;
 
     fn deref(&self) -> &T {

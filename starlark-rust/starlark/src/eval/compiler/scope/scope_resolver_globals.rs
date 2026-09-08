@@ -17,7 +17,6 @@
 
 use crate::const_frozen_string;
 use crate::environment::GlobalsData;
-use crate::values::FrozenValue;
 use crate::values::HeapEdge;
 use crate::values::Value;
 
@@ -33,19 +32,10 @@ impl<'a, 'f, 'g> ScopeResolverGlobals<'a, 'f, 'g> {
         ScopeResolverGlobals { globals: None }
     }
 
-    pub(crate) fn get_global(&self, name: &str) -> Option<FrozenValue> {
+    pub(crate) fn get_global(&self, name: &str) -> Option<Value<'f>> {
         match self.globals {
-            Some((globals, edge)) => {
-                let value: Value<'f> = edge.rebrand(globals.variables.get_str(name)?.value);
-                // The IR names values as `FrozenValue`s, so the brand is dropped again here until
-                // `ExprCompiled::Value` is branded.
-                Some(value.unpack_frozen().expect("globals live in frozen heaps"))
-            }
-            None => Some(
-                const_frozen_string!("unknown-global")
-                    .to_frozen()
-                    .to_frozen_value(),
-            ),
+            Some((globals, edge)) => Some(edge.rebrand(globals.variables.get_str(name)?.value)),
+            None => Some(const_frozen_string!("unknown-global").at().to_value()),
         }
     }
 

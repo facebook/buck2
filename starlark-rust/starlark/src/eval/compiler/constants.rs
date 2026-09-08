@@ -20,7 +20,7 @@ use std::sync::LazyLock;
 use dupe::Dupe;
 
 use crate::environment::Globals;
-use crate::values::FrozenValue;
+use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
 use crate::values::Value;
 use crate::values::ValueTyped;
@@ -30,33 +30,20 @@ use crate::values::namespace::Namespace;
 pub(crate) struct BuiltinFn(OwnedFrozen<Value<'static>>);
 
 impl BuiltinFn {
-    /// The function as the IR names it, which is by `FrozenValue` until `ExprCompiled::Value` is
-    /// branded.
-    pub(crate) fn frozen(&self) -> FrozenValue {
-        self.0
-            .by_ref(|v| v.unpack_frozen().expect("globals live in frozen heaps"))
+    /// The function, for use with any heap.
+    ///
+    /// [`Constants`] is a process-wide static, so the heap it holds is immortal and the value can
+    /// be brought to any brand, see [`HeapEdge::immortal`]; `&'static self` is the proof.
+    pub(crate) fn at<'v>(&'static self) -> Value<'v> {
+        HeapEdge::immortal().rebrand(self.0.as_ref().value())
     }
-}
 
-impl BuiltinFn {
     /// Whether `v` is this function.
     pub(crate) fn is(&self, v: Value) -> bool {
         // Pointer equality works because `#[starlark_module]` proc macro
         // generates a singleton which allocates the function only once
         // even if builder function is called multiple times.
         self.0.by_ref(|f| f.ptr_eq(v))
-    }
-}
-
-impl PartialEq<FrozenValue> for BuiltinFn {
-    fn eq(&self, other: &FrozenValue) -> bool {
-        self.is(other.to_value())
-    }
-}
-
-impl PartialEq<BuiltinFn> for FrozenValue {
-    fn eq(&self, other: &BuiltinFn) -> bool {
-        other == self
     }
 }
 
@@ -106,7 +93,7 @@ mod tests {
     fn test_constants() {
         for globals in [Globals::standard(), Globals::extended_internal()] {
             let len = globals.get_owned("len").unwrap();
-            assert!(len.by_ref(|len| Constants::get().fn_len == len.unpack_frozen().unwrap()));
+            assert!(len.by_ref(|len| Constants::get().fn_len.is(*len)));
         }
     }
 }

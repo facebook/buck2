@@ -21,7 +21,6 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use dupe::Dupe;
-use starlark_map::Hashed;
 use starlark_map::StarlarkHasherBuilder;
 
 use crate::collections::SmallMap;
@@ -32,7 +31,6 @@ use crate::eval::runtime::profile::data::ProfileDataImpl;
 use crate::eval::runtime::profile::profiler_type::ProfilerType;
 use crate::eval::runtime::small_duration::SmallDuration;
 use crate::util::arc_str::ArcStr;
-use crate::values::FrozenStringValue;
 
 pub(crate) struct TypecheckProfilerType;
 
@@ -76,7 +74,7 @@ pub(crate) struct TypecheckProfileData {
 #[derive(Default, Debug)]
 pub(crate) struct TypecheckProfile {
     pub(crate) enabled: bool,
-    by_function: HashMap<Hashed<FrozenStringValue>, SmallDuration, StarlarkHasherBuilder>,
+    by_function: HashMap<String, SmallDuration, StarlarkHasherBuilder>,
 }
 
 impl TypecheckProfileData {
@@ -102,9 +100,16 @@ impl TypecheckProfileData {
 }
 
 impl TypecheckProfile {
-    pub(crate) fn add(&mut self, function: FrozenStringValue, time: Duration) {
+    pub(crate) fn add(&mut self, function: &str, time: Duration) {
         assert!(self.enabled);
-        *self.by_function.entry(function.get_hashed()).or_default() += time;
+        match self.by_function.get_mut(function) {
+            Some(total) => *total += time,
+            None => {
+                let mut total = SmallDuration::default();
+                total += time;
+                self.by_function.insert(function.to_owned(), total);
+            }
+        }
     }
 
     pub(crate) fn r#gen(&self) -> crate::Result<ProfileData> {

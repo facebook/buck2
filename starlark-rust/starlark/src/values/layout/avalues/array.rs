@@ -32,7 +32,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -47,7 +46,6 @@ use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::any_array::AnyArrayRegistered;
-use crate::values::types::any_array::FrozenAnyArray;
 use crate::values::types::array::Array;
 
 fn array_avalue<'v>(
@@ -220,23 +218,19 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
 }
 
 impl<'fh> FrozenHeap<'fh> {
-    /// Allocate a slice in the frozen heap, returning a [`FrozenAnyArray`].
-    ///
-    /// The handle type predates branding: its `'static` says nothing about what keeps the heap
-    /// alive.
+    /// Allocate a slice in the frozen heap as an [`AnyArray`].
     pub(crate) fn alloc_any_array_value<
         T: AnyArrayRegistered + StarlarkPagable + Send + Sync + Clone,
     >(
         self,
         values: &[T],
-    ) -> FrozenAnyArray<T> {
+    ) -> ValueTyped<'fh, AnyArray<T>> {
         // Always allocate via AnyArray, even for empty/single elements.
         // This ensures the reverse calculation to FrozenValue is valid.
         let (any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         maybe_uninit_write_slice_cloned(content, values);
-        FrozenValueTyped::new(any_array.to_frozen_value().to_value())
-            .expect("just allocated value must have the right type")
+        any_array.to_value_typed()
     }
 }
 

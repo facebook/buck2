@@ -32,7 +32,7 @@ fn globals(builder: &mut GlobalsBuilder) {
     fn returns_type_is<'v>(value: Value<'v>) -> anyhow::Result<bool> {
         Ok(if let Some(def) = value.downcast_ref::<Def>() {
             matches!(
-                def.def_info.inline_def_body,
+                def.def_info.value.inline_def_body,
                 Some(InlineDefBody::ReturnTypeIs(..))
             )
         } else {

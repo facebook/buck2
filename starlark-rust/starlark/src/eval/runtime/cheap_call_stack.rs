@@ -39,7 +39,7 @@ use crate::values::Value;
 #[derive(Clone, Copy, Dupe)]
 struct CheapFrame<'v> {
     function: Value<'v>,
-    span: Option<&'static FrameSpan>,
+    span: Option<&'v FrameSpan<'v>>,
 }
 
 impl CheapFrame<'_> {
@@ -153,7 +153,7 @@ impl<'v> CheapCallStack<'v> {
     pub(crate) fn push(
         &mut self,
         function: Value<'v>,
-        span: Option<&'static FrameSpan>,
+        span: Option<&'v FrameSpan<'v>>,
     ) -> crate::Result<()> {
         if unlikely(self.count >= self.stack.len()) {
             return Err(crate::Error::new_kind(ErrorKind::StackOverflow(
@@ -214,7 +214,7 @@ impl<'v> CheapCallStack<'v> {
         Some(self.stack[index].function)
     }
 
-    pub(crate) fn to_diagnostic_frames(&self, inlined_frames: InlinedFrames) -> CallStack {
+    pub(crate) fn to_diagnostic_frames(&self, inlined_frames: InlinedFrames<'v>) -> CallStack {
         // The first entry is just the entire module, so skip it
         let mut frames = Vec::new();
         for frame in &self.stack[1..self.count] {

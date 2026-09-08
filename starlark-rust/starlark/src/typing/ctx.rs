@@ -367,13 +367,13 @@ impl TypingContext<'_> {
         self.validate_call(&f_ty, &args_ty, span)
     }
 
-    fn expr_slice(
+    fn expr_slice<'f>(
         &self,
         span: Span,
-        x: &CstExpr,
-        start: Option<&CstExpr>,
-        stop: Option<&CstExpr>,
-        stride: Option<&CstExpr>,
+        x: &CstExpr<'f>,
+        start: Option<&CstExpr<'f>>,
+        stop: Option<&CstExpr<'f>>,
+        stride: Option<&CstExpr<'f>>,
     ) -> Result<Ty, InternalError> {
         for e in [start, stop, stride].iter().copied().flatten() {
             self.validate_type(self.expression_type_spanned(e)?.as_ref(), &Ty::int())?;
@@ -398,7 +398,7 @@ impl TypingContext<'_> {
                     Ty::any()
                 }
             }
-            Some(ResolvedIdent::Global(g)) => Ty::of_value(g.to_value()),
+            Some(ResolvedIdent::Global(g)) => Ty::of_value(*g),
             None => {
                 // All identifiers must be resolved at this point,
                 // but we don't stop after scope resolution error,

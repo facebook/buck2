@@ -23,6 +23,7 @@ use starlark_derive::StarlarkPagable;
 use starlark_syntax::eval_exception::EvalException;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::eval::Evaluator;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::for_loop::LoopDepth;
@@ -39,10 +40,10 @@ use crate::eval::compiler::add_span_to_expr_error;
 use crate::eval::runtime::evaluator::EvaluationCallbacks;
 use crate::values::Value;
 
-/// Ready to execute bytecode.
-#[derive(Default, StarlarkPagable)]
-pub(crate) struct Bc {
-    pub(crate) instrs: BcInstrs,
+/// Ready to execute bytecode, whose operands are values at `'v`.
+#[derive(Default, ProvidesStaticType, StarlarkPagable)]
+pub(crate) struct Bc<'v> {
+    pub(crate) instrs: BcInstrs<'v>,
     /// Number of local variable slots.
     pub(crate) local_count: u32,
     /// Max stack size in values (`Value`).
@@ -52,16 +53,16 @@ pub(crate) struct Bc {
     pub(crate) max_loop_depth: LoopDepth,
 }
 
-impl Bc {
+impl<'v> Bc<'v> {
     /// Find span for instruction.
     #[cold]
     #[inline(never)]
-    pub(crate) fn slow_arg_at_ptr(addr_ptr: BcPtrAddr<'_>) -> &BcInstrSlowArg {
+    pub(crate) fn slow_arg_at_ptr<'b>(addr_ptr: BcPtrAddr<'b>) -> &'b BcInstrSlowArg<'v> {
         let mut ptr = addr_ptr;
         loop {
             let opcode = ptr.get_opcode();
             if opcode == BcOpcode::End {
-                let end_of_bc = ptr.get_instr::<InstrEnd>();
+                let end_of_bc = ptr.get_instr::<'v, InstrEnd>();
                 let BcInstrEndArg {
                     slow_args,
                     end_addr,
@@ -85,7 +86,7 @@ impl Bc {
     pub(crate) fn wrap_error_for_instr_ptr(
         ptr: BcPtrAddr,
         e: crate::Error,
-        eval: &Evaluator,
+        eval: &Evaluator<'v, '_, '_>,
     ) -> EvalException {
         let span = Self::slow_arg_at_ptr(ptr).span;
         add_span_to_expr_error(e, span, eval)
@@ -95,7 +96,7 @@ impl Bc {
     ///
     /// Frame must be allocated properly, otherwise it will likely result in memory corruption.
     #[inline(always)]
-    pub(crate) fn run<'v, EC: EvaluationCallbacks>(
+    pub(crate) fn run<EC: EvaluationCallbacks>(
         &self,
         eval: &mut Evaluator<'v, '_, '_>,
         ec: &mut EC,
@@ -134,11 +135,13 @@ fn step<'v, 'b, EC: EvaluationCallbacks>(
         ip: BcPtrAddr<'b>,
     }
 
-    impl<'v, 'a, 'e, 'y, 'b> BcOpcodeHandler<InstrControl<'v, 'b>> for HandlerImpl<'v, 'a, 'e, 'y, 'b> {
+    impl<'v, 'a, 'e, 'y, 'b> BcOpcodeHandler<'v, InstrControl<'v, 'b>>
+        for HandlerImpl<'v, 'a, 'e, 'y, 'b>
+    {
         #[cfg_attr(not(debug_assertions), inline(always))]
-        fn handle<I: BcInstr>(self) -> InstrControl<'v, 'b> {
+        fn handle<I: BcInstr<'v>>(self) -> InstrControl<'v, 'b> {
             let HandlerImpl { eval, frame, ip } = self;
-            let repr = ip.get_instr::<I>();
+            let repr = ip.get_instr::<'v, I>();
             I::run(eval, frame, ip, &repr.arg)
         }
     }

@@ -35,13 +35,13 @@ use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::compiler::stmt::AssignCompiledValue;
 
-impl Compiler<'_, '_, '_, '_, '_> {
+impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
     pub fn list_comprehension(
         &mut self,
-        x: &CstExpr,
-        for_: &ForClauseP<CstPayload>,
-        clauses: &[ClauseP<CstPayload>],
-    ) -> Result<ExprCompiled, CompilerInternalError> {
+        x: &CstExpr<'fm>,
+        for_: &ForClauseP<CstPayload<'fm>>,
+        clauses: &[ClauseP<CstPayload<'fm>>],
+    ) -> Result<ExprCompiled<'fm>, CompilerInternalError> {
         let clauses = self.compile_clauses(for_, clauses)?;
         let x = self.expr(x)?;
         Ok(ExprCompiled::compr(ComprCompiled::List(
@@ -52,11 +52,11 @@ impl Compiler<'_, '_, '_, '_, '_> {
 
     pub fn dict_comprehension(
         &mut self,
-        k: &CstExpr,
-        v: &CstExpr,
-        for_: &ForClauseP<CstPayload>,
-        clauses: &[ClauseP<CstPayload>],
-    ) -> Result<ExprCompiled, CompilerInternalError> {
+        k: &CstExpr<'fm>,
+        v: &CstExpr<'fm>,
+        for_: &ForClauseP<CstPayload<'fm>>,
+        clauses: &[ClauseP<CstPayload<'fm>>],
+    ) -> Result<ExprCompiled<'fm>, CompilerInternalError> {
         let clauses = self.compile_clauses(for_, clauses)?;
         let k = self.expr(k)?;
         let v = self.expr(v)?;
@@ -69,9 +69,14 @@ impl Compiler<'_, '_, '_, '_, '_> {
     /// Peel the final if's from clauses, and return them (in the order they started), plus the next for you get to
     fn compile_ifs(
         &mut self,
-        clauses: &mut Vec<ClauseP<CstPayload>>,
-    ) -> Result<(Option<ForClauseP<CstPayload>>, Vec<IrSpanned<ExprCompiled>>), CompilerInternalError>
-    {
+        clauses: &mut Vec<ClauseP<CstPayload<'fm>>>,
+    ) -> Result<
+        (
+            Option<ForClauseP<CstPayload<'fm>>>,
+            Vec<IrSpanned<'fm, ExprCompiled<'fm>>>,
+        ),
+        CompilerInternalError,
+    > {
         let mut ifs = Vec::new();
         while let Some(x) = clauses.pop() {
             match x {
@@ -96,9 +101,9 @@ impl Compiler<'_, '_, '_, '_, '_> {
 
     fn compile_clauses(
         &mut self,
-        for_: &ForClauseP<CstPayload>,
-        clauses: &[ClauseP<CstPayload>],
-    ) -> Result<ClausesCompiled, CompilerInternalError> {
+        for_: &ForClauseP<CstPayload<'fm>>,
+        clauses: &[ClauseP<CstPayload<'fm>>],
+    ) -> Result<ClausesCompiled<'fm>, CompilerInternalError> {
         // The first for.over is scoped before we enter the list comp
         let over = self.expr(&list_to_tuple(&for_.over))?;
 
@@ -132,23 +137,26 @@ impl Compiler<'_, '_, '_, '_, '_> {
 }
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) enum ComprCompiled {
-    List(Box<IrSpanned<ExprCompiled>>, ClausesCompiled),
+pub(crate) enum ComprCompiled<'f> {
+    List(Box<IrSpanned<'f, ExprCompiled<'f>>>, ClausesCompiled<'f>),
     Dict(
-        Box<(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>)>,
-        ClausesCompiled,
+        Box<(
+            IrSpanned<'f, ExprCompiled<'f>>,
+            IrSpanned<'f, ExprCompiled<'f>>,
+        )>,
+        ClausesCompiled<'f>,
     ),
 }
 
-impl ComprCompiled {
-    pub(crate) fn clauses(&self) -> &ClausesCompiled {
+impl<'f> ComprCompiled<'f> {
+    pub(crate) fn clauses(&self) -> &ClausesCompiled<'f> {
         match self {
             ComprCompiled::List(_, clauses) => clauses,
             ComprCompiled::Dict(_, clauses) => clauses,
         }
     }
 
-    pub(crate) fn optimize(&self, ctx: &mut OptCtx) -> ExprCompiled {
+    pub(crate) fn optimize(&self, ctx: &mut OptCtx<'_, '_, '_, '_, 'f>) -> ExprCompiled<'f> {
         match self {
             ComprCompiled::List(x, clauses) => {
                 let clauses = clauses.optimize(ctx);
@@ -167,14 +175,14 @@ impl ComprCompiled {
 }
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) struct ClauseCompiled {
-    pub(crate) var: IrSpanned<AssignCompiledValue>,
-    pub(crate) over: IrSpanned<ExprCompiled>,
-    pub(crate) ifs: Vec<IrSpanned<ExprCompiled>>,
+pub(crate) struct ClauseCompiled<'f> {
+    pub(crate) var: IrSpanned<'f, AssignCompiledValue<'f>>,
+    pub(crate) over: IrSpanned<'f, ExprCompiled<'f>>,
+    pub(crate) ifs: Vec<IrSpanned<'f, ExprCompiled<'f>>>,
 }
 
-impl ClauseCompiled {
-    fn optimize(&self, ctx: &mut OptCtx) -> ClauseCompiled {
+impl<'f> ClauseCompiled<'f> {
+    fn optimize(&self, ctx: &mut OptCtx<'_, '_, '_, '_, 'f>) -> ClauseCompiled<'f> {
         let ClauseCompiled {
             ref var,
             ref over,
@@ -200,15 +208,15 @@ impl ClauseCompiled {
 
 /// All clauses in a comprehension. Never empty.
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) struct ClausesCompiled {
+pub(crate) struct ClausesCompiled<'f> {
     /// Not empty.
     ///
     /// Clauses are in reverse order, i. e. the first executed clause is the last in the list.
-    clauses: Vec<ClauseCompiled>,
+    clauses: Vec<ClauseCompiled<'f>>,
 }
 
-impl ClausesCompiled {
-    fn new(clauses: Vec<ClauseCompiled>, last: ClauseCompiled) -> ClausesCompiled {
+impl<'f> ClausesCompiled<'f> {
+    fn new(clauses: Vec<ClauseCompiled<'f>>, last: ClauseCompiled<'f>) -> ClausesCompiled<'f> {
         let mut clauses = clauses;
         clauses.push(last);
         ClausesCompiled { clauses }
@@ -226,11 +234,11 @@ impl ClausesCompiled {
     }
 
     /// Last clause is the one which is executed first.
-    pub(crate) fn split_last(&self) -> (&ClauseCompiled, &[ClauseCompiled]) {
+    pub(crate) fn split_last(&self) -> (&ClauseCompiled<'f>, &[ClauseCompiled<'f>]) {
         self.clauses.split_last().unwrap()
     }
 
-    fn optimize(&self, ctx: &mut OptCtx) -> ClausesCompiled {
+    fn optimize(&self, ctx: &mut OptCtx<'_, '_, '_, '_, 'f>) -> ClausesCompiled<'f> {
         ClausesCompiled {
             clauses: self.clauses.map(|c| c.optimize(ctx)),
         }

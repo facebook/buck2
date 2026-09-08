@@ -179,8 +179,9 @@ impl<'fh> FrozenHeap<'fh> {
 
     /// Intern a string and erase its brand.
     ///
-    /// For the compiler's products, which are `FrozenValue`-typed; everything else should keep the
-    /// brand that [`alloc_str`](FrozenHeap::alloc_str) hands out.
+    /// For the code that still deals in `FrozenValue`s: the string freeze path and the pagable
+    /// tests. Everything else should keep the brand that [`alloc_str`](FrozenHeap::alloc_str)
+    /// hands out.
     pub(crate) fn alloc_str_intern(self, s: &str) -> FrozenStringValue {
         self.alloc_str_intern_hashed(Hashed::new(s))
     }

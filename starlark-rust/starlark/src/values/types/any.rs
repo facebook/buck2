@@ -308,6 +308,11 @@ macro_rules! static_starlark_any {
 
 /// Typed reference to a `T` allocated via [`StarlarkAny<T>`] on a frozen heap.
 ///
+/// A handle from before branding: its `'static` says nothing about what keeps the heap alive,
+/// see the `branding` module. Its remaining producer is
+/// [`alloc_any_value`](FrozenHeap::alloc_any_value), for buck2's `UserProviderCallable`; a
+/// `ValueTyped<'v, StarlarkAny<T>>` is the form to use.
+///
 /// Implemented as a newtype rather than a type alias for
 /// `FrozenValueTyped<'static, StarlarkAny<T>>` so we can define our own
 /// `Display`, `Debug`, `Deref`, and `BcInstrArg` trait impls that delegate
@@ -389,9 +394,18 @@ impl<'fh> FrozenHeap<'fh> {
     /// Allocate any value on the frozen heap, returning a [`FrozenAnyValue`].
     ///
     /// The handle type predates branding: its `'static` says nothing about what keeps the heap
-    /// alive.
+    /// alive. Allocate with [`alloc_simple_typed`](FrozenHeap::alloc_simple_typed) instead to
+    /// keep the brand.
     pub fn alloc_any_value<T: StarlarkAnyRegistered>(self, value: T) -> FrozenAnyValue<T> {
-        FrozenAnyValue::from_typed(self.alloc_simple_typed_static(StarlarkAny::new(value)))
+        let v = self.alloc_simple_typed(StarlarkAny::new(value));
+        let v = v
+            .to_value()
+            .unpack_frozen()
+            .expect("value allocated in a frozen heap is frozen");
+        FrozenAnyValue::from_typed(
+            FrozenValueTyped::new(v.to_value())
+                .expect("just allocated value must have the right type"),
+        )
     }
 }
 

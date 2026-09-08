@@ -26,7 +26,6 @@ use std::ptr;
 
 use allocative::Allocative;
 use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
@@ -88,6 +87,7 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
 use crate::pagable::StarlarkPagable;
 use crate::register_starlark_any;
+use crate::register_starlark_any_complex;
 use crate::static_starlark_value;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -95,22 +95,22 @@ use crate::typing::callable_param::ParamIsRequired;
 use crate::util::arc_str::ArcStr;
 use crate::values::AllocValue;
 use crate::values::FreezeBranded;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::FrozenHeap;
-use crate::values::FrozenStringValue;
-use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
+use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
+use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
-use crate::values::any::FrozenAnyValue;
+use crate::values::any::StarlarkAny;
 use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::AtomicValueTypedOption;
 use crate::values::types::any_array::AnyArray;
-use crate::values::types::any_array::FrozenAnyArray;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 static_starlark_value!(VALUE_EMPTY_PARAMETER_CAPTURES: AnyArray<LocalSlotId> = AnyArray::empty());
@@ -124,39 +124,53 @@ enum DefError {
 /// The body a frozen def runs: [`DefInfo::stmt_compiled`] re-optimized against the fully frozen
 /// module. `post_freeze` fills it. While it is empty - before freeze, or for a def frozen by a
 /// [`Freezer`] that never runs `post_freeze` - the def runs [`DefInfo::stmt_compiled`] itself.
-struct StmtCompiledCell {
-    cell: UnsafeCell<Option<Bc>>,
+#[derive(ProvidesStaticType)]
+struct StmtCompiledCell<'v> {
+    cell: UnsafeCell<Option<Bc<'v>>>,
 }
 
 // `Option<Bc>` uses a niche in `Bc`, so the empty state costs the def no space.
-static_assertions::assert_eq_size!(Option<Bc>, Bc);
+static_assertions::assert_eq_size!(Option<Bc<'static>>, Bc<'static>);
 
-unsafe impl<'v> Trace<'v> for StmtCompiledCell {
+unsafe impl<'v> Trace<'v> for StmtCompiledCell<'v> {
     fn trace(&mut self, _: &Tracer<'v>) {
         // Bytecode contains only frozen values.
     }
 }
 
-unsafe impl Sync for StmtCompiledCell {}
-unsafe impl Send for StmtCompiledCell {}
+unsafe impl<'v> Sync for StmtCompiledCell<'v> {}
+unsafe impl<'v> Send for StmtCompiledCell<'v> {}
 
-impl StmtCompiledCell {
-    fn new() -> StmtCompiledCell {
+impl<'v> StmtCompiledCell<'v> {
+    fn new() -> StmtCompiledCell<'v> {
         StmtCompiledCell {
             cell: UnsafeCell::new(None),
         }
     }
 
     /// This function is unsafe if other thread is executing the stmt.
-    unsafe fn set(&self, value: Bc) {
+    unsafe fn set(&self, value: Bc<'v>) {
         unsafe {
             ptr::drop_in_place(self.cell.get());
             ptr::write(self.cell.get(), Some(value));
         }
     }
 
-    fn get(&self) -> Option<&Bc> {
+    fn get(&self) -> Option<&Bc<'v>> {
+        // SAFETY: The only writer is `set`, which runs once, in `post_freeze`, before the frozen
+        // def is reachable by anything that could call `get`; so no write overlaps this read.
         unsafe { (*self.cell.get()).as_ref() }
+    }
+}
+
+// Only `post_freeze` fills the cell, after the def has been frozen, so the cell of a def being
+// frozen is empty; a frozen def is never frozen again, only re-typed at another brand.
+impl<'v> FreezeBranded for StmtCompiledCell<'v> {
+    type Frozen<'fv> = StmtCompiledCell<'fv>;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        debug_assert!(self.get().is_none());
+        Ok(StmtCompiledCell::new())
     }
 }
 
@@ -168,21 +182,21 @@ pub(crate) struct ParameterName {
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 #[starlark_pagable(bound = "T: StarlarkPagable")]
-pub(crate) enum ParameterCompiled<T> {
+pub(crate) enum ParameterCompiled<'f, T> {
     Normal(
         /// Name.
         ParameterName,
         /// Type.
-        Option<TypeCompiled<FrozenValue>>,
+        Option<TypeCompiled<Value<'f>>>,
         /// Default value.
         Option<T>,
     ),
-    Args(ParameterName, Option<TypeCompiled<FrozenValue>>),
-    KwArgs(ParameterName, Option<TypeCompiled<FrozenValue>>),
+    Args(ParameterName, Option<TypeCompiled<Value<'f>>>),
+    KwArgs(ParameterName, Option<TypeCompiled<Value<'f>>>),
 }
 
-impl<T> ParameterCompiled<T> {
-    pub(crate) fn map_expr<U>(&self, f: impl FnMut(&T) -> U) -> ParameterCompiled<U> {
+impl<'f, T> ParameterCompiled<'f, T> {
+    pub(crate) fn map_expr<U>(&self, f: impl FnMut(&T) -> U) -> ParameterCompiled<'f, U> {
         match self {
             ParameterCompiled::Normal(n, o, t) => {
                 ParameterCompiled::Normal(n.clone(), *o, t.as_ref().map(f))
@@ -203,7 +217,7 @@ impl<T> ParameterCompiled<T> {
         self.name_ty().0.captured
     }
 
-    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<FrozenValue>>) {
+    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<Value<'f>>>) {
         match self {
             Self::Normal(n, t, _) => (n, *t),
             Self::Args(n, t) => (n, *t),
@@ -244,20 +258,20 @@ impl<T> ParameterCompiled<T> {
 
 #[derive(Debug, Clone, VisitSpanMut, StarlarkPagable)]
 #[starlark_pagable(bound = "T: StarlarkPagable")]
-pub(crate) struct ParametersCompiled<T> {
-    pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
+pub(crate) struct ParametersCompiled<'f, T> {
+    pub(crate) params: Vec<IrSpanned<'f, ParameterCompiled<'f, T>>>,
     #[starlark_pagable(pagable)]
     pub(crate) indices: DefParamIndices,
     #[starlark_pagable(pagable)]
     param_spec_prototype: Arc<ParametersSpecPrototype>,
 }
 
-impl<T> ParametersCompiled<T> {
+impl<'f, T> ParametersCompiled<'f, T> {
     pub(crate) fn new(
         function_name: ArcStr,
-        params: Vec<IrSpanned<ParameterCompiled<T>>>,
+        params: Vec<IrSpanned<'f, ParameterCompiled<'f, T>>>,
         indices: DefParamIndices,
-    ) -> ParametersCompiled<T> {
+    ) -> ParametersCompiled<'f, T> {
         let mut builder = ParametersSpec::<()>::with_capacity(function_name, params.len());
         for (i, x) in params.iter().enumerate() {
             let i = i as u32;
@@ -288,7 +302,7 @@ impl<T> ParametersCompiled<T> {
         self.param_spec_prototype.clone()
     }
 
-    pub(crate) fn map_exprs<U>(&self, mut f: impl FnMut(&T) -> U) -> ParametersCompiled<U> {
+    pub(crate) fn map_exprs<U>(&self, mut f: impl FnMut(&T) -> U) -> ParametersCompiled<'f, U> {
         ParametersCompiled {
             params: self.params.map(|p| p.map(|p| p.map_expr(&mut f))),
             indices: self.indices,
@@ -326,7 +340,7 @@ impl<T> ParametersCompiled<T> {
     }
 
     /// The type-annotated parameters, for [`DefInfo::parameter_types`].
-    pub(crate) fn parameter_types(&self, heap: FrozenHeap<'_>) -> Vec<ParameterTypeCompiled> {
+    pub(crate) fn parameter_types(&self, heap: FrozenHeap<'f>) -> Vec<ParameterTypeCompiled<'f>> {
         self.params
             .iter()
             .enumerate()
@@ -334,7 +348,7 @@ impl<T> ParametersCompiled<T> {
                 let (name, ty) = x.name_ty();
                 ty.map(|ty| ParameterTypeCompiled {
                     slot: LocalSlotId(i as u32),
-                    name: heap.alloc_str_intern(&name.name),
+                    name: heap.alloc_str(&name.name),
                     ty,
                 })
             })
@@ -394,12 +408,12 @@ impl<T> ParametersCompiled<T> {
 /// Type annotation on a parameter: shared per def site in
 /// [`DefInfo::parameter_types`], sparse, in parameter order.
 #[derive(Debug, Clone, Copy, Dupe, StarlarkPagable)]
-pub(crate) struct ParameterTypeCompiled {
+pub(crate) struct ParameterTypeCompiled<'f> {
     /// The parameter's local slot, which equals its parameter index.
     pub(crate) slot: LocalSlotId,
     /// Parameter name, for error messages.
-    pub(crate) name: FrozenStringValue,
-    pub(crate) ty: TypeCompiled<FrozenValue>,
+    pub(crate) name: StringValue<'f>,
+    pub(crate) ty: TypeCompiled<Value<'f>>,
 }
 
 /// Copy local variable slot to nested function.
@@ -417,61 +431,82 @@ pub(crate) struct CopySlotFromParent {
     pub(crate) child: LocalSlotIdCapturedOrNot,
 }
 
-/// Static info for `def`, `lambda` or module.
-#[derive(Derivative, Display, StarlarkPagable)]
+/// Static info for `def`, `lambda` or module: a compiler product in the module's frozen heap, at
+/// its brand, allocated as a `StarlarkAnyComplex` (see [`DefInfoValue`]).
+#[derive(Derivative, Allocative, ProvidesStaticType, StarlarkPagable)]
 #[derivative(Debug)]
-#[display("DefInfo")]
-pub(crate) struct DefInfo {
-    pub(crate) name: FrozenStringValue,
+pub(crate) struct DefInfo<'f> {
+    pub(crate) name: StringValue<'f>,
     /// Span of function signature.
-    pub(crate) signature_span: FrozenFileSpan,
+    pub(crate) signature_span: FrozenFileSpan<'f>,
     /// Indices of parameters, which are captured in nested defs.
     ///
     /// A heap array rather than a box: every [`Def`] copies the handle, see
     /// [`Def::parameter_captures`].
-    parameter_captures: FrozenAnyArray<LocalSlotId>,
+    parameter_captures: ValueTyped<'f, AnyArray<LocalSlotId>>,
     /// Type annotations on parameters, sparse, in parameter order.
-    pub(crate) parameter_types: Box<[ParameterTypeCompiled]>,
+    #[allocative(skip)]
+    pub(crate) parameter_types: Box<[ParameterTypeCompiled<'f>]>,
     /// Type of this function, for the typechecker.
     #[starlark_pagable(pagable)]
     ty: Ty,
     /// Codemap of the file where the function is declared.
-    pub(crate) codemap: FrozenAnyValue<CodeMap>,
+    pub(crate) codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
     /// The raw docstring pulled out of the AST.
     pub(crate) docstring: Option<String>,
     /// Slots this scope uses, including for parameters and `parent`.
     /// Indexed by [`LocalSlotId`], values are variable names.
-    pub(crate) used: Box<[FrozenStringValue]>,
+    pub(crate) used: Box<[StringValue<'f>]>,
     /// Slots to copy from the parent.
     /// Module-level identifiers are not copied over, to avoid excess copying.
+    #[allocative(skip)]
     pub(crate) parent: Box<[CopySlotFromParent]>,
     /// Statement compiled for non-frozen def.
     #[derivative(Debug = "ignore")]
-    stmt_compiled: Bc,
+    #[allocative(skip)]
+    stmt_compiled: Bc<'f>,
     // The compiled expression for the body of this definition, to be run
     // after the parameters are evaluated.
     #[derivative(Debug = "ignore")]
-    body_stmts: StmtsCompiled,
+    #[allocative(skip)]
+    body_stmts: StmtsCompiled<'f>,
     /// How to compile the statement on freeze.
+    #[allocative(skip)]
     stmt_compile_context: StmtCompileContext,
     /// Function can be inlined.
-    pub(crate) inline_def_body: Option<InlineDefBody>,
+    #[allocative(skip)]
+    pub(crate) inline_def_body: Option<InlineDefBody<'f>>,
     /// Globals captured during function or module creation.
     /// Only needed for debugger evaluation.
-    pub(crate) globals: FrozenAnyValue<Globals>,
+    pub(crate) globals: ValueTyped<'f, StarlarkAny<Globals>>,
 }
 
-impl DefInfo {
+// Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what
+// lets the allocation be a `StarlarkAnyComplex`.
+impl<'f> FreezeBranded for DefInfo<'f> {
+    type Frozen<'fv> = DefInfo<'fv>;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        unreachable!("only allocated in frozen heaps")
+    }
+}
+
+register_starlark_any_complex!(frozen DefInfo<'_>);
+
+/// A [`DefInfo`] as the value it is allocated as, at the brand of the heap it lives in.
+pub(crate) type DefInfoValue<'f> = ValueTyped<'f, StarlarkAnyComplex<DefInfo<'f>>>;
+
+impl<'f> DefInfo<'f> {
     pub(crate) fn for_module(
-        codemap: FrozenAnyValue<CodeMap>,
-        local_names: Box<[FrozenStringValue]>,
+        codemap: ValueTyped<'f, StarlarkAny<CodeMap>>,
+        local_names: Box<[StringValue<'f>]>,
         parent: Box<[CopySlotFromParent]>,
-        globals: FrozenAnyValue<Globals>,
-    ) -> DefInfo {
+        globals: ValueTyped<'f, StarlarkAny<Globals>>,
+    ) -> DefInfo<'f> {
         DefInfo {
-            name: const_frozen_string!("<module>").to_frozen(),
+            name: const_frozen_string!("<module>").at(),
             signature_span: FrozenFileSpan::default(),
-            parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.unpack_frozen(),
+            parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.at(),
             parameter_types: Box::default(),
             ty: Ty::any(),
             codemap,
@@ -488,14 +523,14 @@ impl DefInfo {
 }
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-pub(crate) struct DefCompiled {
-    pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,
-    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>,
-    pub(crate) info: FrozenAnyValue<DefInfo>,
+pub(crate) struct DefCompiled<'f> {
+    pub(crate) params: ParametersCompiled<'f, IrSpanned<'f, ExprCompiled<'f>>>,
+    pub(crate) return_type: Option<TypeCompiled<Value<'f>>>,
+    pub(crate) info: DefInfoValue<'f>,
 }
 
-impl Compiler<'_, '_, '_, '_, '_> {
-    fn parameter_name(&mut self, ident: &CstAssignIdent) -> ParameterName {
+impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
+    fn parameter_name(&mut self, ident: &CstAssignIdent<'fm>) -> ParameterName {
         let binding_id = ident.payload.expect("no binding for parameter");
         let binding = self.scope_data.get_binding(binding_id);
         ParameterName {
@@ -506,8 +541,11 @@ impl Compiler<'_, '_, '_, '_, '_> {
 
     fn parameter(
         &mut self,
-        x: &Spanned<DefParam<'_, CstPayload>>,
-    ) -> Result<IrSpanned<ParameterCompiled<IrSpanned<ExprCompiled>>>, CompilerInternalError> {
+        x: &Spanned<DefParam<'_, CstPayload<'fm>>>,
+    ) -> Result<
+        IrSpanned<'fm, ParameterCompiled<'fm, IrSpanned<'fm, ExprCompiled<'fm>>>>,
+        CompilerInternalError,
+    > {
         let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
         let parameter_name = self.parameter_name(x.ident);
         Ok(IrSpanned {
@@ -533,15 +571,15 @@ impl Compiler<'_, '_, '_, '_, '_> {
     pub fn function(
         &mut self,
         name: &str,
-        signature_span: FrozenFileSpan,
+        signature_span: FrozenFileSpan<'fm>,
         scope_id: ScopeId,
-        params: &[CstParameter],
-        return_type: Option<&CstTypeExpr>,
-        suite: &CstStmt,
-    ) -> Result<ExprCompiled, CompilerInternalError> {
+        params: &[CstParameter<'fm>],
+        return_type: Option<&CstTypeExpr<'fm>>,
+        suite: &CstStmt<'fm>,
+    ) -> Result<ExprCompiled<'fm>, CompilerInternalError> {
         let file = self.codemap.file_span(suite.span);
         let function_name = ArcStr::from(format!("{}.{}", file.file.filename(), name).as_str());
-        let name = self.fh.alloc_str_intern(name);
+        let name = self.fh.alloc_str(name);
 
         let DefParams { params, indices } = match DefParams::unpack(params, &self.codemap) {
             Ok(def_params) => def_params,
@@ -580,14 +618,14 @@ impl Compiler<'_, '_, '_, '_, '_> {
 
         let param_count = params.count_param_variables();
 
-        let used: Box<[FrozenStringValue]> = scope_names.used.clone().into_boxed_slice();
+        let used: Box<[StringValue<'fm>]> = scope_names.used.clone().into_boxed_slice();
         let stmt_compiled = body.as_bc(
             &self.compile_context(return_type.is_some()),
             &used,
             param_count,
             self.fh,
         );
-        let info = self.fh.alloc_any_value(DefInfo {
+        let info = self.fh.alloc_simple_typed(StarlarkAnyComplex::new(DefInfo {
             name,
             signature_span,
             parameter_captures: self.fh.alloc_any_array_value(&params.parameter_captures()),
@@ -602,7 +640,7 @@ impl Compiler<'_, '_, '_, '_, '_> {
             inline_def_body,
             stmt_compile_context: self.compile_context(return_type.is_some()),
             globals: self.globals,
-        });
+        }));
 
         Ok(ExprCompiled::Def(DefCompiled {
             params,
@@ -615,9 +653,9 @@ impl Compiler<'_, '_, '_, '_, '_> {
 /// Starlark function internal representation and implementation of
 /// [`StarlarkValue`].
 ///
-/// The parameter defaults and the captured variables are values at the brand. The other fields
-/// are compiler products in the module's frozen heap - `FrozenAnyValue`/`FrozenAnyArray` handles
-/// and `TypeCompiled<FrozenValue>` - which the brand does not reach.
+/// Every field is at the brand: the parameter defaults and the captured variables are values of
+/// the heap the def lives in, and the compiler products (the [`DefInfo`], the return type, the
+/// captured parameter slots) are values of the frozen heap that heap depends on.
 #[derive(
     Derivative,
     NoSerialize,
@@ -632,15 +670,12 @@ pub(crate) struct Def<'v> {
     pub(crate) parameters: ParametersSpec<Value<'v>>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
     /// Indices of parameters, which are captured in nested defs.
     /// This is a copy of `DefInfo.parameter_captures`.
-    #[freeze_branded(identity)]
-    parameter_captures: FrozenAnyArray<LocalSlotId>,
-    #[freeze_branded(identity)]
-    pub(crate) return_type: Option<TypeCompiled<FrozenValue>>, // The return type annotation for the function
+    parameter_captures: ValueTyped<'v, AnyArray<LocalSlotId>>,
+    pub(crate) return_type: Option<TypeCompiled<Value<'v>>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
-    #[freeze_branded(identity)]
-    pub(crate) def_info: FrozenAnyValue<DefInfo>,
+    pub(crate) def_info: DefInfoValue<'v>,
     /// Any variables captured from the outer scope (nested def/lambda).
     /// Each points to a [`ValueCaptured`] or [`FrozenValueCaptured`].
     captured: Box<[Value<'v>]>,
@@ -654,12 +689,11 @@ pub(crate) struct Def<'v> {
     /// See [`StmtCompiledCell`].
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    #[freeze_branded(identity)]
     #[starlark_pagable(
         serialize_with = "serialize_optimized_on_freeze_stmt",
         deserialize_with = "deserialize_optimized_on_freeze_stmt"
     )]
-    optimized_on_freeze_stmt: StmtCompiledCell,
+    optimized_on_freeze_stmt: StmtCompiledCell<'v>,
 }
 
 fn serialize_optimized_on_freeze_stmt(
@@ -676,9 +710,9 @@ fn serialize_optimized_on_freeze_stmt(
     <Bc as crate::pagable::StarlarkSerialize>::starlark_serialize(bc, ctx)
 }
 
-fn deserialize_optimized_on_freeze_stmt(
+fn deserialize_optimized_on_freeze_stmt<'v>(
     ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
-) -> crate::Result<StmtCompiledCell> {
+) -> crate::Result<StmtCompiledCell<'v>> {
     Ok(StmtCompiledCell {
         cell: UnsafeCell::new(Some(
             <Bc as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
@@ -703,18 +737,19 @@ impl<'v> AllocValue<'v> for Def<'v> {
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        return_type: Option<TypeCompiled<FrozenValue>>,
-        stmt: FrozenAnyValue<DefInfo>,
+        return_type: Option<TypeCompiled<Value<'v>>>,
+        stmt: DefInfoValue<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
         let captured = stmt
+            .value
             .parent
             .as_ref()
-            .map(|copy| eval.clone_slot_capture(copy, &stmt))
+            .map(|copy| eval.clone_slot_capture(copy, &stmt.value))
             .into_boxed_slice();
         Ok(eval.heap().alloc(Self {
             parameters,
-            parameter_captures: stmt.parameter_captures,
+            parameter_captures: stmt.value.parameter_captures,
             return_type,
             captured,
             module: AtomicValueTypedOption::new(eval.top_frame_def_frozen_module(false)?),
@@ -722,26 +757,12 @@ impl<'v> Def<'v> {
             def_info: stmt,
         }))
     }
-
-    /// A def the compiler baked into bytecode or IR, at the brand of the heap it now runs
-    /// against.
-    ///
-    /// Bytecode operands and `ExprCompiled::Value` constants name defs as
-    /// `FrozenValueTyped<'static, FrozenDef>`, and a `Def<'static>`'s parameters and captures
-    /// cannot be read at `'v`. This is the one `FrozenValue::to_value` site that brings such a
-    /// def to `'v`. It rechecks the type - a vtable compare - rather than casting; handing the
-    /// brand across the compiler boundary directly, as an edge rebrand, would make the recheck
-    /// unnecessary.
-    pub(crate) fn at_brand(def: FrozenValueTyped<'static, FrozenDef>) -> ValueTyped<'v, Def<'v>> {
-        ValueTyped::new(def.to_frozen_value().to_value())
-            .expect("a frozen def is a def at every brand")
-    }
 }
 
 #[starlark_value(type = FUNCTION_TYPE, frozen_vtable)]
 impl<'v> StarlarkValue<'v> for Def<'v> {
     fn name_for_call_stack(&self, _me: Value<'v>) -> String {
-        self.def_info.name.as_str().to_owned()
+        self.def_info.value.name.as_str().to_owned()
     }
 
     fn invoke(
@@ -755,7 +776,7 @@ impl<'v> StarlarkValue<'v> for Def<'v> {
 
     fn documentation(&self) -> DocItem {
         let mut parameter_types = vec![Ty::any(); self.parameters.len()];
-        for pt in self.def_info.parameter_types.iter() {
+        for pt in self.def_info.value.parameter_types.iter() {
             // Local slot number for parameter is the same as parameter index.
             parameter_types[pt.slot.0 as usize] = pt.ty.as_ty().clone();
         }
@@ -767,27 +788,27 @@ impl<'v> StarlarkValue<'v> for Def<'v> {
             self.parameters
                 .documentation(parameter_types, HashMap::new()),
             return_type,
-            self.def_info.docstring.as_ref().map(String::as_ref),
+            self.def_info.value.docstring.as_ref().map(String::as_ref),
         );
 
         DocItem::Member(DocMember::Function(function_docs))
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {
-        Some(self.def_info.ty.clone())
+        Some(self.def_info.value.ty.clone())
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         // It's hard to come up with a good hash here, but let's at least make an effort.
-        self.def_info.name.write_hash(hasher)
+        self.def_info.value.name.write_hash(hasher)
     }
 }
 
 impl<'v> Def<'v> {
-    pub(crate) fn bc(&self) -> &Bc {
+    pub(crate) fn bc(&self) -> &Bc<'v> {
         self.optimized_on_freeze_stmt
             .get()
-            .unwrap_or(&self.def_info.stmt_compiled)
+            .unwrap_or(&self.def_info.value.stmt_compiled)
     }
 
     fn check_parameter_types(&self, eval: &mut Evaluator<'v, '_, '_>) -> crate::Result<()> {
@@ -796,7 +817,7 @@ impl<'v> Def<'v> {
         } else {
             None
         };
-        for pt in self.def_info.parameter_types.iter() {
+        for pt in self.def_info.value.parameter_types.iter() {
             match eval.current_frame.get_slot(pt.slot.to_captured_or_not()) {
                 None => {
                     panic!("Not allowed optional unassigned with type annotations on them")
@@ -806,7 +827,7 @@ impl<'v> Def<'v> {
         }
         if let Some(start) = start {
             eval.typecheck_profile
-                .add(self.def_info.name, start.elapsed());
+                .add(self.def_info.value.name.as_str(), start.elapsed());
         }
         Ok(())
     }
@@ -816,7 +837,7 @@ impl<'v> Def<'v> {
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<()> {
-        let return_type_ty: TypeCompiled<FrozenValue> = self
+        let return_type_ty: TypeCompiled<Value<'v>> = self
             .return_type
             .ok_or_else(|| crate::Error::new_other(DefError::CheckReturnTypeNoType))?;
         let start = if eval.typecheck_profile.enabled {
@@ -827,7 +848,7 @@ impl<'v> Def<'v> {
         return_type_ty.check_type(ret, None)?;
         if let Some(start) = start {
             eval.typecheck_profile
-                .add(self.def_info.name, start.elapsed());
+                .add(self.def_info.value.name.as_str(), start.elapsed());
         }
         Ok(())
     }
@@ -886,7 +907,7 @@ impl<'v> Def<'v> {
     ) -> crate::Result<Value<'v>> {
         // println!("invoking {}", self.def.stmt.name.node);
 
-        if !self.def_info.parameter_types.is_empty() {
+        if !self.def_info.value.parameter_types.is_empty() {
             self.check_parameter_types(eval)?;
         }
 
@@ -901,7 +922,7 @@ impl<'v> Def<'v> {
         // Explicitly check `self.captured` is not empty to avoid accessing
         // self.def_info.scope_names which is two indirections.
         if !self.captured.is_empty() {
-            for (copy, captured) in self.def_info.parent.iter().zip(self.captured.iter()) {
+            for (copy, captured) in self.def_info.value.parent.iter().zip(self.captured.iter()) {
                 eval.current_frame.set_slot(copy.child, *captured);
             }
         }
@@ -926,11 +947,15 @@ impl<'v> Def<'v> {
         w
     }
 
-    pub(crate) fn post_freeze(
+    /// Re-optimize the body of this frozen def against its frozen module, see
+    /// [`StmtCompiledCell`]. `heap` is the value heap the module was frozen from; `edge` leads
+    /// from it to `frozen_heap`, the heap this def lives in.
+    pub(crate) fn post_freeze<'h>(
         &self,
         module: FrozenModuleValue<'v>,
-        heap: Heap<'_>,
+        heap: Heap<'h>,
         frozen_heap: FrozenHeap<'v>,
+        edge: HeapEdge<'h, 'v>,
     ) {
         // Module passed to this function is not always module where the function is declared:
         // A function can be created in a frozen module and frozen later in another module.
@@ -945,20 +970,22 @@ impl<'v> Def<'v> {
 
         // Now perform the optimization of function body with fully frozen module:
         // all module variables are frozen, so we can inline more aggressively.
-        let body_optimized = self
-            .def_info
+        let def_info = &self.def_info.value;
+        let body_optimized = def_info
             .body_stmts
             .optimize(&mut OptCtx::new(
                 &mut OptimizeOnFreezeContext {
                     module: &def_module.as_ref().value,
                     heap,
                     frozen_heap,
+                    edge,
+                    local_as_values: Vec::new(),
                 },
                 self.parameters.len().try_into().unwrap(),
             ))
             .as_bc(
-                &self.def_info.stmt_compile_context,
-                &self.def_info.used,
+                &def_info.stmt_compile_context,
+                &def_info.used,
                 self.parameters.len() as u32,
                 frozen_heap,
             );
@@ -972,5 +999,4 @@ impl<'v> Def<'v> {
     }
 }
 
-register_starlark_any!(DefInfo);
 register_starlark_any!(CopySlotFromParent);

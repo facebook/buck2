@@ -59,6 +59,7 @@ use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
+use crate::values::ValueTyped;
 use crate::values::dict::DictRef;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
@@ -96,7 +97,7 @@ enum TypingError {
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn is_runtime_wildcard_dyn(&self) -> bool;
-    fn to_frozen_dyn(&self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue>;
+    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>>;
 }
 
 // TODO(nga): derive.
@@ -114,12 +115,8 @@ where
     fn is_runtime_wildcard_dyn(&self) -> bool {
         self.type_compiled_impl.is_wildcard()
     }
-    fn to_frozen_dyn(&self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
-        TypeCompiled(
-            heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self))
-                .unpack_frozen()
-                .expect("value allocated in a frozen heap is frozen"),
-        )
+    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>> {
+        TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
     }
 }
 
@@ -428,13 +425,27 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
     /// For the compiler, which builds types at the value heap and keeps them in the IR. The type
     /// is copied even when it is already frozen, since nothing says which heap it was frozen in;
     /// `typing.Any` is a static and is returned as such.
-    pub fn to_frozen(self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
-        let any = TypeCompiled::any();
-        if self.to_value().0.ptr_eq(any.to_value().0) {
-            any
+    pub fn to_frozen<'f>(self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>> {
+        let any: ValueTyped<'v, _> = TYPE_COMPILED_ANY.at();
+        if self.to_value().0.ptr_eq(any.to_value()) {
+            TypeCompiled(TYPE_COMPILED_ANY.at().to_value())
         } else {
             self.to_value().downcast().unwrap().to_frozen_dyn(heap)
         }
+    }
+
+    /// Copy the type into a frozen heap and erase its brand.
+    ///
+    /// For buck2's `UserProviderCallable` and `DynamicAttrType`, which store their types
+    /// unbranded; everything else should keep the brand [`to_frozen`](TypeCompiled::to_frozen)
+    /// hands out.
+    pub fn to_frozen_unbranded(self, heap: FrozenHeap<'_>) -> TypeCompiled<FrozenValue> {
+        TypeCompiled::unchecked_new(
+            self.to_frozen(heap)
+                .0
+                .unpack_frozen()
+                .expect("value allocated in a frozen heap is frozen"),
+        )
     }
 }
 
@@ -526,58 +537,62 @@ impl<'v> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    /// Parse `[t1, t2, ...]` as type.
-    fn from_list(t: &ListRef<'v>, heap: Heap<'v>) -> anyhow::Result<TypeCompiled<Value<'v>>> {
-        match t.content() {
-            [] | [_] => Err(TypingError::List.into()),
-            ts @ [_, _, ..] => {
-                // A union type, can match any
-                let ts = ts.try_map(|t| TypeCompiled::new(*t, heap))?;
-                Ok(TypeCompiled::type_any_of(ts, heap))
-            }
-        }
-    }
-
     pub(crate) fn from_ty(ty: &Ty, heap: Heap<'v>) -> Self {
         TypeCompiledFactory::alloc_ty(ty, heap)
     }
 
     /// Evaluate type annotation at runtime.
     pub fn new(ty: Value<'v>, heap: Heap<'v>) -> anyhow::Result<Self> {
-        if let Some(s) = StringValue::new(ty) {
-            return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
-        } else if ty.is_none() {
-            Ok(TypeCompiledFactory::alloc_ty(&Ty::none(), heap))
-        } else if let Some(t) = Tuple::from_value(ty) {
-            let elems = t
-                .content()
-                .try_map(|t| anyhow::Ok(TypeCompiled::new(*t, heap)?.as_ty().clone()))?;
-            Ok(TypeCompiled::from_ty(&Ty::tuple(elems), heap))
-        } else if let Some(t) = ListRef::from_value(ty) {
-            TypeCompiled::from_list(t, heap)
-        } else if ty.request_value::<&dyn TypeCompiledDyn>().is_some() {
+        if ty.request_value::<&dyn TypeCompiledDyn>().is_some() {
             // This branch is optimization: `TypeCompiledAsStarlarkValue` implements `eval_type`,
             // but this branch avoids copying the type.
             Ok(TypeCompiled(ty))
         } else {
+            let ty = Self::ty_from_value(ty, &|ty| invalid_type_annotation(ty, heap))?;
+            Ok(TypeCompiled::from_ty(&ty, heap))
+        }
+    }
+
+    /// The type a type annotation value denotes; `invalid` describes a value that is not one.
+    fn ty_from_value<'x>(
+        ty: Value<'x>,
+        invalid: &dyn Fn(Value<'x>) -> TypingError,
+    ) -> anyhow::Result<Ty> {
+        if let Some(s) = StringValue::new(ty) {
+            Err(TypingError::StringLiteralNotAllowed(s.to_string()).into())
+        } else if ty.is_none() {
+            Ok(Ty::none())
+        } else if let Some(t) = Tuple::from_value(ty) {
+            let elems = t.content().try_map(|t| Self::ty_from_value(*t, invalid))?;
+            Ok(Ty::tuple(elems))
+        } else if let Some(t) = ListRef::from_value(ty) {
+            match t.content() {
+                [] | [_] => Err(TypingError::List.into()),
+                // A union type, can match any
+                ts @ [_, _, ..] => Ok(Ty::unions(
+                    ts.try_map(|t| Self::ty_from_value(*t, invalid))?,
+                )),
+            }
+        } else if let Some(t) = ty.request_value::<&dyn TypeCompiledDyn>() {
+            Ok(t.as_ty_dyn().clone())
+        } else {
             match ty.get_ref().eval_type() {
-                Some(ty) => Ok(TypeCompiled::from_ty(&ty, heap)),
-                _ => Err(invalid_type_annotation(ty, heap).into()),
+                Some(ty) => Ok(ty),
+                _ => Err(invalid(ty).into()),
             }
         }
+    }
+
+    /// Evaluate a type annotation which is a constant of the frozen heap the compiler allocates
+    /// on, into that heap. The error is not shown to the user, so it carries no hint.
+    pub(crate) fn new_frozen(ty: Value<'v>, frozen_heap: FrozenHeap<'v>) -> anyhow::Result<Self> {
+        let ty = Self::ty_from_value(ty, &|ty| TypingError::InvalidTypeAnnotation(ty.to_str()))?;
+        // TODO(nga): trip to a heap is not free.
+        Heap::temp(|heap| Ok(TypeCompiled::from_ty(&ty, heap).to_frozen(frozen_heap)))
     }
 }
 
 impl TypeCompiled<FrozenValue> {
-    /// Evaluate type annotation at runtime.
-    pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: FrozenHeap<'_>) -> anyhow::Result<Self> {
-        // TODO(nga): trip to a heap is not free.
-        Heap::temp(|heap| {
-            let ty = TypeCompiled::new(ty.to_value(), heap)?;
-            Ok(ty.to_frozen(frozen_heap))
-        })
-    }
-
     /// `typing.Any`.
     pub fn any() -> TypeCompiled<FrozenValue> {
         TypeCompiled::unchecked_new(TYPE_COMPILED_ANY.to_frozen_value())

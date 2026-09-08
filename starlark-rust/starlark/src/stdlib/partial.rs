@@ -225,7 +225,7 @@ impl<'v> StarlarkValue<'v> for Partial<'v> {
                     });
                     self.func
                         .to_value()
-                        .invoke_with_loc(Some(rust_loc!()), &params, eval)
+                        .invoke_with_loc(Some(rust_loc!().at()), &params, eval)
                 })
             })
         })

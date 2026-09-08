@@ -20,24 +20,24 @@ use starlark_derive::StarlarkPagable;
 use crate as starlark;
 use crate::eval::bc::addr::BcAddr;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::values::FrozenStringValue;
+use crate::values::StringValue;
 
 /// Slow instruction arg: stored in the end of bytecode,
 /// expensive to access. Used to implement errors.
 #[derive(Default, Debug, StarlarkPagable)]
-pub(crate) struct BcInstrSlowArg {
+pub(crate) struct BcInstrSlowArg<'v> {
     /// Instruction code span.
-    pub(crate) span: FrameSpan,
+    pub(crate) span: FrameSpan<'v>,
     /// Spans when an instruction needs multiple spans.
-    pub(crate) spans: Vec<FrameSpan>,
+    pub(crate) spans: Vec<FrameSpan<'v>>,
 }
 
 #[derive(Debug, StarlarkPagable)]
-pub(crate) struct BcInstrEndArg {
+pub(crate) struct BcInstrEndArg<'v> {
     /// Offset of end instruction.
     pub(crate) end_addr: BcAddr,
     /// Spans of all instructions.
-    pub(crate) slow_args: Vec<(BcAddr, BcInstrSlowArg)>,
+    pub(crate) slow_args: Vec<(BcAddr, BcInstrSlowArg<'v>)>,
     /// Frame local names.
-    pub(crate) local_names: Box<[FrozenStringValue]>,
+    pub(crate) local_names: Box<[StringValue<'v>]>,
 }

@@ -24,41 +24,37 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
-use crate::values::FrozenValueTyped;
-use crate::values::HeapEdge;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFunction;
 
-/// Pointer to a native function optimized for bytecode execution.
-///
-/// The bytecode names the function by a `'static` handle, and `invoke` brings it to the brand of
-/// the heap it runs against through [`HeapEdge::immortal`]; that `'static` is one of the typed
-/// handles the `branding` module names as the hole.
+/// Pointer to a native function optimized for bytecode execution, at the brand of the bytecode.
 #[derive(Copy, Clone, Dupe, Allocative)]
-pub(crate) struct BcNativeFunction {
-    fun: FrozenValueTyped<'static, NativeFunction<'static>>,
+pub(crate) struct BcNativeFunction<'v> {
+    fun: ValueTyped<'v, NativeFunction<'v>>,
     /// Copy function here from `fun` to avoid extra dereference when calling.
-    imp: &'static NativeFunc<'static>,
+    #[allocative(skip)]
+    imp: &'v NativeFunc<'v>,
 }
 
-// Only the frozen value is on the wire; `imp` is recomputed from `fun` on
+// Only the value is on the wire; `imp` is recomputed from `fun` on
 // deserialize via `BcNativeFunction::new`.
-impl StarlarkSerialize for BcNativeFunction {
+impl<'v> StarlarkSerialize for BcNativeFunction<'v> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.fun.starlark_serialize(ctx)
     }
 }
 
-impl StarlarkDeserialize for BcNativeFunction {
+impl<'v> StarlarkDeserialize for BcNativeFunction<'v> {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let fun = FrozenValueTyped::<'static, NativeFunction<'static>>::starlark_deserialize(ctx)?;
+        let fun = ValueTyped::<'v, NativeFunction<'v>>::starlark_deserialize(ctx)?;
         Ok(BcNativeFunction::new(fun))
     }
 }
 
-impl BcNativeFunction {
-    pub(crate) fn new(fun: FrozenValueTyped<'static, NativeFunction<'static>>) -> BcNativeFunction {
+impl<'v> BcNativeFunction<'v> {
+    pub(crate) fn new(fun: ValueTyped<'v, NativeFunction<'v>>) -> BcNativeFunction<'v> {
         BcNativeFunction {
             fun,
             imp: &fun.as_ref().function,
@@ -66,22 +62,21 @@ impl BcNativeFunction {
     }
 
     #[inline]
-    pub(crate) fn fun(&self) -> FrozenValueTyped<'static, NativeFunction<'static>> {
+    pub(crate) fn fun(&self) -> ValueTyped<'v, NativeFunction<'v>> {
         self.fun
     }
 
     #[inline]
-    pub(crate) fn to_value<'v>(&self) -> Value<'v> {
-        self.fun.to_frozen_value().to_value()
+    pub(crate) fn to_value(&self) -> Value<'v> {
+        self.fun.to_value()
     }
 
     #[inline]
-    pub(crate) fn invoke<'v>(
+    pub(crate) fn invoke(
         &self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        let imp: &NativeFunc<'v> = HeapEdge::immortal().rebrand(self.imp);
-        imp.invoke(eval, args)
+        self.imp.invoke(eval, args)
     }
 }

@@ -23,7 +23,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -100,19 +99,6 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
 }
 
 impl<'fh> FrozenHeap<'fh> {
-    /// Allocate a simple value and return the `'static`-branded typed handle to it.
-    ///
-    /// For the handle types that predate branding (`FrozenAnyValue`, the inlined locals of the
-    /// compiler): their `'static` says nothing about what keeps the heap alive, so prefer
-    /// [`alloc_simple_typed`](FrozenHeap::alloc_simple_typed) where the brand can be kept.
-    pub(crate) fn alloc_simple_typed_static<T>(self, val: T) -> FrozenValueTyped<'static, T>
-    where
-        T: for<'a> AValueSimpleBound<'a> + Send + Sync + 'static,
-    {
-        let v = self.alloc_raw(simple(val)).to_frozen_value().to_value();
-        FrozenValueTyped::new(v).expect("just allocated value must have the right type")
-    }
-
     /// Allocate a value on the heap
     pub fn alloc_simple_typed<T: AValueSimpleBound<'fh>>(self, val: T) -> ValueTyped<'fh, T> {
         self.alloc_raw(simple(val)).to_value_typed()

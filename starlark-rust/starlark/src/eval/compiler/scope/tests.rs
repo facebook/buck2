@@ -44,6 +44,7 @@ use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::values::FrozenHeap;
 use crate::values::HeapEdge;
+use crate::values::any::StarlarkAny;
 
 fn test_with_module<'f>(
     program: &str,
@@ -52,7 +53,7 @@ fn test_with_module<'f>(
     frozen_heap: FrozenHeap<'f>,
 ) {
     let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
-    let codemap = frozen_heap.alloc_any_value(ast.codemap().dupe());
+    let codemap = frozen_heap.alloc_simple_typed(StarlarkAny::new(ast.codemap().dupe()));
     let globals = Globals::new();
     let ModuleScopes {
         cst, scope_data, ..
@@ -112,7 +113,7 @@ fn test_with_module<'f>(
             expr.visit_expr(|expr| self.visit_expr(expr));
         }
 
-        fn visit_exprs<'a>(&mut self, exprs: impl IntoIterator<Item = &'a CstExpr>) {
+        fn visit_exprs<'a, 'f: 'a>(&mut self, exprs: impl IntoIterator<Item = &'a CstExpr<'f>>) {
             for expr in exprs {
                 self.visit_expr(expr);
             }

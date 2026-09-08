@@ -29,7 +29,9 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::values::FrozenValueTyped;
+use crate::values::FreezeBranded;
+use crate::values::FreezeResult;
+use crate::values::Freezer;
 use crate::values::StarlarkValue;
 
 #[derive(derive_more::Display, ProvidesStaticType, NoSerialize, Allocative)]
@@ -112,12 +114,15 @@ pub(crate) trait AnyArrayRegistered: Debug + 'static {
     >;
 }
 
-/// Type alias for `FrozenValueTyped<'static, AnyArray<T>>`.
-///
-/// This is the array equivalent of [`FrozenAnyValue<T>`](crate::values::any::FrozenAnyValue).
-/// Access goes through the `FrozenValueTyped` tagged-pointer path, then auto-derefs
-/// through `AnyArray<T>` to reach `[T]`.
-pub type FrozenAnyArray<T> = FrozenValueTyped<'static, AnyArray<T>>;
+// Only ever allocated in frozen heaps (see `AValueAnyArray`), whose contents are not frozen
+// again; the impl is what lets a `ValueTyped<'v, AnyArray<T>>` be a field of a frozen type.
+impl<T: Debug + 'static> FreezeBranded for AnyArray<T> {
+    type Frozen<'fv> = Self;
+
+    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        unreachable!("only allocated in frozen heaps")
+    }
+}
 
 #[cfg(feature = "pagable")]
 impl<T> crate::typing::HasTyVTable for AnyArray<T>
@@ -148,7 +153,7 @@ macro_rules! register_any_array {
 
             $crate::__starlark_pagable_only! {
                 // Register the deserialization vtable so heap-level ser/de of
-                // `FrozenAnyArray<T>` can look up `AValueAnyArray<T>`.
+                // `AnyArray<T>` can look up `AValueAnyArray<T>`.
                 $crate::__derive_refs::inventory::submit! {
                     $crate::__derive_refs::VTableRegistryEntry {
                         deser_type_id: $crate::__derive_refs::DeserTypeId::of::<
@@ -202,23 +207,23 @@ mod tests {
         let counter2 = Arc::new(AtomicU32::new(0));
 
         let heap = OwnedFrozenHeap::new();
-        let values = heap.with(|heap| {
-            heap.alloc_any_array_value(&[
+        heap.with(|heap| {
+            let values = heap.alloc_any_array_value(&[
                 IncrementOnDrop(counter1.dupe()),
                 IncrementOnDrop(counter1.dupe()),
                 IncrementOnDrop(counter2.dupe()),
                 IncrementOnDrop(counter1.dupe()),
                 IncrementOnDrop(counter2.dupe()),
-            ])
+            ]);
+
+            assert_eq!(5, values.len());
+
+            assert!(Arc::ptr_eq(&counter1, &values[0].0));
+            assert!(Arc::ptr_eq(&counter1, &values[1].0));
+            assert!(Arc::ptr_eq(&counter2, &values[2].0));
+            assert!(Arc::ptr_eq(&counter1, &values[3].0));
+            assert!(Arc::ptr_eq(&counter2, &values[4].0));
         });
-
-        assert_eq!(5, values.len());
-
-        assert!(Arc::ptr_eq(&counter1, &values[0].0));
-        assert!(Arc::ptr_eq(&counter1, &values[1].0));
-        assert!(Arc::ptr_eq(&counter2, &values[2].0));
-        assert!(Arc::ptr_eq(&counter1, &values[3].0));
-        assert!(Arc::ptr_eq(&counter2, &values[4].0));
 
         // First drop happens when we clone values for the allocation.
         assert_eq!(3, counter1.load(Ordering::SeqCst));

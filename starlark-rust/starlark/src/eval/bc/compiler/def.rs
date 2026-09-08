@@ -24,14 +24,14 @@ use crate::eval::bc::writer::BcWriter;
 use crate::eval::compiler::def::DefCompiled;
 use crate::eval::runtime::frame_span::FrameSpan;
 
-impl DefCompiled {
-    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter) {
+impl<'f> DefCompiled<'f> {
+    pub(crate) fn mark_definitely_assigned_after(&self, bc: &mut BcWriter<'f>) {
         // TODO(nga): argument default values and types can be used
         //   to mark variables definitely assigned.
         let _ = bc;
     }
 
-    pub(crate) fn write_bc(&self, span: FrameSpan, target: BcSlotOut, bc: &mut BcWriter) {
+    pub(crate) fn write_bc(&self, span: FrameSpan<'f>, target: BcSlotOut, bc: &mut BcWriter<'f>) {
         let DefCompiled {
             params,
             return_type,

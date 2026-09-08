@@ -293,13 +293,6 @@ impl FrozenListData {
     pub(crate) fn content(&self) -> &[FrozenValue] {
         unsafe { slice::from_raw_parts(self.content.as_ptr(), self.len) }
     }
-
-    /// Obtain the [`FrozenListData`] pointed at by a [`FrozenValue`].
-    #[allow(clippy::trivially_copy_pass_by_ref)]
-    // We need a lifetime because FrozenValue doesn't contain the right lifetime
-    pub fn from_frozen_value(x: &FrozenValue) -> Option<&FrozenListData> {
-        x.downcast_ref::<ListGen<FrozenListData>>().map(|x| &x.0)
-    }
 }
 
 impl<'v> ListData<'v> {

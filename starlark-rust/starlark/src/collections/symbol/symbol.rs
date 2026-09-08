@@ -25,6 +25,7 @@ use std::str;
 use allocative::Allocative;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagableViaPagable;
 use starlark_derive::Trace;
 use starlark_map::Hashed;
@@ -35,7 +36,13 @@ use crate::coerce::Coerce;
 use crate::collections::aligned_padded_str::AlignedPaddedStr;
 
 /// A pre-hashed string used for efficient dictionary lookup.
-#[derive(Clone, Trace, Allocative, StarlarkPagableViaPagable)]
+#[derive(
+    Clone,
+    Trace,
+    Allocative,
+    ProvidesStaticType,
+    StarlarkPagableViaPagable
+)]
 pub(crate) struct Symbol {
     hash: u64,
     len: u32,
