@@ -28,7 +28,9 @@ regex = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-smallvec = { workspace = true }
+# Not the workspace's feature set: that enables `specialization`, which needs
+# nightly, and starlark-rust builds this crate on stable.
+smallvec = { version = "1.15", features = ["const_generics"] }
 sorted_vector_map = { workspace = true }
 static_assertions = { workspace = true }
 static_interner = { workspace = true }
