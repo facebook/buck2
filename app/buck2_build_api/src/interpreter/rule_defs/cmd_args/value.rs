@@ -21,7 +21,6 @@ use starlark::values::FreezeBranded;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::StarlarkPagable;
-use starlark::values::ThinBoxSliceFrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -118,13 +117,11 @@ impl<'v> CommandLineArg<'v> {
         self.0
     }
 
-    /// View a `FrozenStarlarkCmdArgs`' element storage, whose elements were checked when
-    /// the unfrozen form was built. Taking the branded slice type ties the resulting
-    /// views to the heap backing the storage.
-    pub fn slice_from_frozen_value_unchecked<'a>(
-        v: &'a ThinBoxSliceFrozenValue<'v>,
-    ) -> &'a [CommandLineArg<'v>] {
-        // SAFETY: `#[repr(transparent)]` over `Value`, to which `FrozenValue` is coercible
-        unsafe { std::slice::from_raw_parts(v.as_ptr() as *const _, v.len()) }
+    /// View a `FrozenStarlarkCmdArgs`' element storage, whose elements were checked when the
+    /// unfrozen form was built.
+    pub fn slice_from_values_unchecked<'a>(values: &'a [Value<'v>]) -> &'a [CommandLineArg<'v>] {
+        // SAFETY: `#[repr(transparent)]` over `Value` at the same lifetime. All this asserts is
+        // the `CommandLineArgLike` invariant, which is what makes it `_unchecked`.
+        unsafe { std::slice::from_raw_parts(values.as_ptr().cast(), values.len()) }
     }
 }

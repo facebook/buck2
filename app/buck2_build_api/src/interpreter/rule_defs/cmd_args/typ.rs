@@ -50,7 +50,7 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
-use starlark::values::ThinBoxSliceFrozenValue;
+use starlark::values::ThinBoxSliceValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -378,8 +378,8 @@ impl<'v> Serialize for StarlarkCmdArgs<'v> {
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenStarlarkCmdArgs<'v> {
     // Elements are frozen `CommandLineArg`s
-    items: ThinBoxSliceFrozenValue<'v>,
-    hidden: ThinBoxSliceFrozenValue<'v>,
+    items: ThinBoxSliceValue<'v>,
+    hidden: ThinBoxSliceValue<'v>,
     options: FrozenCommandLineOptions<'v>,
 }
 
@@ -389,8 +389,8 @@ starlark::register_simple_vtable_entry!(FrozenStarlarkCmdArgs<'static>);
 unsafe impl<'v> starlark::__derive_refs::VtableRegistered for FrozenStarlarkCmdArgs<'v> {}
 
 static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs<'static> = FrozenStarlarkCmdArgs {
-    items: ThinBoxSliceFrozenValue::empty(),
-    hidden: ThinBoxSliceFrozenValue::empty(),
+    items: ThinBoxSliceValue::empty(),
+    hidden: ThinBoxSliceValue::empty(),
     options: FrozenCommandLineOptions::empty(),
 });
 
@@ -422,11 +422,11 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
 
 impl<'v> Fields<'v> for FrozenStarlarkCmdArgs<'v> {
     fn items(&self) -> &[CommandLineArg<'v>] {
-        CommandLineArg::slice_from_frozen_value_unchecked(&self.items)
+        CommandLineArg::slice_from_values_unchecked(&self.items)
     }
 
     fn hidden(&self) -> &[CommandLineArg<'v>] {
-        CommandLineArg::slice_from_frozen_value_unchecked(&self.hidden)
+        CommandLineArg::slice_from_values_unchecked(&self.hidden)
     }
 
     fn options(&self) -> Option<&dyn CommandLineOptionsTrait<'v>> {
@@ -659,17 +659,14 @@ impl<'v> FreezeBranded for StarlarkCmdArgs<'v> {
             options,
         } = self.0.into_inner();
 
-        // The element storage is raw `FrozenValue`s, so freeze the elements'
-        // inner `Value`s directly.
         fn freeze_elements<'fv>(
             elements: Vec<CommandLineArg<'_>>,
             freezer: &Freezer<'fv>,
-        ) -> FreezeResult<ThinBoxSliceFrozenValue<'fv>> {
-            let frozen = elements
+        ) -> FreezeResult<ThinBoxSliceValue<'fv>> {
+            elements
                 .into_iter()
-                .map(|x| x.to_value().freeze(freezer))
-                .collect::<FreezeResult<Vec<_>>>()?;
-            Ok(ThinBoxSliceFrozenValue::from_iter(frozen))
+                .map(|x| Ok(x.freeze(freezer)?.to_value()))
+                .collect()
         }
         let items = freeze_elements(items, freezer)?;
         let hidden = freeze_elements(hidden, freezer)?;

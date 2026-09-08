@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-//! Internal `Box<[T]>`-like single-pointer slice used to back
-//! [`ThinBoxSliceFrozenValue`](super::packed_impl::ThinBoxSliceFrozenValue).
+//! Internal `Box<[T]>`-like single-word slice used to back
+//! [`ThinBoxSliceValue`](super::packed_impl::ThinBoxSliceValue).
 //!
 //! Specifically:
-//!  1. This type guarantees that it's always a pointer with the bottom bit zero.
+//!  1. This type's word always carries one of the tags no `Value` does, so a word can hold
+//!     either and be told apart by its low bits.
 //!  2. This type is not implicitly dropped - `run_drop` must be called explicitly.
 
 use std::alloc;
@@ -42,10 +43,20 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
+use crate::values::layout::pointer::TAG_MASK;
+use crate::values::layout::pointer::TAGS_NEVER_VALUE;
+
+/// Aligned to `TAG_MASK + 1`, so that `data` starts at an address whose tag bits are clear on
+/// every target; on 32-bit ones `T`'s own alignment does not guarantee that.
+#[repr(C, align(8))]
+struct ThinBoxSliceHeader {
+    len: usize,
+}
+const _: () = assert!(mem::align_of::<ThinBoxSliceHeader>() == TAG_MASK + 1);
 
 #[repr(C)]
 struct ThinBoxSliceLayout<T> {
-    len: usize,
+    header: ThinBoxSliceHeader,
     data: [T; 0],
 }
 
@@ -56,15 +67,23 @@ impl<T> ThinBoxSliceLayout<T> {
     }
 }
 
-/// `Box<[T]>` but thin pointer to FrozenValue(s)
+/// Tag of a slice whose length is in the allocation's header, and of the empty slice.
+const TAG_HEADER: usize = TAGS_NEVER_VALUE[0];
+/// Tags of the slices short enough that the tag itself is the length, so they have no header.
+/// Length zero is the null address and length one never reaches this type (`PackedImpl` stores
+/// it inline), so the two patterns left after `TAG_HEADER` cover lengths two and three.
+const TAG_LEN_2: usize = TAGS_NEVER_VALUE[1];
+const TAG_LEN_3: usize = TAGS_NEVER_VALUE[2];
+
+/// `Box<[T]>` but thin.
 ///
-/// Similar to `ThinBoxSlice`, but it ignores the lowest bit, allowing
-/// PackedImpl to use that to store a single FrozenValue in place of this
-/// object. Like `ThinBoxSlice`, the remaining unused pointer bits are used to
-/// store an embedded length. If these bits are zero, the `ptr` points to the
-/// `.data` of a ThinBoxSliceLayout, which stores the `.len`. Otherwise, ptr
-/// points at the T[].
-///
+/// The word is the address of the first element with a tag in its low bits, so every allocation
+/// is aligned to `TAG_MASK + 1`, whatever `T`'s own alignment (a `Value` is only word aligned on
+/// 32-bit targets). For all but the shortest slices the tag is `TAG_HEADER` and the length sits
+/// in a header before the elements; for lengths two and three the tag is the length and there is
+/// no header. Skipping the header for short slices was measured at 0.8% wall time and 0.2% max
+/// RSS on a large analysis (D66773980) when it covered lengths two through four, so changes to
+/// the encoding should be benchmarked.
 ///
 /// The current implementation returns what amounts to a null pointer for an
 /// empty list. An alternative would be to return a valid pointer to a
@@ -73,10 +92,9 @@ impl<T> ThinBoxSliceLayout<T> {
 /// writing shows that empty lists are common, and the pointer dereference in
 /// reading the length causes a small performance hit. Changes in the future may
 /// make this the preferred implementation.
-//
-// We don't really need `'static` here, but we hit type checker limitations.
-pub(super) struct AllocatedThinBoxSlice<T: 'static> {
-    /// Pointer to the first element, `ThinBoxSliceLayout.data`.
+#[repr(transparent)]
+pub(super) struct AllocatedThinBoxSlice<T> {
+    /// Tagged pointer to the first element, `ThinBoxSliceLayout.data`.
     ptr: usize,
     phantom: PhantomData<T>,
 }
@@ -106,58 +124,62 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for AllocatedThinBoxSlice<T> {
     }
 }
 
-impl<T: 'static> AllocatedThinBoxSlice<T> {
+impl<T> AllocatedThinBoxSlice<T> {
     #[inline]
     pub(super) const fn empty() -> AllocatedThinBoxSlice<T> {
         AllocatedThinBoxSlice {
-            ptr: 0,
+            ptr: TAG_HEADER,
             phantom: PhantomData,
         }
     }
 
-    const fn get_reserved_tag_bit_count() -> usize {
-        // The lower bit is reserved for use by PackedImpl.
-        1
-    }
-
-    const fn get_unshifted_tag_bit_mask() -> usize {
-        let align: usize = std::mem::align_of::<T>();
-        assert!(align.is_power_of_two());
-        align - 1
-    }
-
-    const fn get_tag_bit_mask() -> usize {
-        let mask = Self::get_unshifted_tag_bit_mask()
-            >> AllocatedThinBoxSlice::<T>::get_reserved_tag_bit_count();
-        assert!(mask != 0);
-        mask
-    }
-
-    const fn get_max_short_len() -> usize {
-        Self::get_tag_bit_mask() + 1
-    }
-
-    /// Allocation layout for a slice of length `len`.
+    /// Whether `word` is the representation of one of these, as opposed to a `Value`.
     #[inline]
-    fn layout_for_len(len: usize) -> (bool, Layout) {
-        if len != 0 && len != 1 && len <= Self::get_max_short_len() {
-            (true, Layout::array::<T>(len).unwrap())
-        } else {
-            let (layout, _offset_of_data) = Layout::new::<ThinBoxSliceLayout<T>>()
-                .extend(Layout::array::<T>(len).unwrap())
-                .unwrap();
-            (false, layout)
+    pub(super) fn is_word(word: usize) -> bool {
+        TAGS_NEVER_VALUE.contains(&(word & TAG_MASK))
+    }
+
+    /// The word, which nothing frees unless the handle is rebuilt from it.
+    #[inline]
+    pub(super) const fn into_inner(self) -> usize {
+        self.ptr
+    }
+
+    #[inline]
+    const fn tag_for_len(len: usize) -> usize {
+        match len {
+            2 => TAG_LEN_2,
+            3 => TAG_LEN_3,
+            _ => TAG_HEADER,
         }
     }
 
+    /// Tag and allocation layout for a slice of length `len`.
     #[inline]
-    fn get_tag_bits(&self) -> usize {
-        (self.ptr & Self::get_unshifted_tag_bit_mask()) >> Self::get_reserved_tag_bit_count()
+    fn layout_for_len(len: usize) -> (usize, Layout) {
+        let tag = Self::tag_for_len(len);
+        let layout = if tag == TAG_HEADER {
+            let (layout, _offset_of_data) = Layout::new::<ThinBoxSliceLayout<T>>()
+                .extend(Layout::array::<T>(len).unwrap())
+                .unwrap();
+            layout
+        } else {
+            Layout::array::<T>(len)
+                .unwrap()
+                .align_to(TAG_MASK + 1)
+                .unwrap()
+        };
+        (tag, layout)
+    }
+
+    #[inline]
+    fn tag(&self) -> usize {
+        self.ptr & TAG_MASK
     }
 
     #[inline]
     fn as_ptr(&self) -> *mut T {
-        (self.ptr & !Self::get_unshifted_tag_bit_mask()) as *mut T
+        (self.ptr & !TAG_MASK) as *mut T
     }
 
     #[inline]
@@ -178,16 +200,19 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
             return 0;
         }
 
-        let bits = self.get_tag_bits();
-        if bits != 0 {
-            bits + 1
-        } else {
-            unsafe {
-                (*self
-                    .as_ptr()
-                    .byte_offset(-ThinBoxSliceLayout::<T>::offset_of_data())
-                    .cast::<ThinBoxSliceLayout<T>>())
-                .len
+        match self.tag() {
+            TAG_LEN_2 => 2,
+            TAG_LEN_3 => 3,
+            tag => {
+                debug_assert!(tag == TAG_HEADER);
+                unsafe {
+                    (*self
+                        .as_ptr()
+                        .byte_offset(-ThinBoxSliceLayout::<T>::offset_of_data())
+                        .cast::<ThinBoxSliceLayout<T>>())
+                    .header
+                    .len
+                }
             }
         }
     }
@@ -195,48 +220,37 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
     /// Allocate uninitialized memory for a slice of length `len`.
     #[inline]
     pub(super) fn new_uninit(len: usize) -> AllocatedThinBoxSlice<MaybeUninit<T>> {
+        // Both layouts are aligned to `TAG_MASK + 1` and the header's data offset is a multiple
+        // of it, which is what keeps the tag bits of every address clear. A zero-sized `T` would
+        // make the header-less layouts zero-sized, which `alloc` does not accept.
+        const { assert!(mem::size_of::<T>() != 0) };
         if len == 0 {
             AllocatedThinBoxSlice::empty()
         } else {
-            let (is_short, layout) = Self::layout_for_len(len);
+            let (tag, layout) = Self::layout_for_len(len);
             unsafe {
                 let alloc = alloc::alloc(layout);
                 if alloc.is_null() {
                     alloc::handle_alloc_error(layout);
                 }
-                if is_short {
-                    assert!((alloc as usize) & Self::get_unshifted_tag_bit_mask() == 0);
-                    AllocatedThinBoxSlice {
-                        // Embed the length in the lower bits of ptr
-                        ptr: (alloc as usize) | ((len - 1) << Self::get_reserved_tag_bit_count()),
-                        phantom: PhantomData,
-                    }
-                } else {
+                let data_ptr = if tag == TAG_HEADER {
                     let alloc = alloc as *mut ThinBoxSliceLayout<T>;
-                    (*alloc).len = len;
-                    let data_ptr = alloc.byte_offset(ThinBoxSliceLayout::<T>::offset_of_data());
-                    AllocatedThinBoxSlice {
-                        ptr: data_ptr as usize,
-                        phantom: PhantomData,
-                    }
+                    (*alloc).header.len = len;
+                    alloc.byte_offset(ThinBoxSliceLayout::<T>::offset_of_data()) as usize
+                } else {
+                    alloc as usize
+                };
+                debug_assert!(data_ptr & TAG_MASK == 0);
+                AllocatedThinBoxSlice {
+                    ptr: data_ptr | tag,
+                    phantom: PhantomData,
                 }
             }
         }
     }
-
-    pub const unsafe fn into_inner(self) -> usize {
-        self.ptr
-    }
-
-    pub unsafe fn from_inner(ptr: usize) -> Self {
-        Self {
-            ptr,
-            phantom: PhantomData,
-        }
-    }
 }
 
-impl<T: 'static> Deref for AllocatedThinBoxSlice<T> {
+impl<T> Deref for AllocatedThinBoxSlice<T> {
     type Target = [T];
 
     #[inline]
@@ -245,7 +259,7 @@ impl<T: 'static> Deref for AllocatedThinBoxSlice<T> {
     }
 }
 
-impl<T: 'static> DerefMut for AllocatedThinBoxSlice<T> {
+impl<T> DerefMut for AllocatedThinBoxSlice<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { slice::from_raw_parts_mut(self.as_nonnull_ptr(), self.read_len()) }
@@ -262,7 +276,7 @@ impl<T> AllocatedThinBoxSlice<MaybeUninit<T>> {
     }
 }
 
-impl<T: 'static> AllocatedThinBoxSlice<T> {
+impl<T> AllocatedThinBoxSlice<T> {
     #[inline]
     pub(super) fn run_drop(self) {
         unsafe {
@@ -271,8 +285,8 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
                 let slice = ptr::slice_from_raw_parts_mut(self.as_nonnull_ptr(), len);
                 ptr::drop_in_place(slice);
                 let mut alloc = self.as_ptr().cast::<u8>();
-                let (is_short, layout) = Self::layout_for_len(len);
-                if !is_short {
+                let (tag, layout) = Self::layout_for_len(len);
+                if tag == TAG_HEADER {
                     alloc = alloc.byte_offset(-ThinBoxSliceLayout::<T>::offset_of_data());
                 }
                 alloc::dealloc(alloc, layout);
@@ -281,7 +295,7 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
     }
 }
 
-impl<T: 'static> Default for AllocatedThinBoxSlice<T> {
+impl<T> Default for AllocatedThinBoxSlice<T> {
     #[inline]
     fn default() -> Self {
         AllocatedThinBoxSlice::empty()
@@ -353,11 +367,14 @@ impl<T: Allocative> Allocative for AllocatedThinBoxSlice<T> {
                 let mut visitor =
                     visitor.enter_unique(allocative::Key::new("ptr"), mem::size_of_val(&self.ptr));
                 {
-                    let (is_short, layout) = Self::layout_for_len(self.len());
+                    let (tag, layout) = Self::layout_for_len(self.len());
                     let mut visitor = visitor.enter(allocative::Key::new("alloc"), layout.size());
 
-                    if !is_short {
-                        visitor.visit_simple(allocative::Key::new("len"), mem::size_of::<usize>());
+                    if tag == TAG_HEADER {
+                        visitor.visit_simple(
+                            allocative::Key::new("len"),
+                            mem::size_of::<ThinBoxSliceHeader>(),
+                        );
                     }
                     {
                         let mut visitor = visitor
@@ -376,7 +393,12 @@ impl<T: Allocative> Allocative for AllocatedThinBoxSlice<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
+
     use super::AllocatedThinBoxSlice;
+    use super::TAG_HEADER;
+    use super::ThinBoxSliceHeader;
+    use crate::values::layout::pointer::TAG_MASK;
 
     #[test]
     fn test_empty() {
@@ -402,6 +424,36 @@ mod tests {
         );
         assert_eq!(["a".to_owned(), "b".to_owned(), "c".to_owned()], *thin);
         thin.run_drop();
+    }
+
+    /// Lengths two and three have no header word; everything longer does.
+    #[test]
+    fn test_short_lengths_have_no_header() {
+        let element = mem::size_of::<String>();
+        let header = mem::size_of::<ThinBoxSliceHeader>();
+        for len in 0..8 {
+            let (tag, layout) = AllocatedThinBoxSlice::<String>::layout_for_len(len);
+            let expected = if len == 2 || len == 3 {
+                assert_ne!(tag, TAG_HEADER);
+                len * element
+            } else {
+                assert_eq!(tag, TAG_HEADER);
+                header + len * element
+            };
+            assert_eq!(expected, layout.size(), "len {len}");
+        }
+    }
+
+    /// Every word this type produces is recognizable as one of its own.
+    #[test]
+    fn test_words_are_tagged() {
+        for i in 0..8 {
+            let thin = AllocatedThinBoxSlice::from_iter((0..i).map(|j| j.to_string()));
+            let word = thin.ptr;
+            assert!(AllocatedThinBoxSlice::<String>::is_word(word), "len {i}");
+            assert_eq!(word & !TAG_MASK == 0, i == 0, "len {i}");
+            thin.run_drop();
+        }
     }
 
     /// If there are obvious memory violations, this test will catch them.

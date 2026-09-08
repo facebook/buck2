@@ -16,10 +16,12 @@
  */
 
 // We use pointer tagging on the bottom three bits:
-// ?00 => frozen pointer
-// ?01 => mutable pointer
-// ?10 => int (32 bit)
-// third bit is a tag set by the user (get_user_tag)
+// 000 => frozen pointer
+// 001 => unfrozen pointer
+// 010 => int (32 bit)
+// 100 => frozen string
+// 101 => unfrozen string
+// The remaining three patterns are never a `Value`; see `TAGS_NEVER_VALUE`.
 
 // We group our bytes based on the tag info, not traditional alignment.
 #![allow(clippy::unusual_byte_groupings)]
@@ -202,7 +204,7 @@ assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
 #[allow(dead_code)] // False positive.
 const TAG_BITS: usize = 3;
-const TAG_MASK: usize = 0b111;
+pub(crate) const TAG_MASK: usize = 0b111;
 #[allow(clippy::assertions_on_constants)]
 const _: () = assert!(TAG_MASK == (1 << TAG_BITS) - 1);
 
@@ -265,25 +267,37 @@ impl PointerTags {
     }
 }
 
-/// All possible tag values for frozen pointers, three least significant bits of a pointer.
-#[repr(usize)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-enum _FrozenPointerTags {
-    Int = TAG_INT,
-    Str = TAG_STR,
-    Other = 0,
-}
+/// The tag patterns no `Value` carries. Anything that must share a word with a `Value` and be
+/// told apart from one by the low bits alone (`ThinBoxSliceValue`'s out-of-line storage) tags
+/// itself with these.
+pub(crate) const TAGS_NEVER_VALUE: [usize; 3] = [0b011, 0b110, 0b111];
 
-/// `ThinBoxSliceFrozenValue` depends on all `FrozenPointer` values having the bottom bit unset.
-/// We keep a check here to ensure that remains true.
-#[allow(dead_code)] // False positive.
-const TAG_NICHE: usize = 0b1;
+// `PointerTags` and `TAGS_NEVER_VALUE` partition the tag space, so a new `Value` encoding has to
+// take its pattern from the latter and move that pattern's users off it.
+const _: () = {
+    // One bit per tag pattern.
+    type TagSet = u8;
+    assert!(TagSet::BITS as usize == 1 << TAG_BITS);
+    const fn bit(tag: usize) -> TagSet {
+        assert!(tag & TAG_MASK == tag);
+        1 << tag
+    }
 
-const _: () = assert!(
-    _FrozenPointerTags::Int as usize & TAG_NICHE == 0
-        && _FrozenPointerTags::Str as usize & TAG_NICHE == 0
-        && _FrozenPointerTags::Other as usize & TAG_NICHE == 0
-);
+    let value_tags = bit(PointerTags::Int as usize)
+        | bit(PointerTags::StrUnfrozen as usize)
+        | bit(PointerTags::StrFrozen as usize)
+        | bit(PointerTags::OtherUnfrozen as usize)
+        | bit(PointerTags::OtherFrozen as usize);
+    let mut never_value_tags: TagSet = 0;
+    let mut i = 0;
+    while i < TAGS_NEVER_VALUE.len() {
+        never_value_tags |= bit(TAGS_NEVER_VALUE[i]);
+        i += 1;
+    }
+    assert!(never_value_tags.count_ones() as usize == TAGS_NEVER_VALUE.len());
+    assert!(value_tags & never_value_tags == 0);
+    assert!(value_tags | never_value_tags == TagSet::MAX);
+};
 
 /// `InlineInt` is shift by this number of bits to the left to be stored in a pointer.
 const INT_SHIFT: usize = mem::size_of::<usize>() * 8 - InlineInt::BITS;
