@@ -264,7 +264,7 @@ where
 }
 
 /// FrozenValue: no `Hash` trait, use `get_hashed()` from `ValueLike`.
-/// The value is already ensure_initialized by `deserialize_frozen_value`.
+/// The value is already ensure_initialized by `deserialize_value`.
 impl SmallMapKeyDeserialize for FrozenValue {
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_>,
@@ -278,13 +278,7 @@ impl<'v> SmallMapKeyDeserialize for crate::values::Value<'v> {
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_>,
     ) -> crate::Result<Hashed<Self>> {
-        let fv = FrozenValue::starlark_deserialize(ctx)?;
-        let hashed = fv.get_hashed()?;
-        // Hash is unchanged by `FrozenValue::to_value`.
-        Ok(Hashed::new_unchecked(
-            hashed.hash(),
-            hashed.into_key().to_value(),
-        ))
+        Self::starlark_deserialize(ctx)?.get_hashed()
     }
 }
 

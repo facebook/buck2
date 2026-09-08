@@ -80,6 +80,7 @@ use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
+use crate::values::OwnedFrozen;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -1258,32 +1259,33 @@ impl Serialize for FrozenValue {
 
 impl StarlarkSerialize for FrozenValue {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        ctx.serialize_frozen_value(*self)
+        ctx.serialize_value(self.to_value())
     }
 }
 
 impl StarlarkDeserialize for FrozenValue {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        ctx.deserialize_frozen_value()
+        Ok(ctx
+            .deserialize_value()?
+            .unpack_frozen()
+            .expect("the deserializer only produces frozen values"))
     }
 }
 
-/// Only frozen heaps are serialized, so a `Value` reached during serialization
-/// is always frozen; branded frozen types store their contents as `Value<'fv>`.
+/// Only frozen heaps are serialized, so a `Value` reached during serialization is always frozen
+/// (the context checks); branded frozen types store their contents as `Value<'fv>`.
 impl<'v> StarlarkSerialize for Value<'v> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        match self.unpack_frozen() {
-            Some(fv) => fv.starlark_serialize(ctx),
-            None => Err(value_error!(
-                "Attempted to serialize a non-frozen value; only frozen heaps can be serialized"
-            )),
-        }
+        ctx.serialize_value(*self)
     }
 }
 
 impl<'v> StarlarkDeserialize for Value<'v> {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        Ok(FrozenValue::starlark_deserialize(ctx)?.to_value())
+        let v = ctx.deserialize_value()?;
+        // SAFETY: The contract of `deserialize_value`: the value is kept alive by the heap being
+        // paged in, which is the heap whose brand the value being deserialized is later read at.
+        Ok(unsafe { OwnedFrozen::<Value<'static>>::restore_brand(v) })
     }
 }
 

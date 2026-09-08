@@ -31,6 +31,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::StorageContext;
 use pagable::StorageState;
+use starlark_syntax::value_error;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -38,7 +39,7 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::static_value::get_static_value_id;
-use crate::values::FrozenValue;
+use crate::values::Value;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapArc;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
@@ -240,7 +241,7 @@ impl StarlarkSerState {
         heap_ptr: FrozenHeapPtr,
         value_index: u32,
         is_str: bool,
-    ) -> Option<FrozenValue> {
+    ) -> Option<Value<'static>> {
         // Keep the arena alive while converting its indexed payload address
         // back to an AValueHeader pointer.
         let (heap, base, entry) = {
@@ -261,7 +262,7 @@ impl StarlarkSerState {
         // SAFETY: `_heap` keeps the arena alive, and this chunk entry belongs
         // to that resident heap.
         let header = unsafe { &*header_ptr };
-        Some(FrozenValue::new_ptr(header, is_str))
+        Some(Value::new_frozen_ptr(header, is_str))
     }
 
     /// Resolve a raw payload pointer to its `(heap_id, value_index)`.
@@ -498,7 +499,12 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
         StarlarkSerializeScope { root: self.root }
     }
 
-    fn serialize_frozen_value(&mut self, fv: FrozenValue) -> crate::Result<()> {
+    fn serialize_value(&mut self, v: Value<'_>) -> crate::Result<()> {
+        let Some(fv) = v.unpack_frozen() else {
+            return Err(value_error!(
+                "Attempted to serialize a non-frozen value; only frozen heaps can be serialized"
+            ));
+        };
         match fv.ptr_value().tags() {
             PointerTags::OtherFrozen | PointerTags::StrFrozen => {
                 // Check if this is a static value first.
@@ -546,7 +552,7 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 serialized.pagable_serialize(self.pagable)?;
             }
             PointerTags::OtherUnfrozen | PointerTags::StrUnfrozen => {
-                unreachable!("FrozenValue cannot have unfrozen tag")
+                unreachable!("checked to be frozen above")
             }
         }
         Ok(())

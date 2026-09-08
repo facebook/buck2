@@ -19,7 +19,7 @@
 
 use pagable::PagableDeserializer;
 
-use crate::values::FrozenValue;
+use crate::values::Value;
 
 /// Trait for Starlark values that can be deserialized.
 ///
@@ -54,6 +54,12 @@ pub trait StarlarkDeserializeContext<'de> {
     /// Get mutable access to the underlying pagable deserializer.
     fn pagable(&mut self) -> &mut dyn PagableDeserializer<'de>;
 
-    /// Deserialize a `FrozenValue`. Should ensure the fornzen value is deserialized.
-    fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue>;
+    /// Deserialize a reference to a value, making sure the value itself is deserialized.
+    ///
+    /// The value lives in the heap being paged in or in one of the heaps it references, but the
+    /// result carries no brand that says so: the framework re-brands it at that heap when the
+    /// value being deserialized is later reached through the heap's owner. Implementations of
+    /// [`StarlarkDeserialize`] must therefore not keep the result anywhere other than in the
+    /// value they are deserializing.
+    fn deserialize_value(&mut self) -> crate::Result<Value<'static>>;
 }

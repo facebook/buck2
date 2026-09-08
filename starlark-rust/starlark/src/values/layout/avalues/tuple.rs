@@ -201,8 +201,9 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
                 + <Self as AValue>::offset_of_extra();
             let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'v>>;
             for i in 0..len {
-                let fv = ctx.deserialize_frozen_value()?;
-                (*extra_ptr.add(i)).write(fv.to_value());
+                let v =
+                    <Value<'v> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?;
+                (*extra_ptr.add(i)).write(v);
             }
         }
         Ok(())

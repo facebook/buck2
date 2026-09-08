@@ -29,7 +29,6 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
-use crate::values::FrozenValue;
 use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
@@ -203,7 +202,7 @@ where
 /// without a format change.
 fn serialize_owned_frozen(
     owner: &FrozenHeapArc,
-    value: FrozenValue,
+    value: Value<'_>,
     serializer: &mut dyn PagableSerializer,
 ) -> pagable::Result<()> {
     // Serialize the owner heap (via pagable arc mechanism).
@@ -216,8 +215,7 @@ fn serialize_owned_frozen(
     state.ensure_chunk_index_registered(owner)?;
 
     let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, owner);
-    ctx.serialize_frozen_value(value)
-        .map_err(|e| e.into_anyhow())?;
+    ctx.serialize_value(value).map_err(|e| e.into_anyhow())?;
 
     Ok(())
 }
@@ -225,7 +223,7 @@ fn serialize_owned_frozen(
 /// See [`serialize_owned_frozen`].
 fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
-) -> pagable::Result<(OwnedFrozen<()>, FrozenValue)> {
+) -> pagable::Result<(OwnedFrozen<()>, Value<'static>)> {
     // Deserialize the owner heap.
     let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
@@ -234,19 +232,14 @@ fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
     let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
         .map_err(|e: crate::Error| e.into_anyhow())?;
 
-    let value = ctx
-        .deserialize_frozen_value()
-        .map_err(|e| e.into_anyhow())?;
+    let value = ctx.deserialize_value().map_err(|e| e.into_anyhow())?;
 
     Ok((owner, value))
 }
 
 impl PagableSerialize for OwnedFrozen<Value<'static>> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // The value lives in a frozen heap, so it is frozen even though the branded API hands it
-        // out as a `Value`.
-        let fv = self.by_ref(|v| v.unpack_frozen().expect("value in a frozen heap is frozen"));
-        serialize_owned_frozen(self.heap_arc(), fv, serializer)
+        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), *v, serializer))
     }
 }
 
@@ -256,7 +249,7 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
     ) -> pagable::Result<Self> {
         let (owner, value) = deserialize_owned_frozen(deserializer)?;
         // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
-        Ok(unsafe { Self::unchecked_new(owner, value.to_value()) })
+        Ok(unsafe { Self::from_erased(owner, value) })
     }
 }
 
@@ -266,12 +259,7 @@ where
     for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        let fv = self.by_ref(|v| {
-            v.to_value()
-                .unpack_frozen()
-                .expect("value in a frozen heap is frozen")
-        });
-        serialize_owned_frozen(self.heap_arc(), fv, serializer)
+        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), v.to_value(), serializer))
     }
 }
 
@@ -286,8 +274,7 @@ where
     ) -> pagable::Result<Self> {
         let (owner, value) = deserialize_owned_frozen(deserializer)?;
         // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
-        let owned: OwnedFrozen<Value<'static>> =
-            unsafe { OwnedFrozen::unchecked_new(owner, value.to_value()) };
+        let owned: OwnedFrozen<Value<'static>> = unsafe { OwnedFrozen::from_erased(owner, value) };
         owned
             .downcast_starlark::<T>()
             .map_err(|e| anyhow::anyhow!("OwnedFrozen deserialization: {e}"))

@@ -50,7 +50,7 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
-use crate::values::FrozenValue;
+use crate::values::Value;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
@@ -919,7 +919,7 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
         self.pagable
     }
 
-    fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue> {
+    fn deserialize_value(&mut self) -> crate::Result<Value<'static>> {
         let serialized = SerializedFrozenValue::pagable_deserialize(self.pagable)?;
         match serialized {
             SerializedFrozenValue::HeapPtr {
@@ -930,28 +930,27 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
             SerializedFrozenValue::InlineInt(v) => {
                 let inline = InlineInt::try_from(v)
                     .map_err(|_| anyhow::anyhow!("Integer {} does not fit in InlineInt", v))?;
-                Ok(FrozenValue::new_int(inline))
+                Ok(Value::new_int(inline))
             }
             SerializedFrozenValue::Static(id) => {
                 let fv = get_frozen_value_by_static_id(id).ok_or_else(|| {
                     anyhow::anyhow!("Static value ID {:?} not found in inventory registry", id)
                 })?;
-                Ok(fv)
+                Ok(fv.to_value())
             }
         }
     }
 }
 
 impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
-    /// Resolve a serialized HeapPtr into a `FrozenValue`. Deserialize the
-    /// target slot if needed; reads the header pointer from the slot's
-    /// atomic.
+    /// Resolve a serialized HeapPtr into a value. Deserialize the target slot
+    /// if needed; reads the header pointer from the slot's atomic.
     fn ensure_initialized(
         &mut self,
         heap_id: HeapRefId,
         value_index: u32,
         is_str: bool,
-    ) -> crate::Result<FrozenValue> {
+    ) -> crate::Result<Value<'static>> {
         let target_heap = self
             .scope
             .get_heap(&heap_id)
@@ -996,7 +995,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         // Fast path: slot is already done.
         if let Some(ptr) = target_state.loaded_header_ptr(value_index as usize) {
             let header = unsafe { &*ptr };
-            return Ok(FrozenValue::new_ptr(header, is_str));
+            return Ok(Value::new_frozen_ptr(header, is_str));
         }
 
         let wait_graph = self
@@ -1057,7 +1056,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                     // SAFETY: allocated by the claimer in the heap's arena, kept
                     // alive by the `Arc<FrozenFrozenHeap>` in the deser state.
                     let header = unsafe { &*ptr };
-                    return Ok(FrozenValue::new_ptr(header, is_str));
+                    return Ok(Value::new_frozen_ptr(header, is_str));
                 }
                 // No cycle — safe to block until the claimer finishes.
                 match target_state.wait_for_slot(value_index as usize, &storage)? {
@@ -1082,6 +1081,6 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
             .loaded_header_ptr(value_index as usize)
             .expect("slot must be done after ensure_initialized");
         let header = unsafe { &*ptr };
-        Ok(FrozenValue::new_ptr(header, is_str))
+        Ok(Value::new_frozen_ptr(header, is_str))
     }
 }
