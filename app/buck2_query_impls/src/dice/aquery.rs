@@ -10,6 +10,7 @@
 
 use std::future::Future;
 use std::hash::Hash;
+use std::mem;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -31,7 +32,10 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::BuckErrorOptionContext;
 use buck2_hash::BuckDashMap;
+use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dashmap::mapref::entry::Entry;
@@ -72,6 +76,24 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
         }
     }
 
+    /// Gets the value if it is already cached or currently being computed (in which case this
+    /// awaits that computation). Returns `None` if the key is absent or if the in-flight
+    /// computation was cancelled.
+    async fn try_get(&self, key: &K) -> Option<V> {
+        let fut = self.map.get(key).map(|entry| entry.value().clone())?;
+        fut.await.ok()
+    }
+
+    /// Caches an already-computed value. Does nothing if an entry (computed or in-flight)
+    /// is already present.
+    fn seed(&self, key: K, value: V) {
+        if let Entry::Vacant(vacant) = self.map.entry(key) {
+            let (tx, rx) = oneshot::channel();
+            let _ignore = tx.send(value);
+            vacant.insert(rx.shared());
+        }
+    }
+
     /// Gets the value or computes it with the provided function. The function is called while holding
     /// a lock on the map and so should not do much work. The future returned by that function isn't
     /// polled until later so it's fine for it to do more work.
@@ -80,9 +102,7 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
         key: K,
         f: F,
     ) -> V {
-        if let Some(v) = self.map.get(&key).map(|entry| entry.value().clone())
-            && let Ok(v) = v.await
-        {
+        if let Some(v) = self.try_get(&key).await {
             return v;
         }
 
@@ -117,14 +137,31 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
     }
 }
 
+/// The maximum supported tset nesting depth in aquery.
+///
+/// `SetProjectionInputs` owns its children recursively through immutable `ArcIntern`s, so
+/// dropping a chain of nodes recurses one stack frame set per nesting level and there is no
+/// way to hook the drop to make it iterative. On the daemon's 2 MiB worker stacks that
+/// cascade was observed to SIGSEGV somewhere between depth 8000 and 12000; this limit keeps
+/// roughly 3x margin. Node construction itself is iterative and imposes no depth limit.
+const MAX_TSET_NESTING_DEPTH: u32 = 4096;
+
+/// A built tset projection node together with the nesting depth of its subtree, so that
+/// depth accumulated across separately-computed (cached) subgraphs still counts toward
+/// `MAX_TSET_NESTING_DEPTH`.
+#[derive(Clone, Dupe)]
+struct TsetNode {
+    node: SetProjectionInputs,
+    depth: u32,
+}
+
 /// Cache for ActionQueryNode and things needed to construct it. This is required because
 /// QueryTarget::deps() requires that deps are synchronously available and so we need to
 /// be able to iterate the tset structure synchronously.
 #[derive(Clone, Dupe)]
 struct DiceAqueryNodesCache {
     action_nodes: Arc<NodeCache<ActionKey, buck2_error::Result<ActionQueryNode>>>,
-    tset_nodes:
-        Arc<NodeCache<TransitiveSetProjectionKey, buck2_error::Result<SetProjectionInputs>>>,
+    tset_nodes: Arc<NodeCache<TransitiveSetProjectionKey, buck2_error::Result<TsetNode>>>,
 }
 
 impl DiceAqueryNodesCache {
@@ -135,7 +172,7 @@ impl DiceAqueryNodesCache {
             ),
             tset_nodes: Arc::new(NodeCache::<
                 TransitiveSetProjectionKey,
-                buck2_error::Result<SetProjectionInputs>,
+                buck2_error::Result<TsetNode>,
             >::new()),
         }
     }
@@ -152,43 +189,57 @@ pub(crate) struct AqueryData {
     nodes_cache: DiceAqueryNodesCache,
 }
 
-/// Converts artifact inputs into aquery's ActionInput. This is mostly a matter of resolving the indirect
-/// `TransitiveSetProjectionKey` to our direct shadow tset graph node `SetProjectionInputs`.
-// TODO(cjhopman): I think we should change ArtifactGroup to hold a `(TransitiveSet, ProjectionIndex)` rather
-// than `(TransitiveSetKey, ProjectionIndex)`. We already have that information when constructing it and the
-// artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
-// traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
-async fn convert_inputs<
-    'c,
+/// Resolves inputs one level deep: direct artifacts to their producing actions, tset
+/// projections to their keys (without building the projections' nodes).
+async fn convert_inputs_shallow<
     'a,
     Iter: IntoIterator<Item = &'a ArtifactGroup, IntoIter: ExactSizeIterator>,
 >(
-    ctx: &'c mut DiceComputations<'_>,
-    node_cache: DiceAqueryNodesCache,
+    ctx: &mut DiceComputations<'_>,
     inputs: Iter,
-) -> buck2_error::Result<Vec<ActionInput>> {
+) -> buck2_error::Result<(Vec<ActionQueryNodeRef>, Vec<TransitiveSetProjectionKey>)> {
     let resolved_artifacts: Vec<_> =
         KeepGoing::try_compute_join_all(ctx, inputs, async |ctx, input| {
             input.resolved_artifact(ctx).await
         })
         .await?;
 
-    let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
+    Ok(Itertools::partition_map(
         resolved_artifacts
             .into_iter()
             .filter_map(|resolved_artifact| match resolved_artifact {
-                ResolvedArtifactGroup::Artifact(a) => {
-                    a.action_key().map(|a| Either::Left(a.clone()))
+                ResolvedArtifactGroup::Artifact(a) => a
+                    .action_key()
+                    .map(|a| Either::Left(ActionQueryNodeRef::Action(a.dupe()))),
+                ResolvedArtifactGroup::TransitiveSetProjection(key) => {
+                    Some(Either::Right(key.dupe()))
                 }
-                ResolvedArtifactGroup::TransitiveSetProjection(key) => Some(Either::Right(key)),
             }),
         |v| v,
-    );
-    let mut deps =
-        artifacts.into_map(|a| ActionInput::ActionKey(ActionQueryNodeRef::Action(a.dupe())));
+    ))
+}
+
+/// Converts artifact inputs into aquery's ActionInput. This is mostly a matter of resolving the indirect
+/// `TransitiveSetProjectionKey` to our direct shadow tset graph node `SetProjectionInputs`.
+// TODO(jtbraun/cjhopman): Resolving a `TransitiveSetKey` to its tset value takes an async
+// analysis lookup (cached by DICE, and the built nodes by `DiceAqueryNodesCache`).
+// `ArtifactGroup` cannot hold the tset value itself to make this synchronous: an owned frozen
+// ref there would pin the producing analysis's heap in every consuming action's inputs,
+// preventing analysis results from being paged out of memory.
+async fn convert_inputs<
+    'a,
+    Iter: IntoIterator<Item = &'a ArtifactGroup, IntoIter: ExactSizeIterator>,
+>(
+    ctx: &mut DiceComputations<'_>,
+    node_cache: DiceAqueryNodesCache,
+    inputs: Iter,
+) -> buck2_error::Result<Vec<ActionInput>> {
+    let (artifacts, projections) = convert_inputs_shallow(ctx, inputs).await?;
+
+    let mut deps = artifacts.into_map(ActionInput::ActionKey);
     let projection_deps = ctx
         .try_compute_join(projections, async |ctx, key| {
-            get_tset_node(node_cache.dupe(), ctx, key.dupe()).await
+            get_tset_node(node_cache.dupe(), ctx, key).await
         })
         .await?;
 
@@ -198,26 +249,137 @@ async fn convert_inputs<
     Ok(deps)
 }
 
-fn compute_tset_node<'c>(
+/// A tset projection node's shallowly-resolved inputs, recorded by the discovery phase of
+/// `compute_tset_node`.
+struct DiscoveredTset {
+    direct: Vec<ActionQueryNodeRef>,
+    children: Vec<TransitiveSetProjectionKey>,
+}
+
+enum TsetDiscovery {
+    /// The node was already cached (or being computed elsewhere); no need to descend into it.
+    Cached(TransitiveSetProjectionKey, TsetNode),
+    New(TransitiveSetProjectionKey, DiscoveredTset),
+}
+
+/// Computes the `SetProjectionInputs` node for `root`, along with every uncached tset
+/// projection node reachable from it.
+///
+/// Tset graphs nest arbitrarily deep, so this must not recurse per tset level: a recursive
+/// walk polls one set of nested future frames per level on a fixed-size worker thread stack
+/// and overflows around depth ~1500 (builds don't have this problem because each projection
+/// there is its own spawned DICE computation). Instead, reachable projection nodes are
+/// discovered with a breadth-first worklist and then assembled children-before-parents with
+/// an explicit postorder stack.
+async fn compute_tset_node(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c mut DiceComputations<'_>,
-    key: TransitiveSetProjectionKey,
-) -> BoxFuture<'c, buck2_error::Result<SetProjectionInputs>> {
-    async move {
-        let set = key.key.lookup(ctx).await?;
+    ctx: &mut DiceComputations<'_>,
+    root: TransitiveSetProjectionKey,
+) -> buck2_error::Result<TsetNode> {
+    let mut discovered: BuckMutMap<TransitiveSetProjectionKey, DiscoveredTset> =
+        BuckMutMap::default();
+    let mut built: BuckMutMap<TransitiveSetProjectionKey, TsetNode> = BuckMutMap::default();
 
-        let sub_inputs = set.by_ref(|s| s.get_projection_sub_inputs(key.projection))?;
+    let mut seen: BuckMutSet<TransitiveSetProjectionKey> = BuckMutSet::default();
+    seen.insert(root.dupe());
+    let mut frontier = vec![root.dupe()];
+    // The caller (`get_or_compute`) has already registered an in-flight cache entry for
+    // `root`, so probing the cache for it would await our own computation.
+    let mut probe_cache = false;
 
-        let inputs = convert_inputs(ctx, node_cache, sub_inputs.iter()).await?;
+    while !frontier.is_empty() {
+        let wave = ctx
+            .try_compute_join(mem::take(&mut frontier), async |ctx, key| {
+                if probe_cache && let Some(v) = node_cache.tset_nodes.try_get(&key).await {
+                    return buck2_error::Ok(TsetDiscovery::Cached(key, v?));
+                }
+                let set = key.key.lookup(ctx).await?;
+                let sub_inputs = set.by_ref(|s| s.get_projection_sub_inputs(key.projection))?;
+                let (direct, children) = convert_inputs_shallow(ctx, sub_inputs.iter()).await?;
+                Ok(TsetDiscovery::New(key, DiscoveredTset { direct, children }))
+            })
+            .await?;
+        probe_cache = true;
 
-        let (direct, children) = inputs.into_iter().partition_map(|v| match v {
-            ActionInput::ActionKey(action_key) => Either::Left(action_key),
-            ActionInput::IndirectInputs(projection) => Either::Right(projection),
-        });
-
-        Ok(SetProjectionInputs::new(key.dupe(), direct, children))
+        for discovery in wave {
+            match discovery {
+                TsetDiscovery::Cached(key, node) => {
+                    built.insert(key, node);
+                }
+                TsetDiscovery::New(key, info) => {
+                    for child in &info.children {
+                        if seen.insert(child.dupe()) {
+                            frontier.push(child.dupe());
+                        }
+                    }
+                    discovered.insert(key, info);
+                }
+            }
+        }
     }
-    .boxed()
+
+    enum Visit {
+        Enter(TransitiveSetProjectionKey),
+        Exit(TransitiveSetProjectionKey),
+    }
+
+    let mut entered: BuckMutSet<TransitiveSetProjectionKey> = BuckMutSet::default();
+    let mut stack = vec![Visit::Enter(root.dupe())];
+    while let Some(visit) = stack.pop() {
+        match visit {
+            Visit::Enter(key) => {
+                if built.contains_key(&key) || !entered.insert(key.dupe()) {
+                    continue;
+                }
+                let info = discovered
+                    .get(&key)
+                    .internal_error("every non-cached reachable node was discovered")?;
+                stack.push(Visit::Exit(key));
+                for child in &info.children {
+                    if !built.contains_key(child) {
+                        stack.push(Visit::Enter(child.dupe()));
+                    }
+                }
+            }
+            Visit::Exit(key) => {
+                let info = discovered
+                    .remove(&key)
+                    .internal_error("exited nodes are discovered and not yet built")?;
+                let mut depth = 0;
+                let children = info
+                    .children
+                    .iter()
+                    .map(|child| {
+                        let child = built
+                            .get(child)
+                            .internal_error("children are built before their parents")?;
+                        depth = depth.max(child.depth);
+                        Ok(child.node.dupe())
+                    })
+                    .collect::<buck2_error::Result<Vec<_>>>()?;
+                let depth = depth + 1;
+                if depth > MAX_TSET_NESTING_DEPTH {
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Transitive set nesting depth exceeds the maximum of {} supported by aquery",
+                        MAX_TSET_NESTING_DEPTH
+                    ));
+                }
+                let node = TsetNode {
+                    node: SetProjectionInputs::new(key.dupe(), info.direct, children),
+                    depth,
+                };
+                if key != root {
+                    node_cache.tset_nodes.seed(key.dupe(), Ok(node.dupe()));
+                }
+                built.insert(key, node);
+            }
+        }
+    }
+
+    built
+        .remove(&root)
+        .internal_error("the root node is built last")
 }
 
 async fn get_tset_node(
@@ -226,12 +388,14 @@ async fn get_tset_node(
     key: TransitiveSetProjectionKey,
 ) -> buck2_error::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
-    node_cache
+    let node = node_cache
         .tset_nodes
+        .dupe()
         .get_or_compute(key, move |key| {
             compute_tset_node(copied_node_cache, ctx, key)
         })
-        .await
+        .await?;
+    Ok(node.node)
 }
 
 fn compute_action_node<'c>(
