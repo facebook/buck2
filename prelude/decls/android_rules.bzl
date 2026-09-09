@@ -1405,7 +1405,6 @@ android_resource = prelude_rule(
                  Android resources, although this option is deprecated and might be removed in the future.
             """,
             ),
-            "resource_union": attrs.bool(default = False),
             "_android_toolchain": toolchains_common.android(),
             "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
             "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
