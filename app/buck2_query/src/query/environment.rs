@@ -209,18 +209,7 @@ pub trait QueryEnvironment: Send + Sync {
         to: &TargetSet<Self::Target>,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
-        let path = async_bfs_find_path(
-            from.iter(),
-            QueryEnvironmentAsNodeLookup { env: self },
-            QueryTargetFilteredDepsSuccesors { filter },
-            |t| to.get(t).duped(),
-            self.allow_partial_graph(),
-        )
-        .await?
-        .unwrap_or_default();
-
-        let target_set = TargetSet::from_iter(path);
-        Ok(target_set)
+        somepath(self, from, to, filter).await
     }
 
     async fn allbuildfiles(
@@ -251,45 +240,7 @@ pub trait QueryEnvironment: Send + Sync {
         depth: QueryValueDepth,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
-        let graph = Graph::build_stable_dfs(
-            &QueryEnvironmentAsNodeLookup { env: self },
-            universe.iter().map(|n| n.node_key().clone()),
-            QueryTargetFilteredDepsSuccesors { filter },
-            self.allow_partial_graph(),
-        )
-        .await?;
-
-        let graph = graph.reverse();
-
-        let mut rdeps = TargetSet::new();
-
-        let mut visit = |target| {
-            rdeps.insert_unique_unchecked(target);
-            Ok(())
-        };
-
-        let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_key()).is_some()))?;
-
-        match depth {
-            QueryValueDepth::Bounded(depth) => {
-                let graph = graph.take_max_depth(
-                    roots_in_universe.iter().map(|t| t.node_key().clone()),
-                    depth,
-                );
-                graph.depth_first_postorder_traversal(
-                    roots_in_universe.iter().map(|t| t.node_key().clone()),
-                    |t| visit(t.clone()),
-                )?;
-            }
-            QueryValueDepth::Unbounded => {
-                graph.depth_first_postorder_traversal(
-                    roots_in_universe.iter().map(|t| t.node_key().clone()),
-                    |t| visit(t.clone()),
-                )?;
-            }
-        }
-
-        Ok(rdeps)
+        rdeps(self, universe, from, depth, filter).await
     }
 
     async fn testsof(
@@ -413,6 +364,74 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     }
 
     Ok(deps)
+}
+
+pub async fn somepath<Env: QueryEnvironment + ?Sized>(
+    env: &Env,
+    from: &TargetSet<Env::Target>,
+    to: &TargetSet<Env::Target>,
+    filter: Option<&dyn TraversalFilter<Env::Target>>,
+) -> buck2_error::Result<TargetSet<Env::Target>> {
+    let path = async_bfs_find_path(
+        from.iter(),
+        QueryEnvironmentAsNodeLookup { env },
+        QueryTargetFilteredDepsSuccesors { filter },
+        |t| to.get(t).duped(),
+        env.allow_partial_graph(),
+    )
+    .await?
+    .unwrap_or_default();
+
+    let target_set = TargetSet::from_iter(path);
+    Ok(target_set)
+}
+
+pub async fn rdeps<Env: QueryEnvironment + ?Sized>(
+    env: &Env,
+    universe: &TargetSet<Env::Target>,
+    from: &TargetSet<Env::Target>,
+    depth: QueryValueDepth,
+    filter: Option<&dyn TraversalFilter<Env::Target>>,
+) -> buck2_error::Result<TargetSet<Env::Target>> {
+    let graph = Graph::build_stable_dfs(
+        &QueryEnvironmentAsNodeLookup { env },
+        universe.iter().map(|n| n.node_key().clone()),
+        QueryTargetFilteredDepsSuccesors { filter },
+        env.allow_partial_graph(),
+    )
+    .await?;
+
+    let graph = graph.reverse();
+
+    let mut rdeps = TargetSet::new();
+
+    let mut visit = |target| {
+        rdeps.insert_unique_unchecked(target);
+        Ok(())
+    };
+
+    let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_key()).is_some()))?;
+
+    match depth {
+        QueryValueDepth::Bounded(depth) => {
+            let graph = graph.take_max_depth(
+                roots_in_universe.iter().map(|t| t.node_key().clone()),
+                depth,
+            );
+            graph.depth_first_postorder_traversal(
+                roots_in_universe.iter().map(|t| t.node_key().clone()),
+                |t| visit(t.clone()),
+            )?;
+        }
+        QueryValueDepth::Unbounded => {
+            graph.depth_first_postorder_traversal(
+                roots_in_universe.iter().map(|t| t.node_key().clone()),
+                |t| visit(t.clone()),
+            )?;
+        }
+    }
+
+    Ok(rdeps)
 }
 
 pub struct QueryTargetDepsSuccessors;

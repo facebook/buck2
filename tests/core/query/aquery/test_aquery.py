@@ -83,6 +83,30 @@ async def test_deps(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_deps_bounded(buck: Buck) -> None:
+    stdout = (await buck.aquery("deps(//:test, 1)", "-a", "identifier")).stdout
+
+    golden(
+        output=stdout,
+        rel_path="deps_bounded.golden.json",
+    )
+
+
+@buck_test()
+async def test_rdeps(buck: Buck) -> None:
+    # The universe contains an analysis node (from the target literal), which the
+    # flattened-graph rdeps used to fail on with `Not an action`.
+    stdout = (
+        await buck.aquery("rdeps(deps(//:test), deps(//:test))", "-a", "identifier")
+    ).stdout
+
+    golden(
+        output=stdout,
+        rel_path="rdeps.golden.json",
+    )
+
+
+@buck_test()
 async def test_bxl_aquery_target(buck: Buck) -> None:
     stdout = (await buck.bxl("//:aquery.bxl:target")).stdout
     golden(

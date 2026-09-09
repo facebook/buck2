@@ -59,7 +59,7 @@ impl<N: LabeledNode + 'static> BfsVisited<N> {
     }
 }
 
-pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
+pub async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
     roots: impl IntoIterator<Item = &N>,
     lookup: impl AsyncNodeLookup<N>,
     successors: impl AsyncChildVisitor<N>,

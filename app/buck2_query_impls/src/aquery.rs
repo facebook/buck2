@@ -9,8 +9,8 @@
  */
 
 pub(crate) mod bxl;
-pub(crate) mod deps;
 pub(crate) mod environment;
 pub(crate) mod evaluator;
 pub(crate) mod find_matching_action;
 pub(crate) mod functions;
+pub(crate) mod mixed_graph;
