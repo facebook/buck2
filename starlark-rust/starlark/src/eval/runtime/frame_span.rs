@@ -27,8 +27,6 @@ use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::register_starlark_any_complex;
 use crate::values::FreezeBranded;
-use crate::values::FreezeResult;
-use crate::values::Freezer;
 use crate::values::HeapEdge;
 
 /// Span of the call frame (including inlined call frames), at the brand of the frozen heap that
@@ -46,22 +44,14 @@ use crate::values::HeapEdge;
     Default,
     Allocative,
     ProvidesStaticType,
+    FreezeBranded,
     starlark_derive::StarlarkPagable
 )]
+#[freeze_branded(frozen_only)]
 pub(crate) struct FrameSpan<'f> {
     pub(crate) span: FrozenFileSpan<'f>,
     /// Parent frames.
     pub(crate) inlined_frames: InlinedFrames<'f>,
-}
-
-// Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what
-// lets the allocation be a `StarlarkAnyComplex`.
-impl<'f> FreezeBranded for FrameSpan<'f> {
-    type Frozen<'fv> = FrameSpan<'fv>;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        unreachable!("only allocated in frozen heaps")
-    }
 }
 
 register_starlark_any_complex!(frozen FrameSpan<'_>);

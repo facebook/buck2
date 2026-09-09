@@ -18,6 +18,7 @@
 mod basic;
 mod bounds;
 mod enums;
+mod frozen_only;
 mod identity;
 mod validator;
 mod validator_order;

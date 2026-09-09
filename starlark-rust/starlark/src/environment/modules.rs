@@ -124,20 +124,16 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
 }
 
 /// The contents of a [`FrozenModule`], at the brand of the heap they live in.
-// `FreezeBranded` only ever re-types this at another frozen heap's brand: a `Def` carries its
-// module and can be frozen into a later module. Frozen data is not frozen again, so the impl is
-// never run over the fields.
 #[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
+#[freeze_branded(frozen_only)]
 pub(crate) struct FrozenModuleData<'v> {
     pub(crate) names: FrozenNames<'v>,
     pub(crate) slots: FrozenSlots<'v>,
     extra_value: Option<Value<'v>>,
-    #[freeze_branded(identity)]
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
     /// Runtime profiling data — not meaningful to round-trip, so we skip
     /// serialization and restore as `None`.
-    #[freeze_branded(identity)]
     #[starlark_pagable(skip)]
     heap_profile: Option<RetainedHeapProfile>,
 }

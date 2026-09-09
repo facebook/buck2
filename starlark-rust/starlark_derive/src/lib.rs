@@ -147,7 +147,19 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     trace::derive_trace(input)
 }
 
-/// Derive the `FreezeBranded` trait
+/// Derive the `FreezeBranded` trait: `Frozen<'fv>` is the type with every lifetime parameter
+/// replaced by `'fv`, and `freeze` freezes each field.
+///
+/// Options, as `#[freeze_branded(..)]`:
+/// - `identity` on a field: keep the field as it is, for a type that holds no values and
+///   implements neither `FreezeBranded` nor needs to.
+/// - `validator = f` on the type: call `f(&frozen)` after freezing and fail the freeze with its
+///   error.
+/// - `bounds = "..."` on the type: extra `where` predicates for the impl.
+/// - `frozen_only` on the type: the type is only ever allocated into a frozen heap (a
+///   `StarlarkAnyComplex` payload built with `FrozenHeap::alloc_simple_typed`), so it is never
+///   frozen itself, but handles to it are fields of values that are, and re-typing such a handle
+///   at `'fv` goes through `Self::Frozen<'fv>`. `freeze` is `unreachable!`.
 #[proc_macro_derive(FreezeBranded, attributes(freeze_branded))]
 pub fn derive_freeze_branded(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     freeze::derive_freeze(input)

@@ -245,23 +245,14 @@ fn create_callable_function_signature<'v>(
 ///
 /// One copy per provider type, shared by the callable and every instance: allocated in the
 /// module's frozen heap as a `StarlarkAnyComplex` (see [`UserProviderCallableDataValue`]).
-#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
+#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
+#[freeze_branded(frozen_only)]
 pub(crate) struct UserProviderCallableData<'v> {
     #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
     pub(crate) fields: IndexMap<String, TypeCompiled<'v>, StarlarkHasherSmallPromoteBuilder>,
-}
-
-// Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what lets
-// the handle be a field of values that are.
-impl<'v> FreezeBranded for UserProviderCallableData<'v> {
-    type Frozen<'fv> = UserProviderCallableData<'fv>;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        unreachable!("only allocated in frozen heaps")
-    }
 }
 
 starlark::register_starlark_any_complex!(frozen UserProviderCallableData<'_>);

@@ -433,8 +433,15 @@ pub(crate) struct CopySlotFromParent {
 
 /// Static info for `def`, `lambda` or module: a compiler product in the module's frozen heap, at
 /// its brand, allocated as a `StarlarkAnyComplex` (see [`DefInfoValue`]).
-#[derive(Derivative, Allocative, ProvidesStaticType, StarlarkPagable)]
+#[derive(
+    Derivative,
+    Allocative,
+    ProvidesStaticType,
+    FreezeBranded,
+    StarlarkPagable
+)]
 #[derivative(Debug)]
+#[freeze_branded(frozen_only)]
 pub(crate) struct DefInfo<'f> {
     pub(crate) name: StringValue<'f>,
     /// Span of function signature.
@@ -479,16 +486,6 @@ pub(crate) struct DefInfo<'f> {
     /// Globals captured during function or module creation.
     /// Only needed for debugger evaluation.
     pub(crate) globals: ValueTyped<'f, StarlarkAny<Globals>>,
-}
-
-// Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what
-// lets the allocation be a `StarlarkAnyComplex`.
-impl<'f> FreezeBranded for DefInfo<'f> {
-    type Frozen<'fv> = DefInfo<'fv>;
-
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        unreachable!("only allocated in frozen heaps")
-    }
 }
 
 register_starlark_any_complex!(frozen DefInfo<'_>);
