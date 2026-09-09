@@ -32,6 +32,5 @@ pub(crate) mod typed;
 pub(crate) mod value;
 pub(crate) mod value_alloc_size;
 pub(crate) mod value_captured;
-pub(crate) mod value_lifetimeless;
 pub(crate) mod value_not_special;
 pub(crate) mod vtable;

@@ -68,7 +68,6 @@ use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
-use crate::sealed::Sealed;
 use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -104,7 +103,6 @@ use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
-use crate::values::layout::value_lifetimeless::ValueLifetimeless;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueDynFull;
 use crate::values::layout::vtable::AValueVTable;
@@ -1117,7 +1115,7 @@ impl<'v> StarlarkTypeRepr for Value<'v> {
 ///
 /// [`Value`] is its only implementation; see the documentation of the same-named methods there.
 pub trait ValueLike<'v>:
-    ValueLifetimeless + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
+    Copy + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
 {
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
@@ -1180,10 +1178,6 @@ pub trait ValueLike<'v>:
 #[derive(Debug, thiserror::Error)]
 #[error("Cycle detected when serializing value of type `{0}` to JSON")]
 struct ToJsonCycleError(&'static str);
-
-impl<'v> Sealed for Value<'v> {}
-
-impl<'v> ValueLifetimeless for Value<'v> {}
 
 impl<'v> ValueLike<'v> for Value<'v> {
     #[inline]

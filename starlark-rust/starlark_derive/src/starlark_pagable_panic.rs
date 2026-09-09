@@ -18,8 +18,7 @@
 //! Derive macro generating panicking [`StarlarkSerialize`] and [`StarlarkDeserialize`]
 //! impls — a Starlark analog of `pagable::PagablePanic`.
 //!
-//! Use on types that must satisfy a `StarlarkSerialize + StarlarkDeserialize` trait bound
-//! (for example because `ValueLifetimeless` now carries those as supertrait bounds) but
+//! Use on types that must satisfy a `StarlarkSerialize + StarlarkDeserialize` trait bound but
 //! should never actually be serialized. Any accidental call will `unimplemented!()`.
 
 use quote::quote_spanned;

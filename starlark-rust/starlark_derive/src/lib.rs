@@ -232,8 +232,8 @@ pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::To
 
 /// Derive panicking `StarlarkSerialize` and `StarlarkDeserialize` impls.
 ///
-/// Use on types that must satisfy the `StarlarkSerialize + StarlarkDeserialize` trait
-/// bounds (e.g. via `ValueLifetimeless`) but are never actually round-tripped.
+/// Use on types that must satisfy a `StarlarkSerialize + StarlarkDeserialize` bound but are
+/// never actually round-tripped.
 /// Any call to the generated methods triggers `unimplemented!()`.
 #[proc_macro_derive(StarlarkPagablePanic)]
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

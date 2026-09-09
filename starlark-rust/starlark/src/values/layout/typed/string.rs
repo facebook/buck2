@@ -16,21 +16,12 @@
  */
 
 use std::borrow::Borrow;
-use std::fmt::Debug;
-use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use allocative::Allocative;
-use dupe::Dupe;
-use serde::Serialize;
-
-use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
-use crate::sealed::Sealed;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
@@ -84,41 +75,6 @@ impl<'v> StringValue<'v> {
     /// Get the [`Value`] along with the hash.
     pub fn get_hashed_value(self) -> Hashed<Value<'v>> {
         Hashed::new_unchecked(self.get_hash(), self.to_value())
-    }
-}
-
-/// What [`StringValue`] is generic code written against; it is the only implementation.
-pub trait StringValueLike<'v>:
-    Trace<'v>
-    + CoerceKey<StringValue<'v>>
-    + Borrow<str>
-    + Display
-    + Debug
-    + Default
-    + Eq
-    + Ord
-    + Copy
-    + Clone
-    + Dupe
-    + Serialize
-    + Allocative
-    + Sealed
-    + 'v
-{
-    /// Convert to a [`StringValue`].
-    fn to_string_value(self) -> StringValue<'v>;
-
-    /// Convert to a [`str`].
-    fn as_str(self) -> &'v str {
-        self.to_string_value().as_str()
-    }
-}
-
-impl<'v> Sealed for StringValue<'v> {}
-
-impl<'v> StringValueLike<'v> for StringValue<'v> {
-    fn to_string_value(self) -> StringValue<'v> {
-        self
     }
 }
 

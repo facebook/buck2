@@ -476,7 +476,6 @@ pub mod errors;
 pub mod eval;
 mod private;
 pub mod read_line;
-mod sealed;
 pub mod syntax;
 pub mod typing;
 
