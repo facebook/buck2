@@ -63,7 +63,7 @@ pub(crate) enum DynamicAttrType<'v> {
     DynamicValue,
     /// Pass arbitrary starlark value.
     #[display("dynattrs.value({})", _0)]
-    Value(TypeCompiled<Value<'v>>),
+    Value(TypeCompiled<'v>),
     /// List.
     #[display("dynattrs.list({})", _0)]
     List(Box<DynamicAttrType<'v>>),
@@ -75,7 +75,7 @@ pub(crate) enum DynamicAttrType<'v> {
     Option(Box<DynamicAttrType<'v>>),
     /// Dict.
     #[display("dynattrs.dict({}, {})", _0.0, _0.1)]
-    Dict(Box<(TypeCompiled<Value<'v>>, DynamicAttrType<'v>)>),
+    Dict(Box<(TypeCompiled<'v>, DynamicAttrType<'v>)>),
 }
 
 /// A value passed to a dynamic action, in whichever heap holds it.

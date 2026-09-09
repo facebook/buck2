@@ -94,7 +94,7 @@ pub(crate) enum StmtCompiled<'f> {
     Expr(IrSpanned<'f, ExprCompiled<'f>>),
     Assign(
         IrSpanned<'f, AssignCompiledValue<'f>>,
-        Option<IrSpanned<'f, TypeCompiled<Value<'f>>>>,
+        Option<IrSpanned<'f, TypeCompiled<'f>>>,
         IrSpanned<'f, ExprCompiled<'f>>,
     ),
     AssignModify(

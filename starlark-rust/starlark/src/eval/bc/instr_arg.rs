@@ -340,7 +340,7 @@ impl<'v> BcInstrArg<'v> for ValueNotSpecial<'v> {
     fn visit_jump_addr(_param: &Self, _ip: BcAddr, _consumer: &mut dyn FnMut(BcAddr)) {}
 }
 
-impl<'v> BcInstrArg<'v> for TypeCompiled<Value<'v>> {
+impl<'v> BcInstrArg<'v> for TypeCompiled<'v> {
     fn fmt_append(
         param: &Self,
         _ip: BcAddr,

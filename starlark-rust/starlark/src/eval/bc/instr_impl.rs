@@ -886,14 +886,14 @@ pub(crate) struct InstrIsInstanceImpl;
 pub(crate) type InstrIsInstance = InstrNoFlow<InstrIsInstanceImpl>;
 
 impl<'v> InstrNoFlowImpl<'v> for InstrIsInstanceImpl {
-    type Arg = (BcSlotIn, TypeCompiled<Value<'v>>, BcSlotOut);
+    type Arg = (BcSlotIn, TypeCompiled<'v>, BcSlotOut);
 
     #[inline(always)]
     fn run_with_args(
         _eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _: BcPtrAddr,
-        (arg, t, target): &(BcSlotIn, TypeCompiled<Value<'v>>, BcSlotOut),
+        (arg, t, target): &(BcSlotIn, TypeCompiled<'v>, BcSlotOut),
     ) -> crate::Result<()> {
         let arg = frame.get_bc_slot(*arg);
         let r = t.matches(arg);
@@ -1137,14 +1137,14 @@ pub(crate) struct InstrCheckTypeImpl;
 pub(crate) type InstrCheckType = InstrNoFlow<InstrCheckTypeImpl>;
 
 impl<'v> InstrNoFlowImpl<'v> for InstrCheckTypeImpl {
-    type Arg = (BcSlotIn, TypeCompiled<Value<'v>>);
+    type Arg = (BcSlotIn, TypeCompiled<'v>);
 
     #[inline(always)]
     fn run_with_args(
         eval: &mut Evaluator<'v, '_, '_>,
         frame: BcFramePtr<'v>,
         _ip: BcPtrAddr,
-        (expr, ty): &(BcSlotIn, TypeCompiled<Value<'v>>),
+        (expr, ty): &(BcSlotIn, TypeCompiled<'v>),
     ) -> crate::Result<()> {
         let expr = frame.get_bc_slot(*expr);
         let start = if eval.typecheck_profile.enabled {
@@ -1391,7 +1391,7 @@ pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 #[derive(Debug, StarlarkPagable)]
 pub(crate) struct InstrDefData<'v> {
     pub(crate) params: ParametersCompiled<'v, u32>,
-    pub(crate) return_type: Option<TypeCompiled<Value<'v>>>,
+    pub(crate) return_type: Option<TypeCompiled<'v>>,
     pub(crate) info: DefInfoValue<'v>,
 }
 

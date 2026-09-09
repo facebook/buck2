@@ -46,7 +46,6 @@ use crate::typing::error::InternalError;
 use crate::typing::error::TypingNoContextError;
 use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::error::TypingOrInternalError;
-use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
@@ -160,7 +159,7 @@ pub(crate) trait TyCustomDyn:
     fn matcher_with_type_compiled_factory_dyn<'v>(
         &self,
         type_compiled_factory: TypeCompiledFactory<'_, 'v>,
-    ) -> TypeCompiled<Value<'v>>;
+    ) -> TypeCompiled<'v>;
 
     fn matcher_box_dyn(&self) -> TypeMatcherBox;
 }
@@ -263,7 +262,7 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn matcher_with_type_compiled_factory_dyn<'v>(
         &self,
         type_compiled_factory: TypeCompiledFactory<'_, 'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    ) -> TypeCompiled<'v> {
         self.matcher(type_compiled_factory)
     }
 
@@ -315,7 +314,7 @@ impl TyCustom {
     pub(crate) fn matcher_with_type_compiled_factory<'v>(
         &self,
         type_compiled_factory: TypeCompiledFactory<'_, 'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    ) -> TypeCompiled<'v> {
         self.0
             .matcher_with_type_compiled_factory_dyn(type_compiled_factory)
     }

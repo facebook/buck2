@@ -46,7 +46,7 @@ impl<'f> VisitSpanMut<'f> for Value<'f> {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan<'f>)) {}
 }
 
-impl<'f> VisitSpanMut<'f> for TypeCompiled<Value<'f>> {
+impl<'f> VisitSpanMut<'f> for TypeCompiled<'f> {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan<'f>)) {}
 }
 

@@ -31,7 +31,7 @@ pub(crate) fn register_eval_type(globals: &mut GlobalsBuilder) {
     fn eval_type<'v>(
         #[starlark(require = pos)] ty: ValueOfUnchecked<'v, AbstractType>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<TypeCompiled<Value<'v>>> {
+    ) -> anyhow::Result<TypeCompiled<'v>> {
         TypeCompiled::new(ty.get(), eval.heap())
     }
 

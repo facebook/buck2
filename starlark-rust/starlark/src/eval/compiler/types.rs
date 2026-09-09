@@ -58,7 +58,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
     pub(crate) fn expr_for_type(
         &mut self,
         expr: Option<&CstTypeExpr<'fm>>,
-    ) -> Option<IrSpanned<'fm, TypeCompiled<Value<'fm>>>> {
+    ) -> Option<IrSpanned<'fm, TypeCompiled<'fm>>> {
         if !self.check_types {
             return None;
         }
@@ -92,7 +92,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
         &mut self,
         value: Value<'v>,
         span: Span,
-    ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
+    ) -> Result<TypeCompiled<'v>, EvalException> {
         let ty = TypeCompiled::new(value, self.eval.heap());
         ty.map_err(|e| EvalException::new_anyhow(e, span, &self.codemap))
     }
@@ -144,7 +144,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
     fn eval_expr_as_type(
         &mut self,
         expr: Spanned<TypeExprUnpackP<CstPayload<'fm>>>,
-    ) -> Result<TypeCompiled<Value<'v>>, EvalException> {
+    ) -> Result<TypeCompiled<'v>, EvalException> {
         let span = expr.span;
         let value = self.eval_expr(expr)?;
         self.alloc_value_for_type(value, span)

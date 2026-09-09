@@ -187,12 +187,12 @@ pub(crate) enum ParameterCompiled<'f, T> {
         /// Name.
         ParameterName,
         /// Type.
-        Option<TypeCompiled<Value<'f>>>,
+        Option<TypeCompiled<'f>>,
         /// Default value.
         Option<T>,
     ),
-    Args(ParameterName, Option<TypeCompiled<Value<'f>>>),
-    KwArgs(ParameterName, Option<TypeCompiled<Value<'f>>>),
+    Args(ParameterName, Option<TypeCompiled<'f>>),
+    KwArgs(ParameterName, Option<TypeCompiled<'f>>),
 }
 
 impl<'f, T> ParameterCompiled<'f, T> {
@@ -217,7 +217,7 @@ impl<'f, T> ParameterCompiled<'f, T> {
         self.name_ty().0.captured
     }
 
-    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<Value<'f>>>) {
+    pub(crate) fn name_ty(&self) -> (&ParameterName, Option<TypeCompiled<'f>>) {
         match self {
             Self::Normal(n, t, _) => (n, *t),
             Self::Args(n, t) => (n, *t),
@@ -413,7 +413,7 @@ pub(crate) struct ParameterTypeCompiled<'f> {
     pub(crate) slot: LocalSlotId,
     /// Parameter name, for error messages.
     pub(crate) name: StringValue<'f>,
-    pub(crate) ty: TypeCompiled<Value<'f>>,
+    pub(crate) ty: TypeCompiled<'f>,
 }
 
 /// Copy local variable slot to nested function.
@@ -525,7 +525,7 @@ impl<'f> DefInfo<'f> {
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct DefCompiled<'f> {
     pub(crate) params: ParametersCompiled<'f, IrSpanned<'f, ExprCompiled<'f>>>,
-    pub(crate) return_type: Option<TypeCompiled<Value<'f>>>,
+    pub(crate) return_type: Option<TypeCompiled<'f>>,
     pub(crate) info: DefInfoValue<'f>,
 }
 
@@ -671,7 +671,7 @@ pub(crate) struct Def<'v> {
     /// Indices of parameters, which are captured in nested defs.
     /// This is a copy of `DefInfo.parameter_captures`.
     parameter_captures: ValueTyped<'v, AnyArray<LocalSlotId>>,
-    pub(crate) return_type: Option<TypeCompiled<Value<'v>>>, // The return type annotation for the function
+    pub(crate) return_type: Option<TypeCompiled<'v>>, // The return type annotation for the function
     /// Data created during function compilation but before function instantiation.
     /// `DefInfo` can be shared by multiple `def` instances, for example,
     /// `lambda` functions can be instantiated multiple times.
@@ -737,7 +737,7 @@ impl<'v> AllocValue<'v> for Def<'v> {
 impl<'v> Def<'v> {
     pub(crate) fn new(
         parameters: ParametersSpec<Value<'v>>,
-        return_type: Option<TypeCompiled<Value<'v>>>,
+        return_type: Option<TypeCompiled<'v>>,
         stmt: DefInfoValue<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> anyhow::Result<Value<'v>> {
@@ -837,7 +837,7 @@ impl<'v> Def<'v> {
         ret: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<()> {
-        let return_type_ty: TypeCompiled<Value<'v>> = self
+        let return_type_ty: TypeCompiled<'v> = self
             .return_type
             .ok_or_else(|| crate::Error::new_other(DefError::CheckReturnTypeNoType))?;
         let start = if eval.typecheck_profile.enabled {

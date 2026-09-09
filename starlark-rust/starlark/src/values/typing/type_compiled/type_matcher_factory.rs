@@ -26,7 +26,6 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 
-use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
@@ -41,7 +40,7 @@ struct TypeMatcherFactoryImpl<M: TypeMatcher> {
 
 pub(crate) trait TypeMatcherFactoryDyn: Allocative + Debug + Send + Sync + 'static {
     fn matcher_box(&self) -> TypeMatcherBox;
-    fn type_compiled<'v>(&self, factory: TypeCompiledFactory<'_, 'v>) -> TypeCompiled<Value<'v>>;
+    fn type_compiled<'v>(&self, factory: TypeCompiledFactory<'_, 'v>) -> TypeCompiled<'v>;
 }
 
 impl<M: TypeMatcher> TypeMatcherFactoryDyn for TypeMatcherFactoryImpl<M> {
@@ -49,7 +48,7 @@ impl<M: TypeMatcher> TypeMatcherFactoryDyn for TypeMatcherFactoryImpl<M> {
         TypeMatcherBoxAlloc.alloc(self.matcher.clone())
     }
 
-    fn type_compiled<'v>(&self, factory: TypeCompiledFactory<'_, 'v>) -> TypeCompiled<Value<'v>> {
+    fn type_compiled<'v>(&self, factory: TypeCompiledFactory<'_, 'v>) -> TypeCompiled<'v> {
         factory.alloc(self.matcher.clone())
     }
 }

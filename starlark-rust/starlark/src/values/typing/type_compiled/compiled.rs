@@ -37,7 +37,6 @@ use thiserror::Error;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::pagable::static_value::TypeCompiledStaticRegistered;
@@ -56,14 +55,16 @@ use crate::values::StaticValueRegistered;
 use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
-use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
-use crate::values::ValueTyped;
 use crate::values::dict::DictRef;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
+use crate::values::typing::type_compiled::factory::TYPE_COMPILED_BOOL;
+use crate::values::typing::type_compiled::factory::TYPE_COMPILED_INT;
+use crate::values::typing::type_compiled::factory::TYPE_COMPILED_NONE;
+use crate::values::typing::type_compiled::factory::TYPE_COMPILED_STRING;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherDyn;
@@ -96,7 +97,7 @@ enum TypingError {
 pub(crate) trait TypeCompiledDyn: Debug + Allocative + Send + Sync + 'static {
     fn as_ty_dyn(&self) -> &Ty;
     fn is_runtime_wildcard_dyn(&self) -> bool;
-    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>>;
+    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<'f>;
 }
 
 // TODO(nga): derive.
@@ -114,7 +115,7 @@ where
     fn is_runtime_wildcard_dyn(&self) -> bool {
         self.type_compiled_impl.is_wildcard()
     }
-    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>> {
+    fn to_frozen_dyn<'f>(&self, heap: FrozenHeap<'f>) -> TypeCompiled<'f> {
         TypeCompiled(heap.alloc_simple::<TypeCompiledImplAsStarlarkValue<T>>(Self::clone(self)))
     }
 }
@@ -288,18 +289,15 @@ fn type_compiled_methods(methods: &mut MethodsBuilder) {
     Clone,
     Copy,
     Dupe,
-    Coerce,
     ProvidesStaticType,
     StarlarkPagable
 )]
-#[repr(transparent)]
-#[freeze_branded(bounds = "for<'fv> <V as FreezeBranded>::Frozen<'fv>: ValueLifetimeless")]
-pub struct TypeCompiled<V: ValueLifetimeless>(
-    /// `V` is `TypeCompiledImplAsStarlarkValue`.
-    V,
+pub struct TypeCompiled<'v>(
+    /// A `TypeCompiledImplAsStarlarkValue`.
+    Value<'v>,
 );
 
-impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
+impl<'v> Display for TypeCompiled<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.downcast() {
             Ok(t) => Display::fmt(&t.as_ty_dyn(), f),
@@ -311,7 +309,7 @@ impl<'v, V: ValueLike<'v>> Display for TypeCompiled<V> {
     }
 }
 
-impl<V: ValueLifetimeless> StarlarkTypeRepr for TypeCompiled<V> {
+impl<'v> StarlarkTypeRepr for TypeCompiled<'v> {
     type Canonical = TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>;
 
     fn starlark_type_repr() -> Ty {
@@ -319,27 +317,26 @@ impl<V: ValueLifetimeless> StarlarkTypeRepr for TypeCompiled<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> AllocValue<'v> for TypeCompiled<V> {
+impl<'v> AllocValue<'v> for TypeCompiled<'v> {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        self.0.to_value()
+        self.0
     }
 }
 
-impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
-    pub(crate) fn unchecked_new(value: V) -> Self {
+impl<'v> TypeCompiled<'v> {
+    pub(crate) fn unchecked_new(value: Value<'v>) -> Self {
         TypeCompiled(value)
     }
 
     fn downcast(self) -> anyhow::Result<&'v dyn TypeCompiledDyn> {
-        self.to_value()
-            .0
+        self.0
             .request_value::<&dyn TypeCompiledDyn>()
             .ok_or_else(|| anyhow::anyhow!("Not TypeCompiledImpl (internal error)"))
     }
 
     /// Check if given value matches this type.
     pub fn matches(&self, value: Value<'v>) -> bool {
-        self.0.to_value().get_ref().type_matches_value(value)
+        self.0.get_ref().type_matches_value(value)
     }
 
     /// Get the typechecker type for this runtime type.
@@ -377,27 +374,56 @@ impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
         }
     }
 
-    pub(crate) fn to_value(self) -> TypeCompiled<Value<'v>> {
-        TypeCompiled(self.0.to_value())
-    }
-
-    pub(crate) fn to_inner(self) -> V {
+    pub(crate) fn to_inner(self) -> Value<'v> {
         self.0
     }
 
     pub(crate) fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
-        self.to_value().0.write_hash(hasher)
+        self.0.write_hash(hasher)
     }
 
     // Dead code, but may become useful in the future.
     pub(crate) fn _equals(self, other: Self) -> crate::Result<bool> {
-        self.to_value().0.equals(other.to_value().0)
+        self.0.equals(other.0)
+    }
+
+    /// Copy the type into a frozen heap.
+    ///
+    /// For the compiler, which builds types at the value heap and keeps them in the IR. The type
+    /// is copied even when it is already frozen, since nothing says which heap it was frozen in;
+    /// the statics (`typing.Any`, `None`, `bool`, `int`, `str`) are immortal and are returned as
+    /// they are.
+    pub fn to_frozen<'f>(self, heap: FrozenHeap<'f>) -> TypeCompiled<'f> {
+        if let Some(s) = self.as_static() {
+            return s;
+        }
+        self.downcast().unwrap().to_frozen_dyn(heap)
+    }
+
+    /// This type at any brand, if it is one of the statics: those are immortal, so they are the
+    /// same value at every brand. The compiler reaches `to_frozen` with a `None`, `bool`, `int`
+    /// or `str` annotation far more often than with `typing.Any`, and copying a static into the
+    /// frozen heap per annotation adds up.
+    fn as_static<'f>(self) -> Option<TypeCompiled<'f>> {
+        macro_rules! try_static {
+            ($s:expr) => {
+                if self.0.ptr_eq($s.at().to_value()) {
+                    return Some(TypeCompiled($s.at().to_value()));
+                }
+            };
+        }
+        try_static!(TYPE_COMPILED_ANY);
+        try_static!(TYPE_COMPILED_NONE);
+        try_static!(TYPE_COMPILED_BOOL);
+        try_static!(TYPE_COMPILED_INT);
+        try_static!(TYPE_COMPILED_STRING);
+        None
     }
 }
 
-impl<'v, V: ValueLike<'v>> Hash for TypeCompiled<V> {
+impl<'v> Hash for TypeCompiled<'v> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        match self.0.to_value().get_hash() {
+        match self.0.get_hash() {
             Ok(h) => h.hash(state),
             Err(_) => {
                 // Unreachable, but we should not panic in `Hash`.
@@ -406,33 +432,14 @@ impl<'v, V: ValueLike<'v>> Hash for TypeCompiled<V> {
     }
 }
 
-impl<'v, V: ValueLike<'v>> PartialEq for TypeCompiled<V> {
+impl<'v> PartialEq for TypeCompiled<'v> {
     #[allow(clippy::manual_unwrap_or)]
     fn eq(&self, other: &Self) -> bool {
-        self.0
-            .to_value()
-            .equals(other.0.to_value())
-            .unwrap_or_default()
+        self.0.equals(other.0).unwrap_or_default()
     }
 }
 
-impl<'v, V: ValueLike<'v>> Eq for TypeCompiled<V> {}
-
-impl<'v, V: ValueLike<'v>> TypeCompiled<V> {
-    /// Copy the type into a frozen heap.
-    ///
-    /// For the compiler, which builds types at the value heap and keeps them in the IR. The type
-    /// is copied even when it is already frozen, since nothing says which heap it was frozen in;
-    /// `typing.Any` is a static and is returned as such.
-    pub fn to_frozen<'f>(self, heap: FrozenHeap<'f>) -> TypeCompiled<Value<'f>> {
-        let any: ValueTyped<'v, _> = TYPE_COMPILED_ANY.at();
-        if self.to_value().0.ptr_eq(any.to_value()) {
-            TypeCompiled(TYPE_COMPILED_ANY.at().to_value())
-        } else {
-            self.to_value().downcast().unwrap().to_frozen_dyn(heap)
-        }
-    }
-}
+impl<'v> Eq for TypeCompiled<'v> {}
 
 /// Registers the AValue vtable of `TypeCompiledImplAsStarlarkValue<T>` for
 /// deserialization, once per monomorphization per image, when the image
@@ -465,12 +472,12 @@ extern "C" fn __vtable_registration_anchor<T: TypeMatcher>() {
 
 // These functions are small, but are deliberately out-of-line so we get better
 // information in profiling about the origin of these closures
-impl<'v> TypeCompiled<Value<'v>> {
+impl<'v> TypeCompiled<'v> {
     pub(crate) fn alloc<M: TypeMatcher>(
         type_compiled_impl: M,
         ty: Ty,
         heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    ) -> TypeCompiled<'v> {
         // Keep the monomorphized anchor and its emitted constructor record
         // linked until `#[used(linker)]` is stable in the supported
         // toolchains.
@@ -482,42 +489,33 @@ impl<'v> TypeCompiled<Value<'v>> {
         }))
     }
 
-    pub(crate) fn type_list_of(
-        t: TypeCompiled<Value<'v>>,
-        heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_list_of(t: TypeCompiled<'v>, heap: Heap<'v>) -> TypeCompiled<'v> {
         TypeCompiledFactory::alloc_ty(&Ty::list(t.as_ty().clone()), heap)
     }
 
-    pub(crate) fn type_set_of(
-        t: TypeCompiled<Value<'v>>,
-        heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_set_of(t: TypeCompiled<'v>, heap: Heap<'v>) -> TypeCompiled<'v> {
         TypeCompiledFactory::alloc_ty(&Ty::set(t.as_ty().clone()), heap)
     }
 
     pub(crate) fn type_any_of_two(
-        t0: TypeCompiled<Value<'v>>,
-        t1: TypeCompiled<Value<'v>>,
+        t0: TypeCompiled<'v>,
+        t1: TypeCompiled<'v>,
         heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    ) -> TypeCompiled<'v> {
         let ty = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
-    pub(crate) fn type_any_of(
-        ts: Vec<TypeCompiled<Value<'v>>>,
-        heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn type_any_of(ts: Vec<TypeCompiled<'v>>, heap: Heap<'v>) -> TypeCompiled<'v> {
         let ty = Ty::unions(ts.into_map(|t| t.as_ty().clone()));
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
     pub(crate) fn type_dict_of(
-        kt: TypeCompiled<Value<'v>>,
-        vt: TypeCompiled<Value<'v>>,
+        kt: TypeCompiled<'v>,
+        vt: TypeCompiled<'v>,
         heap: Heap<'v>,
-    ) -> TypeCompiled<Value<'v>> {
+    ) -> TypeCompiled<'v> {
         let ty = Ty::dict(kt.as_ty().clone(), vt.as_ty().clone());
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
@@ -577,9 +575,9 @@ impl<'v> TypeCompiled<Value<'v>> {
     }
 }
 
-impl<'v> TypeCompiled<Value<'v>> {
+impl<'v> TypeCompiled<'v> {
     /// `typing.Any`.
-    pub fn any() -> TypeCompiled<Value<'v>> {
+    pub fn any() -> TypeCompiled<'v> {
         TypeCompiled(TYPE_COMPILED_ANY.at().to_value())
     }
 }

@@ -51,7 +51,7 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
 )]
 pub struct Field<'v> {
     /// The expected type of the field.
-    pub typ: TypeCompiled<Value<'v>>,
+    pub typ: TypeCompiled<'v>,
     /// The default value (if provided).
     pub default: Option<Value<'v>>,
 }
@@ -72,7 +72,7 @@ starlark_complex_value_branded!(pub Field);
 
 impl<'v> Field<'v> {
     /// Creates a new `FieldGen`.
-    pub fn new(typ: TypeCompiled<Value<'v>>, default: Option<Value<'v>>) -> Self {
+    pub fn new(typ: TypeCompiled<'v>, default: Option<Value<'v>>) -> Self {
         Self { typ, default }
     }
 }

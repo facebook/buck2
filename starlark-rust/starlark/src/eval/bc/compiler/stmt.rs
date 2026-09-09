@@ -212,7 +212,7 @@ impl<'f> IrSpanned<'f, StmtCompiled<'f>> {
             }
             StmtCompiled::Assign(lhs, ty, rhs) => {
                 fn check_type<'f>(
-                    ty: &Option<IrSpanned<'f, TypeCompiled<Value<'f>>>>,
+                    ty: &Option<IrSpanned<'f, TypeCompiled<'f>>>,
                     slot_expr: BcSlotIn,
                     bc: &mut BcWriter<'f>,
                 ) {

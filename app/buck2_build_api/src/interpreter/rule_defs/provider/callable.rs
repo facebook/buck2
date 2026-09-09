@@ -251,7 +251,7 @@ pub(crate) struct UserProviderCallableData<'v> {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
-    pub(crate) fields: IndexMap<String, TypeCompiled<Value<'v>>, StarlarkHasherSmallPromoteBuilder>,
+    pub(crate) fields: IndexMap<String, TypeCompiled<'v>, StarlarkHasherSmallPromoteBuilder>,
 }
 
 // Only ever allocated in frozen heaps, whose contents are not frozen again; the impl is what lets
@@ -335,7 +335,7 @@ impl<'v> FreezeBranded for UserProviderCallableNamed<'v> {
 )]
 pub(crate) struct UserProviderField<'v> {
     /// Field type.
-    pub(crate) ty: TypeCompiled<Value<'v>>,
+    pub(crate) ty: TypeCompiled<'v>,
     /// Default value. If `None`, the field is required. Always immutable, so that instances can
     /// share it.
     pub(crate) default: Option<Value<'v>>,
@@ -710,7 +710,7 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable<'v> {
 fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> buck2_error::Result<TypeCompiled<Value<'v>>> {
+) -> buck2_error::Result<TypeCompiled<'v>> {
     TypeCompiled::new(ty, eval.heap())
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
