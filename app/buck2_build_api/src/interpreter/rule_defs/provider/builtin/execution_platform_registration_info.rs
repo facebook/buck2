@@ -16,7 +16,6 @@ use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::FreezeBranded;
-use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -77,9 +76,7 @@ pub struct ExecutionPlatformRegistrationInfo<'v> {
 
 impl<'v> ExecutionPlatformRegistrationInfo<'v> {
     // TODO(cjhopman): Validity could be checked when constructed rather than only when used.
-    pub fn platforms(
-        &self,
-    ) -> buck2_error::Result<Vec<FrozenValueTyped<'v, ExecutionPlatformInfo<'v>>>> {
+    pub fn platforms(&self) -> buck2_error::Result<Vec<ValueTyped<'v, ExecutionPlatformInfo<'v>>>> {
         ListRef::from_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
@@ -89,7 +86,7 @@ impl<'v> ExecutionPlatformRegistrationInfo<'v> {
             })?
             .iter()
             .map(|v| {
-                FrozenValueTyped::new(v).ok_or_else(|| {
+                ValueTyped::new(v).ok_or_else(|| {
                     ExecutionPlatformRegistrationTypeError::NotAPlatform(
                         v.to_repr(),
                         v.get_type().to_owned(),

@@ -229,7 +229,7 @@ impl<'fh> FrozenHeap<'fh> {
         let (any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         maybe_uninit_write_slice_cloned(content, values);
-        any_array.to_value_typed()
+        any_array
     }
 }
 

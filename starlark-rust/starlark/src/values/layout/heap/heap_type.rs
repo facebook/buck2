@@ -79,7 +79,6 @@ use crate::pagable::static_value::get_static_heap_by_id;
 use crate::pagable::static_value::get_static_heap_id;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -1258,21 +1257,21 @@ impl<'fh> FrozenHeap<'fh> {
     pub(in crate::values::layout) fn alloc_raw<T>(
         self,
         x: AValueImpl<'fh, T>,
-    ) -> FrozenValueTyped<'fh, T::StarlarkValue>
+    ) -> ValueTyped<'fh, T::StarlarkValue>
     where
         T: AValue<'fh, ExtraElem = ()>,
         T::StarlarkValue: HeapSendable<'fh>,
         T::StarlarkValue: HeapSyncable<'fh>,
     {
         let v: &'fh AValueRepr<AValueImpl<T>> = self.0.arena.alloc(x);
-        FrozenValueTyped::new_repr(v)
+        ValueTyped::new_frozen_repr(v)
     }
 
     pub(in crate::values::layout) fn alloc_raw_extra<T>(
         self,
         x: AValueImpl<'fh, T>,
     ) -> (
-        FrozenValueTyped<'fh, T::StarlarkValue>,
+        ValueTyped<'fh, T::StarlarkValue>,
         *mut [MaybeUninit<T::ExtraElem>],
     )
     where
@@ -1281,7 +1280,7 @@ impl<'fh> FrozenHeap<'fh> {
         T::StarlarkValue: HeapSyncable<'fh>,
     {
         let (v, extra) = self.0.arena.alloc_extra(x);
-        let v = unsafe { FrozenValueTyped::new_repr(&*v) };
+        let v = unsafe { ValueTyped::new_frozen_repr(&*v) };
         (v, extra)
     }
 

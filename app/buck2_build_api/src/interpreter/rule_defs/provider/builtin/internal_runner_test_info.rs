@@ -45,7 +45,6 @@ use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
-use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 
 use crate as buck2_build_api;
@@ -146,7 +145,7 @@ pub struct InternalRunnerTestInfo<'v> {
     /// ```
     parse_test_listing: ValueOfUnchecked<
         'v,
-        FrozenStarlarkCallable<(String,), ListType<DictType<String, Value<'static>>>>,
+        StarlarkCallable<'static, (String,), ListType<DictType<String, Value<'static>>>>,
     >,
 
     /// A Starlark callable that parses test execution output into structured
@@ -164,7 +163,11 @@ pub struct InternalRunnerTestInfo<'v> {
     /// ```
     parse_test_result: ValueOfUnchecked<
         'v,
-        FrozenStarlarkCallable<(String, String, i32), ListType<DictType<String, Value<'static>>>>,
+        StarlarkCallable<
+            'static,
+            (String, String, i32),
+            ListType<DictType<String, Value<'static>>>,
+        >,
     >,
 }
 

@@ -48,7 +48,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
-use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -236,75 +235,11 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
     }
 }
 
-/// [`StarlarkCallable`] at the `'static` brand, at which only immortal data exists; mostly used
-/// as a type-repr marker.
-#[derive(Allocative)]
-#[allocative(bound = "")]
-pub struct FrozenStarlarkCallable<
-    P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
-    R: StarlarkTypeRepr = Value<'static>,
->(pub Value<'static>, PhantomData<AtomicPtr<(P, R)>>);
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Debug for FrozenStarlarkCallable<P, R> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("FrozenStarlarkCallable")
-            .field(&self.0)
-            .finish()
-    }
-}
-
 fn _assert_sync_send() {
     fn _assert<T: Sync + Send>() {}
-    // `Value` is not `Sync` nor `Send`, but `FrozenStarlarkCallable` should be.
-    _assert::<FrozenStarlarkCallable<(Value,), Value>>();
-}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Copy for FrozenStarlarkCallable<P, R> {}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Clone for FrozenStarlarkCallable<P, R> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Dupe for FrozenStarlarkCallable<P, R> {}
-
-unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
-    for FrozenStarlarkCallable<P, R>
-{
-    fn trace(&mut self, _tracer: &Tracer<'v>) {
-        // The value is frozen.
-    }
-}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
-    /// Wrap the value.
-    pub fn unchecked_new(value: Value<'static>) -> Self {
-        FrozenStarlarkCallable(value, PhantomData)
-    }
-
-    /// Erase parameter and return types.
-    pub fn erase(self) -> FrozenStarlarkCallable {
-        FrozenStarlarkCallable::unchecked_new(self.0)
-    }
-}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> StarlarkTypeRepr
-    for FrozenStarlarkCallable<P, R>
-{
-    type Canonical = <StarlarkCallable<'static, P, R> as StarlarkTypeRepr>::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        StarlarkCallable::<P, R>::starlark_type_repr()
-    }
-}
-
-impl<'fv, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue<'fv>
-    for FrozenStarlarkCallable<P, R>
-{
-    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        HeapEdge::immortal().rebrand(self.0)
-    }
+    // A `Value<'v>` is neither `Sync` nor `Send`, but the marker at the `'static` brand, which
+    // type-repr parameters inside frozen carriers use, has to be both.
+    _assert::<StarlarkCallable<'static, (Value,), Value>>();
 }
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded
@@ -316,14 +251,6 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded
         Ok(StarlarkCallable::unchecked_new(FreezeBranded::freeze(
             self.0, freezer,
         )?))
-    }
-}
-
-impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FrozenStarlarkCallable<P, R> {
-    /// The callable at any brand: `'static` data is immortal, see [`HeapEdge::immortal`].
-    #[inline]
-    pub fn to_callable<'v>(self) -> StarlarkCallable<'v, P, R> {
-        StarlarkCallable::<P, R>::unchecked_new(HeapEdge::immortal().rebrand(self.0))
     }
 }
 

@@ -19,7 +19,6 @@ use crate::typing::ParamSpec;
 use crate::values::type_repr::StarlarkTypeRepr;
 
 /// Type parameter for [`StarlarkCallable`](crate::values::typing::callable::StarlarkCallable)
-/// or [`FrozenStarlarkCallable`](crate::values::typing::callable::FrozenStarlarkCallable)
 /// describing the expected parameters of the callable.
 pub trait StarlarkCallableParamSpec {
     /// Get the parameter specification for the callable.

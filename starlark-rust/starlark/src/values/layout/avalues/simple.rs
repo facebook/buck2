@@ -108,7 +108,7 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
 impl<'fh> FrozenHeap<'fh> {
     /// Allocate a value on the heap
     pub fn alloc_simple_typed<T: AValueSimpleBound<'fh>>(self, val: T) -> ValueTyped<'fh, T> {
-        self.alloc_raw(simple(val)).to_value_typed()
+        self.alloc_raw(simple(val))
     }
 
     /// Allocate a simple [`StarlarkValue`](crate::values::StarlarkValue) on this heap.

@@ -380,17 +380,13 @@ impl<'v> ProviderCollection<'v> {
 }
 
 impl FrozenProviderCollection {
-    pub fn testing_new_default<'v>(
-        heap: FrozenHeap<'v>,
-    ) -> FrozenValueTyped<'v, ProviderCollection<'v>> {
-        let collection = heap.alloc_typed(ProviderCollection {
+    pub fn testing_new_default<'v>(heap: FrozenHeap<'v>) -> ValueTyped<'v, ProviderCollection<'v>> {
+        heap.alloc_typed(ProviderCollection {
             providers: SmallMap::from_iter([(
                 CollectionKey(DefaultInfoCallable::provider_id().dupe()),
                 DefaultInfo::testing_empty(heap).to_value(),
             )]),
-        });
-        FrozenValueTyped::new(collection.to_value())
-            .expect("value allocated in a frozen heap is frozen")
+        })
     }
 }
 

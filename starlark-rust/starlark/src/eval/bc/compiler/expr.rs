@@ -289,7 +289,7 @@ impl<'f> IrSpanned<'f, ExprCompiled<'f>> {
     ) {
         a.write_bc_cb(bc, |a, bc| {
             if let Some(b) = b.unpack_int_value() {
-                bc.write_instr::<InstrEqInt>(span, (a, b.to_value_typed(), target));
+                bc.write_instr::<InstrEqInt>(span, (a, b, target));
             } else if b.eq_is_ptr_eq() {
                 bc.write_instr::<InstrEqPtr>(span, (a, b, target));
             } else if let Some(b) = StringValue::new(b) {

@@ -45,12 +45,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
             edge.rebrand(FrozenProviderCollection::testing_new_default(fh))
         });
 
-        Ok(Dependency::new(
-            eval.heap(),
-            label,
-            collection.to_value_typed(),
-            None,
-        ))
+        Ok(Dependency::new(eval.heap(), label, collection, None))
     }
 }
 

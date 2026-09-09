@@ -51,7 +51,6 @@ use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
 use starlark::values::FreezeBranded;
-use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValueTyped;
@@ -418,13 +417,13 @@ pub struct FrozenAnalysisValueStorage<'fv> {
         serialize_with = "serialize_transitive_sets",
         deserialize_with = "deserialize_transitive_sets"
     )]
-    transitive_sets: MiniBoxSlice<FrozenValueTyped<'fv, TransitiveSet<'fv>>>,
+    transitive_sets: MiniBoxSlice<ValueTyped<'fv, TransitiveSet<'fv>>>,
     #[starlark_pagable(
         serialize_with = "serialize_lambda_params",
         deserialize_with = "deserialize_lambda_params"
     )]
     pub lambda_params: FrozenDynamicLambdaParamsStorageBox<'fv>,
-    result_value: Option<FrozenValueTyped<'fv, ProviderCollection<'fv>>>,
+    result_value: Option<ValueTyped<'fv, ProviderCollection<'fv>>>,
 }
 
 fn serialize_lambda_params(
@@ -443,7 +442,7 @@ fn deserialize_lambda_params<'fv>(
 }
 
 fn serialize_transitive_sets<'v>(
-    field: &MiniBoxSlice<FrozenValueTyped<'v, TransitiveSet<'v>>>,
+    field: &MiniBoxSlice<ValueTyped<'v, TransitiveSet<'v>>>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -455,13 +454,11 @@ fn serialize_transitive_sets<'v>(
 
 fn deserialize_transitive_sets<'v>(
     ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
-) -> starlark::Result<MiniBoxSlice<FrozenValueTyped<'v, TransitiveSet<'v>>>> {
+) -> starlark::Result<MiniBoxSlice<ValueTyped<'v, TransitiveSet<'v>>>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);
     for _ in 0..len {
-        items.push(FrozenValueTyped::<TransitiveSet>::starlark_deserialize(
-            ctx,
-        )?);
+        items.push(ValueTyped::<TransitiveSet>::starlark_deserialize(ctx)?);
     }
     Ok(MiniBoxSlice::from_iter(items))
 }
@@ -514,18 +511,12 @@ impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
         }
         let mut frozen_transitive_sets = Vec::with_capacity(transitive_sets.len());
         for v in transitive_sets {
-            frozen_transitive_sets.push(
-                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
-                    .map_err(|e| FreezeError::new(e.to_string()))?,
-            );
+            frozen_transitive_sets.push(v.freeze(freezer)?);
         }
-        let result_value = match result_value.into_inner() {
-            None => None,
-            Some(v) => Some(
-                FrozenValueTyped::new_err(freezer.freeze(v.to_value())?)
-                    .map_err(|e| FreezeError::new(e.to_string()))?,
-            ),
-        };
+        let result_value = result_value
+            .into_inner()
+            .map(|v| v.freeze(freezer))
+            .transpose()?;
         Ok(FrozenAnalysisValueStorage {
             self_key,
             action_data: frozen_action_data,
@@ -715,10 +706,7 @@ impl RecordedAnalysisValues {
                 let alloced_tsets: Vec<_> = transitive_sets
                     .iter()
                     .sorted_by_key(|(key, _)| key.index().0)
-                    .map(|(_key, tset)| {
-                        let tset = tset.as_ref().add_to_frozen_heap(heap);
-                        FrozenValueTyped::new(tset.to_value()).expect("value is in a frozen heap")
-                    })
+                    .map(|(_key, tset)| tset.as_ref().add_to_frozen_heap(heap))
                     .collect();
 
                 heap.alloc_simple_typed(StarlarkAnyComplex {
@@ -762,7 +750,7 @@ impl RecordedAnalysisValues {
                     .value
                     .transitive_sets
                     .get(key.index().0 as usize)
-                    .map(|v| v.to_value_typed())
+                    .copied()
             })
             .with_internal_error(|| format!("Missing transitive set `{key}`"))?
             .to_owned())
@@ -814,10 +802,13 @@ impl RecordedAnalysisValues {
             .as_ref()
             .try_map::<FrozenValueTyped<'static, ProviderCollection<'static>>, buck2_error::Error, _>(
                 |v| {
-                    v.as_ref()
+                    let collection = v
+                        .as_ref()
                         .value
                         .result_value
-                        .internal_error("missing provider collection")
+                        .internal_error("missing provider collection")?;
+                    FrozenValueTyped::new(collection.to_value())
+                        .internal_error("provider collection is not a frozen `ProviderCollection`")
                 },
             )?;
         Ok(FrozenProviderCollectionValueRef::from_inner(inner))

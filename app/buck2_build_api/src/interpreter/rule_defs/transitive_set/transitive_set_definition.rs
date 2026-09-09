@@ -46,7 +46,7 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::list::ListType;
 use starlark::values::starlark_value;
-use starlark::values::typing::FrozenStarlarkCallable;
+use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
@@ -101,7 +101,8 @@ impl TransitiveSetProjectionKind {
 pub struct TransitiveSetProjectionSpec<'v> {
     #[freeze_branded(identity)]
     pub kind: TransitiveSetProjectionKind,
-    pub projection: ValueOfUnchecked<'v, FrozenStarlarkCallable<(Value<'static>,), Value<'static>>>,
+    pub projection:
+        ValueOfUnchecked<'v, StarlarkCallable<'static, (Value<'static>,), Value<'static>>>,
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
@@ -145,7 +146,7 @@ pub struct TransitiveSetOperations<'v> {
         String,
         ValueOfUnchecked<
             'v,
-            FrozenStarlarkCallable<(ListType<Value<'static>>, Value<'static>), Value<'static>>,
+            StarlarkCallable<'static, (ListType<Value<'static>>, Value<'static>), Value<'static>>,
         >,
     >,
 }

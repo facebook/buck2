@@ -74,7 +74,6 @@ use crate::typing::TyCallable;
 use crate::util::ArcStr;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -82,6 +81,7 @@ use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::ValueError;
 use crate::values::ValueIdentity;
+use crate::values::ValueTyped;
 use crate::values::bool::value::VALUE_FALSE_TRUE;
 use crate::values::demand::request_value_impl;
 use crate::values::dict::Dict;
@@ -378,10 +378,10 @@ impl<'v> Value<'v> {
     }
 
     #[inline]
-    pub(crate) fn unpack_int_value(self) -> Option<FrozenValueTyped<'v, PointerI32>> {
+    pub(crate) fn unpack_int_value(self) -> Option<ValueTyped<'v, PointerI32>> {
         if self.unpack_inline_int().is_some() {
-            // SAFETY: We've just checked the value is an int, and ints are frozen.
-            unsafe { Some(FrozenValueTyped::new_unchecked(self)) }
+            // SAFETY: We've just checked the value is an int.
+            unsafe { Some(ValueTyped::new_unchecked(self)) }
         } else {
             None
         }

@@ -40,7 +40,6 @@ use crate::any::AnyLifetime;
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 use crate::any::ReinfectStatic;
-use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::CoerceKey;
 use crate::typing::Ty;
@@ -61,7 +60,6 @@ use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
 use crate::values::alloc_value::AllocStringValue;
-use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -75,8 +73,13 @@ use crate::values::type_repr::StarlarkTypeRepr;
 pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 /// [`Value`] wrapper which asserts contained value is of type `<T>` and is frozen.
 ///
-/// The frozen bit of the pointer is set; every constructor establishes that, and the accessors
-/// rely on it.
+/// The brand of a frozen heap (`'fh`, `'fv`, `'fm`: no mutable heap has such a brand) already
+/// says that every value at it is frozen, so at such a brand [`ValueTyped`] is the type to use.
+/// This type exists for the one brand where frozen and unfrozen values mix, a module's value heap
+/// `'v`, when the frozen bit is a fact code needs about a value it is handed there: a
+/// provider collection or a transitive-set definition that is frozen by construction and is read
+/// without being copied. The frozen bit of the pointer is set; every constructor establishes
+/// that.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
 #[repr(transparent)]
@@ -178,6 +181,10 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
     }
 
     /// Construct typed value without checking the value is of type `<T>`.
+    ///
+    /// # Safety
+    ///
+    /// `value` must be of type `T`.
     #[inline]
     pub unsafe fn new_unchecked(value: Value<'v>) -> ValueTyped<'v, T> {
         debug_assert!(value.downcast_ref::<T>().is_some());
@@ -191,12 +198,41 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
         ValueTyped(Value::new_repr(repr), marker::PhantomData)
     }
 
+    /// A value allocated in a frozen heap: the pointer carries the frozen tag.
+    #[inline]
+    pub(crate) fn new_frozen_repr<A: AValue<'v, StarlarkValue = T>>(
+        repr: &'v AValueRepr<AValueImpl<'v, A>>,
+    ) -> ValueTyped<'v, T> {
+        ValueTyped(
+            Value::new_frozen_ptr(&repr.header, A::IS_STR),
+            marker::PhantomData,
+        )
+    }
+
+    /// Construct a typed wrapper around a value that may not be initialized yet.
+    ///
+    /// Unlike [`new_unchecked`](Self::new_unchecked), this omits even the `debug_assert`
+    /// type-check. This is useful in pagable deserialization.
+    ///
+    /// # Safety
+    ///
+    /// As for [`new_unchecked`](Self::new_unchecked), once the value is initialized.
+    #[inline]
+    pub(crate) unsafe fn new_allow_uninitialized(value: Value<'v>) -> ValueTyped<'v, T> {
+        ValueTyped(value, marker::PhantomData)
+    }
+
     /// A statically allocated value, which is usable at any brand because a `&'static` to it
     /// outlives every heap.
     #[inline]
     pub(crate) fn new_static_repr<A: AValue<'static, StarlarkValue = T>>(
         repr: &'static AValueRepr<AValueImpl<'static, A>>,
     ) -> ValueTyped<'v, T> {
+        // The value is reached by casting the tagged integer inside `Value` back to a pointer, so
+        // the provenance of the whole object must be exposed: the header alone, which the cast
+        // below goes through, is not large enough (`StarlarkStrNRepr::erase` does the same for
+        // the string statics).
+        let _ = std::ptr::from_ref(repr).expose_provenance();
         // Statics carry the frozen tag, like every value not allocated in an unfrozen heap.
         ValueTyped(
             Value::new_frozen_ptr(&repr.header, A::IS_STR),
@@ -258,40 +294,6 @@ struct NotFrozenError {
 }
 
 impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
-    pub(crate) fn is_str() -> bool {
-        T::static_type_id() == StarlarkStr::static_type_id()
-    }
-
-    pub(crate) fn is_pointer_i32() -> bool {
-        PointerI32::type_is_pointer_i32::<T>()
-    }
-
-    /// Construct `FrozenValueTyped` without checking the value.
-    ///
-    /// # Safety
-    ///
-    /// `value` must be of type `T` and frozen.
-    #[inline]
-    pub unsafe fn new_unchecked(value: Value<'v>) -> FrozenValueTyped<'v, T> {
-        debug_assert!(value.is_frozen());
-        debug_assert!(value.downcast_ref::<T>().is_some());
-        FrozenValueTyped(value, marker::PhantomData)
-    }
-
-    /// Construct a typed wrapper around a value that may not be initialized yet.
-    ///
-    /// Unlike [`new_unchecked`](Self::new_unchecked), this omits even the
-    /// `debug_assert` type-check. This is useful in pagable deserialization.
-    ///
-    /// # Safety
-    ///
-    /// As for [`new_unchecked`](Self::new_unchecked), once the value is initialized.
-    #[inline]
-    pub(crate) unsafe fn new_allow_uninitialized(value: Value<'v>) -> FrozenValueTyped<'v, T> {
-        debug_assert!(value.is_frozen());
-        FrozenValueTyped(value, marker::PhantomData)
-    }
-
     /// Downcast a value known to be frozen.
     #[inline]
     fn new_frozen(value: Value<'v>) -> Option<FrozenValueTyped<'v, T>> {
@@ -322,16 +324,6 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         Ok(FrozenValueTyped(value, marker::PhantomData))
     }
 
-    #[inline]
-    pub(crate) fn new_repr<A: AValue<'v, StarlarkValue = T>>(
-        repr: &'v AValueRepr<AValueImpl<'v, A>>,
-    ) -> FrozenValueTyped<'v, T> {
-        FrozenValueTyped(
-            Value::new_frozen_ptr(&repr.header, A::IS_STR),
-            marker::PhantomData,
-        )
-    }
-
     /// Erase the type.
     #[inline]
     pub fn to_value(self) -> Value<'v> {
@@ -341,54 +333,18 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
     /// Convert to the value.
     #[inline]
     pub fn to_value_typed(self) -> ValueTyped<'v, T> {
+        // SAFETY: Type checked in the constructors.
         unsafe { ValueTyped::new_unchecked(self.0) }
     }
 
     /// Get the reference to the pointed value.
     #[inline]
     pub fn as_ref(self) -> &'v T {
-        // SAFETY: Type checked in the constructors; the frozen bit is set, see the type doc.
-        if Self::is_pointer_i32() {
-            unsafe { transmute!(&PointerI32, &T, self.0.0.unpack_pointer_i32_unchecked()) }
-        } else if Self::is_str() {
-            unsafe {
-                self.0
-                    .0
-                    .unpack_ptr_no_int_unchecked()
-                    .unpack_header_unchecked()
-                    .payload::<T>()
-            }
-        } else {
-            // When a frozen pointer is not str and not int,
-            // unpack is does not need untagging.
-            // This generates slightly more efficient machine code.
-            unsafe {
-                self.0
-                    .0
-                    .to_frozen_pointer_unchecked()
-                    .unpack_ptr_no_int_no_str_unchecked()
-                    .unpack_header_unchecked()
-                    .payload::<T>()
-            }
-        }
-    }
-
-    /// Convert to another `Value` wrapper.
-    #[inline]
-    pub fn to_value_of_unchecked(self) -> ValueOfUnchecked<'v, T> {
-        ValueOfUnchecked::new(self.to_value())
+        self.to_value_typed().as_ref()
     }
 }
 
 impl<'v> ValueTyped<'v, StarlarkStr> {
-    /// Get the Rust string reference.
-    #[inline]
-    pub fn as_str(self) -> &'v str {
-        self.as_ref().as_str()
-    }
-}
-
-impl<'v> FrozenValueTyped<'v, StarlarkStr> {
     /// Get the Rust string reference.
     #[inline]
     pub fn as_str(self) -> &'v str {
@@ -530,10 +486,11 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for Froze
     fn starlark_deserialize(
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
-        let v = ctx.deserialize_value()?;
-        // SAFETY: pagable deserializes this field through the same Rust type
-        // that serialized it, and it deserializes only frozen heaps.
-        Ok(unsafe { FrozenValueTyped::new_allow_uninitialized(v) })
+        let v = ValueTyped::<T>::starlark_deserialize(ctx)?.to_value();
+        // Pagable deserializes only frozen heaps, so the pointer carries the frozen tag even
+        // before the value behind it is initialized.
+        debug_assert!(v.is_frozen());
+        Ok(FrozenValueTyped(v, marker::PhantomData))
     }
 }
 
@@ -552,7 +509,10 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for Value
     fn starlark_deserialize(
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
-        Ok(FrozenValueTyped::<T>::starlark_deserialize(ctx)?.to_value_typed())
+        let v = ctx.deserialize_value()?;
+        // SAFETY: pagable deserializes this field through the same Rust type that serialized
+        // it.
+        Ok(unsafe { ValueTyped::new_allow_uninitialized(v) })
     }
 }
 
@@ -573,7 +533,11 @@ const _: () = assert!(mem::size_of::<Option<Value<'static>>>() == mem::size_of::
 impl<'v, T: StarlarkValue<'v>> AtomicValueTypedOption<'v, T> {
     fn encode(value: Option<ValueTyped<'v, T>>) -> *mut () {
         let value: Option<Value<'v>> = value.map(ValueTyped::to_value);
-        debug_assert!(value.is_none_or(|v| v.is_frozen()));
+        // Not traced, so an unfrozen value stored here would dangle after a GC; fail loudly.
+        assert!(
+            value.is_none_or(|v| v.is_frozen()),
+            "`AtomicValueTypedOption` holds frozen values only"
+        );
         // SAFETY: The sizes match (asserted above), and `Option<Value>` has no padding: `None`
         // is the null niche of the pointer.
         unsafe { mem::transmute(value) }
