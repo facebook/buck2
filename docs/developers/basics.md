@@ -54,6 +54,8 @@ Standard `rustfmt` conventions apply. Beyond that:
   where they fit.
 - **String conversion**: prefer `.to_owned()` over `.to_string()` for `&str` →
   `String`.
+- **Durations**: never call `.elapsed()` (lint-enforced in `app/`); compute
+  `Instant::now() - start` so the time source is explicit.
 - **Imports**: use `use crate::foo::bar`, not `use super::bar`. Place all `use`
   statements at the module level — never inside a function or block. Test
   modules may use `use super::*;` at the top.
