@@ -381,7 +381,6 @@ def _encode_kotlin_extra_params(
         kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
         shouldUseJvmAbiGen = should_use_jvm_abi_gen,
         shouldVerifySourceOnlyAbiConstraints = is_source_only_abi,
-        shouldGenerateAnnotationProcessingStats = True,
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,

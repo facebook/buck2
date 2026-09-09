@@ -45,7 +45,7 @@ message KotlinExtraParams {
   repeated string friendPaths = 10;
   repeated string kotlinHomeLibraries = 11;
   string jvmTarget = 12;
-  bool shouldGenerateAnnotationProcessingStats = 13;
+  reserved 13;
   bool shouldUseJvmAbiGen = 14;
   string jvmAbiGenPlugin = 15;
   bool shouldVerifySourceOnlyAbiConstraints = 16;
