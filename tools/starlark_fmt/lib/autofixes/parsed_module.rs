@@ -17,7 +17,6 @@ use ruff_python_parser::ParseError;
 use ruff_python_parser::Parsed;
 use ruff_python_parser::parse_module;
 use ruff_python_trivia::CommentRanges;
-use ruff_python_trivia::SuppressionKind;
 use ruff_source_file::LineIndex;
 use ruff_source_file::LineRanges;
 use ruff_text_size::Ranged;
@@ -25,53 +24,8 @@ use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use tracing::info_span;
 
-// ============================================================================
-// fmt:off support
-// ============================================================================
-
-/// Find all `# fmt: off` regions in the source code.
-///
-/// Returns a list of ranges where formatting should be disabled.
-/// Each range starts at the beginning of the `# fmt: off` comment and ends at
-/// the beginning of the corresponding `# fmt: on` comment (or end of file if none).
-fn find_fmt_off_ranges(source: &str) -> Vec<TextRange> {
-    let mut ranges = Vec::new();
-    let mut off_start: Option<TextSize> = None;
-
-    for (line_start, line) in line_byte_offsets(source) {
-        let trimmed = line.trim();
-
-        // Use ruff's SuppressionKind for parsing
-        match SuppressionKind::from_comment(trimmed) {
-            Some(SuppressionKind::Off) if off_start.is_none() => {
-                off_start = Some(TextSize::from(line_start as u32));
-            }
-            Some(SuppressionKind::On) => {
-                if let Some(start) = off_start.take() {
-                    ranges.push(TextRange::new(start, TextSize::from(line_start as u32)));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    // If fmt: off was never closed, extend to end of file
-    if let Some(start) = off_start {
-        ranges.push(TextRange::new(start, TextSize::from(source.len() as u32)));
-    }
-
-    ranges
-}
-
-/// Iterate over lines with their byte offsets.
-fn line_byte_offsets(source: &str) -> impl Iterator<Item = (usize, &str)> {
-    let mut offset = 0;
-    source.lines().map(move |line| {
-        let start = offset;
-        offset += line.len() + 1; // +1 for newline
-        (start, line)
-    })
-}
+use super::fmt_suppression::find_fmt_off_ranges;
+use super::fmt_suppression::overlaps_fmt_off_region;
 
 /// Format a TextRange as line:column, line:col1-col2, or line1:col1-line2:col2.
 ///
@@ -96,13 +50,6 @@ pub(crate) fn format_location(source: &str, range: TextRange) -> String {
     }
 }
 
-/// Check if a text range overlaps with any `fmt: off` region.
-fn is_in_fmt_off_region(range: TextRange, fmt_off_ranges: &[TextRange]) -> bool {
-    fmt_off_ranges
-        .iter()
-        .any(|r| r.start() < range.end() && range.start() < r.end())
-}
-
 /// Filter out edits that fall within fmt:off regions.
 fn filter_edits_by_fmt_off(edits: Vec<Edit>, fmt_off_ranges: &[TextRange]) -> Vec<Edit> {
     if fmt_off_ranges.is_empty() {
@@ -110,7 +57,7 @@ fn filter_edits_by_fmt_off(edits: Vec<Edit>, fmt_off_ranges: &[TextRange]) -> Ve
     } else {
         edits
             .into_iter()
-            .filter(|edit| !is_in_fmt_off_region(edit.range, fmt_off_ranges))
+            .filter(|edit| !overlaps_fmt_off_region(edit.range, fmt_off_ranges))
             .collect()
     }
 }
@@ -141,6 +88,7 @@ pub struct ParsedModule<'a> {
     source: Cow<'a, str>,
     parsed: Parsed<ModModule>,
     comments: CommentRanges,
+    line_index: LineIndex,
 }
 
 impl<'a> ParsedModule<'a> {
@@ -170,10 +118,12 @@ impl<'a> ParsedModule<'a> {
             }
         })?;
         let comments: CommentRanges = parsed.tokens().into();
+        let line_index = LineIndex::from_source_text(&source);
         Ok(Self {
             source,
             parsed,
             comments,
+            line_index,
         })
     }
 
@@ -187,6 +137,15 @@ impl<'a> ParsedModule<'a> {
             .comments_in_range(range)
             .iter()
             .map(|r| &self.source[*r])
+    }
+
+    /// Returns the line index built once at parse time.
+    ///
+    /// Pass this to helpers taking a `&LineIndex` (e.g.
+    /// [`find_fmt_off_ranges`](super::fmt_suppression::find_fmt_off_ranges))
+    /// so the line model is shared instead of rebuilt per call.
+    pub(crate) fn line_index(&self) -> &LineIndex {
+        &self.line_index
     }
 
     /// Returns the end position of the line containing `offset`.
@@ -242,7 +201,7 @@ impl<'a> ParsedModule<'a> {
         }
 
         // Filter out edits in fmt:off regions
-        let fmt_off_ranges = find_fmt_off_ranges(&self.source);
+        let fmt_off_ranges = find_fmt_off_ranges(&self.source, &self.line_index);
         edits = filter_edits_by_fmt_off(edits, &fmt_off_ranges);
 
         if edits.is_empty() {

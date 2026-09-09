@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+mod fmt_suppression;
 mod load_utils;
 mod move_loads_to_top;
 pub mod parsed_module;
