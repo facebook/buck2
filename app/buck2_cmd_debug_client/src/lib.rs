@@ -37,6 +37,8 @@ use crate::set_log_filter::SetLogFilterCommand;
 use crate::thread_dump::ThreadDumpCommand;
 use crate::trace_io::TraceIoCommand;
 use crate::upload_re_logs::UploadReLogsCommand;
+#[cfg(target_os = "linux")]
+use crate::watches::WatchesCommand;
 
 mod allocative;
 mod allocator_stats;
@@ -59,6 +61,8 @@ mod set_log_filter;
 mod thread_dump;
 mod trace_io;
 mod upload_re_logs;
+#[cfg(target_os = "linux")]
+mod watches;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Hidden debug commands useful for testing buck2")]
@@ -100,6 +104,9 @@ pub enum DebugCommand {
     Paranoid(ParanoidCommand),
     Eval(EvalCommand),
     ThreadDump(ThreadDumpCommand),
+    /// Lists project directories the daemon holds no inotify watch for.
+    #[cfg(target_os = "linux")]
+    Watches(WatchesCommand),
     /// Control DICE node value page-out / page-in.
     #[clap(subcommand)]
     Hydration(HydrationCommand),
@@ -135,6 +142,8 @@ impl DebugCommand {
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
+            #[cfg(target_os = "linux")]
+            DebugCommand::Watches(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Hydration(cmd) => ctx.exec(cmd, matches, events_ctx),
         }
     }
