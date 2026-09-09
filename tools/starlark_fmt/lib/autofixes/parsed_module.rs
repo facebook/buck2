@@ -148,6 +148,14 @@ impl<'a> ParsedModule<'a> {
         &self.line_index
     }
 
+    /// Returns the lexer-grounded comment ranges for the module.
+    ///
+    /// Prefer this over scanning source text for `#`: the index only contains
+    /// real comments, so `#` inside string literals never false-positives.
+    pub(crate) fn comment_ranges(&self) -> &CommentRanges {
+        &self.comments
+    }
+
     /// Returns the end position of the line containing `offset`.
     pub(crate) fn line_end(&self, offset: TextSize) -> TextSize {
         self.source.line_end(offset)

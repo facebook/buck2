@@ -51,6 +51,7 @@ use ruff_python_ast::Stmt;
 use ruff_python_ast::visitor::Visitor;
 use ruff_python_ast::visitor::walk_expr;
 use ruff_python_ast::visitor::walk_stmt;
+use ruff_python_trivia::CommentRanges;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -155,14 +156,14 @@ fn compare_buildifier_string_values(a: &str, b: &str) -> Ordering {
         .then_with(|| a.cmp(b))
 }
 
-fn sorted_indices(values: &[Cow<str>], deduplicate: bool) -> Vec<usize> {
+fn sorted_indices<T: AsRef<str>>(values: &[T], deduplicate: bool) -> Vec<usize> {
     // `Vec::sort_by` is stable, so equal keys preserve insertion order.
     // No explicit tiebreaker on the original index is needed.
     let mut indices: Vec<usize> = (0..values.len()).collect();
     indices
         .sort_by(|&a, &b| compare_buildifier_string_values(values[a].as_ref(), values[b].as_ref()));
     if deduplicate {
-        indices.dedup_by(|a, b| values[*a] == values[*b]);
+        indices.dedup_by(|a, b| values[*a].as_ref() == values[*b].as_ref());
     }
     indices
 }
@@ -171,15 +172,35 @@ fn is_unchanged_unique_order(indices: &[usize], original_len: usize) -> bool {
     indices.len() == original_len && indices.iter().enumerate().all(|(i, &j)| i == j)
 }
 
-/// Check if source text contains a comment that isn't a "keep sorted" directive.
-fn has_non_directive_comment(content: &str) -> bool {
-    content.contains('#') && find_ignore_ascii_case(content, "keep sorted").is_none()
+/// Check if a range contains a real comment that isn't a "keep sorted" directive.
+///
+/// Routed through the lexer's comment index (not a text scan for `#`), so `#`
+/// inside string literals never counts. A `keep sorted` directive anywhere in
+/// the range suppresses the whole range, matching the previous region-level
+/// behavior — except the directive itself is now matched against comment text
+/// only, so a `keep sorted` substring inside a string literal no longer
+/// suppresses the range either.
+fn has_non_directive_comment_in(module: &ParsedModule, range: TextRange) -> bool {
+    let mut found = false;
+    for comment in module.comments_in_range(range) {
+        if find_ignore_ascii_case(comment, "keep sorted").is_some() {
+            return false;
+        }
+        found = true;
+    }
+    found
 }
 
-fn has_line_comment(source: &str, range: TextRange) -> bool {
-    source[range]
-        .lines()
-        .any(|line| line.trim_start().starts_with('#'))
+/// Check if a range contains an own-line comment (as opposed to trailing code).
+///
+/// A `#` inside a string literal is not a comment; a trailing `# note` after
+/// code is a comment but not an own-line one.
+fn has_own_line_comment(module: &ParsedModule, range: TextRange) -> bool {
+    module
+        .comment_ranges()
+        .comments_in_range(range)
+        .iter()
+        .any(|comment| CommentRanges::is_own_line(comment.start(), module.source()))
 }
 
 fn has_do_not_sort_directive(module: &ParsedModule, range: TextRange) -> bool {
@@ -203,9 +224,10 @@ fn has_do_not_sort_on_first_element(module: &ParsedModule, list: &ExprList) -> b
 /// Force-sorting a mixed list can reorder only a subset of elements and break
 /// call-specific invariants (for example, `conditional_deps` total ordering).
 /// Only allow force sorting when every element is individually sortable (a
-/// string literal or an `external_deps`-style tuple).
-fn can_force_sort_list(list: &ExprList) -> bool {
-    list.elts.iter().all(|elt| element_sort_key(elt).is_some())
+/// string literal or an `external_deps`-style tuple). Takes the already
+/// extracted keys so callers don't extract every key twice.
+fn can_force_sort_list(sort_keys: &[Option<Cow<str>>]) -> bool {
+    sort_keys.iter().all(|key| key.is_some())
 }
 
 /// Check if a list needs sorting and return edits.
@@ -215,14 +237,14 @@ fn can_force_sort_list(list: &ExprList) -> bool {
 /// inline comments (e.g., `# @manual`) move with their element.
 fn collect_sorted_elements_with_comments(
     list: &ExprList,
-    source: &str,
+    module: &ParsedModule,
+    sort_keys: &[Option<Cow<str>>],
     force_sort: bool,
 ) -> Option<Vec<(TextRange, String)>> {
-    let sort_keys = list.elts.iter().map(element_sort_key).collect::<Vec<_>>();
     let context = ElementSortContext {
         list,
-        source,
-        sort_keys: &sort_keys,
+        module,
+        sort_keys,
         deduplicate: true,
     };
     collect_sorted_elements_with_keys(&context, force_sort)
@@ -234,10 +256,11 @@ fn collect_sorted_elements_with_keys(
 ) -> Option<Vec<(TextRange, String)>> {
     let ElementSortContext {
         list,
-        source,
+        module,
         sort_keys,
         ..
     } = context;
+    let source = module.source();
     let elts = &list.elts;
     if elts.len() < 2 {
         return None;
@@ -251,8 +274,18 @@ fn collect_sorted_elements_with_keys(
         return collect_sorted_elements(&context);
     }
 
-    if !force_sort && has_line_comment(source, list.range()) {
-        return collect_deduplicated_elements(list, source);
+    // Fast path: no comments anywhere in the list means no own-line
+    // comments, no `keep sorted` directives, and no per-gap comments.
+    if module
+        .comment_ranges()
+        .comments_in_range(list.range())
+        .is_empty()
+    {
+        return sort_multiline_list(&context);
+    }
+
+    if !force_sort && has_own_line_comment(module, list.range()) {
+        return collect_deduplicated_elements(list, module);
     }
 
     // Check if there are any comments (excluding "keep sorted" directives)
@@ -268,8 +301,13 @@ fn collect_sorted_elements_with_keys(
         if content_start > elt_start {
             return false;
         }
-        let content = &source[content_start..elt_start];
-        has_non_directive_comment(content)
+        has_non_directive_comment_in(
+            module,
+            TextRange::new(
+                TextSize::from(content_start as u32),
+                TextSize::from(elt_start as u32),
+            ),
+        )
     });
 
     // If no comments, sort the entire list using block ranges
@@ -315,8 +353,11 @@ fn collect_sorted_elements_with_keys(
             if after_prev_line > cur_start {
                 continue;
             }
-            let content = &source[after_prev_line..cur_start];
-            if has_non_directive_comment(content) {
+            let content = TextRange::new(
+                TextSize::from(after_prev_line as u32),
+                TextSize::from(cur_start as u32),
+            );
+            if has_non_directive_comment_in(module, content) {
                 if let Some(edits) = sort_element_group(&context, group_start..j) {
                     all_edits.extend(edits);
                 }
@@ -338,7 +379,7 @@ fn collect_sorted_elements_with_keys(
 
 struct ElementSortContext<'a, 'value> {
     list: &'a ExprList,
-    source: &'a str,
+    module: &'a ParsedModule<'a>,
     sort_keys: &'a [Option<Cow<'value, str>>],
     deduplicate: bool,
 }
@@ -382,9 +423,10 @@ fn sort_multiline_list(context: &ElementSortContext<'_, '_>) -> Option<Vec<(Text
 fn first_element_block_start(
     list: &ExprList,
     elts: &[Expr],
-    source: &str,
+    module: &ParsedModule,
     group_start: usize,
 ) -> TextSize {
+    let source = module.source();
     if group_start == 0 {
         // First element in list: start after the '[' line
         let bracket_line_end = find_line_end(source, list.range().start());
@@ -396,23 +438,31 @@ fn first_element_block_start(
             // First element is on the same line as '[' — use element's line start
             return TextSize::from(line_start(source, first_elt_start.to_usize()) as u32);
         }
-        let between = &source[after_bracket.to_usize()..first_elt_start.to_usize()];
+        // Route the `keep sorted` lookup through the lexer comment index (like
+        // the checks below) so a matching substring inside a string literal
+        // can't pin the block start.
+        let keep_sorted_after = module
+            .comment_ranges()
+            .comments_in_range(TextRange::new(after_bracket, first_elt_start))
+            .iter()
+            .find(|comment| find_ignore_ascii_case(&source[**comment], "keep sorted").is_some())
+            .map(|comment| offset_past_newline(source, find_line_end(source, comment.end())));
 
-        if let Some(ks_pos) = find_ignore_ascii_case(between, "keep sorted") {
-            // Keep sorted directive: start after it so it stays pinned
-            if let Some(newline_after) = between[ks_pos..].find('\n') {
-                let after_ks = after_bracket + TextSize::from((ks_pos + newline_after + 1) as u32);
-                // Check if there's ALSO a group header comment after the keep-sorted
-                let remaining = &source[after_ks.to_usize()..elts[0].range().start().to_usize()];
-                if has_non_directive_comment(remaining) {
-                    let elt_start = elts[0].range().start().to_usize();
-                    return TextSize::from(line_start(source, elt_start) as u32);
-                }
-                return after_ks;
+        if let Some(after_ks) = keep_sorted_after {
+            // Keep sorted directive: start after it so it stays pinned.
+            // Check if there's ALSO a group header comment after the keep-sorted
+            let remaining = TextRange::new(after_ks, elts[0].range().start());
+            if has_non_directive_comment_in(module, remaining) {
+                let elt_start = elts[0].range().start().to_usize();
+                return TextSize::from(line_start(source, elt_start) as u32);
             }
+            return after_ks;
         }
 
-        if has_non_directive_comment(between) {
+        if has_non_directive_comment_in(
+            module,
+            TextRange::new(after_bracket, elts[0].range().start()),
+        ) {
             // Group header comment (not keep-sorted): don't include it in the
             // first element's block. Start from the element's own line instead.
             let elt_start = elts[0].range().start().to_usize();
@@ -441,10 +491,11 @@ fn sort_element_group(
 ) -> Option<Vec<(TextRange, String)>> {
     let ElementSortContext {
         list,
-        source,
+        module,
         sort_keys,
         deduplicate,
     } = context;
+    let source = module.source();
     let elts = &list.elts;
     let group_start = group.start;
     let group_end = group.end;
@@ -452,23 +503,25 @@ fn sort_element_group(
         return None;
     }
 
-    let group_sort_keys: Vec<Cow<str>> = (group_start..group_end)
+    // Borrow the group's keys instead of cloning them: most keys are
+    // `Cow::Borrowed`, so cloning would duplicate every pointer/length
+    // pair only to drop them after the sort.
+    let group_sort_keys: Vec<&str> = (group_start..group_end)
         .map(|idx| {
             sort_keys[idx]
-                .as_ref()
+                .as_deref()
                 .expect("group elements are pre-filtered to sortable elements")
-                .clone()
         })
         .collect();
 
-    let sorted_indices = sorted_indices(&group_sort_keys, *deduplicate);
+    let group_order = sorted_indices(&group_sort_keys, *deduplicate);
 
-    if is_unchanged_unique_order(&sorted_indices, group_sort_keys.len()) {
+    if is_unchanged_unique_order(&group_order, group_sort_keys.len()) {
         return None;
     }
 
     // Compute line-based block ranges for each element in the group
-    let first_start = first_element_block_start(list, elts, source, group_start);
+    let first_start = first_element_block_start(list, elts, module, group_start);
     let element_ends: Vec<TextSize> = (group_start..group_end)
         .map(|idx| elts[idx].range().end())
         .collect();
@@ -483,9 +536,13 @@ fn sort_element_group(
         block_ranges[0].start(),
         block_ranges[block_ranges.len() - 1].end(),
     );
-    let group_size = sorted_indices.len();
-    let mut replacement = String::new();
-    for (new_pos, &old_pos) in sorted_indices.iter().enumerate() {
+    let group_size = group_order.len();
+    // Reserve the tiled span up front so the push loop doesn't regrow
+    // geometrically. This is exact when blocks move as-is; a missing
+    // trailing comma can add a byte (at most one extra regrow), and under
+    // `deduplicate` fewer blocks move than reserved (harmless over-reserve).
+    let mut replacement = String::with_capacity(group_range.len().to_usize());
+    for (new_pos, &old_pos) in group_order.iter().enumerate() {
         let source_range = block_ranges[old_pos];
         let block = &source[source_range];
 
@@ -549,10 +606,11 @@ fn collect_sorted_elements_simple(
 ) -> Option<Vec<(TextRange, String)>> {
     let ElementSortContext {
         list,
-        source,
+        module,
         sort_keys,
         deduplicate,
     } = context;
+    let source = module.source();
     let elts = &list.elts;
     let run_start = run.start;
     let run_end = run.end;
@@ -560,8 +618,12 @@ fn collect_sorted_elements_simple(
         return None;
     }
 
-    let run_sort_keys: Vec<Cow<str>> = (run_start..run_end)
-        .map(|idx| sort_keys[idx].clone().unwrap_or(Cow::Borrowed("")))
+    // Borrow the run's keys: `sorted_indices` is generic over `AsRef<str>`,
+    // so no clone is needed. Runs are pre-filtered to sortable elements, but
+    // keep the empty-key fallback (rather than asserting) to preserve the
+    // long-standing behavior for any future caller.
+    let run_sort_keys: Vec<&str> = (run_start..run_end)
+        .map(|idx| sort_keys[idx].as_deref().unwrap_or(""))
         .collect();
     let indices = sorted_indices(&run_sort_keys, *deduplicate);
 
@@ -569,11 +631,20 @@ fn collect_sorted_elements_simple(
         return None;
     }
 
-    let replacement = indices
-        .iter()
-        .map(|&old_pos| source[elts[run_start + old_pos].range()].to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
+    let replacement = {
+        let estimate: usize = indices
+            .iter()
+            .map(|&old_pos| elts[run_start + old_pos].range().len().to_usize())
+            .sum();
+        let mut replacement = String::with_capacity(estimate + 2 * indices.len().saturating_sub(1));
+        for (pos, &old_pos) in indices.iter().enumerate() {
+            if pos > 0 {
+                replacement.push_str(", ");
+            }
+            replacement.push_str(&source[elts[run_start + old_pos].range()]);
+        }
+        replacement
+    };
     let range = TextRange::new(
         elts[run_start].range().start(),
         elts[run_end - 1].range().end(),
@@ -603,11 +674,12 @@ fn single_line_duplicate_range(list: &ExprList, elt: &Expr, source: &str) -> Tex
 fn multiline_duplicate_range(
     list: &ExprList,
     elts: &[Expr],
-    source: &str,
+    module: &ParsedModule,
     idx: usize,
 ) -> TextRange {
+    let source = module.source();
     let start = if idx == 0 {
-        first_element_block_start(list, elts, source, 0)
+        first_element_block_start(list, elts, module, 0)
     } else {
         offset_past_newline(source, find_line_end(source, elts[idx - 1].range().end()))
     };
@@ -617,8 +689,9 @@ fn multiline_duplicate_range(
 
 fn collect_deduplicated_elements(
     list: &ExprList,
-    source: &str,
+    module: &ParsedModule,
 ) -> Option<Vec<(TextRange, String)>> {
+    let source = module.source();
     let elts = &list.elts;
     if elts.len() < 2 {
         return None;
@@ -640,7 +713,7 @@ fn collect_deduplicated_elements(
         let range = if is_single_line {
             single_line_duplicate_range(list, elt, source)
         } else {
-            multiline_duplicate_range(list, elts, source, idx)
+            multiline_duplicate_range(list, elts, module, idx)
         };
         edits.push((range, String::new()));
     }
@@ -719,8 +792,9 @@ struct ListArgSorter<'a, 'c> {
     config: &'c Config,
     sort_rule_args: bool,
     edits: Vec<Edit>,
-    /// Stack of function names for nested calls.
-    call_stack: Vec<Option<String>>,
+    /// Stack of function names for nested calls, borrowed from the AST so
+    /// visiting a call allocates nothing.
+    call_stack: Vec<Option<&'a str>>,
     /// End offset of the previous statement for statement-level directive checks.
     prev_stmt_end: TextSize,
     /// Track lists that were already processed to avoid duplicate edits.
@@ -741,7 +815,7 @@ impl<'a, 'c> ListArgSorter<'a, 'c> {
     }
 
     fn current_macro_name(&self) -> Option<&str> {
-        self.call_stack.last().and_then(|s| s.as_deref())
+        self.call_stack.last().copied().flatten()
     }
 
     fn should_sort_arg(&self, arg_name: &str) -> bool {
@@ -761,7 +835,7 @@ impl<'a, 'c> ListArgSorter<'a, 'c> {
     }
 
     fn deduplicate_list(&mut self, list: &ExprList) {
-        if let Some(element_edits) = collect_deduplicated_elements(list, self.module.source()) {
+        if let Some(element_edits) = collect_deduplicated_elements(list, self.module) {
             for (range, replacement) in element_edits {
                 self.edits.push(Edit::new(range, replacement));
             }
@@ -779,9 +853,17 @@ impl<'a, 'c> ListArgSorter<'a, 'c> {
             return;
         }
 
-        let force_sort = force_sort && can_force_sort_list(list);
+        // Check the cheap early exit before extracting a key per element:
+        // lists with fewer than two elements never need sorting.
+        if list.elts.len() < 2 {
+            return;
+        }
+        // Extract keys once and share them: the force-sort check below used
+        // to re-extract (and drop) every key, doubling extraction work.
+        let sort_keys = list.elts.iter().map(element_sort_key).collect::<Vec<_>>();
+        let force_sort = force_sort && can_force_sort_list(&sort_keys);
         if let Some(element_edits) =
-            collect_sorted_elements_with_comments(list, self.module.source(), force_sort)
+            collect_sorted_elements_with_comments(list, self.module, &sort_keys, force_sort)
         {
             for (range, replacement) in element_edits {
                 self.edits.push(Edit::new(range, replacement));
@@ -850,8 +932,7 @@ impl<'a, 'c> Visitor<'a> for ListArgSorter<'a, 'c> {
 
     fn visit_expr(&mut self, expr: &'a Expr) {
         if let Expr::Call(call) = expr {
-            let func_name = call_func_name(call).map(String::from);
-            self.call_stack.push(func_name);
+            self.call_stack.push(call_func_name(call));
 
             // Process keyword arguments
             if self.sort_rule_args {
@@ -1495,6 +1576,57 @@ mod tests {
     fn test_deduplicates_while_sorting() {
         let source = "my_rule(deps=[\":b\", \":a\", \":a\", \":b\"])\n";
         assert_eq!(run(source), "my_rule(deps=[\":a\", \":b\"])\n");
+    }
+
+    #[test]
+    fn test_comment_checks_ignore_hash_inside_strings() {
+        // A `#` inside a string literal is not a comment: it must neither
+        // force the dedup-only path nor split groups.
+        let source = "my_rule(deps = [\"//a#b\"])\n# trailing note\n";
+        let module = ParsedModule::parse(Cow::Borrowed(source)).expect("parse");
+        let Stmt::Expr(stmt) = &module.stmts()[0] else {
+            panic!("expected an expression statement");
+        };
+        let Expr::Call(call) = stmt.value.as_ref() else {
+            panic!("expected a call");
+        };
+        let Expr::List(list) = &call.arguments.keywords[0].value else {
+            panic!("expected a list");
+        };
+        let elt_range = list.elts[0].range();
+        assert!(
+            !has_own_line_comment(&module, elt_range),
+            "hash inside a string literal is not a comment"
+        );
+        assert!(
+            !has_non_directive_comment_in(&module, elt_range),
+            "hash inside a string literal is not a comment"
+        );
+        let file_range = TextRange::new(TextSize::from(0), TextSize::of(source));
+        assert!(has_own_line_comment(&module, file_range));
+        assert!(has_non_directive_comment_in(&module, file_range));
+    }
+
+    #[test]
+    fn test_hash_line_inside_multiline_string_does_not_block_sorting() {
+        // The `#` below starts a line but lives inside a triple-quoted string,
+        // so the list must still sort instead of falling back to dedup-only.
+        let source = indoc! {r#"
+            my_rule(
+                deps = [
+                    ":z",
+                    """
+            # inside string
+            """,
+                    ":a",
+                ],
+            )
+        "#};
+        let result = run(source);
+        assert!(
+            result.find("\":a\"").unwrap() < result.find("\":z\"").unwrap(),
+            "list should be sorted, got: {result}"
+        );
     }
 
     #[test]

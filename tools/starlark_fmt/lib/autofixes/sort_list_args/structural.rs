@@ -127,7 +127,7 @@ impl<'a, 'c> StructuralListArgSorter<'a, 'c> {
 
         let context = ElementSortContext {
             list,
-            source: self.legacy.module.source(),
+            module: self.legacy.module,
             sort_keys: &sort_keys,
             deduplicate: false,
         };
@@ -202,9 +202,7 @@ impl<'a, 'c> Visitor<'a> for StructuralListArgSorter<'a, 'c> {
 
         match expr {
             Expr::Call(call) => {
-                self.legacy
-                    .call_stack
-                    .push(call_func_name(call).map(String::from));
+                self.legacy.call_stack.push(call_func_name(call));
                 let mut configured_callee = None;
 
                 for keyword in &call.arguments.keywords {
