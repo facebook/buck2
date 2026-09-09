@@ -433,14 +433,6 @@ impl<'v> AValueDyn<'v> {
         (self.vtable.starlark_serialize)(self.value, ctx)
     }
 
-    #[expect(dead_code)]
-    pub(crate) fn starlark_deserialize(
-        self,
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
-    ) -> crate::Result<()> {
-        (self.vtable.starlark_deserialize)(self.value, ctx)
-    }
-
     #[inline]
     pub(crate) fn documentation(self) -> DocItem {
         (self.vtable.starlark_value.documentation)(self.value)

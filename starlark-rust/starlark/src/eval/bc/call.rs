@@ -68,7 +68,6 @@ pub(crate) trait BcCallArgsForDef: 'static {
 
 /// Full call arguments: positional, named, star and star-star. All taken from the stack.
 #[derive(Debug, StarlarkPagable)]
-#[starlark_pagable(bound = "S: ArgSymbol + starlark::pagable::StarlarkPagable")]
 pub(crate) struct BcCallArgsFull<'v, S: ArgSymbol> {
     pub(crate) pos_named: BcSlotInRange,
     pub(crate) names: Box<[(S, StringValue<'v>)]>,

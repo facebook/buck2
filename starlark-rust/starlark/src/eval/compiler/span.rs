@@ -21,13 +21,11 @@ use starlark_derive::StarlarkPagable;
 
 use crate as starlark;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::pagable::StarlarkPagable;
 
 /// Similar to `Spanned<T>` but with file span.
 ///
 /// For intermediate representation.
 #[derive(Clone, Copy, Debug, StarlarkPagable)]
-#[starlark_pagable(bound = "T: StarlarkPagable")]
 pub(crate) struct IrSpanned<'f, T> {
     pub(crate) span: FrameSpan<'f>,
     pub(crate) node: T,

@@ -41,7 +41,6 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::eval::ParametersSpecParam;
-use crate::pagable::StarlarkPagable;
 use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -140,7 +139,6 @@ pub(crate) enum RecordTypeError {
     Allocative,
     starlark_derive::StarlarkPagable
 )]
-#[starlark_pagable(bound = "V: StarlarkPagable")]
 #[trace(bound = "")]
 pub struct RecordTypeGen<'v, V: RecordVariant + 'static> {
     pub(crate) id: TypeInstanceId,

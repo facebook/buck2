@@ -240,7 +240,6 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
 /// as a type-repr marker.
 #[derive(Allocative)]
 #[allocative(bound = "")]
-#[derive(StarlarkPagable)]
 pub struct FrozenStarlarkCallable<
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,
     R: StarlarkTypeRepr = Value<'static>,

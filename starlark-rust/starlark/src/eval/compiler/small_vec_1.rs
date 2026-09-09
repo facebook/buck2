@@ -34,7 +34,6 @@ use crate as starlark;
 
 /// A small vector.
 #[derive(Clone, Allocative, StarlarkPagable)]
-#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
 pub(crate) enum SmallVec1<T> {
     One(T),
     Vec(Vec<T>),

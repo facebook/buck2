@@ -85,7 +85,6 @@ use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
-use crate::pagable::StarlarkPagable;
 use crate::register_starlark_any;
 use crate::register_starlark_any_complex;
 use crate::static_starlark_value;
@@ -181,7 +180,6 @@ pub(crate) struct ParameterName {
 }
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-#[starlark_pagable(bound = "T: StarlarkPagable")]
 pub(crate) enum ParameterCompiled<'f, T> {
     Normal(
         /// Name.
@@ -257,7 +255,6 @@ impl<'f, T> ParameterCompiled<'f, T> {
 }
 
 #[derive(Debug, Clone, VisitSpanMut, StarlarkPagable)]
-#[starlark_pagable(bound = "T: StarlarkPagable")]
 pub(crate) struct ParametersCompiled<'f, T> {
     pub(crate) params: Vec<IrSpanned<'f, ParameterCompiled<'f, T>>>,
     #[starlark_pagable(pagable)]

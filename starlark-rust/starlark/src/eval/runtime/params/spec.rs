@@ -48,7 +48,6 @@ use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
 use crate::eval::runtime::params::display::ParamFmt;
 use crate::eval::runtime::params::display::fmt_param_spec;
 use crate::hint::unlikely;
-use crate::pagable::StarlarkPagable;
 use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
@@ -187,7 +186,6 @@ pub(crate) struct ParametersSpecPrototype {
 /// `*args`/`**kwargs` occur in well-formed locations.
 #[derive(Debug, Clone, Trace, Allocative, ProvidesStaticType, StarlarkPagable)]
 #[repr(C)]
-#[starlark_pagable(bound = "V: StarlarkPagable")]
 pub struct ParametersSpec<V> {
     /// The shared, value-independent part. `Arc` rather than a frozen-heap
     /// reference because native functions and non-value `V`s build specs with

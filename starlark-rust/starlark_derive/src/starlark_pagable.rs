@@ -86,15 +86,10 @@ struct TypeAttrs {
     /// of `syn::WherePredicate`s, so projection predicates like
     /// `V::String: StarlarkSerialize` are valid.
     bound: Vec<WherePredicate>,
-    /// Overrides the type the generated impls target. When set, the impls
-    /// are emitted as `impl Trait for <impl_for>` with empty `<>` and no
-    /// where clause.
-    impl_for: Option<String>,
 }
 
 fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
     syn::custom_keyword!(bound);
-    syn::custom_keyword!(impl_for);
 
     let mut opts = TypeAttrs::default();
 
@@ -121,18 +116,8 @@ fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
                             )
                         })?;
                     opts.bound = predicates.into_iter().collect();
-                } else if input.peek(impl_for) {
-                    input.parse::<impl_for>()?;
-                    input.parse::<Token![=]>()?;
-                    let s: LitStr = input.parse()?;
-                    if opts.impl_for.is_some() {
-                        return Err(input.error("`impl_for` was set twice"));
-                    }
-                    opts.impl_for = Some(s.value());
                 } else {
-                    return Err(input.error(
-                        "expected `bound = \"...\"` or `impl_for = \"...\"` at the type level",
-                    ));
+                    return Err(input.error("expected `bound = \"...\"` at the type level"));
                 }
                 if input.is_empty() {
                     break;
@@ -146,54 +131,24 @@ fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
     Ok(opts)
 }
 
-/// Build the `<...>` token stream for the generated impl.
-///
-/// - `impl_for = "..."`: the type's original generic parameters are no
-///   longer in scope (the impl targets a concrete type), so the impl
-///   generics default to empty `<>`.
-/// - Otherwise: the type's own `<...>` is propagated. (The user's `bound`
-///   predicates land in the where clause, not here — see [`gen_target_ty`].)
-fn gen_impl_generics(generics: &Generics, attrs: &TypeAttrs) -> syn::Result<TokenStream> {
-    if attrs.impl_for.is_some() {
-        return Ok(quote! { <> });
-    }
-    let (ig, _, _) = generics.split_for_impl();
-    Ok(quote! { #ig })
-}
-
-/// Build the impl-target type and the trailing where-clause.
-///
-/// When `#[starlark_pagable(impl_for = "...")]` is present, the user-supplied
-/// type is used verbatim and the original where-clause is dropped (it would
-/// reference the original generic params that no longer exist on this impl).
-///
-/// Otherwise the impl is generic over the type's own parameters, and the
-/// where clause is the type's own where clause with `extra` predicates
-/// appended.
+/// Build the impl-target type and the trailing where-clause: the impl is generic over the
+/// type's own parameters, and the where clause is the type's own where clause with `extra`
+/// predicates appended.
 fn gen_target_ty(
     name: &Ident,
     generics: &Generics,
-    attrs: &TypeAttrs,
     extra: &[WherePredicate],
-) -> syn::Result<(TokenStream, TokenStream)> {
-    if let Some(t) = &attrs.impl_for {
-        let toks: TokenStream = t.parse()?;
-        return Ok((toks, quote! {}));
-    }
+) -> (TokenStream, TokenStream) {
     let (_, ty_generics, _) = generics.split_for_impl();
     let where_clause = build_where_clause(generics, extra);
-    Ok((quote! { #name #ty_generics }, where_clause))
+    (quote! { #name #ty_generics }, where_clause)
 }
 
 /// Pick the effective per-impl bound predicates: user's `bound = "..."`
 /// if provided (override semantics, matching serde's container-level
 /// `#[serde(bound = "...")]`), otherwise the auto-synthesized bounds
-/// from [`compute_auto_bounds`]. `impl_for` skips both — the impl is
-/// non-generic so there's nothing to bound.
+/// from [`compute_auto_bounds`].
 fn effective_bounds(input: &DeriveInput, attrs: &TypeAttrs) -> syn::Result<Vec<WherePredicate>> {
-    if attrs.impl_for.is_some() {
-        return Ok(Vec::new());
-    }
     if !attrs.bound.is_empty() {
         return Ok(attrs.bound.clone());
     }
@@ -448,9 +403,9 @@ pub fn derive_starlark_serialize(input: proc_macro::TokenStream) -> proc_macro::
 fn derive_starlark_serialize_impl(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let type_attrs = extract_type_attrs(&input.attrs)?;
-    let impl_generics = gen_impl_generics(&input.generics, &type_attrs)?;
+    let (impl_generics, _, _) = input.generics.split_for_impl();
     let bounds = effective_bounds(input, &type_attrs)?;
-    let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &type_attrs, &bounds)?;
+    let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &bounds);
 
     let body = match &input.data {
         syn::Data::Struct(data) => gen_serialize_fields(&data.fields)?,
@@ -524,9 +479,9 @@ pub fn derive_starlark_deserialize(input: proc_macro::TokenStream) -> proc_macro
 fn derive_starlark_deserialize_impl(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let type_attrs = extract_type_attrs(&input.attrs)?;
-    let impl_generics = gen_impl_generics(&input.generics, &type_attrs)?;
+    let (impl_generics, _, _) = input.generics.split_for_impl();
     let bounds = effective_bounds(input, &type_attrs)?;
-    let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &type_attrs, &bounds)?;
+    let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &bounds);
 
     let body = match &input.data {
         syn::Data::Struct(data) => gen_deserialize_struct(name, &data.fields)?,
