@@ -18,7 +18,6 @@ mod api;
 mod autofixes;
 mod config;
 mod formatting;
-#[cfg(test)]
 mod sort_key;
 // Uses the Meta-internal `quickcheck_arbitrary_derive`, so it is compiled only
 // in the internal (fbcode) build, not the open-source build.

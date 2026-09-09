@@ -72,9 +72,9 @@ pub(crate) fn apply_autofixes(input: &AutofixInput<'_>, config: &Config) -> anyh
     // Sort list arguments (deps, srcs, visibility, etc.). `sort_rule_args`
     // gates sorting of allowlisted rule args (disabled e.g. for .bzl files via
     // config); explicit `# keep sorted` lists are sorted either way.
-    let module = module.run_transform(info_span!("sort_list_args").in_scope(|| {
-        |m: &ParsedModule| sort_list_args::collect_edits(m, config, sort_rule_args)
-    }))?;
+    let module = info_span!("sort_list_args")
+        .in_scope(|| sort_list_args::apply(module, config, sort_rule_args))
+        .map_err(|error| anyhow::anyhow!("{}:{error:#}", input.path.display()))?;
 
     // Sort keyword arguments by priority - run multiple passes to handle nested calls.
     // When an outer call reorders kwargs containing inner calls, the outer edit

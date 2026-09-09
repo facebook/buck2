@@ -195,14 +195,35 @@ impl<'a> ParsedModule<'a> {
     where
         F: FnOnce(&ParsedModule) -> Vec<Edit>,
     {
-        let mut edits = collect(&self);
+        let edits = collect(&self);
         if edits.is_empty() {
             return Ok((self, false));
         }
 
-        // Filter out edits in fmt:off regions
         let fmt_off_ranges = find_fmt_off_ranges(&self.source, &self.line_index);
-        edits = filter_edits_by_fmt_off(edits, &fmt_off_ranges);
+        self.apply_edits(edits, &fmt_off_ranges)
+    }
+
+    /// Like `run_transform_checked`, but reuses suppression ranges already
+    /// computed for this version of the source.
+    pub(crate) fn run_transform_checked_with_fmt_off_ranges<F>(
+        self,
+        fmt_off_ranges: &[TextRange],
+        collect: F,
+    ) -> anyhow::Result<(Self, bool)>
+    where
+        F: FnOnce(&ParsedModule) -> Vec<Edit>,
+    {
+        let edits = collect(&self);
+        self.apply_edits(edits, fmt_off_ranges)
+    }
+
+    fn apply_edits(
+        self,
+        edits: Vec<Edit>,
+        fmt_off_ranges: &[TextRange],
+    ) -> anyhow::Result<(Self, bool)> {
+        let mut edits = filter_edits_by_fmt_off(edits, fmt_off_ranges);
 
         if edits.is_empty() {
             return Ok((self, false));

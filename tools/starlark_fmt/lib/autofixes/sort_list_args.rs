@@ -34,6 +34,9 @@
 //! )
 //! ```
 
+mod policy;
+mod structural;
+
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -654,6 +657,40 @@ fn call_func_name(call: &ExprCall) -> Option<&str> {
     }
 }
 
+fn has_unsafe_mixed_line_comment_layout(list: &ExprList, module: &ParsedModule) -> bool {
+    let has_same_line_elements = list.elts.windows(2).any(|elements| {
+        elements[1].range().start() <= find_line_end(module.source(), elements[0].range().end())
+    });
+    if !has_same_line_elements {
+        return false;
+    }
+
+    let has_non_sorting_comment = |range| {
+        module
+            .comments_in_range(range)
+            .any(|comment| find_ignore_ascii_case(comment, "keep sorted").is_none())
+    };
+    let Some(first) = list.elts.first() else {
+        return false;
+    };
+    let Some(last) = list.elts.last() else {
+        return false;
+    };
+
+    has_non_sorting_comment(TextRange::new(
+        list.range().start() + TextSize::from(1),
+        first.range().start(),
+    )) || list.elts.windows(2).any(|elements| {
+        has_non_sorting_comment(TextRange::new(
+            elements[0].range().end(),
+            elements[1].range().start(),
+        ))
+    }) || has_non_sorting_comment(TextRange::new(
+        last.range().end(),
+        list.range().end() - TextSize::from(1),
+    ))
+}
+
 /// Check if a range contains a "keep sorted" directive in any comment.
 fn has_keep_sorted_directive(module: &ParsedModule, range: TextRange) -> bool {
     module
@@ -708,20 +745,19 @@ impl<'a, 'c> ListArgSorter<'a, 'c> {
     }
 
     fn should_sort_arg(&self, arg_name: &str) -> bool {
-        // Check allowlist
         if !self.config.sortable_args().contains(arg_name) {
             return false;
         }
 
-        // Check blocklist
-        if let Some(macro_name) = self.current_macro_name() {
-            let blocklist_key = format!("{}.{}", macro_name, arg_name);
-            if self.config.sortable_blocklist().contains(&blocklist_key) {
-                return false;
-            }
-        }
+        !self.is_arg_blocklisted(arg_name)
+    }
 
-        true
+    fn is_arg_blocklisted(&self, arg_name: &str) -> bool {
+        self.current_macro_name().is_some_and(|macro_name| {
+            self.config
+                .sortable_blocklist()
+                .contains(&format!("{macro_name}.{arg_name}"))
+        })
     }
 
     fn deduplicate_list(&mut self, list: &ExprList) {
@@ -872,6 +908,19 @@ pub(crate) fn collect_edits(
     sorter.edits
 }
 
+/// Apply legacy list sorting unless structural sort keys require the AST-aware path.
+pub(crate) fn apply<'a>(
+    module: ParsedModule<'a>,
+    config: &Config,
+    sort_rule_args: bool,
+) -> anyhow::Result<ParsedModule<'a>> {
+    if module.source().is_empty() || config.list_sort_keys().is_none() {
+        return module.run_transform(|module| collect_edits(module, config, sort_rule_args));
+    }
+
+    structural::apply(module, config, sort_rule_args)
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
@@ -911,10 +960,13 @@ mod tests {
     }
 
     fn run_with_config(source: &str, config: &Config) -> String {
+        try_run_with_config(source, config).expect("failed")
+    }
+
+    fn try_run_with_config(source: &str, config: &Config) -> anyhow::Result<String> {
         ParsedModule::parse(Cow::Borrowed(source))
-            .and_then(|module| module.run_transform(|m| collect_edits(m, config, true)))
-            .expect("failed")
-            .unparse()
+            .and_then(|module| apply(module, config, true))
+            .map(ParsedModule::unparse)
     }
 
     #[test]
@@ -950,6 +1002,139 @@ mod tests {
             run(source),
             "genrule(name=\"gen\", deps=[\":a\", \":z\"])\n"
         );
+    }
+
+    #[test]
+    fn test_configured_sort_key_for_argument() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {
+                    "custom_items": {
+                        "first_of": [{"call_keyword": "name"}, "call_name"]
+                    }
+                }
+            }"#,
+        )
+        .expect("valid config");
+        let source = "my_rule(custom_items=[zebra(), factory(name=\"alpha\")])\n";
+        let expected = "my_rule(custom_items=[factory(name=\"alpha\"), zebra()])\n";
+
+        assert_eq!(run_with_config(source, &config), expected);
+    }
+
+    #[test]
+    fn test_call_specific_sort_key_precedes_argument_sort_key() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {
+                    "custom_items": "call_name",
+                    "module.special_rule.custom_items": {"call_keyword": "name"}
+                }
+            }"#,
+        )
+        .expect("valid config");
+        let source = indoc! {r#"
+            module.special_rule(custom_items=[beta(name="zulu"), zebra(name="alpha")])
+            other_rule(custom_items=[beta(name="zulu"), zebra(name="alpha")])
+        "#};
+        let expected = indoc! {r#"
+            module.special_rule(custom_items=[zebra(name="alpha"), beta(name="zulu")])
+            other_rule(custom_items=[beta(name="zulu"), zebra(name="alpha")])
+        "#};
+
+        assert_eq!(run_with_config(source, &config), expected);
+    }
+
+    #[test]
+    fn test_blocklist_suppresses_configured_sort_key() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {"genrule.srcs": true},
+                "NamePriority": {},
+                "ListSortKeys": {"srcs": "call_name"}
+            }"#,
+        )
+        .expect("valid config");
+        let source = "genrule(srcs=[zebra(), alpha()])\n";
+
+        assert_eq!(run_with_config(source, &config), source);
+    }
+
+    #[test]
+    fn test_configured_sort_key_skips_unmatched_list() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": "string"}
+            }"#,
+        )
+        .expect("valid config");
+        let source = "my_rule(custom_items=[some_call()])\n";
+
+        assert_eq!(run_with_config(source, &config), source);
+    }
+
+    #[test]
+    fn test_configured_sort_key_skips_select_without_dict() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": "string"}
+            }"#,
+        )
+        .expect("valid config");
+
+        for source in [
+            "my_rule(custom_items=select())\n",
+            "my_rule(custom_items=select(conditions))\n",
+        ] {
+            assert_eq!(run_with_config(source, &config), source);
+        }
+    }
+
+    #[test]
+    fn test_configured_sort_key_applies_to_added_lists() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": "call_name"}
+            }"#,
+        )
+        .expect("valid config");
+        let source = "my_rule(custom_items=[zebra(), alpha()] + [delta(), charlie()])\n";
+        let expected = "my_rule(custom_items=[alpha(), zebra()] + [charlie(), delta()])\n";
+
+        assert_eq!(run_with_config(source, &config), expected);
+    }
+
+    #[test]
+    fn test_configured_sort_preserves_distinct_elements_with_equal_keys() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": {"call_keyword": "name"}}
+            }"#,
+        )
+        .expect("valid config");
+        let source =
+            "my_rule(custom_items=[foo(name=\"same\", value=2), foo(name=\"same\", value=1)])\n";
+
+        assert_eq!(run_with_config(source, &config), source);
     }
 
     #[test]

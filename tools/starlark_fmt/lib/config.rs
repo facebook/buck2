@@ -21,6 +21,8 @@ use globset::GlobSetBuilder;
 use serde::Deserialize;
 use serde::Deserializer;
 
+use crate::sort_key::ListSortKeys;
+
 fn deserialize_keys_as_set<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -75,6 +77,8 @@ pub struct Config {
     sortable_blocklist: HashSet<String>,
     name_priority: HashMap<String, i32>,
     #[serde(default)]
+    list_sort_keys: ListSortKeys,
+    #[serde(default)]
     overrides: Vec<Override>,
 }
 
@@ -110,6 +114,10 @@ impl Config {
     /// Keyword-argument sort priorities; lower values sort first.
     pub(crate) fn name_priority(&self) -> &HashMap<String, i32> {
         &self.name_priority
+    }
+
+    pub(crate) fn list_sort_keys(&self) -> Option<&ListSortKeys> {
+        (!self.list_sort_keys.is_empty()).then_some(&self.list_sort_keys)
     }
 
     /// Resolve which sorting passes apply to `path`. For each knob, the last
@@ -150,6 +158,7 @@ impl Config {
             sortable_args,
             sortable_blocklist,
             name_priority,
+            list_sort_keys: ListSortKeys::default(),
             overrides: Vec::new(),
         }
     }
@@ -200,7 +209,41 @@ mod tests {
         assert!(config.sortable_args().is_empty());
         assert!(config.sortable_blocklist().is_empty());
         assert!(config.name_priority().is_empty());
+        assert!(config.list_sort_keys().is_none());
         assert!(config.overrides.is_empty());
+    }
+
+    #[test]
+    fn test_list_sort_keys_are_optional_and_validated() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {
+                    "items": "call_name",
+                    "special.items": {"first_of": ["string", {"tuple_item": 0}]}
+                }
+            }"#,
+        )
+        .expect("valid sort keys should parse");
+
+        let sort_keys = config.list_sort_keys().expect("configured sort keys");
+        assert!(sort_keys.for_arg("items").is_some());
+    }
+
+    #[test]
+    fn test_invalid_list_sort_key_fails_config_parsing() {
+        let result: Result<Config, _> = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"items": {"first_of": []}}
+            }"#,
+        );
+
+        result.expect_err("empty `first_of` should be rejected");
     }
 
     #[test]
