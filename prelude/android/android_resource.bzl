@@ -91,7 +91,6 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx,
             android_toolchain.merge_android_resources[RunInfo],
             [resource_info],
-            None,
         )
         android_resource_r_dot_info = AndroidResourceRDotInfo(
             dummy_r_dot_java = dummy_r_dot_java_info.library_output.abi,

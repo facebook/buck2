@@ -69,9 +69,6 @@ public class MergeAndroidResourcesExecutableMain {
   @Option(name = "--duplicate-resource-allowlist-path")
   private @Nullable String duplicateResourceAllowlist = null;
 
-  @Option(name = "--union-package")
-  private @Nullable String unionPackageString = null;
-
   @Option(name = "--referenced-resources-lists")
   private @Nullable String referencedResourcesLists = null;
 
@@ -128,8 +125,6 @@ public class MergeAndroidResourcesExecutableMain {
             : ImmutableList.of();
     Optional<Path> duplicateResourceAllowlistPath =
         Optional.ofNullable(duplicateResourceAllowlist).map(Paths::get);
-    Optional<String> unionPackage = Optional.ofNullable(unionPackageString);
-
     Path outputDir = Paths.get(outputDirString);
     Optional<Path> stringsOutputDirPath =
         Optional.ofNullable(stringsOutputDirString).map(Paths::get);
@@ -151,7 +146,6 @@ public class MergeAndroidResourcesExecutableMain {
           forceFinalResourceIds,
           bannedDuplicateResourceTypes,
           duplicateResourceAllowlistPath,
-          unionPackage,
           overrideSymbols,
           outputDir,
           stringsOutputDirPath,

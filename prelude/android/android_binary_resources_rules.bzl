@@ -170,7 +170,6 @@ def get_android_binary_resources_info(
         [r_dot_txt],
         override_symbols_paths,
         getattr(ctx.attrs, "duplicate_resource_whitelist", None),
-        getattr(ctx.attrs, "resource_union_package", None),
         referenced_resources_lists,
         generate_strings_and_ids_separately = generate_strings_and_ids_separately,
         remove_classes = ["{}.R".format(r_dot_java_package) for r_dot_java_package in r_dot_java_packages_to_exclude],

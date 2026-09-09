@@ -202,7 +202,6 @@ def _get_dummy_r_dot_java(ctx: AnalysisContext) -> (JavaClasspathEntry | None, [
         ctx,
         ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_android_resources[RunInfo],
         android_resources,
-        ctx.attrs.resource_union_package,
     )
 
     dummy_r_dot_java = dummy_r_dot_java_info.library_output

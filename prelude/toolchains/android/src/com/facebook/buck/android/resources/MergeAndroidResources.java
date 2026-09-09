@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -64,7 +63,6 @@ public class MergeAndroidResources {
       boolean forceFinalResourceIds,
       EnumSet<RType> bannedDuplicateResourceTypes,
       Optional<Path> duplicateResourceWhitelistPath,
-      Optional<String> unionPackage,
       ImmutableList<Path> overrideSymbolsPath,
       Path outputDir,
       Optional<Path> stringsOutputDir,
@@ -121,25 +119,7 @@ public class MergeAndroidResources {
 
     ImmutableSet.Builder<String> requiredPackages = ImmutableSet.builder();
 
-    // Create a temporary list as the multimap
-    // will be concurrently modified below.
-    ArrayList<Entry<String, RDotTxtEntry>> entries =
-        new ArrayList<>(rDotJavaPackageToResources.entries());
-
     requiredPackages.addAll(symbolsFileToRDotJavaPackage.values());
-
-    // If a resource_union_package was specified, copy all resource into that package,
-    // unless they are already present.
-    if (unionPackage.isPresent()) {
-      String unionPackageName = unionPackage.get();
-      requiredPackages.add(unionPackageName);
-
-      for (Entry<String, RDotTxtEntry> entry : entries) {
-        if (!rDotJavaPackageToResources.containsEntry(unionPackageName, entry.getValue())) {
-          rDotJavaPackageToResources.put(unionPackageName, entry.getValue());
-        }
-      }
-    }
 
     Preconditions.checkState(
         stringsOutputDir.isPresent() == idsOutputDir.isPresent(),

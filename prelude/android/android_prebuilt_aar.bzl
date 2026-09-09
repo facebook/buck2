@@ -87,7 +87,6 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         android_toolchain.merge_android_resources[RunInfo],
         [resource_info],
-        None,
     )
 
     android_resource_r_dot_info = AndroidResourceRDotInfo(
