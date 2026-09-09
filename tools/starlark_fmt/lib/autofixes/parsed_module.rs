@@ -155,16 +155,7 @@ impl<'a> ParsedModule<'a> {
 
     /// Returns the full line range containing `offset`, including the trailing newline.
     pub(crate) fn full_line_range(&self, offset: TextSize) -> TextRange {
-        use ruff_source_file::LineRanges;
-        let line_range = self.source.line_range(offset);
-        // Extend to include the newline if present
-        let end = line_range.end();
-        let source_len = TextSize::of(self.source.as_ref());
-        if end < source_len && self.source.as_bytes().get(end.to_usize()) == Some(&b'\n') {
-            TextRange::new(line_range.start(), end + TextSize::from(1))
-        } else {
-            line_range
-        }
+        self.source.full_line_range(offset)
     }
 
     /// Returns the full source string.

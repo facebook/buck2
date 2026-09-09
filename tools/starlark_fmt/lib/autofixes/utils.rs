@@ -14,6 +14,7 @@ use std::borrow::Cow;
 
 use ruff_python_trivia::SimpleTokenKind;
 use ruff_python_trivia::SimpleTokenizer;
+use ruff_source_file::LineRanges;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 
@@ -39,24 +40,33 @@ pub(crate) fn file_has_comment(module: &ParsedModule, needle: &str) -> bool {
         .any(|comment| find_ignore_ascii_case(comment, needle).is_some())
 }
 
-/// Find the start of leading comments for a statement at the given line start.
+/// Find the start of leading comments for a statement at the given block line start.
 ///
-/// Scans backwards from `line_start` to find consecutive comment lines. Returns
-/// the byte offset where the leading comment block starts. If there are no
-/// leading comments, returns `line_start`.
-pub(crate) fn find_leading_comment_start(source: &str, line_start: usize) -> usize {
-    if line_start == 0 {
+/// Scans backwards from `block_line_start` to find consecutive comment lines.
+/// Returns the byte offset where the leading comment block starts. If there
+/// are no leading comments, returns `block_line_start`.
+pub(crate) fn find_leading_comment_start(source: &str, block_line_start: usize) -> usize {
+    if block_line_start == 0 {
         return 0;
     }
 
-    let mut result = line_start;
-    let mut pos = line_start;
+    let mut result = block_line_start;
+    let mut pos = block_line_start;
 
     // Scan backwards line by line
     while pos > 0 {
-        // Find the start of the previous line
-        let prev_newline = source[..pos.saturating_sub(1)].rfind('\n');
-        let prev_line_start = prev_newline.map(|p| p + 1).unwrap_or(0);
+        // Step back over the full line terminator first: for CRLF, `pos - 1`
+        // is the `\n`, and scanning from there would find the `\r` and
+        // report `pos - 1` itself as the previous line start (an empty
+        // "line"), hiding a real leading comment. `LineRanges::line_start`
+        // treats `\n`, `\r\n`, and lone `\r` as terminators (a raw
+        // `rfind('\n')` misses lone-`\r` files entirely).
+        let prev_content_end = if source[..pos].ends_with("\r\n") {
+            pos - 2
+        } else {
+            pos - 1
+        };
+        let prev_line_start = line_start(source, prev_content_end);
         let prev_line = &source[prev_line_start..pos.saturating_sub(1)];
         let trimmed = prev_line.trim();
 
@@ -75,26 +85,26 @@ pub(crate) fn find_leading_comment_start(source: &str, line_start: usize) -> usi
 
 /// Find the end of the line containing the given byte offset.
 ///
-/// Returns the offset of the newline character, or end of source if no
-/// newline is found. This is used by both kwarg and list sorting to compute
-/// line-based block ranges for comment-preserving reordering.
+/// Returns the offset of the line terminator (the `\r` of a `\r\n` pair, or
+/// the `\n` / lone `\r` itself), or end of source if the line is unterminated.
+/// Backed by ruff's `LineRanges` line model. Callers pairing this with
+/// `offset_past_newline` advance past the full terminator, including `\r\n`.
 pub(crate) fn find_line_end(source: &str, offset: TextSize) -> TextSize {
-    let start = offset.to_usize();
-    let rest = &source[start..];
-    match rest.find('\n') {
-        Some(pos) => TextSize::from((start + pos) as u32),
-        None => TextSize::of(source),
-    }
+    source.line_end(offset)
 }
 
-/// Advance past a newline character at the given offset, if present.
+/// Advance past the line terminator at the given offset, if present.
 ///
-/// Returns `offset + 1` if the byte at `offset` is `\n`, otherwise returns
-/// `offset` unchanged. Useful after `find_line_end` to get the start of the
-/// next line.
+/// Skips `\r\n` as a pair as well as lone `\n` or `\r`; returns `offset`
+/// unchanged otherwise. Pairs with `find_line_end` (ruff's `line_end` stops
+/// *before* the terminator) to reach the start of the next line.
 pub(crate) fn offset_past_newline(source: &str, offset: TextSize) -> TextSize {
-    if offset.to_usize() < source.len() && source.as_bytes().get(offset.to_usize()) == Some(&b'\n')
-    {
+    // `get` keeps this total: out-of-range or mid-char offsets (which the
+    // previous byte-wise version tolerated) fall through unchanged.
+    let rest = source.get(offset.to_usize()..).unwrap_or("");
+    if rest.strip_prefix("\r\n").is_some() {
+        offset + TextSize::from(2)
+    } else if matches!(rest.as_bytes().first(), Some(b'\n') | Some(b'\r')) {
         offset + TextSize::from(1)
     } else {
         offset
@@ -103,11 +113,28 @@ pub(crate) fn offset_past_newline(source: &str, offset: TextSize) -> TextSize {
 
 /// Find the start of the line containing the given byte offset.
 ///
-/// Scans backwards from `offset` to find the preceding newline, returning
-/// the position immediately after it. Returns 0 if no newline is found
-/// (i.e., the offset is on the first line).
+/// Backed by ruff's `LineRanges` line model (`\n`, `\r\n`, and lone `\r` all
+/// terminate lines). Returns 0 if the offset is on the first line.
 pub(crate) fn line_start(source: &str, offset: usize) -> usize {
-    source[..offset].rfind('\n').map_or(0, |pos| pos + 1)
+    source.line_start(TextSize::from(offset as u32)).to_usize()
+}
+
+/// Find the start of the line preceding the line that starts at `line_start_offset`.
+///
+/// Steps over the full line terminator first: for CRLF, `line_start_offset - 1`
+/// is the `\n`, and passing that directly to [`line_start`] would find the
+/// `\r` and report `line_start_offset - 1` itself as the "previous" line
+/// start (an empty line). Returns 0 when there is no preceding line.
+pub(crate) fn prev_line_start(source: &str, line_start_offset: usize) -> usize {
+    if line_start_offset == 0 {
+        return 0;
+    }
+    let prev_content_end = if source[..line_start_offset].ends_with("\r\n") {
+        line_start_offset - 2
+    } else {
+        line_start_offset - 1
+    };
+    line_start(source, prev_content_end)
 }
 
 /// Compute line-based block ranges for a sequence of elements.
@@ -127,12 +154,11 @@ pub(crate) fn compute_block_ranges(
             let block_start = if idx == 0 {
                 first_block_start
             } else {
-                let prev_end = find_line_end(source, element_ends[idx - 1]);
-                offset_past_newline(source, prev_end)
+                // End of the previous element's line, terminator included.
+                source.full_line_end(element_ends[idx - 1])
             };
 
-            let elt_line_end = find_line_end(source, elt_end);
-            let block_end = offset_past_newline(source, elt_line_end);
+            let block_end = source.full_line_end(elt_end);
 
             TextRange::new(block_start, block_end)
         })
@@ -141,10 +167,8 @@ pub(crate) fn compute_block_ranges(
 
 /// Validate that all block ranges fall within the source text bounds.
 pub(crate) fn block_ranges_valid(ranges: &[TextRange], source: &str) -> bool {
-    let source_len = TextSize::of(source);
-    !ranges
-        .iter()
-        .any(|r| r.start() > source_len || r.end() > source_len)
+    let bounds = TextRange::up_to(TextSize::of(source));
+    ranges.iter().all(|range| bounds.contains_range(*range))
 }
 
 /// Return the source text of `block_range` with a comma guaranteed after the
@@ -208,6 +232,56 @@ fn element_is_comma_terminated(source: &str, elt_end: TextSize, block_end: TextS
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_line_helpers_handle_crlf_and_lone_cr() {
+        // `\n`, `\r\n`, and lone `\r` all terminate lines in ruff's model.
+        // Each case tabulates the expected end of the first line alongside
+        // the second line start, so the assertions stay correct if a
+        // fixture is edited instead of silently weakening.
+        for (source, second_line_start, first_line_end) in
+            [("a\nb\n", 2, 1), ("a\r\nb\r\n", 3, 1), ("a\rb\r", 2, 1)]
+        {
+            assert_eq!(
+                line_start(source, second_line_start),
+                second_line_start,
+                "line_start in {source:?}"
+            );
+            assert_eq!(
+                prev_line_start(source, second_line_start),
+                0,
+                "prev_line_start in {source:?}"
+            );
+            assert_eq!(
+                find_line_end(source, TextSize::from(0)),
+                TextSize::from(first_line_end),
+                "find_line_end in {source:?}"
+            );
+            assert_eq!(
+                offset_past_newline(source, find_line_end(source, TextSize::from(0))),
+                TextSize::from(second_line_start as u32),
+                "offset_past_newline in {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_leading_comment_start_sees_through_crlf() {
+        // The backward scan must step over the full terminator: for CRLF,
+        // scanning from `pos - 1` (the `\n`) would find the `\r` and report
+        // an empty previous line, hiding the comment.
+        for (source, block_start) in [
+            ("# c\nload(...)", 4),
+            ("# c\r\nload(...)", 5),
+            ("# c\rload(...)", 4),
+        ] {
+            assert_eq!(
+                find_leading_comment_start(source, block_start),
+                0,
+                "leading comment in {source:?}"
+            );
+        }
+    }
 
     /// Run `block_with_trailing_comma` over the whole of `source` as the block,
     /// with the element ending at byte offset `elt_end`.

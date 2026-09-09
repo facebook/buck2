@@ -15,6 +15,7 @@ use ruff_text_size::TextSize;
 use super::super::parsed_module::ParsedModule;
 use super::super::parsed_module::format_location;
 use super::super::utils::line_start;
+use super::super::utils::prev_line_start;
 use crate::sort_key::SortKey;
 
 const INLINE_SORT_KEY_PREFIX: &str = "# starlark-fmt: sort-by = ";
@@ -65,7 +66,7 @@ pub(super) fn unattached_inline_directive_above(
         if line_start_offset == 0 {
             return None;
         }
-        let prev_start = line_start(source, line_start_offset - 1);
+        let prev_start = prev_line_start(source, line_start_offset);
         let trimmed = source[prev_start..line_start_offset].trim();
         if trimmed.is_empty() {
             line_start_offset = prev_start;
@@ -114,7 +115,7 @@ pub(super) fn leading_comments_before(
 
     let mut leading_start = keyword_line_start;
     while leading_start > 0 {
-        let candidate_start = line_start(source, leading_start - 1);
+        let candidate_start = prev_line_start(source, leading_start);
         if !source[candidate_start..leading_start]
             .trim_start()
             .starts_with('#')
@@ -139,7 +140,7 @@ pub(super) fn inline_sort_key_before<'a>(
     let source = module.source();
     let keyword_line_start = keyword_line_start_if_first_on_line(module, keyword_start)?;
 
-    let previous_line_start = line_start(source, keyword_line_start - 1);
+    let previous_line_start = prev_line_start(source, keyword_line_start);
     let directive_range = TextRange::new(
         TextSize::from(previous_line_start as u32),
         TextSize::from(keyword_line_start as u32),

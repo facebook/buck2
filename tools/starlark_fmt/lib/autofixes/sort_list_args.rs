@@ -1113,6 +1113,37 @@ mod tests {
     }
 
     #[test]
+    fn test_inline_sort_directive_found_through_crlf() {
+        // `line_start` on the `\n` of a `\r\n` pair reports the `\n` itself
+        // as a line start, so the directive lookup must step over the full
+        // terminator first; otherwise the directive is missed and the list
+        // stays unsorted.
+        let source = "my_rule(\r\n    # starlark-fmt: sort-by = \"string\"\r\n    custom_items = [\r\n        \":z\",\r\n        \":a\",\r\n    ],\r\n)\r\n";
+        let expected = "my_rule(\r\n    # starlark-fmt: sort-by = \"string\"\r\n    custom_items = [\r\n        \":a\",\r\n        \":z\",\r\n    ],\r\n)\r\n";
+
+        assert_eq!(run(source), expected);
+    }
+
+    #[test]
+    fn test_do_not_sort_leading_comment_found_through_crlf() {
+        // Same hazard as above for the suppression lookup: a missed leading
+        // comment would let the configured key sort the list.
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": "string"}
+            }"#,
+        )
+        .expect("valid config");
+        let source =
+            "my_rule(\r\n    # do not sort\r\n    custom_items = [\":z\", \":a\"],\r\n)\r\n";
+
+        assert_eq!(run_with_config(source, &config), source);
+    }
+
+    #[test]
     fn test_configured_sort_key_applies_to_added_lists() {
         let config: Config = serde_json::from_str(
             r#"{
