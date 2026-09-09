@@ -65,7 +65,7 @@ def make_bitcode_bundle(ctx: AnalysisContext, name: str, objects: list[Artifact]
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
 
-    args = cmd_args(format = '"{}"')
+    args = cmd_args(quote = "shell")
     if ignore_native:
         args.add("--ignore-non-bitcode")
 
