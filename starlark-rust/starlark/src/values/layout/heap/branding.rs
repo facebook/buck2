@@ -117,7 +117,7 @@
 //!  - `HeapEdge::identity` is the edge from a heap to itself, for code written against two brands
 //!    that is handed one heap for both.
 //!
-//! `HeapEdge::unchecked_new` is `unsafe` and these minters are its only callers.
+//! `HeapEdge::unchecked_new` is `unsafe` and crate-private; these minters are its only callers.
 //!
 //! ### What is trusted rather than proven
 //!

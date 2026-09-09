@@ -108,9 +108,9 @@ are three ways to get one:
   `AllocStaticSimple::at` and `ValueTyped::<'static, _>::at` (which covers
   `const_frozen_string!`) are this edge behind a name.
 
-`HeapEdge::unchecked_new` is `unsafe`, and the minters above (plus
-`HeapEdge::identity`, the edge from a heap to itself) are its only callers;
-there should be no reason to call it elsewhere.
+`HeapEdge::unchecked_new` is `unsafe` and crate-private; the minters above
+(plus `HeapEdge::identity`, the edge from a heap to itself) are its only
+callers.
 
 ## Heap containers
 

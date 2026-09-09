@@ -63,14 +63,16 @@ impl<'v> ModuleHeaps<'v> {
         &self,
         f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
     ) -> R {
-        self.frozen().with(|fh| {
-            // SAFETY: This type is the only owner of the builder, and the builder only leaves it
-            // through `seal_with` or `Drop`, both of which seal it into `heap`'s references. So
-            // `'fm`'s allocations live as long as the value heap, which is as long as anything at
-            // `'v` can. `'fm` is closure-introduced, so it is a true brand.
-            let edge = unsafe { HeapEdge::unchecked_new() };
-            f(fh, edge)
-        })
+        self.frozen().with(|fh| f(fh, self.edge(fh)))
+    }
+
+    /// The edge from the value heap to the builder, for a handle that `with` opened on the builder.
+    fn edge<'fm>(&self, _fh: FrozenHeap<'fm>) -> HeapEdge<'v, 'fm> {
+        // SAFETY: This type is the only owner of the builder, and the builder only leaves it
+        // through `seal_with` or `Drop`, both of which seal it into `heap`'s references. So
+        // `'fm`'s allocations live as long as the value heap, which is as long as anything at
+        // `'v` can. `'fm` is introduced by the `with` closure, so it is a true brand.
+        unsafe { HeapEdge::unchecked_new() }
     }
 
     pub(crate) fn frozen_heap_allocated_bytes(&self) -> usize {
@@ -102,12 +104,10 @@ impl<'v> ModuleHeaps<'v> {
         // on every other exit: the value heap may already hold pointers into it.
         //
         // SAFETY: `'fm` is the brand of the builder, which is sealed right below into the owner
-        // the value is paired with. Being closure-introduced, `'fm` names nothing else. The edge
-        // is the one `frozen_heap` hands out, for the same reason.
-        let root = self.frozen().with(|fh| {
-            let edge = unsafe { HeapEdge::unchecked_new() };
-            f(fh, edge).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
-        });
+        // the value is paired with. Being closure-introduced, `'fm` names nothing else.
+        let root = self
+            .frozen()
+            .with(|fh| f(fh, self.edge(fh)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) }));
         let frozen = self
             .frozen
             .take()

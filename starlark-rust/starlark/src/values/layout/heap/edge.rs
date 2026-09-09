@@ -45,7 +45,7 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
     /// `'static` data) can exist. An ordinary borrow lifetime is not a brand — stack data can be
     /// borrowed at it, and [`rebrand`](HeapEdge::rebrand) would extend such a borrow past its
     /// referent.
-    pub unsafe fn unchecked_new() -> Self {
+    pub(crate) unsafe fn unchecked_new() -> Self {
         Self {
             _invariant: PhantomData,
         }
