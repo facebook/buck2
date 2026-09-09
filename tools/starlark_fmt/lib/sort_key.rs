@@ -189,12 +189,8 @@ impl SortKey {
             },
             Self::CallKeyword(call_keyword) => match expr {
                 Expr::Call(call) => {
-                    let Some(keyword) = call.arguments.keywords.iter().find(|keyword| {
-                        keyword
-                            .arg
-                            .as_ref()
-                            .is_some_and(|arg| arg.as_str() == call_keyword.call_keyword)
-                    }) else {
+                    let Some(keyword) = call.arguments.find_keyword(&call_keyword.call_keyword)
+                    else {
                         return Ok(None);
                     };
                     match as_string_literal(&keyword.value) {
@@ -225,16 +221,30 @@ fn as_string_literal(expr: &Expr) -> Option<&str> {
 
 /// Dotted name of a call callee (`f`, `module.rule`), or `None` for computed
 /// callees (`factory()()`, `table["key"]()`) which no key can name.
+///
+/// Built with a single `String` allocation by pushing segments directly;
+/// a dotted name is never contiguous in the AST, so zero-alloc would need
+/// a structured key instead.
 pub(crate) fn call_name(expr: &Expr) -> Option<String> {
+    let mut name = String::new();
+    push_qualified_name(expr, &mut name).then_some(name)
+}
+
+fn push_qualified_name(expr: &Expr, out: &mut String) -> bool {
     match expr {
-        Expr::Name(name) => Some(name.id.to_string()),
-        Expr::Attribute(attribute) => {
-            let mut name = call_name(&attribute.value)?;
-            name.push('.');
-            name.push_str(attribute.attr.as_str());
-            Some(name)
+        Expr::Name(name) => {
+            out.push_str(name.id.as_str());
+            true
         }
-        _ => None,
+        Expr::Attribute(attr) => {
+            if !push_qualified_name(&attr.value, out) {
+                return false;
+            }
+            out.push('.');
+            out.push_str(attr.attr.as_str());
+            true
+        }
+        _ => false,
     }
 }
 
@@ -386,6 +396,27 @@ mod tests {
             extract(r#""call_name""#, "module.factory()").unwrap(),
             Some("module.factory".to_owned())
         );
+    }
+
+    #[test]
+    fn test_call_name_joins_dotted_segments() {
+        fn name_of(callee: &str) -> Option<String> {
+            let source = format!("value = {callee}()\n");
+            let module = ParsedModule::parse(Cow::Owned(source)).expect("parse");
+            let Stmt::Assign(assign) = &module.stmts()[0] else {
+                panic!("test input should parse as an assignment");
+            };
+            let ruff_python_ast::Expr::Call(call) = assign.value.as_ref() else {
+                panic!("test input should parse as a call");
+            };
+            super::call_name(&call.func)
+        }
+
+        assert_eq!(name_of("factory"), Some("factory".to_owned()));
+        assert_eq!(name_of("module.factory"), Some("module.factory".to_owned()));
+        assert_eq!(name_of("a.b.c"), Some("a.b.c".to_owned()));
+        assert_eq!(name_of("factory()"), None);
+        assert_eq!(name_of("table[\"key\"]"), None);
     }
 
     #[test]
