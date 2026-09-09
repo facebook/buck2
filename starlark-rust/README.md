@@ -52,7 +52,7 @@ This project features:
 - Easy interoperability between Rust types and Starlark.
 - Rust-friendly types, so frozen values are `Send`/`Sync`, while non-frozen
   values aren't.
-- [Garbage collected](docs/gc.md) values allocated on [a heap](docs/heaps.md).
+- [Garbage collected](docs/gc.md) values allocated on a heap.
 - Optional runtime-checked [types](docs/types.md).
 - A linter, to detect code issues in Starlark.
 - IDE integration in the form of

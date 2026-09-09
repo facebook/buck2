@@ -30,7 +30,9 @@ use crate::values::Value;
 /// by `'v` or in any frozen heap that that heap depends on. This type is a certificate of such a
 /// dependency: it proves that the heap of `'dep` is kept alive by the heap of `'v`, so that
 /// anything kept alive by the former is usable in the context of the latter. That conversion is
-/// what [`rebrand`](HeapEdge::rebrand) provides.
+/// what [`rebrand`](HeapEdge::rebrand) provides, for compound types too: a
+/// `ValueTyped<'dep, Tuple<'dep>>` becomes a `ValueTyped<'v, Tuple<'v>>`. Edges are `Copy` and
+/// zero sized.
 #[derive(Copy, Clone, Dupe)]
 pub struct HeapEdge<'v, 'dep> {
     _invariant: PhantomData<(fn(&'v ()) -> &'v (), fn(&'dep ()) -> &'dep ())>,

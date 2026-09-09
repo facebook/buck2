@@ -52,7 +52,8 @@
 //!
 //! The lifetime `'v` of a `Value<'v>` identifies the heap the value lives in, or a heap that heap
 //! keeps alive; it does not measure how long anything lives. The `branding` module in
-//! `values/layout/heap/branding.rs` explains that discipline.
+//! `values/layout/heap/branding.rs` explains that discipline, and the `heap` module in
+//! `values/layout/heap.rs` describes the heaps and how values move between them.
 
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;

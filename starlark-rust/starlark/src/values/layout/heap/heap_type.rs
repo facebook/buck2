@@ -184,7 +184,12 @@ impl OwnedHeap {
     }
 }
 
-/// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
+/// An unfrozen heap: the values allocated on it may be mutable and are garbage collected. Each
+/// [`Module`](crate::environment::Module) has one.
+///
+/// The handle is `Copy` and exists only inside a closure ([`Heap::temp`],
+/// [`Module::with_temp_heap`](crate::environment::Module::with_temp_heap)); the values allocated
+/// on it are branded with the closure's lifetime `'v`, see the `branding` module.
 #[derive(Copy, Clone, Dupe)]
 // `PhantomData` is needed to make the type invariant in `'v` - without that, branding doesn't mean
 // anything.
@@ -1753,16 +1758,24 @@ impl FrozenHeapArc {
 
 /// A value in a frozen heap that is automatically kept alive.
 ///
-/// This type is a `T` together with the sealed frozen heap that keeps that `T` alive.
+/// This type is a `T` together with the sealed frozen heap that keeps that `T` alive. The
+/// `'static` in a type like `OwnedFrozen<Value<'static>>` stands in for the brand of that heap,
+/// which has no name, and no accessor hands the value back at `'static`:
 ///
-/// There are a number of methods on this type providing direct access to the `T`. When using these
-/// methods, the value you actually get access to is "`T` but with all lifetimes replaced with an
-/// unknown lifetime `'fv`." In other words, if you're holding a `OwnedFrozen<Value<'static>>`,
-/// `get_by_ref` actually gives you a `Value<'fv>` for some unknown lifetime `'fv`, preventing you
-/// from putting the underlying value somewhere the heap ref won't keep it alive. For more on this,
-/// see the documentation in the `branding` module.
+/// * [`add_to_heap`](OwnedFrozen::add_to_heap) records the owning heap as a reference of the
+///   given heap and hands the value back at that heap's brand. This is what you want nearly all
+///   of the time.
+/// * [`by_ref`](OwnedFrozen::by_ref) runs a closure on the value at a brand `'fv` private to the
+///   closure, so nothing derived from it can escape;
+///   [`by_ref_with_reconstructor`](OwnedFrozen::by_ref_with_reconstructor) also provides an
+///   `OwnedFrozenReconstructor`, which re-pairs derived values with the owner or mints a
+///   [`HeapEdge`].
+/// * [`map`](OwnedFrozen::map), [`try_map`](OwnedFrozen::try_map) and
+///   [`maybe_map`](OwnedFrozen::maybe_map) produce an `OwnedFrozen<U>` of the same heap.
+/// * [`as_ref`](OwnedFrozen::as_ref) borrows the owner as an [`OwnedFrozenRef`], which uses the
+///   borrow as the brand and hands the value out directly.
 ///
-/// The more typical way of accessing the underlying value though is with the `add_to_heap` method.
+/// The `branding` module explains why the accessors are shaped this way.
 ///
 /// `OwnedFrozen<()>` is a bare heap handle: it keeps a heap alive without picking out any value in
 /// it, and offers only the heap-identity API (`name`, `refs`, the size accessors). It compares and
@@ -1874,9 +1887,34 @@ where
         }
     }
 
-    /// Get access to this value within the provided heap
+    /// Use this value within the given heap: records this value's heap as a reference of `heap`,
+    /// which keeps it alive from then on, and hands the value back at `heap`'s brand.
     ///
-    /// See the `branding` module for more details.
+    /// ```
+    /// use starlark::environment::FrozenModule;
+    /// use starlark::environment::Module;
+    /// use starlark::values::FrozenHeapName;
+    /// use starlark::values::OwnedFrozen;
+    /// use starlark::values::Value;
+    ///
+    /// fn copy<'v>(from: &FrozenModule, to: &Module<'v>) {
+    ///     let x: OwnedFrozen<Value<'static>> = from.get_owned("value").unwrap();
+    ///     let v: Value<'v> = x.add_to_heap(to.heap());
+    ///     to.set("value", v);
+    /// }
+    ///
+    /// let from = Module::with_temp_heap(|from| {
+    ///     from.set("value", from.heap().alloc("a string"));
+    ///     from.freeze_named(FrozenHeapName::user("from")).unwrap()
+    /// });
+    /// Module::with_temp_heap(|to| {
+    ///     copy(&from, &to);
+    ///     assert_eq!(to.get("value").unwrap().unpack_str(), Some("a string"));
+    /// });
+    /// ```
+    ///
+    /// When `to` is frozen, the reference is carried into its sealed heap, so the resulting
+    /// `FrozenModule` keeps `from`'s heap alive too. The `branding` module explains the brand.
     pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v> {
         heap.add_reference(self.owner());
 
