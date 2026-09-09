@@ -101,10 +101,8 @@ pagable::declare_static_value_type!(TyStarlarkValueVTable, TyStarlarkValueVTable
 /// `#[starlark_value]` implements this automatically for:
 /// 1. plain types (e.g. `Foo`)
 /// 2. lifetime-only types (e.g. `Foo<'v>`)
-/// 3. types with exactly one `ValueLike` parameter (e.g. `Foo<'v, V: ValueLike>`)
 ///
-/// For any other shape — non-`ValueLike` type params, multiple `ValueLike`
-/// params, const generics, or mixes — call
+/// For any other shape — type or const parameters — call
 /// [`register_ty_starlark_value!`][crate::register_ty_starlark_value]
 /// once per concrete instantiation.
 ///
@@ -115,8 +113,8 @@ pagable::declare_static_value_type!(TyStarlarkValueVTable, TyStarlarkValueVTable
     message = "`{Self}` is not registered for TyVTable lookup",
     label = "missing `starlark::register_ty_starlark_value!({Self})`",
     note = "call `starlark::register_ty_starlark_value!({Self})` once per concrete instantiation. \
-            `#[starlark_value]` does this automatically for plain, lifetime-only, and \
-            single-`ValueLike`-parameterized types — otherwise register manually."
+            `#[starlark_value]` does this automatically for plain and lifetime-only types — \
+            otherwise register manually."
 )]
 pub trait HasTyVTable {
     /// Handle to the type's `TyStarlarkValueVTable` entry, used for pagable
@@ -180,9 +178,9 @@ macro_rules! __starlark_pagable_only {
 /// Register a `TyStarlarkValueVTable` for pagable round-trip of
 /// [`TyStarlarkValue`][crate::typing::starlark_value::TyStarlarkValue].
 ///
-/// `#[starlark_value]` invokes this automatically for plain, lifetime-only,
-/// and single-`ValueLike`-parameterized types. Otherwise call it manually,
-/// once per concrete instantiation. See [`HasTyVTable`] for the full rule.
+/// `#[starlark_value]` invokes this automatically for plain and lifetime-only
+/// types. Otherwise call it manually, once per concrete instantiation. See
+/// [`HasTyVTable`] for the full rule.
 ///
 /// When the `pagable` feature is disabled this macro expands to nothing
 #[macro_export]

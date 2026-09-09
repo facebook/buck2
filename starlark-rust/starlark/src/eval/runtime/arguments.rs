@@ -41,7 +41,6 @@ use crate::pagable::StarlarkSerialize;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 use crate::values::iter::StarlarkIterator;
@@ -78,19 +77,13 @@ impl From<FunctionError> for crate::Error {
 pub(crate) trait ArgSymbol:
     Debug + Coerce<Self> + 'static + StarlarkSerialize + StarlarkDeserialize
 {
-    fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
-        &self,
-        ps: &ParametersSpec<V>,
-    ) -> Option<usize>;
+    fn get_index_from_param_spec<V>(&self, ps: &ParametersSpec<V>) -> Option<usize>;
 
     fn small_hash(&self) -> StarlarkHashValue;
 }
 
 impl ArgSymbol for Symbol {
-    fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
-        &self,
-        ps: &ParametersSpec<V>,
-    ) -> Option<usize> {
+    fn get_index_from_param_spec<V>(&self, ps: &ParametersSpec<V>) -> Option<usize> {
         ps.names().get(self).map(|i| *i as usize)
     }
 
@@ -109,10 +102,7 @@ pub(crate) struct ResolvedArgName {
 }
 
 impl ArgSymbol for ResolvedArgName {
-    fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
-        &self,
-        _ps: &ParametersSpec<V>,
-    ) -> Option<usize> {
+    fn get_index_from_param_spec<V>(&self, _ps: &ParametersSpec<V>) -> Option<usize> {
         self.param_index.map(|i| i as usize)
     }
 

@@ -134,7 +134,7 @@ enum GenericsShape {
     None,
     /// Lifetime parameters only, e.g. `Foo<'v>` or `FooGen<Bar<'v>>`.
     LifetimesOnly,
-    /// Anything else: const params, non-`ValueLike` type params.
+    /// Anything else: type or const params.
     Other,
 }
 
@@ -422,43 +422,6 @@ impl ImplStarlarkValue {
         })?))
     }
 
-    /// `ValueLike<'v>`?
-    fn path_is_value_like(&self, path: &syn::Path) -> syn::Result<bool> {
-        let Some(last) = path.segments.last() else {
-            return Ok(false);
-        };
-        if last.ident != "ValueLike" {
-            return Ok(false);
-        }
-        let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-            return Ok(false);
-        };
-        if args.args.len() != 1 {
-            return Ok(false);
-        }
-        let Some(arg) = args.args.first() else {
-            // Unreachable.
-            return Ok(false);
-        };
-        let syn::GenericArgument::Lifetime(lt) = arg else {
-            return Ok(false);
-        };
-        Ok(lt == &self.lifetime_param)
-    }
-
-    /// `V: ValueLike<'v>`?
-    fn type_param_is_value_like(&self, type_param: &syn::TypeParam) -> syn::Result<bool> {
-        for bound in &type_param.bounds {
-            if let syn::TypeParamBound::Trait(t) = bound {
-                if self.path_is_value_like(&t.path)? {
-                    return Ok(true);
-                }
-            }
-        }
-        // TODO(nga): also check `where` clause.
-        Ok(false)
-    }
-
     /// Extract path from self_ty for type transformation.
     fn extract_self_ty_path(&self) -> syn::Result<syn::Path> {
         let syn::Type::Path(type_path) = &*self.input.self_ty else {
@@ -481,10 +444,23 @@ impl ImplStarlarkValue {
         Ok(path.clone())
     }
 
-    /// Make `Canonical` type.
-    /// Replace type arguments with `Value<'v>`.
-    fn do_make_canonical_type(&self) -> syn::Result<syn::Type> {
-        let mut path = self.extract_self_ty_path()?;
+    /// `Canonical` when the impl does not spell it: the self type, which is only right when
+    /// there is nothing to canonicalize away, so type and const parameters are an error.
+    fn make_canonical_type(&self) -> syn::Result<syn::Type> {
+        for param in &self.input.generics.params {
+            match param {
+                syn::GenericParam::Lifetime(_) => {}
+                syn::GenericParam::Type(_) | syn::GenericParam::Const(_) => {
+                    return Err(syn::Error::new_spanned(
+                        param,
+                        "cannot infer `Canonical` for a type with type or const parameters; \
+                         specify `type Canonical` explicitly",
+                    ));
+                }
+            }
+        }
+
+        let path = self.extract_self_ty_path()?;
 
         // If type name is `FrozenXxx`, it is likely that it should have `Canonical`
         // pointing to `Xxx`. Make it an error and force user to specify it explicitly to be safe.
@@ -497,60 +473,7 @@ impl ImplStarlarkValue {
             }
         }
 
-        struct PatchTypesVisitor<'a> {
-            lifetime: &'a syn::Lifetime,
-        }
-
-        impl syn::visit_mut::VisitMut for PatchTypesVisitor<'_> {
-            fn visit_type_mut(&mut self, i: &mut syn::Type) {
-                let lifetime = self.lifetime;
-                *i = syn::parse_quote! {
-                    starlark::values::Value< #lifetime >
-                };
-            }
-        }
-
-        syn::visit_mut::VisitMut::visit_path_mut(
-            &mut PatchTypesVisitor {
-                lifetime: &self.lifetime_param,
-            },
-            &mut path,
-        );
-
         Ok(syn::parse_quote! { #path })
-    }
-
-    fn make_canonical_type(&self) -> syn::Result<syn::Type> {
-        // Impl has `V: ValueLike<'v>` constraint.
-        let mut value_like_param = false;
-        for type_param in &self.input.generics.params {
-            match type_param {
-                syn::GenericParam::Lifetime(_) => {}
-                syn::GenericParam::Const(_) => {
-                    return Err(syn::Error::new_spanned(
-                        type_param,
-                        "cannot infer `Canonical` type for type with const param",
-                    ));
-                }
-                syn::GenericParam::Type(p) => {
-                    if self.type_param_is_value_like(p)? {
-                        if value_like_param {
-                            return Err(syn::Error::new_spanned(
-                                p,
-                                "multiple generic parameters are `ValueLike`",
-                            ));
-                        }
-                        value_like_param = true;
-                    } else {
-                        return Err(syn::Error::new_spanned(
-                            p,
-                            "cannot infer `Canonical` type for type with non-`ValueLike` param",
-                        ));
-                    }
-                }
-            }
-        }
-        self.do_make_canonical_type()
     }
 
     /// `type Canonical = ...`.
@@ -566,41 +489,25 @@ impl ImplStarlarkValue {
     }
 
     /// Classify `Self`'s generics for `vtable_registration`.
-    fn generics_shape(&self) -> syn::Result<GenericsShape> {
-        let mut value_like_count = 0usize;
-        let mut has_unsupported_kind = false;
-        for param in &self.input.generics.params {
-            match param {
-                syn::GenericParam::Lifetime(_) => {}
-                syn::GenericParam::Const(_) => has_unsupported_kind = true,
-                syn::GenericParam::Type(p) => {
-                    if self.type_param_is_value_like(p)? {
-                        value_like_count += 1;
-                    } else {
-                        has_unsupported_kind = true;
-                    }
-                }
-            }
-        }
-        if value_like_count > 0 {
-            return Err(syn::Error::new_spanned(
-                &self.input.self_ty,
-                "a `ValueLike` type parameter has no frozen instantiation to register: \
-                 write the type over `Value<'v>` and use `frozen_vtable` for the frozen form",
-            ));
-        }
-        if has_unsupported_kind {
-            return Ok(GenericsShape::Other);
+    fn generics_shape(&self) -> GenericsShape {
+        let lifetimes_only = self
+            .input
+            .generics
+            .params
+            .iter()
+            .all(|param| matches!(param, syn::GenericParam::Lifetime(_)));
+        if !lifetimes_only {
+            return GenericsShape::Other;
         }
         let self_has_args = matches!(&*self.input.self_ty, syn::Type::Path(p)
             if p.path.segments.last()
                 .map(|s| !matches!(s.arguments, syn::PathArguments::None))
                 .unwrap_or(false));
-        Ok(if self_has_args {
+        if self_has_args {
             GenericsShape::LifetimesOnly
         } else {
             GenericsShape::None
-        })
+        }
     }
 
     /// Emit registrations for vtable lookup. The shape of `Self`'s generics
@@ -616,14 +523,13 @@ impl ImplStarlarkValue {
     /// The lifetimes-only row is the shape of both halves of a frozen/unfrozen pair and of
     /// branded types that are their own frozen form; only the flag tells them apart.
     /// For the first two rows, `skip_vtable` drops all registrations and
-    /// `ty_vtable_no_freeze` the AValue one. A type parameter bound by `ValueLike` is
-    /// rejected: there is no frozen instantiation of it to register.
+    /// `ty_vtable_no_freeze` the AValue one.
     ///
     /// `is_special` (user-defined `fn is_special`) suppresses the AValue vtable
     /// emit — the user is expected to register AValue externally.
     fn vtable_registration(&self) -> syn::Result<Option<proc_macro2::TokenStream>> {
         let is_special = self.has_fn("is_special");
-        let shape = self.generics_shape()?;
+        let shape = self.generics_shape();
         let frozen_vtable_err = |msg: &str| Err(syn::Error::new_spanned(&self.input.self_ty, msg));
 
         match (shape, self.attrs.vtable) {
