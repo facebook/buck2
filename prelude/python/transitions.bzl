@@ -61,8 +61,16 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
 
     # Dev: apply the constraint values the opt mode sets, and nothing else, so
     # the result is as close to a plain opt configuration as possible. Values
-    # an opt configuration derives from these (C/C++ flags, native linking,
-    # split debug info handling) follow the same way they do in opt.
+    # an opt configuration derives from these (native linking, split debug info
+    # handling) follow the same way they do in opt.
+    #
+    # `default_opt_cxx[enabled]` is required on top of `opt`, not redundant with
+    # it: a mode file that sets `fbcode.build_mode_partially_selectified_test_label`
+    # (dev-nosan and every other partially selectified mode) pins the fbcode C/C++
+    # toolchain's mode at loading time, so `core_build_mode[opt]` alone leaves the
+    # deps compiling with the dev mode's flags -- no `-DNDEBUG` -- while targets
+    # that select on the opt constraint themselves do get it, which breaks the
+    # link (e.g. rocksdb's `TEST_SYNC_POINT`).
     #
     # The default python package style is deliberately not forced to the opt
     # value: the python target itself is configured with the transitioned
@@ -71,6 +79,7 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
     opt_by_default_constraints = [
         refs._opt_by_default__fbcode_build_info_mode_full[ConstraintValueInfo],
         refs._opt_by_default__static[ConstraintValueInfo],
+        refs._opt_by_default__opt_cxx_enabled[ConstraintValueInfo],
         refs._opt_by_default__no_san[ConstraintValueInfo],
         refs._opt_by_default__opt[ConstraintValueInfo],
     ]
@@ -96,6 +105,7 @@ def _refs():
         "_opt_by_default__linux": "@config//os/constraints:linux",
         "_opt_by_default__no_san": "@config//build_mode:sanitizer_type[no-san]",
         "_opt_by_default__opt": "@config//build_mode/constraints:opt",
+        "_opt_by_default__opt_cxx_enabled": "@config//build_mode/default_opt_cxx:enabled",
         "_opt_by_default__static": "@config//build_mode/constraints:default_link_style[static]",
         "_opt_by_default_native_debug_enabled": "@config//build_mode/constraints:native-debugging[supported]",
     }
