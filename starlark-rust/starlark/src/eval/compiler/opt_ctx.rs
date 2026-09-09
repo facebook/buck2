@@ -158,11 +158,11 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
     /// The optimizer evaluates speculatively at `'v` (calls, attribute reads, operators, module
     /// slots) and folds frozen results into IR stored at `'fm`. No [`HeapEdge`] certifies that
     /// direction; this is the one place it is taken, and it rests on where a frozen value at `'v`
-    /// can live: in the module's own frozen heap; in a heap that heap references (the globals,
-    /// `load`ed modules); in `'static` data; or in a foreign heap that only the value heap
-    /// references, which `ModuleHeaps` copies into the frozen heap when it is sealed. Each of
-    /// those is kept alive as long as anything at `'fm`. The `branding` module lists this among
-    /// the brand changes that rest on such a contract rather than on an edge.
+    /// can live: in the module's own frozen heap; in a heap that heap references, which is every
+    /// heap the value heap references too (the globals, `load`ed modules, a value `add_to_heap`
+    /// brought over), the two sharing their references; or in `'static` data. Each of those is
+    /// kept alive as long as anything at `'fm`. The `branding` module lists this among the brand
+    /// changes that rest on such a contract rather than on an edge.
     pub(crate) fn demote(&self, v: Value<'v>) -> Option<Value<'fm>> {
         if !v.is_frozen() {
             return None;

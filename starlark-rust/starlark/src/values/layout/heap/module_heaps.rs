@@ -37,9 +37,12 @@ use crate::values::layout::heap::heap_type::FrozenHeapName;
 /// closure that unwinds. The edge therefore exists from the moment the two heaps do, with nothing
 /// to remember at the end.
 ///
-/// The other direction is covered too: the sealed heap takes over every heap the value heap
-/// references at the moment of sealing, so a frozen value that was copied by pointer out of one
-/// of those heaps stays alive as long as the sealed heap does.
+/// The other direction is covered too: the two heaps hold one set of references between them. A
+/// heap that either of them comes to depend on (the value heap through a `load` or an
+/// `add_to_heap`, the builder through the globals' edge) is a dependency of both from that moment
+/// on, so the builder, and the sealed heap it becomes, keeps alive every heap that a frozen value
+/// at `'v` can have been copied out of, and does so from the moment the value heap references
+/// it rather than from sealing.
 #[derive(Debug)]
 pub(crate) struct ModuleHeaps<'v> {
     heap: Heap<'v>,
@@ -51,7 +54,7 @@ impl<'v> ModuleHeaps<'v> {
     pub(crate) fn new(heap: Heap<'v>) -> Self {
         Self {
             heap,
-            frozen: Some(OwnedFrozenHeap::new()),
+            frozen: Some(OwnedFrozenHeap::sharing_references(heap.references())),
         }
     }
 
@@ -101,11 +104,6 @@ impl<'v> ModuleHeaps<'v> {
         T: IsStaticType,
         for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
     {
-        // Frozen values may point into any heap the value heap references (a `load`ed module's
-        // heap, a value that `add_to_heap` brought over), so the sealed heap takes those references
-        // over: before `f`, which is what `Freezer::new` requires of the heap it freezes into, and
-        // again after `f`, for references `f` itself added.
-        self.inherit_references();
         // The builder stays in `self` while `f` runs, so that if `f` unwinds, `Drop` seals it like
         // on every other exit: the value heap may already hold pointers into it.
         //
@@ -115,7 +113,6 @@ impl<'v> ModuleHeaps<'v> {
             let freezer = Freezer::new(fh);
             f(&freezer, self.edge(fh)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
         });
-        self.inherit_references();
         let frozen = self
             .frozen
             .take()
@@ -127,26 +124,14 @@ impl<'v> ModuleHeaps<'v> {
     }
 }
 
-impl<'v> ModuleHeaps<'v> {
-    /// Make the builder reference every heap the value heap references.
-    fn inherit_references(&self) {
-        self.frozen().with(|fh| {
-            for r in self.heap.referenced_heaps() {
-                fh.add_reference(r.owner());
-            }
-        });
-    }
-}
-
 impl<'v> Drop for ModuleHeaps<'v> {
     fn drop(&mut self) {
         // A module that is dropped rather than frozen, or a `seal_with` closure that unwound: the
-        // frozen heap has to outlive the module all the same, see the type doc. An empty builder
-        // would seal into the empty heap, which keeps nothing alive, so it is skipped. The value
-        // heap's references are not handed over here: the sealed heap is reachable only from the
-        // value heap, which holds them itself.
+        // frozen heap has to outlive the module all the same, see the type doc. A builder with no
+        // allocations would seal into a heap that keeps alive only what the value heap already
+        // does, so it is skipped.
         if let Some(frozen) = self.frozen.take()
-            && !frozen.is_empty()
+            && frozen.has_allocations()
         {
             let sealed = frozen.seal_impl(None, Some(self.heap.peak_allocated_bytes()));
             self.heap.add_reference(sealed.owner());
@@ -183,6 +168,49 @@ mod tests {
         });
         assert!(root.refs().any(|r| r == foreign.owner()));
         root.by_ref(|v| assert_eq!(v.unpack_str(), Some(expected.as_str())));
+    }
+
+    /// The value heap's references are the builder's at the moment they are added, not at
+    /// sealing: the optimizer demotes values from heaps the value heap references into the
+    /// builder while the module is still being compiled. And the builder's are the value heap's.
+    #[test]
+    fn test_the_two_heaps_share_their_references() {
+        let foreign =
+            OwnedFrozen::<Value<'static>>::build(StarlarkTestHeapName::frozen_heap_name(), |fh| {
+                fh.alloc(
+                    "a string that lives on a heap of its own"
+                        .repeat(8)
+                        .as_str(),
+                )
+            });
+        let other =
+            OwnedFrozen::<Value<'static>>::build(StarlarkTestHeapName::frozen_heap_name(), |fh| {
+                fh.alloc(
+                    "a string that lives on another heap of its own"
+                        .repeat(8)
+                        .as_str(),
+                )
+            });
+        Heap::temp(|heap| {
+            let heaps = ModuleHeaps::new(heap);
+            heaps.frozen_heap(|fh, _edge| {
+                assert!(
+                    !fh.referenced_heaps()
+                        .iter()
+                        .any(|r| r.owner() == foreign.owner())
+                );
+                foreign.as_ref().add_to_heap(heap);
+                assert!(
+                    fh.referenced_heaps()
+                        .iter()
+                        .any(|r| r.owner() == foreign.owner())
+                );
+                fh.add_reference(other.owner());
+            });
+            let referenced = heap.referenced_heaps();
+            assert!(referenced.iter().any(|r| r.owner() == foreign.owner()));
+            assert!(referenced.iter().any(|r| r.owner() == other.owner()));
+        });
     }
 }
 

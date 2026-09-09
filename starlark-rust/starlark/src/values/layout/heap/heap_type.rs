@@ -34,7 +34,10 @@ use std::ops::Deref;
 use std::ptr;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 use std::sync::OnceLock;
+use std::sync::PoisonError;
+use std::sync::TryLockError;
 use std::sync::Weak;
 
 use allocative::Allocative;
@@ -51,6 +54,7 @@ use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
 use pagable::storage::handle::PagableStorageHandle;
 use rand::RngExt;
+use starlark_map::Equivalent;
 use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
 
@@ -123,8 +127,49 @@ struct OwnedHeap {
     arena: FastCell<Arena<Bump>>,
     str_interner: RefCell<StringValueInterner<'static>>,
     /// Memory I depend on.
-    refs: RefCell<SmallSet<OwnedFrozen<()>>>,
+    refs: HeapReferences,
     ban_gc: Cell<bool>,
+}
+
+/// The frozen heaps a heap depends on.
+///
+/// A module's value heap and the frozen heap it is building hold one set between them, see
+/// `ModuleHeaps`; every other heap has a set of its own. The two heaps of a module are used from
+/// one thread; the lock, rather than a `RefCell`, only keeps the owned heaps `Send` (see
+/// `HeapSendable`).
+#[derive(Clone, Dupe, Default)]
+pub(in crate::values::layout::heap) struct HeapReferences(Arc<Mutex<SmallSet<OwnedFrozen<()>>>>);
+
+impl HeapReferences {
+    fn lock(&self) -> MutexGuard<'_, SmallSet<OwnedFrozen<()>>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn insert(&self, heap: OwnedFrozenRef<'_, ()>) {
+        // The empty heap keeps nothing alive.
+        if heap.heap_ref.0.is_none() {
+            return;
+        }
+        let mut refs = self.lock();
+        // The same heap is added over and over (once per value brought out of it), so the lookup
+        // saves the refcount round trip of `to_owned` in the common case.
+        if !refs.contains(&heap) {
+            refs.insert(heap.to_owned());
+        }
+    }
+
+    /// The number of heaps, or `None` while the set is locked: for `Debug`, which must not block.
+    fn try_len(&self) -> Option<usize> {
+        match self.0.try_lock() {
+            Ok(refs) => Some(refs.len()),
+            Err(TryLockError::Poisoned(e)) => Some(e.into_inner().len()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn to_vec(&self) -> Vec<OwnedFrozen<()>> {
+        self.lock().iter().duped().collect()
+    }
 }
 
 impl OwnedHeap {
@@ -198,13 +243,20 @@ impl<'v> Heap<'v> {
         self.string_interner().trace(tracer);
     }
 
+    #[cfg(test)]
     pub(crate) fn referenced_heaps(self) -> Vec<OwnedFrozen<()>> {
-        self.0.refs.borrow().iter().duped().collect()
+        self.0.refs.to_vec()
+    }
+
+    /// The set of heaps this heap depends on, for `ModuleHeaps` to share with the frozen heap it
+    /// builds alongside this one.
+    pub(in crate::values::layout::heap) fn references(self) -> HeapReferences {
+        self.0.refs.dupe()
     }
 
     /// Add a dependency onto the provided frozen heap.
     pub fn add_reference(self, h: OwnedFrozenRef<'_, ()>) {
-        self.0.refs.borrow_mut().insert(h.to_owned());
+        self.0.refs.insert(h);
     }
 }
 
@@ -217,7 +269,7 @@ pub struct OwnedFrozenHeap {
     /// My memory.
     arena: Arena<ChunkAllocator>,
     /// Memory I depend on.
-    refs: RefCell<SmallSet<OwnedFrozen<()>>>,
+    refs: HeapReferences,
     /// String interner. Its entries are allocated in this heap and stored with the brand erased;
     /// `FrozenHeap::alloc_str_hashed` restores it.
     str_interner: RefCell<StringValueInterner<'static>>,
@@ -833,7 +885,7 @@ impl Debug for OwnedFrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
         x.field("bytes", &self.arena.allocated_bytes());
-        x.field("refs", &self.refs.try_borrow().map(|x| x.len()));
+        x.field("refs", &self.refs.try_len());
         x.finish()
     }
 }
@@ -1067,6 +1119,15 @@ impl OwnedFrozenHeap {
         Self::default()
     }
 
+    /// A heap that depends on the same heaps as the heap `refs` came from, now and as either of
+    /// them gains dependencies, see `ModuleHeaps`.
+    pub(in crate::values::layout::heap) fn sharing_references(refs: HeapReferences) -> Self {
+        Self {
+            refs,
+            ..Self::default()
+        }
+    }
+
     /// Allocate on this heap through a [`FrozenHeap`] handle that is valid within `f`.
     ///
     /// Values allocated through the handle are branded with its lifetime, so they cannot outlive
@@ -1120,14 +1181,15 @@ impl OwnedFrozenHeap {
             mut arena, refs, ..
         } = self;
         arena.finish();
-        let refs = refs.into_inner();
+        // A snapshot: a module's value heap goes on adding to a set it shares with this heap.
+        let refs = refs.to_vec();
         if arena.is_empty() && refs.is_empty() {
             OwnedFrozen::default()
         } else {
             let heap = PartialPagableArc::new(FrozenFrozenHeap {
                 serialization_nonce: HeapSerializationNonce::random(),
                 arena,
-                refs: refs.into_iter().collect(),
+                refs: refs.into_boxed_slice(),
                 name,
                 peak_allocated_bytes,
                 ser_states: Mutex::new(Vec::new()),
@@ -1143,10 +1205,9 @@ impl OwnedFrozenHeap {
         self.arena.allocated_bytes()
     }
 
-    /// Whether nothing has been allocated on this heap and it references no other heap, in which
-    /// case sealing it would produce the empty [`OwnedFrozen<()>`].
-    pub(crate) fn is_empty(&self) -> bool {
-        self.arena.is_empty() && self.refs.borrow().is_empty()
+    /// Whether anything has been allocated on this heap.
+    pub(crate) fn has_allocations(&self) -> bool {
+        !self.arena.is_empty()
     }
 }
 
@@ -1177,14 +1238,15 @@ impl<'fh> FrozenHeap<'fh> {
         OwnedFrozenHeap::new().with(f)
     }
 
+    #[cfg(test)]
+    pub(crate) fn referenced_heaps(self) -> Vec<OwnedFrozen<()>> {
+        self.0.refs.to_vec()
+    }
+
     /// Keep the argument heap alive as long as this heap is kept alive. Used if a value in this
     /// heap points at values in another frozen heap.
     pub fn add_reference(self, heap: OwnedFrozenRef<'_, ()>) {
-        if heap.heap_ref.0.is_none() {
-            return;
-        }
-
-        self.0.refs.borrow_mut().insert(heap.to_owned());
+        self.0.refs.insert(heap);
     }
 
     pub(in crate::values::layout) fn string_interner(
@@ -2300,6 +2362,13 @@ impl Eq for OwnedFrozenRef<'_, ()> {}
 impl Hash for OwnedFrozenRef<'_, ()> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.heap_ref.hash(state)
+    }
+}
+
+/// Heap identity, as for [`OwnedFrozen<()>`]: looks a borrowed heap up in a set of owned ones.
+impl Equivalent<OwnedFrozen<()>> for OwnedFrozenRef<'_, ()> {
+    fn equivalent(&self, key: &OwnedFrozen<()>) -> bool {
+        *self.heap_ref == key.heap_ref
     }
 }
 

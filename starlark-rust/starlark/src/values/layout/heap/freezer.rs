@@ -35,9 +35,9 @@ use crate::values::layout::value::Value;
 /// A value that is already frozen is not copied: [`freeze`](Freezer::freeze) hands it back at
 /// `'fv` as it is. That is sound because of a property of the heap a freezer is created for (see
 /// `Freezer::new`): it references every frozen heap in which a value handed to the freezer can
-/// live. `ModuleHeaps::seal_with` is the only production constructor, by privacy, and establishes
-/// the property before it hands the freezer out. The `branding` module lists this among the brand
-/// changes that rest on such a contract.
+/// live. `ModuleHeaps::seal_with` is the only production constructor, by privacy, and its heap
+/// has the property by construction, sharing the value heap's references. The `branding` module
+/// lists this among the brand changes that rest on such a contract.
 pub struct Freezer<'fv> {
     /// Freezing into this heap.
     pub(crate) heap: FrozenHeap<'fv>,
@@ -47,9 +47,8 @@ pub struct Freezer<'fv> {
 
 impl<'fv> Freezer<'fv> {
     /// `heap` must be, or reference directly or through its references, every frozen heap in
-    /// which a value handed to [`freeze`](Freezer::freeze) can live. `ModuleHeaps::seal_with`
-    /// copies the value heap's references into the builder before calling this; see the type
-    /// documentation.
+    /// which a value handed to [`freeze`](Freezer::freeze) can live. The builder of a
+    /// `ModuleHeaps` shares the value heap's references, so it does; see the type documentation.
     pub(in crate::values::layout::heap) fn new(heap: FrozenHeap<'fv>) -> Self {
         Freezer {
             heap,

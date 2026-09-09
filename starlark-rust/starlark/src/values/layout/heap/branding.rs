@@ -132,9 +132,9 @@
 //!  - `Freezer::freeze`'s already-frozen fast path (values/layout/heap/freezer.rs). A value that
 //!    is already frozen is handed back at `'fv` without being copied. The contract is on
 //!    `Freezer::new`: the target heap references every heap the value can live in.
-//!    `ModuleHeaps::seal_with` is its one production caller, by privacy, and copies the value
-//!    heap's references into the builder before constructing the freezer; tests construct
-//!    freezers whose heaps are scoped within the test.
+//!    `ModuleHeaps::seal_with` is its one production caller, by privacy, and its builder shares
+//!    the value heap's references; tests construct freezers whose heaps are scoped within the
+//!    test.
 //!
 //! Everything else that hands out a brand records the dependency it certifies, and the
 //! `'static` brand is honest: apart from the private erased storage of the owning carriers
