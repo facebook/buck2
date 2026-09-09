@@ -1296,6 +1296,151 @@ mod tests {
     }
 
     #[test]
+    fn test_inline_sort_by_call_keyword_or_name() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"first_of": [{"call_keyword": "name"}, "call_name"]}
+                custom_items = [zebra(), factory(name = "alpha"), module.bravo()],
+            )
+        "#};
+        let expected = source.replace(
+            "[zebra(), factory(name = \"alpha\"), module.bravo()]",
+            "[factory(name = \"alpha\"), module.bravo(), zebra()]",
+        );
+
+        assert_eq!(run(source), expected);
+    }
+
+    #[test]
+    fn test_inline_sort_rejects_inter_element_comment_with_mixed_line_layout() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = "call_name"
+                custom_items = [zebra(), alpha(),  # keep this comment
+                    middle(),
+                ],
+            )
+        "#};
+
+        let error = try_run(source).expect_err("unsafe comment layout should fail before editing");
+        assert!(
+            format!("{error:#}").contains(
+                "cannot safely sort a list with comments and multiple elements on one line"
+            ),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn test_inline_sort_rejects_trailing_comment_with_mixed_line_layout() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = "call_name"
+                custom_items = [zebra(), alpha(),
+                    middle(),  # keep attached to middle
+                ],
+            )
+        "#};
+
+        let error = try_run(source).expect_err("unsafe comment layout should fail before editing");
+        assert!(
+            format!("{error:#}").contains(
+                "cannot safely sort a list with comments and multiple elements on one line"
+            ),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn test_inline_sort_rejects_non_string_call_keyword() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"first_of": [{"call_keyword": "name"}, "call_name"]}
+                custom_items = [foo(name = dynamic_name), bar()],
+            )
+        "#};
+
+        let error = try_run(source).expect_err("dynamic sort key should fail formatting");
+        assert!(
+            format!("{error:#}").contains("call keyword `name` is not a string literal"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn test_leading_do_not_sort_overrides_inline_sort() {
+        let source = indoc! {r#"
+            my_rule(
+                # do not sort
+                # starlark-fmt: sort-by = "call_name"
+                custom_items = [zebra(), alpha()],
+            )
+        "#};
+
+        assert_eq!(run(source), source);
+    }
+
+    #[test]
+    fn test_leading_do_not_sort_overrides_configured_sort() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"custom_items": {"call_keyword": "name"}}
+            }"#,
+        )
+        .expect("valid config");
+        let source = indoc! {r#"
+            my_rule(
+                # do not sort
+                custom_items = [foo(name = dynamic_name), bar()],
+            )
+        "#};
+
+        assert_eq!(run_with_config(source, &config), source);
+    }
+
+    #[test]
+    fn test_unrelated_configured_sort_key_matches_legacy_output() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {"deps": true},
+                "SortableBlacklist": {},
+                "NamePriority": {},
+                "ListSortKeys": {"unrelated": "call_name"}
+            }"#,
+        )
+        .expect("valid config");
+        let source = indoc! {r#"
+            my_rule(
+                deps = [
+                    ":z",
+                    ":a",
+                ],
+            )
+        "#};
+        let expected = source.replace("\":z\",\n        \":a\"", "\":a\",\n        \":z\"");
+
+        assert_eq!(run_with_config(source, &config), expected);
+    }
+
+    #[test]
+    fn test_do_not_sort_suppresses_invalid_inline_sort() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"unknown": true}
+                custom_items = [  # do not sort
+                    zebra(),
+                    alpha(),
+                ],
+            )
+        "#};
+
+        assert_eq!(run(source), source);
+    }
+
+    #[test]
     fn test_non_allowlisted_arg_not_sorted() {
         let source = "my_rule(name=\"test\", custom_list=[\"z\", \"a\"])\n";
         assert_eq!(run(source), source);

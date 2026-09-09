@@ -291,4 +291,91 @@ x = z_func() + a_func()
 
         assert_eq!(result, source);
     }
+
+    #[test]
+    fn test_inline_sort_with_nested_sortable_lists_is_idempotent() {
+        let source = indoc::indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"call_keyword": "name"}
+                custom_items = [
+                    foo(name = "z", deps = [":z", ":a"]),
+                    foo(name = "a", deps = [":z", ":a"]),
+                ],
+            )
+        "#};
+        let expected = indoc::indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"call_keyword": "name"}
+                custom_items = [
+                    foo(name = "a", deps = [":a", ":z"]),
+                    foo(name = "z", deps = [":a", ":z"]),
+                ],
+            )
+        "#};
+        let config = test_config();
+
+        let once = apply_autofixes(&build_input(source), &config).expect("first pass should work");
+        let twice = apply_autofixes(&build_input(&once), &config).expect("second pass should work");
+
+        assert_eq!(once, expected);
+        assert_eq!(twice, expected);
+    }
+
+    #[test]
+    fn test_inline_sort_defers_length_changing_nested_edits() {
+        let source = indoc::indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"call_keyword": "name"}
+                custom_items = [
+                    foo(name = "z", deps = [":a", ":a"]),
+                    foo(name = "a", deps = [":b", ":b"]),
+                ],
+                visibility = ["PUBLIC"],
+            )
+        "#};
+        let expected = indoc::indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"call_keyword": "name"}
+                custom_items = [
+                    foo(name = "a", deps = [":b"]),
+                    foo(name = "z", deps = [":a"]),
+                ],
+                visibility = ["PUBLIC"],
+            )
+        "#};
+        let config = test_config();
+
+        let result = apply_autofixes(&build_input(source), &config)
+            .expect("overlapping edits should be applied in separate passes");
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_deeply_nested_inline_sorts_reach_a_fixed_point() {
+        fn nested_call(depth: usize) -> String {
+            if depth == 0 {
+                return "leaf()".to_owned();
+            }
+            format!(
+                "wrapper(\n# starlark-fmt: sort-by = \"call_name\"\nitems = [z(child = {}), a()],\n)",
+                nested_call(depth - 1)
+            )
+        }
+
+        let source = format!("root(value = {})\n", nested_call(7));
+        let config = test_config();
+
+        let once =
+            apply_autofixes(&build_input(&source), &config).expect("first pass should converge");
+        let twice =
+            apply_autofixes(&build_input(&once), &config).expect("second pass should converge");
+
+        assert_eq!(
+            once.matches("items = [a(), z(").count(),
+            7,
+            "every nested custom list should be sorted in the first pass: {once}"
+        );
+        assert_eq!(once, twice);
+    }
 }
