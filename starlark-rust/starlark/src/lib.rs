@@ -488,7 +488,7 @@ pub mod wasm;
 
 pub mod pagable;
 
-pub mod coerce;
+pub(crate) mod coerce;
 #[cfg(test)]
 mod tests;
 
@@ -499,8 +499,6 @@ mod tests;
 pub mod __macro_refs {
     pub use either::Either;
     pub use paste::item;
-
-    pub use crate::coerce::coerce;
 }
 
 pub mod __derive_refs;

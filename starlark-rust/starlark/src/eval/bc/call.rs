@@ -26,7 +26,6 @@ use starlark_derive::StarlarkPagable;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
-use crate::coerce::coerce;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::bc::frame::BcFramePtr;
 use crate::eval::bc::instr_arg::BcInstrArg;
@@ -162,7 +161,7 @@ impl<S: ArgSymbol> BcCallArgs<S> for FullArgs<S> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new_unique(coerce(&arg.names)),
+            names: ArgNames::new_unique(&arg.names),
             args,
             kwargs,
         }
@@ -207,7 +206,7 @@ impl BcCallArgsForDef for FullArgs<ResolvedArgName> {
         ArgumentsFull {
             pos,
             named,
-            names: ArgNames::new_unique(coerce(&arg.names)),
+            names: ArgNames::new_unique(&arg.names),
             args,
             kwargs,
         }

@@ -82,17 +82,10 @@ pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T
 #[repr(transparent)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 
-unsafe impl<'v, T: StarlarkValue<'v>> Coerce<ValueTyped<'v, T>> for ValueTyped<'v, T> {}
-unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<ValueTyped<'v, T>> for ValueTyped<'v, T> {}
+// SAFETY: A `ValueTyped` is a `Value` with a type-level annotation, and hashes and compares as
+// the `Value` does.
 unsafe impl<'v, T: StarlarkValue<'v>> Coerce<Value<'v>> for ValueTyped<'v, T> {}
 unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<Value<'v>> for ValueTyped<'v, T> {}
-unsafe impl<'v, T: StarlarkValue<'v>> Coerce<FrozenValueTyped<'v, T>> for FrozenValueTyped<'v, T> {}
-unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<FrozenValueTyped<'v, T>>
-    for FrozenValueTyped<'v, T>
-{
-}
-unsafe impl<'v, T: StarlarkValue<'v>> Coerce<Value<'v>> for FrozenValueTyped<'v, T> {}
-unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<Value<'v>> for FrozenValueTyped<'v, T> {}
 
 unsafe impl<'v, 'f, T: StarlarkValue<'f>> Trace<'v> for FrozenValueTyped<'f, T> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}

@@ -21,20 +21,20 @@
 //! For an internal provider like:
 //! ```skip
 //! #[internal_provider(create_my_prov)]
-//! #[derive(Clone, Debug, Trace, Coerce)]
-//! #[repr(transparent)]
-//! pub struct MyProviderGen<V> {
-//!    field1: V,
-//!    field2: V,
+//! #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+//! #[repr(C)]
+//! pub struct MyProvider<'v> {
+//!    field1: ValueOfUnchecked<'v, String>,
+//!    field2: ValueOfUnchecked<'v, String>,
 //! }
 //!
 //! #[starlark_module]
 //! fn create_my_prov(globals: &mut GlobalsBuilder) {
-//!    fn NameDoesntMatter(
+//!    fn NameDoesntMatter<'v>(
 //!        // It's not enforced that the args here match the fields, but it's generally the user expectation that they do.
-//!        field1: Value<'v>,
-//!        field2: Value<'v>,
-//!    ) -> MyProvider<'v> {
+//!        field1: ValueOfUnchecked<'v, String>,
+//!        field2: ValueOfUnchecked<'v, String>,
+//!    ) -> starlark::Result<MyProvider<'v>> {
 //!       // Can do some arg validation or computation here, just need to construct the provider.
 //!       Ok(MyProvider {
 //!            field1,
@@ -43,6 +43,8 @@
 //!    }
 //! }
 //! ```
+//!
+//! See the `internal_provider` attribute for the shape the struct must have.
 //!
 //! This will generate a "ProviderCallable" starlark type named (in starlark) `MyProvider` that acts like
 //! the instance returned by a `provider()` call in starlark (so can be used to construct instances of the

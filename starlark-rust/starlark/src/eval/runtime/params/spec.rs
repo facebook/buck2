@@ -31,8 +31,8 @@ use starlark_syntax::syntax::def::DefParamIndices;
 use triomphe::Arc;
 
 use crate as starlark;
-use crate::__macro_refs::coerce;
 use crate::any::ProvidesStaticType;
+use crate::coerce::coerce;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
 use crate::docs::DocParams;

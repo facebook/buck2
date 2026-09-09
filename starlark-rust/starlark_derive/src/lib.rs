@@ -25,7 +25,6 @@ use proc_macro::TokenStream;
 mod alloc_value;
 mod any_lifetime;
 mod bc;
-mod coerce;
 mod freeze;
 mod module;
 mod serde;
@@ -213,12 +212,6 @@ pub fn starlark_value(
 #[proc_macro_derive(ProvidesStaticType)]
 pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     any_lifetime::derive_provides_static_type(input)
-}
-
-// Derive the `Coerce` trait.
-#[proc_macro_derive(Coerce)]
-pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    coerce::derive_coerce(input)
 }
 
 /// Derive both `StarlarkSerialize` and `StarlarkDeserialize` traits.

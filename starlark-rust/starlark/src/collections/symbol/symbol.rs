@@ -32,7 +32,6 @@ use starlark_map::Hashed;
 use starlark_map::StarlarkHashValue;
 
 use crate as starlark;
-use crate::coerce::Coerce;
 use crate::collections::aligned_padded_str::AlignedPaddedStr;
 
 /// A pre-hashed string used for efficient dictionary lookup.
@@ -49,8 +48,6 @@ pub(crate) struct Symbol {
     payload: Box<[usize]>,
     small_hash: StarlarkHashValue,
 }
-
-unsafe impl Coerce<Symbol> for Symbol {}
 
 impl Debug for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

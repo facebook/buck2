@@ -28,7 +28,6 @@ use starlark_syntax::value_error;
 use thiserror::Error;
 
 use crate as starlark;
-use crate::coerce::Coerce;
 use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
@@ -75,7 +74,7 @@ impl From<FunctionError> for crate::Error {
 
 /// An object accompanying argument name for faster argument resolution.
 pub(crate) trait ArgSymbol:
-    Debug + Coerce<Self> + 'static + StarlarkSerialize + StarlarkDeserialize
+    Debug + 'static + StarlarkSerialize + StarlarkDeserialize
 {
     fn get_index_from_param_spec<V>(&self, ps: &ParametersSpec<V>) -> Option<usize>;
 
@@ -110,8 +109,6 @@ impl ArgSymbol for ResolvedArgName {
         self.hash
     }
 }
-
-unsafe impl Coerce<ResolvedArgName> for ResolvedArgName {}
 
 #[derive(Debug, Clone_, Dupe_)]
 pub(crate) struct ArgNames<'a, 'v, S: ArgSymbol> {

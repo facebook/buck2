@@ -53,7 +53,6 @@ use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
-use crate::coerce::CoerceKey;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
@@ -141,7 +140,6 @@ enum ValueValueError {
 pub struct Value<'v>(pub(crate) Pointer<'v>);
 
 unsafe impl<'v> Coerce<Value<'v>> for Value<'v> {}
-unsafe impl<'v> CoerceKey<Value<'v>> for Value<'v> {}
 
 impl Default for Value<'_> {
     fn default() -> Self {
@@ -1114,9 +1112,7 @@ impl<'v> StarlarkTypeRepr for Value<'v> {
 /// The subset of [`Value`]'s API that container implementations are written against.
 ///
 /// [`Value`] is its only implementation; see the documentation of the same-named methods there.
-pub trait ValueLike<'v>:
-    Copy + Trace<'v> + CoerceKey<Value<'v>> + ProvidesStaticType<'v> + 'v
-{
+pub trait ValueLike<'v>: Copy + Trace<'v> + ProvidesStaticType<'v> + 'v {
     /// Produce a [`Value`] regardless of the type you are starting with.
     fn to_value(self) -> Value<'v>;
 
