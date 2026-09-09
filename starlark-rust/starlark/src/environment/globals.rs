@@ -64,11 +64,13 @@ use crate::values::namespace::Namespace;
 use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::types::function::NativeFunction;
 
-/// The global values available during execution.
+/// The global values available during execution: the builtins, and whatever the embedder adds
+/// through a [`GlobalsBuilder`]. Always frozen.
 ///
 /// The values live in a frozen heap that the `Globals` owns; they are reached as
 /// [`OwnedFrozenRef`]s ([`get_ref`](Globals::get_ref), [`iter`](Globals::iter)), which carry the
-/// heap along.
+/// heap along. The compiler resolves a global name to its value, so a module evaluated with these
+/// globals refers to the values directly, and its frozen heap keeps this heap alive.
 #[derive(
     Clone,
     Dupe,

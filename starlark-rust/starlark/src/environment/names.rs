@@ -31,23 +31,14 @@ use crate::values::Freezer;
 use crate::values::ProvidesStaticType;
 use crate::values::StringValue;
 
-/// MutableNames are how we allocate slots (index-based) to variables
-/// (name-based). The slots field is the current active mapping of names to
-/// index.
+/// The module's mapping from variable name to slot index, see the `environment` module doc.
 ///
-/// In a statement context there are things that define variables, e.g. x=...,
-/// for x in ... Importantly, the expression x can refer to either a global x,
-/// or a local x that hasn't yet been defined, based on the future
-/// presence/absence of a statement defining x. Therefore, we first capture all
-/// the definitions with collect_defines_lvalue, allocate them slots,
-/// then replace variables with slot numbers when compiling.
-///
-/// Comprehensions are a bit different. Given [x for x in y] that defines x, but
-/// in a way that shadows any existing x, and the definition immediately binds
-/// x. We do that with add_scoped()/unscope(). On an add_scope, we allocate
-/// fresh slots at the end, and bind them to the names in the comprehension.
-/// On an unscope, we do the reverse, putting things back to how they were
-/// before (apart from the total) number of slots required.
+/// A statement can define a variable (`x = ...`, `for x in ...`) after an expression that uses
+/// it, and whether that expression means a global `x` or a not-yet-assigned module `x` depends on
+/// the definition being there. So the compiler collects the definitions of a scope first
+/// (`ModuleScopeBuilder` in `eval/compiler/scope.rs`), allocates them slots, and only then
+/// replaces variables with slot numbers. Comprehension variables never get a module slot: they
+/// are locals of the module's top-level frame, scoped by `ScopeNames::add_scoped` and `unscope`.
 ///
 /// The names are strings at the module's brand: interned in the module's frozen heap, or in a
 /// heap it references for names imported from another module.

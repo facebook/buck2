@@ -82,9 +82,18 @@ enum ModuleError {
 
 /// The result of freezing a [`Module`], making it and its contained values immutable.
 ///
-/// The values live on the module's frozen heap, which this type owns. The value accessors hand
-/// them out as [`OwnedFrozen`]s and [`OwnedFrozenRef`]s that carry the heap along, and
-/// [`frozen_heap`](FrozenModule::frozen_heap) exposes the heap itself.
+/// This type is an owned carrier: an [`OwnedFrozen`] of the module's data (its names and slots,
+/// `FrozenModuleData`) allocated on the module's sealed frozen heap. Every accessor is a
+/// projection of that owner. [`get_owned`](FrozenModule::get_owned) hands a value out as an
+/// `OwnedFrozen`, [`get_option_ref`](FrozenModule::get_option_ref) as an [`OwnedFrozenRef`], and
+/// [`frozen_heap`](FrozenModule::frozen_heap) is the bare heap. The type is `Clone` and
+/// `Send + Sync`, so one frozen module is shared by every module that loads it.
+///
+/// `load()` looks the name up in the frozen module's names, adds this module's heap as a
+/// reference of the loading module's frozen heap ([`OwnedFrozenRef::add_to_frozen_heap`]), and
+/// hands the slot's value out at the loading module's brand, so the loaded module stays alive as
+/// long as the loading module's values do. The `branding` module in
+/// `values/layout/heap/branding.rs` explains the brands and the heap references behind this.
 #[derive(Debug, Clone, Dupe, Allocative)]
 pub struct FrozenModule {
     data: OwnedFrozenModuleData,
@@ -139,19 +148,23 @@ pub(crate) struct FrozenModuleData<'v> {
 
 register_starlark_any_complex!(frozen FrozenModuleData<'_>);
 
-/// A container for user values, used during execution.
+/// The module environment a program is evaluated in: its variables, and the heaps its values
+/// live on. The [module documentation](crate::environment) describes how variables are resolved.
 ///
-/// A module contains both a frozen heap and a [`Heap`] on which different values are allocated.
-/// You can reach these heaps with [`frozen_heap`](Module::frozen_heap) and
-/// [`heap`](Module::heap).
+/// A module owns two heaps. Values the program creates go on its [`Heap`]
+/// ([`heap`](Module::heap)); the compiler's products (bytecode, constants, interned names) and
+/// anything allocated through [`frozen_heap`](Module::frozen_heap) go on its frozen heap, and
+/// freezing the module ([`freeze_named`](Module::freeze_named)) copies the variables onto that
+/// heap too and seals it into the [`FrozenModule`].
+///
+/// The variables are a mapping from name to slot and a value per slot (`MutableNames` and
+/// `MutableSlots`, both at `'v`). [`set`](Module::set) and
+/// [`import_public_symbols`](Module::import_public_symbols) add names before or during
+/// evaluation; [`get`](Module::get) looks one up.
 #[derive(Debug)]
 pub struct Module<'v> {
     heaps: ModuleHeaps<'v>,
     names: MutableNames<'v>,
-    // Should really be MutableSlots<'v>, where &'v self
-    // Values are allocated from heap. Because of variance
-    // you can inject the wrong values in, so make sure slots aren't
-    // exported.
     slots: MutableSlots<'v>,
     docstring: RefCell<Option<String>>,
     /// Module evaluation duration:
