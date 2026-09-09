@@ -164,8 +164,10 @@ impl<'v> StarlarkSerialize for Partial<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for Partial<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'v> StarlarkDeserialize<'v> for Partial<'v> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
+    ) -> crate::Result<Self> {
         let func = Value::starlark_deserialize(ctx)?;
         let pos = Value::starlark_deserialize(ctx)?;
         let named = Vec::<Value>::starlark_deserialize(ctx)?;

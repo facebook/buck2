@@ -19,26 +19,37 @@
 
 use pagable::PagableDeserializer;
 
+use crate::any::IsStaticType;
+use crate::any::ProvidesStaticType;
 use crate::values::Value;
 
-/// Trait for Starlark values that can be deserialized.
+/// Trait for Starlark values that can be deserialized at the brand `'fv`.
 ///
 /// This trait is used during arena deserialization to reconstruct each value
 /// in the heap. The deserialization is done via the vtable, allowing for
 /// dynamic dispatch during heap reconstruction.
-pub trait StarlarkDeserialize: Sized {
+///
+/// `'fv` is the brand of the heap the value is being deserialized into (see the `branding`
+/// module), and the [`Value`]s the context hands out are `Value<'fv>`. A type that holds starlark
+/// values therefore implements the trait at its own brand, `impl<'v> StarlarkDeserialize<'v> for
+/// Foo<'v>`, and a type that holds none implements it at every brand, `impl<'fv>
+/// StarlarkDeserialize<'fv> for Bar`; `#[derive(StarlarkPagable)]` picks the shape from the type's
+/// lifetime parameters.
+pub trait StarlarkDeserialize<'fv>: Sized {
     /// Deserialize this value using the provided context.
     ///
     /// The context provides access to the underlying pagable deserializer.
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self>;
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self>;
 }
 
 /// Deserialize a single field of `T`, attaching the field name to any error
 /// returned. Used by `#[derive(StarlarkPagable)]` to give blameable error
 /// messages — `"deserializing field foo"` is much more useful than the raw
 /// inner error alone.
-pub fn starlark_deserialize_field<T: StarlarkDeserialize>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+pub fn starlark_deserialize_field<'fv, T: StarlarkDeserialize<'fv>>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     field: &'static str,
 ) -> crate::Result<T> {
     T::starlark_deserialize(ctx)
@@ -50,16 +61,36 @@ pub fn starlark_deserialize_field<T: StarlarkDeserialize>(
 /// This trait provides the interface that StarlarkDeserialize implementations
 /// use to deserialize their data. It abstracts over the underlying deserialization
 /// mechanism.
-pub trait StarlarkDeserializeContext<'de> {
+///
+/// `'de` is the lifetime of the pagable deserializer's input. `'fv` is the brand of the heap
+/// whose value is being deserialized: every value the context hands out lives in that heap or
+/// in a heap it references, and the brand is introduced by the framework for one value's
+/// deserialization only, the way [`Heap::temp`](crate::values::Heap::temp) introduces a brand, so
+/// a [`StarlarkDeserialize`] implementation cannot put a value anywhere the brand does not reach.
+pub trait StarlarkDeserializeContext<'de, 'fv> {
     /// Get mutable access to the underlying pagable deserializer.
     fn pagable(&mut self) -> &mut dyn PagableDeserializer<'de>;
 
     /// Deserialize a reference to a value, making sure the value itself is deserialized.
-    ///
-    /// The value lives in the heap being paged in or in one of the heaps it references, but the
-    /// result carries no brand that says so: the framework re-brands it at that heap when the
-    /// value being deserialized is later reached through the heap's owner. Implementations of
-    /// [`StarlarkDeserialize`] must therefore not keep the result anywhere other than in the
-    /// value they are deserializing.
-    fn deserialize_value(&mut self) -> crate::Result<Value<'static>>;
+    fn deserialize_value(&mut self) -> crate::Result<Value<'fv>>;
+}
+
+/// `Self`, a type at some brand `'v`, is deserializable at the brand `'fv`.
+///
+/// That is, `Self` with `'fv` in place of `'v` (its [`Reinfect`](IsStaticType::Reinfect))
+/// implements [`StarlarkDeserialize<'fv>`]. Implemented for every type whose static-type impls
+/// say so; it exists so that the heap deserializer, which names a value type through the vtable
+/// of one instantiation, can ask for the type at the brand it is deserializing at.
+pub trait StarlarkDeserializeAt<'v, 'fv>: ProvidesStaticType<'v> {
+    /// `Self` at `'fv`.
+    type Reinfected: StarlarkDeserialize<'fv>;
+}
+
+impl<'v, 'fv, T> StarlarkDeserializeAt<'v, 'fv> for T
+where
+    T: ProvidesStaticType<'v>,
+    T::StaticType: IsStaticType,
+    <T::StaticType as IsStaticType>::Reinfect<'fv>: StarlarkDeserialize<'fv>,
+{
+    type Reinfected = <T::StaticType as IsStaticType>::Reinfect<'fv>;
 }

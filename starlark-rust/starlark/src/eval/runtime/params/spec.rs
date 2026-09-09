@@ -660,6 +660,19 @@ impl<V> ParametersSpec<V> {
     pub fn len(&self) -> usize {
         self.prototype.param_kinds.len()
     }
+
+    /// The value-independent part of the spec; see [`from_prototype`](Self::from_prototype).
+    pub(crate) fn prototype(&self) -> Arc<ParametersSpecPrototype> {
+        self.prototype.clone()
+    }
+}
+
+#[cfg(test)]
+impl ParametersSpecPrototype {
+    /// Number of function parameters.
+    pub(crate) fn len(&self) -> usize {
+        self.param_kinds.len()
+    }
 }
 
 impl<'v> ParametersSpec<Value<'v>> {

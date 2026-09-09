@@ -113,8 +113,10 @@ impl<T: StarlarkSerialize> StarlarkSerialize for AllocatedThinBoxSlice<T> {
     }
 }
 
-impl<T: StarlarkDeserialize> StarlarkDeserialize for AllocatedThinBoxSlice<T> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for AllocatedThinBoxSlice<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
         let len = usize::starlark_deserialize(ctx)?;
         let mut data = Vec::<T>::with_capacity(len);
         for _ in 0..len {

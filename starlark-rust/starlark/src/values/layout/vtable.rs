@@ -140,9 +140,11 @@ pub struct AValueVTable {
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
     starlark_serialize:
         fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
-    pub(crate) starlark_deserialize: for<'de> fn(
+    /// Generic over the brand the value is deserialized at, like `heap_freeze` over the brand
+    /// it freezes into: the vtable is the erased instantiation's, the brand is the caller's.
+    pub(crate) starlark_deserialize: for<'de, 'fv> fn(
         StarlarkValueRawPtr,
-        &mut dyn StarlarkDeserializeContext<'de>,
+        &mut dyn StarlarkDeserializeContext<'de, 'fv>,
     ) -> crate::Result<()>,
 
     // `StarlarkValue` supertraits.

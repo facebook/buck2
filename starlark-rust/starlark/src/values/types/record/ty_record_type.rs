@@ -17,11 +17,11 @@
 
 use allocative::Allocative;
 use starlark_derive::StarlarkPagable;
+use triomphe::Arc;
 
 use crate as starlark;
-use crate::eval::ParametersSpec;
+use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::typing::Ty;
-use crate::values::Value;
 
 #[derive(Allocative, Debug, StarlarkPagable)]
 #[doc(hidden)]
@@ -34,12 +34,11 @@ pub struct TyRecordData {
     /// Type of record type.
     #[starlark_pagable(pagable)]
     pub(crate) ty_record_type: Ty,
-    /// Creating these on every invoke is pretty expensive (profiling shows)
-    /// so compute them in advance and cache.
-    ///
-    /// The spec has no default values, so it holds nothing at any brand and is stored at
-    /// `'static`; `HeapEdge::immortal` reads it at the brand of the call.
-    pub(crate) parameter_spec: ParametersSpec<Value<'static>>,
+    /// The constructor's signature, which has no default values: the fields' defaults are read
+    /// from the fields at call time. Building the signature is expensive enough to show up in
+    /// profiles, so it is built once here and instantiated at the brand of each call.
+    #[starlark_pagable(pagable)]
+    pub(crate) parameter_spec_prototype: Arc<ParametersSpecPrototype>,
 }
 
 #[cfg(test)]

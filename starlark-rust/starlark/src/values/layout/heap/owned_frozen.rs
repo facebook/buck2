@@ -223,18 +223,18 @@ fn serialize_owned_frozen(
 /// See [`serialize_owned_frozen`].
 fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
-) -> pagable::Result<(OwnedFrozen<()>, Value<'static>)> {
+) -> pagable::Result<OwnedFrozen<Value<'static>>> {
     // Deserialize the owner heap.
     let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
 
     // Recover the page-in scope registered by the preceding owner heap so cross-heap pointer
     // resolution can find it.
-    let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
-        .map_err(|e: crate::Error| e.into_anyhow())?;
-
-    let value = ctx.deserialize_value().map_err(|e| e.into_anyhow())?;
-
-    Ok((owner, value))
+    StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn(), |ctx| {
+        let value = ctx.deserialize_value().map_err(|e| e.into_anyhow())?;
+        // SAFETY: The context's brand is `owner`'s heap, which the value was resolved against,
+        // so `owner` keeps it alive.
+        Ok(unsafe { OwnedFrozen::unchecked_new(owner, value) })
+    })
 }
 
 impl PagableSerialize for OwnedFrozen<Value<'static>> {
@@ -247,9 +247,7 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let (owner, value) = deserialize_owned_frozen(deserializer)?;
-        // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
-        Ok(unsafe { Self::from_erased(owner, value) })
+        deserialize_owned_frozen(deserializer)
     }
 }
 
@@ -272,10 +270,7 @@ where
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let (owner, value) = deserialize_owned_frozen(deserializer)?;
-        // SAFETY: The value was resolved against `owner`'s heap, so `owner` keeps it alive.
-        let owned: OwnedFrozen<Value<'static>> = unsafe { OwnedFrozen::from_erased(owner, value) };
-        owned
+        deserialize_owned_frozen(deserializer)?
             .downcast_starlark::<T>()
             .map_err(|e| anyhow::anyhow!("OwnedFrozen deserialization: {e}"))
     }

@@ -74,7 +74,7 @@ fn serialize_lambda_params(
 }
 
 fn deserialize_lambda_params<'fv>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
 ) -> starlark::Result<SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams<'fv>>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut map = SmallMap::with_capacity(len);
@@ -226,7 +226,7 @@ pub(crate) fn init_dynamic_lambda_params_storages() {
 
         fn deserialize_frozen_dynamic_lambda_params_storage<'fv>(
             &self,
-            ctx: &mut dyn StarlarkDeserializeContext<'_>,
+            ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
         ) -> starlark::Result<FrozenDynamicLambdaParamsStorageBox<'fv>> {
             Ok(Box::new(DynStarlark::new(
                 FrozenDynamicLambdaParamsStorageImpl::starlark_deserialize(ctx)?,

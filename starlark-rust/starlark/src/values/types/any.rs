@@ -112,13 +112,13 @@ impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkSerialize for StarlarkAny
     }
 }
 
-impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize for StarlarkAny<T> {
+impl<'fv, T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize<'fv> for StarlarkAny<T> {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Self> {
-        Ok(StarlarkAny(
-            <T as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
-        ))
+        Ok(StarlarkAny(<T as crate::pagable::StarlarkDeserialize<
+            'fv,
+        >>::starlark_deserialize(ctx)?))
     }
 }
 
@@ -140,7 +140,7 @@ impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize for StarlarkA
 /// instead of implementing this trait manually — it handles both the trait
 /// impl and the vtable registration.
 pub unsafe trait StarlarkAnyRegistered:
-    Debug + Send + Sync + 'static + crate::pagable::StarlarkPagable
+    Debug + Send + Sync + 'static + for<'fv> crate::pagable::StarlarkPagable<'fv>
 {
     /// Typing vtable entry for `StarlarkAny<Self>`.
     const TY_VTABLE_STATIC: pagable::StaticValue<TyStarlarkValueVTable>;

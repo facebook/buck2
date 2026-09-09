@@ -24,6 +24,7 @@ use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use derive_more::Display;
 use dupe::Dupe;
+use starlark::any::IsStaticType;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -73,6 +74,10 @@ pub(crate) struct StarlarkTargetSet<Node: QueryTarget>(pub(crate) TargetSet<Node
 // TODO(nga): derive it.
 unsafe impl<'a, Node: QueryTarget + 'static> ProvidesStaticType<'a> for StarlarkTargetSet<Node> {
     type StaticType = Self;
+}
+
+impl<Node: QueryTarget + 'static> IsStaticType for StarlarkTargetSet<Node> {
+    type Reinfect<'lt> = Self;
 }
 
 impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {

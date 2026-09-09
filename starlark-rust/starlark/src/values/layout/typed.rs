@@ -526,11 +526,11 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for FrozenValue
     }
 }
 
-impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for FrozenValueTyped<'v, T> {
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for FrozenValueTyped<'v, T> {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
-        let v = Value::starlark_deserialize(ctx)?;
+        let v = ctx.deserialize_value()?;
         // SAFETY: pagable deserializes this field through the same Rust type
         // that serialized it, and it deserializes only frozen heaps.
         Ok(unsafe { FrozenValueTyped::new_allow_uninitialized(v) })
@@ -548,9 +548,9 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for ValueTyped<
     }
 }
 
-impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for ValueTyped<'v, T> {
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for ValueTyped<'v, T> {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
         Ok(FrozenValueTyped::<T>::starlark_deserialize(ctx)?.to_value_typed())
     }
@@ -636,11 +636,11 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for AtomicValue
     }
 }
 
-impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v>
     for AtomicValueTypedOption<'v, T>
 {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
         Ok(Self::new(
             <Option<ValueTyped<'v, T>> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,

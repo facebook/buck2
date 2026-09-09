@@ -190,20 +190,20 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
         Ok(())
     }
 
-    fn starlark_deserialize(
+    fn starlark_deserialize<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
         unsafe {
             ptr::write(&mut (*me).payload, Tuple::new(len));
             let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
                 + <Self as AValue>::offset_of_extra();
-            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'v>>;
+            // The elements are deserialized at `'fv` into slots the heap types at `'v`: the
+            // brand erasure described on `AValue::starlark_deserialize`.
+            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<Value<'fv>>;
             for i in 0..len {
-                let v =
-                    <Value<'v> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?;
-                (*extra_ptr.add(i)).write(v);
+                (*extra_ptr.add(i)).write(ctx.deserialize_value()?);
             }
         }
         Ok(())

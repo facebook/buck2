@@ -18,6 +18,7 @@
 //! Implementation of StarlarkDeserializeContext.
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -55,6 +56,7 @@ use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::arena::ChunkInfo;
+use crate::values::layout::heap::edge::HeapEdge;
 use crate::values::layout::heap::heap_type::FrozenHeapArc;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
@@ -883,24 +885,39 @@ impl StarlarkDeserScope {
 ///
 /// Wraps a `PagableDeserializer` and a shared `StarlarkDeserScope` to
 /// resolve value references during deserialization.
-pub struct StarlarkDeserializerImpl<'a, 'de> {
+pub(crate) struct StarlarkDeserializerImpl<'a, 'de, 'fv> {
     pagable: &'a mut dyn PagableDeserializer<'de>,
     /// Shared registry of per-heap deserialization state. Cross-heap pointer
     /// resolution looks up the target heap by `heap_id` here.
     scope: Arc<StarlarkDeserScope>,
+    /// The brand this context deserializes at; see [`recover_from_pagable`](Self::recover_from_pagable).
+    brand: PhantomData<Value<'fv>>,
 }
 
-impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
+impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
     /// Recover a `StarlarkDeserializerImpl` after a hop through a pagable-only
-    /// boundary (typically `serialize_arc` / `deserialize_arc`). All heap
+    /// boundary (typically `serialize_arc` / `deserialize_arc`) and run `f` with it. All heap
     /// state is reachable via the root's `StarlarkDeserScope` registry.
-    pub fn recover_from_pagable(
-        deserializer: &'a mut dyn PagableDeserializer<'de>,
-    ) -> crate::Result<Self> {
+    ///
+    /// The context deserializes at a brand of its own, introduced here for `f` alone. The brand
+    /// stands for the heap whose data `deserializer` is positioned in: the heap of the value
+    /// being materialized, or, for the owning carriers (`OwnedFrozen`, `Globals`), the heap that
+    /// was just deserialized ahead of the root value. Every value the context hands out was
+    /// serialized from that heap, and a value in a frozen heap only ever points into that heap
+    /// or into a heap it references (that is what the brand it was allocated at guaranteed), so
+    /// the brand is honest for cross-heap pointers too. Being closure-introduced, it names
+    /// nothing outside `f`; the callers that carry a result out of `f` are the framework itself,
+    /// which either writes it into that heap (the `AValue` vtable, see `AValueSimple`) or pairs
+    /// it with the heap's owner (`OwnedFrozen::unchecked_new`).
+    pub(crate) fn recover_from_pagable<R>(
+        deserializer: &mut dyn PagableDeserializer<'de>,
+        f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
+    ) -> R {
         let scope = Self::get_or_create_scope(deserializer);
-        Ok(Self {
+        f(&mut StarlarkDeserializerImpl {
             pagable: deserializer,
             scope,
+            brand: PhantomData,
         })
     }
 
@@ -914,12 +931,12 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     }
 }
 
-impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> {
+impl<'de, 'fv> StarlarkDeserializeContext<'de, 'fv> for StarlarkDeserializerImpl<'_, 'de, 'fv> {
     fn pagable(&mut self) -> &mut dyn PagableDeserializer<'de> {
         self.pagable
     }
 
-    fn deserialize_value(&mut self) -> crate::Result<Value<'static>> {
+    fn deserialize_value(&mut self) -> crate::Result<Value<'fv>> {
         let serialized = SerializedFrozenValue::pagable_deserialize(self.pagable)?;
         match serialized {
             SerializedFrozenValue::HeapPtr {
@@ -936,21 +953,25 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                 let v = get_static_value_by_id(id).ok_or_else(|| {
                     anyhow::anyhow!("Static value ID {:?} not found in inventory registry", id)
                 })?;
-                Ok(v)
+                Ok(HeapEdge::immortal().rebrand(v))
             }
         }
     }
 }
 
-impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
+impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
     /// Resolve a serialized HeapPtr into a value. Deserialize the target slot
     /// if needed; reads the header pointer from the slot's atomic.
+    ///
+    /// The pointers handed out here are the ones the framework wrote into the heap the serialized
+    /// pointer names, which is a heap the brand reaches (see `recover_from_pagable`); the
+    /// `'fv`-branded results are the framework handing out its own pointers.
     fn ensure_initialized(
         &mut self,
         heap_id: HeapRefId,
         value_index: u32,
         is_str: bool,
-    ) -> crate::Result<Value<'static>> {
+    ) -> crate::Result<Value<'fv>> {
         let target_heap = self
             .scope
             .get_heap(&heap_id)
@@ -1029,9 +1050,12 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                     // offset table during `deserialize_metadata`; it is a valid
                     // position in the recipe's bytes for this heap.
                     unsafe { de.seek(target.abs_pos) };
-                    let nested_de: &mut dyn PagableDeserializer<'_> = &mut *de;
-                    let mut nested_ctx = StarlarkDeserializerImpl::recover_from_pagable(nested_de)?;
-                    (target.vtable.starlark_deserialize)(target.raw_ptr, &mut nested_ctx)
+                    // The nested context's brand is the target heap's: `de` is positioned in
+                    // the target value's data, and the vtable writes the result into the
+                    // target heap.
+                    StarlarkDeserializerImpl::recover_from_pagable(&mut *de, |nested_ctx| {
+                        (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx)
+                    })
                 };
 
                 if let Err(e) = result {

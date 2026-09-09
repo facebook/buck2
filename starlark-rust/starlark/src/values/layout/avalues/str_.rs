@@ -135,9 +135,9 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
         Ok(())
     }
 
-    fn starlark_deserialize(
+    fn starlark_deserialize<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
         let s = String::pagable_deserialize(ctx.pagable())?;
         let len = s.len();

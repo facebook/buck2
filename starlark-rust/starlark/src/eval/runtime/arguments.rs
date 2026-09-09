@@ -74,7 +74,7 @@ impl From<FunctionError> for crate::Error {
 
 /// An object accompanying argument name for faster argument resolution.
 pub(crate) trait ArgSymbol:
-    Debug + 'static + StarlarkSerialize + StarlarkDeserialize
+    Debug + 'static + StarlarkSerialize + for<'fv> StarlarkDeserialize<'fv>
 {
     fn get_index_from_param_spec<V>(&self, ps: &ParametersSpec<V>) -> Option<usize>;
 

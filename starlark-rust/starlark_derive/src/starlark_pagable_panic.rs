@@ -25,6 +25,9 @@ use quote::quote_spanned;
 use syn::DeriveInput;
 use syn::spanned::Spanned;
 
+use crate::pagable_brand::OtherArgs;
+use crate::pagable_brand::deserialize_brand;
+
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match derive_starlark_pagable_panic_impl(input.into()) {
         Ok(tokens) => tokens.into(),
@@ -38,6 +41,8 @@ fn derive_starlark_pagable_panic_impl(
     let input: DeriveInput = syn::parse2(input)?;
     let name = &input.ident;
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let (brand, de_generics) = deserialize_brand(&input, OtherArgs::Reject)?;
+    let (de_impl_generics, _, _) = de_generics.split_for_impl();
 
     Ok(quote_spanned! { input.span() =>
         #[allow(unused)]
@@ -54,9 +59,9 @@ fn derive_starlark_pagable_panic_impl(
         }
 
         #[allow(unused)]
-        impl #impl_generics starlark::pagable::StarlarkDeserialize for #name #type_generics #where_clause {
+        impl #de_impl_generics starlark::pagable::StarlarkDeserialize<#brand> for #name #type_generics #where_clause {
             fn starlark_deserialize(
-                _ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+                _ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_, #brand>,
             ) -> starlark::Result<Self> {
                 panic!(
                     "StarlarkDeserialize is not supported for `{}`",

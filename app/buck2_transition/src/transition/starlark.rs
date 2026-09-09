@@ -141,7 +141,7 @@ fn serialize_refs<'v>(
 }
 
 fn deserialize_refs<'v>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
 ) -> starlark::Result<SmallMap<StringValue<'v>, ProvidersLabel>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut map = SmallMap::with_capacity(len);

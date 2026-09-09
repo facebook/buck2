@@ -27,6 +27,7 @@ mod any_lifetime;
 mod bc;
 mod freeze;
 mod module;
+mod pagable_brand;
 mod serde;
 mod starlark_pagable;
 mod starlark_pagable_panic;
@@ -230,6 +231,10 @@ pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro
 ///
 /// By default, each field is serialized/deserialized via the starlark context.
 /// Fields annotated with `#[starlark_pagable(pagable)]` use the pagable bridge instead.
+///
+/// `StarlarkDeserialize` is implemented at the type's brand: its one lifetime parameter, or a
+/// fresh `'fv` (every brand) for a type without lifetime parameters. A type with several
+/// lifetime parameters names its brand with `#[starlark_pagable(brand = 'x)]`.
 #[proc_macro_derive(StarlarkPagable, attributes(starlark_pagable))]
 pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable::derive_starlark_pagable(input)
@@ -240,7 +245,9 @@ pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::To
 /// Use on types that must satisfy a `StarlarkSerialize + StarlarkDeserialize` bound but are
 /// never actually round-tripped.
 /// Any call to the generated methods triggers `unimplemented!()`.
-#[proc_macro_derive(StarlarkPagablePanic)]
+///
+/// The brand of the `StarlarkDeserialize` impl is chosen as for `StarlarkPagable`.
+#[proc_macro_derive(StarlarkPagablePanic, attributes(starlark_pagable))]
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable_panic::derive_starlark_pagable_panic(input)
 }
@@ -251,7 +258,9 @@ pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_mac
 /// Use on types that are `pagable::Pagable` and don't reference Starlark values.
 /// The type must already implement `PagableSerialize` and `PagableDeserialize`
 /// (typically via `#[derive(pagable::Pagable)]`).
-#[proc_macro_derive(StarlarkPagableViaPagable)]
+///
+/// The brand of the `StarlarkDeserialize` impl is chosen as for `StarlarkPagable`.
+#[proc_macro_derive(StarlarkPagableViaPagable, attributes(starlark_pagable))]
 pub fn derive_starlark_pagable_via_pagable(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -273,6 +282,8 @@ pub fn derive_starlark_serialize(input: proc_macro::TokenStream) -> proc_macro::
 /// By default, each field is deserialized via `StarlarkDeserialize::starlark_deserialize`.
 /// Fields annotated with `#[starlark_pagable(pagable)]` use
 /// `PagableDeserialize::pagable_deserialize(ctx.pagable())` instead.
+///
+/// The brand of the impl is chosen as for `StarlarkPagable`.
 #[proc_macro_derive(StarlarkDeserialize, attributes(starlark_pagable))]
 pub fn derive_starlark_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable::derive_starlark_deserialize(input)

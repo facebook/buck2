@@ -65,11 +65,11 @@ impl ActionIndex {
     }
 }
 
-impl starlark::pagable::SmallMapKeyDeserialize for ActionIndex {
+impl<'fv> starlark::pagable::SmallMapKeyDeserialize<'fv> for ActionIndex {
     fn starlark_deserialize_hashed(
-        ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<Hashed<Self>> {
-        let k = <Self as starlark::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?;
+        let k = <Self as starlark::pagable::StarlarkDeserialize<'fv>>::starlark_deserialize(ctx)?;
         Ok(Hashed::new(k))
     }
 }

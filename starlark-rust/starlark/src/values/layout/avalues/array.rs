@@ -53,7 +53,7 @@ fn array_avalue<'v>(
     AValueImpl::<AValueArray>::new(unsafe { Array::new(0, cap) })
 }
 
-fn any_array_avalue<'v, T: AnyArrayRegistered + StarlarkPagable>(
+fn any_array_avalue<'v, T: AnyArrayRegistered + for<'fv> StarlarkPagable<'fv>>(
     cap: usize,
 ) -> AValueImpl<'v, impl AValue<'v, StarlarkValue = AnyArray<T>, ExtraElem = T>> {
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
@@ -133,7 +133,7 @@ impl<'v> AValue<'v> for AValueArray {
 /// trailing slice of `T` (see `alloc_any_array_value`).
 pub struct AValueAnyArray<T>(PhantomData<T>);
 
-impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<T> {
+impl<'v, T: AnyArrayRegistered + for<'fv> StarlarkPagable<'fv>> AValue<'v> for AValueAnyArray<T> {
     type StarlarkValue = AnyArray<T>;
     type ExtraElem = T;
 
@@ -194,9 +194,9 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
     ///
     /// 1. Write the `AnyArray<T>` payload (with `len`) into `me.payload`.
     /// 2. Deserialize each of `len` elements into its trailing slot.
-    fn starlark_deserialize(
+    fn starlark_deserialize<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
         unsafe {
@@ -219,7 +219,7 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
 impl<'fh> FrozenHeap<'fh> {
     /// Allocate a slice in the frozen heap as an [`AnyArray`].
     pub(crate) fn alloc_any_array_value<
-        T: AnyArrayRegistered + StarlarkPagable + Send + Sync + Clone,
+        T: AnyArrayRegistered + for<'fv> StarlarkPagable<'fv> + Send + Sync + Clone,
     >(
         self,
         values: &[T],

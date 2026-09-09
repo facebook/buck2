@@ -143,8 +143,10 @@ impl StarlarkSerialize for BcOpcode {
     }
 }
 
-impl StarlarkDeserialize for BcOpcode {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'fv> StarlarkDeserialize<'fv> for BcOpcode {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
         use pagable::PagableDeserialize;
         let n = u32::pagable_deserialize(ctx.pagable())?;
         BcOpcode::by_number(n)

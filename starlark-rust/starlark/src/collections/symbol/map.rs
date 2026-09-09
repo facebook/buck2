@@ -174,8 +174,10 @@ impl<T: StarlarkSerialize> StarlarkSerialize for SymbolMap<T> {
     }
 }
 
-impl<T: StarlarkDeserialize> StarlarkDeserialize for SymbolMap<T> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'fv, T: StarlarkDeserialize<'fv>> StarlarkDeserialize<'fv> for SymbolMap<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
         let mut map = SymbolMap::with_capacity(len);
         for _ in 0..len {

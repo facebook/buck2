@@ -24,6 +24,9 @@ use quote::quote_spanned;
 use syn::DeriveInput;
 use syn::spanned::Spanned;
 
+use crate::pagable_brand::OtherArgs;
+use crate::pagable_brand::deserialize_brand;
+
 pub fn derive_starlark_pagable_via_pagable(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -37,6 +40,8 @@ fn derive_impl(input: proc_macro2::TokenStream) -> syn::Result<proc_macro2::Toke
     let input: DeriveInput = syn::parse2(input)?;
     let name = &input.ident;
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let (brand, de_generics) = deserialize_brand(&input, OtherArgs::Reject)?;
+    let (de_impl_generics, _, _) = de_generics.split_for_impl();
 
     Ok(quote_spanned! { input.span() =>
         impl #impl_generics starlark::pagable::StarlarkSerialize for #name #type_generics #where_clause {
@@ -49,9 +54,9 @@ fn derive_impl(input: proc_macro2::TokenStream) -> syn::Result<proc_macro2::Toke
             }
         }
 
-        impl #impl_generics starlark::pagable::StarlarkDeserialize for #name #type_generics #where_clause {
+        impl #de_impl_generics starlark::pagable::StarlarkDeserialize<#brand> for #name #type_generics #where_clause {
             fn starlark_deserialize(
-                ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+                ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_, #brand>,
             ) -> starlark::Result<Self> {
                 Ok(<Self as pagable::PagableDeserialize>::pagable_deserialize(ctx.pagable())?)
             }

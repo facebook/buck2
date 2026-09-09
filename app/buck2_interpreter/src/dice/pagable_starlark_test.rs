@@ -145,9 +145,9 @@ impl StarlarkSerialize for PageInGateMarker {
     }
 }
 
-impl StarlarkDeserialize for PageInGateMarker {
+impl<'fv> StarlarkDeserialize<'fv> for PageInGateMarker {
     fn starlark_deserialize(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<Self> {
         let should_block = bool::pagable_deserialize(ctx.pagable())?;
         if should_block {

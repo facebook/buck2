@@ -55,7 +55,7 @@ fn serialize_target_outputs(
 }
 
 fn deserialize_target_outputs(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn StarlarkDeserializeContext<'_, '_>,
 ) -> starlark::Result<Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut v = Vec::with_capacity(len);
@@ -92,8 +92,8 @@ fn serialize_minibox_starlark<T: StarlarkSerialize + 'static>(
     Ok(())
 }
 
-fn deserialize_minibox_starlark<T: StarlarkDeserialize + 'static>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+fn deserialize_minibox_starlark<'fv, T: StarlarkDeserialize<'fv> + 'static>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
 ) -> starlark::Result<MiniBoxSlice<T>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);

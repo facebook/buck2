@@ -435,7 +435,7 @@ fn serialize_lambda_params(
 }
 
 fn deserialize_lambda_params<'fv>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
 ) -> starlark::Result<FrozenDynamicLambdaParamsStorageBox<'fv>> {
     DYNAMIC_LAMBDA_PARAMS_STORAGES
         .get()?
@@ -454,7 +454,7 @@ fn serialize_transitive_sets<'v>(
 }
 
 fn deserialize_transitive_sets<'v>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
 ) -> starlark::Result<MiniBoxSlice<FrozenValueTyped<'v, TransitiveSet<'v>>>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);

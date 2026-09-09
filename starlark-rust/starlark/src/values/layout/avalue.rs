@@ -44,14 +44,17 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 
 /// Bound for the payload type `T` of `AValueSimple<T>`.
 ///
-/// Bundles `StarlarkValue` + send/sync (always required), plus
-/// `StarlarkPagable` and `VtableRegistered` under the `pagable` feature.
+/// Bundles `StarlarkValue` + send/sync (always required), plus, under the `pagable` feature,
+/// `StarlarkSerialize`, `StarlarkDeserialize` at every brand (the type is deserialized at the
+/// brand of the heap being paged in, whichever that is; see `StarlarkDeserializeAt`) and
+/// `VtableRegistered`.
 #[cfg(feature = "pagable")]
 pub trait AValueSimpleBound<'v>:
     StarlarkValue<'v>
     + HeapSendable<'v>
     + HeapSyncable<'v>
-    + crate::pagable::StarlarkPagable
+    + crate::pagable::StarlarkSerialize
+    + for<'fv> crate::pagable::StarlarkDeserializeAt<'v, 'fv>
     + crate::pagable::vtable_register::VtableRegistered
 {
 }
@@ -60,7 +63,8 @@ impl<'v, T> AValueSimpleBound<'v> for T where
     T: StarlarkValue<'v>
         + HeapSendable<'v>
         + HeapSyncable<'v>
-        + crate::pagable::StarlarkPagable
+        + crate::pagable::StarlarkSerialize
+        + for<'fv> crate::pagable::StarlarkDeserializeAt<'v, 'fv>
         + crate::pagable::vtable_register::VtableRegistered
 {
 }
@@ -156,9 +160,15 @@ pub(crate) trait AValue<'v>: Sized + 'v {
 
     /// Deserialize this value into pre-allocated memory using the provided context.
     /// Default implementation returns an error — override for types that support deserialization.
-    fn starlark_deserialize(
+    ///
+    /// `'fv` is the brand of the heap `me` points into, which is the brand the value is
+    /// deserialized at; `me` itself is typed at the heap's erased brand `'v`, so implementations
+    /// write a `'fv` value into `'v` memory. That is the framework erasing the brand of a value
+    /// it puts into the heap, the arrangement that every owner of a frozen heap reads back at a
+    /// brand it vouches for.
+    fn starlark_deserialize<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        _ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
         Err(crate::Error::new_kind(crate::ErrorKind::Other(
             anyhow::anyhow!(

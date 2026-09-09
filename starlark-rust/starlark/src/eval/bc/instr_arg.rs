@@ -81,7 +81,7 @@ impl<'v> Display for TruncateValueRepr<'v> {
 }
 
 /// Instruction fixed argument, at the brand `'v` of the bytecode.
-pub(crate) trait BcInstrArg<'v>: StarlarkSerialize + StarlarkDeserialize {
+pub(crate) trait BcInstrArg<'v>: StarlarkSerialize + StarlarkDeserialize<'v> {
     /// Append space then append the argument, or append nothing if the argument is empty.
     fn fmt_append(
         param: &Self,

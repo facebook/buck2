@@ -41,6 +41,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::eval::ParametersSpecParam;
+use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -55,7 +56,6 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
-use crate::values::HeapEdge;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
@@ -247,13 +247,12 @@ impl<'v, V: RecordVariant> RecordTypeGen<'v, V> {
             .dupe()
     }
 
-    /// The constructor's signature, which has no default values: the fields' defaults are read
-    /// from the fields at call time.
-    pub(crate) fn make_parameter_spec<'a>(
+    /// See [`TyRecordData::parameter_spec_prototype`].
+    pub(crate) fn make_parameter_spec_prototype(
         name: &str,
         fields: &SmallMap<String, Field<'_>>,
-    ) -> ParametersSpec<Value<'a>> {
-        ParametersSpec::new_named_only(
+    ) -> triomphe::Arc<ParametersSpecPrototype> {
+        ParametersSpec::<()>::new_named_only(
             name,
             fields.iter().map(|(name, field)| {
                 (
@@ -265,6 +264,7 @@ impl<'v, V: RecordVariant> RecordTypeGen<'v, V> {
                 )
             }),
         )
+        .prototype()
     }
 }
 
@@ -297,36 +297,38 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
 
         let this = me;
 
-        HeapEdge::immortal()
-            .rebrand_ref(&ty_record_data.parameter_spec)
-            .parser(args, eval, |param_parser, eval| {
-                let fields = record_fields(AnyRecordType::unpack_value_err(this).unwrap());
-                let mut values = Vec::with_capacity(fields.len());
-                for (name, field) in fields.iter() {
-                    let value = match field.default {
-                        None => {
-                            let v: Value = param_parser.next()?;
-                            field.typ.check_type(v, Some(name))?;
-                            v
-                        }
-                        Some(default) => {
-                            let v: Option<Value> = param_parser.next_opt()?;
-                            match v {
-                                None => default,
-                                Some(v) => {
-                                    field.typ.check_type(v, Some(name))?;
-                                    v
-                                }
+        ParametersSpec::<Value<'v>>::from_prototype(
+            ty_record_data.parameter_spec_prototype.clone(),
+            Vec::new(),
+        )
+        .parser(args, eval, |param_parser, eval| {
+            let fields = record_fields(AnyRecordType::unpack_value_err(this).unwrap());
+            let mut values = Vec::with_capacity(fields.len());
+            for (name, field) in fields.iter() {
+                let value = match field.default {
+                    None => {
+                        let v: Value = param_parser.next()?;
+                        field.typ.check_type(v, Some(name))?;
+                        v
+                    }
+                    Some(default) => {
+                        let v: Option<Value> = param_parser.next_opt()?;
+                        match v {
+                            None => default,
+                            Some(v) => {
+                                field.typ.check_type(v, Some(name))?;
+                                v
                             }
                         }
-                    };
-                    values.push(value);
-                }
-                Ok(eval.heap().alloc_complex_branded(Record {
-                    typ: this,
-                    values: values.into_boxed_slice(),
-                }))
-            })
+                    }
+                };
+                values.push(value);
+            }
+            Ok(eval.heap().alloc_complex_branded(Record {
+                typ: this,
+                values: values.into_boxed_slice(),
+            }))
+        })
     }
 
     fn get_methods() -> Option<&'static Methods>
@@ -397,7 +399,10 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
                 name: variable_name.to_owned(),
                 ty_record,
                 ty_record_type,
-                parameter_spec: Self::make_parameter_spec(variable_name, &self.fields),
+                parameter_spec_prototype: Self::make_parameter_spec_prototype(
+                    variable_name,
+                    &self.fields,
+                ),
             }))
         })
     }

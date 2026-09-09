@@ -61,8 +61,10 @@ impl StarlarkSerialize for KnownMethod {
     }
 }
 
-impl StarlarkDeserialize for KnownMethod {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'fv> StarlarkDeserialize<'fv> for KnownMethod {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
         let name = String::starlark_deserialize(ctx)?;
         get_known_method(&name).ok_or_else(|| {
             crate::Error::new_other(anyhow::anyhow!(

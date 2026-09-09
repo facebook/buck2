@@ -157,9 +157,9 @@ impl starlark_map::Equivalent<CollectionKey> for ProviderId {
     }
 }
 
-impl SmallMapKeyDeserialize for CollectionKey {
+impl<'fv> SmallMapKeyDeserialize<'fv> for CollectionKey {
     fn starlark_deserialize_hashed(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<Hashed<Self>> {
         let k = Self::starlark_deserialize(ctx)?;
         Ok(Hashed::new(k))

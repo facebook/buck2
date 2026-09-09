@@ -66,7 +66,7 @@ pub trait DynamicLambdaParamStorages: Send + Sync + 'static {
     /// through the late binding keeps the brand a parameter of the call.
     fn deserialize_frozen_dynamic_lambda_params_storage<'fv>(
         &self,
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<FrozenDynamicLambdaParamsStorageBox<'fv>>;
 }
 

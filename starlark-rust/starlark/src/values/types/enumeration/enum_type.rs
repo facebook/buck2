@@ -186,8 +186,10 @@ impl<'v> StarlarkSerialize for FrozenEnumType<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for FrozenEnumType<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'v> StarlarkDeserialize<'v> for FrozenEnumType<'v> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
+    ) -> crate::Result<Self> {
         use pagable::PagableDeserialize;
         let id = TypeInstanceId::starlark_deserialize(ctx)?;
         let data = <Option<Arc<TyEnumData>>>::pagable_deserialize(ctx.pagable())?;

@@ -21,11 +21,11 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkSerialize;
 
 /// Marker trait automatically implemented for every type that implements both
-/// [`StarlarkSerialize`] and [`StarlarkDeserialize`].
+/// [`StarlarkSerialize`] and [`StarlarkDeserialize`] at the brand `'fv`.
 ///
 /// Use as a bound when a type must participate in Starlark pagable round-trips
 /// in both directions — it reads more naturally than spelling out both traits
-/// separately.
-pub trait StarlarkPagable: StarlarkSerialize + StarlarkDeserialize {}
+/// separately. A type that holds no starlark values is `for<'fv> StarlarkPagable<'fv>`.
+pub trait StarlarkPagable<'fv>: StarlarkSerialize + StarlarkDeserialize<'fv> {}
 
-impl<T: StarlarkSerialize + StarlarkDeserialize> StarlarkPagable for T {}
+impl<'fv, T: StarlarkSerialize + StarlarkDeserialize<'fv>> StarlarkPagable<'fv> for T {}

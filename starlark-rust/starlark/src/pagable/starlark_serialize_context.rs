@@ -236,12 +236,14 @@ impl StarlarkSerState {
     }
 
     /// Resolve a value index against one exact registered heap allocation.
-    pub(crate) fn lookup_registered_value(
+    /// The result is handed out at whatever brand the caller asks for: the caller is the
+    /// framework resolving a pointer it serialized from a heap that brand reaches.
+    pub(crate) fn lookup_registered_value<'v>(
         &self,
         heap_ptr: FrozenHeapPtr,
         value_index: u32,
         is_str: bool,
-    ) -> Option<Value<'static>> {
+    ) -> Option<Value<'v>> {
         // Keep the arena alive while converting its indexed payload address
         // back to an AValueHeader pointer.
         let (heap, base, entry) = {

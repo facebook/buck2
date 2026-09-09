@@ -76,7 +76,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
-use crate::values::OwnedFrozen;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -1092,12 +1091,11 @@ impl<'v> StarlarkSerialize for Value<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for Value<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let v = ctx.deserialize_value()?;
-        // SAFETY: The contract of `deserialize_value`: the value is kept alive by the heap being
-        // paged in, which is the heap whose brand the value being deserialized is later read at.
-        Ok(unsafe { OwnedFrozen::<Value<'static>>::restore_brand(v) })
+impl<'v> StarlarkDeserialize<'v> for Value<'v> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
+    ) -> crate::Result<Self> {
+        ctx.deserialize_value()
     }
 }
 

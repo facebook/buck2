@@ -271,8 +271,8 @@ fn serialize_minibox_starlark<T: StarlarkSerialize>(
     Ok(())
 }
 
-fn deserialize_minibox_starlark<T: StarlarkDeserialize>(
-    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+fn deserialize_minibox_starlark<'fv, T: StarlarkDeserialize<'fv>>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
 ) -> starlark::Result<MiniBoxSlice<T>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);

@@ -28,6 +28,15 @@
 //!
 //! The type identifier is `std::any::type_name<T>()` for the Rust type that
 //! defines the Starlark value.
+//!
+//! ## Brands
+//!
+//! Deserialization happens at a brand (see the `branding` module): the framework introduces a
+//! fresh `'fv` for each value it materializes, [`StarlarkDeserializeContext`] hands out
+//! `Value<'fv>`s, and [`StarlarkDeserialize<'fv>`] is implemented by a value type at its own
+//! brand. The framework writes the finished value into the heap being paged in, whose owner
+//! later hands it out at a brand of that owner's; nothing an implementation of the trait can
+//! write moves a value out of the heap it belongs to.
 
 pub(crate) mod error;
 
@@ -69,9 +78,9 @@ mod starlark_pagable_impls;
 
 // Re-export public types
 pub use starlark_deserialize::StarlarkDeserialize;
+pub use starlark_deserialize::StarlarkDeserializeAt;
 pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_deserialize::starlark_deserialize_field;
-pub use starlark_deserialize_context::StarlarkDeserializerImpl;
 #[doc(hidden)]
 pub use starlark_deserialize_context::starlark_deserialization_state_retained_bytes;
 pub use starlark_pagable::StarlarkPagable;

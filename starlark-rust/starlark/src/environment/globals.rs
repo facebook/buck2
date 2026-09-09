@@ -39,9 +39,9 @@ use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::eval::ParametersSpec;
 use crate::pagable::StarlarkDeserialize;
-use crate::pagable::StarlarkDeserializerImpl;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializerImpl;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::register_starlark_any;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
@@ -145,18 +145,21 @@ impl<'de> PagableDeserialize<'de> for Globals {
 
         // The preceding heap deserialization registers its heap state in this
         // page-in scope, so Starlark fields can resolve value pointers.
-        let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-
-        let variables = <SymbolMap<GlobalValue<'static>>>::starlark_deserialize(&mut ctx)
-            .map_err(|e: crate::Error| e.into_anyhow())?;
-        drop(ctx);
+        let data: OwnedFrozen<GlobalsData<'static>> =
+            StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn(), |ctx| {
+                let variables = <SymbolMap<GlobalValue<'_>>>::starlark_deserialize(ctx)
+                    .map_err(|e: crate::Error| e.into_anyhow())?;
+                // SAFETY: The context's brand is `heap`, which the values were resolved
+                // against, so `heap` keeps them alive.
+                pagable::Result::Ok(unsafe {
+                    OwnedFrozen::unchecked_new(heap, GlobalsData { variables })
+                })
+            })?;
 
         let variable_names = <Vec<String>>::pagable_deserialize(deserializer)?;
         let docstring = <Option<String>>::pagable_deserialize(deserializer)?;
 
-        // SAFETY: The values were resolved against `heap`, which therefore keeps them alive.
-        Ok(unsafe { Globals::from_parts(heap, variables, variable_names, docstring) })
+        Ok(Globals::from_data(data, variable_names, docstring))
     }
 }
 
@@ -232,6 +235,14 @@ impl Globals {
     ) -> Globals {
         // SAFETY: The caller's obligation.
         let data = unsafe { OwnedFrozen::unchecked_new(heap, GlobalsData { variables }) };
+        Self::from_data(data, variable_names, docstring)
+    }
+
+    fn from_data(
+        data: OwnedFrozen<GlobalsData<'static>>,
+        variable_names: Vec<String>,
+        docstring: Option<String>,
+    ) -> Globals {
         Globals(Arc::new(GlobalsInner {
             data,
             variable_names,

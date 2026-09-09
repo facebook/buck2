@@ -194,8 +194,10 @@ impl<'v> StarlarkSerialize for BcInstrs<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for BcInstrs<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'v> StarlarkDeserialize<'v> for BcInstrs<'v> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
+    ) -> crate::Result<Self> {
         use pagable::PagableDeserialize;
         let tag = u8::pagable_deserialize(ctx.pagable())?;
         let instrs = match tag {
@@ -262,7 +264,7 @@ impl<'a, 'b, 'v> BcOpcodeHandler<'v, ()> for &mut SerializeArgHandler<'a, 'b, 'v
 }
 
 struct DeserializeArgHandler<'a, 'de, 'w, 'v> {
-    ctx: &'a mut dyn StarlarkDeserializeContext<'de>,
+    ctx: &'a mut dyn StarlarkDeserializeContext<'de, 'v>,
     writer: &'w mut BcInstrsWriter<'v>,
     result: crate::Result<()>,
 }
@@ -270,7 +272,7 @@ struct DeserializeArgHandler<'a, 'de, 'w, 'v> {
 impl<'a, 'de, 'w, 'v> BcOpcodeHandler<'v, ()> for &mut DeserializeArgHandler<'a, 'de, 'w, 'v> {
     #[inline(always)]
     fn handle<I: BcInstr<'v>>(self) {
-        match <I::Arg as StarlarkDeserialize>::starlark_deserialize(self.ctx) {
+        match <I::Arg as StarlarkDeserialize<'v>>::starlark_deserialize(self.ctx) {
             Ok(arg) => {
                 self.writer.write::<I>(arg);
             }

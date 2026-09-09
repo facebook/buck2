@@ -181,9 +181,9 @@ impl crate::pagable::StarlarkSerialize for StarlarkBigInt {
     }
 }
 
-impl crate::pagable::StarlarkDeserialize for StarlarkBigInt {
+impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for StarlarkBigInt {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Self> {
         let len = usize::pagable_deserialize(ctx.pagable())?;
         let mut bytes = Vec::with_capacity(len);

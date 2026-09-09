@@ -18,6 +18,10 @@
 use std::marker::PhantomData;
 use std::mem;
 
+#[cfg(feature = "pagable")]
+use crate::pagable::StarlarkDeserialize;
+#[cfg(feature = "pagable")]
+use crate::pagable::StarlarkDeserializeAt;
 use crate::private::Private;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -85,13 +89,17 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
     }
 
     #[cfg(feature = "pagable")]
-    fn starlark_deserialize(
+    fn starlark_deserialize<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<()> {
-        let value = T::starlark_deserialize(ctx)?;
+        let value = <T as StarlarkDeserializeAt<'v, 'fv>>::Reinfected::starlark_deserialize(ctx)?;
+        // SAFETY: `Reinfected` is `T` with `'v` replaced by `'fv` (the `ProvidesStaticType` and
+        // `IsStaticType` contracts), so it has `T`'s layout and the slot fits it. Writing the
+        // `'fv` value into the `'v` slot is the brand erasure described on
+        // `AValue::starlark_deserialize`.
         unsafe {
-            std::ptr::write(&mut (*me).payload, value);
+            std::ptr::write((&raw mut (*me).payload).cast(), value);
         }
         Ok(())
     }

@@ -56,9 +56,9 @@ impl MetadataKey {
     }
 }
 
-impl SmallMapKeyDeserialize for MetadataKey {
+impl<'fv> SmallMapKeyDeserialize<'fv> for MetadataKey {
     fn starlark_deserialize_hashed(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<Hashed<Self>> {
         let k = Self::starlark_deserialize(ctx)?;
         Ok(Hashed::new(k))

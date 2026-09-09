@@ -705,11 +705,11 @@ fn serialize_optimized_on_freeze_stmt(
 }
 
 fn deserialize_optimized_on_freeze_stmt<'v>(
-    ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'v>,
 ) -> crate::Result<StmtCompiledCell<'v>> {
     Ok(StmtCompiledCell {
         cell: UnsafeCell::new(Some(
-            <Bc as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+            <Bc as crate::pagable::StarlarkDeserialize<'v>>::starlark_deserialize(ctx)?,
         )),
     })
 }

@@ -110,12 +110,12 @@ impl<T> Display for StarlarkAnyComplex<T> {
 /// their local `T`. A blanket impl in this crate then provides `HasTyVTable`
 /// for the corresponding `StarlarkAnyComplex<T>`.
 ///
-/// `T` must implement [`StarlarkPagable`](crate::pagable::StarlarkPagable)
-/// so that `StarlarkAnyComplex<T>` can satisfy the `StarlarkSerialize` /
-/// `StarlarkDeserialize` bounds of `StarlarkValue`. Types that never actually
-/// round-trip can derive [`StarlarkPagablePanic`](starlark_derive::StarlarkPagablePanic)
-/// to satisfy the bound with panicking stubs.
-pub trait StarlarkAnyComplexHasTyVTable: crate::pagable::StarlarkPagable {
+/// A `T` that lives on the frozen heap (`register_starlark_any_complex!(frozen ..)`) must also
+/// be [`StarlarkPagable`](crate::pagable::StarlarkPagable) at its brand, which the registration
+/// checks. Types that never actually round-trip can derive
+/// [`StarlarkPagablePanic`](starlark_derive::StarlarkPagablePanic) to satisfy the bound with
+/// panicking stubs.
+pub trait StarlarkAnyComplexHasTyVTable {
     /// Typing vtable entry for `StarlarkAnyComplex<Self>`.
     const TY_VTABLE_STATIC: StaticValue<TyStarlarkValueVTable>;
 }
@@ -138,7 +138,7 @@ where
     type Canonical = Self;
 }
 
-impl<T: crate::pagable::StarlarkPagable> crate::pagable::StarlarkSerialize
+impl<T: crate::pagable::StarlarkSerialize> crate::pagable::StarlarkSerialize
     for StarlarkAnyComplex<T>
 {
     fn starlark_serialize(
@@ -149,14 +149,14 @@ impl<T: crate::pagable::StarlarkPagable> crate::pagable::StarlarkSerialize
     }
 }
 
-impl<T: crate::pagable::StarlarkPagable> crate::pagable::StarlarkDeserialize
+impl<'fv, T: crate::pagable::StarlarkDeserialize<'fv>> crate::pagable::StarlarkDeserialize<'fv>
     for StarlarkAnyComplex<T>
 {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Self> {
         Ok(StarlarkAnyComplex {
-            value: <T as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+            value: <T as crate::pagable::StarlarkDeserialize<'fv>>::starlark_deserialize(ctx)?,
         })
     }
 }

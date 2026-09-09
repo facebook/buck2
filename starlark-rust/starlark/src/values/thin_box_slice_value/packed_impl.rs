@@ -141,9 +141,9 @@ impl<'v> StarlarkSerialize for ThinBoxSliceValue<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for ThinBoxSliceValue<'v> {
+impl<'v> StarlarkDeserialize<'v> for ThinBoxSliceValue<'v> {
     fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
         let packed =
             <Either<Value<'v>, AllocatedThinBoxSlice<Value<'v>>>>::starlark_deserialize(ctx)?;

@@ -46,8 +46,10 @@ impl<'v> StarlarkSerialize for BcNativeFunction<'v> {
     }
 }
 
-impl<'v> StarlarkDeserialize for BcNativeFunction<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+impl<'v> StarlarkDeserialize<'v> for BcNativeFunction<'v> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
+    ) -> crate::Result<Self> {
         let fun = ValueTyped::<'v, NativeFunction<'v>>::starlark_deserialize(ctx)?;
         Ok(BcNativeFunction::new(fun))
     }

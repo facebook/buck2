@@ -23,6 +23,9 @@
 //! Fields annotated with `#[starlark_pagable(pagable)]` use the pagable bridge instead
 //! (`PagableSerialize::pagable_serialize(ctx.pagable())` /
 //!  `PagableDeserialize::pagable_deserialize(ctx.pagable())`).
+//!
+//! `StarlarkDeserialize` is implemented at the type's brand, see
+//! [`deserialize_brand`](crate::pagable_brand::deserialize_brand).
 
 use std::collections::HashSet;
 
@@ -38,6 +41,7 @@ use syn::Fields;
 use syn::GenericArgument;
 use syn::Generics;
 use syn::Index;
+use syn::Lifetime;
 use syn::LitStr;
 use syn::PathArguments;
 use syn::Token;
@@ -49,6 +53,9 @@ use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+
+use crate::pagable_brand::OtherArgs;
+use crate::pagable_brand::deserialize_brand;
 
 #[derive(Default)]
 struct FieldAttrs {
@@ -84,12 +91,17 @@ struct TypeAttrs {
     /// suppressed entirely — same container-level semantics as serde's
     /// `#[serde(bound = "...")]`. The string is a comma-separated list
     /// of `syn::WherePredicate`s, so projection predicates like
-    /// `V::String: StarlarkSerialize` are valid.
-    bound: Vec<WherePredicate>,
+    /// `V::String: StarlarkSerialize` are valid. The predicates apply to
+    /// both impls; a `StarlarkDeserialize` bound in them names the brand
+    /// the type is deserialized at (a type without lifetime parameters is
+    /// deserialized at `'fv`). `bound = ""` says the type's own bounds
+    /// suffice, e.g. because a type parameter's trait implies both traits.
+    bound: Option<Vec<WherePredicate>>,
 }
 
 fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
     syn::custom_keyword!(bound);
+    syn::custom_keyword!(brand);
 
     let mut opts = TypeAttrs::default();
 
@@ -104,7 +116,7 @@ fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
                     input.parse::<bound>()?;
                     input.parse::<Token![=]>()?;
                     let s: LitStr = input.parse()?;
-                    if !opts.bound.is_empty() {
+                    if opts.bound.is_some() {
                         return Err(input.error("`bound` was set twice"));
                     }
                     let predicates = s
@@ -115,9 +127,16 @@ fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
                                 format!("failed to parse `bound = \"...\"` as a comma-separated list of `where` predicates: {err}"),
                             )
                         })?;
-                    opts.bound = predicates.into_iter().collect();
+                    opts.bound = Some(predicates.into_iter().collect());
+                } else if input.peek(brand) {
+                    // Read by `deserialize_brand`.
+                    input.parse::<brand>()?;
+                    input.parse::<Token![=]>()?;
+                    input.parse::<Lifetime>()?;
                 } else {
-                    return Err(input.error("expected `bound = \"...\"` at the type level"));
+                    return Err(input.error(
+                        "expected `bound = \"...\"` or `brand = 'x` at the type level",
+                    ));
                 }
                 if input.is_empty() {
                     break;
@@ -144,15 +163,39 @@ fn gen_target_ty(
     (quote! { #name #ty_generics }, where_clause)
 }
 
+/// Which of the two traits an impl is being generated for; the auto-synthesized bounds
+/// require the same trait of the field types.
+#[derive(Clone, Copy)]
+enum DerivedTrait<'a> {
+    Serialize,
+    /// At this brand.
+    Deserialize(&'a Lifetime),
+}
+
+impl DerivedTrait<'_> {
+    fn bound(self) -> TokenStream {
+        match self {
+            DerivedTrait::Serialize => quote! { starlark::pagable::StarlarkSerialize },
+            DerivedTrait::Deserialize(brand) => {
+                quote! { starlark::pagable::StarlarkDeserialize<#brand> }
+            }
+        }
+    }
+}
+
 /// Pick the effective per-impl bound predicates: user's `bound = "..."`
 /// if provided (override semantics, matching serde's container-level
 /// `#[serde(bound = "...")]`), otherwise the auto-synthesized bounds
 /// from [`compute_auto_bounds`].
-fn effective_bounds(input: &DeriveInput, attrs: &TypeAttrs) -> syn::Result<Vec<WherePredicate>> {
-    if !attrs.bound.is_empty() {
-        return Ok(attrs.bound.clone());
+fn effective_bounds(
+    input: &DeriveInput,
+    attrs: &TypeAttrs,
+    derived: DerivedTrait,
+) -> syn::Result<Vec<WherePredicate>> {
+    if let Some(bound) = &attrs.bound {
+        return Ok(bound.clone());
     }
-    compute_auto_bounds(input)
+    compute_auto_bounds(input, derived)
 }
 
 /// Combine the type's own where-clause predicates with any extra
@@ -171,23 +214,25 @@ fn build_where_clause(generics: &Generics, extra: &[WherePredicate]) -> TokenStr
     quote! { where #(#predicates,)* }
 }
 
-/// Compute the auto-synthesized per-field bounds for the derived impls.
+/// Compute the auto-synthesized per-field bounds for the derived impl.
 ///
 /// Walks every non-`skip`ped field's type and, for each:
 /// - generic type parameter `T` referenced (directly or transitively)
 /// - associated-type projection `T::Assoc` referenced
 ///
-/// emits `T: starlark::pagable::StarlarkPagable` (which is
-/// `StarlarkSerialize + StarlarkDeserialize`).
+/// emits `T: StarlarkSerialize` or `T: StarlarkDeserialize<'brand>`, for the
+/// trait being derived.
 ///
 /// Carve-outs: `PhantomData<T>` is skipped (its impls don't depend on
 /// `T`), as are fields marked `#[starlark_pagable(skip)]`.
 ///
-/// Cases that need extra bounds beyond `StarlarkPagable` (e.g. a
-/// `SmallMap<K, V>` whose `K` needs `SmallMapKeyDeserialize` for the
-/// deserialize impl) are not handled here — use the explicit
-/// `#[starlark_pagable(bound = "...")]` escape hatch for those.
-fn compute_auto_bounds(input: &DeriveInput) -> syn::Result<Vec<WherePredicate>> {
+/// Cases that need extra bounds (e.g. a `SmallMap<K, V>` whose `K` needs
+/// `SmallMapKeyDeserialize` for the deserialize impl) are not handled here —
+/// use the explicit `#[starlark_pagable(bound = "...")]` escape hatch for those.
+fn compute_auto_bounds(
+    input: &DeriveInput,
+    derived: DerivedTrait,
+) -> syn::Result<Vec<WherePredicate>> {
     let all_type_params: HashSet<Ident> = input
         .generics
         .type_params()
@@ -225,12 +270,13 @@ fn compute_auto_bounds(input: &DeriveInput) -> syn::Result<Vec<WherePredicate>> 
         Data::Union(_) => return Ok(Vec::new()),
     }
 
+    let bound = derived.bound();
     let mut predicates: Vec<WherePredicate> = Vec::new();
     for ident in &visitor.type_params_used {
-        predicates.push(parse_quote! { #ident: starlark::pagable::StarlarkPagable });
+        predicates.push(parse_quote! { #ident: #bound });
     }
     for path in &visitor.associated_types_used {
-        predicates.push(parse_quote! { #path: starlark::pagable::StarlarkPagable });
+        predicates.push(parse_quote! { #path: #bound });
     }
     Ok(predicates)
 }
@@ -404,7 +450,7 @@ fn derive_starlark_serialize_impl(input: &DeriveInput) -> syn::Result<proc_macro
     let name = &input.ident;
     let type_attrs = extract_type_attrs(&input.attrs)?;
     let (impl_generics, _, _) = input.generics.split_for_impl();
-    let bounds = effective_bounds(input, &type_attrs)?;
+    let bounds = effective_bounds(input, &type_attrs, DerivedTrait::Serialize)?;
     let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &bounds);
 
     let body = match &input.data {
@@ -479,8 +525,9 @@ pub fn derive_starlark_deserialize(input: proc_macro::TokenStream) -> proc_macro
 fn derive_starlark_deserialize_impl(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let type_attrs = extract_type_attrs(&input.attrs)?;
-    let (impl_generics, _, _) = input.generics.split_for_impl();
-    let bounds = effective_bounds(input, &type_attrs)?;
+    let (brand, generics) = deserialize_brand(input, OtherArgs::Skip)?;
+    let (impl_generics, _, _) = generics.split_for_impl();
+    let bounds = effective_bounds(input, &type_attrs, DerivedTrait::Deserialize(&brand))?;
     let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &bounds);
 
     let body = match &input.data {
@@ -495,9 +542,9 @@ fn derive_starlark_deserialize_impl(input: &DeriveInput) -> syn::Result<proc_mac
     };
 
     Ok(quote! {
-        impl #impl_generics starlark::pagable::StarlarkDeserialize for #target_ty #where_clause {
+        impl #impl_generics starlark::pagable::StarlarkDeserialize<#brand> for #target_ty #where_clause {
             fn starlark_deserialize(
-                ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+                ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_, #brand>,
             ) -> starlark::Result<Self> {
                 #body
             }

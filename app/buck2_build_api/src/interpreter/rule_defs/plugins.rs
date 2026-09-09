@@ -54,9 +54,9 @@ struct PluginKindWrapper(
     PluginKind,
 );
 
-impl SmallMapKeyDeserialize for PluginKindWrapper {
+impl<'fv> SmallMapKeyDeserialize<'fv> for PluginKindWrapper {
     fn starlark_deserialize_hashed(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> starlark::Result<Hashed<Self>> {
         Ok(Hashed::new(Self::starlark_deserialize(ctx)?))
     }
