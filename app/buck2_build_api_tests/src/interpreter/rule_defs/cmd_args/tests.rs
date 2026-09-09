@@ -78,6 +78,21 @@ fn displays_correctly() -> buck2_error::Result<()> {
 }
 
 #[test]
+fn identity_format_is_dropped() -> buck2_error::Result<()> {
+    let mut tester = tester()?;
+    tester.run_starlark_bzl_test(indoc!(
+        r#"
+        def test():
+            assert_eq('cmd_args()', str(cmd_args(format = "{}")))
+            assert_eq('cmd_args("foo")', str(cmd_args("foo", format = "{}")))
+            assert_eq('cmd_args(format="{}x")', str(cmd_args(format = "{}x")))
+        "#
+    ))?;
+
+    Ok(())
+}
+
+#[test]
 fn displays_correctly_replace_regex() {
     let mut tester = tester().unwrap();
     tester

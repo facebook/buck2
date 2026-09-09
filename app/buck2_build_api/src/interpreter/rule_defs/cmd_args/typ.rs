@@ -1028,6 +1028,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             UnpackList<(CmdArgsRegex<'v>, StringValue<'v>)>,
         >,
     ) -> starlark::Result<StarlarkCmdArgs<'v>> {
+        let format = format.filter(|format| format.as_str() != "{}");
         let quote = quote.try_map(QuoteStyle::parse)?;
         let mut builder = StarlarkCommandLineData::default();
         if delimiter.is_some()
