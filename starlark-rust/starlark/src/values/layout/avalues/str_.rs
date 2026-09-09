@@ -164,8 +164,9 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
 impl<'fh> FrozenHeap<'fh> {
     /// Allocate a string on this heap.
     ///
-    /// Since the heap is frozen, we always prefer to intern the string in order
-    /// to deduplicate it and save some memory.
+    /// Frozen heaps always intern: equal strings share one allocation, which is worth its lookup
+    /// for strings that are kept for the heap's lifetime. [`Heap`] leaves the choice to the
+    /// caller, see [`Heap::alloc_str`] and [`Heap::alloc_str_intern`].
     pub fn alloc_str(self, x: &str) -> StringValue<'fh> {
         self.alloc_str_hashed(Hashed::new(x))
     }
@@ -189,7 +190,7 @@ impl<'fh> FrozenHeap<'fh> {
 }
 
 impl<'v> Heap<'v> {
-    /// Allocate a string on the heap.
+    /// Allocate a string on the heap, without interning it; see [`Heap::alloc_str_intern`].
     pub fn alloc_str(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
             x.at()
@@ -200,7 +201,9 @@ impl<'v> Heap<'v> {
         }
     }
 
-    /// Intern string.
+    /// Allocate a string on the heap, sharing the allocation with any equal string interned on
+    /// it before. Prefer this for strings that are allocated repeatedly and kept alive.
+    /// [`FrozenHeap::alloc_str`] always interns.
     pub fn alloc_str_intern(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
             x.at()

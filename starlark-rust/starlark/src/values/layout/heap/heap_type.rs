@@ -203,7 +203,7 @@ impl<'v> Heap<'v> {
     }
 
     /// Add a dependency onto the provided frozen heap.
-    pub fn add_reference(&self, h: OwnedFrozenRef<'_, ()>) {
+    pub fn add_reference(self, h: OwnedFrozenRef<'_, ()>) {
         self.0.refs.borrow_mut().insert(h.to_owned());
     }
 }
@@ -1301,12 +1301,12 @@ impl<'v> Heap<'v> {
 
     /// Peak memory allocated to this heap, even if the value is now lower
     /// as a result of a subsequent garbage collection.
-    pub fn peak_allocated_bytes(&self) -> usize {
+    pub fn peak_allocated_bytes(self) -> usize {
         cmp::max(self.allocated_bytes(), self.0.peak_allocated.get())
     }
 
     /// Number of bytes allocated by the heap but not yet filled.
-    pub fn available_bytes(&self) -> usize {
+    pub fn available_bytes(self) -> usize {
         self.0.arena.borrow().available_bytes()
     }
 
@@ -1399,7 +1399,7 @@ impl<'v> Heap<'v> {
     /// # SAFETY
     ///
     /// This is basically impossible to reason about, hence its existence in the first place
-    pub(crate) unsafe fn allow_gc(&self) {
+    pub(crate) unsafe fn allow_gc(self) {
         self.0.ban_gc.set(false);
     }
 
