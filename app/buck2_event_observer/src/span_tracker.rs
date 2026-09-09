@@ -420,6 +420,7 @@ impl SpanTrackable for BuckEvent {
         use buck2_data::span_start_event::Data;
 
         match self.span_start_event().and_then(|span| span.data.as_ref()) {
+            Some(Data::DynamicLambda(..)) => true,
             Some(Data::ExecutorStage(data)) => {
                 use buck2_data::executor_stage_start::Stage;
 
