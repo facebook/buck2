@@ -20,7 +20,7 @@
 //! This module contains code for working with Starlark values:
 //!
 //! * Most code dealing with Starlark will use [`Value`], as it represents the fundamental values used in
-//!   Starlark. Freezing (see [`Freezer`]) moves them into a [`FrozenHeap`].
+//!   Starlark.
 //! * Values are garbage-collected, so a given [`Value`] lives on a [`Heap`].
 //! * Rust values (e.g. [`String`], [`Vec`]) can be added to the [`Heap`] with [`AllocValue`],
 //!   and deconstructed from a [`Value`] with [`UnpackValue`]
@@ -29,6 +29,30 @@
 //!   trait.
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
+//!
+//! # Frozen and unfrozen values
+//!
+//! A Starlark module is evaluated on one thread, and once it has finished evaluating, everything
+//! it defines is immutable: a list defined by one module cannot be mutated by the modules that
+//! `load()` it. That is what lets a loaded module be shared by many importers, on many threads,
+//! without being copied.
+//!
+//! The runtime mirrors the two phases. While a module runs, its values are allocated on the
+//! module's [`Heap`], where they may be mutable and are garbage collected. Freezing the module
+//! ([`Module::freeze_named`](crate::environment::Module::freeze_named)) copies every value
+//! reachable from the module's variables onto the module's frozen heap through [`FreezeBranded`];
+//! the copies are immutable, and a value reachable from several places is copied once, see
+//! [`Freezer`]. The sealed frozen heap ([`OwnedFrozen`]) is `Send + Sync` and is shared by
+//! reference.
+//!
+//! A `Value<'v>` on a module's heap may be either frozen or unfrozen, which
+//! [`is_frozen`](Value::is_frozen) tells apart; a value at the brand of a frozen heap is always
+//! frozen. Inline integers and statics (`None`, the booleans, the empty string and the empty
+//! containers) live in no heap and count as frozen.
+//!
+//! The lifetime `'v` of a `Value<'v>` identifies the heap the value lives in, or a heap that heap
+//! keeps alive; it does not measure how long anything lives. The `branding` module in
+//! `values/layout/heap/branding.rs` explains that discipline.
 
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;

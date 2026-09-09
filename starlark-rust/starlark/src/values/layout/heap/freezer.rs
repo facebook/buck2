@@ -29,8 +29,14 @@ use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
 
-/// Used to `freeze` values by
+/// Copies values onto a frozen heap; the argument of
 /// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
+///
+/// [`freeze`](Freezer::freeze) copies an unfrozen value onto the freezer's heap through the
+/// value's `FreezeBranded` impl and overwrites the original with a forwarding pointer to the
+/// copy, so a value reachable from several places is copied once and keeps its identity. The
+/// originals are unusable from then on, which is why freezing consumes the
+/// [`Module`](crate::environment::Module).
 ///
 /// A value that is already frozen is not copied: [`freeze`](Freezer::freeze) hands it back at
 /// `'fv` as it is. That is sound because of a property of the heap a freezer is created for (see

@@ -15,20 +15,6 @@
  * limitations under the License.
  */
 
-// Possible optimisations:
-// Avoid the Box duplication
-// Encode Int in the pointer too
-
-// We use pointer tagging on the bottom two bits:
-// 00 => this is a pointer to a frozen value
-// 01 => this is a real Value pointer
-// 11 => this is a bool (next bit: 1 => true, 0 => false)
-// 10 => this is a None
-//
-// We don't use pointer tagging for Int (although we'd like to), because
-// our val_ref requires a pointer to the value. We need to put that pointer
-// somewhere. The solution is to have a separate value storage vs vtable.
-
 use std::any;
 use std::cmp::Ordering;
 use std::fmt;
@@ -129,10 +115,23 @@ enum ValueValueError {
     WrongType(&'static str, String),
 }
 
-/// A Starlark value. The lifetime argument `'v` corresponds to the [`Heap`](crate::values::Heap) it is stored on.
+/// A Starlark value. The lifetime argument `'v` identifies the [`Heap`](crate::values::Heap) it
+/// is stored on, or a frozen heap that heap keeps alive; the `branding` module in
+/// `values/layout/heap/branding.rs` explains what that means.
 ///
 /// Many of the methods simply forward to the underlying [`StarlarkValue`](crate::values::StarlarkValue).
 /// The [`Display`](std::fmt::Display) trait is equivalent to the `repr()` function in Starlark.
+///
+/// # Representation
+///
+/// A `Value` is one word, a tagged pointer (`Pointer` in `values/layout/pointer.rs`, which
+/// defines the tags). It is either an inline 32-bit integer (`PointerTags::Int`), which lives in
+/// no heap, or a pointer to a heap object: an `AValueHeader`, which is a pointer to the object's
+/// vtable, followed by the Rust value itself. The other tag bits record two facts about the
+/// pointee that the runtime wants without dereferencing it: whether it is a string (`TAG_STR`)
+/// and whether it is unfrozen (`TAG_UNFROZEN`), which is what [`is_frozen`](Value::is_frozen)
+/// reads. `None`, the booleans, the empty string and the empty containers are statics
+/// ([`AllocStaticSimple`](crate::values::AllocStaticSimple)) in no heap, and count as frozen.
 #[derive(Clone_, Copy_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Value is owned by heap.
 // One possible change: moving to Forward during GC.
