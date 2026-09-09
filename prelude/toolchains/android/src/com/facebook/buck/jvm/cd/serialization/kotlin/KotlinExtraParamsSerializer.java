@@ -49,8 +49,6 @@ public class KotlinExtraParamsSerializer {
             .collect(ImmutableList.toImmutableList()),
         AbsPathSerializer.deserialize(kotlinExtraParams.getStandardLibraryClassPath()),
         AbsPathSerializer.deserialize(kotlinExtraParams.getAnnotationProcessingClassPath()),
-        AnnotationProcessingToolSerializer.deserialize(
-            kotlinExtraParams.getAnnotationProcessingTool()),
         kotlinExtraParams.getExtraKotlincArgumentsList().stream()
             .collect(ImmutableList.toImmutableList()),
         kotlinExtraParams.getKotlinCompilerPluginsMap().entrySet().stream()

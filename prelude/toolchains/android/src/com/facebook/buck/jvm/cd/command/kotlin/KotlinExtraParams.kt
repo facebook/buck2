@@ -23,7 +23,6 @@ data class KotlinExtraParams(
     val extraClassPathSnapshots: ImmutableList<AbsPath>,
     val standardLibraryClassPath: AbsPath,
     val annotationProcessingClassPath: AbsPath,
-    val annotationProcessingTool: AnnotationProcessingTool,
     val extraKotlincArguments: ImmutableList<String>,
     val kotlinCompilerPlugins: ImmutableMap<AbsPath, ImmutableMap<String, String>>,
     val kosabiPluginOptions: ImmutableMap<String, AbsPath>,

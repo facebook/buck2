@@ -35,7 +35,7 @@ message KotlinExtraParams {
   repeated string extraClassPaths = 2;
   string standardLibraryClassPath = 3;
   string annotationProcessingClassPath = 4;
-  AnnotationProcessingTool annotationProcessingTool = 5;
+  reserved 5;
   repeated string extraKotlincArguments = 6;
   // kotlinCompilerPlugin keys are strings encoded as strings due to limitations
   // in proto3.
@@ -70,12 +70,6 @@ message KotlinExtraParams {
 
 message PluginParams {
   map<string, string> params = 1;
-}
-
-/** Model for KotlinLibraryDescription.AnnotationProcessingTool */
-enum AnnotationProcessingTool {
-  KAPT = 0;
-  JAVAC = 1;
 }
 
 /** Model for metadata provided by Buck2 incremental action see:

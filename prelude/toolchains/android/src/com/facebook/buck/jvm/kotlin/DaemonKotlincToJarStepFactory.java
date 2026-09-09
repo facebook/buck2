@@ -20,7 +20,6 @@ import com.facebook.buck.io.file.FileExtensionMatcher;
 import com.facebook.buck.io.file.GlobPatternMatcher;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.io.filesystem.CopySourceMode;
-import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
@@ -163,7 +162,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ImmutableList<AbsPath> kotlinHomeLibraries = extraParams.getKotlinHomeLibraries();
 
       KaptStepsBuilder.prepareKaptProcessorsIfNeeded(
-          extraParams.getAnnotationProcessingTool(),
           invokingRule,
           buildCellRootPath,
           steps,
@@ -279,8 +277,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     }
 
     ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
-    if (hasKotlinSources
-        && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
+    if (hasKotlinSources) {
       // Most of the time, KotlinC have ran annotation processing,
       // so only run "java on mix" processors (very uncommon) on Javac
       resolvedJavacOptions =

@@ -17,7 +17,6 @@ import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.getKotlinCompiler
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
-import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
@@ -81,11 +80,6 @@ public class KspStepsBuilder {
         getKspAnnotationProcessors(getAnnotationProcessors(annotationProcessorParams));
 
     KSPInvocationStatus kspInvocationStatus = KSPInvocationStatus.NOT_INVOKED;
-
-    // The other option is to use JAVAC, and we don't want to use KSP in that case.
-    if (!extraParams.getAnnotationProcessingTool().equals(AnnotationProcessingTool.KAPT)) {
-      return kspInvocationStatus;
-    }
 
     // We need to generate the KSP generation folder anyway, to help IntelliJ with red
     // symbols.
