@@ -114,11 +114,81 @@ ALL_TARGETS = [
 ]
 ```
 
+### `# starlark-fmt: sort-by = ...`
+
+Opt in a particular keyword argument to sorting elements that the default
+list-argument sorter does not handle by placing a single-line JSON sort key
+immediately above the argument. This does not require the argument to appear in
+`IsSortableListArg`, and overrides any `ListSortKeys` or `SortableBlacklist`
+entry for that argument:
+
+```python
+some_rule(
+    # starlark-fmt: sort-by = {"first_of": ["string", {"tuple_item": 0}]}
+    items = [
+        ("z", True),
+        "m",
+        ("a", False),
+    ],
+)
+```
+
+Available sort keys are:
+
+| Sort key | Extracted value |
+|----------|-----------------|
+| `"string"` | The value of a string literal. |
+| `"call_name"` | A simple or dotted function name. |
+| `{"tuple_item": N}` | The string literal at tuple index `N`. |
+| `{"call_keyword": "name"}` | The string literal passed to the named call argument. |
+| `{"first_of": [...]}` | The first enclosed sort key that applies to the element. |
+
+For example, calls can sort by an explicit `name` and fall back to their
+function name:
+
+```python
+some_rule(
+    # starlark-fmt: sort-by = {"first_of": [{"call_keyword": "name"}, "call_name"]}
+    items = [zebra(), factory(name = "alpha"), module.bravo()],
+)
+```
+
+Every list element selected by an inline directive must produce a string key.
+Invalid inline directives, missing keys, and dynamic key values fail formatting
+with a source location rather than partially reordering the list. Equal keys
+preserve source order and are not deduplicated. `# do not sort` and `# fmt: off`
+take precedence. A commented list with multiple elements on one physical line
+is rejected before editing; put each element on its own line so comments can
+move with their element.
+
+The same sort-key language can be configured globally with `ListSortKeys`.
+An argument name applies to every call, while a `<callee>.<argument>` selector
+takes precedence for that callee:
+
+```json
+{
+  "ListSortKeys": {
+    "items": {"first_of": ["string", {"tuple_item": 0}]},
+    "some_rule.items": {
+      "first_of": [{"call_keyword": "name"}, "call_name"]
+    }
+  }
+}
+```
+
+If a configured key does not apply to every element, that list is left
+unchanged.
+
+Configured sort keys respect `SortableBlacklist`. Resolution order is
+`# fmt: off` / `# do not sort`, an inline `sort-by`, `SortableBlacklist`, a
+`<callee>.<argument>` sort key, an argument-only sort key, then legacy
+`IsSortableListArg` sorting.
+
 ### Config blocklist
 
-The JSON config file can blocklist specific `macro.arg` combos from list
-sorting via the `SortableBlacklist` map. For example, to prevent sorting
-`genrule.srcs`:
+The JSON config file can blocklist specific `<callee>.<argument>` selectors
+from list sorting via the `SortableBlacklist` map. For example, to prevent
+sorting `genrule.srcs`:
 
 ```json
 {
@@ -146,6 +216,11 @@ config lives at `tools/third-party/buildifier/tables.json`. The schema:
   "NamePriority": {
     "name": -99,
     "visibility": 50
+  },
+  "ListSortKeys": {
+    "plugins": {
+      "first_of": [{"call_keyword": "name"}, "call_name"]
+    }
   }
 }
 ```
@@ -153,8 +228,9 @@ config lives at `tools/third-party/buildifier/tables.json`. The schema:
 | Field | Purpose |
 |-------|---------|
 | `IsSortableListArg` | Set of arg names whose list values should be sorted in rule calls. |
-| `SortableBlacklist` | Set of `rule.arg` combos to exclude from list sorting. |
+| `SortableBlacklist` | Set of `<callee>.<argument>` selectors to exclude from list sorting. |
 | `NamePriority` | Priority ordering for kwargs. Lower numbers sort first. Args not listed default to priority 0 and sort alphabetically among themselves. |
+| `ListSortKeys` | Optional argument or `<callee>.<argument>` selectors mapped to structural sort keys. |
 
 ## Running Tests
 

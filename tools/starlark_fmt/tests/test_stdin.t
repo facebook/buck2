@@ -17,6 +17,33 @@ Unused loads are removed
   $ printf 'load("@foo", "unused")\nx = 1' | starlark-stdin --path=test.bzl
   x = 1
 
+Inline sort directives canonicalize non-literal list elements
+  $ cat <<'EOF' | starlark-stdin --path=test.bzl
+  > my_rule(
+  >     # starlark-fmt: sort-by = {"first_of": [{"call_keyword": "name"}, "call_name"]}
+  >     custom_items = [zebra(), factory(name = "alpha"), module.bravo()],
+  > )
+  > EOF
+  my_rule(
+      # starlark-fmt: sort-by = {"first_of": [{"call_keyword": "name"}, "call_name"]}
+      custom_items = [factory(name = "alpha"), module.bravo(), zebra()],
+  )
+
+Configured sort keys apply even when ordinary list sorting is disabled
+  $ cat > sort_config.json <<'EOF'
+  > {
+  >   "IsSortableListArg": {},
+  >   "SortableBlacklist": {},
+  >   "NamePriority": {},
+  >   "Overrides": [{"Files": ["*.bzl"], "SortListArgs": false}],
+  >   "ListSortKeys": {
+  >     "custom_items": {"first_of": [{"call_keyword": "name"}, "call_name"]}
+  >   }
+  > }
+  > EOF
+  $ printf 'my_rule(custom_items=[zebra(), factory(name="alpha")])\n' | "$STARLARK_FMT_PATH" --config sort_config.json stdin --path=test.bzl
+  my_rule(custom_items = [factory(name = "alpha"), zebra()])
+
 Path argument is required
   $ echo 'x = {"b": 1, "a": 2}' | starlark-stdin 2>&1
   error: the following required arguments were not provided:
