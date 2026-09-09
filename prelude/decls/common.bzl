@@ -32,8 +32,6 @@ prelude_rule = record(
 
 AbiGenerationMode = ["class", "source", "source_only", "none"]
 
-AnnotationProcessingTool = ["kapt", "javac"]
-
 CxxRuntimeType = ["dynamic", "static"]
 
 CxxSourceType = [
