@@ -79,7 +79,13 @@ impl ActionAttr {
 pub struct SetProjectionInputsData {
     key: TransitiveSetProjectionKey,
     pub direct: Vec<ActionQueryNodeRef>,
-    pub(crate) children: Vec<SetProjectionInputs>,
+    pub children: Vec<SetProjectionInputs>,
+}
+
+impl SetProjectionInputsData {
+    pub fn key(&self) -> &TransitiveSetProjectionKey {
+        &self.key
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -236,6 +242,12 @@ pub struct ActionData {
 }
 
 impl ActionData {
+    /// The action's inputs with the tset structure preserved, unlike the flattened
+    /// `QueryTarget::deps()` view.
+    pub fn inputs(&self) -> &[ActionInput] {
+        &self.deps
+    }
+
     fn attrs(&self) -> BuckIndexMap<String, String> {
         let mut attrs = self.action.action().aquery_attributes(
             &ExecutorFs::new(

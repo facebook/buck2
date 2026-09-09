@@ -311,6 +311,18 @@ impl AqueryDelegate for DiceAqueryDelegate<'_, '_> {
         self.get_action_node(key).await
     }
 
+    async fn get_tset_node(
+        &self,
+        key: &TransitiveSetProjectionKey,
+    ) -> buck2_error::Result<SetProjectionInputs> {
+        get_tset_node(
+            self.query_data.nodes_cache.dupe(),
+            &mut self.base_delegate.ctx(),
+            key.dupe(),
+        )
+        .await
+    }
+
     async fn expand_artifacts(
         &self,
         artifacts: &[ArtifactGroup],
