@@ -253,7 +253,7 @@ impl<'v> StarlarkValue<'v> for StarlarkSelector<'v> {
 
     fn radd(&self, left: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {
         let right = heap.alloc(match self {
-            StarlarkSelector::Primary(x) => StarlarkSelector::Primary(x.to_value()),
+            StarlarkSelector::Primary(x) => StarlarkSelector::Primary(*x),
             StarlarkSelector::Sum(x, y) => StarlarkSelector::Sum(x.to_value(), y.to_value()),
         });
         Some(Ok(StarlarkSelector::sum(left, right, heap)))

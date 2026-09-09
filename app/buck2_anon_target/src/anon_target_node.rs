@@ -60,7 +60,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::structs::AllocStruct;
 use starlark::values::structs::StructRef;
 use strong_hash::StrongHash;
@@ -210,7 +210,7 @@ impl AnonTargetDyn for AnonTarget {
         attrs_spec: &AttributeSpec,
         dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
-    ) -> buck2_error::Result<ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>> {
+    ) -> buck2_error::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
         let dep_analysis_results =
             get_deps_from_analysis_results(dependents_analyses.dep_analysis_results)?;
 

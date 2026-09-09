@@ -29,8 +29,6 @@ use dupe::Dupe_;
 use starlark_derive::StarlarkPagable;
 
 use crate as starlark;
-use crate::coerce::Coerce;
-use crate::pagable::StarlarkPagable;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -43,114 +41,7 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLifetimeless;
-use crate::values::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
-
-/// Store value annotated with type, but do not check the type.
-#[derive(Clone_, Copy_, Dupe_, Allocative)]
-#[allocative(bound = "")]
-#[derive(pagable::PagablePanic, StarlarkPagable)]
-#[starlark_pagable(bound = "V: StarlarkPagable")]
-pub struct ValueOfUncheckedGeneric<V: ValueLifetimeless, T: StarlarkTypeRepr>(
-    V,
-    PhantomData<fn() -> T>,
-);
-
-unsafe impl<V, U, T> Coerce<ValueOfUncheckedGeneric<V, T>> for ValueOfUncheckedGeneric<U, T>
-where
-    V: ValueLifetimeless,
-    U: ValueLifetimeless,
-    U: Coerce<V>,
-    T: StarlarkTypeRepr,
-{
-}
-
-impl<V: ValueLifetimeless, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
-    /// New.
-    #[inline]
-    pub fn new(value: V) -> Self {
-        Self(value, PhantomData)
-    }
-
-    /// Cast to a different Rust type for the same Starlark type.
-    #[inline]
-    pub fn cast<U: StarlarkTypeRepr<Canonical = T::Canonical>>(
-        self,
-    ) -> ValueOfUncheckedGeneric<V, U> {
-        ValueOfUncheckedGeneric::new(self.0)
-    }
-
-    /// Get the value.
-    #[inline]
-    pub fn get(self) -> V {
-        self.0
-    }
-
-    /// Unpack the value.
-    pub fn unpack<'v>(self) -> crate::Result<T>
-    where
-        V: ValueLike<'v>,
-        T: UnpackValue<'v>,
-    {
-        T::unpack_value_err(self.get().to_value())
-    }
-}
-
-impl<V: ValueLifetimeless, T: StarlarkTypeRepr> Debug for ValueOfUncheckedGeneric<V, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("ValueOfUnchecked")
-            .field(&self.get())
-            .finish()
-    }
-}
-
-impl<V: ValueLifetimeless, T: StarlarkTypeRepr> Display for ValueOfUncheckedGeneric<V, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.get(), f)
-    }
-}
-
-impl<V: ValueLifetimeless, T: StarlarkTypeRepr> StarlarkTypeRepr for ValueOfUncheckedGeneric<V, T> {
-    type Canonical = T::Canonical;
-
-    fn starlark_type_repr() -> Ty {
-        <Self as StarlarkTypeRepr>::Canonical::starlark_type_repr()
-    }
-}
-
-impl<'v, V: ValueLike<'v>, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUncheckedGeneric<V, T> {
-    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        self.0.to_value()
-    }
-}
-
-impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for ValueOfUnchecked<'fv, T> {
-    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
-        self.0
-    }
-}
-
-unsafe impl<'v, V, T> Trace<'v> for ValueOfUncheckedGeneric<V, T>
-where
-    // This is essentially `V: ValueLike<'v>`,
-    // but for derive it is convenient to have these bounds.
-    V: ValueLifetimeless + Trace<'v>,
-    T: StarlarkTypeRepr,
-{
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        self.0.trace(tracer)
-    }
-}
-
-impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
-    type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
-
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let frozen = self.0.freeze(freezer)?;
-        Ok(ValueOfUncheckedGeneric::new(frozen))
-    }
-}
 
 /// Starlark value with type annotation.
 ///
@@ -159,9 +50,18 @@ impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
 /// Note this type does not actually check the type of the value.
 /// Providing incorrect type annotation will result
 /// in incorrect error reporting by the type checker.
-pub type ValueOfUnchecked<'v, T> = ValueOfUncheckedGeneric<Value<'v>, T>;
+#[derive(Clone_, Copy_, Dupe_, Allocative)]
+#[allocative(bound = "")]
+#[derive(pagable::PagablePanic, StarlarkPagable)]
+pub struct ValueOfUnchecked<'v, T: StarlarkTypeRepr>(Value<'v>, PhantomData<fn() -> T>);
 
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
+    /// New.
+    #[inline]
+    pub fn new(value: Value<'v>) -> Self {
+        Self(value, PhantomData)
+    }
+
     /// Construct after checking the type.
     #[inline]
     pub fn new_checked(value: Value<'v>) -> crate::Result<Self>
@@ -171,13 +71,71 @@ impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
         T::unpack_value_err(value)?;
         Ok(Self::new(value))
     }
+
+    /// Cast to a different Rust type for the same Starlark type.
+    #[inline]
+    pub fn cast<U: StarlarkTypeRepr<Canonical = T::Canonical>>(self) -> ValueOfUnchecked<'v, U> {
+        ValueOfUnchecked::new(self.0)
+    }
+
+    /// Get the value.
+    #[inline]
+    pub fn get(self) -> Value<'v> {
+        self.0
+    }
+
+    /// Unpack the value.
+    pub fn unpack(self) -> crate::Result<T>
+    where
+        T: UnpackValue<'v>,
+    {
+        T::unpack_value_err(self.0)
+    }
 }
 
-impl<'v, V: ValueLike<'v>, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
-    /// Convert to a value.
-    #[inline]
-    pub fn to_value(self) -> ValueOfUnchecked<'v, T> {
-        ValueOfUnchecked::new(self.0.to_value())
+impl<'v, T: StarlarkTypeRepr> Debug for ValueOfUnchecked<'v, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("ValueOfUnchecked").field(&self.0).finish()
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> Display for ValueOfUnchecked<'v, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> StarlarkTypeRepr for ValueOfUnchecked<'v, T> {
+    type Canonical = T::Canonical;
+
+    fn starlark_type_repr() -> Ty {
+        <Self as StarlarkTypeRepr>::Canonical::starlark_type_repr()
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for ValueOfUnchecked<'v, T> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
+        self.0
+    }
+}
+
+impl<'fv, T: StarlarkTypeRepr> AllocFrozenValue<'fv> for ValueOfUnchecked<'fv, T> {
+    fn alloc_frozen_value(self, _heap: FrozenHeap<'fv>) -> Value<'fv> {
+        self.0
+    }
+}
+
+unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
+    fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.0.trace(tracer)
+    }
+}
+
+impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
+    type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
+
+    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        Ok(ValueOfUnchecked::new(self.0.freeze(freezer)?))
     }
 }
 

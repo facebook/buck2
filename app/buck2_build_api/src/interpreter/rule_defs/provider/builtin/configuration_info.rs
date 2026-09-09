@@ -264,7 +264,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<
         ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
     > {
-        Ok(this.constraints.to_value())
+        Ok(this.constraints)
     }
 
     /// A dictionary of buckconfig section.key pairs and their values (evaluated from target cell).
@@ -272,7 +272,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn values<'v>(
         this: &ConfigurationInfo<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<String, String>>> {
-        Ok(this.values.to_value())
+        Ok(this.values)
     }
 
     /// A dictionary of buckconfig section.key pairs and their values (evaluated from root cell).
@@ -280,7 +280,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn root_values<'v>(
         this: &ConfigurationInfo<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<String, String>>> {
-        Ok(this.root_values.to_value())
+        Ok(this.root_values)
     }
 
     /// Get a constraint value by its constraint setting.

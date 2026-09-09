@@ -25,7 +25,7 @@ use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::Value;
-use starlark::values::ValueOfUncheckedGeneric;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::structs::StructRef;
 
 use crate::analysis::AnalysisResult;
@@ -56,7 +56,7 @@ pub trait AnonTargetDyn: Send + Sync + Display {
         attrs_spec: &AttributeSpec,
         dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
-    ) -> buck2_error::Result<ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>>;
+    ) -> buck2_error::Result<ValueOfUnchecked<'v, StructRef<'static>>>;
 }
 
 // Container for analysis results of the anon target dependents.
