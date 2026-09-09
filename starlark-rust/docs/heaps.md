@@ -174,16 +174,12 @@ its sealed heap, so the resulting `FrozenModule` keeps `from`'s heap alive too.
 
 ## What is trusted
 
-Three brand changes rest on a contract rather than on an edge; the `branding`
+Two brand changes rest on a contract rather than on an edge; the `branding`
 module documents each in full.
 
 - `OptCtx::demote`: the optimizer folds frozen values it observed at a module's
   value heap into IR allocated at the module's frozen heap. The contract is that
   the two heaps are one `ModuleHeaps`'s.
-- `StarlarkDeserializeContext::deserialize_value`: a value being paged in
-  carries no brand; the framework re-brands it at the heap being paged in when
-  the owner is reached, so `StarlarkDeserialize` impls must keep the result
-  only inside the value they are deserializing.
 - `Freezer::freeze` on a value that is already frozen hands it back at the
   freezer's brand without a copy. `Freezer::new` requires the target heap to
   reference every heap the value can live in, and has one production caller,

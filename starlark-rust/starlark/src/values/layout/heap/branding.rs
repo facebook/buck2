@@ -121,7 +121,7 @@
 //!
 //! ### What is trusted rather than proven
 //!
-//! Three brand changes have no edge behind them. Each rests on a contract stated at the site,
+//! Two brand changes have no edge behind them. Each rests on a contract stated at the site,
 //! and together they are the complete list of places where a brand is only as good as the code
 //! that minted it:
 //!
@@ -129,10 +129,6 @@
 //!    at a module's value heap `'v` into IR allocated at the module's frozen heap `'fm`. No edge
 //!    points that way; the contract is `OptCtxEval`'s (the two heaps are one `ModuleHeaps`'s),
 //!    and the reasoning about where a frozen value at `'v` can live is spelled out on `demote`.
-//!  - `StarlarkDeserializeContext::deserialize_value` (pagable). A value being paged in carries
-//!    no brand that says which heap owns it. The framework re-brands it at the heap being paged
-//!    in when the owner is later reached, so `StarlarkDeserialize` impls must keep the result only
-//!    inside the value they are deserializing; see the method's documentation.
 //!  - `Freezer::freeze`'s already-frozen fast path (values/layout/heap/freezer.rs). A value that
 //!    is already frozen is handed back at `'fv` without being copied. The contract is on
 //!    `Freezer::new`: the target heap references every heap the value can live in.
@@ -142,5 +138,6 @@
 //!
 //! Everything else that hands out a brand records the dependency it certifies, and the
 //! `'static` brand is honest: apart from the private erased storage of the owning carriers
-//! (`OwnedFrozen`, `FrozenModule`, `Globals`), which is only ever read back at a brand those
-//! carriers vouch for, the only data at `'static` is immortal.
+//! (`OwnedFrozen`, `FrozenModule`, `Globals`) and of the frozen heaps themselves, which the
+//! freezer and the pagable deserializer fill at a brand and which is only ever read back at a
+//! brand the owner vouches for, the only data at `'static` is immortal.
