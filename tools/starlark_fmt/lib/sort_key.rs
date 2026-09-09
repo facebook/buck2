@@ -9,10 +9,13 @@
  */
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use anyhow::Context as _;
 use ruff_python_ast::Expr;
 use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::Error as _;
 use vec1::Vec1;
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -49,13 +52,108 @@ pub(crate) struct CallKeyword {
     pub(crate) call_keyword: String,
 }
 
+/// Configured structural sort keys, indexed by argument name.
+///
+/// Selectors are either a bare argument (`"items"`, the fallback for every
+/// callee) or a callee-qualified `"callee.arg"` pair split on the *last* dot,
+/// so `"module.rule.items"` means callee `"module.rule"` plus arg `"items"`
+/// (callees may themselves contain dots). Empty selectors, empty segments,
+/// and whitespace are rejected at deserialization so a key that could never
+/// match fails loudly instead of silently never applying.
+#[derive(Debug, Default)]
+pub(crate) struct ListSortKeys {
+    by_arg: HashMap<String, ArgSortKeys>,
+}
+
+/// Sort keys for one argument: an optional fallback plus callee-specific keys.
+#[derive(Debug, Default)]
+pub(crate) struct ArgSortKeys {
+    fallback: Option<SortKey>,
+    by_callee: HashMap<String, SortKey>,
+}
+
+impl<'de> Deserialize<'de> for ListSortKeys {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let entries = HashMap::<String, SortKey>::deserialize(deserializer)?;
+        let mut by_arg = HashMap::<String, ArgSortKeys>::new();
+
+        for (selector, key) in entries {
+            if selector.is_empty() {
+                return Err(D::Error::custom("list sort key selector must not be empty"));
+            }
+            if selector.chars().any(|c| c.is_whitespace()) {
+                return Err(D::Error::custom(format!(
+                    "invalid list sort key selector `{selector}`: must not contain whitespace"
+                )));
+            }
+
+            if let Some((callee, arg)) = selector.rsplit_once('.') {
+                if callee.is_empty()
+                    || arg.is_empty()
+                    || callee.split('.').any(|segment| segment.is_empty())
+                {
+                    return Err(D::Error::custom(format!(
+                        "invalid list sort key selector `{selector}`"
+                    )));
+                }
+                by_arg
+                    .entry(arg.to_owned())
+                    .or_default()
+                    .by_callee
+                    .insert(callee.to_owned(), key);
+            } else {
+                by_arg.entry(selector).or_default().fallback = Some(key);
+            }
+        }
+
+        Ok(Self { by_arg })
+    }
+}
+
+impl ListSortKeys {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.by_arg.is_empty()
+    }
+
+    pub(crate) fn for_arg(&self, arg: &str) -> Option<&ArgSortKeys> {
+        self.by_arg.get(arg)
+    }
+}
+
+impl ArgSortKeys {
+    pub(crate) fn has_callee_keys(&self) -> bool {
+        !self.by_callee.is_empty()
+    }
+
+    /// Resolve the key for `callee`, preferring the callee-specific entry
+    /// over the argument-level fallback. Returns `None` when neither exists.
+    ///
+    /// A `None` callee always falls through to the fallback (callers must
+    /// still consult the fallback — it is not implied by `has_callee_keys`).
+    pub(crate) fn resolve(&self, callee: Option<&str>) -> Option<&SortKey> {
+        callee
+            .and_then(|callee| self.by_callee.get(callee))
+            .or(self.fallback.as_ref())
+    }
+}
+
 impl SortKey {
+    /// Extract the sort-key value for `expr`.
+    ///
+    /// Returns `Ok(None)` when the key does not apply to this expression
+    /// shape (non-string, non-call, non-tuple) or the requested data is
+    /// absent (e.g. a `call_keyword` key whose keyword is not present), and
+    /// `Err` when the key applies but the value is unusable (non-string
+    /// literal, out-of-range index, unsupported callee). Inside `first_of`, an `Err` aborts the
+    /// fallback chain instead of continuing: inline directives rely on this
+    /// fail-closed behavior, while configured keys get fail-open handling
+    /// (skip the list) at the caller.
     pub(crate) fn extract<'a>(&self, expr: &'a Expr) -> anyhow::Result<Option<Cow<'a, str>>> {
         match self {
-            Self::Named(NamedSortKey::String) => match expr {
-                Expr::StringLiteral(string) => Ok(Some(Cow::Borrowed(string.value.to_str()))),
-                _ => Ok(None),
-            },
+            Self::Named(NamedSortKey::String) => Ok(as_string_literal(expr).map(Cow::Borrowed)),
             Self::Named(NamedSortKey::CallName) => match expr {
                 Expr::Call(call) => call_name(&call.func)
                     .map(|name| Some(Cow::Owned(name)))
@@ -75,11 +173,9 @@ impl SortKey {
                     let item = tuple.elts.get(tuple_item.tuple_item).with_context(|| {
                         format!("tuple has no item at index {}", tuple_item.tuple_item)
                     })?;
-                    match item {
-                        Expr::StringLiteral(string) => {
-                            Ok(Some(Cow::Borrowed(string.value.to_str())))
-                        }
-                        _ => anyhow::bail!(
+                    match as_string_literal(item) {
+                        Some(value) => Ok(Some(Cow::Borrowed(value))),
+                        None => anyhow::bail!(
                             "tuple item at index {} is not a string literal",
                             tuple_item.tuple_item
                         ),
@@ -97,11 +193,9 @@ impl SortKey {
                     }) else {
                         return Ok(None);
                     };
-                    match &keyword.value {
-                        Expr::StringLiteral(string) => {
-                            Ok(Some(Cow::Borrowed(string.value.to_str())))
-                        }
-                        _ => anyhow::bail!(
+                    match as_string_literal(&keyword.value) {
+                        Some(value) => Ok(Some(Cow::Borrowed(value))),
+                        None => anyhow::bail!(
                             "call keyword `{}` is not a string literal",
                             call_keyword.call_keyword
                         ),
@@ -113,6 +207,20 @@ impl SortKey {
     }
 }
 
+/// Borrow the string value of `expr`, or `None` when it is not a string literal.
+///
+/// Callers map `None` to their own outcome, which differs per key kind:
+/// inapplicable shapes yield `Ok(None)` while present-but-invalid values
+/// bail — see [`SortKey::extract`].
+fn as_string_literal(expr: &Expr) -> Option<&str> {
+    match expr {
+        Expr::StringLiteral(string) => Some(string.value.to_str()),
+        _ => None,
+    }
+}
+
+/// Dotted name of a call callee (`f`, `module.rule`), or `None` for computed
+/// callees (`factory()()`, `table["key"]()`) which no key can name.
 pub(crate) fn call_name(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Name(name) => Some(name.id.to_string()),
@@ -203,6 +311,56 @@ mod tests {
     }
 
     #[test]
+    fn test_list_sort_keys_resolve_callee_before_fallback() {
+        let keys: ListSortKeys = serde_json::from_str(
+            r#"{
+                "items": "string",
+                "module.rule.items": "call_name"
+            }"#,
+        )
+        .expect("valid selector map");
+        let item_keys = keys.for_arg("items").expect("items selector");
+
+        assert!(!keys.is_empty());
+        assert!(item_keys.has_callee_keys());
+        assert_eq!(
+            item_keys.resolve(Some("module.rule")),
+            Some(&SortKey::Named(NamedSortKey::CallName))
+        );
+        assert_eq!(
+            item_keys.resolve(Some("other.rule")),
+            Some(&SortKey::Named(NamedSortKey::String))
+        );
+    }
+
+    #[test]
+    fn test_list_sort_keys_reject_invalid_selectors() {
+        for json in [
+            r#"{"": "string"}"#,
+            r#"{".items": "string"}"#,
+            r#"{"module.": "string"}"#,
+            r#"{"module..items": "string"}"#,
+            r#"{"module.rule. items": "string"}"#,
+            r#"{" items": "string"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<ListSortKeys>(json).is_err(),
+                "unexpectedly accepted {json}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_list_sort_keys_resolve_none_without_fallback() {
+        let keys: ListSortKeys = serde_json::from_str(r#"{"module.rule.items": "call_name"}"#)
+            .expect("valid selector map");
+        let item_keys = keys.for_arg("items").expect("items selector");
+
+        assert_eq!(item_keys.resolve(None), None);
+        assert_eq!(item_keys.resolve(Some("other.rule")), None);
+    }
+
+    #[test]
     fn test_extracts_structural_sort_keys() {
         assert_eq!(
             extract(r#""string""#, r#""value""#).unwrap(),
@@ -258,5 +416,25 @@ mod tests {
     fn test_extract_reports_invalid_structural_values() {
         assert!(extract(r#"{"tuple_item": 1}"#, r#"("only",)"#).is_err());
         assert!(extract(r#"{"call_keyword": "name"}"#, "factory(name = dynamic)").is_err());
+    }
+
+    #[test]
+    fn test_extract_none_for_inapplicable_shapes() {
+        // Inapplicable shapes yield `Ok(None)`, not an error: fail-closed
+        // `first_of` chains rely on the distinction to keep trying later
+        // candidates instead of aborting.
+        assert_eq!(extract(r#""string""#, "factory()").unwrap(), None);
+        assert_eq!(
+            extract(r#"{"call_keyword": "name"}"#, "factory(other = 1)").unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_extract_rejects_present_non_string_tuple_item() {
+        // The value is present but not a string literal: bail (`Err`) rather
+        // than skip, exercising the `as_string_literal` none-arm shared with
+        // the other key kinds.
+        assert!(extract(r#"{"tuple_item": 1}"#, r#"("a", dynamic)"#).is_err());
     }
 }
