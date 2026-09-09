@@ -49,7 +49,7 @@ fn test() -> anyhow::Result<()> {
         let t = Test { field: list };
 
         FrozenHeap::temp(|frozen_heap| {
-            let freezer = Freezer::new(frozen_heap);
+            let freezer = Freezer::testing_new(frozen_heap);
             list.freeze(&freezer)?;
             t.freeze(&freezer)?;
             anyhow::Ok(())

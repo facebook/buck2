@@ -42,7 +42,6 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::EnvironmentError;
 use crate::environment::Globals;
-use crate::environment::module_heaps::ModuleHeaps;
 use crate::environment::names::FrozenNames;
 use crate::environment::names::MutableNames;
 use crate::environment::slots::FrozenSlots;
@@ -55,7 +54,6 @@ use crate::register_starlark_any_complex;
 use crate::singleton_heap_name;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
-use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapEdge;
@@ -70,6 +68,7 @@ use crate::values::ValueTyped;
 use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::module_heaps::ModuleHeaps;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 
@@ -538,10 +537,10 @@ impl<'v> Module<'v> {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let data = heaps.seal_with(name, |fh, edge| {
-            let freezer = Freezer::new(fh);
-            let names = names.freeze(&freezer)?;
-            let slots = slots.freeze(&freezer)?;
+        let data = heaps.seal_with(name, |freezer, edge| {
+            let fh = freezer.frozen_heap();
+            let names = names.freeze(freezer)?;
+            let slots = slots.freeze(freezer)?;
             let extra_value = extra_value
                 .into_inner()
                 .map(|v| freezer.freeze(v))

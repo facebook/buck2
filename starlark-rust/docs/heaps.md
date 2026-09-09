@@ -185,7 +185,9 @@ module documents each in full.
   the owner is reached, so `StarlarkDeserialize` impls must keep the result
   only inside the value they are deserializing.
 - `Freezer::freeze` on a value that is already frozen hands it back at the
-  freezer's brand without a copy; `Freezer::new` requires the target heap to
-  inherit the references of the heap being frozen, or to be scoped within it.
+  freezer's brand without a copy. `Freezer::new` requires the target heap to
+  reference every heap the value can live in, and has one production caller,
+  `ModuleHeaps::seal_with`, which copies the value heap's references into the
+  builder before constructing the freezer.
 
 Everything else that hands out a brand records the dependency it certifies.

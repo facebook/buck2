@@ -133,10 +133,12 @@
 //!    no brand that says which heap owns it. The framework re-brands it at the heap being paged
 //!    in when the owner is later reached, so `StarlarkDeserialize` impls must keep the result only
 //!    inside the value they are deserializing; see the method's documentation.
-//!  - `Freezer::freeze`'s already-frozen fast path (values/layout/freezer.rs). A value that is
-//!    already frozen is handed back at `'fv` without being copied. The contract is on
-//!    `Freezer::new`: the target heap inherits the references of the heap being frozen
-//!    (`ModuleHeaps::seal_with`, for `Module::freeze`) or is scoped within it.
+//!  - `Freezer::freeze`'s already-frozen fast path (values/layout/heap/freezer.rs). A value that
+//!    is already frozen is handed back at `'fv` without being copied. The contract is on
+//!    `Freezer::new`: the target heap references every heap the value can live in.
+//!    `ModuleHeaps::seal_with` is its one production caller, by privacy, and copies the value
+//!    heap's references into the builder before constructing the freezer; tests construct
+//!    freezers whose heaps are scoped within the test.
 //!
 //! Everything else that hands out a brand records the dependency it certifies, and the
 //! `'static` brand is honest: apart from the private erased storage of the owning carriers

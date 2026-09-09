@@ -33,7 +33,6 @@ use crate::codemap::FileSpanRef;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::Globals;
-use crate::environment::module_heaps::ModuleHeaps;
 use crate::environment::names::MutableNames;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::BindingSource;
@@ -56,6 +55,7 @@ use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::Heap;
 use crate::values::any::StarlarkAny;
+use crate::values::layout::heap::module_heaps::ModuleHeaps;
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(

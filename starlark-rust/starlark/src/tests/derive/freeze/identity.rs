@@ -48,7 +48,7 @@ fn test_struct() -> anyhow::Result<()> {
         s2: NonFreeze(55),
     };
     FrozenHeap::temp(|frozen_heap| {
-        let freezer = Freezer::new(frozen_heap);
+        let freezer = Freezer::testing_new(frozen_heap);
         t.freeze(&freezer).map(drop)
     })?;
     Ok(())
@@ -58,7 +58,7 @@ fn test_struct() -> anyhow::Result<()> {
 fn test_anon_struct() -> anyhow::Result<()> {
     let t = TestUnitStruct("test".to_owned(), NonFreeze(56));
     FrozenHeap::temp(|frozen_heap| {
-        let freezer = Freezer::new(frozen_heap);
+        let freezer = Freezer::testing_new(frozen_heap);
         t.freeze(&freezer).map(drop)
     })?;
     Ok(())

@@ -16,6 +16,7 @@
  */
 
 use crate::any::IsStaticType;
+use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapEdge;
@@ -85,45 +86,55 @@ impl<'v> ModuleHeaps<'v> {
             .expect("the builder is only taken by `seal_with`, which consumes `self`")
     }
 
-    /// Allocate the frozen heap's root value with `f`, then seal the heap into the value heap's
-    /// references and return the root value kept alive by it. `f` gets the same edge as
-    /// [`frozen_heap`](ModuleHeaps::frozen_heap).
+    /// Freeze the frozen heap's root value with `f`, then seal the heap into the value heap's
+    /// references and return the root value kept alive by it. `f` gets a [`Freezer`] into the heap
+    /// and the same edge as [`frozen_heap`](ModuleHeaps::frozen_heap).
     ///
     /// The heap is sealed whether `f` succeeds, fails or panics. The `name` is the sealed heap's,
     /// see [`OwnedFrozen::name`].
     pub(crate) fn seal_with<T, E>(
         mut self,
         name: Option<FrozenHeapName>,
-        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> Result<T::Reinfect<'fm>, E>,
+        f: impl for<'fm> FnOnce(&Freezer<'fm>, HeapEdge<'v, 'fm>) -> Result<T::Reinfect<'fm>, E>,
     ) -> Result<OwnedFrozen<T>, E>
     where
         T: IsStaticType,
         for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
     {
+        // Frozen values may point into any heap the value heap references (a `load`ed module's
+        // heap, a value that `add_to_heap` brought over), so the sealed heap takes those references
+        // over: before `f`, which is what `Freezer::new` requires of the heap it freezes into, and
+        // again after `f`, for references `f` itself added.
+        self.inherit_references();
         // The builder stays in `self` while `f` runs, so that if `f` unwinds, `Drop` seals it like
         // on every other exit: the value heap may already hold pointers into it.
         //
         // SAFETY: `'fm` is the brand of the builder, which is sealed right below into the owner
         // the value is paired with. Being closure-introduced, `'fm` names nothing else.
-        let root = self
-            .frozen()
-            .with(|fh| f(fh, self.edge(fh)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) }));
+        let root = self.frozen().with(|fh| {
+            let freezer = Freezer::new(fh);
+            f(&freezer, self.edge(fh)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
+        });
+        self.inherit_references();
         let frozen = self
             .frozen
             .take()
             .expect("the builder is only taken by `seal_with`, which consumes `self`");
-        // Frozen values may point into any heap the value heap references (a `load`ed module's
-        // heap, a value that `add_to_heap` brought over), so the sealed heap takes those references
-        // over. This runs after `f` so that references `f` itself added are included.
-        frozen.with(|fh| {
-            for r in self.heap.referenced_heaps() {
-                fh.add_reference(r.owner());
-            }
-        });
         let sealed = frozen.seal_impl(name, Some(self.heap.peak_allocated_bytes()));
         self.heap.add_reference(sealed.owner());
         // SAFETY: `sealed` is the heap that `'fm` named.
         root.map(|v| unsafe { OwnedFrozen::from_erased(sealed, v) })
+    }
+}
+
+impl<'v> ModuleHeaps<'v> {
+    /// Make the builder reference every heap the value heap references.
+    fn inherit_references(&self) {
+        self.frozen().with(|fh| {
+            for r in self.heap.referenced_heaps() {
+                fh.add_reference(r.owner());
+            }
+        });
     }
 }
 
@@ -145,12 +156,11 @@ impl<'v> Drop for ModuleHeaps<'v> {
 
 #[cfg(test)]
 mod tests {
-    use crate::environment::module_heaps::ModuleHeaps;
-    use crate::values::Freezer;
     use crate::values::Heap;
     use crate::values::OwnedFrozen;
     use crate::values::Value;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::module_heaps::ModuleHeaps;
 
     /// A frozen value from a heap that only the value heap references is frozen by pointer copy,
     /// so the sealed heap has to reference that heap too, even when the reference was added
@@ -165,9 +175,9 @@ mod tests {
         let root = Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
             heaps
-                .seal_with::<Value<'static>, ()>(None, |fh, _edge| {
+                .seal_with::<Value<'static>, ()>(None, |freezer, _edge| {
                     let v = foreign.as_ref().add_to_heap(heap);
-                    Ok(Freezer::new(fh).freeze(v).unwrap())
+                    Ok(freezer.freeze(v).unwrap())
                 })
                 .unwrap()
         });
@@ -183,9 +193,9 @@ mod unwind_tests {
     use std::panic::AssertUnwindSafe;
     use std::panic::catch_unwind;
 
-    use crate::environment::module_heaps::ModuleHeaps;
     use crate::values::Heap;
     use crate::values::Value;
+    use crate::values::layout::heap::module_heaps::ModuleHeaps;
     use crate::values::list::ListRef;
 
     /// The value heap can hold pointers into the frozen heap before it is sealed, so a panic
@@ -198,7 +208,9 @@ mod unwind_tests {
             let s = heaps.frozen_heap(|fh, edge| edge.rebrand(fh.alloc(expected.as_str())));
             let list = heap.alloc(vec![s]);
             let unwound = catch_unwind(AssertUnwindSafe(|| {
-                heaps.seal_with::<Value<'static>, ()>(None, |_fh, _edge| panic!("sealing failed"))
+                heaps.seal_with::<Value<'static>, ()>(None, |_freezer, _edge| {
+                    panic!("sealing failed")
+                })
             }));
             assert!(unwound.is_err());
             let list = ListRef::from_value(list).unwrap();

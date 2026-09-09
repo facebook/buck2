@@ -448,7 +448,7 @@ mod tests {
             heap.record_call_exit();
 
             FrozenHeap::temp(|frozen_heap| {
-                let freezer = Freezer::new(frozen_heap);
+                let freezer = Freezer::testing_new(frozen_heap);
                 freezer.freeze(s0.to_value()).unwrap();
                 freezer.freeze(s1.to_value()).unwrap();
 
@@ -483,7 +483,7 @@ mod tests {
                 let s = heap.alloc_str("abc");
                 heap.record_call_exit();
                 FrozenHeap::temp(|frozen_heap| {
-                    let freezer = Freezer::new(frozen_heap);
+                    let freezer = Freezer::testing_new(frozen_heap);
                     freezer.freeze(s.to_value()).unwrap();
 
                     AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen))
