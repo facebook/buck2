@@ -40,13 +40,23 @@ impl BuiltinFn {
 
     /// Whether `v` is this function.
     pub(crate) fn is(&self, v: Value) -> bool {
-        // Pointer equality works because `#[starlark_module]` proc macro
-        // generates a singleton which allocates the function only once
-        // even if builder function is called multiple times.
+        // Pointer equality works because `#[starlark_module]` allocates each native once, in a
+        // static heap that every `GlobalsBuilder` populated from that module references
+        // (`GlobalsStatic::populate`), so the `len` of any `Globals` built on the standard
+        // library, buck2's included, is this value. A globals set that defines its own `len`
+        // has a different function, and the optimizations keyed on these do not apply to it.
         self.0.by_ref(|f| f.ptr_eq(v))
     }
 }
 
+/// The builtins the optimizer recognizes and synthesizes calls to.
+///
+/// Each is a registered static (see the test): the six functions are `#[starlark_module]`
+/// natives, allocated once in the static heaps that `globals_static!` registers, and
+/// `typing.Callable` is a `static_starlark_value!`; none lives in the heap this type builds. They
+/// reach the IR through [`HeapEdge::immortal`] rather than through a heap the module references,
+/// so the pagable serializer can write them out only because it finds them in the static
+/// registry.
 pub(crate) struct Constants {
     pub(crate) fn_len: BuiltinFn,
     pub(crate) fn_type: BuiltinFn,
@@ -88,12 +98,33 @@ impl Constants {
 mod tests {
     use crate::environment::Globals;
     use crate::eval::compiler::constants::Constants;
+    use crate::pagable::get_static_value_id;
 
     #[test]
     fn test_constants() {
         for globals in [Globals::standard(), Globals::extended_internal()] {
             let len = globals.get_owned("len").unwrap();
             assert!(len.by_ref(|len| Constants::get().fn_len.is(*len)));
+        }
+    }
+
+    /// See the type doc: the pagable serializer relies on this.
+    #[test]
+    fn test_constants_are_registered_statics() {
+        let c = Constants::get();
+        for (name, f) in [
+            ("len", &c.fn_len),
+            ("type", &c.fn_type),
+            ("list", &c.fn_list),
+            ("dict", &c.fn_dict),
+            ("tuple", &c.fn_tuple),
+            ("isinstance", &c.fn_isinstance),
+            ("typing.Callable", &c.typing_callable),
+        ] {
+            assert!(
+                f.0.by_ref(|v| get_static_value_id(*v).is_some()),
+                "{name} is not a registered static"
+            );
         }
     }
 }
