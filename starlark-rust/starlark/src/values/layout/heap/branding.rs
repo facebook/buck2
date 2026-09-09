@@ -123,16 +123,51 @@
 //!
 //! Every brand at which a heap handle exists (`Heap<'v>`, `FrozenHeap<'fh>`, and the `Module`,
 //! `Evaluator`, `Freezer` and deserialize context built on one) is introduced by a closure that
-//! is generic over it: `Heap::temp`, `Module::with_temp_heap`, `OwnedFrozenHeap::with`,
-//! `OwnedFrozen::build` and `by_ref`, `Module::frozen_heap`, `ModuleHeaps::seal_with`,
-//! `StarlarkDeserializerImpl::recover_from_pagable`. Inside such a closure `'v` is arbitrary (it
-//! may as well be `'static`), so a borrow of anything that is not `'static` can never unify with
-//! it: `module.set("x", owned.as_ref().value())` does not compile, and `add_to_heap`, which
-//! records the dependency, is the way in. Only `'static` owners can lend values at a live brand,
-//! and those are immortal. It follows that every frozen `Value<'v>` was minted by an edge (the
-//! module's own `HeapEdge<'v, 'fm>`, an `add_to_heap`, `HeapEdge::immortal`) or read out of a
-//! value that was. Keep the property: never add a constructor of a heap handle from a plain
-//! borrow.
+//! is generic over it: `Heap::temp` and `temp_async`, `Module::with_temp_heap` and
+//! `with_temp_heap_async`, `OwnedFrozenHeap::with` and `seal_with`, `FrozenHeap::temp`,
+//! `OwnedFrozen::build`, `Module::frozen_heap` (with `Evaluator::frozen_heap` and
+//! `ModuleHeaps::frozen_heap` behind it), `ModuleHeaps::seal_with`, `GlobalsBuilder::frozen_heap`,
+//! and `StarlarkDeserializerImpl::recover_from_pagable`. Everything else that hands out a handle
+//! derives it from one it was given (`Module::with_heap`, `Evaluator::new`, `Freezer::new`, the
+//! accessors) or from an edge. This is an invariant to keep: never add a constructor of a heap
+//! handle from a plain borrow, nothing in the shape of `fn new(&'v OwnedHeap) -> Heap<'v>`.
+//!
+//! Inside such a closure `'v` is arbitrary (it may as well be `'static`), so a borrow of anything
+//! that is not `'static` can never unify with it. A value lent by an owner does not compile:
+//!
+//! ```compile_fail,E0597
+//! use starlark::environment::Module;
+//! use starlark::values::FrozenHeapName;
+//! use starlark::values::OwnedFrozen;
+//! use starlark::values::Value;
+//!
+//! let owned: OwnedFrozen<Value<'static>> =
+//!     OwnedFrozen::build(FrozenHeapName::user("example"), |heap| heap.alloc("a value"));
+//! Module::with_temp_heap(|module| {
+//!     module.set("x", owned.as_ref().value());
+//! });
+//! ```
+//!
+//! The error says why: "argument requires that `owned` is borrowed for `'static`".
+//! `add_to_heap`, which records the dependency, is the way in:
+//!
+//! ```
+//! # use starlark::environment::Module;
+//! # use starlark::values::FrozenHeapName;
+//! # use starlark::values::OwnedFrozen;
+//! # use starlark::values::Value;
+//! let owned: OwnedFrozen<Value<'static>> =
+//!     OwnedFrozen::build(FrozenHeapName::user("example"), |heap| {
+//!         heap.alloc("a value")
+//!     });
+//! Module::with_temp_heap(|module| {
+//!     module.set("x", owned.as_ref().add_to_heap(module.heap()));
+//! });
+//! ```
+//!
+//! Only `'static` owners can lend values at a live brand, and those are immortal. It follows that
+//! every frozen `Value<'v>` was minted by an edge (the module's own `HeapEdge<'v, 'fm>`, an
+//! `add_to_heap`, `HeapEdge::immortal`) or read out of a value that was.
 //!
 //! `OwnedFrozenRef<'f, T>` hands values out at the borrow `'f`. That is a brand without a heap
 //! handle: nothing can be allocated at it and everything at it is frozen, so no cross-heap
