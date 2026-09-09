@@ -141,6 +141,10 @@ impl ArgSortKeys {
 }
 
 impl SortKey {
+    pub(crate) fn from_json(json: &str) -> anyhow::Result<Self> {
+        serde_json::from_str(json).context("invalid sort key JSON")
+    }
+
     /// Extract the sort-key value for `expr`.
     ///
     /// Returns `Ok(None)` when the key does not apply to this expression

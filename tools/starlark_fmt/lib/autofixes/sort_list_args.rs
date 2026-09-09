@@ -914,11 +914,16 @@ pub(crate) fn apply<'a>(
     config: &Config,
     sort_rule_args: bool,
 ) -> anyhow::Result<ParsedModule<'a>> {
-    if module.source().is_empty() || config.list_sort_keys().is_none() {
+    if module.source().is_empty() {
+        return Ok(module);
+    }
+
+    let has_inline_directives = policy::has_inline_sort_key(&module);
+    if config.list_sort_keys().is_none() && !has_inline_directives {
         return module.run_transform(|module| collect_edits(module, config, sort_rule_args));
     }
 
-    structural::apply(module, config, sort_rule_args)
+    structural::apply(module, config, sort_rule_args, has_inline_directives)
 }
 
 #[cfg(test)]
@@ -961,6 +966,10 @@ mod tests {
 
     fn run_with_config(source: &str, config: &Config) -> String {
         try_run_with_config(source, config).expect("failed")
+    }
+
+    fn try_run(source: &str) -> anyhow::Result<String> {
+        try_run_with_config(source, &test_config())
     }
 
     fn try_run_with_config(source: &str, config: &Config) -> anyhow::Result<String> {
@@ -1135,6 +1144,155 @@ mod tests {
             "my_rule(custom_items=[foo(name=\"same\", value=2), foo(name=\"same\", value=1)])\n";
 
         assert_eq!(run_with_config(source, &config), source);
+    }
+
+    #[test]
+    fn test_inline_sort_by_string_or_tuple_item() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"first_of": ["string", {"tuple_item": 0}]}
+                custom_items = [
+                    ("z", True),
+                    "m",
+                    ("a", False),
+                ],
+            )
+        "#};
+        let expected = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"first_of": ["string", {"tuple_item": 0}]}
+                custom_items = [
+                    ("a", False),
+                    "m",
+                    ("z", True),
+                ],
+            )
+        "#};
+
+        assert_eq!(run(source), expected);
+    }
+
+    #[test]
+    fn test_inline_sort_key_overrides_config_and_blocklist() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "IsSortableListArg": {},
+                "SortableBlacklist": {"genrule.srcs": true},
+                "NamePriority": {},
+                "ListSortKeys": {"srcs": {"call_keyword": "name"}}
+            }"#,
+        )
+        .expect("valid config");
+        let source = indoc! {r#"
+            genrule(
+                # starlark-fmt: sort-by = "call_name"
+                srcs = [zebra(name="alpha"), beta(name="zulu")],
+            )
+        "#};
+        let expected = indoc! {r#"
+            genrule(
+                # starlark-fmt: sort-by = "call_name"
+                srcs = [beta(name="zulu"), zebra(name="alpha")],
+            )
+        "#};
+
+        assert_eq!(run_with_config(source, &config), expected);
+    }
+
+    #[test]
+    fn test_inline_sort_preserves_distinct_elements_with_equal_keys() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"call_keyword": "name"}
+                custom_items = [
+                    foo(name = "same", value = 2),
+                    foo(name = "same", value = 1),
+                ],
+            )
+        "#};
+
+        assert_eq!(run(source), source);
+    }
+
+    #[test]
+    fn test_inline_sort_rejects_element_without_a_key() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"first_of": ["string", {"tuple_item": 0}]}
+                custom_items = [
+                    "a",
+                    some_call(),
+                ],
+            )
+        "#};
+
+        let error = try_run(source).expect_err("unmatched element should fail formatting");
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("no inline sort key matched this list element"),
+            "unexpected error: {message}"
+        );
+        assert!(message.contains("5:9-20"), "unexpected error: {message}");
+    }
+
+    #[test]
+    fn test_inline_sort_applies_to_select_lists() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = "call_name"
+                custom_items = select({"DEFAULT": [zebra(), alpha()]}),
+            )
+        "#};
+        let expected = source.replace("[zebra(), alpha()]", "[alpha(), zebra()]");
+
+        assert_eq!(run(source), expected);
+    }
+
+    #[test]
+    fn test_do_not_sort_overrides_inline_sort() {
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = {"unknown": true}
+                custom_items = [  # do not sort
+                    zebra(),
+                    alpha(),
+                ],
+            )
+        "#};
+
+        assert_eq!(run(source), source);
+    }
+
+    #[test]
+    fn test_misplaced_inline_directive_is_reported() {
+        // A blank line between the directive and its keyword means the
+        // directive cannot attach; it must error instead of silently
+        // leaving the list unsorted.
+        let source = indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = "call_name"
+
+                custom_items = [zebra(), alpha()],
+            )
+        "#};
+
+        let error = try_run(source).expect_err("misplaced directive should fail");
+        assert!(
+            format!("{error:#}").contains("inline sort directive must be directly above"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn test_unattachable_inline_directive_is_ignored() {
+        // A directive above a non-keyword statement can never attach to an
+        // argument; it must no-op instead of failing the whole file.
+        let source = indoc! {r#"
+            # starlark-fmt: sort-by = "call_name"
+            my_list = [zebra(), alpha()]
+        "#};
+
+        assert_eq!(run(source), source);
     }
 
     #[test]

@@ -10,6 +10,7 @@
 
 use std::collections::HashSet;
 
+use anyhow::Context as _;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprList;
 use ruff_python_ast::Operator;
@@ -28,35 +29,55 @@ use super::has_do_not_sort_directive;
 use super::has_do_not_sort_on_first_element;
 use super::has_keep_sorted_on_first_element;
 use super::has_unsafe_mixed_line_comment_layout;
+use super::policy;
 use super::policy::leading_comments_before;
 use crate::autofixes::fmt_suppression::find_fmt_off_ranges;
 use crate::autofixes::fmt_suppression::overlaps_fmt_off_region;
 use crate::autofixes::parsed_module::Edit;
 use crate::autofixes::parsed_module::ParsedModule;
+use crate::autofixes::parsed_module::format_location;
 use crate::config::Config;
 use crate::sort_key::SortKey;
 use crate::sort_key::call_name as full_call_name;
 
-struct ConfiguredListArgSorter<'a, 'c> {
+#[derive(Clone, Copy)]
+enum SortKeySource {
+    Configured,
+    Inline,
+}
+
+struct StructuralListArgSorter<'a, 'c> {
     legacy: ListArgSorter<'a, 'c>,
     lists_with_edits: HashSet<TextRange>,
     nested_work_deferred: bool,
     fmt_off_ranges: Vec<TextRange>,
+    has_inline_directives: bool,
     error: Option<anyhow::Error>,
 }
 
-impl<'a, 'c> ConfiguredListArgSorter<'a, 'c> {
-    fn new(module: &'a ParsedModule<'a>, config: &'c Config, sort_rule_args: bool) -> Self {
+impl<'a, 'c> StructuralListArgSorter<'a, 'c> {
+    fn new(
+        module: &'a ParsedModule<'a>,
+        config: &'c Config,
+        sort_rule_args: bool,
+        has_inline_directives: bool,
+    ) -> Self {
         Self {
             legacy: ListArgSorter::new(module, config, sort_rule_args),
             lists_with_edits: HashSet::new(),
             nested_work_deferred: false,
             fmt_off_ranges: find_fmt_off_ranges(module.source(), module.line_index()),
+            has_inline_directives,
             error: None,
         }
     }
 
-    fn sort_list_with_key(&mut self, list: &ExprList, key: &SortKey) -> anyhow::Result<()> {
+    fn sort_list_with_key(
+        &mut self,
+        list: &ExprList,
+        key: &SortKey,
+        source: SortKeySource,
+    ) -> anyhow::Result<()> {
         if !self.legacy.handled_lists.insert(list.range())
             || has_do_not_sort_on_first_element(self.legacy.module, list)
         {
@@ -64,25 +85,45 @@ impl<'a, 'c> ConfiguredListArgSorter<'a, 'c> {
         }
         // Single-element lists are already sorted; skip key extraction and
         // allocation entirely (common for `visibility = ["//visibility:public"]`).
-        if list.elts.len() < 2 {
+        // Configured keys fail open, so skipping is safe. Inline directives
+        // fail closed: a single element must still be validated so an
+        // unmatched key surfaces instead of silently passing.
+        if list.elts.len() < 2 && matches!(source, SortKeySource::Configured) {
             return Ok(());
         }
 
-        // Unsafe layouts fail open for configured keys: skip the list instead
-        // of aborting the whole module (which would discard unrelated edits
-        // already collected). Failing a single list must not be fatal here.
+        // Unsafe layouts fail open for configured keys (skip the list) but
+        // fail closed for inline directives (report the error). Aborting the
+        // whole module here would discard unrelated edits already collected.
         if has_unsafe_mixed_line_comment_layout(list, self.legacy.module) {
-            return Ok(());
+            match source {
+                SortKeySource::Configured => return Ok(()),
+                SortKeySource::Inline => anyhow::bail!(
+                    "{}: cannot safely sort a list with comments and multiple elements on one line",
+                    format_location(self.legacy.module.source(), list.range())
+                ),
+            }
         }
 
-        let Some(sort_keys) = list
-            .elts
-            .iter()
-            .map(|element| key.extract(element).ok().flatten().map(Some))
-            .collect::<Option<Vec<_>>>()
-        else {
-            return Ok(());
-        };
+        let mut sort_keys = Vec::with_capacity(list.elts.len());
+        for element in &list.elts {
+            match (source, key.extract(element)) {
+                (_, Ok(Some(value))) => sort_keys.push(Some(value)),
+                (SortKeySource::Configured, Ok(None) | Err(_)) => return Ok(()),
+                (SortKeySource::Inline, Ok(None)) => anyhow::bail!(
+                    "{}: no inline sort key matched this list element",
+                    format_location(self.legacy.module.source(), element.range())
+                ),
+                (SortKeySource::Inline, Err(error)) => {
+                    return Err(error).with_context(|| {
+                        format!(
+                            "{}: failed to extract an inline sort key",
+                            format_location(self.legacy.module.source(), element.range())
+                        )
+                    });
+                }
+            }
+        }
 
         let context = ElementSortContext {
             list,
@@ -106,21 +147,26 @@ impl<'a, 'c> ConfiguredListArgSorter<'a, 'c> {
         Ok(())
     }
 
-    fn sort_lists_in_expr_with_key(&mut self, expr: &Expr, key: &SortKey) -> anyhow::Result<usize> {
+    fn sort_lists_in_expr_with_key(
+        &mut self,
+        expr: &Expr,
+        key: &SortKey,
+        source: SortKeySource,
+    ) -> anyhow::Result<usize> {
         match expr {
             Expr::List(list) => {
-                self.sort_list_with_key(list, key)?;
+                self.sort_list_with_key(list, key, source)?;
                 Ok(1)
             }
             Expr::BinOp(binop) if matches!(binop.op, Operator::Add) => Ok(self
-                .sort_lists_in_expr_with_key(&binop.left, key)?
-                + self.sort_lists_in_expr_with_key(&binop.right, key)?),
+                .sort_lists_in_expr_with_key(&binop.left, key, source)?
+                + self.sort_lists_in_expr_with_key(&binop.right, key, source)?),
             Expr::Call(call) if call_func_name(call) == Some("select") => {
                 let Some(Expr::Dict(dict)) = call.arguments.args.first() else {
                     return Ok(0);
                 };
                 dict.items.iter().try_fold(0, |count, item| {
-                    Ok(count + self.sort_lists_in_expr_with_key(&item.value, key)?)
+                    Ok(count + self.sort_lists_in_expr_with_key(&item.value, key, source)?)
                 })
             }
             _ => Ok(0),
@@ -128,7 +174,7 @@ impl<'a, 'c> ConfiguredListArgSorter<'a, 'c> {
     }
 }
 
-impl<'a, 'c> Visitor<'a> for ConfiguredListArgSorter<'a, 'c> {
+impl<'a, 'c> Visitor<'a> for StructuralListArgSorter<'a, 'c> {
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         if let Stmt::Assign(assign) = stmt
             && let Expr::List(list) = assign.value.as_ref()
@@ -165,6 +211,36 @@ impl<'a, 'c> Visitor<'a> for ConfiguredListArgSorter<'a, 'c> {
                     if overlaps_fmt_off_region(keyword.range(), &self.fmt_off_ranges) {
                         continue;
                     }
+                    // Cheap gate before the line-walking comment lookups
+                    // below: skip keywords that nothing will sort. This must
+                    // stay in sync with the match arms below — it reuses
+                    // their exact inputs (`configured_key` is shared, and
+                    // `legacy_will_sort` is reused by the legacy arm), so a
+                    // new sorting path added below must extend this gate.
+                    // Resolution itself is map lookups; the callee name is
+                    // computed once per call and cached in
+                    // `configured_callee`.
+                    let configured_key = keyword.arg.as_ref().and_then(|arg| {
+                        self.legacy
+                            .config
+                            .list_sort_keys()
+                            .and_then(|sort_keys| sort_keys.for_arg(arg.as_str()))
+                            .and_then(|sort_keys| {
+                                let callee = sort_keys.has_callee_keys().then(|| {
+                                    configured_callee
+                                        .get_or_insert_with(|| full_call_name(&call.func))
+                                        .as_deref()
+                                });
+                                sort_keys.resolve(callee.flatten())
+                            })
+                    });
+                    let legacy_will_sort = keyword.arg.as_ref().is_some_and(|arg| {
+                        self.legacy.sort_rule_args && self.legacy.should_sort_arg(arg.as_str())
+                    });
+                    if configured_key.is_none() && !legacy_will_sort && !self.has_inline_directives
+                    {
+                        continue;
+                    }
                     let leading_comments =
                         leading_comments_before(self.legacy.module, keyword.range().start());
                     if leading_comments
@@ -174,33 +250,67 @@ impl<'a, 'c> Visitor<'a> for ConfiguredListArgSorter<'a, 'c> {
                         continue;
                     }
 
-                    let Some(arg_name) = &keyword.arg else {
-                        continue;
+                    let inline_sort_key = if self.has_inline_directives {
+                        policy::inline_sort_key_before(self.legacy.module, keyword.range().start())
+                    } else {
+                        None
                     };
-                    let configured_key = self
-                        .legacy
-                        .config
-                        .list_sort_keys()
-                        .and_then(|sort_keys| sort_keys.for_arg(arg_name.as_str()))
-                        .and_then(|sort_keys| {
-                            let callee = sort_keys.has_callee_keys().then(|| {
-                                configured_callee
-                                    .get_or_insert_with(|| full_call_name(&call.func))
-                                    .as_deref()
-                            });
-                            sort_keys.resolve(callee.flatten())
-                        });
-
-                    if let Some(key) = configured_key
-                        && !self.legacy.is_arg_blocklisted(arg_name.as_str())
+                    if inline_sort_key.is_none()
+                        && self.has_inline_directives
+                        && self.error.is_none()
+                        && let Some(directive) = policy::unattached_inline_directive_above(
+                            self.legacy.module,
+                            keyword.range().start(),
+                        )
                     {
-                        if let Err(error) = self.sort_lists_in_expr_with_key(&keyword.value, key) {
-                            self.error = Some(error);
+                        self.error = Some(anyhow::anyhow!(
+                            "{}: inline sort directive must be directly above its keyword argument",
+                            format_location(self.legacy.module.source(), directive)
+                        ));
+                    }
+                    match inline_sort_key {
+                        Some(inline) => {
+                            let result =
+                                inline.parse(self.legacy.module.source()).and_then(|key| {
+                                    self.sort_lists_in_expr_with_key(
+                                        &keyword.value,
+                                        &key,
+                                        SortKeySource::Inline,
+                                    )
+                                });
+                            match result {
+                                Ok(0) => {
+                                    self.error = Some(anyhow::anyhow!(
+                                        "{}: inline sort directive does not apply to a supported list expression",
+                                        format_location(
+                                            self.legacy.module.source(),
+                                            keyword.range()
+                                        )
+                                    ));
+                                }
+                                Ok(_) => {}
+                                Err(error) => self.error = Some(error),
+                            }
                         }
-                    } else if self.legacy.sort_rule_args
-                        && self.legacy.should_sort_arg(arg_name.as_str())
-                    {
-                        self.legacy.sort_lists_in_expr(&keyword.value);
+                        None => {
+                            let Some(arg_name) = &keyword.arg else {
+                                continue;
+                            };
+
+                            if let Some(key) = configured_key
+                                && !self.legacy.is_arg_blocklisted(arg_name.as_str())
+                            {
+                                if let Err(error) = self.sort_lists_in_expr_with_key(
+                                    &keyword.value,
+                                    key,
+                                    SortKeySource::Configured,
+                                ) {
+                                    self.error = Some(error);
+                                }
+                            } else if legacy_will_sort {
+                                self.legacy.sort_lists_in_expr(&keyword.value);
+                            }
+                        }
                     }
 
                     if self.error.is_some() {
@@ -267,8 +377,10 @@ fn collect_edits(
     module: &ParsedModule,
     config: &Config,
     sort_rule_args: bool,
+    has_inline_directives: bool,
 ) -> anyhow::Result<ListEditBatch> {
-    let mut sorter = ConfiguredListArgSorter::new(module, config, sort_rule_args);
+    let mut sorter =
+        StructuralListArgSorter::new(module, config, sort_rule_args, has_inline_directives);
     for stmt in module.stmts() {
         sorter.visit_stmt(stmt);
     }
@@ -287,6 +399,7 @@ pub(super) fn apply<'a>(
     mut module: ParsedModule<'a>,
     config: &Config,
     sort_rule_args: bool,
+    has_inline_directives: bool,
 ) -> anyhow::Result<ParsedModule<'a>> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::Hash as _;
@@ -300,7 +413,7 @@ pub(super) fn apply<'a>(
             edits,
             deferred_descendants,
             fmt_off_ranges,
-        } = collect_edits(&module, config, sort_rule_args)?;
+        } = collect_edits(&module, config, sort_rule_args, has_inline_directives)?;
         let (next, changed) =
             module.run_transform_checked_with_fmt_off_ranges(&fmt_off_ranges, |_| edits)?;
         module = next;
@@ -311,7 +424,7 @@ pub(super) fn apply<'a>(
         let mut hasher = DefaultHasher::new();
         module.source().hash(&mut hasher);
         if !seen.insert(hasher.finish()) {
-            anyhow::bail!("configured list sorting did not converge");
+            anyhow::bail!("custom list sorting did not converge");
         }
     }
 }

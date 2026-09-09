@@ -242,4 +242,53 @@ x = z_func() + a_func()
         let again = apply_autofixes(&build_input(&result), &config).expect("must not crash");
         assert_eq!(again, expected);
     }
+
+    #[test]
+    fn test_inline_sort_error_includes_path() {
+        let source = indoc::indoc! {r#"
+            my_rule(
+                # starlark-fmt: sort-by = "string"
+                custom_items = [some_call()],
+            )
+        "#};
+        let config = test_config();
+
+        let error = apply_autofixes(
+            &AutofixInput {
+                source,
+                path: Path::new("foo/TARGETS"),
+            },
+            &config,
+        )
+        .expect_err("unmatched inline sort key should fail");
+
+        assert!(
+            format!("{error:#}").contains("foo/TARGETS:3:21-32"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn test_fmt_off_ignores_inline_sort_directive() {
+        let source = indoc::indoc! {r#"
+            # fmt: off
+            my_rule(
+                # starlark-fmt: sort-by = {"unknown": true}
+                custom_items = [zebra(), alpha()],
+            )
+            # fmt: on
+        "#};
+        let config = test_config();
+
+        let result = apply_autofixes(
+            &AutofixInput {
+                source,
+                path: Path::new("foo/TARGETS"),
+            },
+            &config,
+        )
+        .expect("fmt-off directive should be ignored");
+
+        assert_eq!(result, source);
+    }
 }
