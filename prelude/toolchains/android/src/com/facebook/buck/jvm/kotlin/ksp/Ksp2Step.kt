@@ -13,6 +13,7 @@ package com.facebook.buck.jvm.kotlin.ksp
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
+import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.io.file.GlobPatternMatcher
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.core.BuildTargetValue
@@ -40,6 +41,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.Optional
 import java.util.ServiceLoader
+import kotlin.time.measureTimedValue
 
 class Ksp2Step(
     private val invokingRule: BuildTargetValue,
@@ -69,8 +71,24 @@ class Ksp2Step(
   override fun executeIsolatedStep(context: IsolatedExecutionContext): StepExecutionResult {
     CapturingPrintStream().use { stderr ->
       try {
-        val exitCode: KotlinSymbolProcessing.ExitCode = executeKsp2(stderr, context)
-        kotlinCDAnalytics.log(KotlinCDLoggingContext(languageVersion, ksp2Mode))
+        val (exitCode, elapsed) = measureTimedValue { executeKsp2(stderr, context) }
+        val durationMs = elapsed.inWholeMilliseconds
+        // Same shape KotlincStep already emits, so the two steps are greppable together.
+        LOG.info(
+            "KOTLINCD_STEP_DURATION|%s|%s|%d|%d",
+            invokingRule.fullyQualifiedName,
+            this::class.java.simpleName,
+            durationMs,
+            sourceFilePaths.size,
+        )
+        kotlinCDAnalytics.log(
+            KotlinCDLoggingContext(languageVersion, ksp2Mode, durationMs).apply {
+              addExtras(
+                  this@Ksp2Step::class.java.simpleName,
+                  "Ksp2 step duration: $durationMs ms",
+              )
+            },
+        )
         return when (exitCode) {
           KotlinSymbolProcessing.ExitCode.OK -> StepExecutionResults.SUCCESS
           KotlinSymbolProcessing.ExitCode.PROCESSING_ERROR ->
@@ -262,6 +280,8 @@ class Ksp2Step(
       }
 
   companion object {
+    private val LOG: Logger = Logger.get(Ksp2Step::class.java)
+
     private val jdkHomeCache = java.util.concurrent.ConcurrentHashMap<String, File>()
     private val JAVA_HOME_REGEX = Regex("""java\.home\s*=\s*(.+)""")
 

@@ -179,6 +179,7 @@ public class KotlincStep implements IsolatedStep {
       loggingContext.addExtras(
           this.getClass().getSimpleName(),
           "Kotlinc step duration: " + compilationDuration.toMillis() + " ms");
+      loggingContext.setDurationMs(compilationDuration.toMillis());
       kotlinCDAnalytics.log(loggingContext);
 
       String firstOrderStderr = stderr.getContentsAsString(StandardCharsets.UTF_8);

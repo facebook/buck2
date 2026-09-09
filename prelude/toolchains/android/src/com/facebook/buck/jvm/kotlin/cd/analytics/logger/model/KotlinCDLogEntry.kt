@@ -29,4 +29,13 @@ data class KotlinCDLogEntry(
     val removedFiles: Set<String>?,
     val numKotlinTokens: Long? = null,
     val numJavaTokens: Long? = null,
+    /**
+     * Wall-clock duration of the step this entry describes, in milliseconds.
+     *
+     * Null when the step does not time itself. Without this there is no step-level timing anywhere
+     * in KotlinCD - `IsolatedStepsRunner.runStep` does not time steps, and
+     * `buck2_action_command_perf` only sees the whole `kotlincd_jar` action, which bundles ksp2,
+     * kotlinc, kosabi and copy/zip together.
+     */
+    val durationMs: Long? = null,
 )

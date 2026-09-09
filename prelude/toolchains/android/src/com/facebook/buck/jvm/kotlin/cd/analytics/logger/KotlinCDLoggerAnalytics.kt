@@ -106,6 +106,7 @@ constructor(
         removedFiles = removedFiles,
         numKotlinTokens = context.numKotlinTokens.takeIf { it > 0 },
         numJavaTokens = context.numJavaTokens.takeIf { it > 0 },
+        durationMs = context.durationMs,
     )
   }
 
