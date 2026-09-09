@@ -24,7 +24,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "AnnotationProcessingTool", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "TestType", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":java_rules.bzl", "dex_min_sdk_version")
@@ -429,7 +429,6 @@ android_aar = prelude_rule(
                  and its dependencies.
             """,
             ),
-            "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
             "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
             "enable_relinker": attrs.bool(default = False),
@@ -1011,17 +1010,6 @@ android_library = prelude_rule(
         }
         | android_common.manifest_arg()
         | {
-            "annotation_processing_tool": attrs.option(
-                attrs.enum(AnnotationProcessingTool),
-                default = None,
-                doc = """
-                Specifies the tool to use for annotation processing. Possible values: "kapt" or "javac".
-                 "kapt" allows running Java annotation processors against Kotlin sources while backporting
-                 it for Java sources too.
-                 "javac" works only against Java sources, Kotlin sources won't have access to generated
-                 classes at compile time.
-            """,
-            ),
             "deps": attrs.list(
                 attrs.dep(),
                 default = [],
@@ -1745,7 +1733,6 @@ robolectric_test = prelude_rule(
         buck.inject_test_env_arg()
         | {
             "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
-            "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "cxx_library_allowlist": attrs.list(
                 attrs.dep(),

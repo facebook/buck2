@@ -16,7 +16,7 @@ load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//decls:test_common.bzl", "test_common")
-load(":common.bzl", "AnnotationProcessingTool", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "TestType", "buck", "prelude_rule")
 load(":java_rules.bzl", "dex_min_sdk_version")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
@@ -103,17 +103,6 @@ kotlin_library = prelude_rule(
         }
         | jvm_common.resources_arg()
         | {
-            "annotation_processing_tool": attrs.option(
-                attrs.enum(AnnotationProcessingTool),
-                default = None,
-                doc = """
-                Specifies the tool to use for annotation processing. Possible values: "kapt" or "javac".
-                 "kapt" allows running Java annotation processors against Kotlin sources while backporting
-                 it for Java sources too.
-                 "javac" works only against Java sources, Kotlin sources won't have access to generated
-                 classes at compile time.
-            """,
-            ),
             "deps": attrs.list(
                 attrs.dep(),
                 default = [],
@@ -266,7 +255,6 @@ kotlin_test = prelude_rule(
         | jvm_common.test_env()
         | jvm_common.abi_generation_mode()
         | {
-            "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "cxx_library_allowlist": attrs.list(
                 attrs.dep(),
                 default = [],
