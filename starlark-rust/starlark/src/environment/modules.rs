@@ -449,7 +449,12 @@ impl<'v> Module<'v> {
         &self,
         f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
     ) -> R {
-        self.heaps.frozen_heap(f)
+        self.heaps.frozen_heap(|fh, edge, _seal_edge| f(fh, edge))
+    }
+
+    /// The module's heaps, for the compiler, which needs the edge back from the value heap.
+    pub(crate) fn heaps(&self) -> &ModuleHeaps<'v> {
+        &self.heaps
     }
 
     pub(crate) fn frozen_heap_allocated_bytes(&self) -> usize {
@@ -537,7 +542,7 @@ impl<'v> Module<'v> {
         // Note that we even freeze anonymous slots, since they are accessed by
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
-        let data = heaps.seal_with(name, |freezer, edge| {
+        let data = heaps.seal_with(name, |freezer, edge, seal_edge| {
             let fh = freezer.frozen_heap();
             let names = names.freeze(freezer)?;
             let slots = slots.freeze(freezer)?;
@@ -564,7 +569,7 @@ impl<'v> Module<'v> {
                 heap_profile,
             }));
             for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-                frozen_def.post_freeze(data, heap, fh, edge);
+                frozen_def.post_freeze(data, heap, fh, edge, seal_edge);
             }
             FreezeResult::Ok(data)
         })?;
@@ -582,9 +587,7 @@ impl<'v> Module<'v> {
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
     pub fn set(&self, name: &str, value: Value<'v>) {
-        let name = self
-            .heaps
-            .frozen_heap(|fh, edge| edge.rebrand(fh.alloc_str(name)));
+        let name = self.frozen_heap(|fh, edge| edge.rebrand(fh.alloc_str(name)));
         let slot = self.names.add_name(name);
         let slots = self.slots();
         slots.ensure_slot(slot);

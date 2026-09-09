@@ -82,7 +82,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         // Compilation and execution happen within one scope on the module's frozen heap; the
         // compiler's products live there.
         let module_env = self.module_env;
-        let res = module_env.frozen_heap(|fh, edge| {
+        let res = module_env.heaps().frozen_heap(|fh, edge, seal_edge| {
             let codemap = fh.alloc_simple_typed(StarlarkAny::new(codemap.dupe()));
 
             if let Some(docstring) = DocString::extract_raw_starlark_docstring(&statement) {
@@ -142,6 +142,7 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
                 eval: self,
                 fh,
                 edge,
+                seal_edge,
                 check_types: dialect.enable_types == DialectTypes::Enable,
                 top_level_stmt_count,
                 typecheck,

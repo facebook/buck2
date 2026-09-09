@@ -119,22 +119,53 @@
 //!
 //! `HeapEdge::unchecked_new` is `unsafe` and crate-private; these minters are its only callers.
 //!
+//! ### Brands are higher-ranked
+//!
+//! Every brand at which a heap handle exists (`Heap<'v>`, `FrozenHeap<'fh>`, and the `Module`,
+//! `Evaluator`, `Freezer` and deserialize context built on one) is introduced by a closure that
+//! is generic over it: `Heap::temp`, `Module::with_temp_heap`, `OwnedFrozenHeap::with`,
+//! `OwnedFrozen::build` and `by_ref`, `Module::frozen_heap`, `ModuleHeaps::seal_with`,
+//! `StarlarkDeserializerImpl::recover_from_pagable`. Inside such a closure `'v` is arbitrary (it
+//! may as well be `'static`), so a borrow of anything that is not `'static` can never unify with
+//! it: `module.set("x", owned.as_ref().value())` does not compile, and `add_to_heap`, which
+//! records the dependency, is the way in. Only `'static` owners can lend values at a live brand,
+//! and those are immortal. It follows that every frozen `Value<'v>` was minted by an edge (the
+//! module's own `HeapEdge<'v, 'fm>`, an `add_to_heap`, `HeapEdge::immortal`) or read out of a
+//! value that was. Keep the property: never add a constructor of a heap handle from a plain
+//! borrow.
+//!
+//! `OwnedFrozenRef<'f, T>` hands values out at the borrow `'f`. That is a brand without a heap
+//! handle: nothing can be allocated at it and everything at it is frozen, so no cross-heap
+//! pointer can be created there.
+//!
+//! ### The seal edge
+//!
+//! A module's optimizer evaluates speculatively at the value heap's `'v` and folds frozen results
+//! into IR allocated at the module's frozen heap `'fm`. No `HeapEdge` points that way, but a
+//! `SealEdge<'fm, 'v>` does, for frozen values only: it certifies that the frozen heap references
+//! every heap in which a frozen `Value<'v>` can live, and its `rebrand` is `OptCtx::demote`.
+//! `ModuleHeaps` mints it beside the `HeapEdge`, on a proof in three steps: (a) by the previous
+//! section, a frozen `Value<'v>` was minted by the module's own `HeapEdge` (so lives in the
+//! frozen heap or in a heap it references), by an `add_to_heap` (which adds the value's heap to
+//! the value heap's references first), or from `'static` data, or was read out of such a value,
+//! and a value only points into heaps its own heap references; (b) the value heap's references
+//! are the frozen heap's at every instant, the two sharing one set; (c) `'static` data is
+//! immortal. The one assumption is the contract this module opens with, which every allocator
+//! enforces through its brand.
+//!
 //! ### What is trusted rather than proven
 //!
-//! Two brand changes have no edge behind them. Each rests on a contract stated at the site,
-//! and together they are the complete list of places where a brand is only as good as the code
-//! that minted it:
+//! One brand change has no edge behind it. It rests on a contract stated at the site, and it is
+//! the only place where a brand is only as good as the code that minted it:
 //!
-//!  - `OptCtx::demote` (eval/compiler/opt_ctx.rs). The optimizer folds frozen values it observed
-//!    at a module's value heap `'v` into IR allocated at the module's frozen heap `'fm`. No edge
-//!    points that way; the contract is `OptCtxEval`'s (the two heaps are one `ModuleHeaps`'s),
-//!    and the reasoning about where a frozen value at `'v` can live is spelled out on `demote`.
 //!  - `Freezer::freeze`'s already-frozen fast path (values/layout/heap/freezer.rs). A value that
 //!    is already frozen is handed back at `'fv` without being copied. The contract is on
 //!    `Freezer::new`: the target heap references every heap the value can live in.
 //!    `ModuleHeaps::seal_with` is its one production caller, by privacy, and its builder shares
-//!    the value heap's references; tests construct freezers whose heaps are scoped within the
-//!    test.
+//!    the value heap's references, so the seal edge's proof covers every value of the module;
+//!    but `freeze` is generic over the brand of its input, so a `FreezeBranded` impl can hand it
+//!    a value borrowed from an unrelated owner, which no edge covers. Tests construct freezers
+//!    whose heaps are scoped within the test.
 //!
 //! Everything else that hands out a brand records the dependency it certifies, and the
 //! `'static` brand is honest: apart from the private erased storage of the owning carriers

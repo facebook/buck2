@@ -24,6 +24,7 @@ use crate::values::HeapSendable;
 use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
+use crate::values::SealEdge;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 
 /// The two heaps of a [`Module`](crate::environment::Module): the value heap and the frozen heap
@@ -34,8 +35,9 @@ use crate::values::layout::heap::heap_type::FrozenHeapName;
 /// builder never leaves this type unsealed: [`seal_with`](ModuleHeaps::seal_with) and [`Drop`] are its
 /// only exits, and both seal it into the value heap's references. `seal_with` does so whether its
 /// closure returns `Ok` or `Err`, and `Drop` covers a module that is never frozen as well as a
-/// closure that unwinds. The edge therefore exists from the moment the two heaps do, with nothing
-/// to remember at the end.
+/// closure that unwinds (skipping a builder nothing was allocated on, which has nothing at `'fm`
+/// to keep alive). The edge therefore exists from the moment the two heaps do, with nothing to
+/// remember at the end.
 ///
 /// The other direction is covered too: the two heaps hold one set of references between them. A
 /// heap that either of them comes to depend on (the value heap through a `load` or an
@@ -62,21 +64,49 @@ impl<'v> ModuleHeaps<'v> {
         self.heap
     }
 
-    /// Allocate on the frozen heap, see [`Module::frozen_heap`](crate::environment::Module::frozen_heap).
+    /// Allocate on the frozen heap, see [`Module::frozen_heap`](crate::environment::Module::frozen_heap);
+    /// `f` also gets the [`SealEdge`] from the value heap back to the frozen heap.
     pub(crate) fn frozen_heap<R>(
         &self,
-        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>) -> R,
+        f: impl for<'fm> FnOnce(FrozenHeap<'fm>, HeapEdge<'v, 'fm>, SealEdge<'fm, 'v>) -> R,
     ) -> R {
-        self.frozen().with(|fh| f(fh, self.edge(fh)))
+        self.frozen().with(|fh| {
+            let (edge, seal_edge) = self.edges(fh);
+            f(fh, edge, seal_edge)
+        })
     }
 
-    /// The edge from the value heap to the builder, for a handle that `with` opened on the builder.
-    fn edge<'fm>(&self, _fh: FrozenHeap<'fm>) -> HeapEdge<'v, 'fm> {
+    /// The edges between the value heap and the builder, for a handle that `with` opened on the
+    /// builder: the [`HeapEdge`] that brings the builder's allocations to `'v`, and the
+    /// [`SealEdge`] that brings frozen values at `'v` back to the builder's brand.
+    fn edges<'fm>(&self, _fh: FrozenHeap<'fm>) -> (HeapEdge<'v, 'fm>, SealEdge<'fm, 'v>) {
+        // For both: `'fm` is introduced by the `with` closure, so it is a true brand, and `'v` is
+        // a brand by the assumption every use of it makes.
+        //
         // SAFETY: This type is the only owner of the builder, and the builder only leaves it
-        // through `seal_with` or `Drop`, both of which seal it into `heap`'s references. So
-        // `'fm`'s allocations live as long as the value heap, which is as long as anything at
-        // `'v` can. `'fm` is introduced by the `with` closure, so it is a true brand.
-        unsafe { HeapEdge::unchecked_new() }
+        // through `seal_with` or `Drop`, both of which seal it into `heap`'s references unless
+        // nothing was allocated on it. So `'fm`'s allocations live as long as the value heap,
+        // which is as long as anything at `'v` can.
+        let edge = unsafe { HeapEdge::unchecked_new() };
+        // SAFETY: A frozen `Value<'v>` lives in a heap the builder references, or is immortal:
+        //
+        //  (a) Brands are introduced only by higher-ranked closures (`Heap::temp` and its kin;
+        //      the `branding` module states the invariant), so within its scope `'v` is
+        //      arbitrary and no borrow of a non-`'static` owner unifies with it. A frozen
+        //      `Value<'v>` is therefore minted by one of: `edge` above, from a value in the
+        //      builder or in a heap the builder references; `Heap::add_reference` followed by a
+        //      rebrand (`add_to_heap`, `OwnedFrozenReconstructor::edge`), which puts the value's
+        //      heap into `heap`'s references first; or `HeapEdge::immortal`, from `'static`
+        //      data. Or it is read out of another value at `'v`, which by induction lives in the
+        //      value heap or in one of those heaps, and a value only points into its own heap or
+        //      into heaps its heap references (the contract on `Value<'v>` that the `branding`
+        //      module opens with, which every allocator enforces through its brand).
+        //  (b) `heap`'s references are the builder's: the two hold one set (see `new`), so a
+        //      heap that `add_reference` adds is referenced by the builder from that instant,
+        //      before the value that made it necessary exists at `'v`.
+        //  (c) `'static` data is immortal, which every heap trivially keeps alive.
+        let seal_edge = unsafe { SealEdge::unchecked_new() };
+        (edge, seal_edge)
     }
 
     pub(crate) fn frozen_heap_allocated_bytes(&self) -> usize {
@@ -91,14 +121,18 @@ impl<'v> ModuleHeaps<'v> {
 
     /// Freeze the frozen heap's root value with `f`, then seal the heap into the value heap's
     /// references and return the root value kept alive by it. `f` gets a [`Freezer`] into the heap
-    /// and the same edge as [`frozen_heap`](ModuleHeaps::frozen_heap).
+    /// and the same edges as [`frozen_heap`](ModuleHeaps::frozen_heap).
     ///
     /// The heap is sealed whether `f` succeeds, fails or panics. The `name` is the sealed heap's,
     /// see [`OwnedFrozen::name`].
     pub(crate) fn seal_with<T, E>(
         mut self,
         name: Option<FrozenHeapName>,
-        f: impl for<'fm> FnOnce(&Freezer<'fm>, HeapEdge<'v, 'fm>) -> Result<T::Reinfect<'fm>, E>,
+        f: impl for<'fm> FnOnce(
+            &Freezer<'fm>,
+            HeapEdge<'v, 'fm>,
+            SealEdge<'fm, 'v>,
+        ) -> Result<T::Reinfect<'fm>, E>,
     ) -> Result<OwnedFrozen<T>, E>
     where
         T: IsStaticType,
@@ -111,7 +145,8 @@ impl<'v> ModuleHeaps<'v> {
         // the value is paired with. Being closure-introduced, `'fm` names nothing else.
         let root = self.frozen().with(|fh| {
             let freezer = Freezer::new(fh);
-            f(&freezer, self.edge(fh)).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
+            let (edge, seal_edge) = self.edges(fh);
+            f(&freezer, edge, seal_edge).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
         });
         let frozen = self
             .frozen
@@ -160,7 +195,7 @@ mod tests {
         let root = Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
             heaps
-                .seal_with::<Value<'static>, ()>(None, |freezer, _edge| {
+                .seal_with::<Value<'static>, ()>(None, |freezer, _edge, _seal_edge| {
                     let v = foreign.as_ref().add_to_heap(heap);
                     Ok(freezer.freeze(v).unwrap())
                 })
@@ -193,7 +228,7 @@ mod tests {
             });
         Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
-            heaps.frozen_heap(|fh, _edge| {
+            heaps.frozen_heap(|fh, _edge, _seal_edge| {
                 assert!(
                     !fh.referenced_heaps()
                         .iter()
@@ -210,6 +245,42 @@ mod tests {
             let referenced = heap.referenced_heaps();
             assert!(referenced.iter().any(|r| r.owner() == foreign.owner()));
             assert!(referenced.iter().any(|r| r.owner() == other.owner()));
+        });
+    }
+
+    /// The seal edge brings frozen values at `'v` to the builder's brand, whichever way they got
+    /// to `'v`, and refuses unfrozen ones.
+    #[test]
+    fn test_seal_edge_rebrands_frozen_values_only() {
+        let foreign =
+            OwnedFrozen::<Value<'static>>::build(StarlarkTestHeapName::frozen_heap_name(), |fh| {
+                fh.alloc(
+                    "a string that lives on a heap of its own"
+                        .repeat(8)
+                        .as_str(),
+                )
+            });
+        Heap::temp(|heap| {
+            let heaps = ModuleHeaps::new(heap);
+            heaps.frozen_heap(|fh, edge, seal_edge| {
+                let from_builder = edge.rebrand(fh.alloc("allocated on the builder".repeat(8)));
+                let from_owner = foreign.as_ref().add_to_heap(heap);
+                let unfrozen = heap.alloc("allocated on the value heap".repeat(8));
+                assert!(
+                    seal_edge
+                        .rebrand(from_builder)
+                        .unwrap()
+                        .ptr_eq(from_builder)
+                );
+                assert!(seal_edge.rebrand(from_owner).unwrap().ptr_eq(from_owner));
+                assert!(
+                    seal_edge
+                        .rebrand(Value::new_none())
+                        .unwrap()
+                        .ptr_eq(Value::new_none())
+                );
+                assert!(seal_edge.rebrand(unfrozen).is_none());
+            });
         });
     }
 }
@@ -233,14 +304,19 @@ mod unwind_tests {
         Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
             let expected = "a string that lives on the module's frozen heap".repeat(8);
-            let s = heaps.frozen_heap(|fh, edge| edge.rebrand(fh.alloc(expected.as_str())));
+            let s =
+                heaps.frozen_heap(|fh, edge, _seal_edge| edge.rebrand(fh.alloc(expected.as_str())));
             let list = heap.alloc(vec![s]);
+            let references_before = heap.referenced_heaps().len();
             let unwound = catch_unwind(AssertUnwindSafe(|| {
-                heaps.seal_with::<Value<'static>, ()>(None, |_freezer, _edge| {
+                heaps.seal_with::<Value<'static>, ()>(None, |_freezer, _edge, _seal_edge| {
                     panic!("sealing failed")
                 })
             }));
             assert!(unwound.is_err());
+            // Reading the string back would not reliably catch a use after free, so check that
+            // the builder was sealed into the value heap's references.
+            assert_eq!(heap.referenced_heaps().len(), references_before + 1);
             let list = ListRef::from_value(list).unwrap();
             assert_eq!(list.content()[0].unpack_str(), Some(expected.as_str()));
         })

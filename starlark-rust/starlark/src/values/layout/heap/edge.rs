@@ -22,6 +22,7 @@ use dupe::Dupe;
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
+use crate::values::Value;
 
 /// Witness that the heap identified by `'v` depends on the heap identified by `'dep`.
 ///
@@ -113,6 +114,48 @@ impl<'v> HeapEdge<'v, 'v> {
         // SAFETY: A heap keeps itself alive, and `'v` is a brand by the same assumption every use
         // of it makes; with both sides equal, `rebrand` changes no type.
         unsafe { Self::unchecked_new() }
+    }
+}
+
+/// Witness that the frozen heap identified by `'fm` keeps alive every heap in which a frozen
+/// value at `'v` can live: `'fm` is the frozen heap that the module value heap `'v` seals into.
+///
+/// A [`HeapEdge<'v, 'dep>`] lets anything at `'dep` be used at `'v`. This is the other direction
+/// between a module's own two heaps, for frozen values only: [`rebrand`](SealEdge::rebrand)
+/// brings a frozen `Value<'v>` to `'fm`, which is how the optimizer folds a value it observed at
+/// `'v` into IR it allocates at `'fm`. Unfrozen values live in the value heap and cannot cross.
+///
+/// `ModuleHeaps` is the only minter, and the proof that the property holds is written there; the
+/// `branding` module states it too. (Not to be confused with
+/// [`OwnedFrozenReconstructor::frozen_edge`](crate::values::OwnedFrozenReconstructor::frozen_edge),
+/// which is a `HeapEdge` whose dependent heap is a frozen heap.)
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct SealEdge<'fm, 'v> {
+    _invariant: PhantomData<(fn(&'fm ()) -> &'fm (), fn(&'v ()) -> &'v ())>,
+}
+
+impl<'fm, 'v> SealEdge<'fm, 'v> {
+    /// Assert the existence of this property.
+    ///
+    /// # SAFETY
+    ///
+    /// The heap identified by `'fm` must reference, directly or through its references, every
+    /// frozen heap in which a frozen `Value<'v>` can live, for as long as the edge exists. Both
+    /// lifetimes must be brands, see [`HeapEdge::unchecked_new`].
+    pub(in crate::values::layout::heap) unsafe fn unchecked_new() -> Self {
+        Self {
+            _invariant: PhantomData,
+        }
+    }
+
+    /// The frozen value `v` at `'fm`, or `None` if `v` is not frozen.
+    pub(crate) fn rebrand(self, v: Value<'v>) -> Option<Value<'fm>> {
+        if !v.is_frozen() {
+            return None;
+        }
+        // SAFETY: `v` is frozen, and by the construction contract of `self` the heap of `'fm`
+        // keeps alive whichever frozen heap it lives in.
+        Some(unsafe { v.rebrand_frozen_unchecked() })
     }
 }
 

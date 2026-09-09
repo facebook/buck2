@@ -55,6 +55,7 @@ pub use crate::values::freeze_error::FreezeResult;
 pub use crate::values::iter::StarlarkIterator;
 pub use crate::values::layout::avalues::static_::AllocStaticSimple;
 pub use crate::values::layout::heap::edge::HeapEdge;
+pub(crate) use crate::values::layout::heap::edge::SealEdge;
 pub use crate::values::layout::heap::freezer::Freezer;
 pub use crate::values::layout::heap::heap_type::FrozenHeap;
 pub use crate::values::layout::heap::heap_type::FrozenHeapName;

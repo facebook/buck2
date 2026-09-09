@@ -66,6 +66,7 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapEdge;
+use crate::values::SealEdge;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueTyped;
@@ -136,6 +137,7 @@ pub(crate) struct OptimizeOnFreezeContext<'v, 'a, 'fv> {
     pub(crate) heap: Heap<'v>,
     pub(crate) frozen_heap: FrozenHeap<'fv>,
     pub(crate) edge: HeapEdge<'v, 'fv>,
+    pub(crate) seal_edge: SealEdge<'fv, 'v>,
     /// See [`OptCtx::local_as_values`].
     pub(crate) local_as_values: Vec<ValueTyped<'fv, LocalAsValue>>,
 }

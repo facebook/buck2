@@ -45,6 +45,7 @@ use crate::eval::compiler::scope::ScopeNames;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::values::FrozenHeap;
 use crate::values::HeapEdge;
+use crate::values::SealEdge;
 use crate::values::ValueTyped;
 use crate::values::any::StarlarkAny;
 
@@ -92,11 +93,13 @@ pub(crate) fn expr_throw_starlark_result<'v, T>(
 /// Its products - the IR, the bytecode, constants, names - are allocated on the module's frozen
 /// heap at its brand `'fm`; the evaluator runs at the value heap's brand `'v`. `edge` brings a
 /// product to `'v` when it is handed to execution, which happens once per top-level statement,
-/// see `eval_regular_top_level_stmt`.
+/// see `eval_regular_top_level_stmt`; `seal_edge` brings frozen values the optimizer observes at
+/// `'v` into the IR, see [`OptCtx::demote`](crate::eval::compiler::opt_ctx::OptCtx::demote).
 pub(crate) struct Compiler<'v, 'a, 'e, 'x, 'fm> {
     pub(crate) eval: &'x mut Evaluator<'v, 'a, 'e>,
     pub(crate) fh: FrozenHeap<'fm>,
     pub(crate) edge: HeapEdge<'v, 'fm>,
+    pub(crate) seal_edge: SealEdge<'fm, 'v>,
     pub(crate) scope_data: ModuleScopeData<'fm>,
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: ValueTyped<'fm, StarlarkAny<Globals>>,

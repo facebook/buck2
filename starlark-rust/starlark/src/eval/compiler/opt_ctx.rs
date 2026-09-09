@@ -24,22 +24,19 @@ use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapEdge;
+use crate::values::SealEdge;
 use crate::values::Value;
 use crate::values::ValueTyped;
 
 /// The context the optimizer runs in: a module's value heap, which it speculates on, and the
-/// module's frozen heap, where the IR it produces is allocated.
-///
-/// # Safety
-///
-/// `heap()` and `frozen_heap()` must be the two heaps of one `ModuleHeaps`, used within the scope
-/// that type hands the frozen heap out in. [`OptCtx::demote`] moves frozen values from the first
-/// to the second on the strength of that pairing.
-pub(crate) unsafe trait OptCtxEval<'v, 'a, 'e, 'fm> {
+/// module's frozen heap, where the IR it produces is allocated, with the edges between the two.
+pub(crate) trait OptCtxEval<'v, 'a, 'e, 'fm> {
     fn heap(&self) -> Heap<'v>;
     fn frozen_heap(&self) -> FrozenHeap<'fm>;
     /// The edge from the value heap to the frozen heap, see `ModuleHeaps`.
     fn edge(&self) -> HeapEdge<'v, 'fm>;
+    /// The edge back, for frozen values, see [`OptCtx::demote`].
+    fn seal_edge(&self) -> SealEdge<'fm, 'v>;
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>>;
     fn frozen_module(&self) -> Option<&FrozenModuleData<'fm>>;
     /// Storage for [`OptCtx::local_as_values`].
@@ -47,9 +44,7 @@ pub(crate) unsafe trait OptCtxEval<'v, 'a, 'e, 'fm> {
     fn local_as_values_mut(&mut self) -> &mut Vec<ValueTyped<'fm, LocalAsValue>>;
 }
 
-// SAFETY: Constructed by `Def::post_freeze` alone, from the heaps `Module::freeze_impl` is
-// sealing with.
-unsafe impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v, 'a, 'fv> {
+impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeContext<'v, 'a, 'fv> {
     fn heap(&self) -> Heap<'v> {
         self.heap
     }
@@ -60,6 +55,10 @@ unsafe impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeCon
 
     fn edge(&self) -> HeapEdge<'v, 'fv> {
         self.edge
+    }
+
+    fn seal_edge(&self) -> SealEdge<'fv, 'v> {
+        self.seal_edge
     }
 
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
@@ -79,9 +78,7 @@ unsafe impl<'v, 'a, 'e, 'fv> OptCtxEval<'v, 'a, 'e, 'fv> for OptimizeOnFreezeCon
     }
 }
 
-// SAFETY: Constructed by `Evaluator::eval_module` alone, with the evaluator's module heap and
-// the frozen heap that module hands out.
-unsafe impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a, 'e, 'x, 'fm> {
+impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a, 'e, 'x, 'fm> {
     fn heap(&self) -> Heap<'v> {
         self.eval.heap()
     }
@@ -92,6 +89,10 @@ unsafe impl<'v, 'a, 'e, 'x, 'fm> OptCtxEval<'v, 'a, 'e, 'fm> for Compiler<'v, 'a
 
     fn edge(&self) -> HeapEdge<'v, 'fm> {
         self.edge
+    }
+
+    fn seal_edge(&self) -> SealEdge<'fm, 'v> {
+        self.seal_edge
     }
 
     fn eval(&mut self) -> Option<&mut Evaluator<'v, 'a, 'e>> {
@@ -156,20 +157,10 @@ impl<'v, 'a, 'e: 'a, 'x, 'fm> OptCtx<'v, 'a, 'e, 'x, 'fm> {
     /// or `None` if it is not frozen.
     ///
     /// The optimizer evaluates speculatively at `'v` (calls, attribute reads, operators, module
-    /// slots) and folds frozen results into IR stored at `'fm`. No [`HeapEdge`] certifies that
-    /// direction; this is the one place it is taken, and it rests on where a frozen value at `'v`
-    /// can live: in the module's own frozen heap; in a heap that heap references, which is every
-    /// heap the value heap references too (the globals, `load`ed modules, a value `add_to_heap`
-    /// brought over), the two sharing their references; or in `'static` data. Each of those is
-    /// kept alive as long as anything at `'fm`. The `branding` module lists this among the brand
-    /// changes that rest on such a contract rather than on an edge.
+    /// slots) and folds frozen results into IR stored at `'fm`; the [`SealEdge`] is what makes
+    /// that sound.
     pub(crate) fn demote(&self, v: Value<'v>) -> Option<Value<'fm>> {
-        if !v.is_frozen() {
-            return None;
-        }
-        // SAFETY: `OptCtxEval`'s contract pairs the two heaps, and the reasoning above then covers
-        // every frozen heap the value can live in.
-        Some(unsafe { v.rebrand_frozen_unchecked() })
+        self.eval.seal_edge().rebrand(v)
     }
 
     /// The placeholders for the first `count` local slots, see [`LocalAsValue`]: one allocation

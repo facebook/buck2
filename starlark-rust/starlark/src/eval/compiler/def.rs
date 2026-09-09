@@ -99,6 +99,7 @@ use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapEdge;
+use crate::values::SealEdge;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -943,13 +944,14 @@ impl<'v> Def<'v> {
 
     /// Re-optimize the body of this frozen def against its frozen module, see
     /// [`StmtCompiledCell`]. `heap` is the value heap the module was frozen from; `edge` leads
-    /// from it to `frozen_heap`, the heap this def lives in.
+    /// from it to `frozen_heap`, the heap this def lives in, and `seal_edge` back.
     pub(crate) fn post_freeze<'h>(
         &self,
         module: FrozenModuleValue<'v>,
         heap: Heap<'h>,
         frozen_heap: FrozenHeap<'v>,
         edge: HeapEdge<'h, 'v>,
+        seal_edge: SealEdge<'v, 'h>,
     ) {
         // Module passed to this function is not always module where the function is declared:
         // A function can be created in a frozen module and frozen later in another module.
@@ -973,6 +975,7 @@ impl<'v> Def<'v> {
                     heap,
                     frozen_heap,
                     edge,
+                    seal_edge,
                     local_as_values: Vec::new(),
                 },
                 self.parameters.len().try_into().unwrap(),

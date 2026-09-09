@@ -199,7 +199,7 @@ impl AstModuleTypecheck for AstModule {
         // lint typechecker evaluates on the value heap, with the edge between them.
         Heap::temp(|heap| {
             let heaps = ModuleHeaps::new(heap);
-            heaps.frozen_heap(|frozen_heap, edge| {
+            heaps.frozen_heap(|frozen_heap, edge, _seal_edge| {
                 let names = MutableNames::new();
                 let (
                     scope_errors,
