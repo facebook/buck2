@@ -437,6 +437,7 @@ impl ManagedRemoteExecutionClient {
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
         priority: Option<i32>,
+        action_timeout: Option<Duration>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.lock()?
             .get()
@@ -457,6 +458,7 @@ impl ManagedRemoteExecutionClient {
                 meta_internal_extra_params,
                 worker_tool_action_digest,
                 priority,
+                action_timeout,
             )
             .await
     }

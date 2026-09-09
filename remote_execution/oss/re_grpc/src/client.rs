@@ -180,6 +180,20 @@ pub struct RECapabilities {
     supported_compressors: Vec<Compressor>,
 }
 
+/// Default unary CAS/AC RPC timeout. Long enough for a large `BatchReadBlobs`
+/// on a slow link, short enough that a hung frontend cannot freeze
+/// `ensure_materialized` for hours. Not applied to `Execute`.
+const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(60);
+/// Default ByteStream `Read`/`Write` timeout. Large blobs can take minutes.
+const DEFAULT_STREAM_TIMEOUT: Duration = Duration::from_secs(600);
+/// Default client wait for the next `Execute` stream message when the action
+/// has no `Action.timeout`. Long enough for a queued compile; short enough
+/// that a dead Execute stream cannot burn a 90-minute CI job.
+const DEFAULT_EXECUTE_WITHOUT_ACTION_TIMEOUT: Duration = Duration::from_secs(1800);
+/// Default added to `Action.timeout` for the client Execute stream wait
+/// (queue leftover + time for the backend to report completion).
+const DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT: Duration = Duration::from_secs(300);
+
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
 pub struct RERuntimeOpts {
     /// Use the Meta version of the request metadata
@@ -190,6 +204,46 @@ pub struct RERuntimeOpts {
     cas_ttl_secs: i64,
     /// Maximum number of digests per `FindMissingBlobs` RPC.
     find_missing_blobs_batch_size: usize,
+    /// Client-side timeout for unary CAS/AC RPCs. `None` disables.
+    rpc_timeout: Option<Duration>,
+    /// Client-side timeout for ByteStream `Read`/`Write`. `None` disables.
+    stream_timeout: Option<Duration>,
+    /// Client wait for the next `Execute` stream message when the action has
+    /// no `Action.timeout`. `None` disables.
+    execute_without_action_timeout: Option<Duration>,
+    /// Added to `Action.timeout` to form the client Execute stream wait.
+    execute_after_action_timeout: Duration,
+}
+
+/// `None` → default. `Some(0)` → disabled. Anything else → that many seconds.
+fn timeout_from_config(secs: Option<u64>, default: Duration) -> Option<Duration> {
+    match secs {
+        None => Some(default),
+        Some(0) => None,
+        Some(n) => Some(Duration::from_secs(n)),
+    }
+}
+
+/// `None` → default. `Some(n)` (including `0`) → that many seconds. Never
+/// disables: `0` means add nothing to `Action.timeout`.
+fn after_action_timeout_from_config(secs: Option<u64>, default: Duration) -> Duration {
+    match secs {
+        None => default,
+        Some(n) => Duration::from_secs(n),
+    }
+}
+
+/// Client wait for the next `Execute` stream message.
+/// `action_timeout` is REAPI `Action.timeout` (`timeout_seconds` on the run).
+fn execute_stream_wait(
+    action_timeout: Option<Duration>,
+    without: Option<Duration>,
+    after: Duration,
+) -> Option<Duration> {
+    match action_timeout {
+        Some(t) => Some(t.saturating_add(after)),
+        None => without,
+    }
 }
 
 struct InstanceName(Option<String>);
@@ -336,6 +390,19 @@ impl REClientBuilder {
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
                 find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
+                rpc_timeout: timeout_from_config(opts.grpc_timeout_secs, DEFAULT_RPC_TIMEOUT),
+                stream_timeout: timeout_from_config(
+                    opts.grpc_stream_timeout_secs,
+                    DEFAULT_STREAM_TIMEOUT,
+                ),
+                execute_without_action_timeout: timeout_from_config(
+                    opts.grpc_execute_without_action_timeout_secs,
+                    DEFAULT_EXECUTE_WITHOUT_ACTION_TIMEOUT,
+                ),
+                execute_after_action_timeout: after_action_timeout_from_config(
+                    opts.grpc_execute_after_action_timeout_secs,
+                    DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT,
+                ),
             },
             capabilities,
             instance_name,
@@ -571,7 +638,7 @@ fn is_transient_io_error(err: &std::io::Error) -> bool {
 /// Returns true if an error is a transient connection/transport error worth
 /// retrying. Walks the error chain checking for:
 ///   - `tonic::Status` with codes the gRPC retry policy treats as transient
-///     (Unavailable, ResourceExhausted, Aborted, Cancelled)
+///     (Unavailable, ResourceExhausted, Aborted, Cancelled, DeadlineExceeded)
 ///   - `io::Error` of a kind that indicates a transport-level disruption
 ///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
 ///   - `h2::Error` wrapping such an `io::Error`. `h2::Error` does not
@@ -580,6 +647,7 @@ fn is_transient_io_error(err: &std::io::Error) -> bool {
 ///     `Code::Unknown`. Body errors on an established connection (for
 ///     example a TCP reset during a `BatchReadBlobs` response) take this
 ///     path and need the explicit downcast.
+///   - `tonic::TimeoutExpired`, the expiry of the `grpc-timeout` we set
 ///
 /// `tonic::transport::Error` is not matched directly — its transient subset
 /// surfaces as an `io::Error` somewhere in the chain, which we catch above.
@@ -587,12 +655,20 @@ fn is_transient_io_error(err: &std::io::Error) -> bool {
 /// an `io::Error` source, so they correctly do not retry.
 fn is_retryable(err: &anyhow::Error) -> bool {
     for cause in err.chain() {
+        // `grpc-timeout` expiry is reported as `TimeoutExpired`, which
+        // `Status` maps to Cancelled rather than DeadlineExceeded. It is the
+        // same transient condition, so match it directly and not just via the
+        // enclosing status code.
+        if cause.is::<tonic::TimeoutExpired>() {
+            return true;
+        }
         if let Some(status) = cause.downcast_ref::<tonic::Status>() {
             match status.code() {
                 tonic::Code::Unavailable
                 | tonic::Code::ResourceExhausted
                 | tonic::Code::Aborted
-                | tonic::Code::Cancelled => return true,
+                | tonic::Code::Cancelled
+                | tonic::Code::DeadlineExceeded => return true,
                 _ => {}
             }
         }
@@ -610,6 +686,29 @@ fn is_retryable(err: &anyhow::Error) -> bool {
         }
     }
     false
+}
+
+/// Bound a single RPC future on the client.
+///
+/// `Request::set_timeout` only writes the `grpc-timeout` header; a hung peer
+/// that never resets TCP still never returns. `Endpoint::timeout` would also
+/// fire on `Execute`, which shares the same frontend address as CAS — so CAS
+/// and AC calls wrap here, and `Execute` does not.
+async fn await_rpc<T>(
+    timeout: Option<Duration>,
+    fut: impl Future<Output = Result<T, tonic::Status>>,
+) -> anyhow::Result<T> {
+    let res = if let Some(timeout) = timeout {
+        match tokio::time::timeout(timeout, fut).await {
+            Ok(r) => r,
+            Err(_) => Err(tonic::Status::deadline_exceeded(format!(
+                "client RPC timeout ({timeout:?}) expired"
+            ))),
+        }
+    } else {
+        fut.await
+    };
+    res.map_err(Into::into)
 }
 
 /// Retry a fallible async operation on transient connection errors.
@@ -691,10 +790,10 @@ impl REClient {
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
         retry(|| async {
-            let res = self
-                .action_cache_client()
-                .await?
-                .get_action_result(with_re_metadata(
+            let mut client = self.action_cache_client().await?;
+            let res = await_rpc(
+                self.runtime_opts.rpc_timeout,
+                client.get_action_result(with_re_metadata(
                     GetActionResultRequest {
                         instance_name: self.instance_name.as_str().to_owned(),
                         action_digest: Some(tdigest_to(request.digest.clone())),
@@ -702,8 +801,10 @@ impl REClient {
                     },
                     metadata,
                     self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?;
+                    self.runtime_opts.rpc_timeout,
+                )),
+            )
+            .await?;
 
             Ok(ActionResultResponse {
                 action_result: convert_action_result(res.into_inner())?,
@@ -721,10 +822,10 @@ impl REClient {
         let action_result = convert_t_action_result2(request.action_result)?;
 
         retry(|| async {
-            let res = self
-                .action_cache_client()
-                .await?
-                .update_action_result(with_re_metadata(
+            let mut client = self.action_cache_client().await?;
+            let res = await_rpc(
+                self.runtime_opts.rpc_timeout,
+                client.update_action_result(with_re_metadata(
                     UpdateActionResultRequest {
                         instance_name: self.instance_name.as_str().to_owned(),
                         action_digest: Some(tdigest_to(request.action_digest.clone())),
@@ -734,8 +835,10 @@ impl REClient {
                     },
                     metadata,
                     self.runtime_opts.use_fbcode_metadata,
-                ))
-                .await?;
+                    self.runtime_opts.rpc_timeout,
+                )),
+            )
+            .await?;
 
             Ok(WriteActionResultResponse {
                 actual_action_result: convert_action_result(res.into_inner())?,
@@ -759,6 +862,11 @@ impl REClient {
             .map(|ep| ep.priority)
             .unwrap_or_default();
 
+        let execute_timeout = execute_stream_wait(
+            execute_request.timeout,
+            self.runtime_opts.execute_without_action_timeout,
+            self.runtime_opts.execute_after_action_timeout,
+        );
         let stream = retry(|| async {
             let stream = self
                 .execution_client()
@@ -774,6 +882,9 @@ impl REClient {
                     },
                     metadata,
                     self.runtime_opts.use_fbcode_metadata,
+                    // Do not put the unary CAS timeout on Execute (would abort
+                    // live actions). Stream-message waits use execute_timeout.
+                    None,
                 ))
                 .await?
                 .into_inner();
@@ -781,10 +892,26 @@ impl REClient {
         })
         .await?;
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream.try_next().await.context("RE channel error")? {
-                Some(msg) => msg,
-                None => return Ok(None),
+        let stream = futures::stream::try_unfold(stream, move |mut stream| async move {
+            let msg = {
+                let next = stream.try_next();
+                let msg = if let Some(timeout) = execute_timeout {
+                    match tokio::time::timeout(timeout, next).await {
+                        Ok(r) => r.context("RE channel error")?,
+                        Err(_) => {
+                            return Err(tonic::Status::deadline_exceeded(format!(
+                                "client Execute stream timeout ({timeout:?}) expired"
+                            ))
+                            .into());
+                        }
+                    }
+                } else {
+                    next.await.context("RE channel error")?
+                };
+                match msg {
+                    Some(msg) => msg,
+                    None => return Ok(None),
+                }
             };
 
             let status = if msg.done {
@@ -887,27 +1014,31 @@ impl REClient {
             self.capabilities.max_total_batch_size,
             self.runtime_opts.max_concurrent_uploads_per_action,
             |re_request| async move {
-                let resp = self
-                    .cas_client()
-                    .await?
-                    .batch_update_blobs(with_re_metadata(
+                let mut client = self.cas_client().await?;
+                let resp = await_rpc(
+                    self.runtime_opts.rpc_timeout,
+                    client.batch_update_blobs(with_re_metadata(
                         re_request,
                         metadata,
                         self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
+                        self.runtime_opts.rpc_timeout,
+                    )),
+                )
+                .await?;
                 Ok(resp.into_inner())
             },
             |segments| async move {
-                let resp = self
-                    .bytestream_client()
-                    .await?
-                    .write(with_re_metadata(
+                let mut client = self.bytestream_client().await?;
+                let resp = await_rpc(
+                    self.runtime_opts.stream_timeout,
+                    client.write(with_re_metadata(
                         futures::stream::iter(segments),
                         metadata,
                         self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
+                        self.runtime_opts.stream_timeout,
+                    )),
+                )
+                .await?;
                 Ok(resp.into_inner())
             },
         )
@@ -950,28 +1081,32 @@ impl REClient {
             self.bystream_compressor,
             self.capabilities.max_total_batch_size,
             |re_request| async move {
-                let resp = self
-                    .cas_client()
-                    .await?
-                    .batch_read_blobs(with_re_metadata(
+                let mut client = self.cas_client().await?;
+                let resp = await_rpc(
+                    self.runtime_opts.rpc_timeout,
+                    client.batch_read_blobs(with_re_metadata(
                         re_request,
                         metadata,
                         self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
+                        self.runtime_opts.rpc_timeout,
+                    )),
+                )
+                .await?;
                 Ok(resp.into_inner())
             },
             |read_request| async move {
-                let response = self
-                    .bytestream_client()
-                    .await?
-                    .read(with_re_metadata(
+                let mut client = self.bytestream_client().await?;
+                let response = await_rpc(
+                    self.runtime_opts.stream_timeout,
+                    client.read(with_re_metadata(
                         read_request,
                         metadata,
                         self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?
-                    .into_inner();
+                        self.runtime_opts.stream_timeout,
+                    )),
+                )
+                .await?
+                .into_inner();
                 Ok(Box::pin(response.into_stream()))
             },
         )
@@ -1011,10 +1146,10 @@ impl REClient {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
                 let blob_digests: Vec<_> = digests_to_check.map(|b| tdigest_to(b.clone()));
                 let resp: FindMissingBlobsResponse = retry(|| async {
-                    let resp = self
-                        .cas_client()
-                        .await?
-                        .find_missing_blobs(with_re_metadata(
+                    let mut client = self.cas_client().await?;
+                    let resp = await_rpc(
+                        self.runtime_opts.rpc_timeout,
+                        client.find_missing_blobs(with_re_metadata(
                             FindMissingBlobsRequest {
                                 instance_name: self.instance_name.as_str().to_owned(),
                                 blob_digests: blob_digests.clone(),
@@ -1022,9 +1157,11 @@ impl REClient {
                             },
                             metadata,
                             self.runtime_opts.use_fbcode_metadata,
-                        ))
-                        .await
-                        .context("Failed to request what blobs are not present on remote")?;
+                            self.runtime_opts.rpc_timeout,
+                        )),
+                    )
+                    .await
+                    .context("Failed to request what blobs are not present on remote")?;
                     Ok(resp.into_inner())
                 })
                 .await?;
@@ -1765,6 +1902,7 @@ fn with_re_metadata<T>(
     t: T,
     metadata: &RemoteExecutionMetadata,
     use_fbcode_metadata: bool,
+    timeout: Option<Duration>,
 ) -> tonic::Request<T> {
     // This creates a new Tonic request with attached metadata for the RE
     // backend. There are two cases here we need to support:
@@ -1838,7 +1976,13 @@ fn with_re_metadata<T>(
             "build.bazel.remote.execution.v2.requestmetadata-bin",
             MetadataValue::from_bytes(&encoded),
         );
-    };
+    }
+
+    // Header for servers that honor it. The client-side bound is `await_rpc`;
+    // this header alone does not unstick a hung TCP session.
+    if let Some(timeout) = timeout {
+        msg.set_timeout(timeout);
+    }
     msg
 }
 
@@ -2951,6 +3095,129 @@ mod tests {
         assert_eq!(substitute_env_vars_impl("foo", getter).unwrap(), "foo");
         assert_eq!(substitute_env_vars_impl("FOO", getter).unwrap(), "FOO");
         assert!(substitute_env_vars_impl("$FOO$BAZ", getter).is_err());
+    }
+
+    #[test]
+    fn test_timeout_from_config() {
+        assert_eq!(
+            timeout_from_config(None, DEFAULT_RPC_TIMEOUT),
+            Some(DEFAULT_RPC_TIMEOUT)
+        );
+        assert_eq!(timeout_from_config(Some(0), DEFAULT_RPC_TIMEOUT), None);
+        assert_eq!(
+            timeout_from_config(Some(15), DEFAULT_RPC_TIMEOUT),
+            Some(Duration::from_secs(15))
+        );
+    }
+
+    #[test]
+    fn test_after_action_timeout_from_config() {
+        assert_eq!(
+            after_action_timeout_from_config(None, DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT
+        );
+        assert_eq!(
+            after_action_timeout_from_config(Some(0), DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            Duration::ZERO
+        );
+        assert_eq!(
+            after_action_timeout_from_config(Some(120), DEFAULT_EXECUTE_AFTER_ACTION_TIMEOUT),
+            Duration::from_secs(120)
+        );
+    }
+
+    #[test]
+    fn test_execute_stream_wait() {
+        let after = Duration::from_secs(300);
+        let without = Some(Duration::from_secs(1800));
+        assert_eq!(execute_stream_wait(None, without, after), without);
+        assert_eq!(
+            execute_stream_wait(Some(Duration::from_secs(3600)), without, after),
+            Some(Duration::from_secs(3900))
+        );
+        assert_eq!(execute_stream_wait(None, None, after), None);
+        assert_eq!(
+            execute_stream_wait(Some(Duration::from_secs(60)), None, Duration::ZERO),
+            Some(Duration::from_secs(60))
+        );
+    }
+
+    #[test]
+    fn test_deadline_exceeded_is_retryable() {
+        let err = anyhow::Error::new(tonic::Status::deadline_exceeded("stuck"));
+        assert!(is_retryable(&err));
+        let err = anyhow::Error::new(tonic::Status::internal("bug"));
+        assert!(!is_retryable(&err));
+    }
+
+    #[test]
+    fn test_timeout_expired_is_retryable() {
+        // How a `grpc-timeout` expiry reaches us: Cancelled, with
+        // `TimeoutExpired` kept as the source.
+        let status = tonic::Status::from_error(Box::new(tonic::TimeoutExpired(())));
+        assert_eq!(status.code(), tonic::Code::Cancelled);
+        assert!(is_retryable(&anyhow::Error::new(status)));
+        let err = anyhow::Error::new(tonic::Status::invalid_argument("bad digest"));
+        assert!(!is_retryable(&err));
+    }
+
+    #[test]
+    fn test_with_re_metadata_sets_grpc_timeout() {
+        let req = with_re_metadata(
+            (),
+            &RemoteExecutionMetadata::default(),
+            false,
+            Some(Duration::from_secs(30)),
+        );
+        assert_eq!(req.metadata().get("grpc-timeout").unwrap(), "30000000u");
+    }
+
+    #[test]
+    fn test_with_re_metadata_execute_has_no_timeout() {
+        let req = with_re_metadata((), &RemoteExecutionMetadata::default(), false, None);
+        assert!(req.metadata().get("grpc-timeout").is_none());
+    }
+
+    #[tokio::test]
+    async fn test_await_rpc_times_out() {
+        let err = await_rpc(
+            Some(Duration::from_millis(20)),
+            std::future::pending::<Result<(), tonic::Status>>(),
+        )
+        .await
+        .unwrap_err();
+        assert!(is_retryable(&err));
+        let status = err.downcast_ref::<tonic::Status>().unwrap();
+        assert_eq!(status.code(), tonic::Code::DeadlineExceeded);
+    }
+
+    #[tokio::test]
+    async fn test_await_rpc_disabled_completes() {
+        await_rpc(None, async { Ok::<_, tonic::Status>(()) })
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_execute_stream_wait_times_out() {
+        let err = match tokio::time::timeout(
+            Duration::from_millis(20),
+            std::future::pending::<Result<Option<()>, anyhow::Error>>(),
+        )
+        .await
+        {
+            Ok(_) => panic!("pending future completed"),
+            Err(_) => tonic::Status::deadline_exceeded(format!(
+                "client Execute stream timeout ({:?}) expired",
+                Duration::from_millis(20)
+            )),
+        };
+        let err = anyhow::Error::new(err);
+        assert!(is_retryable(&err));
+        assert_eq!(
+            err.downcast_ref::<tonic::Status>().unwrap().code(),
+            tonic::Code::DeadlineExceeded
+        );
     }
 }
 
