@@ -98,7 +98,7 @@ hex = { version = "0.4.3", features = ["alloc"] }
 hostname = "0.4.2"
 http = "1.5.0"
 http-body = "1.1.0"
-http-body-util = "0.1.4"
+http-body-util = "0.1.5"
 httparse = "1.7.1"
 httptest = "0.16.4"
 humantime = "2.4.0"
