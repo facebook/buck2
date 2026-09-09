@@ -224,6 +224,17 @@ fn revision() -> Option<String> {
     crate::execution_types::mock_revision::MOCK_REVISION.with(|r| r.borrow().clone())
 }
 
+fn interpolate_dependency_id(
+    id: &str,
+    username: Option<&str>,
+    revision: Option<&str>,
+    hostname: Option<&str>,
+) -> String {
+    id.replace("$(username)", username.unwrap_or_default())
+        .replace("$(revision)", revision.unwrap_or_default())
+        .replace("$(hostname)", hostname.unwrap_or_default())
+}
+
 impl RemoteExecutorDependency {
     pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         fn username() -> Option<String> {
@@ -239,6 +250,10 @@ impl RemoteExecutorDependency {
             }
         }
 
+        fn current_hostname() -> Option<String> {
+            hostname::get().ok()?.into_string().ok()
+        }
+
         let smc_tier = dep_map
             .get("smc_tier")
             .ok_or(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
@@ -248,19 +263,23 @@ impl RemoteExecutorDependency {
         let interpolate = dep_map.get("enable_interpolation").unwrap_or(&"false");
 
         let id = if *interpolate == "true" {
-            let username: Option<String> = username();
-            let mut interpolated_id = id.to_string();
-            if let Some(username) = username {
-                interpolated_id = interpolated_id.replace("$(username)", &username);
+            let username = username();
+            let revision = if id.contains("$(revision)") {
+                revision()
             } else {
-                interpolated_id = interpolated_id.replace("$(username)", "");
-            }
-            if interpolated_id.contains("$(revision)") {
-                let revision = revision().unwrap_or_default();
-                interpolated_id = interpolated_id.replace("$(revision)", &revision);
-            }
-
-            interpolated_id
+                None
+            };
+            let hostname = if id.contains("$(hostname)") {
+                current_hostname()
+            } else {
+                None
+            };
+            interpolate_dependency_id(
+                id,
+                username.as_deref(),
+                revision.as_deref(),
+                hostname.as_deref(),
+            )
         } else {
             id.to_string()
         };
@@ -675,6 +694,19 @@ mod tests {
             let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
             assert_eq!(dep.id, "Sandbox:host:");
         });
+    }
+
+    #[test]
+    fn test_dependency_id_interpolation_includes_hostname() {
+        assert_eq!(
+            interpolate_dependency_id(
+                "Sandbox:$(username):$(hostname):$(revision)",
+                Some("alice"),
+                Some("abc123"),
+                Some("devvm123.example.com"),
+            ),
+            "Sandbox:alice:devvm123.example.com:abc123",
+        );
     }
 
     #[test]
