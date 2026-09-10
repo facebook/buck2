@@ -13,6 +13,8 @@
 PythonInternalToolsInfo = provider(
     fields = {
         "default_sitecustomize": Artifact,
+        # An `{}` JSON file, the type-check result for targets with typing disabled.
+        "empty_typing_result": Artifact,
         "fail_with_message": RunInfo,
         "generate_static_extension_info": Dependency,
         "make_py_package_inplace": RunInfo,
@@ -32,6 +34,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         PythonInternalToolsInfo(
             default_sitecustomize = ctx.attrs.default_sitecustomize,
+            empty_typing_result = ctx.attrs.empty_typing_result,
             fail_with_message = ctx.attrs.fail_with_message[RunInfo],
             generate_static_extension_info = ctx.attrs.generate_static_extension_info,
             make_source_db = ctx.attrs.make_source_db[RunInfo],
@@ -49,6 +52,7 @@ python_internal_tools = rule(
     impl = _impl,
     attrs = {
         "default_sitecustomize": attrs.source(default = "prelude//python/tools/make_par:sitecustomize.py"),
+        "empty_typing_result": attrs.default_only(attrs.source(default = "prelude//python/tools:empty_typing_result.json")),
         "fail_with_message": attrs.exec_dep(default = "prelude//python/tools:fail_with_message", providers = [RunInfo]),
         "generate_static_extension_info": attrs.exec_dep(default = "prelude//python/tools:generate_static_extension_info"),
         "make_py_package_inplace": attrs.exec_dep(default = "prelude//python/tools:make_py_package_inplace", providers = [RunInfo]),
