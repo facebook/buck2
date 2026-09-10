@@ -178,7 +178,6 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::arc::Arc;
     use crate::core::graph::revision::Revision;
     use crate::epoch::cache::TransactionResult;
     use crate::key::DiceKey;
@@ -187,7 +186,6 @@ mod tests {
     use crate::value::DiceValidValue;
     use crate::value::MaybeValidDiceValue;
     use crate::value::TrackedInvalidationPaths;
-    use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]
@@ -217,7 +215,6 @@ mod tests {
     fn computed(val: usize) -> DiceComputedValue {
         DiceComputedValue::new_resident(
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(val))),
-            Arc::new(VersionRanges::new()),
             TrackedInvalidationPaths::clean(),
             Revision::FIRST,
         )

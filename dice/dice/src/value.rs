@@ -26,8 +26,6 @@ use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
 use crate::key::DiceKey;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRange;
-use crate::versions::VersionRanges;
 
 /// Type erased value associated for each Key in Dice. The 'DiceValidValue' only holds valid values
 /// and never anything that is transient, or whose dependencies are transient.
@@ -142,8 +140,8 @@ impl MaybeValidDiceValue {
 /// `DataKey` locates it.
 ///
 /// A paged-out value is read back only when a caller needs the payload. Everything a
-/// dependency check needs — the versions the value is valid at, and its invalidation paths
-/// — travels beside the value, so proving a key unchanged never has to touch storage.
+/// dependency check needs, the value's revision and its invalidation paths, travels beside the
+/// value, so proving a key unchanged never has to touch storage.
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) enum MaybeResident<V> {
     Resident(V),
@@ -207,7 +205,6 @@ impl DiceValidity {
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct DiceComputedValue {
     value: MaybeResident<MaybeValidDiceValue>,
-    valid: Arc<VersionRanges>,
     invalidation_paths: TrackedInvalidationPaths,
     /// The revision the value was interned under, `None` iff the value is transient:
     /// transients never enter the graph and so have no interned identity to name.
@@ -376,13 +373,11 @@ impl TrackedInvalidationPaths {
 impl DiceComputedValue {
     pub(crate) fn new(
         value: MaybeResident<MaybeValidDiceValue>,
-        valid: Arc<VersionRanges>,
         invalidation_paths: TrackedInvalidationPaths,
         revision: Revision,
     ) -> Self {
         Self {
             value,
-            valid,
             invalidation_paths,
             revision: Some(revision),
         }
@@ -390,42 +385,28 @@ impl DiceComputedValue {
 
     pub(crate) fn new_resident(
         value: MaybeValidDiceValue,
-        valid: Arc<VersionRanges>,
         invalidation_paths: TrackedInvalidationPaths,
         revision: Revision,
     ) -> Self {
-        Self::new(
-            MaybeResident::Resident(value),
-            valid,
-            invalidation_paths,
-            revision,
-        )
+        Self::new(MaybeResident::Resident(value), invalidation_paths, revision)
     }
 
     /// The same result with `value` — read back from storage — as its payload.
     pub(crate) fn paged_in(&self, value: DiceValidValue) -> Self {
         Self {
             value: MaybeResident::Resident(MaybeValidDiceValue::valid(value)),
-            valid: self.valid.dupe(),
             invalidation_paths: self.invalidation_paths.dupe(),
             revision: self.revision,
         }
     }
 
-    /// A bunch of things in the per-transaction state expect `DiceComputedValue`s, but we don't
-    /// actually have a real one of those (because we don't have a real `VersionRange`) since we
-    /// didn't talk to the core state.
-    ///
-    /// Making up a `VersionRange` is pretty sketch, this function is here as documentation for
-    /// that.
+    /// A transient result: never stored in the core state and so without a revision.
     pub(crate) fn new_for_transient(
         value: MaybeValidDiceValue,
-        v: VersionNumber,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {
         Self {
             value: MaybeResident::Resident(value),
-            valid: Arc::new(VersionRange::begins_with(v).into_ranges()),
             invalidation_paths,
             revision: None,
         }
@@ -441,11 +422,6 @@ impl DiceComputedValue {
         self.value.data_key()
     }
 
-    #[cfg(test)]
-    pub(crate) fn versions(&self) -> &VersionRanges {
-        &self.valid
-    }
-
     pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
         &self.invalidation_paths
     }
@@ -459,7 +435,7 @@ impl DiceComputedValue {
 impl Debug for DiceComputedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DiceComputedValue")
-            .field("valid", &self.valid)
+            .field("revision", &self.revision)
             .finish_non_exhaustive()
     }
 }

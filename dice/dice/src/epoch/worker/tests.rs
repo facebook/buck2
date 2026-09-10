@@ -71,8 +71,6 @@ use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceValidity;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRange;
-use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
 #[pagable_typetag(DiceKeyDyn)]
@@ -368,10 +366,9 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
 
-    assert_eq!(
-        res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
-    );
+    // An equal value re-finds its revision.
+    assert!(res.revision().is_some(), "a valid value has a revision");
+    assert_eq!(res.revision(), res2.revision());
 
     // verify that the instance we return and store is the same as the original instance
     assert_eq!(

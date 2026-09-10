@@ -50,7 +50,6 @@ use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
-use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]
 #[pagable_typetag(DiceKeyDyn)]
@@ -106,7 +105,6 @@ async fn simple_task() -> anyhow::Result<()> {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
-                    Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
                 ))));
@@ -168,7 +166,6 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(1),
                     )),
-                    Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
                 ))));
@@ -259,7 +256,6 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
-                    Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
                     Revision::FIRST,
                 ))));

@@ -345,7 +345,6 @@ impl DiceTaskWorker {
                 }
                 Err(value) => TransactionResult::ok(DiceComputedValue::new_for_transient(
                     value,
-                    v,
                     result.invalidation_paths,
                 )),
             }

@@ -446,7 +446,6 @@ fn handle_project_eval_result(
             // with async computations as if it were.
             TransactionResult::ok(DiceComputedValue::new_for_transient(
                 value,
-                v,
                 invalidation_paths,
             ))
         }

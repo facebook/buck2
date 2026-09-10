@@ -331,12 +331,7 @@ impl VersionedGraphNode {
             // the return value actually is used to mean something different than that we changed
             // something.
             return (
-                DiceComputedValue::new(
-                    value.into_payload(),
-                    Arc::new(valid_deps_versions),
-                    invalidation_paths,
-                    res_revision,
-                ),
+                DiceComputedValue::new(value.into_payload(), invalidation_paths, res_revision),
                 true,
             );
         }
@@ -775,7 +770,6 @@ impl OccupiedGraphNode {
     pub(crate) fn computed_val(&self, for_version: VersionNumber) -> DiceComputedValue {
         DiceComputedValue::new(
             self.val().expect_maybe_resident().into_payload(),
-            self.metadata.verified_ranges.dupe(),
             self.invalidation_paths.at_version(for_version),
             self.res_revision,
         )
@@ -984,7 +978,6 @@ impl InjectedGraphNode {
         match self.data_at(v) {
             Some((_, data)) => VersionedGraphResult::Match(DiceComputedValue::new_resident(
                 MaybeValidDiceValue::valid(data.value.dupe()),
-                data.valid_versions.dupe(),
                 self.invalidation_paths.at_version(v),
                 data.revision,
             )),

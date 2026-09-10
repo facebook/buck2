@@ -783,7 +783,6 @@ pub(crate) mod testing_helpers {
     use crate::value::DiceValidValue;
     use crate::value::MaybeValidDiceValue;
     use crate::value::TrackedInvalidationPaths;
-    use crate::versions::VersionRanges;
 
     pub(crate) fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
         make_completed_task_with_computed_value(
@@ -792,7 +791,6 @@ pub(crate) mod testing_helpers {
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
                     val,
                 ))),
-                crate::arc::Arc::new(VersionRanges::new()),
                 TrackedInvalidationPaths::clean(),
                 Revision::FIRST,
             ),
