@@ -8,6 +8,7 @@
 
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//third-party/protobuf:protobuf_rule_helper.bzl", "protoc_exe")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(
@@ -59,7 +60,7 @@ def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_ver
 
     build_env = build_env or {}
     build_env.update({
-        "PROTOC": "$(exe fbsource//third-party/protobuf:protoc)",
+        "PROTOC": protoc_exe(),
         "PROTOC_INCLUDE": "$(location fbsource//third-party/protobuf:google.protobuf)",
     })
     if proto_srcs:
