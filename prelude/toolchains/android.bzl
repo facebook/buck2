@@ -284,7 +284,7 @@ system_android_toolchain_rule = rule(
         "secondary_dex_weight_limit": attrs.int(),
         "set_application_id_to_specified_package": attrs.bool(),
         "should_run_sanity_check_for_placeholders": attrs.bool(),
-        "sort_pre_dexed_files": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
+        "sort_pre_dexed_files": attrs.dep(providers = [RunInfo]),
         "target_stats_tools": attrs.option(attrs.dep(providers = [TargetStatsToolsInfo]), default = None),
         "unpack_aar": attrs.dep(providers = [RunInfo]),
         "zipalign": attrs.dep(providers = [RunInfo]),
