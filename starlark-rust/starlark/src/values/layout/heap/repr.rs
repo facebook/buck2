@@ -137,68 +137,69 @@ impl AValueForward {
     }
 }
 
-/// First word of an object on the heap, which tells whether it is a real object or a forward.
+/// State stored at the beginning of an allocation in the Starlark heap: a live value's header
+/// or a forward.
 ///
 /// This must stay exactly one word wide, even though `AValueForward` is two words: statically
 /// allocated values with a zero-sized payload (such as `None`) are only one word long, and a
 /// wider type would make every reference to them extend past the end of the object.
 #[repr(C)]
-pub(crate) union AValueOrForward {
+pub(crate) union AValueHeapEntry {
     // We intentionally do not implement `Copy` for these types
     // to avoid accidentally copying them.
     header: ManuallyDrop<AValueHeader>,
     flags: usize,
 }
 
-const _: () = assert!(mem::size_of::<AValueOrForward>() == mem::size_of::<AValueHeader>());
+const _: () = assert!(mem::size_of::<AValueHeapEntry>() == mem::size_of::<AValueHeader>());
 
-impl AValueOrForward {
+impl AValueHeapEntry {
     /// Is this pointer a value or forward?
     #[inline]
     fn is_forward(&self) -> bool {
         unsafe { (self.flags & 1) != 0 }
     }
 
-    pub(crate) fn unpack(&self) -> AValueOrForwardUnpack<'_> {
+    pub(crate) fn state(&self) -> AValueHeapEntryState<'_> {
         if self.is_forward() {
             // Only objects in the arena are ever overwritten with a forward, and those are at
             // least `MIN_ALLOC` bytes, so the whole `AValueForward` is within the object.
-            AValueOrForwardUnpack::Forward(unsafe {
-                &*(self as *const AValueOrForward as *const AValueForward)
+            AValueHeapEntryState::Forward(unsafe {
+                &*(self as *const AValueHeapEntry as *const AValueForward)
             })
         } else {
-            AValueOrForwardUnpack::Header(unsafe { &self.header })
+            AValueHeapEntryState::Value(unsafe { &self.header })
         }
     }
 
     #[inline]
-    pub(crate) unsafe fn unpack_header_unchecked(&self) -> &AValueHeader {
+    pub(crate) unsafe fn value_header_unchecked(&self) -> &AValueHeader {
         unsafe {
             debug_assert!(!self.is_forward());
             &self.header
         }
     }
 
-    pub(crate) fn unpack_header(&self) -> Option<&AValueHeader> {
-        match self.unpack() {
-            AValueOrForwardUnpack::Header(header) => Some(header),
-            AValueOrForwardUnpack::Forward(_) => None,
+    pub(crate) fn value_header(&self) -> Option<&AValueHeader> {
+        match self.state() {
+            AValueHeapEntryState::Value(header) => Some(header),
+            AValueHeapEntryState::Forward(_) => None,
         }
     }
 
-    pub(crate) fn unpack_forward(&self) -> Option<&AValueForward> {
-        match self.unpack() {
-            AValueOrForwardUnpack::Header(_) => None,
-            AValueOrForwardUnpack::Forward(forward) => Some(forward),
+    pub(crate) fn forward(&self) -> Option<&AValueForward> {
+        match self.state() {
+            AValueHeapEntryState::Value(_) => None,
+            AValueHeapEntryState::Forward(forward) => Some(forward),
         }
     }
 
     /// Size of allocation for this object:
     /// following object is allocated at `self + alloc_size + align up`.
     pub(crate) fn alloc_size(&self) -> ValueAllocSize {
-        match self.unpack() {
-            AValueOrForwardUnpack::Header(ptr) => ptr.unpack().memory_size(),
-            AValueOrForwardUnpack::Forward(forward) => {
+        match self.state() {
+            AValueHeapEntryState::Value(ptr) => ptr.unpack().memory_size(),
+            AValueHeapEntryState::Forward(forward) => {
                 // Overwritten, so the next word will be the size of the memory
                 forward.object_size
             }
@@ -206,9 +207,9 @@ impl AValueOrForward {
     }
 }
 
-/// `AValueOrForward` as enum.
-pub(crate) enum AValueOrForwardUnpack<'a> {
-    Header(&'a AValueHeader),
+/// State of an [`AValueHeapEntry`].
+pub(crate) enum AValueHeapEntryState<'a> {
+    Value(&'a AValueHeader),
     Forward(&'a AValueForward),
 }
 
@@ -260,11 +261,11 @@ impl AValueHeader {
     pub(crate) fn unpack<'v>(&'v self) -> AValueDyn<'v> {
         unsafe {
             // TODO: this assertion does not belong here.
-            //   Instead, `Value` should be a `Pointer<AValueOrForward>`
+            //   Instead, `Value` should be a `Pointer<AValueHeapEntry>`
             //   instead of `Pointer<AValueHeader>`,
             //   and assertion should be where we unpack the pointer.
             debug_assert!(
-                !(*(self as *const AValueHeader as *const AValueOrForward)).is_forward(),
+                !(*(self as *const AValueHeader as *const AValueHeapEntry)).is_forward(),
                 "value is a forward pointer; value cannot be unpacked during GC or freeze"
             );
         }
@@ -288,13 +289,13 @@ impl AValueHeader {
         }
     }
 
-    fn as_avalue_or_header(&self) -> &AValueOrForward {
-        unsafe { &*(self as *const AValueHeader as *const AValueOrForward) }
+    fn as_heap_entry(&self) -> &AValueHeapEntry {
+        unsafe { &*(self as *const AValueHeader as *const AValueHeapEntry) }
     }
 
     /// Size of allocation for this object: following object is allocated at `self + alloc_size`.
     pub(crate) fn alloc_size(&self) -> ValueAllocSize {
-        self.as_avalue_or_header().alloc_size()
+        self.as_heap_entry().alloc_size()
     }
 }
 

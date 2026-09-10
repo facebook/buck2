@@ -50,7 +50,7 @@ impl<'v> ValueNotSpecial<'v> {
                 .0
                 .to_frozen_pointer_unchecked()
                 .unpack_ptr_no_int_no_str_unchecked()
-                .unpack_header_unchecked()
+                .value_header_unchecked()
                 .unpack()
         }
     }

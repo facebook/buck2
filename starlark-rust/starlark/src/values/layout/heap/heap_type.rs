@@ -104,7 +104,7 @@ use crate::values::layout::heap::owned_frozen::FnOncish;
 use crate::values::layout::heap::owned_frozen::FnOncish2;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
@@ -1069,10 +1069,10 @@ impl FrozenHeapArc {
             impl<'v> ArenaVisitor<'v> for ValueCollector<'v> {
                 fn enter_bump(&mut self) {}
 
-                fn regular_value(&mut self, value: &'v super::repr::AValueOrForward) {
+                fn regular_entry(&mut self, entry: &'v super::repr::AValueHeapEntry) {
                     self.0.push(unsafe {
-                        value
-                            .unpack_header()
+                        entry
+                            .value_header()
                             .expect("static heap should not contain forwards")
                             .unpack_value(HeapKind::Frozen)
                     });
@@ -1591,9 +1591,9 @@ impl<'v> Tracer<'v> {
         let old_val = value.0.unpack_ptr().unwrap();
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
-        match old_val.unpack() {
-            AValueOrForwardUnpack::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
-            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_copy(self) },
+        match old_val.state() {
+            AValueHeapEntryState::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
+            AValueHeapEntryState::Value(v) => unsafe { v.unpack().heap_copy(self) },
         }
     }
 }

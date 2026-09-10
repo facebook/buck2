@@ -81,7 +81,7 @@ use crate::values::iter::StarlarkIterator;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
@@ -167,7 +167,7 @@ fn debug_value(typ: &str, v: Value, f: &mut fmt::Formatter) -> fmt::Result {
     // `Value` pointee is not a proper value, but a GC-related information.
     // Regular operations like `.to_repr()` crash, but `Debug` should work.
     if let Some(x) = v.0.unpack_ptr() {
-        if let AValueOrForwardUnpack::Forward(fwd) = x.unpack() {
+        if let AValueHeapEntryState::Forward(fwd) = x.state() {
             return f.debug_tuple(typ).field(&fwd).finish();
         }
     }
@@ -445,7 +445,7 @@ impl<'v> Value<'v> {
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
         unsafe {
             match self.0.unpack() {
-                Either::Left(x) => x.unpack_header_unchecked().unpack(),
+                Either::Left(x) => x.value_header_unchecked().unpack(),
                 Either::Right(x) => x.as_avalue_dyn(),
             }
         }
@@ -460,7 +460,7 @@ impl<'v> Value<'v> {
     pub(crate) fn vtable(self) -> &'static AValueVTable {
         unsafe {
             match self.0.unpack() {
-                Either::Left(x) => x.unpack_header_unchecked().0,
+                Either::Left(x) => x.value_header_unchecked().0,
                 Either::Right(_) => PointerI32::vtable(),
             }
         }
@@ -476,7 +476,7 @@ impl<'v> Value<'v> {
             } else {
                 self.0
                     .unpack_ptr_no_int_unchecked()
-                    .unpack_header_unchecked()
+                    .value_header_unchecked()
                     .payload()
             }
         }

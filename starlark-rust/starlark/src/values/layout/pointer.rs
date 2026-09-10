@@ -39,7 +39,7 @@ use static_assertions::assert_eq_size;
 use crate::cast;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::repr::AValueOrForward;
+use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::types::int::inline_int::InlineInt;
 
 /// Tagged pointer logically equivalent to `*mut AValueHeader`.
@@ -170,7 +170,7 @@ impl RawPointer {
     /// allocation must remain valid for `'v`, and provenance covering the value must have been
     /// exposed before its address was stored in `self`.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_unchecked<'v>(self) -> &'v AValueOrForward {
+    pub(crate) unsafe fn unpack_ptr_no_int_unchecked<'v>(self) -> &'v AValueHeapEntry {
         unsafe { &*self.unpack_ptr_no_int_unchecked_raw() }
     }
 }
@@ -304,7 +304,7 @@ const INT_DATA_MASK: usize = ((1usize << InlineInt::BITS) - 1) << INT_SHIFT;
 const _: () = assert!(INT_SHIFT >= TAG_BITS);
 
 #[inline]
-unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueOrForward {
+unsafe fn untag_pointer<'a>(x: usize) -> &'a AValueHeapEntry {
     unsafe { cast::usize_to_ptr(x & !TAG_MASK) }
 }
 
@@ -341,7 +341,7 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub(crate) fn unpack(self) -> Either<&'p AValueOrForward, &'static PointerI32> {
+    pub(crate) fn unpack(self) -> Either<&'p AValueHeapEntry, &'static PointerI32> {
         if !self.ptr.is_int() {
             Either::Left(unsafe { self.ptr.unpack_ptr_no_int_unchecked() })
         } else {
@@ -355,7 +355,7 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
-    pub(crate) fn unpack_ptr(self) -> Option<&'p AValueOrForward> {
+    pub(crate) fn unpack_ptr(self) -> Option<&'p AValueHeapEntry> {
         if !self.ptr.is_int() {
             Some(unsafe { untag_pointer(self.ptr.0.get()) })
         } else {
@@ -365,7 +365,7 @@ impl<'p> Pointer<'p> {
 
     /// Unpack pointer when it is known to be not an integer.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueOrForward {
+    pub(crate) unsafe fn unpack_ptr_no_int_unchecked(self) -> &'p AValueHeapEntry {
         unsafe {
             let p = self.ptr.0.get();
             debug_assert!(!self.ptr.is_int());
@@ -441,7 +441,7 @@ impl<'p> FrozenPointer<'p> {
 
     /// Unpack pointer when it is known to be frozen, not an integer, not a string.
     #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueOrForward {
+    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeapEntry {
         unsafe {
             debug_assert!(self.ptr.tags() == PointerTags::OtherFrozen);
             cast::usize_to_ptr(self.ptr.0.get())

@@ -25,7 +25,7 @@ use crate::values::HeapSendable;
 use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::Reservation;
-use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
 
@@ -96,11 +96,11 @@ impl<'fv> Freezer<'fv> {
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
         let value = value.0.unpack_ptr().unwrap();
-        match value.unpack() {
-            AValueOrForwardUnpack::Forward(x) => {
+        match value.state() {
+            AValueHeapEntryState::Forward(x) => {
                 Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
             }
-            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_freeze(self) },
+            AValueHeapEntryState::Value(v) => unsafe { v.unpack().heap_freeze(self) },
         }
     }
 

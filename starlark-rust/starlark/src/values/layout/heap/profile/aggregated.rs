@@ -44,8 +44,8 @@ use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::string_index::StringId;
 use crate::values::layout::heap::profile::string_index::StringIndex;
 use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;
-use crate::values::layout::heap::repr::AValueOrForward;
-use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::repr::AValueHeapEntry;
+use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::pointer::RawPointer;
 
 /// A mapping from function Value to FunctionId, which must be continuous
@@ -149,12 +149,12 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
         self.last_time = None;
     }
 
-    fn regular_value(&mut self, value: &'v AValueOrForward) {
-        let value = match (value.unpack(), self.retained) {
-            (AValueOrForwardUnpack::Header(header), None) => unsafe {
+    fn regular_entry(&mut self, entry: &'v AValueHeapEntry) {
+        let value = match (entry.state(), self.retained) {
+            (AValueHeapEntryState::Value(header), None) => unsafe {
                 header.unpack_value(HeapKind::Unfrozen)
             },
-            (AValueOrForwardUnpack::Forward(forward), Some(retained)) => unsafe {
+            (AValueHeapEntryState::Forward(forward), Some(retained)) => unsafe {
                 forward.forward_ptr().unpack_value(retained)
             },
             _ => return,

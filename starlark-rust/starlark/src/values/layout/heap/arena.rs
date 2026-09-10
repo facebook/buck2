@@ -63,8 +63,8 @@ use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::repr::AValueOrForward;
-use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::repr::AValueHeapEntry;
+use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
@@ -192,7 +192,7 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
 
 pub(crate) trait ArenaVisitor<'v> {
     fn enter_bump(&mut self);
-    fn regular_value(&mut self, value: &'v AValueOrForward);
+    fn regular_entry(&mut self, entry: &'v AValueHeapEntry);
     fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant);
     fn call_exit(&mut self, time: ProfilerInstant);
 }
@@ -203,18 +203,18 @@ struct ChunkIter<'c> {
 }
 
 impl<'c> Iterator for ChunkIter<'c> {
-    type Item = &'c AValueOrForward;
+    type Item = &'c AValueHeapEntry;
 
-    fn next(&mut self) -> Option<&'c AValueOrForward> {
+    fn next(&mut self) -> Option<&'c AValueHeapEntry> {
         unsafe {
             if self.chunk.is_empty() {
                 None
             } else {
-                let or_forward = &*(self.chunk.as_ptr() as *const AValueOrForward);
-                let n = or_forward.alloc_size();
+                let entry = &*(self.chunk.as_ptr() as *const AValueHeapEntry);
+                let n = entry.alloc_size();
                 debug_assert!(n.bytes() as usize <= self.chunk.len());
                 self.chunk = self.chunk.split_at(n.bytes() as usize).1;
-                Some(or_forward)
+                Some(entry)
             }
         }
     }
@@ -278,8 +278,8 @@ impl<'v, T: AValue<'v>> ArenaUninit<'v, T> {
 enum ArenaVisitEvent<'a> {
     /// Called when entering new bump.
     EnterBump,
-    /// Visiting a value in the bump.
-    Value(&'a AValueOrForward),
+    /// Visiting a heap entry in the bump.
+    Entry(&'a AValueHeapEntry),
 }
 
 impl<A: ArenaAllocator> Arena<A> {
@@ -412,7 +412,7 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     /// Iterate over values in a single bump allocator in allocation order.
-    fn for_each_bump_ordered<'a>(bump: &'a A, mut f: impl FnMut(&'a AValueOrForward)) {
+    fn for_each_bump_ordered<'a>(bump: &'a A, mut f: impl FnMut(&'a AValueHeapEntry)) {
         // We get the chunks from newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
@@ -441,7 +441,7 @@ impl<A: ArenaAllocator> Arena<A> {
     fn for_each_ordered<'a>(&'a self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
         for bump in [&self.drop, &self.non_drop] {
             f(ArenaVisitEvent::EnterBump);
-            Self::for_each_bump_ordered(bump, |x| f(ArenaVisitEvent::Value(x)));
+            Self::for_each_bump_ordered(bump, |x| f(ArenaVisitEvent::Entry(x)));
         }
     }
 
@@ -492,7 +492,7 @@ impl<A: ArenaAllocator> Arena<A> {
     fn collect_bump_headers_ordered(bump: &A) -> Vec<&AValueHeader> {
         let mut headers = Vec::new();
         Self::for_each_bump_ordered(bump, |value| {
-            if let Some(header) = value.unpack_header() {
+            if let Some(header) = value.value_header() {
                 headers.push(header);
             }
         });
@@ -531,7 +531,7 @@ impl<A: ArenaAllocator> Arena<A> {
                 let base = chunk.as_ptr() as usize;
                 let size = chunk.len() as u32;
                 let mut payload_offsets: Vec<u32> = Arena::<A>::iter_chunk(chunk)
-                    .filter_map(|x| x.unpack_header())
+                    .filter_map(|x| x.value_header())
                     .map(|hp| (hp.payload_ptr().ptr as usize - base) as u32)
                     .collect();
                 // Sort for binary_search at lookup time. For `Up` allocators
@@ -572,7 +572,7 @@ impl<A: ArenaAllocator> Arena<A> {
                         .0
                         .unpack_ptr()
                         .expect("int cannot be stored in heap")
-                        .unpack_forward()
+                        .forward()
                     {
                         None => function,
                         Some(forward) => forward.forward_ptr().unpack_value(forward_heap_kind),
@@ -582,8 +582,8 @@ impl<A: ArenaAllocator> Arena<A> {
 
             self.for_each_ordered(|x| match x {
                 ArenaVisitEvent::EnterBump => visitor.enter_bump(),
-                ArenaVisitEvent::Value(x) => match x.unpack() {
-                    AValueOrForwardUnpack::Header(header) => {
+                ArenaVisitEvent::Entry(x) => match x.state() {
+                    AValueHeapEntryState::Value(header) => {
                         let value = header.unpack_value(heap_kind);
                         if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
                             visitor.call_enter(
@@ -601,10 +601,10 @@ impl<A: ArenaAllocator> Arena<A> {
                         } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
                             visitor.call_exit(call_exit.time);
                         } else {
-                            visitor.regular_value(x);
+                            visitor.regular_entry(x);
                         }
                     }
-                    AValueOrForwardUnpack::Forward(_forward) => visitor.regular_value(x),
+                    AValueHeapEntryState::Forward(_forward) => visitor.regular_entry(x),
                 },
             });
         }
@@ -615,7 +615,7 @@ impl<A: ArenaAllocator> Arena<A> {
         unsafe {
             for chunk in self.drop.iter_allocated_chunks_rev() {
                 for x in Arena::<A>::iter_chunk(chunk) {
-                    if let Some(x) = x.unpack_header() {
+                    if let Some(x) = x.value_header() {
                         f(x);
                     }
                 }
@@ -628,7 +628,7 @@ impl<A: ArenaAllocator> Arena<A> {
         unsafe {
             bump.iter_allocated_chunks_rev().for_each(|slice| {
                 for x in Arena::<A>::iter_chunk(slice) {
-                    if let Some(x) = x.unpack_header() {
+                    if let Some(x) = x.value_header() {
                         f(x);
                     }
                 }
@@ -776,8 +776,8 @@ mod tests {
         let mut j = 0;
         arena.for_each_ordered(|i| match i {
             ArenaVisitEvent::EnterBump => {}
-            ArenaVisitEvent::Value(i) => {
-                if let Some(i) = i.unpack_header() {
+            ArenaVisitEvent::Entry(i) => {
+                if let Some(i) = i.value_header() {
                     assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
                     j += 1;
                 }
@@ -800,8 +800,8 @@ mod tests {
         let mut res = Vec::new();
         arena.for_each_ordered(|x| match x {
             ArenaVisitEvent::EnterBump => {}
-            ArenaVisitEvent::Value(x) => {
-                if let Some(x) = x.unpack_header() {
+            ArenaVisitEvent::Entry(x) => {
+                if let Some(x) = x.value_header() {
                     res.push(x);
                 }
             }
