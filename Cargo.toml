@@ -131,6 +131,7 @@ members = [
   "app/buck2_wrapper_common",
   "buck2_sketches",
   "dice/dice",
+  "dice/dice_core",
   "dice/dice_error",
   "dice/dice_examples",
   "dice/dice_futures",
@@ -311,6 +312,7 @@ debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = { version = "2.1.1", features = ["full"] }
 dice = { path = "dice/dice", features = ["pagable"] }
+dice_core = { path = "dice/dice_core" }
 dice_error = { path = "dice/dice_error" }
 dice_futures = { path = "dice/dice_futures" }
 digest = { version = "0.10", features = ["rand_core"] }

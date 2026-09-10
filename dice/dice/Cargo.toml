@@ -19,6 +19,7 @@ cmp_any.workspace = true
 dashmap.workspace = true
 derivative.workspace = true
 derive_more.workspace = true
+dice_core.workspace = true
 dice_error.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
@@ -40,7 +41,6 @@ static_assertions.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-triomphe.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

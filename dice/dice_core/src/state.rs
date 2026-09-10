@@ -1,0 +1,331 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is dual-licensed under either the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree or the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree. You may select, at your option, one of the
+ * above-listed licenses.
+ */
+
+use allocative::Allocative;
+use smallvec::SmallVec;
+
+use crate::arc::Arc;
+use crate::branch::Branch;
+use crate::cert::Cert;
+use crate::collections::KeyMap;
+use crate::env::Env;
+use crate::history::History;
+use crate::ids::BranchId;
+use crate::ids::EpsilonToken;
+use crate::ids::Key;
+use crate::ids::Revision;
+use crate::ids::Seq;
+use crate::ids::Version;
+use crate::resolve::Resolved;
+use crate::slot::Claim;
+use crate::slot::Slot;
+
+pub(crate) type KeySlots<E> = SmallVec<[Slot<E>; 1]>;
+pub(crate) type KeyAssertions<E> =
+    SmallVec<[(BranchId, History<Revision, <E as Env>::AssertionData>); 1]>;
+
+/// The core state (`incrementality.md` §4): the branch tree, one slot per key and branch, and
+/// the assertion histories of injected keys.
+///
+/// Operations are performed in some total order; this type is not itself concurrent. Every
+/// operation preserves the master invariant of §4, so [`CoreState::lookup`] is sound (§3.3).
+#[derive(Allocative)]
+#[allocative(bound = "E: Env")]
+pub struct CoreState<E: Env> {
+    pub(crate) branches: Vec<Branch>,
+    /// A key's slots, one per branch it has a claim or an untracked-input history on. A key stays
+    /// in the map once certified, even with no slots left after [`Self::take`]: that memory is what
+    /// lets [`Self::commit`] refuse to assert a key that has been certified.
+    pub(crate) slots: KeyMap<KeySlots<E>>,
+    pub(crate) assertions: KeyMap<KeyAssertions<E>>,
+}
+
+/// One assertion as a lookup reports it: the version it was made at and its data.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Assertion<T> {
+    pub version: Version,
+    pub data: T,
+}
+
+/// Where a `Valid` lookup's revision comes from.
+pub enum ValidSource<'a, E: Env> {
+    /// A claim. `dirtied` is the assertion of the key's untracked input in force at the looked-up
+    /// version, `None` if the key was never dirtied before it.
+    Claim {
+        cert: &'a Arc<Cert<E::Premises>>,
+        data: &'a E::ClaimData,
+        dirtied: Option<Assertion<E::AssertionData>>,
+    },
+    /// The assertion of an injected key in force at the looked-up version.
+    Asserted {
+        assertion: Assertion<E::AssertionData>,
+    },
+}
+
+/// The answer to a lookup (§2.2, §5.1).
+pub enum Lookup<'a, E: Env> {
+    /// `revision` is justified for the key at the version.
+    Valid {
+        revision: Revision,
+        source: ValidSource<'a, E>,
+    },
+    /// Nothing is known. `candidate` is a certificate the caller may try to re-establish: the
+    /// nearest one on the resolution chain, else any claim's, provided it was stamped with the
+    /// version's ε, since one that was not can never cover the version. `epsilon` is the revision
+    /// of the key's untracked input at the version, for stamping the certificate the caller is
+    /// about to produce.
+    Unknown {
+        candidate: Option<&'a Arc<Cert<E::Premises>>>,
+        epsilon: EpsilonToken,
+    },
+}
+
+impl<'a, E: Env> Lookup<'a, E> {
+    pub fn valid_revision(&self) -> Option<Revision> {
+        match self {
+            Lookup::Valid { revision, .. } => Some(*revision),
+            Lookup::Unknown { .. } => None,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        matches!(self, Lookup::Valid { .. })
+    }
+
+    pub fn candidate(&self) -> Option<&'a Arc<Cert<E::Premises>>> {
+        match self {
+            Lookup::Unknown { candidate, .. } => *candidate,
+            Lookup::Valid { .. } => None,
+        }
+    }
+}
+
+impl<E: Env> CoreState<E> {
+    /// A state with one root branch at its initial version, [`Version::FIRST`].
+    pub fn new() -> Self {
+        CoreState {
+            branches: vec![Branch::root(Seq::FIRST)],
+            slots: KeyMap::default(),
+            assertions: KeyMap::default(),
+        }
+    }
+
+    pub fn root(&self) -> BranchId {
+        BranchId::ROOT
+    }
+
+    /// The branch's newest version.
+    pub fn head(&self, b: BranchId) -> Version {
+        Version::new(b, self.branch(b).head)
+    }
+
+    /// The branch's initial version.
+    pub fn first(&self, b: BranchId) -> Version {
+        Version::new(b, self.branch(b).first)
+    }
+
+    /// The version the branch was forked from; `None` for a root.
+    pub fn parent(&self, b: BranchId) -> Option<Version> {
+        self.branch(b).parent
+    }
+
+    /// All branches, parents before children.
+    pub fn branches(&self) -> impl Iterator<Item = BranchId> + '_ {
+        (0..self.branches.len()).map(BranchId::from_index)
+    }
+
+    /// `lookup(k, v)` (§5.1).
+    pub fn lookup(&self, key: Key, v: Version) -> Lookup<'_, E> {
+        match self.resolve(key, v) {
+            Resolved::Claim { claim, .. } => Lookup::Valid {
+                revision: claim.revision(),
+                source: ValidSource::Claim {
+                    cert: &claim.cert,
+                    data: &claim.data,
+                    dirtied: self.dirtied_at(key, v),
+                },
+            },
+            Resolved::Asserted { owner, entry } => Lookup::Valid {
+                revision: entry.revision,
+                source: ValidSource::Asserted {
+                    assertion: Assertion {
+                        version: Version::new(owner, entry.seq),
+                        data: entry.data,
+                    },
+                },
+            },
+            Resolved::Unknown { candidate } => {
+                let epsilon = self.epsilon(key, v);
+                Lookup::Unknown {
+                    candidate: candidate.filter(|cert| cert.epsilon == epsilon),
+                    epsilon,
+                }
+            }
+        }
+    }
+
+    /// The certificate a lookup of `key` at `v` would offer as its candidate if the untracked
+    /// input's revision were not held against it: for environments whose value layer wants that
+    /// certificate's value regardless, e.g. to compare a fresh compute against it.
+    pub fn nearest_certificate(&self, key: Key, v: Version) -> Option<&Arc<Cert<E::Premises>>> {
+        match self.resolve(key, v) {
+            Resolved::Unknown { candidate } => candidate,
+            Resolved::Claim { .. } | Resolved::Asserted { .. } => None,
+        }
+    }
+
+    /// The dirty of `key` in force at `v`, `None` if it was never dirtied before `v`.
+    pub fn dirtied_at(&self, key: Key, v: Version) -> Option<Assertion<E::AssertionData>> {
+        self.resolve_untracked(key, v)
+            .map(|(owner, entry)| Assertion {
+                version: Version::new(owner, entry.seq),
+                data: entry.data,
+            })
+    }
+
+    /// Whether `key` has ever been asserted, i.e. is an injected key.
+    pub fn is_asserted(&self, key: Key) -> bool {
+        self.assertions.contains_key(&key)
+    }
+
+    /// The certificates the state retains for `key`: the witnessing certificates of its claims,
+    /// one per claim, so a certificate shared by several branches is yielded several times.
+    pub fn pinned_certs(&self, key: Key) -> impl Iterator<Item = &Arc<Cert<E::Premises>>> + '_ {
+        self.slots
+            .get(&key)
+            .into_iter()
+            .flat_map(|slots| slots.iter())
+            .filter_map(|slot| slot.claim.as_ref())
+            .map(|claim| &claim.cert)
+    }
+
+    /// Whether some claim of `key`, on any branch, names `revision`. An environment retaining
+    /// values by revision can release any that is not.
+    pub fn is_referenced(&self, key: Key, revision: Revision) -> bool {
+        self.pinned_certs(key).any(|cert| cert.revision == revision)
+    }
+
+    /// Forgets every claim and every reverse-dependency edge, keeping the histories of untracked
+    /// inputs and of injected keys, so that only asserted keys resolve afterwards (§2.3). Every
+    /// branch gets a fresh head version, identical in content to the old one: the environment
+    /// rejects writes by version, and the new head separates the transactions that observed the
+    /// forgotten state from those that start after it. Returns the root's new head.
+    pub fn take(&mut self) -> Version {
+        for branch in &mut self.branches {
+            branch.rdeps.clear();
+            branch.closed_index.clear();
+            branch.head = branch.head.next();
+        }
+        for slots in self.slots.values_mut() {
+            for slot in slots.iter_mut() {
+                slot.claim = None;
+            }
+            slots.retain(|slot| !slot.is_vacant());
+        }
+        self.head(BranchId::ROOT)
+    }
+
+    pub(crate) fn branch(&self, b: BranchId) -> &Branch {
+        &self.branches[b.index()]
+    }
+
+    pub(crate) fn branch_mut(&mut self, b: BranchId) -> &mut Branch {
+        &mut self.branches[b.index()]
+    }
+
+    pub(crate) fn slot(&self, key: Key, b: BranchId) -> Option<&Slot<E>> {
+        self.slots.get(&key)?.iter().find(|slot| slot.branch == b)
+    }
+
+    pub(crate) fn slot_mut(&mut self, key: Key, b: BranchId) -> Option<&mut Slot<E>> {
+        self.slots
+            .get_mut(&key)?
+            .iter_mut()
+            .find(|slot| slot.branch == b)
+    }
+
+    pub(crate) fn slot_or_insert(&mut self, key: Key, b: BranchId) -> &mut Slot<E> {
+        let slots = self.slots.entry(key).or_default();
+        let index = match slots.iter().position(|slot| slot.branch == b) {
+            Some(index) => index,
+            None => {
+                slots.push(Slot::new(b));
+                slots.len() - 1
+            }
+        };
+        &mut slots[index]
+    }
+
+    pub(crate) fn assertion_history_mut(
+        &mut self,
+        key: Key,
+        b: BranchId,
+    ) -> &mut History<Revision, E::AssertionData> {
+        let histories = self.assertions.entry(key).or_default();
+        let index = match histories.iter().position(|(hb, _)| *hb == b) {
+            Some(index) => index,
+            None => {
+                histories.push((b, History::new()));
+                histories.len() - 1
+            }
+        };
+        &mut histories[index].1
+    }
+
+    /// The one place a key's claim at a branch is written, so that the branch's `closed_index`
+    /// stays exact.
+    pub(crate) fn set_claim(&mut self, key: Key, b: BranchId, claim: Option<Claim<E>>) {
+        let was_closed = self
+            .slot(key, b)
+            .and_then(|slot| slot.claim.as_ref())
+            .is_some_and(|c| c.window.is_nonempty_closed());
+        let now_closed = claim
+            .as_ref()
+            .is_some_and(|c| c.window.is_nonempty_closed());
+        match claim {
+            Some(claim) => self.slot_or_insert(key, b).claim = Some(claim),
+            None => {
+                if let Some(slot) = self.slot_mut(key, b) {
+                    slot.claim = None;
+                }
+            }
+        }
+        let closed_index = &mut self.branch_mut(b).closed_index;
+        if now_closed {
+            closed_index.insert(key);
+        } else if was_closed {
+            closed_index.remove(&key);
+        }
+    }
+
+    /// Closes `key`'s open claim at `b` at seq `at` (§4.6, "detaching").
+    pub(crate) fn detach(&mut self, key: Key, b: BranchId, at: Seq) {
+        let claim = self
+            .slot_mut(key, b)
+            .and_then(|slot| slot.claim.as_mut())
+            .expect("detach of a key without a claim");
+        claim.window.close_at(at);
+        self.branch_mut(b).closed_index.insert(key);
+    }
+
+    /// Registers the edges of `cert` in `b`'s reverse-dependency map (§4.6, "attaching").
+    pub(crate) fn register_edges(&mut self, b: BranchId, cert: &Cert<E::Premises>) {
+        let branch = self.branch_mut(b);
+        for premise in cert.premises() {
+            branch.add_edge(premise.key, cert.key);
+        }
+    }
+}
+
+impl<E: Env> Default for CoreState<E> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
