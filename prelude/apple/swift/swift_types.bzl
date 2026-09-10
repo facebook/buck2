@@ -41,6 +41,9 @@ SwiftDependencyInfo = provider(
         "is_macro": provider_field(bool),
         # If this target provides a clang module, used to validate non-modular dep exports
         "is_modular": provider_field(bool),
+        # Tset of this target's own `-dump-ast` output directory (see the `[ast]`
+        # subtarget) merged with the same tset from all deps.
+        "swift_ast_dump_tset": provider_field(ArtifactTSet),
     }
 )
 

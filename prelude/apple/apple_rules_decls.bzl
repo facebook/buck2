@@ -707,6 +707,7 @@ apple_library = prelude_rule(
             "supports_shlib_interfaces": attrs.bool(default = True),
             "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
+            "swift_dump_ast_subtarget_enabled": attrs.bool(default = read_bool("apple", "swift_dump_ast_subtarget_enabled", default = False, root_cell = True)),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
             "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_version": attrs.enum(SwiftVersion, default = SwiftVersion[0]),

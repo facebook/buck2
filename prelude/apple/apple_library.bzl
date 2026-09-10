@@ -506,6 +506,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
     modulemap_info_providers = [DefaultInfo(default_output = modulemap_info_json_file, other_outputs = [modulemap_info_json_cmd_args])]
 
     subtargets = {
+        "ast": [DefaultInfo(default_output = swift_compile_result.ast)],
         "modulemap-info": modulemap_info_providers,
         "objc-swift-interface": [objc_swift_interface],
         "swift-compilation-database": [DefaultInfo(default_output = None)],
