@@ -721,8 +721,6 @@ impl Display for Def<'_> {
     }
 }
 
-pub(crate) type FrozenDef = Def<'static>;
-
 impl<'v> AllocValue<'v> for Def<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_branded(self)

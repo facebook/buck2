@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-use std::any::TypeId;
 use std::marker::PhantomData;
 use std::mem;
 
 use super::simple::AValueSimple;
-use crate::eval::compiler::def::FrozenDef;
+use crate::any::AnyLifetime;
+use crate::eval::compiler::def::Def;
 use crate::private::Private;
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
@@ -73,9 +73,8 @@ where
                 AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
             let res = x.freeze(freezer)?;
             let fv = r.fill(res);
-            if TypeId::of::<T::Frozen<'static>>() == TypeId::of::<FrozenDef>() {
-                let frozen_def =
-                    ValueTyped::new(fv).expect("`fv` was just filled with a `FrozenDef`");
+            if T::Frozen::<'fv>::static_type_id() == Def::static_type_id() {
+                let frozen_def = ValueTyped::new(fv).expect("`fv` was just filled with a `Def`");
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
             Ok(fv)
