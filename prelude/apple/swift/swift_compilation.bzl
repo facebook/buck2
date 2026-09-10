@@ -665,6 +665,16 @@ def _compile_dump_ast(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, share
     additional_flags = cmd_args(["-dump-ast"])
     additional_flags.add(cmd_args(hidden = ast_output))
 
+    # `-dump-ast` disables `-wmo`. Without an explicit `-j`, those jobs run
+    # serially over each file in larger modules, becoming potential bottlenecks.
+    additional_flags.add([
+        "-enable-batch-mode",
+        "-driver-batch-size-limit",
+        str(INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE),
+        "-j",
+        str(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS),
+    ])
+
     _compile_with_argsfile(
         ctx = ctx,
         category = "dump_ast",
@@ -672,6 +682,7 @@ def _compile_dump_ast(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, share
         srcs = srcs,
         additional_flags = additional_flags,
         toolchain = toolchain,
+        num_threads = INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS,
         output_file_map = output_file_map,
         supports_serialized_errors = False,
     )
