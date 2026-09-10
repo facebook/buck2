@@ -962,6 +962,7 @@ mod tests {
     use crate::core::graph::storage::VersionedGraph;
     use crate::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::core::graph::types::VersionedGraphKey;
+    use crate::deps::graph::DepEdge;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::dice::PagableNodeCounts;
     use crate::key::DiceKey;
@@ -2438,6 +2439,161 @@ mod tests {
             Some(initial_rev),
             "prior value paged out ⇒ must mint (over-distinguishing is sound)",
         );
+    }
+
+    /// A write that is a trace of the same circumstances as the stored certificate (same
+    /// deps at the same revisions, same ε) reuses the stored value and revision without
+    /// consulting `Key::equality`.
+    #[test]
+    fn identical_certificate_reuses_stored_value_without_equality() {
+        #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+        #[pagable_typetag(DiceKeyDyn)]
+        struct NoEquality;
+
+        #[async_trait]
+        impl Key for NoEquality {
+            type Value = usize;
+
+            async fn compute(
+                &self,
+                _ctx: &mut DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
+                unimplemented!("test")
+            }
+
+            fn equality_behavior() -> crate::EqualityBehavior<Self::Value> {
+                crate::EqualityBehavior::Compare(|_, _| panic!("equality must not be consulted"))
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                NoValueSerialize::<Self::Value>::new()
+            }
+        }
+
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_key = DiceKey { index: 1 };
+        let key1 = VersionedGraphKey::new(VersionNumber::new(1), k);
+        inject(&mut cache, 1, dep_key, 100);
+        let dep_revision = cache
+            .get(VersionedGraphKey::new(VersionNumber::new(1), dep_key))
+            .assert_match()
+            .revision()
+            .unwrap();
+        let deps = || {
+            Arc::new(SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                dep_key,
+                Some(dep_revision),
+            )]))
+        };
+
+        let first_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(1));
+        let (first, _) = cache.update(
+            key1,
+            computed(&cache, key1, first_value.dupe()),
+            deps(),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+
+        let second_value = DiceValidValue::testing_new(DiceKeyValue::<NoEquality>::new(2));
+        let (second, changed) = cache.update(
+            key1,
+            computed(&cache, key1, second_value),
+            deps(),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert!(!changed);
+        assert_eq!(second.revision(), first.revision());
+        assert!(second.testing_resident_value().instance_equal(&first_value));
+    }
+
+    /// The same, over a stored value that has been paged out: the incoming value becomes
+    /// the resident one, under the stored revision.
+    #[test]
+    fn identical_certificate_over_paged_out_value_makes_it_resident() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_key = DiceKey { index: 1 };
+        let key1 = VersionedGraphKey::new(VersionNumber::new(1), k);
+        inject(&mut cache, 1, dep_key, 100);
+        let dep_revision = cache
+            .get(VersionedGraphKey::new(VersionNumber::new(1), dep_key))
+            .assert_match()
+            .revision()
+            .unwrap();
+        let deps = || {
+            Arc::new(SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                dep_key,
+                Some(dep_revision),
+            )]))
+        };
+
+        let (first, _) = cache.update(
+            key1,
+            computed(
+                &cache,
+                key1,
+                DiceValidValue::testing_new(DiceKeyValue::<K>::new(7)),
+            ),
+            deps(),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        if let Some(mut node) = cache.node_mut(k) {
+            let VersionedGraphNode::Occupied(occ) = &mut *node else {
+                panic!("expected Occupied node");
+            };
+            occ.set_paged_out(pagable::DataKey::compute(0x1234, &[], &[]));
+        }
+        assert!(
+            cache
+                .get(key1)
+                .assert_match()
+                .paged_out_data_key()
+                .is_some()
+        );
+
+        let recomputed = DiceValidValue::testing_new(DiceKeyValue::<K>::new(7));
+        let (second, changed) = cache.update(
+            key1,
+            computed(&cache, key1, recomputed.dupe()),
+            deps(),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert!(!changed);
+        assert_eq!(second.revision(), first.revision());
+        assert!(second.testing_resident_value().instance_equal(&recomputed));
+        assert!(
+            cache
+                .get(key1)
+                .assert_match()
+                .testing_resident_value()
+                .instance_equal(&recomputed)
+        );
+    }
+
+    /// An injected value the key held before gets its old revision back.
+    #[test]
+    fn injected_value_returning_to_an_earlier_value_refinds_its_revision() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let revision_at = |cache: &VersionedGraph, v| {
+            cache
+                .get(VersionedGraphKey::new(VersionNumber::new(v), k))
+                .assert_match()
+                .revision()
+                .unwrap()
+        };
+
+        inject(&mut cache, 1, k, 42);
+        inject(&mut cache, 2, k, 43);
+        inject(&mut cache, 3, k, 42);
+        assert_ne!(revision_at(&cache, 1), revision_at(&cache, 2));
+        assert_eq!(revision_at(&cache, 1), revision_at(&cache, 3));
     }
 
     /// The `on_injected` equality short-circuit keeps the same

@@ -188,6 +188,17 @@ impl SeriesParallelDeps {
         }
     }
 
+    /// [`Self::equal_ignoring_revisions`] and every edge records the same revision on both
+    /// sides: the two are traces of the same computational circumstances. An edge without a
+    /// revision never matches, a transient having no identity to compare.
+    pub(crate) fn equal_with_revisions(&self, other: &Self) -> bool {
+        self.equal_ignoring_revisions(other)
+            && self
+                .iter_edges()
+                .zip(other.iter_edges())
+                .all(|(a, b)| a.revision.is_some() && a.revision == b.revision)
+    }
+
     pub(crate) fn iter(&self) -> impl Iterator<Item = SeriesParallelDepsIteratorItem<'_>> {
         match self {
             SeriesParallelDeps::None => {

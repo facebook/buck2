@@ -282,6 +282,23 @@ impl VersionedGraphNode {
             _,
             _,
         ) = match self {
+            VersionedGraphNode::Occupied(entry) if entry.is_stored_certificate(&update, &deps) => {
+                // The write is a trace of the same computational circumstances as the stored
+                // certificate, so its value is the stored one, without consulting
+                // `Key::equality` (`docs/incrementality.md` Appendix A, step 1). Handing the
+                // stored instance back is what makes racing computes of a key on agreeing
+                // states converge on one allocation even for keys with no usable equality.
+                //
+                // Unless the stored value is paged out: then the incoming, resident value
+                // takes its place, or the next reader would page in a value we had in hand,
+                // and a page-in that keeps failing would recompute forever.
+                if let MaybeResident::Resident(value) = update.into_value() {
+                    entry.rehydrate(value);
+                }
+                entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths, epsilon);
+                let ret = entry.computed_val(key.v);
+                return (ret, false);
+            }
             VersionedGraphNode::Occupied(entry) if update.is_reusable(&deps, entry) => {
                 // Page-out can replace the graph value after a worker captured it for
                 // dependency validation. Active demand wins that race: restore the exact
@@ -751,6 +768,18 @@ impl OccupiedGraphNode {
         self.res_revision
     }
 
+    /// Whether `update` with `deps` is a re-issue of the stored certificate: same deps at the
+    /// same revisions, computed under the same revision of the untracked input.
+    fn is_stored_certificate(
+        &self,
+        update: &super::storage::ValueUpdate,
+        deps: &SeriesParallelDeps,
+    ) -> bool {
+        matches!(update, super::storage::ValueUpdate::Computed { .. })
+            && self.computed_under == update.epsilon()
+            && self.metadata.deps.equal_with_revisions(deps)
+    }
+
     /// The revision for `new_value`: the stored value's revision if the two are
     /// `Key::equality`-equal, otherwise a fresh one. A paged-out stored value can't be
     /// compared and so always mints; over-distinguishing is sound, it only costs reuse.
@@ -998,10 +1027,8 @@ pub(crate) struct InjectedNodeData {
     first_valid_version: VersionNumber,
     // Used to cache the version ranges for `at_version`. This is a single VersionRange.
     valid_versions: Arc<VersionRanges>,
-    /// The revision this value was interned under. Preserved across the
-    /// equality short-circuit in [`InjectedGraphNode::on_injected`] (an equal
-    /// injection keeps this entry, so its revision stays put); a distinct value
-    /// mints a fresh revision.
+    /// The revision this value was interned under: shared with any retained value it is
+    /// `Key::equality`-equal to, fresh otherwise.
     revision: Revision,
 }
 
@@ -1024,7 +1051,15 @@ impl InjectedGraphNode {
             None => {}
         };
 
-        let revision = self.revision_mint.mint();
+        // Injected values are all retained, so a value the key held before can be given its
+        // old revision back; dependents that recorded that revision then revalidate instead
+        // of recomputing when an input returns to an earlier value.
+        let revision = self
+            .values
+            .values()
+            .find(|data| data.value.equality(&value))
+            .map(|data| data.revision)
+            .unwrap_or_else(|| self.revision_mint.mint());
         self.values
             .insert(version, Self::new_node_data(value, version, revision));
         self.invalidation_paths
