@@ -293,10 +293,8 @@ post_init_per_suite(Suite, _Config, {skip, {failed, _} = Reason} = Error, HookSt
     end);
 post_init_per_suite(Suite, _Config, {skip, Reason} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
-        % In this case the init_per_suite returns with a {skip, Reason}
-        % It then passed fine.
         Desc = fmt_init_or_end(Suite, init_per_suite, Reason, ~"SKIPPED"),
-        {Error, add_result(?INIT_PER_SUITE, passed, Desc, State)}
+        {Error, add_result(?INIT_PER_SUITE, skipped, Desc, State)}
     end);
 post_init_per_suite(Suite, _Config, {fail, Reason} = Error, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Error, fun(State) ->
