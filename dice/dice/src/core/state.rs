@@ -24,13 +24,12 @@ use tokio::sync::oneshot::Sender;
 
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
-use crate::arc::Arc;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::core::internals::CoreState;
+use crate::core::internals::ActorState;
 use crate::core::internals::PagableStatusRaw;
 use crate::core::processor::StateProcessor;
 use crate::core::versions::VersionEpoch;
@@ -208,7 +207,7 @@ impl CoreStateHandle {
         epoch: VersionEpoch,
         storage: StorageType,
         value: DiceValidValue,
-        deps: Arc<SeriesParallelDeps>,
+        deps: SeriesParallelDeps,
         epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
@@ -401,7 +400,7 @@ pub(super) enum StateRequest {
         /// The newly computed value
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
-        deps: Arc<SeriesParallelDeps>,
+        deps: SeriesParallelDeps,
         /// The revision of the key's untracked input the value was computed under
         epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
@@ -464,6 +463,6 @@ pub(super) enum StateRequest {
     /// lifetime that starts when the response is sent, and ends when the provided sender is
     /// dropped. Failing to drop all references to the `Arc` by then will cause a panic.
     MakeAvailableForAllocative {
-        resp: Sender<(std::sync::Arc<CoreState>, Sender<std::convert::Infallible>)>,
+        resp: Sender<(std::sync::Arc<ActorState>, Sender<std::convert::Infallible>)>,
     },
 }

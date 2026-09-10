@@ -8,31 +8,32 @@
  * above-listed licenses.
  */
 
+use crate::core::graph::revision::Revision;
 use crate::deps::encoding::SPDecoder;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SPItem;
 use crate::deps::graph::SPSeriesHeader;
 
-pub(crate) enum SeriesParallelDepsIteratorItem<'a> {
-    Key(DepEdge),
-    Parallel(ParallelNodeIterator<'a>),
+pub(crate) enum SeriesParallelDepsIteratorItem<'a, R = Revision> {
+    Key(DepEdge<R>),
+    Parallel(ParallelNodeIterator<'a, R>),
 }
 
-struct IteratorData<'a> {
-    deps: std::slice::Iter<'a, DepEdge>,
+struct IteratorData<'a, R> {
+    deps: std::slice::Iter<'a, DepEdge<R>>,
     specs: SPDecoder<'a>,
 }
 
-pub(crate) struct SeriesNodeIterator<'a> {
-    data: IteratorData<'a>,
+pub(crate) struct SeriesNodeIterator<'a, R = Revision> {
+    data: IteratorData<'a, R>,
     keys_to_next_spec: u32,
 }
 
-impl SeriesNodeIterator<'_> {
+impl<R> SeriesNodeIterator<'_, R> {
     pub(crate) fn new<'a>(
-        deps: std::slice::Iter<'a, DepEdge>,
+        deps: std::slice::Iter<'a, DepEdge<R>>,
         specs: std::slice::Iter<'a, u32>,
-    ) -> SeriesNodeIterator<'a> {
+    ) -> SeriesNodeIterator<'a, R> {
         SeriesNodeIterator {
             data: IteratorData {
                 deps,
@@ -43,8 +44,8 @@ impl SeriesNodeIterator<'_> {
     }
 }
 
-impl<'a> IteratorData<'a> {
-    fn split_at(&mut self, keys: u32, specs: u32) -> IteratorData<'a> {
+impl<'a, R: Copy> IteratorData<'a, R> {
+    fn split_at(&mut self, keys: u32, specs: u32) -> IteratorData<'a, R> {
         let remaining_keys = self.deps.as_slice();
         let (split_keys, remaining_keys) = remaining_keys.split_at(keys as usize);
         self.deps = remaining_keys.iter();
@@ -56,13 +57,13 @@ impl<'a> IteratorData<'a> {
         }
     }
 
-    fn next_edge(&mut self) -> Option<DepEdge> {
+    fn next_edge(&mut self) -> Option<DepEdge<R>> {
         self.deps.next().copied()
     }
 }
 
-impl<'a> Iterator for SeriesNodeIterator<'a> {
-    type Item = SeriesParallelDepsIteratorItem<'a>;
+impl<'a, R: Copy> Iterator for SeriesNodeIterator<'a, R> {
+    type Item = SeriesParallelDepsIteratorItem<'a, R>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.keys_to_next_spec == 0 {
@@ -94,12 +95,12 @@ impl<'a> Iterator for SeriesNodeIterator<'a> {
     }
 }
 
-pub(crate) struct ParallelNodeIterator<'a> {
-    data: IteratorData<'a>,
+pub(crate) struct ParallelNodeIterator<'a, R = Revision> {
+    data: IteratorData<'a, R>,
 }
 
-impl<'a> Iterator for ParallelNodeIterator<'a> {
-    type Item = SeriesNodeIterator<'a>;
+impl<'a, R: Copy> Iterator for ParallelNodeIterator<'a, R> {
+    type Item = SeriesNodeIterator<'a, R>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (next_series_keys, next_series_specs) =

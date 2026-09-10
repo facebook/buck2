@@ -427,7 +427,7 @@ fn handle_project_eval_result(
                 version_epoch,
                 storage,
                 valid_value,
-                deps.into_arc(),
+                deps.certify(),
                 // A projection is computed here without a lookup, so there is no ε from
                 // one to stamp; but projection keys are not `Key`s, so they can't be
                 // force-dirtied, and their untracked input never leaves its initial
@@ -462,7 +462,7 @@ fn handle_project_eval_result(
 
 pub(crate) struct KeyEvaluationResult {
     pub(crate) value: MaybeValidDiceValue,
-    pub(crate) deps: SeriesParallelDeps,
+    pub(crate) deps: SeriesParallelDeps<Option<Revision>>,
     pub(crate) storage: StorageType,
     pub(crate) invalidation_paths: TrackedInvalidationPaths,
 }

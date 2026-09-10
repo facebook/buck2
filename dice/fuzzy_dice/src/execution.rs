@@ -107,6 +107,19 @@ struct AnswerKeyBuilder {
     /// are hard to bound tightly and today's engine already exhibits enough
     /// slop here that the fuzzer explicitly gates them out.
     transients_seen: bool,
+    /// The newest ctx so far: the head of dice's one branch.
+    head_ctx: usize,
+    /// Evaluations below the head whose write may have attached at the head instead; see
+    /// `permit_recompute`.
+    displaced: Vec<DisplacedEval>,
+}
+
+/// A query at a ctx below the head that evaluated `var` under premises equal to the head's but
+/// different at some ctx in between. Dice keeps one claim per key, and the write's window is the
+/// one containing the head, so whatever claim served the versions in between is gone.
+struct DisplacedEval {
+    var: Var,
+    head: usize,
 }
 
 impl MathAnswerKey {
@@ -119,6 +132,8 @@ impl MathAnswerKey {
             dirty_events: Vec::new(),
             force_dirty_events: Vec::new(),
             transients_seen: false,
+            head_ctx: 0,
+            displaced: Vec::new(),
         };
         let mut values_by_query_index = HashMap::new();
         let mut permitted_recomputes_by_query_index = HashMap::new();
@@ -140,6 +155,7 @@ impl MathAnswerKey {
                     state
                         .equations_at_ctx
                         .insert(*new_ctx_id, state.equations.clone());
+                    state.head_ctx = state.head_ctx.max(*new_ctx_id);
                 }
                 Operation::ForceDirty { new_ctx_id, var } => {
                     // Equations unchanged: dice's `changed(EvalVar)` doesn't
@@ -151,6 +167,7 @@ impl MathAnswerKey {
                     state
                         .equations_at_ctx
                         .insert(*new_ctx_id, state.equations.clone());
+                    state.head_ctx = state.head_ctx.max(*new_ctx_id);
                 }
                 Operation::ReinjectEquivalent { new_ctx_id, var } => {
                     // Re-inject an Expr whose `Arc<Expr>` compares unequal to
@@ -194,6 +211,7 @@ impl MathAnswerKey {
                     state
                         .equations_at_ctx
                         .insert(*new_ctx_id, state.equations.clone());
+                    state.head_ctx = state.head_ctx.max(*new_ctx_id);
                 }
                 Operation::EnqueueStep(_, steps) => {
                     if steps
@@ -242,6 +260,15 @@ impl MathAnswerKey {
                     // ever-subgraph entry and (for in-order queries) advance
                     // last-eval.
                     let subgraph = Self::subgraph(*var, ctx_equations);
+                    for w in &subgraph {
+                        if *ctx_id < state.head_ctx && Self::reattaches_at_head(*w, *ctx_id, &state)
+                        {
+                            state.displaced.push(DisplacedEval {
+                                var: *w,
+                                head: state.head_ctx,
+                            });
+                        }
+                    }
                     for w in &subgraph {
                         state
                             .ever_subgraph
@@ -360,6 +387,62 @@ impl MathAnswerKey {
         }
     }
 
+    /// Whether dice's write for `w`, evaluated by a query at `q` while the head was
+    /// `state.head_ctx`, attaches at the head rather than covering `q`: the premises of `w`'s
+    /// compute (its equation, the values it reads, its untracked input) are the same at the head
+    /// as at `q` and differ at some ctx in between, so the certificate covers two separate
+    /// intervals and dice installs the one containing the head.
+    fn reattaches_at_head(w: Var, q: usize, state: &AnswerKeyBuilder) -> bool {
+        let head = state.head_ctx;
+        if state
+            .force_dirty_events
+            .iter()
+            .any(|(c, v)| *v == w && q < *c && *c <= head)
+        {
+            return false;
+        }
+        let premises = |c: usize| -> Option<(Expr, Vec<Option<bool>>)> {
+            let eqs = state.equations_at_ctx.get(&c)?;
+            let expr = eqs.get(&w)?;
+            let reads = Self::reads(expr, eqs)
+                .into_iter()
+                .map(|d| Self::eval(d, eqs))
+                .collect();
+            Some((expr.clone(), reads))
+        };
+        let at_q = premises(q);
+        if at_q.is_none() || at_q != premises(head) {
+            return false;
+        }
+        (q + 1..head).any(|c| premises(c) != at_q)
+    }
+
+    /// The vars a compute of `expr` reads: for a `Cond`, the test and the branch it selects.
+    fn reads(expr: &Expr, eqs: &HashMap<Var, Expr>) -> Vec<Var> {
+        let var_of = |u: &Unit| match u {
+            Unit::Variable(v) => Some(*v),
+            Unit::Literal(_) => None,
+        };
+        match expr {
+            Expr::Unit(u) => var_of(u).into_iter().collect(),
+            Expr::Xor(units) => units.iter().filter_map(var_of).collect(),
+            Expr::Cond {
+                test,
+                then,
+                otherwise,
+            } => {
+                let mut out: Vec<Var> = var_of(test).into_iter().collect();
+                let branch = match Self::resolve_unit(test, eqs) {
+                    Some(true) => then,
+                    Some(false) => otherwise,
+                    None => return out,
+                };
+                out.extend(var_of(branch));
+                out
+            }
+        }
+    }
+
     /// Whether it is legitimate for dice to fire `Evaluated` on `w` for a
     /// query issued at ctx `ctx`.
     ///
@@ -379,6 +462,11 @@ impl MathAnswerKey {
     ///   ctx' > ctx: the key's one certificate may since have been re-stamped under
     ///   the newer revision of its untracked input, in which case it cannot be
     ///   revalidated at `ctx` (see `force_dirty_events`).
+    /// - `w`, or some var in its ever-subgraph, was evaluated by an earlier query below
+    ///   the head under premises that matched the head's again (see `DisplacedEval`):
+    ///   that write attached the key at the head and displaced the claim that served
+    ///   the versions in between, `ctx` among them, along with the value it named, so
+    ///   dice recomputes there (and dependents miss their recorded revision).
     fn permit_recompute(w: Var, ctx: usize, state: &AnswerKeyBuilder) -> bool {
         if state.transients_seen {
             return true;
@@ -409,6 +497,13 @@ impl MathAnswerKey {
                 if ever.is_some_and(|s| s.contains(dirtied)) {
                     return true;
                 }
+            }
+        }
+        for displaced in &state.displaced {
+            if ctx < displaced.head
+                && (displaced.var == w || ever.is_some_and(|s| s.contains(&displaced.var)))
+            {
+                return true;
             }
         }
         false

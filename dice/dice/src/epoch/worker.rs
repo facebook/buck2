@@ -177,15 +177,12 @@ impl DiceTaskWorker {
 
         let mut old_value_hydration_failed = false;
 
-        // A candidate computed under a different revision of the key's untracked input
-        // cannot be revalidated: its deps could all match and the value still be stale.
-        // It stays around as an equality-cutoff candidate for the recompute, though.
-        let revalidatable = candidate.as_ref().filter(|c| c.epsilon == epsilon);
+        let revalidatable = candidate.as_ref().filter(|c| c.revalidatable);
 
         // deps_check_continuables needs to capture these and so they need to outlive it.
         let cycles;
         let (task_state, deps_check_continuables) = match revalidatable {
-            Some(mismatch) => {
+            Some(to_revalidate) => {
                 let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
                 cycles = cycles2;
 
@@ -198,7 +195,7 @@ impl DiceTaskWorker {
                     match check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
-                        &mismatch.deps_to_validate,
+                        &to_revalidate.cert.deps,
                         &cycles,
                     )
                     .await
@@ -226,8 +223,8 @@ impl DiceTaskWorker {
 
                         // Reusing the previous value means handing it back to the caller,
                         // so it has to be paged in first.
-                        let mismatch = match mismatch.entry.data_key() {
-                            None => Some(mismatch.dupe()),
+                        let to_revalidate = match to_revalidate.entry.data_key() {
+                            None => Some(to_revalidate.dupe()),
                             Some(data_key) => {
                                 match self
                                     .hydrate_and_rehydrate(
@@ -239,7 +236,7 @@ impl DiceTaskWorker {
                                 {
                                     Ok(entry) => Some(Candidate {
                                         entry: MaybeResident::Resident(entry),
-                                        ..mismatch.dupe()
+                                        ..to_revalidate.dupe()
                                     }),
                                     Err(e) => {
                                         self.eval.hydration_failed(self.k, &e);
@@ -250,11 +247,11 @@ impl DiceTaskWorker {
                             }
                         };
 
-                        match mismatch {
-                            Some(mismatch) => {
+                        match to_revalidate {
+                            Some(to_revalidate) => {
                                 let task_state = task_state.deps_match(handle)?;
                                 let activation_info = self.activation_info(
-                                    mismatch.deps_to_validate.iter_keys(),
+                                    to_revalidate.cert.deps.iter_keys(),
                                     ActivationData::Reused,
                                 );
                                 let response = state_handle
@@ -262,7 +259,7 @@ impl DiceTaskWorker {
                                         VersionedGraphKey::new(v, self.k),
                                         self.version_epoch,
                                         self.eval.storage_type(self.k),
-                                        mismatch,
+                                        to_revalidate,
                                         invalidation_paths,
                                     )
                                     .await;
@@ -311,11 +308,9 @@ impl DiceTaskWorker {
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
                     if !old_value_hydration_failed
-                        && let Some(mismatch) = candidate.as_ref()
-                        && let Some(data_key) = mismatch.entry.data_key()
-                        && result
-                            .deps
-                            .equal_ignoring_revisions(&mismatch.deps_to_validate)
+                        && let Some(stale) = candidate.as_ref()
+                        && let Some(data_key) = stale.entry.data_key()
+                        && result.deps.equal_ignoring_revisions(&stale.cert.deps)
                         && !self
                             .eval
                             .dice
@@ -340,7 +335,7 @@ impl DiceTaskWorker {
                             self.version_epoch,
                             result.storage,
                             value,
-                            result.deps.into_arc(),
+                            result.deps.certify(),
                             epsilon,
                             result.invalidation_paths,
                         )
@@ -537,13 +532,11 @@ async fn check_dependency(
         .as_ref()
         .unpack()?;
 
-    // Reuse iff every recorded dep revision matches the dep's current
-    // revision: matching revisions mean the same dependencies produced
-    // the same values.
-    match (edge.revision, dep_result.revision()) {
-        (Some(recorded), Some(current)) if recorded == current => Ok(
-            CheckDependencyResult::NoChange(dep_result.invalidation_paths().dupe()),
-        ),
+    // The dep has the recorded revision iff it has the value the compute observed.
+    match dep_result.revision() {
+        Some(current) if current == edge.revision => Ok(CheckDependencyResult::NoChange(
+            dep_result.invalidation_paths().dupe(),
+        )),
         _ => Ok(CheckDependencyResult::Changed),
     }
 }

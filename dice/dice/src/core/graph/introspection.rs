@@ -8,23 +8,16 @@
  * above-listed licenses.
  */
 
-use std::collections::BTreeMap;
-
-use dupe::Dupe;
-use gazebo::prelude::SliceExt;
+use itertools::Itertools;
 
 use crate::HashMap;
 use crate::HashSet;
 use crate::arc::Arc;
-use crate::core::graph::nodes::ForceDirtyHistory;
-use crate::core::graph::nodes::VersionedGraphNode;
-use crate::core::graph::storage::VersionedGraph;
-use crate::introspection::graph::AnyKey;
+use crate::core::graph::VersionedGraph;
 use crate::introspection::graph::CellHistory;
 use crate::introspection::graph::GraphNodeKind;
 use crate::introspection::graph::KeyID;
 use crate::introspection::graph::SerializedGraphNode;
-use crate::introspection::graph::SerializedGraphNodeForKey;
 use crate::introspection::graph::VersionNumber;
 use crate::key::DiceKey;
 
@@ -33,29 +26,78 @@ pub struct VersionedGraphIntrospectable {
     pub edges: HashMap<DiceKey, Arc<Vec<DiceKey>>>,
 }
 
+fn key_id(key: DiceKey) -> KeyID {
+    KeyID(key.index as usize)
+}
+
 impl VersionedGraph {
+    /// The root branch's view of the graph, in the dump format: a key's claim as its one valid
+    /// range, its dirties, its certificate's deps and its rdeps. Keys without a claim or an
+    /// assertion are omitted.
     pub(crate) fn introspect(&self) -> VersionedGraphIntrospectable {
-        let mut edges = HashMap::default();
+        let root = self.core().root();
         let mut nodes = HashMap::default();
-
-        fn visit_node(key: DiceKey, node: &VersionedGraphNode) -> Option<SerializedGraphNode> {
-            node.to_introspectable()
-        }
-
-        for (k, versioned_node) in self.nodes() {
-            if let Some(serialized) = visit_node(*k, versioned_node) {
-                nodes.insert(*k, serialized);
-            }
-
-            edges.insert(
-                *k,
-                versioned_node.unpack_occupied().map_or_else(
-                    || Arc::new(Vec::new()),
-                    |node| Arc::new(node.deps().iter_keys().collect()),
-                ),
+        let mut edges = HashMap::default();
+        for key in self.core().keys() {
+            let introspection = self.core().introspect_key(key);
+            let slot = introspection.slots.iter().find(|slot| slot.branch == root);
+            let assertions = introspection
+                .assertions
+                .iter()
+                .find_map(|(b, history)| (*b == root).then_some(history));
+            let rdeps: Vec<KeyID> = self
+                .core()
+                .rdeps(root, key)
+                .iter()
+                .copied()
+                .unique()
+                .map(key_id)
+                .collect();
+            let (valid_ranges, deps): (Vec<_>, Vec<DiceKey>) =
+                match (slot.and_then(|s| s.claim.as_ref()), assertions) {
+                    (Some(claim), _) => (
+                        vec![(
+                            VersionNumber(claim.window.from().get() as usize),
+                            claim
+                                .window
+                                .until()
+                                .map(|s| VersionNumber(s.get() as usize)),
+                        )],
+                        claim.cert.premises().map(|p| p.key).collect(),
+                    ),
+                    (None, Some(history)) => match history.last() {
+                        Some(last) => (
+                            vec![(VersionNumber(last.seq.get() as usize), None)],
+                            Vec::new(),
+                        ),
+                        None => continue,
+                    },
+                    (None, None) => continue,
+                };
+            let force_dirtied_at = slot
+                .map(|s| {
+                    s.untracked
+                        .entries()
+                        .iter()
+                        .map(|e| VersionNumber(e.seq.get() as usize))
+                        .collect()
+                })
+                .unwrap_or_default();
+            nodes.insert(
+                key,
+                SerializedGraphNode {
+                    node_id: key_id(key),
+                    kind: GraphNodeKind::Occupied,
+                    history: CellHistory {
+                        valid_ranges,
+                        force_dirtied_at,
+                    },
+                    deps: deps.iter().map(|d| key_id(*d)).collect::<HashSet<_>>(),
+                    rdeps,
+                },
             );
+            edges.insert(key, Arc::new(deps));
         }
-
         VersionedGraphIntrospectable { nodes, edges }
     }
 }

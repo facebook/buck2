@@ -16,12 +16,15 @@ use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::EqualityBehavior;
+use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use futures::future::FutureExt;
 use pagable::Pagable;
 use pagable::PagableTypeTag;
+use pagable::pagable_typetag;
 
 #[tokio::test]
 async fn test_linear_recompute_tracks_deps() {
@@ -35,6 +38,21 @@ async fn test_linear_recompute_tracks_deps() {
     impl PagableTypeTag for K {
         fn pagable_type_tag_static() -> &'static str {
             "K"
+        }
+    }
+
+    #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+    #[display("Leaf({})", _0)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Leaf(u32);
+
+    impl InjectedKey for Leaf {
+        type Value = u32;
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
         }
     }
 
@@ -64,7 +82,7 @@ async fn test_linear_recompute_tracks_deps() {
                     })
                     .await
                 }
-                K::Mid(v) => *v,
+                K::Mid(v) => *ctx.compute(&Leaf(*v)).await.unwrap(),
             }
         }
 
@@ -78,13 +96,19 @@ async fn test_linear_recompute_tracks_deps() {
         builder.build(DetectCycles::Enabled)
     };
 
-    let ctx = dice.updater().commit().await;
+    let ctx = {
+        let mut updater = dice.updater();
+        updater
+            .changed_to((0..100).map(|i| (Leaf(i), i)).collect::<Vec<_>>())
+            .unwrap();
+        updater.commit().await
+    };
 
     assert_eq!(*ctx.compute(&K::Top).await.unwrap(), 4950);
 
     let ctx = {
         let mut updater = dice.updater();
-        updater.changed_to(vec![(K::Mid(50), 0)]).unwrap();
+        updater.changed_to(vec![(Leaf(50), 0)]).unwrap();
         updater.commit().await
     };
 

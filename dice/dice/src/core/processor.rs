@@ -10,8 +10,8 @@
 
 use std::sync::Arc;
 
-use crate::core::graph::storage::ValueUpdate;
-use crate::core::internals::CoreState;
+use crate::core::graph::ValueUpdate;
+use crate::core::internals::ActorState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
@@ -19,7 +19,7 @@ use crate::epoch::evaluator::VersionEpochState;
 use crate::metrics::PagingMemoryMetrics;
 
 pub(super) struct StateProcessor {
-    state: CoreState,
+    state: ActorState,
     rx: tokio::sync::mpsc::UnboundedReceiver<StateRequest>,
     /// Shared with the matching `CoreStateHandle`; this thread bumps the
     /// `retired` counter after each successful receive.
@@ -29,7 +29,7 @@ pub(super) struct StateProcessor {
 impl StateProcessor {
     pub(super) fn spawn(paging_memory: Option<Arc<PagingMemoryMetrics>>) -> CoreStateHandle {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let state = CoreState::new(paging_memory);
+        let state = ActorState::new(paging_memory);
         let counters = Arc::new(QueueCounters::new());
 
         let processor_counters = counters.clone();
@@ -101,8 +101,11 @@ impl StateProcessor {
                     key,
                     epoch,
                     storage,
-                    ValueUpdate::Computed { value, epsilon },
-                    deps,
+                    ValueUpdate::Computed {
+                        value,
+                        deps,
+                        epsilon,
+                    },
                     invalidation_paths,
                 )));
             }
@@ -119,12 +122,7 @@ impl StateProcessor {
                     key,
                     epoch,
                     storage,
-                    ValueUpdate::DependencyValidated {
-                        previous_value: candidate.entry,
-                        revision: candidate.revision,
-                        epsilon: candidate.epsilon,
-                    },
-                    candidate.deps_to_validate,
+                    ValueUpdate::DependencyValidated { candidate },
                     invalidation_paths,
                 )));
             }
@@ -168,7 +166,7 @@ impl StateProcessor {
 
                 let (complete_tx, complete_rx) = tokio::sync::oneshot::channel();
                 // Placeholder, swapped back below, so it needs no metrics.
-                let state = std::mem::replace(&mut self.state, CoreState::new(None));
+                let state = std::mem::replace(&mut self.state, ActorState::new(None));
                 let arc_state = Arc::new(state);
                 drop(resp.send((Arc::clone(&arc_state), complete_tx)));
                 drop(complete_rx.blocking_recv());

@@ -17,24 +17,25 @@ use itertools::Either;
 use itertools::Itertools;
 use mini_vec::MiniVec;
 
-use crate::arc::Arc;
 use crate::core::graph::revision::Revision;
 use crate::deps::encoding::SPEncoder;
 use crate::deps::iterator::SeriesNodeIterator;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::key::DiceKey;
 
-/// One recorded dep edge: the dep's key plus the revision of the value the compute
-/// observed for it. `None` means the dep was transient at the time of the compute;
-/// a transient value has no interned identity, so an edge to one never revalidates.
+/// One dep edge: the dep's key plus the revision of the value the compute observed for it.
+///
+/// In a certificate `R` is [`Revision`]. While a compute records its deps it is
+/// `Option<Revision>`: a transient dep has no interned identity to record, and makes the
+/// compute's own value transient, so its deps never become a certificate.
 #[derive(Copy, Clone, Dupe, Debug, Allocative)]
-pub(crate) struct DepEdge {
+pub(crate) struct DepEdge<R = Revision> {
     pub(crate) key: DiceKey,
-    pub(crate) revision: Option<Revision>,
+    pub(crate) revision: R,
 }
 
-impl DepEdge {
-    pub(crate) fn new(key: DiceKey, revision: Option<Revision>) -> Self {
+impl<R> DepEdge<R> {
+    pub(crate) fn new(key: DiceKey, revision: R) -> Self {
         Self { key, revision }
     }
 }
@@ -46,7 +47,8 @@ impl DepEdge {
 /// when we recompute we can check keys in parallel but avoid requesting a key that
 /// would not be requested by calling the compute directly in that state. Each dep is
 /// recorded as a [`DepEdge`], i.e. together with the revision the compute observed, so
-/// that a dep check can decide "same value as before?" by revision equality.
+/// that a dep check can decide "same value as before?" by revision equality. `R` is the
+/// edges' revision type, see [`DepEdge`].
 ///
 /// For non-trivial graphs, we will encode the graph as a flat list of edges and an
 /// encoding of the description of the graph.
@@ -74,16 +76,16 @@ impl DepEdge {
 ///
 /// For both SPItem::Parallel and SPSeriesHeader::Complex, the specs value is the size of the encoded specs.
 #[derive(Allocative, Debug)]
-pub(crate) enum SeriesParallelDeps {
+pub(crate) enum SeriesParallelDeps<R = Revision> {
     None,
     /// It's very common for a parallel compute to record only a single dep and so we have an optimized case for that.
-    One(DepEdge),
+    One(DepEdge<R>),
     /// Once a set of deps becomes non-trivial, it's represented by a SPDepsMany.
-    Many(Box<SPDepsMany>),
+    Many(Box<SPDepsMany<R>>),
 }
 
-impl SeriesParallelDeps {
-    pub(crate) fn insert(&mut self, edge: DepEdge) {
+impl<R: Copy> SeriesParallelDeps<R> {
+    pub(crate) fn insert(&mut self, edge: DepEdge<R>) {
         match self {
             SeriesParallelDeps::None => *self = SeriesParallelDeps::One(edge),
             SeriesParallelDeps::One(..) => self.upgrade_to_many().push(edge),
@@ -91,7 +93,7 @@ impl SeriesParallelDeps {
         }
     }
 
-    fn upgrade_to_many(&mut self) -> &mut SPDepsMany {
+    fn upgrade_to_many(&mut self) -> &mut SPDepsMany<R> {
         match self {
             SeriesParallelDeps::None => {
                 *self = SeriesParallelDeps::Many(Box::new(SPDepsMany::new()));
@@ -131,22 +133,14 @@ impl SeriesParallelDeps {
         }
     }
 
-    fn unwrap_many_mut(&mut self) -> &mut SPDepsMany {
+    fn unwrap_many_mut(&mut self) -> &mut SPDepsMany<R> {
         match self {
             SeriesParallelDeps::Many(v) => &mut *v,
             _ => panic!(),
         }
     }
 
-    /// A serial dep list whose edges record no revision. An edge without a revision
-    /// never revalidates, so tests using this must not rely on revalidation succeeding
-    /// across these deps.
-    #[cfg(test)]
-    pub(crate) fn testing_serial_from(vec: Vec<DiceKey>) -> SeriesParallelDeps {
-        Self::serial_from_edges(vec.into_iter().map(|k| DepEdge::new(k, None)).collect())
-    }
-
-    pub(crate) fn serial_from_edges(mut edges: Vec<DepEdge>) -> SeriesParallelDeps {
+    pub(crate) fn serial_from_edges(mut edges: Vec<DepEdge<R>>) -> Self {
         match edges.len() {
             0 => SeriesParallelDeps::None,
             1 => SeriesParallelDeps::One(edges.pop().unwrap()),
@@ -159,7 +153,7 @@ impl SeriesParallelDeps {
     }
 
     /// Flat iteration over the dep edges, discarding the series-parallel structure.
-    pub(crate) fn iter_edges(&self) -> impl Iterator<Item = DepEdge> + '_ {
+    pub(crate) fn iter_edges(&self) -> impl Iterator<Item = DepEdge<R>> + '_ {
         match self {
             SeriesParallelDeps::None => Either::Left(None.into_iter()),
             SeriesParallelDeps::One(edge) => Either::Left(Some(*edge).into_iter()),
@@ -177,7 +171,10 @@ impl SeriesParallelDeps {
 
     /// Same series-parallel shape and same keys in the same order, ignoring the per-edge
     /// revisions: whether a recompute read the same deps, whatever their values were.
-    pub(crate) fn equal_ignoring_revisions(&self, other: &Self) -> bool {
+    pub(crate) fn equal_ignoring_revisions<R2: Copy>(
+        &self,
+        other: &SeriesParallelDeps<R2>,
+    ) -> bool {
         match (self, other) {
             (SeriesParallelDeps::None, SeriesParallelDeps::None) => true,
             (SeriesParallelDeps::One(a), SeriesParallelDeps::One(b)) => a.key == b.key,
@@ -188,21 +185,10 @@ impl SeriesParallelDeps {
         }
     }
 
-    /// [`Self::equal_ignoring_revisions`] and every edge records the same revision on both
-    /// sides: the two are traces of the same computational circumstances. An edge without a
-    /// revision never matches, a transient having no identity to compare.
-    pub(crate) fn equal_with_revisions(&self, other: &Self) -> bool {
-        self.equal_ignoring_revisions(other)
-            && self
-                .iter_edges()
-                .zip(other.iter_edges())
-                .all(|(a, b)| a.revision.is_some() && a.revision == b.revision)
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = SeriesParallelDepsIteratorItem<'_>> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = SeriesParallelDepsIteratorItem<'_, R>> {
         match self {
             SeriesParallelDeps::None => {
-                Either::Left(Option::<SeriesParallelDepsIteratorItem>::None.into_iter())
+                Either::Left(Option::<SeriesParallelDepsIteratorItem<R>>::None.into_iter())
             }
             SeriesParallelDeps::One(edge) => {
                 Either::Left(Some(SeriesParallelDepsIteratorItem::Key(*edge)).into_iter())
@@ -221,25 +207,82 @@ impl SeriesParallelDeps {
             .insert_parallel(parallel, new_keys, new_specs);
     }
 
-    pub(crate) fn into_arc(mut self) -> Arc<Self> {
-        if let SeriesParallelDeps::Many(many) = &mut self {
+    pub(crate) fn shrink_to_fit(&mut self) {
+        if let SeriesParallelDeps::Many(many) = self {
             many.deps.shrink_to_fit();
             many.spec.shrink_to_fit();
         }
-        Arc::new(self)
+    }
+}
+
+impl SeriesParallelDeps<Option<Revision>> {
+    /// The deps a valid value was computed from, as the premises of its certificate. A valid
+    /// value has no transient dep (`DiceValidity::and`), so every edge has a revision.
+    pub(crate) fn certify(self) -> SeriesParallelDeps {
+        fn certify_edge(edge: DepEdge<Option<Revision>>) -> DepEdge {
+            DepEdge::new(
+                edge.key,
+                edge.revision
+                    .expect("a valid value never depends on a transient one"),
+            )
+        }
+        match self {
+            SeriesParallelDeps::None => SeriesParallelDeps::None,
+            SeriesParallelDeps::One(edge) => SeriesParallelDeps::One(certify_edge(edge)),
+            SeriesParallelDeps::Many(many) => {
+                let SPDepsMany {
+                    deps,
+                    spec,
+                    trailing_deps_start,
+                } = *many;
+                SeriesParallelDeps::Many(Box::new(SPDepsMany {
+                    deps: deps
+                        .iter()
+                        .copied()
+                        .map(certify_edge)
+                        .collect::<Vec<_>>()
+                        .into(),
+                    spec,
+                    trailing_deps_start,
+                }))
+            }
+        }
+    }
+}
+
+/// Two dep lists are equal when they are traces of the same computational circumstances:
+/// [`SeriesParallelDeps::equal_ignoring_revisions`] and every edge records the same revision on
+/// both sides. Two empty lists are equal: a value with no tracked deps is a function of its
+/// untracked input alone, which the certificate's ε accounts for.
+impl PartialEq for SeriesParallelDeps {
+    fn eq(&self, other: &Self) -> bool {
+        self.equal_ignoring_revisions(other)
+            && self
+                .iter_edges()
+                .zip(other.iter_edges())
+                .all(|(a, b)| a.revision == b.revision)
+    }
+}
+
+impl dice_core::Premises for SeriesParallelDeps {
+    fn premises(&self) -> impl Iterator<Item = dice_core::Premise> + '_ {
+        self.iter_edges().map(|edge| dice_core::Premise {
+            key: edge.key,
+            revision: edge.revision,
+        })
     }
 }
 
 #[derive(Allocative)]
-pub(crate) struct SPDepsMany {
-    deps: MiniVec<DepEdge>,
+pub(crate) struct SPDepsMany<R> {
+    deps: MiniVec<DepEdge<R>>,
     /// Encoded series-parallel graph structure — tells how to read the deps
     /// list as a series-parallel graph.
     spec: MiniVec<u32>,
     trailing_deps_start: u32,
 }
 
-impl Debug for SPDepsMany {
+impl<R> Debug for SPDepsMany<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SeriesParallelDeps")
             .field(
@@ -252,9 +295,9 @@ impl Debug for SPDepsMany {
     }
 }
 
-impl SPDepsMany {
+impl<R: Copy> SPDepsMany<R> {
     /// See [`SeriesParallelDeps::equal_ignoring_revisions`].
-    fn equal_ignoring_revisions(&self, other: &Self) -> bool {
+    fn equal_ignoring_revisions<R2: Copy>(&self, other: &SPDepsMany<R2>) -> bool {
         if self.spec != other.spec || self.trailing_deps_start != other.trailing_deps_start {
             return false;
         }
@@ -267,7 +310,7 @@ impl SPDepsMany {
             .all(|(a, b)| a.key == b.key)
     }
 
-    fn new() -> SPDepsMany {
+    fn new() -> Self {
         Self {
             deps: MiniVec::new(),
             spec: MiniVec::new(),
@@ -275,15 +318,15 @@ impl SPDepsMany {
         }
     }
 
-    fn push(&mut self, edge: DepEdge) {
+    fn push(&mut self, edge: DepEdge<R>) {
         self.deps.push(edge);
     }
 
-    pub(crate) fn iter(&self) -> SeriesNodeIterator<'_> {
+    pub(crate) fn iter(&self) -> SeriesNodeIterator<'_, R> {
         SeriesNodeIterator::new(self.deps.iter(), self.spec.iter())
     }
 
-    fn serial_from_edges(edges: Vec<DepEdge>) -> SPDepsMany {
+    fn serial_from_edges(edges: Vec<DepEdge<R>>) -> Self {
         Self {
             deps: edges.into(),
             spec: MiniVec::new(),
@@ -293,7 +336,7 @@ impl SPDepsMany {
 
     fn insert_parallel(
         &mut self,
-        parallel: impl Iterator<Item = SeriesParallelDeps>,
+        parallel: impl Iterator<Item = SeriesParallelDeps<R>>,
         new_keys: u32,
         new_specs: u32,
     ) {

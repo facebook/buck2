@@ -200,7 +200,8 @@ impl Changes {
 pub(crate) enum ChangeType {
     /// Just invalidate the key
     Invalidate,
-    /// Update the key to the given value
+    /// Update the key to the given value. A `StorageType::Injected` key takes no part in paging;
+    /// a computed key asserted this way pages like one that was computed.
     UpdateValue(DiceValidValue, StorageType),
 }
 
@@ -307,10 +308,10 @@ mod tests {
         updater.changed(vec![K(1), K(2)])?;
 
         let ctx = updater.existing_state().await;
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::testing_new(1));
 
         let ctx = updater.commit().await;
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
+        assert_eq!(ctx.0.get_version(), VersionNumber::testing_new(2));
 
         Ok(())
     }

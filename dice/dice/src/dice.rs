@@ -227,7 +227,7 @@ impl Dice {
         tasks.iter().all(|task| !task.is_pending())
     }
 
-    /// Page out every paged-in `OccupiedGraphNode` value to the configured `DiceStorage`.
+    /// Page out every resident computed value to the configured `DiceStorage`.
     ///
     /// **Caller must ensure DICE is idle** before calling this — typically by awaiting
     /// `wait_for_idle()` first.
@@ -271,7 +271,7 @@ impl Dice {
             .await
     }
 
-    /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from the
+    /// Page in (rehydrate) all paged-out values from the
     /// configured `DiceStorage`, used for debugging.
     ///
     /// **Caller must ensure DICE is idle** before calling this.

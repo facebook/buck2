@@ -235,7 +235,11 @@ impl InvalidationPath {
 
     fn at_version(&self, v: VersionNumber) -> InvalidationPath {
         match self {
-            InvalidationPath::Invalidated(t) if t.version > v => InvalidationPath::Unknown,
+            InvalidationPath::Invalidated(t)
+                if t.version.branch() != v.branch() || t.version > v =>
+            {
+                InvalidationPath::Unknown
+            }
             _ => self.dupe(),
         }
     }
@@ -383,6 +387,7 @@ impl DiceComputedValue {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn new_resident(
         value: MaybeValidDiceValue,
         invalidation_paths: TrackedInvalidationPaths,
@@ -572,13 +577,13 @@ pub mod testing {
         pub fn into(self) -> TrackedInvalidationPaths {
             let normal = InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
                 key: self.normal.0,
-                version: VersionNumber::new(self.normal.1),
+                version: VersionNumber::testing_new(self.normal.1 as u32),
                 cause: InvalidationPath::Clean,
             }));
             let high = self.high.map_or(InvalidationPath::Clean, |(k, v)| {
                 InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
                     key: k,
-                    version: VersionNumber::new(v),
+                    version: VersionNumber::testing_new(v as u32),
                     cause: InvalidationPath::Clean,
                 }))
             });

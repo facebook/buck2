@@ -8,89 +8,32 @@
  * above-listed licenses.
  */
 
-//! Per-key value identity (`docs/incrementality.md` §2.1, "Revisions").
-//!
-//! A [`Revision`] names a distinct value seen for a particular key. It is minted by
-//! interning at write time: a value equal to the currently stored one reuses that
-//! value's revision, anything else (including a value whose predecessor is paged out
-//! and can't be compared) gets a fresh one. Revisions are meaningless across keys and
-//! are never reused within a key, so a revision may safely outlive its value.
-//! Over-distinguishing, i.e. minting a fresh revision for a value that happened to
-//! equal an already-evicted one, is sound; it only costs reuse.
-
-use std::num::NonZeroU32;
-use std::num::NonZeroU64;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
+//! The identities of `dice_core`, as dice names them, and the mint of the revisions dice hands
+//! the core.
 
 use allocative::Allocative;
-use dupe::Dupe;
+pub(crate) use dice_core::EpsilonToken;
+pub(crate) use dice_core::Revision;
 
-/// The identity of a distinct value for one key.
-#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq, Hash, Allocative)]
-pub(crate) struct Revision(NonZeroU32);
-
-impl Revision {
-    /// The first revision handed out by a fresh [`RevisionMint`].
-    pub(crate) const FIRST: Revision = Revision(NonZeroU32::MIN);
-
-    #[cfg(test)]
-    pub(crate) fn as_u32(self) -> u32 {
-        self.0.get()
-    }
-
-    /// Construct a specific [`Revision`] value for tests that need to reason
-    /// about the exact sequence of revisions a node has produced. Panics on 0.
-    #[cfg(test)]
-    pub(crate) fn testing_new(v: u32) -> Self {
-        Revision(NonZeroU32::new(v).expect("revisions start at 1"))
-    }
-}
-
-/// The revision of a key's untracked input (`docs/incrementality.md` §2.1, "Untracked
-/// inputs"), called ε there: everything outside the graph that the key's compute reads.
-/// A force-dirty of the key asserts that this input has changed, to a freshly minted
-/// revision. A certificate records the ε its value was computed under and revalidates
-/// under no other.
-///
-/// Tokens come from one process-wide counter that is never reset, so two force-dirties of
-/// one key can never coincide, whatever happens to the key's node in between. Like
-/// [`Revision`]s, they are never compared across keys, which is what lets every key share
-/// [`EpsilonToken::INITIAL`].
-#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq, Hash, Allocative)]
-pub(crate) struct EpsilonToken(NonZeroU64);
-
-impl EpsilonToken {
-    /// The revision of every key's untracked input before the key is first force-dirtied.
-    pub(crate) const INITIAL: EpsilonToken = EpsilonToken(NonZeroU64::MIN);
-
-    /// The revision for a force-dirty.
-    pub(crate) fn mint() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(EpsilonToken::INITIAL.0.get() + 1);
-        EpsilonToken(NonZeroU64::new(NEXT.fetch_add(1, Ordering::Relaxed)).expect("ε overflow"))
-    }
-}
-
-/// Per-node mint of fresh, never-reused [`Revision`]s.
-///
-/// Kept separate from the node's current-value revision because interning may mint
-/// without storing (a write at a version older than the stored value finds no reuse
-/// but doesn't overwrite the entry): the fresh revision leaves with the returned
-/// `DiceComputedValue`, and the counter still has to skip it so subsequent mints on
-/// this node can't collide.
-#[derive(Copy, Clone, Debug, Allocative)]
-pub(crate) struct RevisionMint(NonZeroU32);
+/// A mint of fresh revisions for one key, starting at [`Revision::FIRST`]. Aborts rather than
+/// wrapping on overflow.
+#[derive(Debug, Allocative)]
+pub(crate) struct RevisionMint(Revision);
 
 impl RevisionMint {
-    /// A mint whose first [`mint`](Self::mint) call returns [`Revision::FIRST`].
     pub(crate) fn new() -> Self {
-        Self(Revision::FIRST.0)
+        Self(Revision::FIRST)
     }
 
-    /// Hand out the next fresh revision, advancing the counter.
     pub(crate) fn mint(&mut self) -> Revision {
-        let r = Revision(self.0);
-        self.0 = self.0.checked_add(1).expect("revision counter overflow");
+        let r = self.0;
+        self.0 = r.next();
         r
+    }
+}
+
+impl Default for RevisionMint {
+    fn default() -> Self {
+        Self::new()
     }
 }

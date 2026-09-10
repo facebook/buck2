@@ -10,6 +10,7 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
+use crate::core::graph::revision::Revision;
 use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::epoch::branches::ParallelArena;
@@ -35,7 +36,7 @@ pub(crate) struct RecordingDepsTracker<'d> {
 }
 
 pub(crate) struct RecordedDeps {
-    pub(crate) deps: SeriesParallelDeps,
+    pub(crate) deps: SeriesParallelDeps<Option<Revision>>,
     pub(crate) deps_validity: DiceValidity,
     pub(crate) invalidation_paths: TrackedInvalidationPaths,
 }
@@ -43,7 +44,7 @@ pub(crate) struct RecordedDeps {
 impl RecordedDeps {
     fn record(
         &mut self,
-        edge: DepEdge,
+        edge: DepEdge<Option<Revision>>,
         validity: DiceValidity,
         invalidation_paths: &TrackedInvalidationPaths,
     ) {
@@ -117,7 +118,7 @@ impl<'d> RecordingDepsTracker<'d> {
 
     pub(crate) fn record(
         &mut self,
-        edge: DepEdge,
+        edge: DepEdge<Option<Revision>>,
         validity: DiceValidity,
         invalidation_paths: &TrackedInvalidationPaths,
     ) {
@@ -194,7 +195,7 @@ impl LinearDepsTracker {
 
     pub(crate) fn record(
         &mut self,
-        edge: DepEdge,
+        edge: DepEdge<Option<Revision>>,
         validity: DiceValidity,
         invalidation_paths: &TrackedInvalidationPaths,
     ) {
@@ -246,6 +247,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::HashSet;
+    use crate::core::graph::revision::Revision;
     use crate::deps::RecordedDeps;
     use crate::deps::RecordingDepsTracker;
     use crate::deps::graph::DepEdge;
@@ -256,8 +258,12 @@ mod tests {
     use crate::value::TrackedInvalidationPaths;
     use crate::value::testing::MakeInvalidationPaths;
 
-    struct DisplaySPDeps<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
-    impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> DisplaySPDeps<'a, T> {
+    struct DisplaySPDeps<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a, Option<Revision>>>>(
+        T,
+    );
+    impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a, Option<Revision>>>>
+        DisplaySPDeps<'a, T>
+    {
         fn debug_string(self) -> String {
             SeriesNodeDisplay(self.0)
                 .as_lines()
@@ -267,8 +273,13 @@ mod tests {
         }
     }
 
-    struct SeriesNodeDisplay<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
-    impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> SeriesNodeDisplay<'a, T> {
+    struct SeriesNodeDisplay<
+        'a,
+        T: Iterator<Item = SeriesParallelDepsIteratorItem<'a, Option<Revision>>>,
+    >(T);
+    impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a, Option<Revision>>>>
+        SeriesNodeDisplay<'a, T>
+    {
         fn as_lines(&mut self) -> Vec<String> {
             let mut lines = Vec::new();
             lines.push("S".to_owned());
@@ -289,7 +300,7 @@ mod tests {
         }
     }
 
-    struct ParallelNodeDisplay<'a>(ParallelNodeIterator<'a>);
+    struct ParallelNodeDisplay<'a>(ParallelNodeIterator<'a, Option<Revision>>);
     impl ParallelNodeDisplay<'_> {
         fn as_lines(&mut self) -> Vec<String> {
             let mut inner_lines = Vec::new();

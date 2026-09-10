@@ -15,9 +15,8 @@ use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::arc::Arc;
+use crate::core::graph::DiceCert;
 use crate::core::graph::revision::EpsilonToken;
-use crate::core::graph::revision::Revision;
-use crate::deps::graph::SeriesParallelDeps;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
@@ -37,21 +36,17 @@ impl VersionedGraphKey {
     }
 }
 
-/// The certificate of a previously computed value, offered by a lookup that could not
-/// resolve the key so that the caller may re-establish it: if the key's untracked input
-/// still has revision `epsilon` and every dep still has the revision recorded on its edge,
-/// `entry` is the value at the looked-up version too, and the certificate is re-issued as
-/// is (see `docs/incrementality.md` §2.2, "Intended use").
+/// A certificate offered by a lookup that could not resolve the key, with its value.
 #[derive(Clone, Dupe, Debug)]
 pub(crate) struct Candidate {
-    /// The value. Still paged out if nothing has read it back.
+    pub(crate) cert: Arc<DiceCert>,
+    /// The value named by `cert.revision`. Still paged out if nothing has read it back.
     pub(crate) entry: MaybeResident<DiceValidValue>,
-    /// The revision `entry` was interned under.
-    pub(crate) revision: Revision,
-    /// The deps the value was computed from, with the revisions observed for them.
-    pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
-    /// The revision of the key's untracked input the value was computed under.
-    pub(crate) epsilon: EpsilonToken,
+    /// Whether the caller may re-establish the certificate (see `docs/incrementality.md` §2.2,
+    /// "Intended use") and re-issue it as is. A certificate stamped with another revision of the
+    /// key's untracked input cannot be, and is offered only so that a recompute can be compared
+    /// against its value.
+    pub(crate) revalidatable: bool,
 }
 
 /// The core state's answer to a lookup of a key at a version.
@@ -66,8 +61,8 @@ pub(crate) enum VersionedGraphResult {
         value: DiceComputedValue,
         epsilon: EpsilonToken,
     },
-    /// The key does not resolve at the version. `candidate` is a certificate the caller
-    /// may try to revalidate before computing; without one, the caller computes.
+    /// The key does not resolve at the version. `candidate` is the nearest certificate the
+    /// state retains for the key, if any.
     Unknown {
         candidate: Option<Candidate>,
         epsilon: EpsilonToken,

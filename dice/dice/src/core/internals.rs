@@ -8,23 +8,18 @@
  * above-listed licenses.
  */
 
-use dupe::Dupe;
 use pagable::DataKey;
 
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
-use crate::arc::Arc;
+use crate::core::graph::ValueUpdate;
+use crate::core::graph::VersionedGraph;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
-use crate::core::graph::nodes::VersionedGraphNode;
-use crate::core::graph::storage::InvalidateKind;
-use crate::core::graph::storage::ValueUpdate;
-use crate::core::graph::storage::VersionedGraph;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::versions::VersionEpoch;
 use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
-use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::PagableNodeCounts;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::TransactionResult;
@@ -40,9 +35,10 @@ use crate::value::PageOutResult;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
-/// Core state of DICE, holding the actual graph and version information
+/// Everything the actor thread owns: the graph, the transactions in flight, and the tasks whose
+/// cancellation is pending.
 #[derive(allocative::Allocative)]
-pub(super) struct CoreState {
+pub(super) struct ActorState {
     version_tracker: VersionTracker,
     graph: VersionedGraph,
     pending_termination_tasks: Vec<DiceTask>,
@@ -52,19 +48,22 @@ pub(super) struct CoreState {
     paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>,
 }
 
-/// `CoreState::pagable_status` result. Holds raw `DiceKey`s; the caller resolves
+/// `ActorState::pagable_status` result. Holds raw `DiceKey`s; the caller resolves
 /// them to key types off the core-state thread.
 #[derive(Debug)]
 pub(crate) struct PagableStatusRaw {
-    /// Includes vacant/in-progress nodes, so `>= counts.resident + counts.paged_out`.
+    /// Every key the graph holds anything for, so `>= counts.resident + counts.paged_out` need
+    /// not hold: a key may retain several values, and injected keys retain values that are not
+    /// counted.
     pub(crate) total_nodes: usize,
     pub(crate) counts: PagableNodeCounts,
-    /// Per-key-type breakdown source; lengths equal `counts.resident` / `counts.paged_out`.
+    /// Per-key-type breakdown source, one entry per value; lengths equal `counts.resident` /
+    /// `counts.paged_out`.
     pub(crate) resident: Vec<DiceKey>,
     pub(crate) paged_out: Vec<DiceKey>,
 }
 
-impl CoreState {
+impl ActorState {
     pub(super) fn new(paging_memory: Option<std::sync::Arc<PagingMemoryMetrics>>) -> Self {
         Self {
             version_tracker: VersionTracker::new(),
@@ -78,25 +77,7 @@ impl CoreState {
         &mut self,
         updates: impl IntoIterator<Item = (DiceKey, ChangeType, InvalidationSourcePriority)>,
     ) -> VersionNumber {
-        let version_update = self.version_tracker.write();
-        let v = version_update.version();
-
-        let mut changes_recorded = false;
-        for (key, change, invalidation_priority) in updates {
-            changes_recorded |= self.graph.invalidate(
-                VersionedGraphKey::new(v, key),
-                match change {
-                    ChangeType::Invalidate => InvalidateKind::ForceDirty,
-                    ChangeType::UpdateValue(v, s) => InvalidateKind::Update(v, s),
-                },
-                invalidation_priority,
-            );
-        }
-        if changes_recorded {
-            version_update.commit()
-        } else {
-            version_update.undo()
-        }
+        self.graph.commit(updates)
     }
 
     pub(super) fn ctx_at_version(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
@@ -104,7 +85,7 @@ impl CoreState {
     }
 
     pub(super) fn current_version(&self) -> VersionNumber {
-        self.version_tracker.current()
+        self.graph.head()
     }
 
     pub(super) fn drop_ctx_at_version(&mut self, v: VersionNumber) {
@@ -126,17 +107,17 @@ impl CoreState {
         epoch: VersionEpoch,
         storage: StorageType,
         update: ValueUpdate,
-        deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> TransactionResult<DiceComputedValue> {
+        if let StorageType::Injected = storage {
+            unreachable!(
+                "Injected keys should not receive update calls, as those are only from a compute() finishing and InjectedKeys have no compute()"
+            );
+        }
         if self.version_tracker.is_cancelled(key.v, epoch) {
             TransactionResult::make_cancelled()
         } else {
-            TransactionResult::ok(
-                self.graph
-                    .update(key, update, deps, storage, invalidation_paths)
-                    .0,
-            )
+            TransactionResult::ok(self.graph.update(key, update, invalidation_paths))
         }
     }
 
@@ -148,8 +129,8 @@ impl CoreState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
-        self.version_tracker.clear();
-        self.graph.clear();
+        let first_kept = self.graph.take();
+        self.version_tracker.discard_before(first_kept);
     }
 
     /// Evict values that still share the exact allocation serialized by page-out.
@@ -161,115 +142,41 @@ impl CoreState {
         // queued — so the drops below are where the memory is actually released,
         // and jemalloc charges a free to the thread performing it.
         let window = AllocWindow::open();
-        for (
-            key,
-            PageOutResult {
-                serialized_value,
-                data_key,
-            },
-        ) in keys
-        {
-            if let Some(mut node) = self.graph.node_mut(key) {
-                if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    if occ
-                        .val()
-                        .as_hydrated()
-                        .is_some_and(|current| current.ptr_eq(&serialized_value))
-                    {
-                        occ.set_paged_out(data_key);
-                    }
-                }
-            }
-        }
+        self.graph.evict_keys(keys);
         if let Some(metrics) = &self.paging_memory {
             metrics.record_offloaded(window.net_freed());
         }
     }
 
-    /// Mark nodes that page-out considered but could not serialize, so they are
+    /// Mark values that page-out considered but could not serialize, so they are
     /// not offered as page-out candidates again. Ignore stale results if a
     /// recomputation replaced the value while page-out was inspecting it.
     pub(super) fn mark_non_pageable(&mut self, keys: Vec<(DiceKey, DiceValidValue)>) {
-        for (key, inspected_value) in keys {
-            if let Some(mut node) = self.graph.node_mut(key) {
-                if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    if occ
-                        .val()
-                        .as_hydrated()
-                        .is_some_and(|current| current.ptr_eq(&inspected_value))
-                    {
-                        occ.mark_non_pageable();
-                    }
-                }
-            }
-        }
+        self.graph.mark_non_pageable(keys);
     }
 
-    /// Returns resident nodes that have never been paged out — the page-out
-    /// candidates. Enumerated from the graph's candidate set rather than scanning
-    /// every node.
+    /// Returns resident values that have never been paged out — the page-out
+    /// candidates.
     pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
-        self.graph
-            .page_out_candidates()
-            .iter()
-            .filter_map(|index| {
-                let key = DiceKey {
-                    index: index as u32,
-                };
-                let VersionedGraphNode::Occupied(occ) = self.graph.nodes().get(&key)? else {
-                    return None;
-                };
-                Some((key, occ.val().as_hydrated()?.dupe()))
-            })
-            .collect()
+        self.graph.keys_to_page_out()
     }
 
-    /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out
-    /// `OccupiedGraphNode`. The caller performs the actual (async) hydration
-    /// outside the core state thread and sends rehydrate messages back.
+    /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out value. The caller
+    /// performs the actual (async) hydration outside the core state thread and sends
+    /// rehydrate messages back.
     pub(super) fn paged_out_keys(&self) -> Vec<(DiceKey, DataKey)> {
-        let mut keys = Vec::new();
-        for (key, node) in self.graph.nodes() {
-            let VersionedGraphNode::Occupied(occ) = node else {
-                continue;
-            };
-            if occ.val().as_hydrated().is_some() {
-                continue;
-            }
-            let Some(data_key) = occ.val().data_key() else {
-                continue;
-            };
-            keys.push((*key, data_key));
-        }
-        keys
+        self.graph.paged_out_keys()
     }
 
-    /// Classify each `OccupiedGraphNode` as resident (value in memory) or paged
-    /// out (only a `DataKey` left). Occupied-but-neither can't happen (a
-    /// `PagableNodeValue` always holds exactly one) and is omitted from both lists.
+    /// Classify each computed value as resident (in memory) or paged out (only a `DataKey`
+    /// left).
     pub(super) fn pagable_status(&self) -> PagableStatusRaw {
-        let mut resident = Vec::new();
-        let mut paged_out = Vec::new();
-        for (key, node) in self.graph.nodes() {
-            let VersionedGraphNode::Occupied(occ) = node else {
-                continue;
-            };
-            if occ.val().as_hydrated().is_some() {
-                resident.push(*key);
-            } else if occ.val().data_key().is_some() {
-                paged_out.push(*key);
-            }
-        }
+        let (resident, paged_out) = self.graph.resident_and_paged_out();
         let counts = self.graph.pagable_node_counts();
         debug_assert_eq!(resident.len(), counts.resident, "resident count drifted");
         debug_assert_eq!(paged_out.len(), counts.paged_out, "paged-out count drifted");
-        debug_assert_eq!(
-            self.graph.page_out_candidates().count(),
-            counts.candidates,
-            "candidate count drifted",
-        );
         PagableStatusRaw {
-            total_nodes: self.graph.nodes().len(),
+            total_nodes: self.graph.key_count(),
             counts,
             resident,
             paged_out,
@@ -280,15 +187,10 @@ impl CoreState {
         self.graph.pagable_node_counts()
     }
 
-    /// Replaces the value of `key` paged out at `data_key` with its hydrated form. No-op
-    /// if the node is missing, vacant, injected, already hydrated, or paged out at a
-    /// different `DataKey`.
+    /// Replaces the value of `key` paged out at `data_key` with its hydrated form. No-op if no
+    /// such value is retained any more.
     pub(super) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
-        if let Some(mut node) = self.graph.node_mut(key) {
-            if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                occ.rehydrate(data_key, value);
-            }
-        }
+        self.graph.rehydrate(key, data_key, value);
     }
 
     /// Returns some metrics about the current state of DICE. Don't do expensive things here.
@@ -301,7 +203,7 @@ impl CoreState {
         }
 
         Metrics {
-            key_count: self.graph.nodes().len(),
+            key_count: self.graph.key_count(),
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
     }
@@ -338,7 +240,7 @@ mod tests {
     use crate::arc::Arc;
     use crate::core::graph::revision::EpsilonToken;
     use crate::core::graph::types::VersionedGraphKey;
-    use crate::core::internals::CoreState;
+    use crate::core::internals::ActorState;
     use crate::core::internals::StorageType;
     use crate::core::internals::ValueUpdate;
     use crate::deps::graph::SeriesParallelDeps;
@@ -356,7 +258,7 @@ mod tests {
 
     #[test]
     fn update_state_gets_next_version() {
-        let mut core = CoreState::new(None);
+        let mut core = ActorState::new(None);
 
         assert_eq!(
             core.update_state([(
@@ -364,7 +266,7 @@ mod tests {
                 ChangeType::Invalidate,
                 InvalidationSourcePriority::Normal
             )]),
-            VersionNumber::new(2)
+            VersionNumber::testing_new(2)
         );
 
         assert_eq!(
@@ -373,14 +275,14 @@ mod tests {
                 ChangeType::Invalidate,
                 InvalidationSourcePriority::Normal
             )]),
-            VersionNumber::new(3)
+            VersionNumber::testing_new(3)
         );
     }
 
     #[test]
     fn state_ctx_at_version() {
-        let mut core = CoreState::new(None);
-        let v = VersionNumber::new(1);
+        let mut core = ActorState::new(None);
+        let v = VersionNumber::testing_new(1);
 
         let (epoch, ctx) = core.ctx_at_version(v);
 
@@ -405,20 +307,20 @@ mod tests {
 
     #[test]
     fn non_pageable_nodes_are_not_page_out_candidates() {
-        let mut core = CoreState::new(None);
+        let mut core = ActorState::new(None);
         let v = VersionNumber::FIRST;
         let (epoch, _ctx) = core.ctx_at_version(v);
 
-        let compute = |core: &mut CoreState, index: u32| {
+        let compute = |core: &mut ActorState, index: u32| {
             let res = core.update_computed(
                 VersionedGraphKey::new(v, DiceKey { index }),
                 epoch,
                 StorageType::Normal,
                 ValueUpdate::Computed {
                     value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
+                    deps: SeriesParallelDeps::None,
                     epsilon: EpsilonToken::INITIAL,
                 },
-                Arc::new(SeriesParallelDeps::None),
                 TrackedInvalidationPaths::clean(),
             );
             assert!(res.unpack().is_ok());
@@ -426,7 +328,7 @@ mod tests {
         compute(&mut core, 0);
         compute(&mut core, 1);
 
-        let candidates = |core: &CoreState| {
+        let candidates = |core: &ActorState| {
             let mut keys: Vec<u32> = core
                 .keys_to_page_out()
                 .into_iter()
@@ -449,6 +351,28 @@ mod tests {
             .expect("key 0 should be a page-out candidate");
         core.mark_non_pageable(vec![(DiceKey { index: 0 }, value)]);
         assert_eq!(candidates(&core), vec![1]);
+    }
+
+    /// A write from a transaction that predates an `unstable_take` is rejected.
+    #[test]
+    fn writes_from_before_a_take_are_cancelled() {
+        let mut core = ActorState::new(None);
+        let v = VersionNumber::FIRST;
+        let (epoch, _ctx) = core.ctx_at_version(v);
+        core.unstable_drop_everything();
+        let res = core.update_computed(
+            VersionedGraphKey::new(v, DiceKey { index: 0 }),
+            epoch,
+            StorageType::Normal,
+            ValueUpdate::Computed {
+                value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
+                deps: SeriesParallelDeps::None,
+                epsilon: EpsilonToken::INITIAL,
+            },
+            TrackedInvalidationPaths::clean(),
+        );
+        assert!(res.unpack().is_err());
+        assert_eq!(core.current_version(), VersionNumber::testing_new(2));
     }
 
     async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {
@@ -531,8 +455,8 @@ mod tests {
 
     #[tokio::test]
     async fn state_tracks_pending_cancellation() {
-        let mut core = CoreState::new(None);
-        let v = VersionNumber::new(1);
+        let mut core = ActorState::new(None);
+        let v = VersionNumber::testing_new(1);
 
         let (_epoch, cache) = core.ctx_at_version(v);
 

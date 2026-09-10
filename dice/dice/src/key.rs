@@ -51,13 +51,8 @@ use crate::value::DiceValueDyn;
 use crate::value::MaybeValidDiceValue;
 
 /// Type erased internal dice key
-#[derive(
-    Allocative, Eq, PartialEq, Clone, Copy, Dupe, Hash, Debug, Ord, PartialOrd
-)]
-pub(crate) struct DiceKey {
-    /// represented as indexes into an internal index based map
-    pub(crate) index: u32,
-}
+/// A key as the core state names it: an index into the `DiceKeyIndex`.
+pub(crate) type DiceKey = dice_core::Key;
 
 /// Key of the parent computation
 #[derive(
@@ -601,15 +596,7 @@ mod introspection {
 
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::KeyForIntrospection;
-    use crate::introspection::graph::KeyID;
-    use crate::key::DiceKey;
     use crate::key::DiceKeyErased;
-
-    impl DiceKey {
-        pub(crate) fn introspect(&self) -> KeyID {
-            KeyID(self.index as usize)
-        }
-    }
 
     impl DiceKeyErased {
         pub(crate) fn introspect(&self) -> AnyKey {

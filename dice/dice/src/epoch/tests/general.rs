@@ -135,7 +135,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
 
         let ctx = ctx.commit().await.0;
 
-        assert_eq!(ctx.get_version(), VersionNumber::new(2));
+        assert_eq!(ctx.get_version(), VersionNumber::testing_new(2));
     }
 
     {
@@ -143,7 +143,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
         let ctx = ctx.commit().await.0;
-        assert_eq!(ctx.get_version(), VersionNumber::new(2));
+        assert_eq!(ctx.get_version(), VersionNumber::testing_new(2));
     }
 
     Ok(())

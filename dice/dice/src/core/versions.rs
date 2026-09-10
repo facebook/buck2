@@ -15,11 +15,12 @@ use crate::HashMap;
 use crate::epoch::cache::SharedCache;
 use crate::versions::VersionNumber;
 
-/// Tracks the currently in-flight versions for updates and reads to ensure
-/// values are up to date.
+/// The transactions in flight: one shared task cache per active version, and the epochs that
+/// tell a stale write from a live one.
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
-    current: VersionNumber,
+    /// Versions before this one belong to a state that was dropped by `unstable_take`; writes
+    /// from their transactions are rejected.
     discarded_before: VersionNumber,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: HashMap<VersionNumber, ActiveVersionData>,
@@ -64,7 +65,6 @@ struct ActiveVersionData {
 impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
-            current: VersionNumber::FIRST,
             discarded_before: VersionNumber::FIRST,
             active_versions: HashMap::default(),
             epoch_tracker: VersionEpochTracker::new(),
@@ -77,17 +77,11 @@ impl VersionTracker {
             .map(|data| (data.ref_count, &data.per_transaction_data))
     }
 
-    /// hands out the current "latest" committed version's associated transaction context
-    pub(crate) fn current(&self) -> VersionNumber {
-        self.current
-    }
-
     pub(crate) fn at(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
         let entry = self.active_versions.entry(v).or_insert_with(|| {
             let version_epoch = self.epoch_tracker.next();
 
             ActiveVersionData {
-                // TODO properly create the PerLiveTransactionCtx
                 per_transaction_data: SharedCache::new(),
                 ref_count: 0,
                 version_epoch,
@@ -133,42 +127,12 @@ impl VersionTracker {
         }
     }
 
-    /// Requests the 'WriteVersion' that is intended to be used for updates to
-    /// the incremental computations
-    pub(crate) fn write(&mut self) -> VersionForWrites<'_> {
-        VersionForWrites { tracker: self }
-    }
-
-    pub(crate) fn clear(&mut self) {
+    /// Rejects writes from every transaction at a version before `first_kept`.
+    pub(crate) fn discard_before(&mut self, first_kept: VersionNumber) {
         // FIXME(JakobDegen): What's the safety story supposed to be here? It seems like we've made
         // no attempt to stop there from being an ongoing transaction, and if there is we don't even
         // attempt to actually cancel it. That seems obviously very unsound?
-        self.current.inc();
-        self.discarded_before = self.current;
-    }
-}
-
-pub(crate) struct VersionForWrites<'a> {
-    tracker: &'a mut VersionTracker,
-}
-
-impl VersionForWrites<'_> {
-    /// Commits the version write and increases the global version number
-    pub(crate) fn commit(self) -> VersionNumber {
-        self.tracker.current.inc();
-        self.tracker.current
-    }
-
-    pub(crate) fn version(&self) -> VersionNumber {
-        let mut v = self.tracker.current;
-        v.inc();
-
-        v
-    }
-
-    /// Undo the pending write to version
-    pub(crate) fn undo(self) -> VersionNumber {
-        self.tracker.current
+        self.discarded_before = first_kept;
     }
 }
 
@@ -234,64 +198,55 @@ mod tests {
     fn simple_version_increases() {
         let mut vt = VersionTracker::new();
 
-        let _vg = vt.at(VersionNumber::new(1));
+        let _vg = vt.at(VersionNumber::testing_new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 1
+            vt.active_versions.get(&VersionNumber::testing_new(1)), Some(active) if active.ref_count == 1
         );
 
-        let _vg = vt.at(VersionNumber::new(1));
+        let _vg = vt.at(VersionNumber::testing_new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 2
+            vt.active_versions.get(&VersionNumber::testing_new(1)), Some(active) if active.ref_count == 2
         );
 
-        vt.drop_at_version(VersionNumber::new(1));
+        vt.drop_at_version(VersionNumber::testing_new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 1
+            vt.active_versions.get(&VersionNumber::testing_new(1)), Some(active) if active.ref_count == 1
         );
 
-        vt.drop_at_version(VersionNumber::new(1));
-        assert_matches!(vt.active_versions.get(&VersionNumber::new(1)), None);
+        vt.drop_at_version(VersionNumber::testing_new(1));
+        assert_matches!(vt.active_versions.get(&VersionNumber::testing_new(1)), None);
     }
 
     #[test]
     fn version_epoch_relevant() {
         let mut vt = VersionTracker::new();
 
-        let (epoch, _s) = vt.at(VersionNumber::new(1));
-        assert!(!vt.is_cancelled(VersionNumber::new(1), epoch));
-        assert!(vt.is_cancelled(VersionNumber::new(1), VersionEpoch::testing_new(9999)));
+        let (epoch, _s) = vt.at(VersionNumber::testing_new(1));
+        assert!(!vt.is_cancelled(VersionNumber::testing_new(1), epoch));
+        assert!(vt.is_cancelled(
+            VersionNumber::testing_new(1),
+            VersionEpoch::testing_new(9999)
+        ));
 
-        let (epoch1, _s) = vt.at(VersionNumber::new(3));
-        assert!(vt.is_cancelled(VersionNumber::new(1), epoch1));
-        assert!(!vt.is_cancelled(VersionNumber::new(3), epoch1));
-        assert!(vt.is_cancelled(VersionNumber::new(3), epoch));
+        let (epoch1, _s) = vt.at(VersionNumber::testing_new(3));
+        assert!(vt.is_cancelled(VersionNumber::testing_new(1), epoch1));
+        assert!(!vt.is_cancelled(VersionNumber::testing_new(3), epoch1));
+        assert!(vt.is_cancelled(VersionNumber::testing_new(3), epoch));
 
-        vt.drop_at_version(VersionNumber::new(3));
-        let (epoch2, _s) = vt.at(VersionNumber::new(3));
-        assert!(vt.is_cancelled(VersionNumber::new(1), epoch1));
-        assert!(vt.is_cancelled(VersionNumber::new(3), epoch1));
-        assert!(!vt.is_cancelled(VersionNumber::new(3), epoch2));
+        vt.drop_at_version(VersionNumber::testing_new(3));
+        let (epoch2, _s) = vt.at(VersionNumber::testing_new(3));
+        assert!(vt.is_cancelled(VersionNumber::testing_new(1), epoch1));
+        assert!(vt.is_cancelled(VersionNumber::testing_new(3), epoch1));
+        assert!(!vt.is_cancelled(VersionNumber::testing_new(3), epoch2));
     }
 
     #[test]
-    fn write_version_commits_and_undo() {
+    fn discarding_cancels_earlier_versions() {
         let mut vt = VersionTracker::new();
-
-        {
-            let v1 = vt.write();
-            assert_eq!(v1.version(), VersionNumber::new(2));
-            assert_eq!(v1.version(), VersionNumber::new(2));
-
-            assert_eq!(v1.commit(), VersionNumber::new(2));
-            assert_eq!(vt.current(), VersionNumber::new(2));
-        }
-
-        {
-            let v2 = vt.write();
-            assert_eq!(v2.version(), VersionNumber::new(3));
-
-            assert_eq!(v2.undo(), VersionNumber::new(2));
-            assert_eq!(vt.current(), VersionNumber::new(2));
-        }
+        let (epoch1, _s) = vt.at(VersionNumber::testing_new(1));
+        let (epoch3, _s) = vt.at(VersionNumber::testing_new(3));
+        vt.discard_before(VersionNumber::testing_new(3));
+        assert!(vt.is_cancelled(VersionNumber::testing_new(1), epoch1));
+        assert!(!vt.is_cancelled(VersionNumber::testing_new(3), epoch3));
     }
 }

@@ -36,6 +36,7 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::deps::LinearDepsTracker;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
@@ -467,7 +468,7 @@ struct DepsTrackerHolder<'a, 'd>(
 impl<'a, 'd> DepsTrackerHolder<'a, 'd> {
     fn record(
         &mut self,
-        edge: DepEdge,
+        edge: DepEdge<Option<Revision>>,
         validity: crate::value::DiceValidity,
         invalidation_paths: &TrackedInvalidationPaths,
     ) {

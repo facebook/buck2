@@ -26,7 +26,6 @@ use dice_error::DiceError;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
-use dupe::IterDupedExt;
 use futures::pin_mut;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
@@ -209,10 +208,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         check_dependencies(
             &eval,
             ParentKey::None,
-            &SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
-                dep_key,
-                Some(Revision::FIRST),
-            )]),
+            &SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(dep_key, Revision::FIRST)]),
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await
@@ -240,7 +236,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
             ParentKey::None,
             &SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
                 dep_key,
-                Some(Revision::testing_new(2)),
+                Revision::testing_new(2),
             )]),
             &KeyComputingUserCycleDetectorData::Untracked,
         )
@@ -389,7 +385,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 async fn spawn_with_no_previously_cancelled_task() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
@@ -427,7 +423,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
@@ -499,7 +495,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 async fn spawn_with_previously_cancelled_task_that_finished() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
@@ -582,7 +578,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 async fn mismatch_epoch_results_in_cancelled_result() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
 
     let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
@@ -692,7 +688,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         prevent_cancel: prevent_cancel.dupe(),
     };
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::testing_new(1)).await;
 
     let k = dice.key_index.index_key(key);
 
@@ -877,19 +873,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
         .collect();
     let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
 
-    // mark all keys as having a value at v0, invalidated at v1
-    // for all keys, the real value is different (so if recomputed will be seen as changed)
-    let mut updater = dice.updater();
-    updater
-        .changed_to(spkeys.iter().map(|k| (k.dupe(), 100)).collect::<Vec<_>>())
-        .unwrap();
-    updater.commit().await;
-
-    let mut updater = dice.updater();
-    updater
-        .changed(spkeys.iter().duped().collect::<Vec<_>>())
-        .unwrap();
-    let version = updater.commit().await.0.get_version();
+    let version = dice.updater().commit().await.0.get_version();
 
     let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
@@ -902,12 +886,11 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
 
     *data.compute_behavior[0].lock().unwrap() = ComputeBehavior::Sleep(Duration::from_millis(20));
 
-    // Each edge records `Revision::FIRST`, the revision minted by the initial `changed_to`
-    // above. Every dep will look changed: the recompute mints a fresh revision because the
-    // stored value 100 differs from the computed idx.
+    // No key has been computed yet, so every dep check computes its key, which mints
+    // `Revision::FIRST`. Every edge records a revision no key has: every dep looks changed.
     let deps = SeriesParallelDeps::serial_from_edges(
         keys.iter()
-            .map(|k| DepEdge::new(*k, Some(Revision::FIRST)))
+            .map(|k| DepEdge::new(*k, Revision::testing_new(2)))
             .collect(),
     );
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
@@ -974,24 +957,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
         .collect();
     let keys = spkeys.map(|v| dice.key_index.index_key(v.dupe()));
 
-    // mark all keys as having a value at v0, invalidated at v1
-    // for key 9, the value will be different, but for the rest it will be the same
-    let mut updater = dice.updater();
-    updater
-        .changed_to(
-            spkeys
-                .iter()
-                .map(|k| (k.dupe(), if k.idx == 9 { 100 } else { k.idx }))
-                .collect::<Vec<_>>(),
-        )
-        .unwrap();
-    updater.commit().await;
-
-    let mut updater = dice.updater();
-    updater
-        .changed(spkeys.iter().duped().collect::<Vec<_>>())
-        .unwrap();
-    let version = updater.commit().await.0.get_version();
+    let version = dice.updater().commit().await.0.get_version();
 
     let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
@@ -1007,14 +973,18 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
     *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
 
-    // Every edge records `Revision::FIRST`, the revision minted by the initial
-    // `changed_to` above. After `changed()`, the recompute triggered by the dep check
-    // re-finds that revision for every key whose compute returns the stored value (all
-    // but key 9) and mints a fresh one for key 9, whose value moved from 100 to 9.
+    // No key has been computed yet, so every dep check computes its key, which mints
+    // `Revision::FIRST`. Every edge records that revision except key 9's, which records one
+    // no key has: only key 9 looks changed.
     let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-    let record = |deps: &mut RecordingDepsTracker<'_>, k| {
+    let record = |deps: &mut RecordingDepsTracker<'_>, k: DiceKey| {
+        let recorded = if k == keys[9] {
+            Revision::testing_new(2)
+        } else {
+            Revision::FIRST
+        };
         deps.record(
-            DepEdge::new(k, Some(Revision::FIRST)),
+            DepEdge::new(k, Some(recorded)),
             DiceValidity::Valid,
             &TrackedInvalidationPaths::clean(),
         );
@@ -1047,10 +1017,10 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     record(&mut deps, keys[18]);
     record(&mut deps, keys[19]);
 
-    let deps = deps.collect_deps();
+    let deps = deps.collect_deps().deps.certify();
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
-    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps.deps, &cycles)
+    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles)
         .await
         .unwrap();
 
@@ -1065,47 +1035,6 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     }
 
     assert_eq!(data.total_computed.load(Ordering::SeqCst), 15);
-
-    Ok(())
-}
-
-/// An edge whose recorded revision is `None` (a transient dep) never revalidates:
-/// transient values have no interned identity, so an edge to "the transient value I saw"
-/// can never be shown to still be valid. The dep list is synthesized directly because
-/// transients never make it into the graph, so no compute flow produces such an edge.
-#[tokio::test]
-async fn transient_dep_edge_never_revalidates() -> anyhow::Result<()> {
-    let dice = Dice::new(DiceData::new(), None);
-    let user_data = Arc::new(UserComputationData::new());
-
-    // Set up an injected dep with a value; its own revision is well-known
-    // (`Revision::FIRST`) but the recorded edge deliberately says `None`.
-    let mut updater = dice.updater();
-    updater.changed_to(vec![(K, 1)]).unwrap();
-    let version = updater.commit().await.0.get_version();
-
-    let (ctx, _guard) = dice.testing_shared_ctx(version).await;
-    let eval = TransactionData {
-        epoch_state: ctx.dupe(),
-        user_data: user_data.dupe(),
-        dice: dice.dupe(),
-    };
-
-    let dep_key = dice.key_index.index_key(K);
-    let deps = SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(dep_key, None)]);
-
-    assert!(
-        check_dependencies(
-            &eval,
-            ParentKey::None,
-            &deps,
-            &KeyComputingUserCycleDetectorData::Untracked,
-        )
-        .await
-        .unwrap()
-        .is_changed(),
-        "a None-revision (transient) edge must always report Changed"
-    );
 
     Ok(())
 }
