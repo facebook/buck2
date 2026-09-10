@@ -412,10 +412,10 @@ impl<'v> FrozenRuleImpl<'v> {
     }
 }
 
-impl<'v> FreezeBranded for RuleImpl<'v> {
+impl<'v> FreezeBranded<'v> for RuleImpl<'v> {
     type Frozen<'fv> = FrozenRuleImpl<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         match self {
             RuleImpl::BuildRule(impl_) => Ok(FrozenRuleImpl::BuildRule(impl_.freeze(freezer)?)),
             RuleImpl::BxlAnon(impl_) => Ok(FrozenRuleImpl::BxlAnon(impl_.freeze(freezer)?)),
@@ -423,9 +423,9 @@ impl<'v> FreezeBranded for RuleImpl<'v> {
     }
 }
 
-impl<'v> FreezeBranded for StarlarkRuleCallable<'v> {
+impl<'v> FreezeBranded<'v> for StarlarkRuleCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkRuleCallable<'fv>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {

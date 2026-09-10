@@ -367,10 +367,10 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> FreezeBranded for TransitiveSetDefinition<'v> {
+impl<'v> FreezeBranded<'v> for TransitiveSetDefinition<'v> {
     type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let Self {
             exported,
             module_id: _,
@@ -396,10 +396,10 @@ impl<'v> FreezeBranded for TransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> FreezeBranded for FrozenTransitiveSetDefinition<'v> {
+impl<'v> FreezeBranded<'v> for FrozenTransitiveSetDefinition<'v> {
     type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // Already frozen: freezing the contained values just re-brands them.
         let Self {
             exported,

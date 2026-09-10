@@ -74,7 +74,7 @@ impl<'v> AValue<'v> for AValueList {
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
             let content = (*me).payload.0.content();
@@ -133,7 +133,7 @@ impl<'v> AValue<'v> for AValueFrozenList {
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         panic!("already frozen");
     }

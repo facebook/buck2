@@ -57,7 +57,7 @@ impl<'v> Default for StringValue<'v> {
 
 impl<'v> StringValue<'v> {
     /// Freeze the string into the [`Freezer`]'s heap.
-    pub fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<StringValue<'fv>> {
+    pub fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<StringValue<'fv>> {
         // SAFETY: Freezing a string yields a string.
         Ok(unsafe { StringValue::new_unchecked(freezer.freeze(self.to_value())?) })
     }

@@ -141,10 +141,10 @@ pub(super) type EnumType<'v> = EnumTypeGen<'v, EnumVariantUnfrozen>;
 
 pub(crate) type FrozenEnumType<'v> = EnumTypeGen<'v, EnumVariantFrozen>;
 
-impl<'v> FreezeBranded for EnumType<'v> {
+impl<'v> FreezeBranded<'v> for EnumType<'v> {
     type Frozen<'fv> = FrozenEnumType<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let EnumTypeGen {
             id,
             ty_enum_data,

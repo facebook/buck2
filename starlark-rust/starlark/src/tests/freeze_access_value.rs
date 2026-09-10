@@ -18,8 +18,6 @@
 use crate::values::FreezeBranded;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenHeap;
-use crate::values::Heap;
 use crate::values::Value;
 use crate::values::list::ListRef;
 
@@ -27,10 +25,10 @@ struct Test<V> {
     field: V,
 }
 
-impl<'v> FreezeBranded for Test<Value<'v>> {
+impl<'v> FreezeBranded<'v> for Test<Value<'v>> {
     type Frozen<'fv> = Test<Value<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let test = Test {
             field: self.field.freeze(freezer)?,
         };
@@ -43,16 +41,11 @@ impl<'v> FreezeBranded for Test<Value<'v>> {
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    Heap::temp(|heap| -> anyhow::Result<()> {
+    Freezer::testing_temp(|heap, freezer| {
         let list = heap.alloc(vec![1i32, 2i32]);
-
         let t = Test { field: list };
-
-        FrozenHeap::temp(|frozen_heap| {
-            let freezer = Freezer::testing_new(frozen_heap);
-            list.freeze(&freezer)?;
-            t.freeze(&freezer)?;
-            anyhow::Ok(())
-        })
+        list.freeze(freezer)?;
+        t.freeze(freezer)?;
+        anyhow::Ok(())
     })
 }

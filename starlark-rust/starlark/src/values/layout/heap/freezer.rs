@@ -22,6 +22,7 @@ use crate::values::AllocFrozenValue;
 use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::HeapSendable;
+use crate::values::SealEdge;
 use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::FrozenReservation;
@@ -29,7 +30,7 @@ use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
 
-/// Copies values onto a frozen heap; the argument of
+/// Copies values from the heap of `'v` onto the frozen heap of `'fv`; the argument of
 /// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
 ///
 /// [`freeze`](Freezer::freeze) copies an unfrozen value onto the freezer's heap through the
@@ -39,34 +40,28 @@ use crate::values::layout::value::Value;
 /// [`Module`](crate::environment::Module).
 ///
 /// A value that is already frozen is not copied: [`freeze`](Freezer::freeze) hands it back at
-/// `'fv` as it is. That is sound because of a property of the heap a freezer is created for (see
-/// `Freezer::new`): it references every frozen heap in which a value handed to the freezer can
-/// live. `ModuleHeaps::seal_with` is the only production constructor, by privacy, and its heap
-/// has the property by construction, sharing the value heap's references. The `branding` module
-/// lists this among the brand changes that rest on such a contract.
-pub struct Freezer<'fv> {
+/// `'fv` through the `SealEdge` the freezer holds, which certifies that the target heap
+/// references every heap in which a frozen `Value<'v>` can live. `ModuleHeaps::seal_with` mints
+/// that edge along with the freezer, so a freezer only ever exists for a module's own two heaps.
+pub struct Freezer<'v, 'fv> {
     /// Freezing into this heap.
     pub(crate) heap: FrozenHeap<'fv>,
+    /// From the heap being frozen to `heap`, for the values that are frozen already.
+    seal_edge: SealEdge<'fv, 'v>,
     /// Defs frozen by this freezer.
     pub(crate) frozen_defs: RefCell<Vec<ValueTyped<'fv, Def<'fv>>>>,
 }
 
-impl<'fv> Freezer<'fv> {
-    /// `heap` must be, or reference directly or through its references, every frozen heap in
-    /// which a value handed to [`freeze`](Freezer::freeze) can live. The builder of a
-    /// `ModuleHeaps` shares the value heap's references, so it does; see the type documentation.
-    pub(in crate::values::layout::heap) fn new(heap: FrozenHeap<'fv>) -> Self {
+impl<'v, 'fv> Freezer<'v, 'fv> {
+    pub(in crate::values::layout::heap) fn new(
+        heap: FrozenHeap<'fv>,
+        seal_edge: SealEdge<'fv, 'v>,
+    ) -> Self {
         Freezer {
             heap,
+            seal_edge,
             frozen_defs: RefCell::new(Vec::new()),
         }
-    }
-
-    /// A freezer for a test whose heaps are all scoped within the test, so that any frozen value
-    /// it sees is a static or lives in `heap`; see `Freezer::new`.
-    #[cfg(test)]
-    pub(crate) fn testing_new(heap: FrozenHeap<'fv>) -> Self {
-        Self::new(heap)
     }
 
     /// Allocate a new value while freezing. Usually not a great idea.
@@ -74,7 +69,7 @@ impl<'fv> Freezer<'fv> {
         self.heap.alloc(val)
     }
 
-    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> FrozenReservation<'fv, 'v2, T>
+    pub(crate) fn reserve<'v2, T>(&self) -> FrozenReservation<'fv, 'v2, T>
     where
         T: AValue<'v2, ExtraElem = ()>,
         T::StarlarkValue: HeapSendable<'v2>,
@@ -87,11 +82,10 @@ impl<'fv> Freezer<'fv> {
     }
 
     /// Freeze a nested value while freezing yourself.
-    pub fn freeze<'v>(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
+    pub fn freeze(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
         // Case 1: Already frozen, so nothing to copy.
-        if value.is_frozen() {
-            // SAFETY: `Freezer::new`'s contract, see the type documentation.
-            return Ok(unsafe { value.rebrand_frozen_unchecked() });
+        if let Some(frozen) = self.seal_edge.rebrand(value) {
+            return Ok(frozen);
         }
 
         // Case 2: We have already been replaced with a forwarding, or need to freeze
@@ -112,5 +106,19 @@ impl<'fv> Freezer<'fv> {
     /// Can be used to allocate additional values while freezing.
     pub fn frozen_heap(&self) -> FrozenHeap<'fv> {
         self.heap
+    }
+}
+
+#[cfg(test)]
+impl Freezer<'_, '_> {
+    /// Run `f` with a value heap and a freezer out of it, both scoped to the call. The heaps are
+    /// a `ModuleHeaps`, which is where the freezer's [`SealEdge`] comes from.
+    pub(crate) fn testing_temp<R>(
+        f: impl for<'v, 'fv> FnOnce(crate::values::Heap<'v>, &Freezer<'v, 'fv>) -> R,
+    ) -> R {
+        crate::values::Heap::temp(|heap| {
+            crate::values::layout::heap::module_heaps::ModuleHeaps::new(heap)
+                .frozen_heap(|fh, _edge, seal_edge| f(heap, &Freezer::new(fh, seal_edge)))
+        })
     }
 }

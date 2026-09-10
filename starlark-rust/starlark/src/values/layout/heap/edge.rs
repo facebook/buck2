@@ -125,7 +125,8 @@ impl<'v> HeapEdge<'v, 'v> {
 /// A [`HeapEdge<'v, 'dep>`] lets anything at `'dep` be used at `'v`. This is the other direction
 /// between a module's own two heaps, for frozen values only: [`rebrand`](SealEdge::rebrand)
 /// brings a frozen `Value<'v>` to `'fm`, which is how the optimizer folds a value it observed at
-/// `'v` into IR it allocates at `'fm`. Unfrozen values live in the value heap and cannot cross.
+/// `'v` into IR it allocates at `'fm`, and how the [`Freezer`](crate::values::Freezer) hands
+/// back a value that is frozen already. Unfrozen values live in the value heap and cannot cross.
 ///
 /// `ModuleHeaps` is the only minter, and the proof that the property holds is written there; the
 /// `branding` module states it too. (Not to be confused with

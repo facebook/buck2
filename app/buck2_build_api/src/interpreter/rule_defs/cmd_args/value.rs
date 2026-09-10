@@ -67,10 +67,10 @@ impl<'v> PartialEq for CommandLineArg<'v> {
 
 impl<'v> Eq for CommandLineArg<'v> {}
 
-impl<'v> FreezeBranded for CommandLineArg<'v> {
+impl<'v> FreezeBranded<'v> for CommandLineArg<'v> {
     type Frozen<'fv> = CommandLineArg<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<CommandLineArg<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<CommandLineArg<'fv>> {
         // Freezing does not change a value's type, so the constructor check carries over.
         Ok(CommandLineArg(self.0.freeze(freezer)?))
     }

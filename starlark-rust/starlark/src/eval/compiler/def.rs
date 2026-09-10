@@ -165,10 +165,10 @@ impl<'v> StmtCompiledCell<'v> {
 
 // Only `post_freeze` fills the cell, after the def has been frozen, so the cell of a def being
 // frozen is empty; a frozen def is never frozen again, only re-typed at another brand.
-impl<'v> FreezeBranded for StmtCompiledCell<'v> {
+impl<'v> FreezeBranded<'v> for StmtCompiledCell<'v> {
     type Frozen<'fv> = StmtCompiledCell<'fv>;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         debug_assert!(self.get().is_none());
         Ok(StmtCompiledCell::new())
     }

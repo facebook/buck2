@@ -300,9 +300,9 @@ impl<'v> Dict<'v> {
     }
 }
 
-impl<'v> FreezeBranded for DictGen<RefCell<Dict<'v>>> {
+impl<'v> FreezeBranded<'v> for DictGen<RefCell<Dict<'v>>> {
     type Frozen<'fv> = DictGen<Dict<'fv>>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let entries = self.0.into_inner().content;
         let mut content = SmallMap::with_capacity(entries.len());
         for (key, value) in entries.into_iter_hashed() {
@@ -516,7 +516,7 @@ where
 
     fn try_freeze_directly<'fv>(
         &self,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> Option<FreezeResult<Value<'fv>>> {
         if self.0.content().is_empty() {
             Some(Ok(Value::new_empty_dict()))

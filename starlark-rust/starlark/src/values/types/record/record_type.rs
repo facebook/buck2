@@ -211,10 +211,10 @@ impl<'v> RecordType<'v> {
     }
 }
 
-impl<'v> FreezeBranded for RecordType<'v> {
+impl<'v> FreezeBranded<'v> for RecordType<'v> {
     type Frozen<'fv> = FrozenRecordType<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenRecordType {
             id: self.id,
             fields: self.fields.freeze(freezer)?,

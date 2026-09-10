@@ -44,8 +44,8 @@ struct AValueComplexBranded<T>(PhantomData<T>);
 
 impl<'v, T> AValue<'v> for AValueComplexBranded<T>
 where
-    T: StarlarkValue<'v> + Trace<'v> + FreezeBranded,
-    for<'fv> <T as FreezeBranded>::Frozen<'fv>: AValueSimpleBound<'fv>,
+    T: StarlarkValue<'v> + Trace<'v> + FreezeBranded<'v>,
+    for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: AValueSimpleBound<'fv>,
 {
     type StarlarkValue = T;
 
@@ -61,7 +61,7 @@ where
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
             if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
@@ -93,8 +93,8 @@ impl<'v> Heap<'v> {
     /// Allocate a value which can be traced (garbage collected) and frozen on the [`Heap`].
     pub fn alloc_complex_branded<T>(self, x: T) -> Value<'v>
     where
-        T: StarlarkValue<'v> + HeapSendable<'v> + Trace<'v> + FreezeBranded,
-        for<'fv> <T as FreezeBranded>::Frozen<'fv>: AValueSimpleBound<'fv>,
+        T: StarlarkValue<'v> + HeapSendable<'v> + Trace<'v> + FreezeBranded<'v>,
+        for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: AValueSimpleBound<'fv>,
     {
         assert!(!T::is_special(Private));
         self.alloc_raw(AValueImpl::<AValueComplexBranded<T>>::new(x))

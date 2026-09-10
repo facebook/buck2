@@ -60,7 +60,7 @@ where
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         Err(FreezeError::new(
             AValueError::CannotBeFrozen(type_name::<T>()).to_string(),

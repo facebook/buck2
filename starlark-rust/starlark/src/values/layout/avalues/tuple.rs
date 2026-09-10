@@ -75,7 +75,7 @@ impl<'v> AValue<'v> for AValueTuple {
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
             debug_assert!(
@@ -157,7 +157,7 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         panic!("already frozen");
     }

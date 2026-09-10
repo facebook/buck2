@@ -191,10 +191,10 @@ impl<'v> AllocValue<'v> for Transition<'v> {
     }
 }
 
-impl<'v> FreezeBranded for Transition<'v> {
+impl<'v> FreezeBranded<'v> for Transition<'v> {
     type Frozen<'fv> = FrozenTransition<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenTransition<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenTransition<'fv>> {
         let implementation = self.implementation.freeze(freezer)?;
         let id = self.id.into_inner().ok_or(FreezeError::new(
             TransitionError::TransitionNotAssigned.to_string(),

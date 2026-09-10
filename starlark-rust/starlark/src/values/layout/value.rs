@@ -298,8 +298,7 @@ impl<'v> Value<'v> {
     /// # Safety
     ///
     /// The value must be frozen, and the heap of `'v2` must keep alive the frozen heap the value
-    /// lives in. `SealEdge::rebrand` and `Freezer::freeze` are the callers; the `branding` module
-    /// says what each rests on.
+    /// lives in. `SealEdge::rebrand` is the caller; the `branding` module says what it rests on.
     #[inline]
     pub(crate) unsafe fn rebrand_frozen_unchecked<'v2>(self) -> Value<'v2> {
         debug_assert!(self.is_frozen());
@@ -860,7 +859,7 @@ impl<'v> Value<'v> {
     }
 
     /// Freeze the value into the [`Freezer`]'s heap.
-    pub fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
+    pub fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Value<'fv>> {
         freezer.freeze(self)
     }
 

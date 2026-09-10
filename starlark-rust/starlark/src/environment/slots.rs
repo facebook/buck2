@@ -104,7 +104,7 @@ impl<'v> MutableSlots<'v> {
             .collect()
     }
 
-    pub(crate) fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenSlots<'fv>> {
+    pub(crate) fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenSlots<'fv>> {
         let slots = self
             .0
             .into_inner()

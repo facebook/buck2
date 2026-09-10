@@ -51,10 +51,10 @@ pub struct FrozenAnalysisExtraValue<'fv> {
 
 starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue<'_>);
 
-impl<'v> FreezeBranded for AnalysisExtraValue<'v> {
+impl<'v> FreezeBranded<'v> for AnalysisExtraValue<'v> {
     type Frozen<'fv> = FrozenAnalysisExtraValue<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let AnalysisExtraValue {
             analysis_value_storage,
         } = self;

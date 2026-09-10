@@ -50,7 +50,7 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unreachable!("Basic types don't appear in the heap")
     }

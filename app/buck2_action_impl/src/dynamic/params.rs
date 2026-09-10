@@ -81,10 +81,10 @@ impl<'fv> FrozenDynamicLambdaParams<'fv> {
     }
 }
 
-impl<'v> FreezeBranded for DynamicLambdaParams<'v> {
+impl<'v> FreezeBranded<'v> for DynamicLambdaParams<'v> {
     type Frozen<'fv> = FrozenDynamicLambdaParams<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenDynamicLambdaParams {
             attributes: self.attributes.freeze(freezer)?,
             plugins: self.plugins.freeze(freezer)?,

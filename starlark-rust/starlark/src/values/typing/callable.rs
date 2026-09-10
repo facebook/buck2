@@ -242,12 +242,12 @@ fn _assert_sync_send() {
     _assert::<StarlarkCallable<'static, (Value,), Value>>();
 }
 
-impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded<'v>
     for StarlarkCallable<'v, P, R>
 {
     type Frozen<'fv> = StarlarkCallable<'fv, P, R>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(StarlarkCallable::unchecked_new(FreezeBranded::freeze(
             self.0, freezer,
         )?))

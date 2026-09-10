@@ -407,7 +407,6 @@ mod tests {
 
     use crate::const_frozen_string;
     use crate::values::Freezer;
-    use crate::values::FrozenHeap;
     use crate::values::Heap;
     use crate::values::layout::heap::heap_type::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
@@ -440,54 +439,48 @@ mod tests {
 
     #[test]
     fn test_stacks_collect_retained() {
-        Heap::temp(|heap| {
+        Freezer::testing_temp(|heap, freezer| {
             heap.record_call_enter(const_frozen_string!("enter").at().to_value());
             let s0 = heap.alloc_str("xxyy");
             let s1 = heap.alloc_str("zzww");
             heap.alloc_str("rrtt");
             heap.record_call_exit();
 
-            FrozenHeap::temp(|frozen_heap| {
-                let freezer = Freezer::testing_new(frozen_heap);
-                freezer.freeze(s0.to_value()).unwrap();
-                freezer.freeze(s1.to_value()).unwrap();
+            freezer.freeze(s0.to_value()).unwrap();
+            freezer.freeze(s1.to_value()).unwrap();
 
-                let stacks = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
-                assert!(stacks.root.allocs.summary.is_empty());
-                assert_eq!(1, stacks.root.callees.len());
-                // 3 allocated, 2 retained.
-                assert_eq!(
-                    2,
-                    stacks
-                        .root
-                        .callees
-                        .values()
-                        .next()
-                        .unwrap()
-                        .allocs
-                        .summary
-                        .get("string")
-                        .unwrap()
-                        .count
-                );
-                assert_eq!(2, total_alloc_count(&stacks.root));
-            });
+            let stacks = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
+            assert!(stacks.root.allocs.summary.is_empty());
+            assert_eq!(1, stacks.root.callees.len());
+            // 3 allocated, 2 retained.
+            assert_eq!(
+                2,
+                stacks
+                    .root
+                    .callees
+                    .values()
+                    .next()
+                    .unwrap()
+                    .allocs
+                    .summary
+                    .get("string")
+                    .unwrap()
+                    .count
+            );
+            assert_eq!(2, total_alloc_count(&stacks.root));
         });
     }
 
     #[test]
     fn test_merge() {
         fn make() -> AggregateHeapProfileInfo {
-            Heap::temp(|heap| {
+            Freezer::testing_temp(|heap, freezer| {
                 heap.record_call_enter(const_frozen_string!("xx").at().to_value());
                 let s = heap.alloc_str("abc");
                 heap.record_call_exit();
-                FrozenHeap::temp(|frozen_heap| {
-                    let freezer = Freezer::testing_new(frozen_heap);
-                    freezer.freeze(s.to_value()).unwrap();
+                freezer.freeze(s.to_value()).unwrap();
 
-                    AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen))
-                })
+                AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen))
             })
         }
 

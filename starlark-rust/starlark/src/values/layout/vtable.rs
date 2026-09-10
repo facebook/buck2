@@ -135,7 +135,10 @@ pub struct AValueVTable {
     // `AValue`
     pub(crate) is_str: bool,
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
-    heap_freeze: for<'fv> fn(StarlarkValueRawPtr, &Freezer<'fv>) -> FreezeResult<Value<'fv>>,
+    /// Generic over the brands the value is frozen out of and into, like `heap_copy` over the
+    /// `Tracer`'s: the vtable is the erased instantiation's, the brands are the caller's.
+    heap_freeze:
+        for<'v, 'fv> fn(StarlarkValueRawPtr, &Freezer<'v, 'fv>) -> FreezeResult<Value<'fv>>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
     starlark_serialize:
         fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
@@ -243,9 +246,14 @@ impl AValueVTable {
                 let p = &*p.value_ptr::<T::StarlarkValue>();
                 T::alloc_size_for_extra_len(T::extra_len(p))
             },
+            // SAFETY (for the brand transmutes here and in `heap_copy`): This vtable serves the
+            // type in every heap it is allocated in, so its entries are instantiated at one brand
+            // `'v` and called at another. `p` points into the heap being frozen or copied, which
+            // is the caller's, so the freezer's source brand and the tracer's brand name the heap
+            // that `T`'s `'v` stands for.
             heap_freeze: |p, freezer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
-                T::heap_freeze(p, freezer)
+                T::heap_freeze(p, transmute!(&Freezer, &Freezer, freezer))
             },
             heap_copy: |p, tracer| unsafe {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
@@ -373,7 +381,7 @@ impl<'v> AValueDyn<'v> {
     #[inline]
     pub(crate) unsafe fn heap_freeze<'fv>(
         self,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         (self.vtable.heap_freeze)(self.value, freezer)
     }

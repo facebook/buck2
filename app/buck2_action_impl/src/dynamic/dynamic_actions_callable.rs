@@ -212,10 +212,10 @@ impl<'v> AllocValue<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded for DynamicActionsCallable<'v> {
+impl<'v> FreezeBranded<'v> for DynamicActionsCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let DynamicActionsCallable {
             self_ty,
             implementation,
@@ -245,10 +245,10 @@ impl<'v> FreezeBranded for DynamicActionsCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded for FrozenStarlarkDynamicActionsCallable<'v> {
+impl<'v> FreezeBranded<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let FrozenStarlarkDynamicActionsCallable {
             self_ty,
             implementation,

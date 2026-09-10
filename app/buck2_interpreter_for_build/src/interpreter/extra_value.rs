@@ -53,10 +53,10 @@ pub(crate) struct FrozenInterpreterExtraValue<'v> {
 
 starlark::register_starlark_any_complex!(InterpreterExtraValue<'_>, frozen FrozenInterpreterExtraValue<'_>);
 
-impl<'v> FreezeBranded for InterpreterExtraValue<'v> {
+impl<'v> FreezeBranded<'v> for InterpreterExtraValue<'v> {
     type Frozen<'fv> = FrozenInterpreterExtraValue<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let InterpreterExtraValue {
             package_extra,
             buckconfigs: _,

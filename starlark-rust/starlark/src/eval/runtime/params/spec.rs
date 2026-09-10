@@ -196,10 +196,10 @@ pub struct ParametersSpec<V> {
     defaults: Box<[V]>,
 }
 
-impl<'v> FreezeBranded for ParametersSpec<Value<'v>> {
+impl<'v> FreezeBranded<'v> for ParametersSpec<Value<'v>> {
     type Frozen<'fv> = ParametersSpec<Value<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(ParametersSpec {
             prototype: self.prototype,
             defaults: self.defaults.freeze(freezer)?,

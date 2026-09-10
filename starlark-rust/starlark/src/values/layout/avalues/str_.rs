@@ -86,7 +86,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
             debug_assert!(

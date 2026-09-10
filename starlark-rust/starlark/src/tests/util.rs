@@ -50,10 +50,10 @@ pub(crate) struct TestComplexValue<'v>(pub(crate) Value<'v>);
 #[starlark_value(type = "TestComplexValue", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for TestComplexValue<'v> {}
 
-impl<'v> FreezeBranded for TestComplexValue<'v> {
+impl<'v> FreezeBranded<'v> for TestComplexValue<'v> {
     type Frozen<'fv> = TestComplexValue<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(TestComplexValue(freezer.freeze(self.0)?))
     }
 }

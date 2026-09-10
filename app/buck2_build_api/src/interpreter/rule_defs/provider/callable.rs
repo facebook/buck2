@@ -292,10 +292,10 @@ impl<'v> UserProviderCallableNamed<'v> {
     }
 }
 
-impl<'v> FreezeBranded for UserProviderCallableNamed<'v> {
+impl<'v> FreezeBranded<'v> for UserProviderCallableNamed<'v> {
     type Frozen<'fv> = UserProviderCallableNamed<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let UserProviderCallableNamed {
             id,
             signature,
@@ -453,9 +453,9 @@ impl<'v> AllocValue<'v> for UserProviderCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded for UserProviderCallable<'v> {
+impl<'v> FreezeBranded<'v> for UserProviderCallable<'v> {
     type Frozen<'fv> = FrozenUserProviderCallable<'fv>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let callable = self.callable.into_inner();
         let callable = match callable {
             Some(x) => x,

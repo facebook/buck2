@@ -794,9 +794,9 @@ fn test_label_assign() {
         type Canonical = Wrapper<'v>;
     }
 
-    impl<'v> FreezeBranded for Wrapper<'v> {
+    impl<'v> FreezeBranded<'v> for Wrapper<'v> {
         type Frozen<'fv> = FrozenWrapper;
-        fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             Ok(FrozenWrapper)
         }
     }

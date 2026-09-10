@@ -80,10 +80,10 @@ impl<'v> ValueCaptured<'v> {
     }
 }
 
-impl<'v> FreezeBranded for ValueCaptured<'v> {
+impl<'v> FreezeBranded<'v> for ValueCaptured<'v> {
     type Frozen<'fv> = FrozenValueCaptured<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenValueCaptured<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenValueCaptured<'fv>> {
         Ok(FrozenValueCaptured(
             self.0.get().map(|v| freezer.freeze(v)).transpose()?,
         ))

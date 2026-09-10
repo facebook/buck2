@@ -294,10 +294,10 @@ impl<'fv> AllocFrozenValue<'fv> for NativeMethod<'fv> {
 
 // Only ever allocated in the frozen heaps of methods tables, so never actually frozen; the impl
 // is what lets a `ValueTyped` of it be a field of a freezable type.
-impl<'v> FreezeBranded for NativeMethod<'v> {
+impl<'v> FreezeBranded<'v> for NativeMethod<'v> {
     type Frozen<'fv> = NativeMethod<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(NativeMethod {
             function: NativeMeth(self.function.0, self.function.1.freeze(freezer)?),
             name: self.name,

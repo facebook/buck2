@@ -91,12 +91,12 @@ impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {
     }
 }
 
-impl<Node: QueryTarget> FreezeBranded for StarlarkTargetSet<Node> {
+impl<'v, Node: QueryTarget> FreezeBranded<'v> for StarlarkTargetSet<Node> {
     type Frozen<'fv> = StarlarkTargetSet<Node>;
 
     fn freeze<'fv>(
         self,
-        _freezer: &starlark::values::Freezer<'fv>,
+        _freezer: &starlark::values::Freezer<'v, 'fv>,
     ) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(self)
     }

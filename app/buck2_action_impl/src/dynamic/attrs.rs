@@ -98,10 +98,10 @@ pub(crate) enum DynamicAttrValue<'v> {
 // This isn't *super* sensitive, but it's not nothing either
 size_assert::words_of_type!(DynamicAttrValue<'static>, 4);
 
-impl<'v> FreezeBranded for DynamicAttrValue<'v> {
+impl<'v> FreezeBranded<'v> for DynamicAttrValue<'v> {
     type Frozen<'fv> = DynamicAttrValue<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         match self {
             DynamicAttrValue::Output(o) => Ok(DynamicAttrValue::Output(ValueOfUnchecked::new(
                 FreezeBranded::freeze(o.get(), freezer)?,

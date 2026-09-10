@@ -138,9 +138,9 @@ impl<'v> Display for Partial<'v> {
 
 starlark_complex_value_branded!(Partial);
 
-impl<'v> FreezeBranded for Partial<'v> {
+impl<'v> FreezeBranded<'v> for Partial<'v> {
     type Frozen<'fv> = Partial<'fv>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(Partial {
             func: self.func.freeze(freezer)?,
             pos: freezer.freeze(self.pos)?,

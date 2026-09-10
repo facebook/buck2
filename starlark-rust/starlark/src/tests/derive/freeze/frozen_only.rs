@@ -37,11 +37,11 @@ enum FrozenOnlyEnum<'v> {
 /// `Frozen<'fv>` is the type at `'fv`, which is what a handle field's freeze goes through.
 #[test]
 fn test_frozen_is_the_type_at_the_brand() {
-    fn rebrand<'a, 'b>(x: <FrozenOnly<'a> as FreezeBranded>::Frozen<'b>) -> FrozenOnly<'b> {
+    fn rebrand<'a, 'b>(x: <FrozenOnly<'a> as FreezeBranded<'a>>::Frozen<'b>) -> FrozenOnly<'b> {
         x
     }
     fn rebrand_enum<'a, 'b>(
-        x: <FrozenOnlyEnum<'a> as FreezeBranded>::Frozen<'b>,
+        x: <FrozenOnlyEnum<'a> as FreezeBranded<'a>>::Frozen<'b>,
     ) -> FrozenOnlyEnum<'b> {
         x
     }

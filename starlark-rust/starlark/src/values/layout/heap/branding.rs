@@ -176,34 +176,29 @@
 //! ### The seal edge
 //!
 //! A module's optimizer evaluates speculatively at the value heap's `'v` and folds frozen results
-//! into IR allocated at the module's frozen heap `'fm`. No `HeapEdge` points that way, but a
-//! `SealEdge<'fm, 'v>` does, for frozen values only: it certifies that the frozen heap references
-//! every heap in which a frozen `Value<'v>` can live, and its `rebrand` is `OptCtx::demote`.
-//! `ModuleHeaps` mints it beside the `HeapEdge`, on a proof in three steps: (a) by the previous
-//! section, a frozen `Value<'v>` was minted by the module's own `HeapEdge` (so lives in the
-//! frozen heap or in a heap it references), by an `add_to_heap` (which adds the value's heap to
-//! the value heap's references first), or from `'static` data, or was read out of such a value,
-//! and a value only points into heaps its own heap references; (b) the value heap's references
-//! are the frozen heap's at every instant, the two sharing one set; (c) `'static` data is
-//! immortal. The one assumption is the contract this module opens with, which every allocator
-//! enforces through its brand.
+//! into IR allocated at the module's frozen heap `'fm`, and the `Freezer` that freezes the module
+//! into that heap hands a value that is frozen already back at `'fm` rather than copying it. No
+//! `HeapEdge` points that way, but a `SealEdge<'fm, 'v>` does, for frozen values only: it
+//! certifies that the frozen heap references every heap in which a frozen `Value<'v>` can live,
+//! and its `rebrand` is `OptCtx::demote` and the freezer's fast path. `ModuleHeaps` mints it
+//! beside the `HeapEdge`, on a proof in three steps: (a) by the previous section, a frozen
+//! `Value<'v>` was minted by the module's own `HeapEdge` (so lives in the frozen heap or in a
+//! heap it references), by an `add_to_heap` (which adds the value's heap to the value heap's
+//! references first), or from `'static` data, or was read out of such a value, and a value only
+//! points into heaps its own heap references; (b) the value heap's references are the frozen
+//! heap's at every instant, the two sharing one set; (c) `'static` data is immortal. The one
+//! assumption is the contract this module opens with, which every allocator enforces through
+//! its brand.
+//!
+//! The `Freezer<'v, 'fv>` carries the edge, and `Freezer::freeze` takes a `Value<'v>`: a
+//! `FreezeBranded<'v>` impl can only hand it values at the brand the edge is for, so a value
+//! lent by an unrelated owner does not compile (the higher-ranked brand rules it out, as above).
 //!
 //! ### What is trusted rather than proven
 //!
-//! One brand change has no edge behind it. It rests on a contract stated at the site, and it is
-//! the only place where a brand is only as good as the code that minted it:
-//!
-//!  - `Freezer::freeze`'s already-frozen fast path (values/layout/heap/freezer.rs). A value that
-//!    is already frozen is handed back at `'fv` without being copied. The contract is on
-//!    `Freezer::new`: the target heap references every heap the value can live in.
-//!    `ModuleHeaps::seal_with` is its one production caller, by privacy, and its builder shares
-//!    the value heap's references, so the seal edge's proof covers every value of the module;
-//!    but `freeze` is generic over the brand of its input, so a `FreezeBranded` impl can hand it
-//!    a value borrowed from an unrelated owner, which no edge covers. Tests construct freezers
-//!    whose heaps are scoped within the test.
-//!
-//! Everything else that hands out a brand records the dependency it certifies, and the
-//! `'static` brand is honest: apart from the private erased storage of the owning carriers
+//! Nothing beyond the contract this module opens with. Every brand change goes through an edge,
+//! and every edge is minted where the dependency it certifies is established. The `'static`
+//! brand is honest: apart from the private erased storage of the owning carriers
 //! (`OwnedFrozen`, `FrozenModule`, `Globals`) and of the frozen heaps themselves, which the
 //! freezer and the pagable deserializer fill at a brand and which is only ever read back at a
 //! brand the owner vouches for, the only data at `'static` is immortal.

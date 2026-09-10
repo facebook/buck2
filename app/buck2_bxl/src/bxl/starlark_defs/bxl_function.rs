@@ -172,9 +172,9 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
     }
 }
 
-impl<'v> FreezeBranded for BxlFunction<'v> {
+impl<'v> FreezeBranded<'v> for BxlFunction<'v> {
     type Frozen<'fv> = FrozenBxlFunction<'fv>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let docs = self.docs;
         let id = match self.id.into_inner() {

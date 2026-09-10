@@ -371,10 +371,13 @@ impl<'v> Serialize for FrozenCommandLineOptions<'v> {
     }
 }
 
-impl<'v> FreezeBranded for CommandLineOptions<'v> {
+impl<'v> FreezeBranded<'v> for CommandLineOptions<'v> {
     type Frozen<'fv> = FrozenCommandLineOptions<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenCommandLineOptions<'fv>> {
+    fn freeze<'fv>(
+        self,
+        freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<FrozenCommandLineOptions<'fv>> {
         let CommandLineOptions {
             relative_to,
             absolute_prefix,

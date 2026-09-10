@@ -20,16 +20,15 @@ use crate::values::FreezeBranded;
 use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
-use crate::values::FrozenHeap;
 
 struct FreezeSentinel {
     frozen: bool,
 }
 
-impl FreezeBranded for FreezeSentinel {
+impl<'v> FreezeBranded<'v> for FreezeSentinel {
     type Frozen<'fv> = Self;
 
-    fn freeze<'fv>(self, _: &Freezer<'fv>) -> FreezeResult<Self> {
+    fn freeze<'fv>(self, _: &Freezer<'v, 'fv>) -> FreezeResult<Self> {
         assert!(!self.frozen);
         Ok(Self { frozen: true })
     }
@@ -53,9 +52,6 @@ fn test() -> anyhow::Result<()> {
     let t = Test {
         sentinel: FreezeSentinel { frozen: false },
     };
-    FrozenHeap::temp(|frozen_heap| {
-        let freezer = Freezer::testing_new(frozen_heap);
-        t.freeze(&freezer).map(drop)
-    })?;
+    Freezer::testing_temp(|_heap, freezer| t.freeze(freezer).map(drop))?;
     Ok(())
 }

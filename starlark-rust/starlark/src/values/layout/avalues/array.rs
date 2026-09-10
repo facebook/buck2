@@ -87,7 +87,7 @@ impl<'v> AValue<'v> for AValueArray {
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         panic!("arrays should not be frozen")
     }
@@ -151,7 +151,7 @@ impl<'v, T: AnyArrayRegistered + for<'fv> StarlarkPagable<'fv>> AValue<'v> for A
 
     unsafe fn heap_freeze<'fv>(
         _me: *mut AValueRepr<Self::StarlarkValue>,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         panic!("AnyArray for now can only be allocated in FrozenHeap");
     }

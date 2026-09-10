@@ -35,7 +35,7 @@ pub trait DynamicLambdaParamsStorage<'v>:
 
     fn freeze<'fv>(
         self: Box<DynStarlark<'v, Self>>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<FrozenDynamicLambdaParamsStorageBox<'fv>>;
 }
 

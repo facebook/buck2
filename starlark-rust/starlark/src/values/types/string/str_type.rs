@@ -81,10 +81,10 @@ pub struct StarlarkStr {
     str: StarlarkStrN<0>,
 }
 
-impl FreezeBranded for StarlarkStr {
+impl<'v> FreezeBranded<'v> for StarlarkStr {
     type Frozen<'fv> = StarlarkStr;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(self)
     }
 }

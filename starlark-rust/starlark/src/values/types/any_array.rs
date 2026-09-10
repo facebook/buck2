@@ -116,10 +116,10 @@ pub(crate) trait AnyArrayRegistered: Debug + 'static {
 
 // Only ever allocated in frozen heaps (see `AValueAnyArray`), whose contents are not frozen
 // again; the impl is what lets a `ValueTyped<'v, AnyArray<T>>` be a field of a frozen type.
-impl<T: Debug + 'static> FreezeBranded for AnyArray<T> {
+impl<'v, T: Debug + 'static> FreezeBranded<'v> for AnyArray<T> {
     type Frozen<'fv> = Self;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         unreachable!("only allocated in frozen heaps")
     }
 }

@@ -24,7 +24,7 @@ trait Bound<'x> {}
 #[derive(FreezeBranded)]
 #[freeze_branded(
     validator = check_type,
-    bounds = "for<'fv> <V as FreezeBranded>::Frozen<'fv>: Bound<'fv>"
+    bounds = "for<'fv> <V as FreezeBranded<'v>>::Frozen<'fv>: Bound<'fv>"
 )]
 struct Test<V> {
     field: V,
@@ -42,6 +42,6 @@ fn assert_impl() {
     #[derive(FreezeBranded)]
     struct Impl {}
     impl<'x> Bound<'x> for Impl {}
-    fn check(_: impl FreezeBranded) {}
+    fn check<'v>(_: impl FreezeBranded<'v>) {}
     check(Test { field: Impl {} });
 }

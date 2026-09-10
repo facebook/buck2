@@ -551,7 +551,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
 
     fn try_freeze_directly<'fv>(
         &self,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> Option<FreezeResult<Value<'fv>>> {
         let StarlarkCommandLineData {
             items,
@@ -646,19 +646,19 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs<'v> {
     }
 }
 
-impl<'v> FreezeBranded for StarlarkCmdArgs<'v> {
+impl<'v> FreezeBranded<'v> for StarlarkCmdArgs<'v> {
     type Frozen<'fv> = FrozenStarlarkCmdArgs<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let StarlarkCommandLineData {
             items,
             hidden,
             options,
         } = self.0.into_inner();
 
-        fn freeze_elements<'fv>(
-            elements: Vec<CommandLineArg<'_>>,
-            freezer: &Freezer<'fv>,
+        fn freeze_elements<'v, 'fv>(
+            elements: Vec<CommandLineArg<'v>>,
+            freezer: &Freezer<'v, 'fv>,
         ) -> FreezeResult<ThinBoxSliceValue<'fv>> {
             elements
                 .into_iter()

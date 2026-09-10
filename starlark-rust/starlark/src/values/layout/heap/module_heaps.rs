@@ -120,8 +120,9 @@ impl<'v> ModuleHeaps<'v> {
     }
 
     /// Freeze the frozen heap's root value with `f`, then seal the heap into the value heap's
-    /// references and return the root value kept alive by it. `f` gets a [`Freezer`] into the heap
-    /// and the same edges as [`frozen_heap`](ModuleHeaps::frozen_heap).
+    /// references and return the root value kept alive by it. `f` gets a [`Freezer`] from the
+    /// value heap into the frozen heap, and the same edges as
+    /// [`frozen_heap`](ModuleHeaps::frozen_heap).
     ///
     /// The heap is sealed whether `f` succeeds, fails or panics. The `name` is the sealed heap's,
     /// see [`OwnedFrozen::name`].
@@ -129,7 +130,7 @@ impl<'v> ModuleHeaps<'v> {
         mut self,
         name: Option<FrozenHeapName>,
         f: impl for<'fm> FnOnce(
-            &Freezer<'fm>,
+            &Freezer<'v, 'fm>,
             HeapEdge<'v, 'fm>,
             SealEdge<'fm, 'v>,
         ) -> Result<T::Reinfect<'fm>, E>,
@@ -144,8 +145,8 @@ impl<'v> ModuleHeaps<'v> {
         // SAFETY: `'fm` is the brand of the builder, which is sealed right below into the owner
         // the value is paired with. Being closure-introduced, `'fm` names nothing else.
         let root = self.frozen().with(|fh| {
-            let freezer = Freezer::new(fh);
             let (edge, seal_edge) = self.edges(fh);
+            let freezer = Freezer::new(fh, seal_edge);
             f(&freezer, edge, seal_edge).map(|v| unsafe { OwnedFrozen::<T>::erase_brand(v) })
         });
         let frozen = self

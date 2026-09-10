@@ -131,9 +131,9 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
     type Canonical = FrozenStarlarkPluginKind;
 }
 
-impl FreezeBranded for StarlarkPluginKind {
+impl<'v> FreezeBranded<'v> for StarlarkPluginKind {
     type Frozen<'fv> = FrozenStarlarkPluginKind;
-    fn freeze<'fv>(self, _: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, _: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         self.expect_bound()
             .map(FrozenStarlarkPluginKind)
             .map_err(|e| FreezeError::new(e.to_string()))

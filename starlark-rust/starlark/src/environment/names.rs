@@ -131,7 +131,7 @@ impl<'v> MutableNames<'v> {
             .collect()
     }
 
-    pub(crate) fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenNames<'fv>> {
+    pub(crate) fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenNames<'fv>> {
         freeze_names(self.0.into_inner(), freezer)
     }
 }
@@ -156,17 +156,17 @@ impl<'v> FrozenNames<'v> {
 }
 
 // Only re-types the names at another frozen heap's brand, see `FrozenModuleData`.
-impl<'v> FreezeBranded for FrozenNames<'v> {
+impl<'v> FreezeBranded<'v> for FrozenNames<'v> {
     type Frozen<'fv> = FrozenNames<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenNames<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenNames<'fv>> {
         freeze_names(self.0, freezer)
     }
 }
 
-fn freeze_names<'fv>(
-    names: SmallMap<StringValue<'_>, (ModuleSlotId, Visibility)>,
-    freezer: &Freezer<'fv>,
+fn freeze_names<'v, 'fv>(
+    names: SmallMap<StringValue<'v>, (ModuleSlotId, Visibility)>,
+    freezer: &Freezer<'v, 'fv>,
 ) -> FreezeResult<FrozenNames<'fv>> {
     let mut frozen = SmallMap::with_capacity(names.len());
     for (name, slot) in names.into_iter_hashed() {

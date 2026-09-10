@@ -142,9 +142,9 @@ impl<'v> StarlarkTypeRepr for SetData<'v> {
 }
 
 // TODO Add optimizations not to allocate empty set.
-impl<'v> FreezeBranded for MutableSet<'v> {
+impl<'v> FreezeBranded<'v> for MutableSet<'v> {
     type Frozen<'fv> = SetGen<SetData<'fv>>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let values = self.0.into_inner().content;
         let mut content = SmallSet::with_capacity(values.len());
         for value in values.into_iter_hashed() {

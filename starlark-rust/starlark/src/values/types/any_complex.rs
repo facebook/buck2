@@ -55,10 +55,10 @@ pub struct StarlarkAnyComplex<T> {
     pub value: T,
 }
 
-impl<T: FreezeBranded> FreezeBranded for StarlarkAnyComplex<T> {
+impl<'v, T: FreezeBranded<'v>> FreezeBranded<'v> for StarlarkAnyComplex<T> {
     type Frozen<'fv> = StarlarkAnyComplex<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(StarlarkAnyComplex {
             value: self.value.freeze(freezer)?,
         })
@@ -205,7 +205,7 @@ macro_rules! register_starlark_any_complex {
 impl<'v, T> AllocValue<'v> for StarlarkAnyComplex<T>
 where
     Self: StarlarkValue<'v> + HeapSendable<'v>,
-    T: Trace<'v> + ProvidesStaticType<'v> + FreezeBranded,
+    T: Trace<'v> + ProvidesStaticType<'v> + FreezeBranded<'v>,
     for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>: AValueSimpleBound<'fv>,
 {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
@@ -254,10 +254,10 @@ mod tests {
         other: Value<'v>,
     }
 
-    impl<'v> FreezeBranded for UnfrozenData<'v> {
+    impl<'v> FreezeBranded<'v> for UnfrozenData<'v> {
         type Frozen<'fv> = FrozenData<'fv>;
 
-        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<FrozenData<'fv>> {
+        fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenData<'fv>> {
             Ok(FrozenData {
                 string: self.string.freeze(freezer)?,
                 other: freezer.freeze(self.other)?,

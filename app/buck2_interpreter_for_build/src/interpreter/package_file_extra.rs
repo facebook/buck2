@@ -98,10 +98,10 @@ impl<'v> StarlarkValue<'v> for FrozenPackageFileExtra<'v> {
     type Canonical = PackageFileExtra<'v>;
 }
 
-impl<'v> FreezeBranded for PackageFileExtra<'v> {
+impl<'v> FreezeBranded<'v> for PackageFileExtra<'v> {
     type Frozen<'fv> = FrozenPackageFileExtra<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let PackageFileExtra {
             cfg_constructor,
             package_values,

@@ -131,10 +131,10 @@ unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
     }
 }
 
-impl<'v, T: StarlarkTypeRepr> FreezeBranded for ValueOfUnchecked<'v, T> {
+impl<'v, T: StarlarkTypeRepr> FreezeBranded<'v> for ValueOfUnchecked<'v, T> {
     type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(ValueOfUnchecked::new(self.0.freeze(freezer)?))
     }
 }

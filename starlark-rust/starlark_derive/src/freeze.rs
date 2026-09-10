@@ -46,12 +46,35 @@ impl Input<'_> {
         }
     }
 
-    fn format_impl_generics(&self) -> syn::Result<(TokenStream, TokenStream, TokenStream)> {
+    /// The generics of the impl: the brand `'v` of `FreezeBranded<'v>`, the parameters of
+    /// `impl<..>`, of the type, and of `Frozen<'fv>`.
+    ///
+    /// The brand is the type's lifetime parameter. A type without one holds no values, so it
+    /// implements the trait at every brand, which the impl names `'v`. A type with several is
+    /// rejected: the derive cannot tell which one is the heap's.
+    fn format_impl_generics(
+        &self,
+    ) -> syn::Result<(syn::Lifetime, TokenStream, TokenStream, TokenStream)> {
         let trait_ = freeze_branded();
         let span = self.input.span();
+        let mut lifetimes = self.input.generics.lifetimes();
+        let brand = match (lifetimes.next(), lifetimes.next()) {
+            (None, _) => syn::Lifetime::new("'v", span),
+            (Some(lt), None) => lt.lifetime.clone(),
+            (Some(_), Some(second)) => {
+                return Err(syn::Error::new_spanned(
+                    second,
+                    "`#[derive(FreezeBranded)]` cannot tell which lifetime parameter is the \
+                     heap's brand; implement `FreezeBranded` by hand",
+                ));
+            }
+        };
         let mut impl_params = Vec::new();
         let mut input_params = Vec::new();
         let mut output_params = Vec::new();
+        if self.input.generics.lifetimes().next().is_none() {
+            impl_params.push(quote_spanned! { span=> #brand });
+        }
         for param in &self.input.generics.params {
             match param {
                 GenericParam::Type(t) => {
@@ -59,7 +82,7 @@ impl Input<'_> {
                     let bounds = t.bounds.iter();
                     impl_params.push(quote_spanned! {
                         span=>
-                        #name: #(#bounds +)* #trait_
+                        #name: #(#bounds +)* #trait_<#brand>
                     });
                     input_params.push(quote_spanned! {
                         span=>
@@ -67,7 +90,7 @@ impl Input<'_> {
                     });
                     output_params.push(quote_spanned! {
                         span=>
-                        <#name as #trait_>::Frozen<'fv>
+                        <#name as #trait_<#brand>>::Frozen<'fv>
                     });
                 }
                 GenericParam::Lifetime(lt) => {
@@ -84,6 +107,7 @@ impl Input<'_> {
             }
         }
         Ok((
+            brand,
             self.angle_brankets(&impl_params),
             self.angle_brankets(&input_params),
             self.angle_brankets(&output_params),
@@ -111,7 +135,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         ));
     }
 
-    let (impl_params, input_params, output_params) = input.format_impl_generics()?;
+    let (brand, impl_params, input_params, output_params) = input.format_impl_generics()?;
 
     let bounds_body = match bounds {
         Some(bounds) => quote_spanned! { span=> where #bounds },
@@ -155,10 +179,10 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
 
     let r#gen = syn::parse_quote_spanned! {
         span=>
-        impl #impl_params #trait_ for #name #input_params #bounds_body {
+        impl #impl_params #trait_<#brand> for #name #input_params #bounds_body {
             type Frozen<'fv> = #name #output_params;
             #[allow(unused_variables)]
-            fn freeze<'fv>(self, freezer: &starlark::values::Freezer<'fv>) -> starlark::values::FreezeResult<Self::Frozen<'fv>> {
+            fn freeze<'fv>(self, freezer: &starlark::values::Freezer<#brand, 'fv>) -> starlark::values::FreezeResult<Self::Frozen<'fv>> {
                 #body
             }
         }

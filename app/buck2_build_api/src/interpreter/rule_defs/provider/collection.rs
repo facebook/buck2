@@ -444,9 +444,9 @@ unsafe impl<'v> Trace<'v> for ProviderCollection<'v> {
     }
 }
 
-impl<'v> FreezeBranded for ProviderCollection<'v> {
+impl<'v> FreezeBranded<'v> for ProviderCollection<'v> {
     type Frozen<'fv> = ProviderCollection<'fv>;
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
         let mut providers = SmallMap::with_capacity(self.providers.len());

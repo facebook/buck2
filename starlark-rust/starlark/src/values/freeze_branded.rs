@@ -35,6 +35,10 @@ use crate::values::Value;
 /// This is called on freeze of the heap. Must produce a replacement object to place
 /// in the frozen heap.
 ///
+/// `'v` is the brand of the heap the value is frozen out of, like the `'v` of
+/// [`Trace<'v>`](crate::values::Trace): a type branded by `'v` implements `FreezeBranded<'v>`, a
+/// type that holds no values implements it for every `'v`.
+///
 /// For relatively simple cases it can be implemented with `#[derive(FreezeBranded)]`:
 ///
 /// ```
@@ -51,7 +55,7 @@ use crate::values::Value;
 ///     data: AdditionalData,
 /// }
 /// ```
-pub trait FreezeBranded {
+pub trait FreezeBranded<'v> {
     /// When type is frozen, it is frozen into this type.
     type Frozen<'fv>;
 
@@ -61,16 +65,16 @@ pub trait FreezeBranded {
     /// Note during freeze, `Value` objects in `Self` might be already special forward-objects,
     /// trying to unpack these objects will crash the process.
     /// So the function is only allowed to access `Value` objects after it froze them.
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>>;
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>>;
 }
 
 macro_rules! impl_freeze_branded_identity {
     ($($t:ty),*) => {
         $(
-            impl FreezeBranded for $t {
+            impl<'v> FreezeBranded<'v> for $t {
                 type Frozen<'fv> = Self;
 
-                fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+                fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
                     Ok(self)
                 }
             }
@@ -80,97 +84,97 @@ macro_rules! impl_freeze_branded_identity {
 
 impl_freeze_branded_identity!(String, i32, u32, i64, u64, usize, bool, ());
 
-impl<'v, T: 'static> FreezeBranded for marker::PhantomData<&'v T> {
+impl<'v, T: 'static> FreezeBranded<'v> for marker::PhantomData<&'v T> {
     type Frozen<'fv> = PhantomData<&'fv T>;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<PhantomData<&'fv T>> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<PhantomData<&'fv T>> {
         Ok(marker::PhantomData)
     }
 }
 
-impl<T> FreezeBranded for Vec<T>
+impl<'v, T> FreezeBranded<'v> for Vec<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = Vec<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Vec<T::Frozen<'fv>>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Vec<T::Frozen<'fv>>> {
         self.into_try_map(|v| v.freeze(freezer))
     }
 }
 
-impl<T> FreezeBranded for RefCell<T>
+impl<'v, T> FreezeBranded<'v> for RefCell<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = T::Frozen<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<T::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<T::Frozen<'fv>> {
         self.into_inner().freeze(freezer)
     }
 }
 
-impl<T> FreezeBranded for UnsafeCell<T>
+impl<'v, T> FreezeBranded<'v> for UnsafeCell<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = UnsafeCell<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(UnsafeCell::new(self.into_inner().freeze(freezer)?))
     }
 }
 
-impl<T> FreezeBranded for OnceCell<T>
+impl<'v, T> FreezeBranded<'v> for OnceCell<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = Option<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         self.into_inner().freeze(freezer)
     }
 }
 
-impl<T> FreezeBranded for Box<T>
+impl<'v, T> FreezeBranded<'v> for Box<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = Box<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(Box::new((*self).freeze(freezer)?))
     }
 }
 
-impl<T> FreezeBranded for Box<[T]>
+impl<'v, T> FreezeBranded<'v> for Box<[T]>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = Box<[T::Frozen<'fv>]>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         self.into_vec()
             .into_try_map(|v| v.freeze(freezer))
             .map(|v| v.into_boxed_slice())
     }
 }
 
-impl<T> FreezeBranded for Option<T>
+impl<'v, T> FreezeBranded<'v> for Option<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = Option<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Option<T::Frozen<'fv>>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Option<T::Frozen<'fv>>> {
         self.map(|v| v.freeze(freezer)).transpose()
     }
 }
 
-impl<K: FreezeBranded> FreezeBranded for Hashed<K> {
+impl<'v, K: FreezeBranded<'v>> FreezeBranded<'v> for Hashed<K> {
     type Frozen<'fv> = Hashed<K::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // `freeze` must not change hash.
         Ok(Hashed::new_unchecked(
             self.hash(),
@@ -179,16 +183,16 @@ impl<K: FreezeBranded> FreezeBranded for Hashed<K> {
     }
 }
 
-impl<K, V> FreezeBranded for SmallMap<K, V>
+impl<'v, K, V> FreezeBranded<'v> for SmallMap<K, V>
 where
-    K: FreezeBranded,
-    V: FreezeBranded,
+    K: FreezeBranded<'v>,
+    V: FreezeBranded<'v>,
 {
     type Frozen<'fv> = SmallMap<K::Frozen<'fv>, V::Frozen<'fv>>;
 
     fn freeze<'fv>(
         self,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<SmallMap<K::Frozen<'fv>, V::Frozen<'fv>>> {
         let mut new = SmallMap::with_capacity(self.len());
         for (key, value) in self.into_iter_hashed() {
@@ -203,13 +207,13 @@ where
     }
 }
 
-impl<T> FreezeBranded for SmallSet<T>
+impl<'v, T> FreezeBranded<'v> for SmallSet<T>
 where
-    T: FreezeBranded,
+    T: FreezeBranded<'v>,
 {
     type Frozen<'fv> = SmallSet<T::Frozen<'fv>>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let mut new = SmallSet::with_capacity(self.len());
         for value in self.into_iter_hashed() {
             let value = value.freeze(freezer)?;
@@ -220,36 +224,41 @@ where
     }
 }
 
-impl<'v> FreezeBranded for Value<'v> {
+impl<'v> FreezeBranded<'v> for Value<'v> {
     type Frozen<'fv> = Value<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Value<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Value<'fv>> {
         freezer.freeze(self)
     }
 }
 
-impl<A: FreezeBranded> FreezeBranded for (A,) {
+impl<'v, A: FreezeBranded<'v>> FreezeBranded<'v> for (A,) {
     type Frozen<'fv> = (A::Frozen<'fv>,);
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<(A::Frozen<'fv>,)> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<(A::Frozen<'fv>,)> {
         Ok((self.0.freeze(freezer)?,))
     }
 }
 
-impl<A: FreezeBranded, B: FreezeBranded> FreezeBranded for (A, B) {
+impl<'v, A: FreezeBranded<'v>, B: FreezeBranded<'v>> FreezeBranded<'v> for (A, B) {
     type Frozen<'fv> = (A::Frozen<'fv>, B::Frozen<'fv>);
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<(A::Frozen<'fv>, B::Frozen<'fv>)> {
+    fn freeze<'fv>(
+        self,
+        freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<(A::Frozen<'fv>, B::Frozen<'fv>)> {
         Ok((self.0.freeze(freezer)?, self.1.freeze(freezer)?))
     }
 }
 
-impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded> FreezeBranded for (A, B, C) {
+impl<'v, A: FreezeBranded<'v>, B: FreezeBranded<'v>, C: FreezeBranded<'v>> FreezeBranded<'v>
+    for (A, B, C)
+{
     type Frozen<'fv> = (A::Frozen<'fv>, B::Frozen<'fv>, C::Frozen<'fv>);
 
     fn freeze<'fv>(
         self,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<(A::Frozen<'fv>, B::Frozen<'fv>, C::Frozen<'fv>)> {
         Ok((
             self.0.freeze(freezer)?,
@@ -259,8 +268,8 @@ impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded> FreezeBranded for (A,
     }
 }
 
-impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded, D: FreezeBranded> FreezeBranded
-    for (A, B, C, D)
+impl<'v, A: FreezeBranded<'v>, B: FreezeBranded<'v>, C: FreezeBranded<'v>, D: FreezeBranded<'v>>
+    FreezeBranded<'v> for (A, B, C, D)
 {
     type Frozen<'fv> = (
         A::Frozen<'fv>,
@@ -271,7 +280,7 @@ impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded, D: FreezeBranded> Fre
 
     fn freeze<'fv>(
         self,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<(
         A::Frozen<'fv>,
         B::Frozen<'fv>,
@@ -287,8 +296,14 @@ impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded, D: FreezeBranded> Fre
     }
 }
 
-impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded, D: FreezeBranded, E: FreezeBranded>
-    FreezeBranded for (A, B, C, D, E)
+impl<
+    'v,
+    A: FreezeBranded<'v>,
+    B: FreezeBranded<'v>,
+    C: FreezeBranded<'v>,
+    D: FreezeBranded<'v>,
+    E: FreezeBranded<'v>,
+> FreezeBranded<'v> for (A, B, C, D, E)
 {
     type Frozen<'fv> = (
         A::Frozen<'fv>,
@@ -300,7 +315,7 @@ impl<A: FreezeBranded, B: FreezeBranded, C: FreezeBranded, D: FreezeBranded, E: 
 
     fn freeze<'fv>(
         self,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<(
         A::Frozen<'fv>,
         B::Frozen<'fv>,

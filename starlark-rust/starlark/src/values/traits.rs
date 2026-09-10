@@ -840,7 +840,7 @@ pub trait StarlarkValue<'v>:
     #[starlark_internal_vtable(skip)]
     fn try_freeze_directly<'fv>(
         &self,
-        _freezer: &Freezer<'fv>,
+        _freezer: &Freezer<'v, 'fv>,
     ) -> Option<FreezeResult<Value<'fv>>> {
         None
     }

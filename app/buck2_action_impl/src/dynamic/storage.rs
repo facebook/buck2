@@ -165,7 +165,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
 
     fn freeze<'fv>(
         self: Box<DynStarlark<'v, Self>>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<FrozenDynamicLambdaParamsStorageBox<'fv>> {
         let DynamicLambdaParamsStorageImpl {
             lambda_params,

@@ -19,7 +19,6 @@ use crate as starlark;
 use crate::values::FreezeBranded;
 use crate::values::FreezeError;
 use crate::values::Freezer;
-use crate::values::FrozenHeap;
 
 #[derive(FreezeBranded)]
 #[freeze_branded(validator = check_true)]
@@ -38,19 +37,13 @@ fn check_true(test: &Test) -> anyhow::Result<()> {
 #[test]
 fn test_ok() -> anyhow::Result<()> {
     let t = Test { field: true };
-    FrozenHeap::temp(|frozen_heap| {
-        let freezer = Freezer::testing_new(frozen_heap);
-        t.freeze(&freezer).map(drop)
-    })?;
+    Freezer::testing_temp(|_heap, freezer| t.freeze(freezer).map(drop))?;
     Ok(())
 }
 
 #[test]
 fn test_fail() -> anyhow::Result<()> {
     let t = Test { field: false };
-    FrozenHeap::temp(|frozen_heap| {
-        let freezer = Freezer::testing_new(frozen_heap);
-        assert!(t.freeze(&freezer).is_err());
-    });
+    Freezer::testing_temp(|_heap, freezer| assert!(t.freeze(freezer).is_err()));
     Ok(())
 }

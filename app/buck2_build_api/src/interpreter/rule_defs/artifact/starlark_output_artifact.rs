@@ -80,10 +80,10 @@ pub struct FrozenStarlarkOutputArtifact<'v> {
     artifact: ValueTyped<'v, StarlarkArtifact>,
 }
 
-impl<'v> FreezeBranded for StarlarkOutputArtifact<'v> {
+impl<'v> FreezeBranded<'v> for StarlarkOutputArtifact<'v> {
     type Frozen<'fv> = FrozenStarlarkOutputArtifact<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenStarlarkOutputArtifact {
             artifact: FreezeBranded::freeze(self.declared_artifact, freezer)?,
         })

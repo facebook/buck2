@@ -485,10 +485,10 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     }
 }
 
-impl<'v> FreezeBranded for AnalysisValueStorage<'v> {
+impl<'v> FreezeBranded<'v> for AnalysisValueStorage<'v> {
     type Frozen<'fv> = FrozenAnalysisValueStorage<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let AnalysisValueStorage {
             self_key,
             action_data,

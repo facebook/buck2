@@ -360,10 +360,10 @@ impl<'v> AllocValue<'v> for StarlarkRunActionValues<'v> {
     }
 }
 
-impl<'v> FreezeBranded for StarlarkRunActionValues<'v> {
+impl<'v> FreezeBranded<'v> for StarlarkRunActionValues<'v> {
     type Frozen<'fv> = FrozenStarlarkRunActionValues<'fv>;
 
-    fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let StarlarkRunActionValues {
             exe,
             args,

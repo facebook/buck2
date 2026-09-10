@@ -287,10 +287,10 @@ impl<'v> CommandLineArgLike<'v> for StarlarkDeclaredArtifact<'v> {
     }
 }
 
-impl<'v> FreezeBranded for StarlarkDeclaredArtifact<'v> {
+impl<'v> FreezeBranded<'v> for StarlarkDeclaredArtifact<'v> {
     type Frozen<'fv> = StarlarkArtifact;
 
-    fn freeze<'fv>(self, _freezer: &Freezer<'fv>) -> FreezeResult<StarlarkArtifact> {
+    fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<StarlarkArtifact> {
         // ensure_bound() moves out of self and so we can't construct the error
         // after calling that, so we need to check first.
         if !self.artifact.is_bound() {

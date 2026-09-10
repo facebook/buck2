@@ -61,7 +61,7 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
             if let Some(f) = try_freeze_directly::<Self>(me, freezer) {

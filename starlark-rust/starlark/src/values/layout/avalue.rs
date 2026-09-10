@@ -133,7 +133,7 @@ pub(crate) trait AValue<'v>: Sized + 'v {
 
     unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer<'fv>,
+        freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>>;
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self::StarlarkValue>, tracer: &Tracer<'v>)
@@ -188,7 +188,7 @@ impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
 /// replace object with the forward to that frozen value instead of using default freeze.
 pub(super) unsafe fn try_freeze_directly<'v, 'fv, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer<'fv>,
+    freezer: &Freezer<'v, 'fv>,
 ) -> Option<FreezeResult<Value<'fv>>>
 where
     A: AValue<'v>,
@@ -211,7 +211,7 @@ where
 /// (`StarlarkFloat` is logically a simple type, but it is not considered simple type).
 pub(super) unsafe fn heap_freeze_simple_impl<'v, 'fv, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer<'fv>,
+    freezer: &Freezer<'v, 'fv>,
 ) -> FreezeResult<Value<'fv>>
 where
     A: AValue<'v, ExtraElem = ()>,
@@ -296,10 +296,10 @@ mod tests {
         type Canonical = ReentrantTupleFreeze<'v>;
     }
 
-    impl<'v> FreezeBranded for ReentrantTupleFreeze<'v> {
+    impl<'v> FreezeBranded<'v> for ReentrantTupleFreeze<'v> {
         type Frozen<'fv> = FrozenReentrantTupleFreeze;
 
-        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             let owner = self
                 .0
                 .into_inner()
@@ -339,10 +339,10 @@ mod tests {
         type Canonical = ReentrantListFreeze<'v>;
     }
 
-    impl<'v> FreezeBranded for ReentrantListFreeze<'v> {
+    impl<'v> FreezeBranded<'v> for ReentrantListFreeze<'v> {
         type Frozen<'fv> = FrozenReentrantListFreeze;
 
-        fn freeze<'fv>(self, freezer: &Freezer<'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+        fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
             let owner = self
                 .0
                 .into_inner()
