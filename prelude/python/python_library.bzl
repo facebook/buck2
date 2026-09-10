@@ -266,6 +266,30 @@ def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict
 
     return default_resources, standalone_resources, outplace_resources
 
+def py_resources_deduped(ctx: AnalysisContext, keyed_resources: list[(str, dict[str, ArtifactOutputs])]) -> list[[(ManifestInfo, list[ArgLike]), None]]:
+    """
+    Build one resource manifest per entry, aliasing entries whose resource
+    maps are identical to a single manifest (the maps only diverge when a
+    resource dep exposes style-specific subtargets). Returns one result per
+    entry, None for empty maps.
+    """
+    built = []
+    results = []
+    for suffix, resources in keyed_resources:
+        if not resources:
+            results.append(None)
+            continue
+        result = None
+        for seen_resources, seen_result in built:
+            if resources == seen_resources:
+                result = seen_result
+                break
+        if result == None:
+            result = py_resources(ctx, resources, suffix)
+            built.append((resources, result))
+        results.append(result)
+    return results
+
 def py_resources(ctx: AnalysisContext, resources: dict[str, ArtifactOutputs], suffix: str = "") -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
@@ -342,7 +366,15 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
+
+    # For the common all-`.py`, no-stub-override case the type manifest lists
+    # exactly the srcs, so reuse that manifest instead of writing a copy.
+    if src_types == qualified_srcs:
+        src_type_manifest = src_manifest
+    elif src_types:
+        src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types)
+    else:
+        src_type_manifest = None
 
     # Compile bytecode.
     bytecode = None
@@ -352,9 +384,14 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
 
     raw_deps = ctx.attrs.deps
-    default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
-    standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
-    outplace_resource_manifest = py_resources(ctx, outplace_resources, "_outplace") if outplace_resources else None
+    default_resource_manifest, standalone_resource_manifest, outplace_resource_manifest = py_resources_deduped(
+        ctx,
+        [
+            ("", default_resources),
+            ("_standalone", standalone_resources),
+            ("_outplace", outplace_resources),
+        ],
+    )
     deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
 

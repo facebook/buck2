@@ -70,7 +70,7 @@ load(
     "create_python_library_info",
     "gather_dep_libraries",
     "py_attr_resources",
-    "py_resources",
+    "py_resources_deduped",
     "qualify_srcs",
 )
 load(":python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
@@ -176,14 +176,23 @@ def python_executable(
     if outplace_resources:
         all_outplace_resources.update(outplace_resources)
 
+    binary_default_resources, binary_standalone_resources, binary_outplace_resources = py_resources_deduped(
+        ctx,
+        [
+            ("", all_default_resources),
+            ("_standalone", all_standalone_resources),
+            ("_outplace", all_outplace_resources),
+        ],
+    )
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
         src_types = src_manifest,
-        default_resources = py_resources(ctx, all_default_resources) if all_default_resources else None,
-        standalone_resources = py_resources(ctx, all_standalone_resources, "_standalone") if all_standalone_resources else None,
-        outplace_resources = py_resources(ctx, all_outplace_resources, "_outplace") if all_outplace_resources else None,
+        default_resources = binary_default_resources,
+        standalone_resources = binary_standalone_resources,
+        outplace_resources = binary_outplace_resources,
         bytecode = bytecode_manifest,
         deps = python_deps,
         shared_libraries = shared_deps,
