@@ -36,12 +36,13 @@ impl VersionedGraphKey {
     }
 }
 
+/// The certificate of the key's last known value, offered as a candidate for
+/// revalidation: if every dep still has the recorded revision, `entry` is the value at the
+/// looked-up version too, and the certificate is re-issued as is.
 #[derive(Clone, Dupe, Debug)]
 pub(crate) struct VersionedGraphResultMismatch {
     /// Last known value for the key. Still paged out if nothing has read it back.
     pub(crate) entry: MaybeResident<DiceValidValue>,
-    /// Most recent previous version at which the last known value was valid.
-    pub(crate) prev_verified_version: VersionNumber,
     pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
     /// Revision `entry` was interned under.
     pub(crate) revision: Revision,

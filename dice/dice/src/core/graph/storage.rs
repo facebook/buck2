@@ -777,16 +777,15 @@ pub(crate) enum ValueUpdate {
     /// cutoff, avoiding invalidation of its reverse dependencies.
     Computed(DiceValidValue),
 
-    /// The previous value after its dependencies were validated unchanged. The entry is
-    /// retained only if it is still verified at `prev_verified_version`, anchoring the
-    /// validation result to the entry it was based on. The reuse decision does not inspect
-    /// the value, which is why it may still be paged out; the value is carried for the
-    /// fallback path when the entry cannot be retained.
+    /// The previous value after its dependencies were validated unchanged: the certificate
+    /// handed out at lookup, re-issued as is. The entry is retained only if it still holds
+    /// `revision`, anchoring the validation result to the value it was based on. The reuse
+    /// decision does not inspect the value, which is why it may still be paged out; the
+    /// value is carried for the fallback path when the entry cannot be retained.
     DependencyValidated {
         previous_value: MaybeResident<DiceValidValue>,
         /// The revision `previous_value` was interned under.
         revision: Revision,
-        prev_verified_version: VersionNumber,
     },
 }
 
@@ -816,11 +815,10 @@ impl ValueUpdate {
                     .as_hydrated()
                     .is_some_and(|v| new_value.equality(v))
             }
-            // For version-based, the deps are guaranteed to match if `version` is in the node's verified versions.
-            ValueUpdate::DependencyValidated {
-                prev_verified_version,
-                ..
-            } => node.is_verified_at(*prev_verified_version),
+            // The deps were validated for the value named by `revision`; an equal-value
+            // rewrite in the meantime re-found that revision, a different value minted a
+            // fresh one.
+            ValueUpdate::DependencyValidated { revision, .. } => node.res_revision() == *revision,
         }
     }
 }
@@ -1023,7 +1021,6 @@ mod tests {
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.resident().unwrap().equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // if the value is the same, then versions are shared
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
@@ -1065,7 +1062,6 @@ mod tests {
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.resident().unwrap().equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // smaller version numbers don't get cached
         let res4 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(400));
@@ -1083,7 +1079,6 @@ mod tests {
         let entry = cache.get(key5.dupe());
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.resident().unwrap().equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         assert!(
             cache
@@ -1107,7 +1102,6 @@ mod tests {
         let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.resident().unwrap().equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // different key is miss
         cache
@@ -1461,161 +1455,105 @@ mod tests {
         );
     }
 
+    /// A dependency-validated write is a reuse-write iff the node still holds the
+    /// revision the validation was for.
     #[test]
-    fn update_prior_version_reuses_nodes_when_history_based() {
+    fn dependency_validated_reuses_iff_revision_matches() {
         let mut cache = VersionedGraph::new();
-        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
-        // We use a different value here because if something looks at equality we
-        // want it to look not equal, we want reusability to come entirely from VersionBased checks.
-        // This means that if we were to inspect the cache, the values might not make sense, but
-        // that's okay.
-        let res_fake = DiceValidValue::testing_new(DiceKeyValue::<K>::new(99999));
-
         let dep_key = DiceKey { index: 1 };
-        for v in 1..11 {
-            inject(&mut cache, v, dep_key, v * 100);
-        }
-
-        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
-
-        // first, empty cache gives none
-        cache.get(key6.dupe()).assert_compute();
-
-        assert!(
-            cache
-                .update(
-                    key6.dupe(),
-                    // there's nothing in the cache to be reused.
-                    ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
+        inject(&mut cache, 1, dep_key, 100);
+        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+        let key1 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
+        let (initial, _) = cache.update(
+            key1.dupe(),
+            ValueUpdate::Computed(res.dupe()),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
         );
+        let stored_rev = initial.revision().expect("stored values carry a revision");
 
+        let (_, changed) = cache.update(
+            key1.dupe(),
+            ValueUpdate::DependencyValidated {
+                previous_value: MaybeResident::Resident(res.dupe()),
+                revision: stored_rev,
+            },
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert!(!changed, "matching revision must be a reuse-write");
+
+        let (_, changed) = cache.update(
+            key1.dupe(),
+            ValueUpdate::DependencyValidated {
+                previous_value: MaybeResident::Resident(res),
+                revision: Revision::testing_new(999),
+            },
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert!(
+            changed,
+            "a revision the node does not hold must not be a reuse-write"
+        );
+    }
+
+    /// A dependency-validated write whose value has since been replaced by a different
+    /// one neither disturbs the newer value nor re-interns: the returned value keeps the
+    /// revision it was validated under, so the transaction's dependents can still match
+    /// their recorded edges against it.
+    #[test]
+    fn dependency_validated_keeps_its_revision_when_superseded() {
+        let mut cache = VersionedGraph::new();
+        let dep_key = DiceKey { index: 1 };
+        let key_at = |v| VersionedGraphKey::new(VersionNumber::new(v), DiceKey { index: 0 });
+
+        inject(&mut cache, 1, dep_key, 100);
+        let res1 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
+        let (first, _) = cache.update(
+            key_at(1),
+            ValueUpdate::Computed(res1.dupe()),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        let rev1 = first.revision().unwrap();
+
+        inject(&mut cache, 2, dep_key, 200);
+        let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(2));
+        let (second, _) = cache.update(
+            key_at(2),
+            ValueUpdate::Computed(res2.dupe()),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        let rev2 = second.revision().unwrap();
+        assert_ne!(rev1, rev2);
+
+        // A validation of the first certificate that raced with the second compute.
+        let (returned, _) = cache.update(
+            key_at(1),
+            ValueUpdate::DependencyValidated {
+                previous_value: MaybeResident::Resident(res1.dupe()),
+                revision: rev1,
+            },
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert_eq!(returned.revision(), Some(rev1));
+        assert!(returned.testing_resident_value().instance_equal(&res1));
         assert!(
             cache
-                .get(key6.dupe())
+                .get(key_at(2))
                 .assert_match()
                 .testing_resident_value()
-                .instance_equal(&res)
+                .instance_equal(&res2)
         );
-
-        // now insert a new value of a older version, this shouldn't evict anything
-        // because Normal stores the most recent N by version number.
-        let key5 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
-        assert!(
-            cache
-                .update(
-                    key5.dupe(),
-                    ValueUpdate::DependencyValidated {
-                        previous_value: MaybeResident::Resident(res_fake.dupe()),
-                        revision: Revision::FIRST,
-                        prev_verified_version: VersionNumber::new(2),
-                    },
-                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-        cache.get(key5.dupe()).assert_compute();
-        // the newer version should still be there
-        assert!(
-            cache
-                .get(key6.dupe())
-                .assert_match()
-                .testing_resident_value()
-                .instance_equal(&res)
-        );
-        // there should be size 1
-        assert!(cache.nodes().contains_key(&DiceKey { index: 0 }));
-
-        // now insert the same value of a older version, this shouldn't evict anything but reuses
-        // the existing node and drops the res_fake value.
-        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
-        assert!(
-            !cache
-                .update(
-                    key4.dupe(),
-                    ValueUpdate::DependencyValidated {
-                        previous_value: MaybeResident::Resident(res_fake.dupe()),
-                        revision: Revision::FIRST,
-                        prev_verified_version: VersionNumber::new(6),
-                    },
-                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key6.dupe())
-                .assert_match()
-                .testing_resident_value()
-                .instance_equal(&res)
-        );
-        assert!(
-            cache
-                .get(key4.dupe())
-                .assert_match()
-                .testing_resident_value()
-                .instance_equal(&res)
-        );
-
-        // now insert the different value at a newer version, but with VersionBased reusability.
-        // this shouldn't evict anything and should drop the res_fake value.
-        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
-        assert!(
-            !cache
-                .update(
-                    key7.dupe(),
-                    ValueUpdate::DependencyValidated {
-                        previous_value: MaybeResident::Resident(res_fake.dupe()),
-                        revision: Revision::FIRST,
-                        prev_verified_version: VersionNumber::new(6),
-                    },
-                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key6.dupe())
-                .assert_match()
-                .testing_resident_value()
-                .instance_equal(&res)
-        );
-        assert!(
-            cache
-                .get(key7.dupe())
-                .assert_match()
-                .testing_resident_value()
-                .instance_equal(&res)
-        );
-
-        // now insert a different value at a newer version, with Equality reusability.
-        // this should evict the old cached values.
-        let key8 = VersionedGraphKey::new(VersionNumber::new(8), DiceKey { index: 0 });
-        assert!(
-            cache
-                .update(
-                    key8.dupe(),
-                    ValueUpdate::Computed(res_fake.dupe()),
-                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        cache.get(key6.dupe()).assert_compute();
     }
 
     #[test]

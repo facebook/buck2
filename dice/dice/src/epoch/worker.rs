@@ -235,7 +235,6 @@ impl DiceTaskWorker {
                                 {
                                     Ok(entry) => Some(VersionedGraphResultMismatch {
                                         entry: MaybeResident::Resident(entry),
-                                        prev_verified_version: mismatch.prev_verified_version,
                                         deps_to_validate: mismatch.deps_to_validate.dupe(),
                                         revision: mismatch.revision,
                                     }),

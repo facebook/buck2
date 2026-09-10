@@ -690,6 +690,11 @@ impl OccupiedGraphNode {
         }
     }
 
+    /// The revision of the currently stored value.
+    pub(crate) fn res_revision(&self) -> Revision {
+        self.res_revision
+    }
+
     /// The revision for `new_value`: the stored value's revision if the two are
     /// `Key::equality`-equal, otherwise a fresh one. A paged-out stored value can't be
     /// compared and so always mints; over-distinguishing is sound, it only costs reuse.
@@ -821,7 +826,6 @@ impl OccupiedGraphNode {
                 {
                     VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
                         entry: self.res.expect_maybe_resident(),
-                        prev_verified_version,
                         deps_to_validate: self.metadata.deps.dupe(),
                         revision: self.res_revision,
                     })
@@ -881,6 +885,7 @@ impl OccupiedGraphNode {
         &self.metadata.deps
     }
 
+    #[cfg(test)]
     pub(crate) fn is_verified_at(&self, version: VersionNumber) -> bool {
         self.metadata.verified_ranges.contains(version)
     }

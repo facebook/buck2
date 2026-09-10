@@ -121,7 +121,6 @@ impl StateProcessor {
                     ValueUpdate::DependencyValidated {
                         previous_value: previous.entry,
                         revision: previous.revision,
-                        prev_verified_version: previous.prev_verified_version,
                     },
                     previous.deps_to_validate,
                     invalidation_paths,
