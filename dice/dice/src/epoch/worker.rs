@@ -31,6 +31,7 @@ use crate::core::graph::types::VersionedGraphResult;
 use crate::core::graph::types::VersionedGraphResultMismatch;
 use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
+use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::epoch::cache::TransactionCancelled;
@@ -54,7 +55,6 @@ use crate::user_cycle::UserCycleDetectorData;
 use crate::value::DiceComputedValue;
 use crate::value::MaybeResident;
 use crate::value::TrackedInvalidationPaths;
-use crate::versions::VersionNumber;
 
 pub(crate) mod state;
 
@@ -195,7 +195,6 @@ impl DiceTaskWorker {
                         &self.eval,
                         ParentKey::Some(self.k),
                         &mismatch.deps_to_validate,
-                        mismatch.prev_verified_version,
                         &cycles,
                     )
                     .await
@@ -238,6 +237,7 @@ impl DiceTaskWorker {
                                         entry: MaybeResident::Resident(entry),
                                         prev_verified_version: mismatch.prev_verified_version,
                                         deps_to_validate: mismatch.deps_to_validate.dupe(),
+                                        revision: mismatch.revision,
                                     }),
                                     Err(e) => {
                                         self.eval.hydration_failed(self.k, &e);
@@ -311,7 +311,9 @@ impl DiceTaskWorker {
                     if !old_value_hydration_failed
                         && let Some(mismatch) = check_deps_candidate.as_ref()
                         && let Some(data_key) = mismatch.entry.data_key()
-                        && result.deps == **mismatch.deps_to_validate
+                        && result
+                            .deps
+                            .equal_ignoring_revisions(&mismatch.deps_to_validate)
                         && !self
                             .eval
                             .dice
@@ -427,7 +429,6 @@ async fn check_dependencies<'a>(
     eval: &'a TransactionData,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
-    prev_verified_version: VersionNumber,
     cycles: &'a KeyComputingUserCycleDetectorData,
 ) -> Result<CheckDependenciesResult<'a>, TransactionCancelled> {
     async fn drain_continuables<
@@ -452,17 +453,14 @@ async fn check_dependencies<'a>(
         eval: &'a TransactionData,
         parent_key: ParentKey,
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
-        prev_verified_version: VersionNumber,
         cycles: &'a KeyComputingUserCycleDetectorData,
     ) -> BoxFuture<'a, Result<CheckDependenciesResult<'a>, TransactionCancelled>> {
         let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
                 match v {
-                    SeriesParallelDepsIteratorItem::Key(k) => {
-                        match check_dependency(eval, parent_key, *k, cycles, prev_verified_version)
-                            .await
-                        {
+                    SeriesParallelDepsIteratorItem::Key(edge) => {
+                        match check_dependency(eval, parent_key, edge, cycles).await {
                             Ok(CheckDependencyResult::NoChange(dep_paths)) => {
                                 invalidation_paths.update(&dep_paths);
                             }
@@ -479,14 +477,7 @@ async fn check_dependencies<'a>(
                     SeriesParallelDepsIteratorItem::Parallel(p) => {
                         let mut futures: FuturesUnordered<_> = p
                             .map(|deps| {
-                                check_dependencies_series(
-                                    eval,
-                                    parent_key,
-                                    deps,
-                                    prev_verified_version,
-                                    cycles,
-                                )
-                                .boxed()
+                                check_dependencies_series(eval, parent_key, deps, cycles).boxed()
                             })
                             .collect();
 
@@ -518,7 +509,7 @@ async fn check_dependencies<'a>(
         return Ok(CheckDependenciesResult::NoDeps);
     }
 
-    check_dependencies_series(eval, parent_key, deps.iter(), prev_verified_version, cycles).await
+    check_dependencies_series(eval, parent_key, deps.iter(), cycles).await
 }
 
 enum CheckDependencyResult {
@@ -529,28 +520,29 @@ enum CheckDependencyResult {
 async fn check_dependency(
     eval: &TransactionData,
     parent_key: ParentKey,
-    dep: DiceKey,
+    edge: DepEdge,
     cycles: &KeyComputingUserCycleDetectorData,
-    prev_verified_version: VersionNumber,
 ) -> Result<CheckDependencyResult, TransactionCancelled> {
     let dep_result = eval
         .epoch_state
         .compute_opaque(
-            dep,
+            edge.key,
             parent_key,
             eval,
-            cycles.subrequest(dep, &eval.dice.key_index),
+            cycles.subrequest(edge.key, &eval.dice.key_index),
         )
         .await
         .as_ref()
         .unpack()?;
 
-    if dep_result.versions().contains(prev_verified_version) {
-        Ok(CheckDependencyResult::NoChange(
-            dep_result.invalidation_paths().dupe(),
-        ))
-    } else {
-        Ok(CheckDependencyResult::Changed)
+    // Reuse iff every recorded dep revision matches the dep's current
+    // revision: matching revisions mean the same dependencies produced
+    // the same values.
+    match (edge.revision, dep_result.revision()) {
+        (Some(recorded), Some(current)) if recorded == current => Ok(
+            CheckDependencyResult::NoChange(dep_result.invalidation_paths().dupe()),
+        ),
+        _ => Ok(CheckDependencyResult::Changed),
     }
 }
 

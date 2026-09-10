@@ -39,6 +39,7 @@ use crate::arc::Arc;
 use crate::deps::LinearDepsTracker;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
+use crate::deps::graph::DepEdge;
 use crate::dice::Dice;
 use crate::epoch::branches::BranchEntry;
 use crate::epoch::branches::LinearRecomputeArena;
@@ -254,8 +255,8 @@ impl<'d> TrackedComputations<'d> {
         .map_taking_data(move |res, shared| {
             let dep_trackers = shared.dep_trackers.into_inner().collect_deps();
             let validity = dep_trackers.deps_validity;
-            for k in dep_trackers.deps.iter_keys() {
-                self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
+            for edge in dep_trackers.deps.iter_edges() {
+                self_dep_trackers.record(edge, validity, &TrackedInvalidationPaths::clean())
             }
             self_dep_trackers.update_invalidation_paths(&dep_trackers.invalidation_paths);
             res
@@ -309,8 +310,8 @@ impl<'d> TrackedComputations<'d> {
         task.map(move |(res, deps)| {
             let validity = deps.deps_validity;
             let mut self_dep_trackers = self_dep_trackers;
-            for k in deps.deps.iter_keys() {
-                self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
+            for edge in deps.deps.iter_edges() {
+                self_dep_trackers.record(edge, validity, &TrackedInvalidationPaths::clean())
             }
             self_dep_trackers.update_invalidation_paths(&deps.invalidation_paths);
 
@@ -329,11 +330,16 @@ impl<'d> TrackedComputations<'d> {
         let OpaqueValue {
             derive_from_key,
             derive_from,
+            revision,
             invalidation_paths,
             ..
         } = opaque;
 
-        deps.record(derive_from_key, derive_from.validity(), invalidation_paths);
+        deps.record(
+            DepEdge::new(derive_from_key, revision),
+            derive_from.validity(),
+            invalidation_paths,
+        );
 
         derive_from
             .downcast_maybe_transient::<K::Value>()
@@ -461,13 +467,13 @@ struct DepsTrackerHolder<'a, 'd>(
 impl<'a, 'd> DepsTrackerHolder<'a, 'd> {
     fn record(
         &mut self,
-        k: DiceKey,
+        edge: DepEdge,
         validity: crate::value::DiceValidity,
         invalidation_paths: &TrackedInvalidationPaths,
     ) {
         match &mut self.0 {
-            Either::Left(t) => t.record(k, validity, invalidation_paths),
-            Either::Right(m) => m.lock().record(k, validity, invalidation_paths),
+            Either::Left(t) => t.record(edge, validity, invalidation_paths),
+            Either::Right(m) => m.lock().record(edge, validity, invalidation_paths),
         }
     }
 
@@ -562,7 +568,11 @@ impl<'d> TrackedComputations<'d> {
         let value = res
             .resident_value()
             .expect("a projection's value is never paged out");
-        dep_trackers.record(dice_key, value.validity(), res.invalidation_paths());
+        dep_trackers.record(
+            DepEdge::new(dice_key, res.revision()),
+            value.validity(),
+            res.invalidation_paths(),
+        );
 
         Ok(value
             .downcast_maybe_transient::<P::Value>()
@@ -647,6 +657,7 @@ impl ComputeCtx {
                         dice_value
                             .resident_value()
                             .expect("a task always pages in the value it hands back"),
+                        dice_value.revision(),
                         dice_value.invalidation_paths(),
                     )
                 })
@@ -670,6 +681,7 @@ impl ComputeCtx {
             .compute_projection(
                 dice_key,
                 base.derive_from,
+                base.revision,
                 base.invalidation_paths,
                 &self.transaction_data,
             )

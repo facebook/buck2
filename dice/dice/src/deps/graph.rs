@@ -18,19 +18,37 @@ use itertools::Itertools;
 use mini_vec::MiniVec;
 
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::deps::encoding::SPEncoder;
 use crate::deps::iterator::SeriesNodeIterator;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::key::DiceKey;
+
+/// One recorded dep edge: the dep's key plus the revision of the value the compute
+/// observed for it. `None` means the dep was transient at the time of the compute;
+/// a transient value has no interned identity, so an edge to one never revalidates.
+#[derive(Copy, Clone, Dupe, Debug, Allocative)]
+pub(crate) struct DepEdge {
+    pub(crate) key: DiceKey,
+    pub(crate) revision: Option<Revision>,
+}
+
+impl DepEdge {
+    pub(crate) fn new(key: DiceKey, revision: Option<Revision>) -> Self {
+        Self { key, revision }
+    }
+}
 
 /// The DiceComputations compute apis are designed so that in normal usage the graph of
 /// inter-dep data dependencies within a compute node form a series-parallel graph.
 ///
 /// The [SeriesParallelDeps] records the deps and the structure of that graph so that
 /// when we recompute we can check keys in parallel but avoid requesting a key that
-/// would not be requested by calling the compute directly in that state.
+/// would not be requested by calling the compute directly in that state. Each dep is
+/// recorded as a [`DepEdge`], i.e. together with the revision the compute observed, so
+/// that a dep check can decide "same value as before?" by revision equality.
 ///
-/// For non-trivial graphs, we will encode the graph as a flat list of keys and an
+/// For non-trivial graphs, we will encode the graph as a flat list of edges and an
 /// encoding of the description of the graph.
 ///
 /// The `SeriesNodeIterator` and `ParallelNodeIterator` provide a fairly readable
@@ -55,21 +73,21 @@ use crate::key::DiceKey;
 ///   SPSeriesHeader::Complex{keys: x, specs: y}: Indicates a complex series that covers the next x keys and y specs.
 ///
 /// For both SPItem::Parallel and SPSeriesHeader::Complex, the specs value is the size of the encoded specs.
-#[derive(Allocative, Debug, Eq, PartialEq)]
+#[derive(Allocative, Debug)]
 pub(crate) enum SeriesParallelDeps {
     None,
     /// It's very common for a parallel compute to record only a single dep and so we have an optimized case for that.
-    One(DiceKey),
+    One(DepEdge),
     /// Once a set of deps becomes non-trivial, it's represented by a SPDepsMany.
     Many(Box<SPDepsMany>),
 }
 
 impl SeriesParallelDeps {
-    pub(crate) fn insert(&mut self, k: DiceKey) {
+    pub(crate) fn insert(&mut self, edge: DepEdge) {
         match self {
-            SeriesParallelDeps::None => *self = SeriesParallelDeps::One(k),
-            SeriesParallelDeps::One(_) => self.upgrade_to_many().push(k),
-            SeriesParallelDeps::Many(v) => v.push(k),
+            SeriesParallelDeps::None => *self = SeriesParallelDeps::One(edge),
+            SeriesParallelDeps::One(..) => self.upgrade_to_many().push(edge),
+            SeriesParallelDeps::Many(v) => v.push(edge),
         }
     }
 
@@ -82,12 +100,12 @@ impl SeriesParallelDeps {
             SeriesParallelDeps::One(..) => {
                 let v =
                     std::mem::replace(self, SeriesParallelDeps::Many(Box::new(SPDepsMany::new())));
-                let v = match v {
-                    SeriesParallelDeps::One(v) => v,
+                let edge = match v {
+                    SeriesParallelDeps::One(edge) => edge,
                     _ => unreachable!(),
                 };
                 let many = self.unwrap_many_mut();
-                many.push(v);
+                many.push(edge);
                 many
             }
             SeriesParallelDeps::Many(v) => &mut *v,
@@ -97,7 +115,7 @@ impl SeriesParallelDeps {
     pub(crate) fn header(&self) -> SPSeriesHeader {
         match self {
             SeriesParallelDeps::None => SPSeriesHeader::Simple { key_count: 0 },
-            SeriesParallelDeps::One(_) => SPSeriesHeader::Simple { key_count: 1 },
+            SeriesParallelDeps::One(..) => SPSeriesHeader::Simple { key_count: 1 },
             SeriesParallelDeps::Many(many) => {
                 if many.spec.is_empty() {
                     SPSeriesHeader::Simple {
@@ -120,18 +138,31 @@ impl SeriesParallelDeps {
         }
     }
 
-    pub(crate) fn serial_from_vec(mut vec: Vec<DiceKey>) -> SeriesParallelDeps {
-        match vec.len() {
+    /// A serial dep list whose edges record no revision. An edge without a revision
+    /// never revalidates, so tests using this must not rely on revalidation succeeding
+    /// across these deps.
+    #[cfg(test)]
+    pub(crate) fn testing_serial_from(vec: Vec<DiceKey>) -> SeriesParallelDeps {
+        Self::serial_from_edges(vec.into_iter().map(|k| DepEdge::new(k, None)).collect())
+    }
+
+    pub(crate) fn serial_from_edges(mut edges: Vec<DepEdge>) -> SeriesParallelDeps {
+        match edges.len() {
             0 => SeriesParallelDeps::None,
-            1 => SeriesParallelDeps::One(vec.pop().unwrap()),
-            _ => SeriesParallelDeps::Many(Box::new(SPDepsMany::serial_from_vec(vec))),
+            1 => SeriesParallelDeps::One(edges.pop().unwrap()),
+            _ => SeriesParallelDeps::Many(Box::new(SPDepsMany::serial_from_edges(edges))),
         }
     }
 
-    pub(crate) fn iter_keys(&self) -> impl Iterator<Item = DiceKey> {
+    pub(crate) fn iter_keys(&self) -> impl Iterator<Item = DiceKey> + '_ {
+        self.iter_edges().map(|e| e.key)
+    }
+
+    /// Flat iteration over the dep edges, discarding the series-parallel structure.
+    pub(crate) fn iter_edges(&self) -> impl Iterator<Item = DepEdge> + '_ {
         match self {
-            SeriesParallelDeps::None => Either::Left(Option::<DiceKey>::None.into_iter()),
-            SeriesParallelDeps::One(v) => Either::Left(Option::<DiceKey>::Some(*v).into_iter()),
+            SeriesParallelDeps::None => Either::Left(None.into_iter()),
+            SeriesParallelDeps::One(edge) => Either::Left(Some(*edge).into_iter()),
             SeriesParallelDeps::Many(m) => Either::Right(m.deps.iter().copied()),
         }
     }
@@ -139,19 +170,31 @@ impl SeriesParallelDeps {
     pub(crate) fn is_empty(&self) -> bool {
         match self {
             SeriesParallelDeps::None => true,
-            SeriesParallelDeps::One(_) => false,
+            SeriesParallelDeps::One(..) => false,
             SeriesParallelDeps::Many(many) => many.deps.is_empty(),
         }
     }
 
-    #[allow(unused)] // TODO(cjhopman): delete this once it's used outside tests
+    /// Same series-parallel shape and same keys in the same order, ignoring the per-edge
+    /// revisions: whether a recompute read the same deps, whatever their values were.
+    pub(crate) fn equal_ignoring_revisions(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SeriesParallelDeps::None, SeriesParallelDeps::None) => true,
+            (SeriesParallelDeps::One(a), SeriesParallelDeps::One(b)) => a.key == b.key,
+            (SeriesParallelDeps::Many(a), SeriesParallelDeps::Many(b)) => {
+                a.equal_ignoring_revisions(b)
+            }
+            _ => false,
+        }
+    }
+
     pub(crate) fn iter(&self) -> impl Iterator<Item = SeriesParallelDepsIteratorItem<'_>> {
         match self {
             SeriesParallelDeps::None => {
                 Either::Left(Option::<SeriesParallelDepsIteratorItem>::None.into_iter())
             }
-            SeriesParallelDeps::One(k) => {
-                Either::Left(Some(SeriesParallelDepsIteratorItem::Key(k)).into_iter())
+            SeriesParallelDeps::One(edge) => {
+                Either::Left(Some(SeriesParallelDepsIteratorItem::Key(*edge)).into_iter())
             }
             SeriesParallelDeps::Many(v) => Either::Right(v.iter()),
         }
@@ -176,10 +219,11 @@ impl SeriesParallelDeps {
     }
 }
 
-#[derive(Allocative, Eq, PartialEq)]
+#[derive(Allocative)]
 pub(crate) struct SPDepsMany {
-    deps: MiniVec<DiceKey>,
-    /// This holds the encoded series-parallel graph structure, i.e. it tells how to read the deps list as a series-parallel graph.
+    deps: MiniVec<DepEdge>,
+    /// Encoded series-parallel graph structure — tells how to read the deps
+    /// list as a series-parallel graph.
     spec: MiniVec<u32>,
     trailing_deps_start: u32,
 }
@@ -189,7 +233,7 @@ impl Debug for SPDepsMany {
         f.debug_struct("SeriesParallelDeps")
             .field(
                 "deps",
-                &format!("[{}]", self.deps.iter().map(|v| v.index).join(",")),
+                &format!("[{}]", self.deps.iter().map(|e| e.key.index).join(",")),
             )
             .field("spec", &format!("[{:?}]", self.spec))
             .field("trailing_deps_start", &self.trailing_deps_start)
@@ -198,6 +242,20 @@ impl Debug for SPDepsMany {
 }
 
 impl SPDepsMany {
+    /// See [`SeriesParallelDeps::equal_ignoring_revisions`].
+    fn equal_ignoring_revisions(&self, other: &Self) -> bool {
+        if self.spec != other.spec || self.trailing_deps_start != other.trailing_deps_start {
+            return false;
+        }
+        if self.deps.len() != other.deps.len() {
+            return false;
+        }
+        self.deps
+            .iter()
+            .zip(other.deps.iter())
+            .all(|(a, b)| a.key == b.key)
+    }
+
     fn new() -> SPDepsMany {
         Self {
             deps: MiniVec::new(),
@@ -206,17 +264,17 @@ impl SPDepsMany {
         }
     }
 
-    fn push(&mut self, k: DiceKey) {
-        self.deps.push(k);
+    fn push(&mut self, edge: DepEdge) {
+        self.deps.push(edge);
     }
 
     pub(crate) fn iter(&self) -> SeriesNodeIterator<'_> {
         SeriesNodeIterator::new(self.deps.iter(), self.spec.iter())
     }
 
-    fn serial_from_vec(vec: Vec<DiceKey>) -> SPDepsMany {
+    fn serial_from_edges(edges: Vec<DepEdge>) -> SPDepsMany {
         Self {
-            deps: vec.into(),
+            deps: edges.into(),
             spec: MiniVec::new(),
             trailing_deps_start: 0,
         }
@@ -260,8 +318,8 @@ impl SPDepsMany {
             self.spec.write_series_header(dep.header());
             match dep {
                 SeriesParallelDeps::None => {}
-                SeriesParallelDeps::One(v) => {
-                    self.deps.push(v);
+                SeriesParallelDeps::One(edge) => {
+                    self.deps.push(edge);
                 }
                 SeriesParallelDeps::Many(other) => {
                     self.spec.extend(other.spec);

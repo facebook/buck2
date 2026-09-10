@@ -34,6 +34,8 @@ use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::core::graph::lazy_deps::LazyDepsSet;
+use crate::core::graph::revision::Revision;
+use crate::core::graph::revision::RevisionMint;
 use crate::core::graph::types::VersionedGraphResultMismatch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::introspection::graph::GraphNodeKind;
@@ -60,7 +62,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 9);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 10);
 
 /// A node's classification for the pagable index (see [`crate::core::graph::storage`]):
 /// whether it's a tracked occupied node and, if so, its resident / paged-out state.
@@ -223,6 +225,8 @@ impl VersionedGraphNode {
                 inj.on_injected(version, value, invalidation_priority)
             }
             VersionedGraphNode::Vacant(vac) => {
+                let mut mint = RevisionMint::new();
+                let first = mint.mint();
                 let entry = OccupiedGraphNode::new(
                     vac.key,
                     PagableNodeValue::hydrated(value),
@@ -230,6 +234,8 @@ impl VersionedGraphNode {
                     VersionRange::begins_with(version).into_ranges(),
                     vac.dirtied_history.clone(),
                     TrackedInvalidationPaths::new(invalidation_priority, vac.key, version),
+                    first,
+                    mint,
                 );
                 *self = Self::Occupied(entry);
                 InvalidateResult::Changed(None)
@@ -246,10 +252,12 @@ impl VersionedGraphNode {
         deps: Arc<SeriesParallelDeps>,
         mut invalidation_paths: TrackedInvalidationPaths,
     ) -> (DiceComputedValue, bool) {
-        let (dirtied_history, overwrite_entry, make_res): (
+        let (dirtied_history, overwrite_entry, make_res, res_revision, revision_mint): (
             _,
             _,
             fn(DiceValidValue) -> PagableNodeValue,
+            _,
+            _,
         ) = match self {
             VersionedGraphNode::Occupied(entry) if update.is_reusable(&deps, entry) => {
                 // Page-out can replace the graph value after a worker captured it for
@@ -258,23 +266,47 @@ impl VersionedGraphNode {
                 if let MaybeResident::Resident(value) = update.into_value() {
                     entry.rehydrate(value);
                 }
+                // A reuse-write is still a write: the compute (or CheckDeps walk) behind it
+                // observed its deps at their current revisions, and those are what later
+                // dep-checks must compare against; keeping the stored list would pin the
+                // dependent's edges at dep revisions that have since moved and force a
+                // recompute on every later CheckDeps. Structure and keys are unchanged by
+                // construction (`is_reusable` checked them for a compute; a validated
+                // certificate's deps are the stored ones), so only the revisions move.
+                entry.refresh_deps_on_reuse(&deps);
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(key.v);
                 return (ret, false);
             }
             VersionedGraphNode::Occupied(entry) => {
+                let revision = match &update {
+                    super::storage::ValueUpdate::Computed(value) => entry.intern(value),
+                    // The worker validated the deps of the certificate it was handed at
+                    // lookup; that certificate's revision names its value whether or not
+                    // this node still stores it, and a fresh mint here would make the
+                    // transaction's dependents miss their revision compare.
+                    super::storage::ValueUpdate::DependencyValidated { revision, .. } => *revision,
+                };
                 // TODO(cjhopman): Should this consider the max version in valid_deps_version rather than just key.v?
                 (
-                    &entry.metadata.dirtied_history,
+                    entry.metadata.dirtied_history.clone(),
                     !entry.metadata.ever_valid_after(key.v),
                     entry.val().after_recompute(),
+                    revision,
+                    entry.revision_mint,
                 )
             }
-            VersionedGraphNode::Vacant(entry) => (
-                &entry.dirtied_history,
-                true,
-                PagableNodeValue::NeverPagedOut,
-            ),
+            VersionedGraphNode::Vacant(entry) => {
+                let mut mint = RevisionMint::new();
+                let first = mint.mint();
+                (
+                    entry.dirtied_history.clone(),
+                    true,
+                    PagableNodeValue::NeverPagedOut as fn(DiceValidValue) -> PagableNodeValue,
+                    first,
+                    mint,
+                )
+            }
             _ => unreachable!("injected nodes are never computed"),
         };
 
@@ -303,6 +335,7 @@ impl VersionedGraphNode {
                     value.into_payload(),
                     Arc::new(valid_deps_versions),
                     invalidation_paths,
+                    res_revision,
                 ),
                 true,
             );
@@ -316,8 +349,10 @@ impl VersionedGraphNode {
             PagableNodeValue::stored(value, make_res),
             deps,
             valid_deps_versions,
-            dirtied_history.clone(),
+            dirtied_history,
             invalidation_paths,
+            res_revision,
+            revision_mint,
         );
         let ret = new.computed_val(key.v);
         *self = VersionedGraphNode::Occupied(new);
@@ -506,6 +541,12 @@ impl PagableNodeValue {
 pub(crate) struct OccupiedGraphNode {
     key: DiceKey,
     res: PagableNodeValue,
+    /// Revision of the value currently in `res`. Preserved across a reuse-write;
+    /// freshly minted when `res` is replaced with a value that is not
+    /// `Key::equality`-equal to the outgoing one.
+    res_revision: Revision,
+    /// See [`RevisionMint`] for why this can't just be `res_revision + 1`.
+    revision_mint: RevisionMint,
     metadata: NodeMetadata,
     invalidation_paths: TrackedInvalidationPaths,
 }
@@ -636,10 +677,14 @@ impl OccupiedGraphNode {
         verified_ranges: VersionRanges,
         dirtied_history: ForceDirtyHistory,
         invalidation_paths: TrackedInvalidationPaths,
+        res_revision: Revision,
+        revision_mint: RevisionMint,
     ) -> Self {
         Self {
             key,
             res,
+            res_revision,
+            revision_mint,
             metadata: NodeMetadata {
                 deps,
                 rdeps: LazyDepsSet::new(),
@@ -647,6 +692,33 @@ impl OccupiedGraphNode {
                 dirtied_history,
             },
             invalidation_paths,
+        }
+    }
+
+    /// The revision for `new_value`: the stored value's revision if the two are
+    /// `Key::equality`-equal, otherwise a fresh one. A paged-out stored value can't be
+    /// compared and so always mints; over-distinguishing is sound, it only costs reuse.
+    ///
+    /// Does not update `res_revision`: installing the new value into `res` is the
+    /// caller's step, and a write at a version older than the stored value hands the
+    /// minted revision to the returned `DiceComputedValue` without storing anything.
+    fn intern(&mut self, new_value: &DiceValidValue) -> Revision {
+        match self.res.as_hydrated() {
+            Some(prev) if prev.equality(new_value) => self.res_revision,
+            _ => self.revision_mint.mint(),
+        }
+    }
+
+    /// Replaces the stored dep list with `fresh_deps`, whose per-edge revisions are the
+    /// ones the reuse-write behind it observed. See the caller in `on_computed`.
+    ///
+    /// A no-op when `fresh_deps` differs from the stored deps in structure or keys: a
+    /// validated certificate's deps can drift from the stored ones if the node was
+    /// overwritten between lookup and write, and swapping them in would then change
+    /// which rdep edges the node is registered under.
+    fn refresh_deps_on_reuse(&mut self, fresh_deps: &Arc<SeriesParallelDeps>) {
+        if fresh_deps.equal_ignoring_revisions(&self.metadata.deps) {
+            self.metadata.deps = fresh_deps.dupe();
         }
     }
 
@@ -705,6 +777,7 @@ impl OccupiedGraphNode {
             self.val().expect_maybe_resident().into_payload(),
             self.metadata.verified_ranges.dupe(),
             self.invalidation_paths.at_version(for_version),
+            self.res_revision,
         )
     }
 
@@ -719,7 +792,7 @@ impl OccupiedGraphNode {
         //
         // Equality short-circuit only applies when the existing value is hydrated. If
         // it's paged out, we can't compare without hydrating, so we skip the check
-        // and just replace the node below.
+        // and just replace the node below; the replacement mints a fresh revision.
         if let Some(existing) = self.res.as_hydrated() {
             if existing.equality(&value) {
                 // TODO(cjhopman): This is wrong. The node could currently be in a dirtied state and we
@@ -729,6 +802,7 @@ impl OccupiedGraphNode {
         }
 
         self.res = PagableNodeValue::hydrated(value);
+        self.res_revision = self.revision_mint.mint();
         self.metadata.deps = Arc::new(SeriesParallelDeps::None);
         self.metadata.verified_ranges = Arc::new(VersionRange::begins_with(version).into_ranges());
         self.invalidation_paths
@@ -755,6 +829,7 @@ impl OccupiedGraphNode {
                         entry: self.res.expect_maybe_resident(),
                         prev_verified_version,
                         deps_to_validate: self.metadata.deps.dupe(),
+                        revision: self.res_revision,
                     })
                 } else {
                     VersionedGraphResult::Compute
@@ -855,6 +930,9 @@ pub(crate) struct InjectedGraphNode {
     values: SortedVectorMap<VersionNumber, InjectedNodeData>,
     rdeps: LazyDepsSet,
     invalidation_paths: TrackedInvalidationPaths,
+    /// Mints revisions for distinct injected values. Each stored [`InjectedNodeData`]
+    /// pins the revision it was interned under.
+    revision_mint: RevisionMint,
 }
 
 #[derive(Allocative, Debug)]
@@ -863,6 +941,11 @@ pub(crate) struct InjectedNodeData {
     first_valid_version: VersionNumber,
     // Used to cache the version ranges for `at_version`. This is a single VersionRange.
     valid_versions: Arc<VersionRanges>,
+    /// The revision this value was interned under. Preserved across the
+    /// equality short-circuit in [`InjectedGraphNode::on_injected`] (an equal
+    /// injection keeps this entry, so its revision stays put); a distinct value
+    /// mints a fresh revision.
+    revision: Revision,
 }
 
 impl InjectedGraphNode {
@@ -884,8 +967,9 @@ impl InjectedGraphNode {
             None => {}
         };
 
+        let revision = self.revision_mint.mint();
         self.values
-            .insert(version, Self::new_node_data(value, version));
+            .insert(version, Self::new_node_data(value, version, revision));
         self.invalidation_paths
             .update(&TrackedInvalidationPaths::new(
                 invalidation_priority,
@@ -902,6 +986,7 @@ impl InjectedGraphNode {
                 MaybeValidDiceValue::valid(data.value.dupe()),
                 data.valid_versions.dupe(),
                 self.invalidation_paths.at_version(v),
+                data.revision,
             )),
             None => VersionedGraphResult::Compute,
         }
@@ -923,11 +1008,16 @@ impl InjectedGraphNode {
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
     ) -> InjectedGraphNode {
+        let mut revision_mint = RevisionMint::new();
+        let revision = revision_mint.mint();
         InjectedGraphNode {
             key: k,
-            values: [(v, Self::new_node_data(value, v))].into_iter().collect(),
+            values: [(v, Self::new_node_data(value, v, revision))]
+                .into_iter()
+                .collect(),
             rdeps: LazyDepsSet::new(),
             invalidation_paths: TrackedInvalidationPaths::new(invalidation_priority, k, v),
+            revision_mint,
         }
     }
 
@@ -936,11 +1026,16 @@ impl InjectedGraphNode {
         self.values.values().next_back().unwrap()
     }
 
-    fn new_node_data(value: DiceValidValue, version: VersionNumber) -> InjectedNodeData {
+    fn new_node_data(
+        value: DiceValidValue,
+        version: VersionNumber,
+        revision: Revision,
+    ) -> InjectedNodeData {
         InjectedNodeData {
             value,
             first_valid_version: version,
             valid_versions: Arc::new(VersionRange::begins_with(version).into_ranges()),
+            revision,
         }
     }
 
@@ -970,6 +1065,8 @@ mod tests {
     use crate::core::graph::nodes::ForceDirtyHistory;
     use crate::core::graph::nodes::OccupiedGraphNode;
     use crate::core::graph::nodes::PagableNodeValue;
+    use crate::core::graph::revision::Revision;
+    use crate::core::graph::revision::RevisionMint;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::key::DiceKey;
     use crate::value::DiceKeyValue;
@@ -1007,7 +1104,7 @@ mod tests {
     #[test]
     fn update_versioned_graph_entry_tracks_versions() {
         let deps0: Arc<SeriesParallelDeps> =
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![DiceKey {
                 index: 5,
             }]));
         let mut entry = OccupiedGraphNode::new(
@@ -1024,10 +1121,12 @@ mod tests {
             ),
             ForceDirtyHistory::new(),
             TrackedInvalidationPaths::clean(),
+            Revision::FIRST,
+            RevisionMint::new(),
         );
 
         assert!(entry.is_verified_at(VersionNumber::new(1)));
-        assert_eq!(*entry.deps(), deps0);
+        assert!(entry.deps().equal_ignoring_revisions(&deps0));
 
         entry.mark_unchanged(
             VersionNumber::new(2),
@@ -1050,6 +1149,8 @@ mod tests {
             VersionRange::begins_with(VersionNumber::new(1)).into_ranges(),
             ForceDirtyHistory::new(),
             TrackedInvalidationPaths::clean(),
+            Revision::FIRST,
+            RevisionMint::new(),
         );
 
         entry.rehydrate(stale);
@@ -1061,5 +1162,41 @@ mod tests {
                 .expect("the resident value must survive stale hydration")
                 .equality(&resident)
         );
+    }
+
+    /// `intern` reuses `res_revision` for a value equal to the stored one and mints a
+    /// fresh revision otherwise, without moving `res_revision` itself.
+    #[test]
+    fn intern_reuses_on_equal_value_and_mints_on_distinct() {
+        let v1 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
+        let v1_again = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
+        let v2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(2));
+        let mut entry = OccupiedGraphNode::new(
+            DiceKey { index: 1 },
+            PagableNodeValue::hydrated(v1.dupe()),
+            Arc::new(SeriesParallelDeps::None),
+            VersionRange::begins_with(VersionNumber::new(1)).into_ranges(),
+            ForceDirtyHistory::new(),
+            TrackedInvalidationPaths::clean(),
+            Revision::FIRST,
+            {
+                let mut m = RevisionMint::new();
+                // Consume FIRST so `entry.res_revision` names it.
+                let _ = m.mint();
+                m
+            },
+        );
+        let initial = entry.res_revision;
+
+        // Equal value → same revision.
+        assert_eq!(entry.intern(&v1_again), initial);
+        // `intern` does not overwrite `res_revision`.
+        assert_eq!(entry.res_revision, initial);
+
+        // Distinct value → fresh mint; strictly greater than the initial one
+        // (revisions are per-node monotonic).
+        let minted = entry.intern(&v2);
+        assert_ne!(minted, initial);
+        assert!(minted.as_u32() > initial.as_u32());
     }
 }

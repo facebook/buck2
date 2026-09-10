@@ -179,6 +179,7 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
+    use crate::core::graph::revision::Revision;
     use crate::epoch::cache::TransactionResult;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
@@ -218,6 +219,7 @@ mod tests {
             MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(val))),
             Arc::new(VersionRanges::new()),
             TrackedInvalidationPaths::clean(),
+            Revision::FIRST,
         )
     }
 

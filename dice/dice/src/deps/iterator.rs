@@ -9,19 +9,17 @@
  */
 
 use crate::deps::encoding::SPDecoder;
+use crate::deps::graph::DepEdge;
 use crate::deps::graph::SPItem;
 use crate::deps::graph::SPSeriesHeader;
-use crate::key::DiceKey;
 
-#[allow(unused)]
 pub(crate) enum SeriesParallelDepsIteratorItem<'a> {
-    Key(&'a DiceKey),
+    Key(DepEdge),
     Parallel(ParallelNodeIterator<'a>),
 }
 
-/// Data and some utility functions used by both a SeriesNodeIterator and a ParallelNodeIterator
 struct IteratorData<'a> {
-    deps: std::slice::Iter<'a, DiceKey>,
+    deps: std::slice::Iter<'a, DepEdge>,
     specs: SPDecoder<'a>,
 }
 
@@ -32,7 +30,7 @@ pub(crate) struct SeriesNodeIterator<'a> {
 
 impl SeriesNodeIterator<'_> {
     pub(crate) fn new<'a>(
-        deps: std::slice::Iter<'a, DiceKey>,
+        deps: std::slice::Iter<'a, DepEdge>,
         specs: std::slice::Iter<'a, u32>,
     ) -> SeriesNodeIterator<'a> {
         SeriesNodeIterator {
@@ -56,6 +54,10 @@ impl<'a> IteratorData<'a> {
             deps: split_keys.iter(),
             specs: split_specs,
         }
+    }
+
+    fn next_edge(&mut self) -> Option<DepEdge> {
+        self.deps.next().copied()
     }
 }
 
@@ -87,8 +89,7 @@ impl<'a> Iterator for SeriesNodeIterator<'a> {
         }
         self.keys_to_next_spec -= 1;
         self.data
-            .deps
-            .next()
+            .next_edge()
             .map(SeriesParallelDepsIteratorItem::Key)
     }
 }

@@ -774,6 +774,7 @@ impl Future for TerminationObserver {
 #[cfg(test)]
 pub(crate) mod testing_helpers {
     use crate::api::key::Key;
+    use crate::core::graph::revision::Revision;
     use crate::epoch::cache::TransactionResult;
     use crate::epoch::task::dice::DiceTask;
     use crate::key::DiceKey;
@@ -793,6 +794,7 @@ pub(crate) mod testing_helpers {
                 ))),
                 crate::arc::Arc::new(VersionRanges::new()),
                 TrackedInvalidationPaths::clean(),
+                Revision::FIRST,
             ),
         )
     }

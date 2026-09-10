@@ -187,6 +187,8 @@ use crate::core::graph::nodes::OccupiedGraphNode;
 use crate::core::graph::nodes::PagableNodeValue;
 use crate::core::graph::nodes::VacantGraphNode;
 use crate::core::graph::nodes::VersionedGraphNode;
+use crate::core::graph::revision::Revision;
+use crate::core::graph::revision::RevisionMint;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::deps::graph::SeriesParallelDeps;
@@ -627,6 +629,8 @@ impl VersionedGraph {
                         ))
                     }
                     InvalidateKind::Update(value, StorageType::Normal) => {
+                        let mut mint = RevisionMint::new();
+                        let first = mint.mint();
                         VersionedGraphNode::Occupied(OccupiedGraphNode::new(
                             key.k,
                             PagableNodeValue::hydrated(value),
@@ -634,6 +638,8 @@ impl VersionedGraph {
                             VersionRange::begins_with(key.v).into_ranges(),
                             ForceDirtyHistory::new(),
                             TrackedInvalidationPaths::new(invalidation_priority, key.k, key.v),
+                            first,
+                            mint,
                         ))
                     }
                     _ => {
@@ -671,6 +677,8 @@ impl VersionedGraph {
     ) -> DiceComputedValue {
         let key = slot.key();
         valid_deps_versions.insert(VersionRange::bounded(v, v.next()));
+        let mut mint = RevisionMint::new();
+        let first = mint.mint();
         let entry = OccupiedGraphNode::new(
             key,
             PagableNodeValue::stored(value, PagableNodeValue::hydrated),
@@ -678,6 +686,8 @@ impl VersionedGraph {
             valid_deps_versions,
             ForceDirtyHistory::new(),
             invalidation_paths,
+            first,
+            mint,
         );
 
         let res = entry.computed_val(v);
@@ -774,6 +784,8 @@ pub(crate) enum ValueUpdate {
     /// fallback path when the entry cannot be retained.
     DependencyValidated {
         previous_value: MaybeResident<DiceValidValue>,
+        /// The revision `previous_value` was interned under.
+        revision: Revision,
         prev_verified_version: VersionNumber,
     },
 }
@@ -793,7 +805,7 @@ impl ValueUpdate {
     ) -> bool {
         match self {
             ValueUpdate::Computed(new_value) => {
-                if new_deps != &***node.deps() {
+                if !new_deps.equal_ignoring_revisions(node.deps()) {
                     return false;
                 }
                 // We can't compare against a paged-out value without hydrating it, which
@@ -894,6 +906,7 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
+    use crate::core::graph::revision::Revision;
     use crate::core::graph::storage::InvalidateKind;
     use crate::core::graph::storage::StorageType;
     use crate::core::graph::storage::ValueUpdate;
@@ -962,7 +975,7 @@ mod tests {
                 .update(
                     key1.dupe(),
                     ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -986,7 +999,7 @@ mod tests {
                 .update(
                     key3.dupe(),
                     ValueUpdate::Computed(res2.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1024,7 +1037,7 @@ mod tests {
                 .update(
                     key6.dupe(),
                     ValueUpdate::Computed(res3),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1061,7 +1074,7 @@ mod tests {
                 .update(
                     key5.dupe(),
                     ValueUpdate::Computed(res4),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1286,7 +1299,7 @@ mod tests {
         let value = cache.update(
             key1,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1299,7 +1312,7 @@ mod tests {
         cache.update(
             key2,
             ValueUpdate::Computed(res2.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1311,7 +1324,7 @@ mod tests {
         let value3 = cache.update(
             key3.dupe(),
             ValueUpdate::Computed(res3.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1347,7 +1360,7 @@ mod tests {
                 .update(
                     key6.dupe(),
                     ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1370,7 +1383,7 @@ mod tests {
                 .update(
                     key5.dupe(),
                     ValueUpdate::Computed(res2.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1395,7 +1408,7 @@ mod tests {
                 .update(
                     key4.dupe(),
                     ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1425,7 +1438,7 @@ mod tests {
                 .update(
                     key7.dupe(),
                     ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1474,7 +1487,7 @@ mod tests {
                     key6.dupe(),
                     // there's nothing in the cache to be reused.
                     ValueUpdate::Computed(res.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1498,9 +1511,10 @@ mod tests {
                     key5.dupe(),
                     ValueUpdate::DependencyValidated {
                         previous_value: MaybeResident::Resident(res_fake.dupe()),
+                        revision: Revision::FIRST,
                         prev_verified_version: VersionNumber::new(2),
                     },
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1527,9 +1541,10 @@ mod tests {
                     key4.dupe(),
                     ValueUpdate::DependencyValidated {
                         previous_value: MaybeResident::Resident(res_fake.dupe()),
+                        revision: Revision::FIRST,
                         prev_verified_version: VersionNumber::new(6),
                     },
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1560,9 +1575,10 @@ mod tests {
                     key7.dupe(),
                     ValueUpdate::DependencyValidated {
                         previous_value: MaybeResident::Resident(res_fake.dupe()),
+                        revision: Revision::FIRST,
                         prev_verified_version: VersionNumber::new(6),
                     },
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1592,7 +1608,7 @@ mod tests {
                 .update(
                     key8.dupe(),
                     ValueUpdate::Computed(res_fake.dupe()),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
@@ -1620,7 +1636,7 @@ mod tests {
         cache.update(
             key1,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![DiceKey {
                 index: 0,
             }])),
             StorageType::Normal,
@@ -1631,7 +1647,7 @@ mod tests {
         cache.update(
             key2,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![DiceKey {
                 index: 0,
             }])),
             StorageType::Normal,
@@ -1644,29 +1660,29 @@ mod tests {
             InvalidationSourcePriority::Normal,
         ));
 
-        assert_eq!(
+        assert!(
             cache
                 .get(VersionedGraphKey::new(
                     VersionNumber::new(2),
                     DiceKey { index: 1 }
                 ))
                 .assert_check_deps()
-                .deps_to_validate,
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
-                index: 0
-            }]))
+                .deps_to_validate
+                .equal_ignoring_revisions(&SeriesParallelDeps::testing_serial_from(vec![
+                    DiceKey { index: 0 }
+                ]))
         );
-        assert_eq!(
+        assert!(
             cache
                 .get(VersionedGraphKey::new(
                     VersionNumber::new(2),
                     DiceKey { index: 2 }
                 ))
                 .assert_check_deps()
-                .deps_to_validate,
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
-                index: 0
-            }]))
+                .deps_to_validate
+                .equal_ignoring_revisions(&SeriesParallelDeps::testing_serial_from(vec![
+                    DiceKey { index: 0 }
+                ]))
         );
 
         Ok(())
@@ -1750,7 +1766,7 @@ mod tests {
             cache.update(
                 key_b1,
                 ValueUpdate::Computed(res.dupe()),
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
+                Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_a])),
                 StorageType::Normal,
                 TrackedInvalidationPaths::clean(),
             );
@@ -1761,7 +1777,7 @@ mod tests {
             cache.update(
                 key_b3,
                 ValueUpdate::Computed(res.dupe()),
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
+                Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_a])),
                 StorageType::Normal,
                 TrackedInvalidationPaths::clean(),
             );
@@ -1781,7 +1797,7 @@ mod tests {
             cache.update(
                 key_c1,
                 ValueUpdate::Computed(res.dupe()),
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+                Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
                 StorageType::Normal,
                 TrackedInvalidationPaths::clean(),
             );
@@ -1819,7 +1835,7 @@ mod tests {
         cache.update(
             key_a1,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1866,7 +1882,7 @@ mod tests {
         cache.update(
             key_a4,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1911,7 +1927,7 @@ mod tests {
         cache.update(
             key_a3,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1922,7 +1938,7 @@ mod tests {
         cache.update(
             key_a4,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1967,7 +1983,7 @@ mod tests {
         cache.update(
             key_a101,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -1975,7 +1991,7 @@ mod tests {
         cache.update(
             key_a1,
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![key_b])),
             StorageType::Normal,
             TrackedInvalidationPaths::clean(),
         );
@@ -2215,7 +2231,7 @@ mod tests {
         cache.update(
             VersionedGraphKey::new(VersionNumber::new(1), k),
             ValueUpdate::Computed(res.dupe()),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![
                 dep_a, dep_b, dep_c, dep_d,
             ])),
             StorageType::Normal,
@@ -2235,7 +2251,7 @@ mod tests {
             cache.update(
                 VersionedGraphKey::new(VersionNumber::new(v), k),
                 ValueUpdate::Computed(res.dupe()),
-                Arc::new(SeriesParallelDeps::serial_from_vec(vec![
+                Arc::new(SeriesParallelDeps::testing_serial_from(vec![
                     dep_a, dep_b, dep_c, dep_d,
                 ])),
                 StorageType::Normal,
@@ -2256,4 +2272,159 @@ mod tests {
     // The "dropped dep does not leave a stale rdep edge" property is tested
     // against the public API in `dice_tests::general` — it's a clean API
     // guarantee and belongs there so the test survives storage refactors.
+    /// Recomputing a key to an equal value re-finds its revision (the intern
+    /// step's equality path). This is early cutoff seen from the revision side:
+    /// the value's identity outlives the recompute.
+    #[test]
+    fn recompute_to_equal_value_reuses_revision() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_key = DiceKey { index: 1 };
+
+        inject(&mut cache, 1, dep_key, 100);
+        let v = DiceValidValue::testing_new(DiceKeyValue::<K>::new(42));
+        let (first, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(1), k),
+            ValueUpdate::Computed(v.dupe()),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        let initial_rev = first
+            .revision()
+            .expect("stored values carry a revision (only transients don't)");
+
+        // Force a recompute at a later version with a value that equals the
+        // stored one but with a differing dep set - `EqualityBased::is_reusable`
+        // returns false in that case, so `on_computed` takes the non-reusable
+        // branch. `intern` should still re-find the revision because the values
+        // are `Key::equality`-equal.
+        let other_dep = DiceKey { index: 2 };
+        inject(&mut cache, 2, other_dep, 999);
+        let v_again = DiceValidValue::testing_new(DiceKeyValue::<K>::new(42));
+        let (second, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(2), k),
+            ValueUpdate::Computed(v_again),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![other_dep])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert_eq!(
+            second.revision(),
+            Some(initial_rev),
+            "value unchanged ⇒ revision preserved across a recompute-to-equal",
+        );
+    }
+
+    /// A recompute to a distinct value mints a fresh revision - the intern
+    /// step's mint branch. Fresh revisions are strictly greater than prior
+    /// ones on the same node (revisions are per-node monotonic).
+    #[test]
+    fn recompute_to_distinct_value_mints_fresh_revision() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_key = DiceKey { index: 1 };
+
+        inject(&mut cache, 1, dep_key, 100);
+        let (first, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(1), k),
+            ValueUpdate::Computed(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+
+        inject(&mut cache, 2, dep_key, 200);
+        let (second, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(2), k),
+            ValueUpdate::Computed(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+
+        let r1 = first.revision().unwrap();
+        let r2 = second.revision().unwrap();
+        assert_ne!(r1, r2, "distinct values must have distinct revisions");
+    }
+
+    /// A recompute over a paged-out prior value can't be compared and mints; the graph
+    /// may lose value-equality reuse but stays correct.
+    #[test]
+    fn recompute_over_paged_out_mints_fresh_revision() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_key = DiceKey { index: 1 };
+
+        inject(&mut cache, 1, dep_key, 100);
+        let v = DiceValidValue::testing_new(DiceKeyValue::<K>::new(7));
+        let (first, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(1), k),
+            ValueUpdate::Computed(v.dupe()),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        let initial_rev = first.revision().unwrap();
+
+        // Page out the stored value.
+        if let Some(mut node) = cache.node_mut(k) {
+            let VersionedGraphNode::Occupied(occ) = &mut *node else {
+                panic!("expected Occupied node");
+            };
+            occ.set_paged_out(pagable::DataKey::compute(0x1234, &[], &[]));
+        }
+
+        // Recompute the same value at a later version. Because the prior value
+        // is paged out and can't be compared, the intern step must mint fresh.
+        inject(&mut cache, 2, dep_key, 200);
+        let v_again = DiceValidValue::testing_new(DiceKeyValue::<K>::new(7));
+        let (second, _) = cache.update(
+            VersionedGraphKey::new(VersionNumber::new(2), k),
+            ValueUpdate::Computed(v_again),
+            Arc::new(SeriesParallelDeps::testing_serial_from(vec![dep_key])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+        assert_ne!(
+            second.revision(),
+            Some(initial_rev),
+            "prior value paged out ⇒ must mint (over-distinguishing is sound)",
+        );
+    }
+
+    /// The `on_injected` equality short-circuit keeps the same
+    /// `InjectedNodeData`, so the revision at that version stays put.
+    #[test]
+    fn injected_equal_short_circuit_keeps_revision() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+
+        inject(&mut cache, 1, k, 42);
+        let rev1 = cache
+            .get(VersionedGraphKey::new(VersionNumber::new(1), k))
+            .assert_match()
+            .revision()
+            .unwrap();
+
+        // An identical injection at a later version hits the equality
+        // short-circuit and inserts nothing; the resolved value at either
+        // version still names the same revision.
+        inject(&mut cache, 2, k, 42);
+        let rev2 = cache
+            .get(VersionedGraphKey::new(VersionNumber::new(2), k))
+            .assert_match()
+            .revision()
+            .unwrap();
+        assert_eq!(rev1, rev2);
+
+        // A distinct injection mints a fresh revision.
+        inject(&mut cache, 3, k, 43);
+        let rev3 = cache
+            .get(VersionedGraphKey::new(VersionNumber::new(3), k))
+            .assert_match()
+            .revision()
+            .unwrap();
+        assert_ne!(rev2, rev3);
+    }
 }

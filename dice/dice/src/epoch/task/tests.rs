@@ -36,6 +36,7 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
@@ -107,6 +108,7 @@ async fn simple_task() -> anyhow::Result<()> {
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
+                    Revision::FIRST,
                 ))));
             }
             .boxed()
@@ -168,6 +170,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
+                    Revision::FIRST,
                 ))));
 
                 sent_finish.notify_one();
@@ -258,6 +261,7 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
+                    Revision::FIRST,
                 ))));
             }
             .boxed()

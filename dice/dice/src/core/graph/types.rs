@@ -15,6 +15,7 @@ use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
@@ -42,6 +43,8 @@ pub(crate) struct VersionedGraphResultMismatch {
     /// Most recent previous version at which the last known value was valid.
     pub(crate) prev_verified_version: VersionNumber,
     pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
+    /// Revision `entry` was interned under.
+    pub(crate) revision: Revision,
 }
 
 #[derive(Debug, VariantName, UnpackVariants)]

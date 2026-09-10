@@ -13,6 +13,7 @@ use std::marker::PhantomData;
 use derivative::Derivative;
 
 use crate::api::key::Key;
+use crate::core::graph::revision::Revision;
 use crate::key::DiceKey;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
@@ -23,6 +24,9 @@ pub struct OpaqueValue<'d, K: Key> {
     pub(crate) derive_from_key: DiceKey,
     #[derivative(Debug = "ignore")]
     pub(crate) derive_from: &'d MaybeValidDiceValue,
+    /// The [`Revision`] of `derive_from`'s value, `None` iff the value is transient.
+    /// Recorded on the dep edge when this `OpaqueValue` is folded into the caller's deps.
+    pub(crate) revision: Option<Revision>,
     pub(crate) invalidation_paths: &'d TrackedInvalidationPaths,
     ty: PhantomData<K>,
 }
@@ -34,11 +38,13 @@ where
     pub(crate) fn new(
         derive_from_key: DiceKey,
         derive_from: &'d MaybeValidDiceValue,
+        revision: Option<Revision>,
         invalidation_paths: &'d TrackedInvalidationPaths,
     ) -> Self {
         Self {
             derive_from_key,
             derive_from,
+            revision,
             invalidation_paths,
             ty: Default::default(),
         }
@@ -106,7 +112,7 @@ mod tests {
         let v =
             MaybeValidDiceValue::new(StdArc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid);
         let i = TrackedInvalidationPaths::clean();
-        let opaque = OpaqueValue::<K>::new(DiceKey { index: 0 }, &v, &i);
+        let opaque = OpaqueValue::<K>::new(DiceKey { index: 0 }, &v, None, &i);
 
         assert_eq!(ctx.recorded_deps_for_test(), HashSet::default());
 

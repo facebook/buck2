@@ -49,8 +49,10 @@ use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
+use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::Dice;
 use crate::epoch::evaluator::TransactionData;
@@ -186,7 +188,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     // Set initial value at v0
     let mut updater = dice.updater();
     updater.changed_to(vec![(K, 1)]).unwrap();
-    let v0 = updater.commit().await.0.get_version();
+    updater.commit().await;
 
     // Change value at v1
     let mut updater = dice.updater();
@@ -202,13 +204,17 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    // Dep changed between v0 and v1
+    // Dep changed between v0 and v1: the edge records the revision K held at v0
+    // (`Revision::FIRST`, minted by the initial `changed_to`); K's value moved at v1, so
+    // its revision is now a fresh one.
     assert!(
         check_dependencies(
             &eval,
             ParentKey::None,
-            &SeriesParallelDeps::serial_from_vec(vec![dep_key]),
-            v0,
+            &SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                dep_key,
+                Some(Revision::FIRST),
+            )]),
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await
@@ -228,13 +234,16 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    // Dep did NOT change between v1 and v2 (same value)
+    // Dep did NOT change between v1 and v2 (same value): the edge records the revision K
+    // held at v1 (the second one minted), which K still holds at v2.
     assert!(
         !check_dependencies(
             &eval,
             ParentKey::None,
-            &SeriesParallelDeps::serial_from_vec(vec![dep_key]),
-            v1,
+            &SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                dep_key,
+                Some(Revision::testing_new(2)),
+            )]),
             &KeyComputingUserCycleDetectorData::Untracked,
         )
         .await
@@ -877,7 +886,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
     updater
         .changed_to(spkeys.iter().map(|k| (k.dupe(), 100)).collect::<Vec<_>>())
         .unwrap();
-    let prev_version = updater.commit().await.0.get_version();
+    updater.commit().await;
 
     let mut updater = dice.updater();
     updater
@@ -896,12 +905,18 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
 
     *data.compute_behavior[0].lock().unwrap() = ComputeBehavior::Sleep(Duration::from_millis(20));
 
-    let deps = SeriesParallelDeps::serial_from_vec(keys);
+    // Each edge records `Revision::FIRST`, the revision minted by the initial `changed_to`
+    // above. Every dep will look changed: the recompute mints a fresh revision because the
+    // stored value 100 differs from the computed idx.
+    let deps = SeriesParallelDeps::serial_from_edges(
+        keys.iter()
+            .map(|k| DepEdge::new(*k, Some(Revision::FIRST)))
+            .collect(),
+    );
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
-    let check_deps_result =
-        check_dependencies(&eval, ParentKey::None, &deps, prev_version, &cycles)
-            .await
-            .unwrap();
+    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps, &cycles)
+        .await
+        .unwrap();
 
     match check_deps_result {
         CheckDependenciesResult::Changed { continuables } => {
@@ -973,7 +988,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
                 .collect::<Vec<_>>(),
         )
         .unwrap();
-    let prev_version = updater.commit().await.0.get_version();
+    updater.commit().await;
 
     let mut updater = dice.updater();
     updater
@@ -995,82 +1010,52 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     *data.compute_behavior[3].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
     *data.compute_behavior[13].lock().unwrap() = ComputeBehavior::WaitFor(semaphore.dupe());
 
+    // Every edge records `Revision::FIRST`, the revision minted by the initial
+    // `changed_to` above. After `changed()`, the recompute triggered by the dep check
+    // re-finds that revision for every key whose compute returns the stored value (all
+    // but key 9) and mints a fresh one for key 9, whose value moved from 100 to 9.
     let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-    deps.record(
-        keys[0],
-        DiceValidity::Valid,
-        &TrackedInvalidationPaths::clean(),
-    );
-    deps.record(
-        keys[1],
-        DiceValidity::Valid,
-        &TrackedInvalidationPaths::clean(),
-    );
-    deps.record(
-        keys[2],
-        DiceValidity::Valid,
-        &TrackedInvalidationPaths::clean(),
-    );
+    let record = |deps: &mut RecordingDepsTracker<'_>, k| {
+        deps.record(
+            DepEdge::new(k, Some(Revision::FIRST)),
+            DiceValidity::Valid,
+            &TrackedInvalidationPaths::clean(),
+        );
+    };
+    record(&mut deps, keys[0]);
+    record(&mut deps, keys[1]);
+    record(&mut deps, keys[2]);
     {
         let mut branches = Vec::new();
         for i in 0..3 {
             let offset = i * 5;
             let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-            deps.record(
-                keys[3 + offset],
-                DiceValidity::Valid,
-                &TrackedInvalidationPaths::clean(),
-            );
-            deps.record(
-                keys[4 + offset],
-                DiceValidity::Valid,
-                &TrackedInvalidationPaths::clean(),
-            );
+            record(&mut deps, keys[3 + offset]);
+            record(&mut deps, keys[4 + offset]);
             {
                 let mut inner_branches = Vec::new();
                 let mut inner = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-                inner.record(
-                    keys[5 + offset],
-                    DiceValidity::Valid,
-                    &TrackedInvalidationPaths::clean(),
-                );
+                record(&mut inner, keys[5 + offset]);
                 inner_branches.push(inner.collect_deps());
                 let mut inner = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-                inner.record(
-                    keys[6 + offset],
-                    DiceValidity::Valid,
-                    &TrackedInvalidationPaths::clean(),
-                );
+                record(&mut inner, keys[6 + offset]);
                 inner_branches.push(inner.collect_deps());
                 deps.insert_parallel_for_test(inner_branches);
             }
-            deps.record(
-                keys[7 + offset],
-                DiceValidity::Valid,
-                &TrackedInvalidationPaths::clean(),
-            );
+            record(&mut deps, keys[7 + offset]);
             branches.push(deps.collect_deps());
         }
         deps.insert_parallel_for_test(branches);
     }
-    deps.record(
-        keys[18],
-        DiceValidity::Valid,
-        &TrackedInvalidationPaths::clean(),
-    );
-    deps.record(
-        keys[19],
-        DiceValidity::Valid,
-        &TrackedInvalidationPaths::clean(),
-    );
+    record(&mut deps, keys[18]);
+    record(&mut deps, keys[19]);
 
     let deps = deps.collect_deps();
     let cycles = KeyComputingUserCycleDetectorData::Untracked;
 
-    let check_deps_result =
-        check_dependencies(&eval, ParentKey::None, &deps.deps, prev_version, &cycles)
-            .await
-            .unwrap();
+    let check_deps_result = check_dependencies(&eval, ParentKey::None, &deps.deps, &cycles)
+        .await
+        .unwrap();
 
     match check_deps_result {
         CheckDependenciesResult::Changed { continuables } => {
@@ -1083,6 +1068,183 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     }
 
     assert_eq!(data.total_computed.load(Ordering::SeqCst), 15);
+
+    Ok(())
+}
+
+/// An edge whose recorded revision is `None` (a transient dep) never revalidates:
+/// transient values have no interned identity, so an edge to "the transient value I saw"
+/// can never be shown to still be valid. The dep list is synthesized directly because
+/// transients never make it into the graph, so no compute flow produces such an edge.
+#[tokio::test]
+async fn transient_dep_edge_never_revalidates() -> anyhow::Result<()> {
+    let dice = Dice::new(DiceData::new(), None);
+    let user_data = Arc::new(UserComputationData::new());
+
+    // Set up an injected dep with a value; its own revision is well-known
+    // (`Revision::FIRST`) but the recorded edge deliberately says `None`.
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(K, 1)]).unwrap();
+    let version = updater.commit().await.0.get_version();
+
+    let (ctx, _guard) = dice.testing_shared_ctx(version).await;
+    let eval = TransactionData {
+        epoch_state: ctx.dupe(),
+        user_data: user_data.dupe(),
+        dice: dice.dupe(),
+    };
+
+    let dep_key = dice.key_index.index_key(K);
+    let deps = SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(dep_key, None)]);
+
+    assert!(
+        check_dependencies(
+            &eval,
+            ParentKey::None,
+            &deps,
+            &KeyComputingUserCycleDetectorData::Untracked,
+        )
+        .await
+        .unwrap()
+        .is_changed(),
+        "a None-revision (transient) edge must always report Changed"
+    );
+
+    Ok(())
+}
+
+/// After a dep's value changes and the dependent recomputes to an equal value (a
+/// reuse-write), a later dep check must not force the dependent to recompute again: the
+/// reuse-write has to refresh the stored edges to the dep revisions it observed, or the
+/// recorded revision stays pinned at the pre-change value and every later CheckDeps
+/// reports it changed.
+///
+/// `Middle` is a non-injected key so it can be force-dirtied without changing its value
+/// in round 3; `Base` is the injected value moved to drive `Middle`'s revision forward.
+#[tokio::test]
+async fn reuse_write_refreshes_stored_dep_revisions() -> anyhow::Result<()> {
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Base;
+
+    #[async_trait]
+    impl crate::InjectedKey for Base {
+        type Value = u32;
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    // Middle: relays Base's value. Non-injected so it can be force-dirtied.
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Middle;
+
+    #[async_trait]
+    impl Key for Middle {
+        type Value = u32;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            *ctx.compute(&Base).await.unwrap()
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    // Dependent's compute returns a constant, so a dep-change followed by
+    // recompute always yields an equal value - hits the EqualityBased reuse
+    // path exactly.
+    #[derive(
+        Clone,
+        Dupe,
+        Debug,
+        Display,
+        derivative::Derivative,
+        Allocative,
+        PagablePanic
+    )]
+    #[derivative(Hash, PartialEq, Eq)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Dependent(#[derivative(Hash = "ignore", PartialEq = "ignore")] Arc<AtomicUsize>);
+
+    #[async_trait]
+    impl Key for Dependent {
+        type Value = u32;
+
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            let _ = *ctx.compute(&Middle).await.unwrap();
+            0 // constant — equal every time
+        }
+
+        fn equality_behavior() -> EqualityBehavior<Self::Value> {
+            EqualityBehavior::Compare(|x, y| x == y)
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    // Round 1: initial compute. Middle=10 with revision R1; Dependent records
+    // edge (Middle, R1); counter=1.
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Base, 10)])?;
+    let ctx = updater.commit().await;
+    let _ = ctx.compute(&Dependent(counter.dupe())).await?;
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+    // Round 2: move Base to 20. Middle's dep-check fails, Middle recomputes
+    // to 20 (mint R2). Dependent's dep-check on Middle fails (R1 != R2),
+    // Dependent recomputes to 0 (equal). Reuse-write fires: WITH FIX the
+    // stored edge becomes (Middle, R2); WITHOUT FIX it stays (Middle, R1).
+    // counter=2 either way.
+    let mut updater = dice.updater();
+    updater.changed_to(vec![(Base, 20)])?;
+    let ctx = updater.commit().await;
+    let _ = ctx.compute(&Dependent(counter.dupe())).await?;
+    assert_eq!(counter.load(Ordering::SeqCst), 2);
+
+    // Round 3: force-dirty Middle WITHOUT moving Base. Middle recomputes: 20
+    // == stored 20 => intern reuses R2. Dep-check on Dependent: recorded
+    // vs Middle's current R2. WITH FIX: recorded is R2 => match => NoChange
+    // => counter stays 2. WITHOUT FIX: recorded is stale R1 => mismatch =>
+    // Changed => Dependent recomputes => counter=3.
+    let mut updater = dice.updater();
+    updater.changed(vec![Middle])?;
+    let ctx = updater.commit().await;
+    let _ = ctx.compute(&Dependent(counter.dupe())).await?;
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "round 2's reuse-write must refresh the stored edge revision so that round 3's \
+         dep check revalidates by revision equality"
+    );
 
     Ok(())
 }

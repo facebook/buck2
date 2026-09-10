@@ -23,6 +23,7 @@ use crate::ProjectionKey;
 use crate::api::key::EqualityBehavior;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
@@ -208,6 +209,9 @@ pub(crate) struct DiceComputedValue {
     value: MaybeResident<MaybeValidDiceValue>,
     valid: Arc<VersionRanges>,
     invalidation_paths: TrackedInvalidationPaths,
+    /// The revision the value was interned under, `None` iff the value is transient:
+    /// transients never enter the graph and so have no interned identity to name.
+    revision: Option<Revision>,
 }
 
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
@@ -374,11 +378,13 @@ impl DiceComputedValue {
         value: MaybeResident<MaybeValidDiceValue>,
         valid: Arc<VersionRanges>,
         invalidation_paths: TrackedInvalidationPaths,
+        revision: Revision,
     ) -> Self {
         Self {
             value,
             valid,
             invalidation_paths,
+            revision: Some(revision),
         }
     }
 
@@ -386,17 +392,24 @@ impl DiceComputedValue {
         value: MaybeValidDiceValue,
         valid: Arc<VersionRanges>,
         invalidation_paths: TrackedInvalidationPaths,
+        revision: Revision,
     ) -> Self {
-        Self::new(MaybeResident::Resident(value), valid, invalidation_paths)
+        Self::new(
+            MaybeResident::Resident(value),
+            valid,
+            invalidation_paths,
+            revision,
+        )
     }
 
     /// The same result with `value` — read back from storage — as its payload.
     pub(crate) fn paged_in(&self, value: DiceValidValue) -> Self {
-        Self::new_resident(
-            MaybeValidDiceValue::valid(value),
-            self.valid.dupe(),
-            self.invalidation_paths.dupe(),
-        )
+        Self {
+            value: MaybeResident::Resident(MaybeValidDiceValue::valid(value)),
+            valid: self.valid.dupe(),
+            invalidation_paths: self.invalidation_paths.dupe(),
+            revision: self.revision,
+        }
     }
 
     /// A bunch of things in the per-transaction state expect `DiceComputedValue`s, but we don't
@@ -414,6 +427,7 @@ impl DiceComputedValue {
             value: MaybeResident::Resident(value),
             valid: Arc::new(VersionRange::begins_with(v).into_ranges()),
             invalidation_paths,
+            revision: None,
         }
     }
 
@@ -427,12 +441,18 @@ impl DiceComputedValue {
         self.value.data_key()
     }
 
+    #[cfg(test)]
     pub(crate) fn versions(&self) -> &VersionRanges {
         &self.valid
     }
 
     pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
         &self.invalidation_paths
+    }
+
+    /// The revision the value was interned under, `None` iff the value is transient.
+    pub(crate) fn revision(&self) -> Option<Revision> {
+        self.revision
     }
 }
 

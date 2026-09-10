@@ -21,10 +21,12 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
+use crate::core::graph::revision::Revision;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
+use crate::deps::graph::DepEdge;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
@@ -144,6 +146,7 @@ impl VersionEpochState {
         &self,
         key: DiceKey,
         base: &MaybeValidDiceValue,
+        base_revision: Option<Revision>,
         base_invalidation_paths: &TrackedInvalidationPaths,
         transaction: &TransactionData,
     ) -> TransactionResult<DiceComputedValue> {
@@ -165,8 +168,12 @@ impl VersionEpochState {
             Ok(handle) => {
                 transaction.started(key);
                 // We inserted and are expected to do the computation
-                let eval_result =
-                    transaction.evaluate_projection(key, base, base_invalidation_paths);
+                let eval_result = transaction.evaluate_projection(
+                    key,
+                    base,
+                    base_revision,
+                    base_invalidation_paths,
+                );
                 let r = handle_project_eval_result(
                     &transaction.dice.state_handle,
                     handle,
@@ -296,7 +303,10 @@ impl TransactionData {
                     cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, base_value.validity()),
-                        deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
+                        deps: SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                            proj.base(),
+                            base.revision(),
+                        )]),
                         storage: proj.proj().storage_type(),
                         invalidation_paths: base.invalidation_paths().for_dependent(key),
                     },
@@ -310,6 +320,7 @@ impl TransactionData {
         &self,
         key: DiceKey,
         base: &MaybeValidDiceValue,
+        base_revision: Option<Revision>,
         base_invalidation_paths: &TrackedInvalidationPaths,
     ) -> KeyEvaluationResult {
         let DiceKeyErased::Projection(proj) = self.dice.key_index.get(key) else {
@@ -324,7 +335,10 @@ impl TransactionData {
 
         KeyEvaluationResult {
             value: MaybeValidDiceValue::new(value, base.validity()),
-            deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
+            deps: SeriesParallelDeps::serial_from_edges(vec![DepEdge::new(
+                proj.base(),
+                base_revision,
+            )]),
             storage: proj.proj().storage_type(),
             invalidation_paths: base_invalidation_paths.for_dependent(key),
         }

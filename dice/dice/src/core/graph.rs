@@ -13,5 +13,6 @@
 pub(crate) mod introspection;
 mod lazy_deps;
 pub(crate) mod nodes;
+pub(crate) mod revision;
 pub(crate) mod storage;
 pub(crate) mod types;
