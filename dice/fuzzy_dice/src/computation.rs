@@ -178,7 +178,7 @@ impl FuzzState {
 #[display("Eval({})", key)]
 #[pagable_typetag(DiceKeyDyn)]
 pub struct EvalVar {
-    key: Var,
+    pub key: Var,
     #[derivative(Debug = "ignore", Hash = "ignore")]
     state: Arc<FuzzState>,
 }
