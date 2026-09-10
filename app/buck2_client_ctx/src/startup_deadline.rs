@@ -68,9 +68,15 @@ impl StartupDeadline {
     }
 
     /// How much time is left for the current operation.
+    ///
+    /// A deadline exactly equal to the current time counts as expired. Coarse monotonic
+    /// clock granularity (notably on Windows) otherwise makes a zero timeout nondeterministic:
+    /// whether the outermost or an inner operation reports the timeout would depend on
+    /// whether the clock ticked between constructing the deadline and checking it.
     pub(crate) fn rem_duration(&self, op: &str) -> buck2_error::Result<Duration> {
         self.deadline
             .checked_duration_since(Instant::now())
+            .filter(|rem| !rem.is_zero())
             .ok_or(StartupDeadlineError::TimeoutBefore { op: op.to_owned() }.into())
     }
 
