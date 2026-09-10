@@ -553,6 +553,10 @@ def rust_compile(
     incremental_enabled: bool,
     extra_link_args: list[typing.Any] = [],
     predeclared_output: Artifact | None = None,
+    # Whether `predeclared_output` was declared with a content-based path. The
+    # linker writes its side outputs (the `.pdb` on Windows) beside the binary,
+    # so they must be declared with the binary's path mode to be found.
+    predeclared_output_has_content_based_path: bool = False,
     extra_flags: list[str | ResolvedStringWithMacros | Artifact] = [],
     allow_cache_upload: bool = False,
     # Setting this to true causes the diagnostic outputs that are generated
@@ -606,7 +610,7 @@ def rust_compile(
             fail("extraction produces no linked output; the caller owns the linked artifact and must produce it via `rust_link_binary`")
 
     use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
-    emit_cbp = use_cbp if predeclared_output == None else False
+    emit_cbp = use_cbp if predeclared_output == None else predeclared_output_has_content_based_path
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.

@@ -392,6 +392,7 @@ def _rust_binary_common(
         default_roots = default_roots,
         extra_link_args = executable_shlib_args.extra_link_args,
         predeclared_output = None if links_via_cxx else predeclared_output,
+        predeclared_output_has_content_based_path = exe_content_based,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
         transformation_spec_context = transformation_spec_context,
