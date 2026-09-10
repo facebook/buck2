@@ -763,10 +763,15 @@ async fn async_main() {
     if progress {
         eprint!(", dense w=20");
     }
-    // w=64 is measured because it is on the other side of a behavior change in how the
-    // parallel branches get awaited: futures' `join_all` switches to `FuturesOrdered` above
-    // 30 futures, so the per-branch suspended cost includes the collection's bookkeeping.
-    // It is excluded from the linear fit; the wide regime would skew the per-edge number.
+    // w=64 crosses a behavior change in how the parallel branches get awaited:
+    // futures' `join_all` switches to `FuturesOrdered` above 30 futures, so the
+    // per-branch suspended cost includes the collection's bookkeeping. Its at-rest
+    // value is honest — `run_phase` snapshots via `quiesce_and_snap` (wait_for_idle
+    // + sleep) after each shadow's compute finishes and its ctx is dropped, so
+    // any FuturesOrdered state is gone before the reading. w=64 is still excluded
+    // from the per-edge linear fit because the fit runs over only two dense
+    // widths and we want the coefficient anchored in the sub-30 regime where the
+    // awaiter behavior matches w=5 and w=20.
     let dense64 = run_phase(Shape::Dense { dense_width: 64 }, false).await;
     if progress {
         eprint!(", dense w=64");
@@ -897,7 +902,7 @@ async fn async_main() {
 
     eprintln!();
     eprintln!("  At-rest heap (B/key)");
-    for p in [&chain, &dense5, &dense20] {
+    for p in [&chain, &dense5, &dense20, &dense64] {
         eprintln!("    {:<24}{:>6.0}", p.label.trim_end(), p.per_key_min);
     }
 
