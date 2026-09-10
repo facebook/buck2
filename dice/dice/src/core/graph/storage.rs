@@ -2159,10 +2159,10 @@ mod tests {
                 }
             }
         };
-        let page_in = |cache: &mut VersionedGraph, index: u32| {
+        let page_in = |cache: &mut VersionedGraph, index: u32, data_key: u128| {
             if let Some(mut node) = cache.node_mut(DiceKey { index }) {
                 if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    occ.rehydrate(value.dupe());
+                    occ.rehydrate(pagable::DataKey::testing_new(data_key), value.dupe());
                 }
             }
         };
@@ -2192,7 +2192,7 @@ mod tests {
         cache.assert_candidates_consistent();
 
         // Paging it back in makes it resident again (but not a page-out candidate).
-        page_in(&mut cache, 0);
+        page_in(&mut cache, 0, 1);
         assert_eq!(cache.pagable_node_counts(), counts(2, 0, 1));
         cache.assert_candidates_consistent();
 

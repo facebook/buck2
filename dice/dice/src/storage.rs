@@ -422,7 +422,7 @@ impl DiceStorage {
                 tokio::spawn(async move {
                     for (dice_key, key_dyn, data_key) in &items {
                         let value = storage.hydrate(key_dyn, *data_key).await?;
-                        state_handle.rehydrate(*dice_key, value);
+                        state_handle.rehydrate(*dice_key, *data_key, value);
                     }
                     Ok::<_, anyhow::Error>(())
                 })

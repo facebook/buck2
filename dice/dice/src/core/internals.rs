@@ -280,12 +280,13 @@ impl CoreState {
         self.graph.pagable_node_counts()
     }
 
-    /// Replaces the paged-out value at `key` with its hydrated form. No-op if the node
-    /// is missing, vacant, injected, or already hydrated.
-    pub(super) fn rehydrate(&mut self, key: DiceKey, value: DiceValidValue) {
+    /// Replaces the value of `key` paged out at `data_key` with its hydrated form. No-op
+    /// if the node is missing, vacant, injected, already hydrated, or paged out at a
+    /// different `DataKey`.
+    pub(super) fn rehydrate(&mut self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
         if let Some(mut node) = self.graph.node_mut(key) {
             if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                occ.rehydrate(value);
+                occ.rehydrate(data_key, value);
             }
         }
     }

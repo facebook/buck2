@@ -421,7 +421,7 @@ impl DiceTaskWorker {
                 phase,
             );
         }
-        state_handle.rehydrate(self.k, value.dupe());
+        state_handle.rehydrate(self.k, data_key, value.dupe());
         Ok(value)
     }
 }

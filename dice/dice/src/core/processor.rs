@@ -150,8 +150,12 @@ impl StateProcessor {
             StateRequest::MarkNonPageable { keys } => {
                 self.state.mark_non_pageable(keys);
             }
-            StateRequest::Rehydrate { key, value } => {
-                self.state.rehydrate(key, value);
+            StateRequest::Rehydrate {
+                key,
+                data_key,
+                value,
+            } => {
+                self.state.rehydrate(key, data_key, value);
             }
             StateRequest::Metrics { resp } => {
                 let _ignored = resp.send(self.state.metrics());

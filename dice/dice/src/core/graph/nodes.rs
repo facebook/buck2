@@ -293,7 +293,7 @@ impl VersionedGraphNode {
                 // takes its place, or the next reader would page in a value we had in hand,
                 // and a page-in that keeps failing would recompute forever.
                 if let MaybeResident::Resident(value) = update.into_value() {
-                    entry.rehydrate(value);
+                    entry.make_resident(value);
                 }
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths, epsilon);
                 let ret = entry.computed_val(key.v);
@@ -304,7 +304,7 @@ impl VersionedGraphNode {
                 // dependency validation. Active demand wins that race: restore the exact
                 // value the worker validated before returning it from the graph.
                 if let MaybeResident::Resident(value) = update.into_value() {
-                    entry.rehydrate(value);
+                    entry.make_resident(value);
                 }
                 // A reuse-write is still a write: the compute (or CheckDeps walk) behind it
                 // observed its deps at their current revisions, and those are what later
@@ -830,10 +830,19 @@ impl OccupiedGraphNode {
         &self.res
     }
 
-    /// Restores the in-memory hydrated value (typically after deserializing from
-    /// disk), marking a `PagedOut` node `Recomputed`: resident again and no longer a
-    /// page-out candidate (it has already been paged out once).
-    pub(crate) fn rehydrate(&mut self, value: DiceValidValue) {
+    /// Restores the in-memory value read back from `data_key`, marking a `PagedOut` node
+    /// `Recomputed`: resident again and no longer a page-out candidate (it has already
+    /// been paged out once). A node paged out at a different `DataKey` holds a different
+    /// value than the one read back, and is left alone.
+    pub(crate) fn rehydrate(&mut self, data_key: DataKey, value: DiceValidValue) {
+        if matches!(self.res, PagableNodeValue::PagedOut(k) if k == data_key) {
+            self.res = PagableNodeValue::Recomputed(value);
+        }
+    }
+
+    /// Makes a paged-out node resident with `value`, a value a write has just proven to
+    /// be the one behind it (see the callers in `on_computed`).
+    fn make_resident(&mut self, value: DiceValidValue) {
         if matches!(self.res, PagableNodeValue::PagedOut(_)) {
             self.res = PagableNodeValue::Recomputed(value);
         }
@@ -1256,7 +1265,7 @@ mod tests {
             EpsilonToken::INITIAL,
         );
 
-        entry.rehydrate(stale);
+        entry.rehydrate(pagable::DataKey::testing_new(1), stale);
 
         assert!(
             entry

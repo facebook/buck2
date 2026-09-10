@@ -309,11 +309,15 @@ impl CoreStateHandle {
         self.request(StateRequest::MarkNonPageable { keys })
     }
 
-    /// Replace the paged-out value at `key` with its hydrated form. Fire-and-forget;
-    /// any subsequent state requests for `key` are guaranteed to see the hydrated value
-    /// because state requests are processed FIFO.
-    pub(crate) fn rehydrate(&self, key: DiceKey, value: DiceValidValue) {
-        self.request(StateRequest::Rehydrate { key, value })
+    /// Replace the value paged out at `data_key` with `value`, its hydrated form.
+    /// Fire-and-forget; any subsequent state requests for `key` are guaranteed to see the
+    /// hydrated value because state requests are processed FIFO.
+    pub(crate) fn rehydrate(&self, key: DiceKey, data_key: DataKey, value: DiceValidValue) {
+        self.request(StateRequest::Rehydrate {
+            key,
+            data_key,
+            value,
+        })
     }
 
     /// Collect metrics
@@ -441,8 +445,12 @@ pub(super) enum StateRequest {
     MarkNonPageable {
         keys: Vec<(DiceKey, DiceValidValue)>,
     },
-    /// Replace the paged-out value at `key` with its hydrated form.
-    Rehydrate { key: DiceKey, value: DiceValidValue },
+    /// Replace the value of `key` paged out at `data_key` with its hydrated form.
+    Rehydrate {
+        key: DiceKey,
+        data_key: DataKey,
+        value: DiceValidValue,
+    },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
     /// Collects the introspectable dice state
