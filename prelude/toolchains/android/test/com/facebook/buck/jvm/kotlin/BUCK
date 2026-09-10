@@ -31,6 +31,7 @@ buck_kotlin_test(
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/ksp/incremental:incremental",
         "prelude//toolchains/android/src/com/facebook/buck/step:step",
         "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps:isolatedsteps",
+        "prelude//toolchains/android/src/com/facebook/buck/step/isolatedsteps/common:common",
         "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
