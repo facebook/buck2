@@ -19,7 +19,8 @@ load(
 
 def _apple_finalize_bundle_impl(ctx):
     original_bundle = ctx.attrs.bundle
-    bundle_artifact = original_bundle[DefaultInfo].default_outputs[0]
+    original_bundle_info = original_bundle[AppleBundleInfo]
+    bundle_artifact = original_bundle_info.bundle
     finalized_bundle = ctx.actions.declare_output(bundle_artifact.basename, has_content_based_path = False)
 
     cmd = cmd_args([
@@ -37,7 +38,6 @@ def _apple_finalize_bundle_impl(ctx):
         identifier = bundle_artifact.basename,
     )
 
-    original_bundle_info = original_bundle[AppleBundleInfo]
     finalized_bundle_info = AppleBundleInfo(
         bundle = finalized_bundle,
         bundle_type = original_bundle_info.bundle_type,
@@ -56,7 +56,7 @@ def _apple_finalize_bundle_impl(ctx):
 
 apple_finalize_bundle = rule(
     attrs = {
-        "bundle": attrs.dep(),
+        "bundle": attrs.dep(providers = [AppleBundleInfo]),
         "finalizer": attrs.exec_dep(providers = [RunInfo]),
         "sign_key": attrs.string(default = "fbios-debug"),
     },
