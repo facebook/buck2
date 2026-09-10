@@ -11,105 +11,144 @@
 use allocative::Allocative;
 use mini_vec::MiniVec;
 
+use crate::HashSet;
 use crate::key::DiceKey;
-use crate::versions::VersionNumber;
 
-/// Provides a set that lazily dedupes entries. This is efficient for common patterns that we see for rdeps tracking.
+/// A grow-only bag of rdep keys backing a node's reverse-dependency edges.
 ///
-/// For rdeps, in the normal flow (where computations happen at increasing versions without overlap) the sequence of things we'll see is:
-///
-/// 1. the first version will add some set of unique rdeps
-/// 2. subsequent versions will add more rdeps, a dep will only be added once at each version, but can be repeated across versions
-/// 3. eventually the node itself will be invalidated and the rdeps will be drained
-///
-/// This means that the inserts will be a sequence of sets of unique deps. deduping multiple times withing one such block is wasteful, and
-/// deduping on every block may also be wasteful (a typical flow adds a lot of rdeps in the first block, and then only a small number in each
-/// subsequent block).
-///
-/// So, we track the version so we can identify the transitions between those blocks. and only do dedupe (1) when starting a new block and (2)
-/// if our list is sufficiently large (we know the minimum size is the largest of our previous deduped size or the size of any block we've added).
-///
-/// One common pattern that is close to our worst case is that a node itself is never invalidated but that all of its rdeps are. In that case
-/// at every version we'll be adding the same N rdeps to the list. In that case, we'll do the sort+dedupe on every version. Overall, this
-/// ends up being better in practice than using HashSet.
+/// Insertion is a blind push. In steady state each edge is present at most once,
+/// because a node re-registers as an rdep only after having been invalidated,
+/// and the invalidation path removes it from every dep's set. Duplicates from
+/// still-in-flight older-version computes are tolerated and are reconciled by
+/// the next [`Self::remove_all`] pass.
 #[derive(Allocative, Debug)]
 pub(crate) struct LazyDepsSet {
     data: MiniVec<DiceKey>,
-    state: State,
-}
-
-#[derive(Allocative, Debug, Clone, Copy)]
-enum State {
-    New,
-    Growing {
-        /// The last version that we've seen. We use this to track the size of "blocks" of unique deps
-        latest_version: VersionNumber,
-        /// How many deps have been added at `latest_version`
-        this_version_count: u32,
-        /// The maximum of our previous deduped size and the size of any block of deps we've seen since then
-        min_size: u32,
-    },
 }
 
 impl LazyDepsSet {
     pub(crate) fn new() -> LazyDepsSet {
         Self {
             data: MiniVec::new(),
-            state: State::New,
         }
     }
 
-    pub(crate) fn insert(&mut self, v: VersionNumber, k: DiceKey) {
-        match self.state {
-            State::New => {
-                self.state = State::Growing {
-                    latest_version: v,
-                    min_size: 0,
-                    this_version_count: 1,
-                }
-            }
-            State::Growing {
-                latest_version,
-                min_size,
-                ref mut this_version_count,
-            } => {
-                if latest_version == v {
-                    *this_version_count += 1;
-                } else if latest_version < v {
-                    // This indicates that we've started a new "block".
-                    let mut min_size = std::cmp::max(min_size, *this_version_count);
-
-                    // need to decide if we should clean up duplicates
-                    let resize_threshold = std::cmp::max(10, (min_size as usize) * 3 / 2);
-                    if self.data.len() > resize_threshold {
-                        // stable sort is going to best handle the fact that the initial run is completely sorted.
-                        self.data.sort();
-                        self.data.dedup();
-                        min_size = self.data.len() as u32;
-                    }
-
-                    self.state = State::Growing {
-                        latest_version: v,
-                        min_size,
-                        this_version_count: 1,
-                    }
-                } else {
-                    // an older version... just ignore?
-                    // TODO(cjhopman): We should revisit this behavior when we more widely allow concurrent computations.
-                }
-            }
-        }
+    pub(crate) fn insert(&mut self, k: DiceKey) {
         self.data.push(k);
     }
 
-    /// Clears the set and returns all currently stored deps. The returned iterator might contain duplicates.
-    pub(crate) fn drain(&mut self) -> mini_vec::Drain<'_, DiceKey> {
-        self.state = State::New;
-        self.data.drain(..)
+    /// Empties the set and returns every stored key. The returned collection
+    /// can contain duplicates.
+    pub(crate) fn take(&mut self) -> MiniVec<DiceKey> {
+        std::mem::replace(&mut self.data, MiniVec::new())
     }
 
-    /// Iterates over all currently stored deps. The returned iterator might contain duplicates.
+    /// Iterates over every stored key. The iterator can contain duplicates.
     pub(crate) fn iter(&self) -> impl Iterator<Item = DiceKey> {
         self.data.iter().copied()
+    }
+
+    /// Removes every occurrence of every key in `to_remove` in a single pass.
+    pub(crate) fn remove_all(&mut self, to_remove: &HashSet<DiceKey>) {
+        let slice = self.data.as_mut_slice();
+        let mut write = 0;
+        for read in 0..slice.len() {
+            if !to_remove.contains(&slice[read]) {
+                slice[write] = slice[read];
+                write += 1;
+            }
+        }
+        self.data.truncate(write);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(i: u32) -> DiceKey {
+        DiceKey { index: i }
+    }
+
+    /// insert then iter returns every pushed key in insertion order.
+    #[test]
+    fn insert_then_iter_yields_inserted_keys() {
+        let mut set = LazyDepsSet::new();
+        set.insert(key(1));
+        set.insert(key(2));
+        set.insert(key(3));
+
+        let seen: Vec<_> = set.iter().collect();
+        assert_eq!(seen, vec![key(1), key(2), key(3)]);
+    }
+
+    /// insertion is a blind push: duplicates are kept, iter reflects that.
+    #[test]
+    fn duplicates_are_kept_on_insert() {
+        let mut set = LazyDepsSet::new();
+        set.insert(key(1));
+        set.insert(key(1));
+        set.insert(key(2));
+        set.insert(key(1));
+
+        let seen: Vec<_> = set.iter().collect();
+        assert_eq!(seen, vec![key(1), key(1), key(2), key(1)]);
+    }
+
+    /// take() returns all keys (including duplicates) and leaves the set empty.
+    #[test]
+    fn take_returns_all_keys_and_empties() {
+        let mut set = LazyDepsSet::new();
+        set.insert(key(1));
+        set.insert(key(1));
+        set.insert(key(2));
+
+        let taken: Vec<DiceKey> = set.take().into_iter().collect();
+        assert_eq!(taken, vec![key(1), key(1), key(2)]);
+        assert_eq!(set.iter().count(), 0);
+    }
+
+    /// remove_all deletes every occurrence of every key in the given set in
+    /// one pass; keys not in `to_remove` keep their relative order.
+    #[test]
+    fn remove_all_removes_every_occurrence() {
+        let mut set = LazyDepsSet::new();
+        for i in [1, 2, 3, 1, 4, 2, 1] {
+            set.insert(key(i));
+        }
+
+        let to_remove: HashSet<DiceKey> = [key(1), key(4)].into_iter().collect();
+        set.remove_all(&to_remove);
+
+        let seen: Vec<_> = set.iter().collect();
+        assert_eq!(seen, vec![key(2), key(3), key(2)]);
+    }
+
+    /// remove_all against an empty target set is a no-op.
+    #[test]
+    fn remove_all_empty_set_is_noop() {
+        let mut set = LazyDepsSet::new();
+        set.insert(key(1));
+        set.insert(key(2));
+
+        let to_remove: HashSet<DiceKey> = HashSet::default();
+        set.remove_all(&to_remove);
+
+        let seen: Vec<_> = set.iter().collect();
+        assert_eq!(seen, vec![key(1), key(2)]);
+    }
+
+    /// remove_all handles the case where every entry is removed.
+    #[test]
+    fn remove_all_can_clear_the_set() {
+        let mut set = LazyDepsSet::new();
+        for i in [1, 2, 1] {
+            set.insert(key(i));
+        }
+
+        let to_remove: HashSet<DiceKey> = [key(1), key(2)].into_iter().collect();
+        set.remove_all(&to_remove);
+
+        assert_eq!(set.iter().count(), 0);
     }
 }

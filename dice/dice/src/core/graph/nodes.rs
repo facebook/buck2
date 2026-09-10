@@ -25,6 +25,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use itertools::Itertools;
+use mini_vec::MiniVec;
 use pagable::DataKey;
 use sorted_vector_map::SortedVectorMap;
 
@@ -59,7 +60,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 11);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 9);
 
 /// A node's classification for the pagable index (see [`crate::core::graph::storage`]):
 /// whether it's a tracked occupied node and, if so, its resident / paged-out state.
@@ -102,7 +103,7 @@ impl VersionedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => e.force_dirty(v, invalidation_priority),
             VersionedGraphNode::Vacant(e) => {
@@ -122,11 +123,11 @@ impl VersionedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: Option<InvalidationSourcePriority>,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(e) => {
                 if e.mark_invalidated(v, invalidation_priority) {
-                    InvalidateResult::Changed(Some(e.metadata.rdeps.drain()))
+                    InvalidateResult::Changed(Some(e.metadata.rdeps.take()))
                 } else {
                     InvalidateResult::NoChange
                 }
@@ -137,6 +138,38 @@ impl VersionedGraphNode {
             VersionedGraphNode::Injected(e) => {
                 panic!("injected keys don't get invalidated (`{e:?}`)")
             }
+        }
+    }
+
+    /// Removes every occurrence of any key in `to_remove` from this node's
+    /// rdep set in a single pass. Occupied and injected nodes have rdeps;
+    /// vacant nodes do not (nothing has ever depended on them).
+    pub(crate) fn remove_rdeps(&mut self, to_remove: &HashSet<DiceKey>) {
+        match self {
+            VersionedGraphNode::Occupied(occ) => occ.metadata.rdeps.remove_all(to_remove),
+            VersionedGraphNode::Injected(inj) => inj.rdeps.remove_all(to_remove),
+            VersionedGraphNode::Vacant(_) => {}
+        }
+    }
+
+    /// The stored dep list, or `None` for nodes without deps (vacant nodes,
+    /// which have never been computed, and injected nodes, which have no
+    /// deps by construction).
+    pub(crate) fn deps_for_invalidation(&self) -> Option<&Arc<SeriesParallelDeps>> {
+        match self {
+            VersionedGraphNode::Occupied(occ) => Some(occ.deps()),
+            VersionedGraphNode::Vacant(_) | VersionedGraphNode::Injected(_) => None,
+        }
+    }
+
+    /// The node's rdeps, if it has any (occupied or injected nodes). The
+    /// iterator can contain duplicates (see [`LazyDepsSet`]).
+    #[cfg(test)]
+    pub(crate) fn rdeps_iter(&self) -> Box<dyn Iterator<Item = DiceKey> + '_> {
+        match self {
+            VersionedGraphNode::Occupied(occ) => Box::new(occ.metadata.rdeps.iter()),
+            VersionedGraphNode::Injected(inj) => Box::new(inj.rdeps.iter()),
+            VersionedGraphNode::Vacant(_) => Box::new(std::iter::empty()),
         }
     }
 
@@ -181,7 +214,7 @@ impl VersionedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         match self {
             VersionedGraphNode::Occupied(occ) => {
                 occ.on_injected(version, value, invalidation_priority)
@@ -364,10 +397,10 @@ impl VersionedGraphNode {
     }
 }
 
-pub(crate) enum InvalidateResult<'a> {
+pub(crate) enum InvalidateResult {
     NoChange,
     /// Returns the rdeps of the node (that must also be invalidated). There can be duplicates in this list.
-    Changed(Option<mini_vec::Drain<'a, DiceKey>>),
+    Changed(Option<MiniVec<DiceKey>>),
 }
 
 /// The stored value of an `OccupiedGraphNode` together with where it sits in the
@@ -680,7 +713,7 @@ impl OccupiedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         // TODO(cjhopman): accepting injections only for InjectedKey would make the VersionedGraph simpler. Currently, this is used
         // for "mocking" dice keys in tests via DiceBuilder::mock_and_return().
         //
@@ -705,7 +738,7 @@ impl OccupiedGraphNode {
                 version,
             ));
 
-        InvalidateResult::Changed(Some(self.metadata.rdeps.drain()))
+        InvalidateResult::Changed(Some(self.metadata.rdeps.take()))
     }
 
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
@@ -733,7 +766,7 @@ impl OccupiedGraphNode {
 
     fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
         if self.metadata.should_add_rdep_at(v) {
-            self.metadata.rdeps.insert(v, k);
+            self.metadata.rdeps.insert(k);
         }
     }
 
@@ -741,14 +774,14 @@ impl OccupiedGraphNode {
         &mut self,
         v: VersionNumber,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         self.mark_invalidated(v, Some(invalidation_priority));
         if self
             .metadata
             .dirtied_history
             .force_dirty(v, invalidation_priority)
         {
-            InvalidateResult::Changed(Some(self.metadata.rdeps.drain()))
+            InvalidateResult::Changed(Some(self.metadata.rdeps.take()))
         } else {
             InvalidateResult::NoChange
         }
@@ -771,7 +804,7 @@ impl OccupiedGraphNode {
             .intersect_range(VersionRange::bounded(VersionNumber::FIRST, v))
     }
 
-    fn rdeps(&self) -> impl Iterator<Item = DiceKey> {
+    pub(crate) fn rdeps(&self) -> impl Iterator<Item = DiceKey> {
         self.metadata.rdeps.iter()
     }
 
@@ -839,7 +872,7 @@ impl InjectedGraphNode {
         version: VersionNumber,
         value: DiceValidValue,
         invalidation_priority: InvalidationSourcePriority,
-    ) -> InvalidateResult<'_> {
+    ) -> InvalidateResult {
         match self.values.values_mut().next_back() {
             Some(v) if v.value.equality(&value) => {
                 return InvalidateResult::NoChange;
@@ -860,7 +893,7 @@ impl InjectedGraphNode {
                 version,
             ));
 
-        InvalidateResult::Changed(Some(self.rdeps.drain()))
+        InvalidateResult::Changed(Some(self.rdeps.take()))
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
@@ -877,7 +910,7 @@ impl InjectedGraphNode {
     pub(crate) fn add_rdep_at(&mut self, v: VersionNumber, k: DiceKey) {
         for version in self.values.keys().rev() {
             if *version <= v {
-                self.rdeps.insert(v, k);
+                self.rdeps.insert(k);
                 return;
             }
         }

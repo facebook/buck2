@@ -169,6 +169,7 @@
 
 use allocative::Allocative;
 use bit_set::BitSet;
+use dupe::Dupe;
 
 use self::store::NodeEntry;
 use self::store::NodeMut;
@@ -594,8 +595,13 @@ impl VersionedGraph {
         // one `node_entry` lookup either way, with the candidate set reconciled by
         // the guard or the slot. The rdep queue is collected into `queue` so the
         // entry borrow ends before `invalidate_rdeps` re-borrows `self`.
-        let queue = match self.nodes.node_entry(key.k) {
+        //
+        // For invalidations of an occupied node, `initial_deps` is captured before
+        // the mutation because `on_injected` clears the dep list; the caller uses
+        // it to unregister this key from each dep's rdep set.
+        let (queue, initial_deps) = match self.nodes.node_entry(key.k) {
             NodeEntry::Occupied(mut entry) => {
+                let initial_deps = entry.deps_for_invalidation().map(|d| d.dupe());
                 let res = match invalidate {
                     InvalidateKind::ForceDirty => entry.force_dirty(key.v, invalidation_priority),
                     InvalidateKind::Update(value, _) => {
@@ -603,9 +609,10 @@ impl VersionedGraph {
                     }
                 };
                 match res {
-                    InvalidateResult::Changed(rdeps) => {
-                        rdeps.into_iter().flatten().collect::<HashSet<DiceKey>>()
-                    }
+                    InvalidateResult::Changed(rdeps) => (
+                        rdeps.into_iter().flatten().collect::<HashSet<DiceKey>>(),
+                        initial_deps,
+                    ),
                     InvalidateResult::NoChange => return false,
                 }
             }
@@ -640,7 +647,13 @@ impl VersionedGraph {
                 return true;
             }
         };
-        self.invalidate_rdeps(key.v, queue);
+        let mut dep_removals: HashMap<DiceKey, HashSet<DiceKey>> = HashMap::default();
+        if let Some(deps) = initial_deps {
+            for dep in deps.iter_keys() {
+                dep_removals.entry(dep).or_default().insert(key.k);
+            }
+        }
+        self.invalidate_rdeps(key.v, key.k, queue, dep_removals);
         true
     }
 
@@ -674,19 +687,70 @@ impl VersionedGraph {
         res
     }
 
-    fn invalidate_rdeps(&mut self, version: VersionNumber, mut queued: HashSet<DiceKey>) {
+    /// Propagates invalidation through rdeps and reconciles each newly-invalidated
+    /// node's registration in its deps' rdep sets. `dep_removals` accumulates
+    /// `dep_key -> {invalidated_key, ...}` across the BFS and is applied as one
+    /// `remove_all` pass per affected dep at the end, so a high-fanout dep whose
+    /// N dependents all get invalidated costs O(N + set_size) rather than O(N *
+    /// set_size).
+    ///
+    /// Deps that are themselves invalidated in this walk (including the
+    /// initial invalidated key, whose rdep set was drained by force_dirty /
+    /// on_injected before we were called) have empty rdep sets, so scheduling
+    /// removals for them is pure overhead; those registrations are filtered by
+    /// `queued`. The apply-time check is authoritative because a dep can be
+    /// invalidated after a dependent registers it; the registration-time
+    /// early-skip is a size reduction on top. Over-skipping is always sound: a
+    /// skipped removal leaves at most a stale rdep edge, which costs one
+    /// spurious dirty on that edge's next walk and is removed when the
+    /// affected key is next invalidated.
+    fn invalidate_rdeps(
+        &mut self,
+        version: VersionNumber,
+        initial_key: DiceKey,
+        mut queued: HashSet<DiceKey>,
+        mut dep_removals: HashMap<DiceKey, HashSet<DiceKey>>,
+    ) {
         let mut queue: Vec<_> = queued.iter().copied().collect();
+        // The initial key's rdep set was drained outside this function. Add it
+        // to the filter set (but not the worklist) so the "already invalidated"
+        // checks below treat it uniformly with BFS-invalidated nodes.
+        queued.insert(initial_key);
 
         while let Some(rdep) = queue.pop() {
             if let Some(mut node) = self.nodes.node_mut(rdep) {
-                if let InvalidateResult::Changed(Some(rdeps)) = node.mark_invalidated(version, None)
-                {
-                    for dep in rdeps.into_iter() {
-                        if queued.insert(dep) {
-                            queue.push(dep);
+                let inner = match node.mark_invalidated(version, None) {
+                    InvalidateResult::Changed(inner) => inner,
+                    InvalidateResult::NoChange => continue,
+                };
+                // Record this key's registration in each of its deps for removal.
+                // The BFS only crosses `Occupied` nodes (Vacant / Injected panic in
+                // `mark_invalidated`), so `deps_for_invalidation` is `Some` here.
+                if let Some(deps) = node.deps_for_invalidation() {
+                    for dep in deps.iter_keys() {
+                        if queued.contains(&dep) {
+                            continue;
+                        }
+                        dep_removals.entry(dep).or_default().insert(rdep);
+                    }
+                }
+                drop(node);
+                if let Some(inner) = inner {
+                    for r in inner {
+                        if queued.insert(r) {
+                            queue.push(r);
                         }
                     }
                 }
+            }
+        }
+
+        for (dep_key, to_remove) in dep_removals {
+            if queued.contains(&dep_key) {
+                continue;
+            }
+            if let Some(mut node) = self.nodes.node_mut(dep_key) {
+                node.remove_rdeps(&to_remove);
             }
         }
     }
@@ -2116,4 +2180,80 @@ mod tests {
         assert_eq!(cache.pagable_node_counts(), counts(0, 0, 0));
         cache.assert_candidates_consistent();
     }
+
+    /// Snapshot of a key's rdep set, sorted so callers can compare by value.
+    fn rdeps_snapshot(cache: &VersionedGraph, key: DiceKey) -> Vec<DiceKey> {
+        let mut v: Vec<DiceKey> = cache
+            .nodes()
+            .get(&key)
+            .map(|n| n.rdeps_iter().collect())
+            .unwrap_or_default();
+        v.sort();
+        v
+    }
+
+    /// Repeatedly invalidating one dep and recomputing does not grow the
+    /// surviving deps' rdep sets. Before the fix, the survivors kept a stale
+    /// rdep for K from each cycle, so their rdep sets accumulated one entry per
+    /// invalidate-recompute cycle. After the fix, invalidation removes K from
+    /// every dep's rdep set, so each recompute leaves each dep with exactly one
+    /// entry for K.
+    #[test]
+    fn survivor_rdep_sets_do_not_grow_across_invalidate_recompute_cycles() {
+        let mut cache = VersionedGraph::new();
+        let k = DiceKey { index: 0 };
+        let dep_a = DiceKey { index: 1 };
+        let dep_b = DiceKey { index: 2 };
+        let dep_c = DiceKey { index: 3 };
+        let dep_d = DiceKey { index: 4 };
+        let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
+
+        // v1: inject the four deps and compute K depending on all of them.
+        for &dep in &[dep_a, dep_b, dep_c, dep_d] {
+            inject(&mut cache, 1, dep, 1);
+        }
+        cache.update(
+            VersionedGraphKey::new(VersionNumber::new(1), k),
+            ValueUpdate::Computed(res.dupe()),
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![
+                dep_a, dep_b, dep_c, dep_d,
+            ])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+
+        for dep in [dep_a, dep_b, dep_c, dep_d] {
+            assert_eq!(rdeps_snapshot(&cache, dep), vec![k]);
+        }
+
+        // Each cycle: invalidate dep_a at the next version, then recompute K
+        // with the same dep set. After each cycle every dep should still hold
+        // exactly one entry for K.
+        for cycle in 0..5 {
+            let v = 2 + cycle;
+            inject(&mut cache, v, dep_a, v * 10);
+            cache.update(
+                VersionedGraphKey::new(VersionNumber::new(v), k),
+                ValueUpdate::Computed(res.dupe()),
+                Arc::new(SeriesParallelDeps::serial_from_vec(vec![
+                    dep_a, dep_b, dep_c, dep_d,
+                ])),
+                StorageType::Normal,
+                TrackedInvalidationPaths::clean(),
+            );
+
+            for dep in [dep_a, dep_b, dep_c, dep_d] {
+                assert_eq!(
+                    rdeps_snapshot(&cache, dep),
+                    vec![k],
+                    "dep {:?} accumulated rdeps on cycle {cycle}",
+                    dep,
+                );
+            }
+        }
+    }
+
+    // The "dropped dep does not leave a stale rdep edge" property is tested
+    // against the public API in `dice_tests::general` — it's a clean API
+    // guarantee and belongs there so the test survives storage refactors.
 }
