@@ -42,7 +42,6 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::any_array::AnyArrayRegistered;
 use crate::values::types::array::Array;
@@ -110,18 +109,16 @@ impl<'v> AValue<'v> for AValueArray {
             AValueForward::assert_does_not_overwrite_extra::<Self>();
             let content = (*me).payload.content_mut();
 
-            let (v, r, extra) = tracer.reserve_with_extra::<Self>(content.len());
-            let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                me,
-                ForwardPtr::new_unfrozen(v),
-            );
+            let (r, extra) = tracer.reserve_with_extra::<Self>(content.len());
+            let x =
+                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
 
             debug_assert_eq!(content.len(), x.len());
 
             content.trace(tracer);
 
             // Note when copying we are dropping extra capacity.
-            r.fill(Array::new(content.len() as u32, content.len() as u32));
+            let v = r.fill(Array::new(content.len() as u32, content.len() as u32));
             let extra = &mut *extra;
             maybe_uninit_write_slice(extra, content);
             v

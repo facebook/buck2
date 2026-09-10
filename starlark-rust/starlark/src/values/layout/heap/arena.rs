@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-//! A heap storing AValue traits. The heap is a sequence of the
-//! AValue vtable, followed by the payload.
-//! Every payload must be at least 1 usize large (even ZST).
-//! Some elements are created using reserve, in which case they point
-//! to a BlackHole until they are filled in.
+//! A heap storing AValue traits. Each allocation begins with an
+//! [`AValueHeapEntry`] followed by its payload. The entry is a live value
+//! header (including the vtable), a forwarding record, or a reservation
+//! containing the allocation size. Allocations are large enough to hold a
+//! forwarding record, even for zero-sized payloads.
 //!
-//! Some elements can be overwritten (typically during GC) by a usize.
-//! In these cases the bottom bit of the usize as used by the heap
-//! to tag it as being a usize, and the word after is the size of the
-//! item it replaced.
+//! A reservation remains while its payload is initialized, then is replaced by
+//! the live value header. During GC or freezing, a live source entry may be
+//! replaced by a forwarding record. Reservations may be allowed to be partially
+//! initialized, but if and only if the initializing code can Drop the
+//! already-initialized state when it fails. IE: the heap itself treats
+//! reservations as uninit.
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::num::NonZeroU32;
 use std::ptr;
+use std::ptr::NonNull;
 use std::slice;
 
 use allocative::Allocative;
@@ -50,7 +54,6 @@ use crate::values::ValueLike;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::avalues::str_::starlark_str;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
@@ -66,12 +69,13 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
-use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::str_type::StarlarkStr;
 
-/// Min size of allocated object including header.
-/// Should be able to fit `BlackHole` or forward.
+/// Min size of allocated object including the entry.
+/// Every allocation must fit any heap-entry record written in place over its
+/// lifetime: a live value header, a reservation word, or a forward.
 pub(crate) const MIN_ALLOC: AlignedSize = {
     const fn max(a: AlignedSize, b: AlignedSize) -> AlignedSize {
         if a.bytes() > b.bytes() { a } else { b }
@@ -79,7 +83,7 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
 
     max(
         AlignedSize::of::<AValueForward>(),
-        AlignedSize::of::<AValueRepr<BlackHole>>(),
+        AlignedSize::of::<AValueHeapEntry>(),
     )
 };
 
@@ -173,8 +177,22 @@ pub(crate) struct Reservation<'v, T: AValue<'v>> {
 }
 
 impl<'v, T: AValue<'v>> Reservation<'v, T> {
-    pub(crate) fn fill(self, x: T::StarlarkValue) {
+    /// Target for the source's forwarding record. The destination holds no
+    /// value until [`Reservation::fill`] publishes one.
+    pub(crate) fn forward_ptr(&self) -> ForwardPtr {
+        ForwardPtr::new(self.pointer as usize)
+    }
+
+    /// Publishes the value and returns its now-valid header.
+    pub(in crate::values::layout) fn fill(self, x: T::StarlarkValue) -> NonNull<AValueHeader> {
+        // SAFETY: `pointer` owns an allocation sized and aligned for this representation,
+        // and consuming the reservation prevents a second initialization.
         unsafe {
+            #[cfg(debug_assertions)]
+            let reserved = match (&*self.entry_ptr()).state() {
+                AValueHeapEntryState::Reservation(size) => size,
+                _ => unreachable!("a live reservation still holds its reservation word"),
+            };
             ptr::write(
                 self.pointer,
                 AValueRepr {
@@ -182,11 +200,59 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
                     payload: x,
                 },
             );
+            let header = NonNull::new_unchecked(self.pointer.cast::<AValueHeader>());
+            // Heap walks stride by the published header's payload-derived size,
+            // so it must reproduce the reservation exactly.
+            #[cfg(debug_assertions)]
+            debug_assert_eq!(
+                header.as_ref().alloc_size(),
+                reserved,
+                "published `{}` reports a different size than its reservation",
+                std::any::type_name::<T::StarlarkValue>(),
+            );
+            header
         }
     }
 
-    pub(crate) fn ptr(&self) -> &'v AValueHeader {
-        unsafe { &(*self.pointer).header }
+    pub(in crate::values::layout) fn entry_ptr(&self) -> *mut AValueHeapEntry {
+        self.pointer.cast()
+    }
+}
+
+/// A [`Reservation`] on a frozen heap branded `'fh`; filling it publishes a
+/// frozen [`Value<'fh>`](Value).
+pub(crate) struct FrozenReservation<'fh, 'v, T: AValue<'v>>(
+    pub(in crate::values::layout) Reservation<'v, T>,
+    pub(in crate::values::layout) PhantomData<&'fh ()>,
+);
+
+impl<'fh, 'v, T: AValue<'v>> FrozenReservation<'fh, 'v, T> {
+    pub(crate) fn forward_ptr(&self) -> ForwardPtr {
+        self.0.forward_ptr()
+    }
+
+    pub(crate) fn fill(self, x: T::StarlarkValue) -> Value<'fh> {
+        let header = self.0.fill(x);
+        // SAFETY: `fill` published the value header on the frozen heap this
+        // reservation was branded from, and reservations are never strings.
+        unsafe { Value::new_frozen_ptr(&*header.as_ptr(), false) }
+    }
+}
+
+/// A [`Reservation`] on a mutable heap; filling it publishes a [`Value`].
+pub(crate) struct ValueReservation<'v, T: AValue<'v>>(
+    pub(in crate::values::layout) Reservation<'v, T>,
+);
+
+impl<'v, T: AValue<'v>> ValueReservation<'v, T> {
+    pub(crate) fn forward_ptr(&self) -> ForwardPtr {
+        self.0.forward_ptr()
+    }
+
+    pub(crate) fn fill(self, x: T::StarlarkValue) -> Value<'v> {
+        let header = self.0.fill(x);
+        // SAFETY: `fill` published the value header, and reservations are never strings.
+        unsafe { Value::new_ptr(&*header.as_ptr(), false) }
     }
 }
 
@@ -223,27 +289,26 @@ impl<'c> Iterator for ChunkIter<'c> {
 /// Result of allocation. Both fields are uninitialized.
 pub(crate) struct ArenaUninit<'v, T: AValue<'v>> {
     // We use `MaybeUninit` here to emphasize that the memory is uninitialized.
+    // Invariant: `repr` points to an allocation of
+    // `T::alloc_size_for_extra_len(extra.len())` bytes.
     repr: *mut MaybeUninit<AValueRepr<T::StarlarkValue>>,
     extra: *mut [MaybeUninit<T::ExtraElem>],
 }
 
 impl<'v, T: AValue<'v>> ArenaUninit<'v, T> {
-    pub(crate) unsafe fn write_black_hole(
+    pub(crate) fn write_reservation(
         self,
-        extra_len: usize,
     ) -> (Reservation<'v, T>, *mut [MaybeUninit<T::ExtraElem>]) {
+        // SAFETY: By the type invariant, `repr` is an allocation of
+        // `T::alloc_size_for_extra_len(self.extra.len())` bytes, so writing the first
+        // word is in bounds and the reservation encodes the allocation's true size.
         unsafe {
-            let p = self.repr as *mut AValueRepr<BlackHole>;
-            p.write(AValueRepr {
-                header: AValueHeader(AValueVTable::new_black_hole()),
-                payload: BlackHole(T::alloc_size_for_extra_len(extra_len)),
-            });
-            (
-                Reservation {
-                    pointer: p as *mut _,
-                },
-                self.extra,
-            )
+            let p = self.repr as *mut AValueRepr<T::StarlarkValue>;
+            p.cast::<AValueHeapEntry>()
+                .write(AValueHeapEntry::new_reservation(
+                    T::alloc_size_for_extra_len(self.extra.len()),
+                ));
+            (Reservation { pointer: p }, self.extra)
         }
     }
 
@@ -335,24 +400,22 @@ impl<A: ArenaAllocator> Arena<A> {
         }
     }
 
-    // Reservation should really be an incremental type
+    /// Reserves uninitialized storage for a value and its trailing elements.
+    ///
+    /// The reservation header keeps the allocation walkable until the final
+    /// value header is published.
     pub(crate) fn reserve_with_extra<'v2, T: AValue<'v2>>(
         &self,
         extra_len: usize,
     ) -> (Reservation<'v2, T>, *mut [MaybeUninit<T::ExtraElem>]) {
-        // We don't create reservations for strings because we don't need to,
-        // but also because we need to be able to reconstruct a `Pointer`
-        // from `AValueHeader` (with `TAG_STR` when appropriate).
-        // `BlackHole` assumes it is created for non-string, so
-        // it returns `false` from `is_str`.
+        // Filling a reservation publishes its value with the string pointer
+        // tag unset, so a string must never be allocated through one.
         assert!(!T::IS_STR);
 
         let arena_uninit = Self::alloc_uninit::<T>(self.bump_for_type::<T>(), extra_len);
-        // If we don't have a vtable we can't skip over missing elements to drop,
-        // so very important to put in a current vtable
-        // We always alloc at least one pointer worth of space, so can write in a one-ST blackhole
-
-        unsafe { arena_uninit.write_black_hole(extra_len) }
+        // Publish the allocation size before exposing uninitialized storage. If
+        // initialization fails, arena walkers can advance without reading payload bytes.
+        arena_uninit.write_reservation()
     }
 
     /// Allocate a type `T`.
@@ -605,6 +668,7 @@ impl<A: ArenaAllocator> Arena<A> {
                         }
                     }
                     AValueHeapEntryState::Forward(_forward) => visitor.regular_entry(x),
+                    AValueHeapEntryState::Reservation(_) => visitor.regular_entry(x),
                 },
             });
         }
@@ -790,25 +854,33 @@ mod tests {
     }
 
     #[test]
-    // Make sure that even if there are some blackholes when we drop, we can still walk to heap
-    fn drop_with_blackhole() {
+    // Make sure that even if there are some reservations when we drop, we can still walk to heap
+    fn drop_with_reservation() {
         let arena = Arena::default();
         arena.alloc(mk_str("test"));
-        // reserve but do not fill!
-        reserve_str(&arena, &mk_str(""));
+        {
+            let reservation = reserve_str(&arena, &mk_str(""));
+            // SAFETY: The reserved payload is allocated for this type but remains
+            // uninitialized, and arena traversal will neither read nor drop it.
+            unsafe {
+                ptr::write_bytes(ptr::addr_of_mut!((*reservation.pointer).payload), 0xab, 1);
+            }
+        }
         arena.alloc(mk_str("hello"));
         let mut res = Vec::new();
+        let mut reservations = 0;
         arena.for_each_ordered(|x| match x {
             ArenaVisitEvent::EnterBump => {}
-            ArenaVisitEvent::Entry(x) => {
-                if let Some(x) = x.value_header() {
-                    res.push(x);
-                }
-            }
+            ArenaVisitEvent::Entry(x) => match x.state() {
+                AValueHeapEntryState::Value(x) => res.push(x),
+                AValueHeapEntryState::Forward(_) => panic!("unexpected forward"),
+                AValueHeapEntryState::Reservation(_) => reservations += 1,
+            },
         });
-        assert_eq!(res.len(), 3);
+        assert_eq!(reservations, 1);
+        assert_eq!(res.len(), 2);
         assert_eq!(to_repr(res[0]), "\"test\"");
-        assert_eq!(to_repr(res[2]), "\"hello\"");
+        assert_eq!(to_repr(res[1]), "\"hello\"");
     }
 
     #[test]

@@ -24,7 +24,7 @@ use crate::values::FrozenHeap;
 use crate::values::HeapSendable;
 use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::heap::arena::Reservation;
+use crate::values::layout::heap::arena::FrozenReservation;
 use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
@@ -74,16 +74,16 @@ impl<'fv> Freezer<'fv> {
         self.heap.alloc(val)
     }
 
-    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> (Value<'fv>, Reservation<'v2, T>)
+    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> FrozenReservation<'fv, 'v2, T>
     where
         T: AValue<'v2, ExtraElem = ()>,
         T::StarlarkValue: HeapSendable<'v2>,
         T::StarlarkValue: HeapSyncable<'v2>,
     {
-        let (fv, r, extra) = self.heap.reserve_with_extra::<T>(0);
+        let (r, extra) = self.heap.reserve_with_extra::<T>(0);
         let extra = unsafe { &mut *extra };
         debug_assert!(extra.is_empty());
-        (fv, r)
+        r
     }
 
     /// Freeze a nested value while freezing yourself.
@@ -101,6 +101,9 @@ impl<'fv> Freezer<'fv> {
                 Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
             }
             AValueHeapEntryState::Value(v) => unsafe { v.unpack().heap_freeze(self) },
+            AValueHeapEntryState::Reservation(_) => {
+                unreachable!("cannot freeze a heap reservation")
+            }
         }
     }
 

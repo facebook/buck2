@@ -39,7 +39,6 @@ use crate::values::layout::avalue::heap_copy_impl;
 use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::heap::repr::ForwardPtr;
 
 struct AValueComplexBranded<T>(PhantomData<T>);
 
@@ -69,13 +68,11 @@ where
                 return f;
             }
 
-            let (fv, r) = freezer.reserve::<AValueSimple<T::Frozen<'fv>>>();
-            let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                me,
-                ForwardPtr::new_frozen(fv),
-            );
+            let r = freezer.reserve::<AValueSimple<T::Frozen<'fv>>>();
+            let x =
+                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
             let res = x.freeze(freezer)?;
-            r.fill(res);
+            let fv = r.fill(res);
             if TypeId::of::<T::Frozen<'static>>() == TypeId::of::<FrozenDef>() {
                 let frozen_def =
                     ValueTyped::new(fv).expect("`fv` was just filled with a `FrozenDef`");

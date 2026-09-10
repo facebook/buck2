@@ -88,20 +88,16 @@ impl<'v> AValue<'v> for AValueList {
                 return Ok(fv);
             }
 
-            let (fv, r, extra) = freezer
+            let (r, extra) = freezer
                 .frozen_heap()
                 .reserve_with_extra::<AValueFrozenList>(content.len());
-            AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                me,
-                ForwardPtr::new_frozen(fv),
-            );
+            AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
                 elem_place.write(freezer.freeze(*elem)?);
             }
-            r.fill(ListGen(FrozenListData::new(content.len())));
-            Ok(fv)
+            Ok(r.fill(ListGen(FrozenListData::new(content.len()))))
         }
     }
 

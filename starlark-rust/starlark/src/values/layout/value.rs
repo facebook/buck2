@@ -167,8 +167,14 @@ fn debug_value(typ: &str, v: Value, f: &mut fmt::Formatter) -> fmt::Result {
     // `Value` pointee is not a proper value, but a GC-related information.
     // Regular operations like `.to_repr()` crash, but `Debug` should work.
     if let Some(x) = v.0.unpack_ptr() {
-        if let AValueHeapEntryState::Forward(fwd) = x.state() {
-            return f.debug_tuple(typ).field(&fwd).finish();
+        match x.state() {
+            AValueHeapEntryState::Forward(fwd) => {
+                return f.debug_tuple(typ).field(&fwd).finish();
+            }
+            AValueHeapEntryState::Reservation(size) => {
+                return f.debug_struct(typ).field("reservation", &size).finish();
+            }
+            AValueHeapEntryState::Value(_) => {}
         }
     }
     f.debug_tuple(typ).field(v.get_ref().as_debug()).finish()
@@ -1195,7 +1201,10 @@ impl<'v> ValueLike<'v> for Value<'v> {
                 None
             }
         } else {
-            self.get_ref().downcast_ref::<T>()
+            match self.0.unpack_ptr()?.state() {
+                AValueHeapEntryState::Value(header) => header.unpack().downcast_ref::<T>(),
+                AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
+            }
         }
     }
 

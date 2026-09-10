@@ -16,16 +16,11 @@
  */
 
 use std::cmp;
-use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 
-use allocative::Allocative;
 use allocative::Visitor;
-use derive_more::Display;
 
-use crate as starlark;
-use crate::any::ProvidesStaticType;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FreezeResult;
@@ -223,13 +218,9 @@ where
     A::StarlarkValue: HeapSendable<'v> + HeapSyncable<'v>,
 {
     unsafe {
-        let (fv, r) = freezer.reserve::<A>();
-        let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
-            me,
-            ForwardPtr::new_frozen(fv),
-        );
-        r.fill(x);
-        Ok(fv)
+        let r = freezer.reserve::<A>();
+        let x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, r.forward_ptr());
+        Ok(r.fill(x))
     }
 }
 
@@ -243,21 +234,13 @@ where
     A: AValue<'v, ExtraElem = ()>,
 {
     unsafe {
-        let (v, r) = tracer.reserve::<A>();
-        let mut x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
-            me,
-            ForwardPtr::new_unfrozen(v),
-        );
+        let r = tracer.reserve::<A>();
+        let mut x = AValueHeader::overwrite_with_forward::<A::StarlarkValue>(me, r.forward_ptr());
         // We have to put the forwarding node in _before_ we trace in case there are cycles
         trace(&mut x, tracer);
-        r.fill(x);
-        v
+        r.fill(x)
     }
 }
-
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
-#[display("BlackHole")]
-pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 
 #[cfg(test)]
 mod tests {

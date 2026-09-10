@@ -60,7 +60,6 @@ use strong_hash::StrongHash;
 
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
-use crate::cast;
 use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
 use crate::environment::GlobalFrozenHeapName;
@@ -93,7 +92,8 @@ use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::ChunkInfo;
-use crate::values::layout::heap::arena::Reservation;
+use crate::values::layout::heap::arena::FrozenReservation;
+use crate::values::layout::heap::arena::ValueReservation;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
@@ -1073,7 +1073,7 @@ impl FrozenHeapArc {
                     self.0.push(unsafe {
                         entry
                             .value_header()
-                            .expect("static heap should not contain forwards")
+                            .expect("static heap should contain only values")
                             .unpack_value(HeapKind::Frozen)
                     });
                 }
@@ -1343,8 +1343,7 @@ impl<'fh> FrozenHeap<'fh> {
         self,
         extra_len: usize,
     ) -> (
-        Value<'fh>,
-        Reservation<'v2, T>,
+        FrozenReservation<'fh, 'v2, T>,
         *mut [MaybeUninit<T::ExtraElem>],
     )
     where
@@ -1353,8 +1352,7 @@ impl<'fh> FrozenHeap<'fh> {
         T::StarlarkValue: HeapSyncable<'v2>,
     {
         let (r, extra) = self.0.arena.reserve_with_extra::<T>(extra_len);
-        let v = Value::new_frozen_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
-        (v, r, extra)
+        (FrozenReservation(r, PhantomData), extra)
     }
 }
 
@@ -1557,25 +1555,20 @@ impl<'v> Tracer<'v> {
         let _ = value;
     }
 
-    pub(crate) fn reserve<T: AValue<'v, ExtraElem = ()>>(&self) -> (Value<'v>, Reservation<'v, T>) {
-        let (v, r, extra) = self.reserve_with_extra::<T>(0);
+    pub(crate) fn reserve<T: AValue<'v, ExtraElem = ()>>(&self) -> ValueReservation<'v, T> {
+        let (r, extra) = self.reserve_with_extra::<T>(0);
         let extra = unsafe { &mut *extra };
         debug_assert!(extra.is_empty());
-        (v, r)
+        r
     }
 
     pub(crate) fn reserve_with_extra<T: AValue<'v>>(
         &self,
         extra_len: usize,
-    ) -> (
-        Value<'v>,
-        Reservation<'v, T>,
-        *mut [MaybeUninit<T::ExtraElem>],
-    ) {
+    ) -> (ValueReservation<'v, T>, *mut [MaybeUninit<T::ExtraElem>]) {
         assert!(!T::IS_STR, "strings cannot be reserved");
         let (r, extra) = self.arena.reserve_with_extra::<T>(extra_len);
-        let v = Value::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
-        (v, r, extra)
+        (ValueReservation(r), extra)
     }
 
     pub(crate) fn alloc_str(&self, x: &str) -> Value<'v> {
@@ -1594,6 +1587,9 @@ impl<'v> Tracer<'v> {
         match old_val.state() {
             AValueHeapEntryState::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
             AValueHeapEntryState::Value(v) => unsafe { v.unpack().heap_copy(self) },
+            AValueHeapEntryState::Reservation(_) => {
+                unreachable!("a heap reservation cannot appear in the source heap")
+            }
         }
     }
 }

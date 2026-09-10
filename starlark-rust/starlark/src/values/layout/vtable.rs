@@ -53,7 +53,6 @@ use crate::values::Value;
 use crate::values::demand::Demand;
 use crate::values::int::pointer_i32::PointerI32;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::BlackHole;
 use crate::values::layout::const_type_id::ConstTypeId;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -227,50 +226,6 @@ impl AValueVTable {
             total_memory_for_profile: |_| panic!("{}", PANIC_MSG),
             visit_extra_allocative: |_, _| panic!("{}", PANIC_MSG),
             starlark_value: StarlarkValueVTable::UNINITIALIZED_SENTINEL,
-        }
-    }
-
-    pub(crate) fn new_black_hole() -> &'static AValueVTable {
-        const BLACKHOLE_ALLOCATIVE_KEY: allocative::Key = allocative::Key::new("BlackHole");
-        const BLACKHOLE_TYPE_ID: ConstTypeId = ConstTypeId::of::<BlackHole>();
-        const BLACKHOLE_STARLARK_TYPE_ID: StarlarkTypeId =
-            StarlarkTypeId::from_type_id(BLACKHOLE_TYPE_ID);
-        const BLACKHOLE_DESER_TYPE_ID: DeserTypeId = DeserTypeId::of::<BlackHole>();
-
-        &AValueVTable {
-            drop_in_place: |_| {},
-
-            is_str: false,
-            memory_size: |p| unsafe { (*p.value_ptr::<BlackHole>()).0 },
-            static_type_of_value: BLACKHOLE_TYPE_ID,
-            starlark_type_id: BLACKHOLE_STARLARK_TYPE_ID,
-
-            heap_freeze: |_, _| panic!("BlackHole"),
-            heap_copy: |_, _| panic!("BlackHole"),
-            starlark_serialize: |_, _| panic!("BlackHole"),
-            starlark_deserialize: |_, _| panic!("BlackHole"),
-            type_name: "BlackHole",
-            type_as_allocative_key: BLACKHOLE_ALLOCATIVE_KEY,
-            deser_type_id: BLACKHOLE_DESER_TYPE_ID,
-
-            display: |this| {
-                let this = unsafe { &*this.value_ptr::<BlackHole>() };
-                this as *const dyn Display
-            },
-            debug: |this| {
-                let this = unsafe { &*this.value_ptr::<BlackHole>() };
-                this as *const dyn Debug
-            },
-            erased_serde_serialize: |_this| unreachable!(),
-            allocative: |this| {
-                let this = unsafe { &*this.value_ptr::<BlackHole>() };
-                this as *const dyn Allocative
-            },
-            total_memory_for_profile: |this| unsafe {
-                (*this.value_ptr::<BlackHole>()).0.bytes() as usize
-            },
-            visit_extra_allocative: |_, _| {},
-            starlark_value: StarlarkValueVTable::BLACK_HOLE,
         }
     }
 

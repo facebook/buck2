@@ -25,6 +25,7 @@ use dupe::Dupe;
 use crate::any::AnyLifetime;
 use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
@@ -74,8 +75,8 @@ pub(crate) struct AValueRepr<T> {
 pub(crate) struct ForwardPtr(usize);
 
 impl ForwardPtr {
-    fn new(ptr: usize) -> ForwardPtr {
-        debug_assert!(ptr & 1 == 0);
+    pub(crate) fn new(ptr: usize) -> ForwardPtr {
+        debug_assert_eq!(ptr & HEAP_ENTRY_TAG_MASK, 0);
         ForwardPtr(ptr)
     }
 
@@ -122,18 +123,27 @@ pub(crate) struct AValueForward {
     object_size: ValueAllocSize,
 }
 
+const FORWARD_TAG: usize = 0b01;
+const RESERVATION_TAG: usize = 0b10;
+const HEAP_ENTRY_TAG_MASK: usize = FORWARD_TAG | RESERVATION_TAG;
+
+// Vtable pointers use tag 00. Reservations store their aligned byte size with
+// tag 10, while forwarding records tag their destination pointer with 01.
+const _: () = assert!(mem::align_of::<AValueVTable>() > HEAP_ENTRY_TAG_MASK);
+
 impl AValueForward {
     pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
+        debug_assert_eq!(forward_ptr.0 & HEAP_ENTRY_TAG_MASK, 0);
         Self {
-            forward_ptr: forward_ptr.0 | 1,
+            forward_ptr: forward_ptr.0 | FORWARD_TAG,
             object_size,
         }
     }
 
     /// Unpack forward pointer.
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
-        debug_assert!((self.forward_ptr & 1) != 0);
-        ForwardPtr(self.forward_ptr & !1)
+        debug_assert_eq!(self.forward_ptr & HEAP_ENTRY_TAG_MASK, FORWARD_TAG);
+        ForwardPtr(self.forward_ptr & !FORWARD_TAG)
     }
 }
 
@@ -154,28 +164,66 @@ pub(crate) union AValueHeapEntry {
 const _: () = assert!(mem::size_of::<AValueHeapEntry>() == mem::size_of::<AValueHeader>());
 
 impl AValueHeapEntry {
-    /// Is this pointer a value or forward?
     #[inline]
-    fn is_forward(&self) -> bool {
-        unsafe { (self.flags & 1) != 0 }
+    fn raw_word(&self) -> usize {
+        // SAFETY: Every variant of this union is a single pointer-sized word:
+        // `header` is `&'static AValueVTable` (a non-null pointer with the same
+        // size and layout as `usize`) and `flags` is `usize` itself. Reading
+        // the word as an integer only discards provenance, which tag inspection
+        // does not need; pointer variants are re-read through a typed pointer
+        // in `state()`.
+        unsafe { self.flags }
     }
 
+    #[inline]
+    fn tag(&self) -> usize {
+        self.raw_word() & HEAP_ENTRY_TAG_MASK
+    }
+
+    #[inline]
+    fn is_value(&self) -> bool {
+        self.tag() == 0
+    }
+
+    pub(crate) fn new_reservation(alloc_size: ValueAllocSize) -> AValueHeapEntry {
+        let alloc_size = alloc_size.bytes() as usize;
+        // `ValueAllocSize` is 8-byte aligned by construction, so the tag bits
+        // are clear by type invariant; this only documents that fact. Decoding
+        // in `reservation_size` re-checks alignment unconditionally because it
+        // reads an untyped heap word.
+        debug_assert_eq!(alloc_size & HEAP_ENTRY_TAG_MASK, 0);
+        AValueHeapEntry {
+            flags: alloc_size | RESERVATION_TAG,
+        }
+    }
+
+    fn reservation_size(&self) -> ValueAllocSize {
+        let bytes = self.raw_word() & !HEAP_ENTRY_TAG_MASK;
+        ValueAllocSize::new(AlignedSize::new_bytes(bytes))
+    }
+
+    // Called on hot value-access paths (e.g. downcast); inlining is worth
+    // several percent of interpreter time.
+    #[inline(always)]
     pub(crate) fn state(&self) -> AValueHeapEntryState<'_> {
-        if self.is_forward() {
-            // Only objects in the arena are ever overwritten with a forward, and those are at
-            // least `MIN_ALLOC` bytes, so the whole `AValueForward` is within the object.
-            AValueHeapEntryState::Forward(unsafe {
+        match self.tag() {
+            // SAFETY: The tag identifies a live value's vtable word.
+            0 => AValueHeapEntryState::Value(unsafe { &self.header }),
+            // SAFETY: Only objects in the arena are ever overwritten with a forward, and
+            // those are at least `MIN_ALLOC` bytes, so the whole `AValueForward` is within
+            // the object.
+            FORWARD_TAG => AValueHeapEntryState::Forward(unsafe {
                 &*(self as *const AValueHeapEntry as *const AValueForward)
-            })
-        } else {
-            AValueHeapEntryState::Value(unsafe { &self.header })
+            }),
+            RESERVATION_TAG => AValueHeapEntryState::Reservation(self.reservation_size()),
+            _ => panic!("invalid heap entry tag"),
         }
     }
 
     #[inline]
     pub(crate) unsafe fn value_header_unchecked(&self) -> &AValueHeader {
         unsafe {
-            debug_assert!(!self.is_forward());
+            debug_assert!(self.is_value());
             &self.header
         }
     }
@@ -183,13 +231,13 @@ impl AValueHeapEntry {
     pub(crate) fn value_header(&self) -> Option<&AValueHeader> {
         match self.state() {
             AValueHeapEntryState::Value(header) => Some(header),
-            AValueHeapEntryState::Forward(_) => None,
+            AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
         }
     }
 
     pub(crate) fn forward(&self) -> Option<&AValueForward> {
         match self.state() {
-            AValueHeapEntryState::Value(_) => None,
+            AValueHeapEntryState::Value(_) | AValueHeapEntryState::Reservation(_) => None,
             AValueHeapEntryState::Forward(forward) => Some(forward),
         }
     }
@@ -203,6 +251,7 @@ impl AValueHeapEntry {
                 // Overwritten, so the next word will be the size of the memory
                 forward.object_size
             }
+            AValueHeapEntryState::Reservation(alloc_size) => alloc_size,
         }
     }
 }
@@ -211,6 +260,7 @@ impl AValueHeapEntry {
 pub(crate) enum AValueHeapEntryState<'a> {
     Value(&'a AValueHeader),
     Forward(&'a AValueForward),
+    Reservation(ValueAllocSize),
 }
 
 impl AValueForward {
@@ -229,8 +279,7 @@ impl AValueHeader {
         let header = AValueHeader::new_const::<T>();
 
         let vtable_ptr = header.0 as *const AValueVTable as usize;
-        // Check that the LSB is not set, as we reuse that for overwrite
-        debug_assert!(vtable_ptr & 1 == 0);
+        debug_assert_eq!(vtable_ptr & HEAP_ENTRY_TAG_MASK, 0);
 
         header
     }
@@ -264,9 +313,14 @@ impl AValueHeader {
             //   Instead, `Value` should be a `Pointer<AValueHeapEntry>`
             //   instead of `Pointer<AValueHeader>`,
             //   and assertion should be where we unpack the pointer.
+            // A reservation or forward word is not a vtable, so dispatching
+            // through it in release builds is undefined behavior. Reaching one
+            // here requires holding a value from a heap whose freeze or GC is
+            // in progress or was abandoned; consuming APIs (`Module::freeze`)
+            // make that unreachable from safe code.
             debug_assert!(
-                !(*(self as *const AValueHeader as *const AValueHeapEntry)).is_forward(),
-                "value is a forward pointer; value cannot be unpacked during GC or freeze"
+                (*(self as *const AValueHeader as *const AValueHeapEntry)).is_value(),
+                "value is not a live heap entry; value cannot be unpacked during GC or freeze"
             );
         }
         unsafe { AValueDyn::new(self.payload_ptr(), self.0) }

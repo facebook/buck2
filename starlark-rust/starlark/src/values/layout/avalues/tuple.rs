@@ -37,7 +37,6 @@ use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_fro
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 
@@ -87,22 +86,17 @@ impl<'v> AValue<'v> for AValueTuple {
             AValueForward::assert_does_not_overwrite_extra::<Self>();
             let content = (*me).payload.content();
 
-            let (fv, r, extra) = freezer
+            let (r, extra) = freezer
                 .frozen_heap()
                 .reserve_with_extra::<AValueFrozenTuple>(content.len());
-            AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                me,
-                ForwardPtr::new_frozen(fv),
-            );
+            AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
 
             let extra = &mut *extra;
             assert_eq!(extra.len(), content.len());
             for (elem_place, elem) in extra.iter_mut().zip(content) {
                 elem_place.write(freezer.freeze(*elem)?);
             }
-            r.fill(Tuple::new(content.len()));
-
-            Ok(fv)
+            Ok(r.fill(Tuple::new(content.len())))
         }
     }
 
@@ -119,18 +113,16 @@ impl<'v> AValue<'v> for AValueTuple {
             AValueForward::assert_does_not_overwrite_extra::<Self>();
             let content = (*me).payload.content_mut();
 
-            let (v, r, extra) = tracer.reserve_with_extra::<Self>(content.len());
-            let x = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
-                me,
-                ForwardPtr::new_unfrozen(v),
-            );
+            let (r, extra) = tracer.reserve_with_extra::<Self>(content.len());
+            let x =
+                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
 
             debug_assert_eq!(content.len(), x.len());
 
             for elem in content.iter_mut() {
                 tracer.trace(elem);
             }
-            r.fill(x);
+            let v = r.fill(x);
             let extra = &mut *extra;
             maybe_uninit_write_slice(extra, content);
             v
