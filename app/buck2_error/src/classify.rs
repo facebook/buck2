@@ -482,8 +482,12 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuildDeadlineExpired => rank!(input),
         ErrorTag::EventLogIndexOutOfBounds => rank!(input),
         ErrorTag::EventLogNotFound => rank!(input),
-        ErrorTag::ReResourceExhausted => rank!(input),
-        ErrorTag::ReUserQuota => rank!(input),
+        // RE quota exhaustion is actionable by the quota-pool owner, not the build author.
+        // Input category keeps these out of buck2's non-user-error alerting; infra exit code
+        // so CI can regex-on-stderr detect RE resource exhaustion, prevent retries on an already
+        // exhausted resource, and set the signal to yellow, not red.
+        ErrorTag::ReResourceExhausted => rank!(input).exit_code(ExitCode::InfraError),
+        ErrorTag::ReUserQuota => rank!(input).exit_code(ExitCode::InfraError),
         // Test runner hit fatal errors during test execution
         ErrorTag::TestFatal => rank!(input),
 
@@ -633,6 +637,22 @@ mod tests {
             super::tag_rank(ErrorTag::ServerJemallocAssert)
                 < super::tag_rank(ErrorTag::UnusedDefaultTag)
         )
+    }
+
+    #[test]
+    fn test_re_quota_user_category_infra_exit_code() {
+        for tag in [ErrorTag::ReResourceExhausted, ErrorTag::ReUserQuota] {
+            assert_eq!(
+                error_tag_category(tag),
+                Some(Tier::Input),
+                "RE quota errors must stay USER so they are excluded from non-user-error alerting"
+            );
+            assert_eq!(
+                tag.exit_code().exit_code(),
+                ExitCode::InfraError.exit_code(),
+                "RE quota errors must exit as infra so CI does not blame the diff"
+            );
+        }
     }
 
     #[test]
