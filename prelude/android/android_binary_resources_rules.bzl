@@ -26,11 +26,8 @@ load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
 )
-load("@prelude//utils:buckconfig.bzl", "read_bool")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten")
-
-_optimized_resource_processing = read_bool("android", "optimized_resource_processing", default = False, root_cell = True)
 
 _FilteredResourcesOutput = record(
     resource_infos = list[AndroidResourceInfo],
@@ -122,26 +119,21 @@ def get_android_binary_resources_info(
         exo_resources = ctx.actions.declare_output("exo_resources.apk", has_content_based_path = False)
         exo_resources_hash = ctx.actions.declare_output("exo_resources.apk.hash", has_content_based_path = False)
         ctx.actions.run(
-            cmd_args(
-                [
-                    android_toolchain.exo_resources_rewriter[RunInfo],
-                    "--original-r-dot-txt",
-                    aapt2_link_info.r_dot_txt,
-                    "--new-r-dot-txt",
-                    r_dot_txt.as_output(),
-                    "--original-primary-apk-resources",
-                    aapt2_link_info.primary_resources_apk,
-                    "--new-primary-apk-resources",
-                    primary_resources_apk.as_output(),
-                    "--exo-resources",
-                    exo_resources.as_output(),
-                    "--exo-resources-hash",
-                    exo_resources_hash.as_output(),
-                    "--zipalign-tool",
-                    android_toolchain.zipalign[RunInfo],
-                ]
-                + (["--optimized-processing"] if _optimized_resource_processing else [])
-            ),
+            cmd_args([
+                android_toolchain.exo_resources_rewriter[RunInfo],
+                "--original-r-dot-txt",
+                aapt2_link_info.r_dot_txt,
+                "--new-r-dot-txt",
+                r_dot_txt.as_output(),
+                "--original-primary-apk-resources",
+                aapt2_link_info.primary_resources_apk,
+                "--new-primary-apk-resources",
+                primary_resources_apk.as_output(),
+                "--exo-resources",
+                exo_resources.as_output(),
+                "--exo-resources-hash",
+                exo_resources_hash.as_output(),
+            ]),
             category = "write_exo_resources",
             allow_cache_upload = True,
         )
@@ -608,9 +600,6 @@ def _merge_assets(
             merged_assets_output_hash = None
 
         merge_assets_cmd.add("--binary-type", "aab" if is_bundle_build else "apk")
-
-        if _optimized_resource_processing:
-            merge_assets_cmd.add("--optimized-processing")
 
         return merge_assets_cmd, merged_assets_output_hash
 

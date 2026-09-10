@@ -10,14 +10,12 @@
 
 package com.facebook.buck.android.resources;
 
-import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.hash.Hashing;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -44,18 +42,11 @@ public class ExoResourcesRewriterExecutableMain {
   @Option(name = "--exo-resources-hash", required = true)
   private String exoResourcesHash;
 
-  @Option(name = "--zipalign-tool", required = true)
-  private String zipalignTool;
-
-  @Option(name = "--optimized-processing", usage = "enable optimized resource processing")
-  private boolean optimizedProcessing = false;
-
   public static void main(String[] args) throws IOException {
     ExoResourcesRewriterExecutableMain main = new ExoResourcesRewriterExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
     try {
       parser.parseArgument(args);
-      ResourceProcessingConfig.setOptimizationsEnabled(main.optimizedProcessing);
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
@@ -68,38 +59,13 @@ public class ExoResourcesRewriterExecutableMain {
   private void run() throws IOException {
     AbsPath root = AbsPath.of(Paths.get(".").normalize().toAbsolutePath());
 
-    if (ResourceProcessingConfig.areOptimizationsEnabled()) {
-      // Optimized path: write directly to final output, skip zipalign.
-      // Exo resources are loaded by the app for exopackage — they don't need
-      // Play Store alignment. All DEFLATED entries are unaffected by zipalign anyway.
-      ExoResourcesRewriter.rewrite(
-          root,
-          RelPath.get(originalPrimaryApkResources),
-          RelPath.get(originalRDotTxt),
-          RelPath.get(newPrimaryApkResources),
-          Paths.get(exoResources),
-          RelPath.get(newRDotTxt));
-    } else {
-      Path unalignedExoResources = Files.createTempFile("unalignedExoResources", "apk");
-
-      ExoResourcesRewriter.rewrite(
-          root,
-          RelPath.get(originalPrimaryApkResources),
-          RelPath.get(originalRDotTxt),
-          RelPath.get(newPrimaryApkResources),
-          unalignedExoResources,
-          RelPath.get(newRDotTxt));
-
-      try {
-        ZipAlign zipAlign =
-            new ZipAlign(zipalignTool, unalignedExoResources.toString(), exoResources.toString());
-        zipAlign.run();
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      } finally {
-        Files.deleteIfExists(unalignedExoResources);
-      }
-    }
+    ExoResourcesRewriter.rewrite(
+        root,
+        RelPath.get(originalPrimaryApkResources),
+        RelPath.get(originalRDotTxt),
+        RelPath.get(newPrimaryApkResources),
+        Paths.get(exoResources),
+        RelPath.get(newRDotTxt));
 
     Files.writeString(
         Paths.get(exoResourcesHash),

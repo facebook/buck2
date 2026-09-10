@@ -363,14 +363,6 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitKeyReferences(RefVisitor visitor) {
-    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
-      transformKeyReferences(
-          i -> {
-            visitor.visit(i);
-            return i;
-          });
-      return;
-    }
     for (int i = 0; i < entryCount; i++) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {
@@ -431,14 +423,6 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitStringReferences(RefVisitor visitor) {
-    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
-      transformStringReferences(
-          i -> {
-            visitor.visit(i);
-            return i;
-          });
-      return;
-    }
     for (int i = 0; i < entryCount; i++) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {
@@ -448,15 +432,6 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitStringReferences(int[] idsToVisit, RefVisitor visitor) {
-    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
-      transformStringReferences(
-          idsToVisit,
-          i -> {
-            visitor.visit(i);
-            return i;
-          });
-      return;
-    }
     for (int i : idsToVisit) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {
@@ -525,36 +500,19 @@ public class ResTableType extends ResChunk {
       }
     }
 
-    if (ResourceProcessingConfig.areOptimizationsEnabled()) {
-      AttrRef[] refs = new AttrRef[attrCount];
-      int entryOffset = attrStart;
-      for (int j = 0; j < attrCount; j++) {
-        refs[j] = new AttrRef(entryOffset);
-        entryOffset += refs[j].size;
-      }
-      Arrays.sort(refs);
-      byte[] newData = new byte[entryOffset - attrStart];
-      ByteBuffer newBuf = wrap(newData);
-      for (AttrRef ref : refs) {
-        newBuf.put(slice(entryData, ref.offset, ref.size));
-      }
-      slice(entryData, attrStart).put(newData);
-    } else {
-      java.util.stream.Stream.Builder<AttrRef> builder = java.util.stream.Stream.builder();
-      int entryOffset = attrStart;
-      for (int j = 0; j < attrCount; j++) {
-        AttrRef ref = new AttrRef(entryOffset);
-        builder.add(ref);
-        entryOffset += ref.size;
-      }
-      byte[] newData = new byte[entryOffset - attrStart];
-      ByteBuffer newBuf = wrap(newData);
-      builder
-          .build()
-          .sorted()
-          .forEachOrdered(ref -> newBuf.put(slice(entryData, ref.offset, ref.size)));
-      slice(entryData, attrStart).put(newData);
+    AttrRef[] refs = new AttrRef[attrCount];
+    int entryOffset = attrStart;
+    for (int j = 0; j < attrCount; j++) {
+      refs[j] = new AttrRef(entryOffset);
+      entryOffset += refs[j].size;
     }
+    Arrays.sort(refs);
+    byte[] newData = new byte[entryOffset - attrStart];
+    ByteBuffer newBuf = wrap(newData);
+    for (AttrRef ref : refs) {
+      newBuf.put(slice(entryData, ref.offset, ref.size));
+    }
+    slice(entryData, attrStart).put(newData);
   }
 
   public void transformReferences(RefTransformer visitor) {
@@ -576,15 +534,6 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitReferences(int[] ids, RefVisitor visitor) {
-    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
-      transformReferences(
-          ids,
-          i -> {
-            visitor.visit(i);
-            return i;
-          });
-      return;
-    }
     for (int i : ids) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {

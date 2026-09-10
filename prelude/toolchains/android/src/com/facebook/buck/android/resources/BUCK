@@ -51,7 +51,6 @@ buck_java_library(
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:infer-annotations",
         "prelude//toolchains/android/third-party:kotlin-annotations",
-        ":resources",
     ],
 )
 
@@ -100,7 +99,6 @@ buck_java_library(
     java_version = "11",
     visibility = ["PUBLIC"],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/android/zipalign:zipalign",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/third-party:args4j",
         "prelude//toolchains/android/third-party:guava",

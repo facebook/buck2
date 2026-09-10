@@ -44,7 +44,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
-import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
@@ -141,7 +140,7 @@ public class ExoResourcesRewriter {
       // Write the full (rearranged) resources to the exo resources.
       try (ResourcesZipBuilder zipBuilder = new ResourcesZipBuilder(exoResources)) {
         for (ZipEntry entry : apkZip.getEntries()) {
-          addEntryOptimized(zipBuilder, apkZip, entry, getCompressionLevel());
+          addEntryWithRawPassThrough(zipBuilder, apkZip, entry, COMPRESSION_LEVEL);
         }
       }
       // Then, slice out the resources needed for the primary apk.
@@ -158,11 +157,11 @@ public class ExoResourcesRewriter {
             primaryResourceTable.serialize(),
             apkZip.getEntry("resources.arsc").getMethod() == ZipEntry.STORED
                 ? 0
-                : getCompressionLevel(),
+                : COMPRESSION_LEVEL,
             false);
         for (String path : closure.files.stream().sorted().collect(Collectors.toList())) {
           ZipEntry entry = apkZip.getEntry(path);
-          addEntryOptimized(zipBuilder, apkZip, entry, getCompressionLevel());
+          addEntryWithRawPassThrough(zipBuilder, apkZip, entry, COMPRESSION_LEVEL);
         }
       }
       return resMapping;
@@ -243,16 +242,9 @@ public class ExoResourcesRewriter {
     }
   }
 
-  /** JDK's Deflater uses level 6 internally when DEFAULT_COMPRESSION (-1) is specified. */
-  private static final int OPTIMIZED_COMPRESSION_LEVEL = 6;
-
-  private static int getCompressionLevel() {
-    // DEFAULT_COMPRESSION (-1) is not accepted by CustomZipEntry.setCompressionLevel(),
-    // so we use the JDK's actual default level (6) for optimized builds.
-    return ResourceProcessingConfig.areOptimizationsEnabled()
-        ? OPTIMIZED_COMPRESSION_LEVEL
-        : Deflater.BEST_COMPRESSION;
-  }
+  // DEFAULT_COMPRESSION (-1) is not accepted by CustomZipEntry.setCompressionLevel(), so use the
+  // JDK's actual default level.
+  private static final int COMPRESSION_LEVEL = 6;
 
   private static void addEntry(
       ResourcesZipBuilder zipBuilder,
@@ -274,15 +266,10 @@ public class ExoResourcesRewriter {
         isDirectory);
   }
 
-  /**
-   * Adds a zip entry, using raw pass-through for unmodified DEFLATED entries when optimizations are
-   * enabled, or falling back to decompress/recompress otherwise.
-   */
-  private static void addEntryOptimized(
+  private static void addEntryWithRawPassThrough(
       ResourcesZipBuilder zipBuilder, ApkZip apkZip, ZipEntry entry, int compressionLevel)
       throws IOException {
-    if (ResourceProcessingConfig.areOptimizationsEnabled()
-        && !apkZip.isModifiedEntry(entry.getName())
+    if (!apkZip.isModifiedEntry(entry.getName())
         && entry.getMethod() == ZipEntry.DEFLATED
         && entry.getCompressedSize() >= 0) {
       byte[] rawBytes = apkZip.readRawCompressedBytes(entry);
@@ -307,7 +294,6 @@ public class ExoResourcesRewriter {
     private final ZipFile zipFile;
     private final AbsPath inputPath;
     private final SortedMap<String, ZipEntry> entries;
-    private final Map<String, byte[]> entryContents;
     private final Map<String, ResourcesXml> xmlEntries;
     private final Supplier<ResourceTable> resourceTable;
     private @Nullable RandomAccessFile randomAccessFile;
@@ -320,20 +306,9 @@ public class ExoResourcesRewriter {
               .collect(
                   ImmutableSortedMap.toImmutableSortedMap(
                       Ordering.natural(), ZipEntry::getName, e -> e));
-      this.entryContents = new HashMap<>();
       this.xmlEntries = new HashMap<>();
-      if (ResourceProcessingConfig.areOptimizationsEnabled()) {
-        // Read raw bytes eagerly to avoid circular dependency with getContent(), which
-        // calls resourceTable.get().serialize() for resources.arsc in the optimized path.
-        byte[] arscBytes = readEntryBytes("resources.arsc");
-        entryContents.put("resources.arsc", arscBytes);
-        this.resourceTable =
-            MoreSuppliers.memoize(() -> ResourceTable.get(ResChunk.wrap(arscBytes)));
-      } else {
-        this.resourceTable =
-            MoreSuppliers.memoize(
-                () -> ResourceTable.get(ResChunk.wrap(getContent("resources.arsc"))));
-      }
+      byte[] arscBytes = readEntryBytes("resources.arsc");
+      this.resourceTable = MoreSuppliers.memoize(() -> ResourceTable.get(ResChunk.wrap(arscBytes)));
     }
 
     @Override
@@ -379,27 +354,15 @@ public class ExoResourcesRewriter {
           .collect(ImmutableList.toImmutableList());
     }
 
-    /**
-     * Gets the content for an entry. When optimizations are enabled, transformed entries (arsc,
-     * XML) are serialized from in-memory objects and pass-through entries are read directly from
-     * the zip. When disabled, all entries are cached in memory (original behavior).
-     */
     byte[] getContent(String path) {
-      if (ResourceProcessingConfig.areOptimizationsEnabled()) {
-        // In the optimized path, serialize() is called on each invocation rather than caching,
-        // because getContent() is only called once per entry during zip writing. Avoiding the
-        // cache reduces peak memory by not holding all entry bytes simultaneously.
-        if (path.equals("resources.arsc")) {
-          return resourceTable.get().serialize();
-        }
-        ResourcesXml xml = xmlEntries.get(path);
-        if (xml != null) {
-          return xml.serialize();
-        }
-        return readEntryBytes(path);
-      } else {
-        return entryContents.computeIfAbsent(path, this::readEntryBytes);
+      if (path.equals("resources.arsc")) {
+        return resourceTable.get().serialize();
       }
+      ResourcesXml xml = xmlEntries.get(path);
+      if (xml != null) {
+        return xml.serialize();
+      }
+      return readEntryBytes(path);
     }
 
     private byte[] readEntryBytes(String path) {
@@ -414,15 +377,7 @@ public class ExoResourcesRewriter {
 
     private ResourcesXml extractXml(String path) {
       try {
-        // In the optimized path, skip the entryContents cache because the raw bytes are only
-        // needed here to construct the ResourcesXml object. The XML is then accessed via
-        // xmlEntries, and getContent() serializes from the in-memory object. Caching the raw
-        // bytes would waste memory since they're not reused.
-        byte[] bytes =
-            ResourceProcessingConfig.areOptimizationsEnabled()
-                ? readEntryBytes(path)
-                : entryContents.computeIfAbsent(path, this::readEntryBytes);
-        return ResourcesXml.get(ResChunk.wrap(bytes));
+        return ResourcesXml.get(ResChunk.wrap(readEntryBytes(path)));
       } catch (Exception e) {
         throw new RuntimeException("When extracting " + path, e);
       }
