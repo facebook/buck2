@@ -95,6 +95,13 @@ struct AnswerKeyBuilder {
     ever_subgraph: HashMap<Var, HashSet<Var>>,
     /// Chronological log of `(ctx_id, var)` for each SetValue and ForceDirty.
     dirty_events: Vec<(usize, Var)>,
+    /// Chronological log of `(ctx_id, var)` for `Operation::ForceDirty` only. A key
+    /// holds one certificate, stamped with the revision of its untracked input at the
+    /// time it was last written; a query at a ctx before a later `ForceDirty` of the var
+    /// (or of a var in its ever-subgraph) therefore finds a certificate it cannot
+    /// revalidate and recomputes, however unchanged the deps are. `permit_recompute`
+    /// allows exactly that shape.
+    force_dirty_events: Vec<(usize, Var)>,
     /// Once any transient step is enqueued, every subsequent query permits
     /// arbitrary recomputation. Transients skip caching, so the ripple effects
     /// are hard to bound tightly and today's engine already exhibits enough
@@ -110,6 +117,7 @@ impl MathAnswerKey {
             last_eval_ctx: HashMap::new(),
             ever_subgraph: HashMap::new(),
             dirty_events: Vec::new(),
+            force_dirty_events: Vec::new(),
             transients_seen: false,
         };
         let mut values_by_query_index = HashMap::new();
@@ -139,6 +147,7 @@ impl MathAnswerKey {
                     // computed key stale so its next touch re-runs `compute`
                     // (which then goes through the usual dep-based cutoff).
                     state.dirty_events.push((*new_ctx_id, *var));
+                    state.force_dirty_events.push((*new_ctx_id, *var));
                     state
                         .equations_at_ctx
                         .insert(*new_ctx_id, state.equations.clone());
@@ -366,6 +375,10 @@ impl MathAnswerKey {
     ///   captures dep sets across all past evaluations of `w`, so we cover
     ///   cases where an equation change removed the dep from the current
     ///   graph but dice's recorded deps still reference it.
+    /// - `w`, or some var in its ever-subgraph, has a *later* `ForceDirty` at some
+    ///   ctx' > ctx: the key's one certificate may since have been re-stamped under
+    ///   the newer revision of its untracked input, in which case it cannot be
+    ///   revalidated at `ctx` (see `force_dirty_events`).
     fn permit_recompute(w: Var, ctx: usize, state: &AnswerKeyBuilder) -> bool {
         if state.transients_seen {
             return true;
@@ -380,6 +393,16 @@ impl MathAnswerKey {
         let ever = state.ever_subgraph.get(&w);
         for (ctx_dirty, dirtied) in &state.dirty_events {
             if *ctx_dirty > last && *ctx_dirty <= ctx {
+                if *dirtied == w {
+                    return true;
+                }
+                if ever.is_some_and(|s| s.contains(dirtied)) {
+                    return true;
+                }
+            }
+        }
+        for (ctx_fd, dirtied) in &state.force_dirty_events {
+            if *ctx_fd > ctx {
                 if *dirtied == w {
                     return true;
                 }

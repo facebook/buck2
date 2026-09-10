@@ -15,6 +15,7 @@ use gazebo::variants::UnpackVariants;
 use gazebo::variants::VariantName;
 
 use crate::arc::Arc;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::key::DiceKey;
@@ -36,59 +37,39 @@ impl VersionedGraphKey {
     }
 }
 
-/// The certificate of the key's last known value, offered as a candidate for
-/// revalidation: if every dep still has the recorded revision, `entry` is the value at the
-/// looked-up version too, and the certificate is re-issued as is.
+/// The certificate of a previously computed value, offered by a lookup that could not
+/// resolve the key so that the caller may re-establish it: if the key's untracked input
+/// still has revision `epsilon` and every dep still has the revision recorded on its edge,
+/// `entry` is the value at the looked-up version too, and the certificate is re-issued as
+/// is (see `docs/incrementality.md` §2.2, "Intended use").
 #[derive(Clone, Dupe, Debug)]
-pub(crate) struct VersionedGraphResultMismatch {
-    /// Last known value for the key. Still paged out if nothing has read it back.
+pub(crate) struct Candidate {
+    /// The value. Still paged out if nothing has read it back.
     pub(crate) entry: MaybeResident<DiceValidValue>,
-    pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
-    /// Revision `entry` was interned under.
+    /// The revision `entry` was interned under.
     pub(crate) revision: Revision,
+    /// The deps the value was computed from, with the revisions observed for them.
+    pub(crate) deps_to_validate: Arc<SeriesParallelDeps>,
+    /// The revision of the key's untracked input the value was computed under.
+    pub(crate) epsilon: EpsilonToken,
 }
 
+/// The core state's answer to a lookup of a key at a version.
+///
+/// Both variants carry the revision of the key's untracked input at that version. An
+/// `Unknown` caller stamps it on the certificate it is about to write; a `Match` caller
+/// needs it only if the value turns out to be unreadable and it recomputes after all.
 #[derive(Debug, VariantName, UnpackVariants)]
 pub(crate) enum VersionedGraphResult {
-    /// the entry is present and valid at the requested version
-    Match(DiceComputedValue),
-    /// the entry at the requested version has been invalidated and
-    /// we have a previous value with deps to possibly resurrect
-    CheckDeps(VersionedGraphResultMismatch),
-    /// the entry is missing or there's no previously valid value to check
-    Compute,
-}
-
-#[cfg(test)]
-pub(crate) mod testing {
-    use gazebo::variants::VariantName;
-
-    use crate::core::graph::types::VersionedGraphResult;
-    use crate::core::graph::types::VersionedGraphResultMismatch;
-    use crate::value::DiceComputedValue;
-
-    #[allow(dead_code)]
-    pub(crate) trait VersionedCacheResultAssertsExt {
-        fn assert_compute(&self);
-
-        fn assert_match(&self) -> &DiceComputedValue;
-
-        fn assert_mismatch(&self) -> &VersionedGraphResultMismatch;
-    }
-
-    impl VersionedCacheResultAssertsExt for VersionedGraphResult {
-        fn assert_compute(&self) {
-            self.unpack_compute()
-                .unwrap_or_else(|| panic!("expected Compute, but was {}", self.variant_name()))
-        }
-        fn assert_match(&self) -> &DiceComputedValue {
-            self.unpack_match()
-                .unwrap_or_else(|| panic!("expected Match, but was {}", self.variant_name()))
-        }
-
-        fn assert_mismatch(&self) -> &VersionedGraphResultMismatch {
-            self.unpack_check_deps()
-                .unwrap_or_else(|| panic!("expected Mismatch, but was {}", self.variant_name()))
-        }
-    }
+    /// The key resolves to `value` at the version.
+    Match {
+        value: DiceComputedValue,
+        epsilon: EpsilonToken,
+    },
+    /// The key does not resolve at the version. `candidate` is a certificate the caller
+    /// may try to revalidate before computing; without one, the caller computes.
+    Unknown {
+        candidate: Option<Candidate>,
+        epsilon: EpsilonToken,
+    },
 }

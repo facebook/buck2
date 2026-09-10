@@ -26,9 +26,10 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
+use crate::core::graph::revision::EpsilonToken;
+use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::core::graph::types::VersionedGraphResultMismatch;
 use crate::core::internals::CoreState;
 use crate::core::internals::PagableStatusRaw;
 use crate::core::processor::StateProcessor;
@@ -199,7 +200,8 @@ impl CoreStateHandle {
         self.call(StateRequest::LookupKey { key, resp }, recv)
     }
 
-    /// Report that a value has been computed
+    /// Report that a value has been computed. `epsilon` is the revision of the key's
+    /// untracked input that the lookup preceding the computation handed out.
     pub(crate) fn update_computed(
         &self,
         key: VersionedGraphKey,
@@ -207,6 +209,7 @@ impl CoreStateHandle {
         storage: StorageType,
         value: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
+        epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
@@ -217,6 +220,7 @@ impl CoreStateHandle {
                 storage,
                 value,
                 deps,
+                epsilon,
                 invalidation_paths,
                 resp,
             },
@@ -224,22 +228,23 @@ impl CoreStateHandle {
         )
     }
 
-    /// Report that a value has been verified to be unchanged due to its deps
-    pub(crate) fn update_mismatch_as_unchanged(
+    /// Report that a candidate certificate has been verified to hold at the version: its
+    /// ε matched the one the lookup handed out and every dep still has its recorded revision.
+    pub(crate) fn revalidate(
         &self,
         key: VersionedGraphKey,
         epoch: VersionEpoch,
         storage: StorageType,
-        previous: VersionedGraphResultMismatch,
+        candidate: Candidate,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
-            StateRequest::UpdateMismatchAsUnchanged {
+            StateRequest::Revalidate {
                 key,
                 epoch,
                 storage,
-                previous,
+                candidate,
                 resp,
                 invalidation_paths,
             },
@@ -393,19 +398,21 @@ pub(super) enum StateRequest {
         value: DiceValidValue,
         /// The deps accessed during the computation of newly computed value
         deps: Arc<SeriesParallelDeps>,
+        /// The revision of the key's untracked input the value was computed under
+        epsilon: EpsilonToken,
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
         resp: Sender<TransactionResult<DiceComputedValue>>,
     },
-    /// Report that a value has been verified to be unchanged due to its deps
-    UpdateMismatchAsUnchanged {
+    /// Report that a candidate certificate has been verified to hold at the version
+    Revalidate {
         key: VersionedGraphKey,
         epoch: VersionEpoch,
         /// The storage selection for the key,
         storage: StorageType,
-        /// The previous value sent for verification
-        previous: VersionedGraphResultMismatch,
+        /// The certificate that was verified
+        candidate: Candidate,
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.

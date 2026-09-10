@@ -92,6 +92,7 @@ impl StateProcessor {
                 storage,
                 value,
                 deps,
+                epsilon,
                 invalidation_paths,
                 resp,
             } => {
@@ -100,16 +101,16 @@ impl StateProcessor {
                     key,
                     epoch,
                     storage,
-                    ValueUpdate::Computed(value),
+                    ValueUpdate::Computed { value, epsilon },
                     deps,
                     invalidation_paths,
                 )));
             }
-            StateRequest::UpdateMismatchAsUnchanged {
+            StateRequest::Revalidate {
                 key,
                 epoch,
                 storage,
-                previous,
+                candidate,
                 invalidation_paths,
                 resp,
             } => {
@@ -119,10 +120,11 @@ impl StateProcessor {
                     epoch,
                     storage,
                     ValueUpdate::DependencyValidated {
-                        previous_value: previous.entry,
-                        revision: previous.revision,
+                        previous_value: candidate.entry,
+                        revision: candidate.revision,
+                        epsilon: candidate.epsilon,
                     },
-                    previous.deps_to_validate,
+                    candidate.deps_to_validate,
                     invalidation_paths,
                 )));
             }

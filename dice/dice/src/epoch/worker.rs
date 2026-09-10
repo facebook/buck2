@@ -26,9 +26,9 @@ use itertools::Either;
 use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::activation_tracker::PageInPhase;
+use crate::core::graph::types::Candidate;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::core::graph::types::VersionedGraphResultMismatch;
 use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::DepEdge;
@@ -141,20 +141,20 @@ impl DiceTaskWorker {
             .await;
 
         // handle cancelled/cache hits before sending started events
-        let check_deps_candidate = match state_result {
-            VersionedGraphResult::Match(entry) => match entry.paged_out_data_key() {
-                None => return task_state.lookup_matches(handle, entry),
+        let (candidate, epsilon) = match state_result {
+            VersionedGraphResult::Match { value, epsilon } => match value.paged_out_data_key() {
+                None => return task_state.lookup_matches(handle, value),
                 Some(data_key) => {
                     match self
                         .hydrate_and_rehydrate(&state_handle, data_key, PageInPhase::Match)
                         .await
                     {
-                        Ok(value) => {
-                            return task_state.lookup_matches(handle, entry.paged_in(value));
+                        Ok(v) => {
+                            return task_state.lookup_matches(handle, value.paged_in(v));
                         }
                         // The on-disk value couldn't be read back (I/O or a deserialize
                         // failure). It's just a cache entry, so recover by recomputing
-                        // (fall through to the `Compute` path) and report it for telemetry.
+                        // (fall through to the compute path) and report it for telemetry.
                         // Note: the lost value can't be compared against the recompute, so
                         // `update_computed` can't do equality-based early cutoff (see
                         // `ValueUpdate::is_reusable`) and treats the node as changed —
@@ -162,13 +162,12 @@ impl DiceTaskWorker {
                         // recomputed value is identical.
                         Err(e) => {
                             self.eval.hydration_failed(self.k, &e);
-                            None
+                            (None, epsilon)
                         }
                     }
                 }
             },
-            VersionedGraphResult::CheckDeps(mismatch) => Some(mismatch),
-            VersionedGraphResult::Compute => None,
+            VersionedGraphResult::Unknown { candidate, epsilon } => (candidate, epsilon),
         };
 
         self.eval.started(self.k);
@@ -178,9 +177,14 @@ impl DiceTaskWorker {
 
         let mut old_value_hydration_failed = false;
 
+        // A candidate computed under a different revision of the key's untracked input
+        // cannot be revalidated: its deps could all match and the value still be stale.
+        // It stays around as an equality-cutoff candidate for the recompute, though.
+        let revalidatable = candidate.as_ref().filter(|c| c.epsilon == epsilon);
+
         // deps_check_continuables needs to capture these and so they need to outlive it.
         let cycles;
-        let (task_state, deps_check_continuables) = match check_deps_candidate.as_ref() {
+        let (task_state, deps_check_continuables) = match revalidatable {
             Some(mismatch) => {
                 let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
                 cycles = cycles2;
@@ -233,10 +237,9 @@ impl DiceTaskWorker {
                                     )
                                     .await
                                 {
-                                    Ok(entry) => Some(VersionedGraphResultMismatch {
+                                    Ok(entry) => Some(Candidate {
                                         entry: MaybeResident::Resident(entry),
-                                        deps_to_validate: mismatch.deps_to_validate.dupe(),
-                                        revision: mismatch.revision,
+                                        ..mismatch.dupe()
                                     }),
                                     Err(e) => {
                                         self.eval.hydration_failed(self.k, &e);
@@ -255,7 +258,7 @@ impl DiceTaskWorker {
                                     ActivationData::Reused,
                                 );
                                 let response = state_handle
-                                    .update_mismatch_as_unchanged(
+                                    .revalidate(
                                         VersionedGraphKey::new(v, self.k),
                                         self.version_epoch,
                                         self.eval.storage_type(self.k),
@@ -308,7 +311,7 @@ impl DiceTaskWorker {
                     // If the dependencies still match and equality can reuse the old value,
                     // restore it so `update_computed` can compare it with the recomputed value.
                     if !old_value_hydration_failed
-                        && let Some(mismatch) = check_deps_candidate.as_ref()
+                        && let Some(mismatch) = candidate.as_ref()
                         && let Some(data_key) = mismatch.entry.data_key()
                         && result
                             .deps
@@ -338,6 +341,7 @@ impl DiceTaskWorker {
                             result.storage,
                             value,
                             result.deps.into_arc(),
+                            epsilon,
                             result.invalidation_paths,
                         )
                         .await

@@ -335,6 +335,7 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
+    use crate::core::graph::revision::EpsilonToken;
     use crate::core::graph::types::VersionedGraphKey;
     use crate::core::internals::CoreState;
     use crate::core::internals::StorageType;
@@ -412,9 +413,10 @@ mod tests {
                 VersionedGraphKey::new(v, DiceKey { index }),
                 epoch,
                 StorageType::Normal,
-                ValueUpdate::Computed(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
-                    index as usize,
-                ))),
+                ValueUpdate::Computed {
+                    value: DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
+                    epsilon: EpsilonToken::INITIAL,
+                },
                 Arc::new(SeriesParallelDeps::None),
                 TrackedInvalidationPaths::clean(),
             );

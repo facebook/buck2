@@ -19,6 +19,9 @@
 //! equal an already-evicted one, is sound; it only costs reuse.
 
 use std::num::NonZeroU32;
+use std::num::NonZeroU64;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -41,6 +44,30 @@ impl Revision {
     #[cfg(test)]
     pub(crate) fn testing_new(v: u32) -> Self {
         Revision(NonZeroU32::new(v).expect("revisions start at 1"))
+    }
+}
+
+/// The revision of a key's untracked input (`docs/incrementality.md` §2.1, "Untracked
+/// inputs"), called ε there: everything outside the graph that the key's compute reads.
+/// A force-dirty of the key asserts that this input has changed, to a freshly minted
+/// revision. A certificate records the ε its value was computed under and revalidates
+/// under no other.
+///
+/// Tokens come from one process-wide counter that is never reset, so two force-dirties of
+/// one key can never coincide, whatever happens to the key's node in between. Like
+/// [`Revision`]s, they are never compared across keys, which is what lets every key share
+/// [`EpsilonToken::INITIAL`].
+#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq, Hash, Allocative)]
+pub(crate) struct EpsilonToken(NonZeroU64);
+
+impl EpsilonToken {
+    /// The revision of every key's untracked input before the key is first force-dirtied.
+    pub(crate) const INITIAL: EpsilonToken = EpsilonToken(NonZeroU64::MIN);
+
+    /// The revision for a force-dirty.
+    pub(crate) fn mint() -> Self {
+        static NEXT: AtomicU64 = AtomicU64::new(EpsilonToken::INITIAL.0.get() + 1);
+        EpsilonToken(NonZeroU64::new(NEXT.fetch_add(1, Ordering::Relaxed)).expect("ε overflow"))
     }
 }
 

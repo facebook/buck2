@@ -19,7 +19,6 @@
 //! up-to-date-ness of cache entries.
 
 use std::ops::Bound;
-use std::ops::RangeBounds;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -34,9 +33,10 @@ use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::core::graph::lazy_deps::LazyDepsSet;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
 use crate::core::graph::revision::RevisionMint;
-use crate::core::graph::types::VersionedGraphResultMismatch;
+use crate::core::graph::types::Candidate;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::introspection::graph::GraphNodeKind;
 use crate::introspection::graph::KeyID;
@@ -62,7 +62,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 10);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 11);
 
 /// A node's classification for the pagable index (see [`crate::core::graph::storage`]):
 /// whether it's a tracked occupied node and, if so, its resident / paged-out state.
@@ -196,8 +196,21 @@ impl VersionedGraphNode {
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self {
             VersionedGraphNode::Occupied(entry) => entry.at_version(v),
-            VersionedGraphNode::Vacant(_) => VersionedGraphResult::Compute,
+            VersionedGraphNode::Vacant(vacant) => VersionedGraphResult::Unknown {
+                candidate: None,
+                epsilon: vacant.dirtied_history.epsilon_at(v),
+            },
             VersionedGraphNode::Injected(entry) => entry.at_version(v),
+        }
+    }
+
+    /// The revision of the key's untracked input at `v`.
+    fn epsilon_at(&self, v: VersionNumber) -> EpsilonToken {
+        match self {
+            VersionedGraphNode::Occupied(occ) => occ.metadata.dirtied_history.epsilon_at(v),
+            VersionedGraphNode::Vacant(vacant) => vacant.dirtied_history.epsilon_at(v),
+            // Injected keys are never force-dirtied.
+            VersionedGraphNode::Injected(_) => EpsilonToken::INITIAL,
         }
     }
 
@@ -236,6 +249,7 @@ impl VersionedGraphNode {
                     TrackedInvalidationPaths::new(invalidation_priority, vac.key, version),
                     first,
                     mint,
+                    vac.dirtied_history.epsilon_at(version),
                 );
                 *self = Self::Occupied(entry);
                 InvalidateResult::Changed(None)
@@ -252,6 +266,15 @@ impl VersionedGraphNode {
         deps: Arc<SeriesParallelDeps>,
         mut invalidation_paths: TrackedInvalidationPaths,
     ) -> (DiceComputedValue, bool) {
+        let epsilon = update.epsilon();
+        // Lookups and writes for one transaction happen at the same version, and a
+        // version's ε never changes once the version exists (force-dirties only ever
+        // happen at new versions), so the ε the caller stamped is the one in force here.
+        debug_assert_eq!(
+            epsilon,
+            self.epsilon_at(key.v),
+            "a write's ε must be the one its transaction looked up"
+        );
         let (dirtied_history, overwrite_entry, make_res, res_revision, revision_mint): (
             _,
             _,
@@ -274,13 +297,13 @@ impl VersionedGraphNode {
                 // construction (`is_reusable` checked them for a compute; a validated
                 // certificate's deps are the stored ones), so only the revisions move.
                 entry.refresh_deps_on_reuse(&deps);
-                entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
+                entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths, epsilon);
                 let ret = entry.computed_val(key.v);
                 return (ret, false);
             }
             VersionedGraphNode::Occupied(entry) => {
                 let revision = match &update {
-                    super::storage::ValueUpdate::Computed(value) => entry.intern(value),
+                    super::storage::ValueUpdate::Computed { value, .. } => entry.intern(value),
                     // The worker validated the deps of the certificate it was handed at
                     // lookup; that certificate's revision names its value whether or not
                     // this node still stores it, and a fresh mint here would make the
@@ -348,6 +371,7 @@ impl VersionedGraphNode {
             invalidation_paths,
             res_revision,
             revision_mint,
+            epsilon,
         );
         let ret = new.computed_val(key.v);
         *self = VersionedGraphNode::Occupied(new);
@@ -542,6 +566,11 @@ pub(crate) struct OccupiedGraphNode {
     res_revision: Revision,
     /// See [`RevisionMint`] for why this can't just be `res_revision + 1`.
     revision_mint: RevisionMint,
+    /// The revision of the key's untracked input that the stored certificate (`res` with
+    /// `metadata.deps`) was computed under. A force-dirty leaves this alone while moving
+    /// the history on, which is how a lookup after one offers the certificate only as a
+    /// candidate that fails its ε check, never as valid.
+    computed_under: EpsilonToken,
     metadata: NodeMetadata,
     invalidation_paths: TrackedInvalidationPaths,
 }
@@ -578,13 +607,21 @@ impl NodeMetadata {
     }
 }
 
-/// For a node, keeps a history of every version that that node has been force-dirtied at.
+/// For a node, keeps a history of every version that that node has been force-dirtied at,
+/// with the revision minted for the key's untracked input at each: the assertion history of
+/// that input (`docs/incrementality.md` §4.3), whose revision at a version is the one of
+/// the latest force-dirty at or before it, and [`EpsilonToken::INITIAL`] before the first.
 ///
 /// Across a force-dirtied version, we cannot ever reuse a node's value based on its deps' values not changing.
 #[derive(Allocative, Clone, Debug)]
 pub(crate) struct ForceDirtyHistory {
     #[allow(clippy::box_collection)]
-    versions: Option<Box<(Vec<VersionNumber>, InvalidationSourcePriority)>>,
+    versions: Option<
+        Box<(
+            Vec<(VersionNumber, EpsilonToken)>,
+            InvalidationSourcePriority,
+        )>,
+    >,
 }
 
 // the vast majority of nodes are never force-dirtied, so we want to make sure that we optimize for that.
@@ -605,18 +642,35 @@ impl ForceDirtyHistory {
     ) -> bool {
         match &mut self.versions {
             Some(data) => {
-                if *data.0.last().unwrap() == v {
+                if data.0.last().unwrap().0 == v {
                     false
                 } else {
-                    data.0.push(v);
+                    data.0.push((v, EpsilonToken::mint()));
                     true
                 }
             }
             None => {
-                self.versions = Some(Box::new((vec![v], invalidation_priority)));
+                self.versions = Some(Box::new((
+                    vec![(v, EpsilonToken::mint())],
+                    invalidation_priority,
+                )));
                 true
             }
         }
+    }
+
+    /// The revision of the key's untracked input at `version`.
+    pub(crate) fn epsilon_at(&self, version: VersionNumber) -> EpsilonToken {
+        self.versions
+            .as_ref()
+            .and_then(|data| {
+                data.0
+                    .iter()
+                    .rev()
+                    .find(|(dirty_v, _)| *dirty_v <= version)
+                    .map(|(_, epsilon)| *epsilon)
+            })
+            .unwrap_or(EpsilonToken::INITIAL)
     }
 
     /// Returns the force-dirtied bounds around the provided version.
@@ -634,7 +688,7 @@ impl ForceDirtyHistory {
                 let (dirties, invalidation_priority) = &**data;
                 let mut end = None;
                 let mut begin = None;
-                for dirty_v in dirties.iter().rev() {
+                for (dirty_v, _) in dirties.iter().rev() {
                     if *dirty_v <= version {
                         begin = Some(*dirty_v);
                         break;
@@ -658,7 +712,7 @@ impl ForceDirtyHistory {
 
     pub(crate) fn to_introspectable(&self) -> Vec<crate::introspection::graph::VersionNumber> {
         match &self.versions {
-            Some(data) => data.0.iter().map(|v| v.to_introspectable()).collect(),
+            Some(data) => data.0.iter().map(|(v, _)| v.to_introspectable()).collect(),
             None => Vec::new(),
         }
     }
@@ -674,12 +728,14 @@ impl OccupiedGraphNode {
         invalidation_paths: TrackedInvalidationPaths,
         res_revision: Revision,
         revision_mint: RevisionMint,
+        computed_under: EpsilonToken,
     ) -> Self {
         Self {
             key,
             res,
             res_revision,
             revision_mint,
+            computed_under,
             metadata: NodeMetadata {
                 deps,
                 rdeps: LazyDepsSet::new(),
@@ -727,11 +783,13 @@ impl OccupiedGraphNode {
         version: VersionNumber,
         mut valid_deps_versions: VersionRanges,
         new_invalidation_paths: TrackedInvalidationPaths,
+        epsilon: EpsilonToken,
     ) {
         valid_deps_versions
             .intersect_range(self.metadata.dirtied_history.restricted_range(version));
         valid_deps_versions.insert(VersionRange::bounded(version, version.next()));
         Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
+        self.computed_under = epsilon;
 
         self.invalidation_paths.update(&new_invalidation_paths)
     }
@@ -804,6 +862,7 @@ impl OccupiedGraphNode {
         self.res_revision = self.revision_mint.mint();
         self.metadata.deps = Arc::new(SeriesParallelDeps::None);
         self.metadata.verified_ranges = Arc::new(VersionRange::begins_with(version).into_ranges());
+        self.computed_under = self.metadata.dirtied_history.epsilon_at(version);
         self.invalidation_paths
             .update(&TrackedInvalidationPaths::new(
                 invalidation_priority,
@@ -815,25 +874,24 @@ impl OccupiedGraphNode {
     }
 
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
-        match self.metadata.verified_ranges.find_value_upper_bound(v) {
-            Some(found) if found == v => VersionedGraphResult::Match(self.computed_val(v)),
-            Some(prev_verified_version) => {
-                if self
-                    .metadata
-                    .dirtied_history
-                    .restricted_range(v)
-                    .contains(&prev_verified_version)
-                {
-                    VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
-                        entry: self.res.expect_maybe_resident(),
-                        deps_to_validate: self.metadata.deps.dupe(),
-                        revision: self.res_revision,
-                    })
-                } else {
-                    VersionedGraphResult::Compute
-                }
+        let epsilon = self.metadata.dirtied_history.epsilon_at(v);
+        if self.metadata.verified_ranges.contains(v) {
+            VersionedGraphResult::Match {
+                value: self.computed_val(v),
+                epsilon,
             }
-            None => VersionedGraphResult::Compute,
+        } else {
+            // The stored certificate is offered whatever its window; the caller's ε check
+            // is what keeps a value from being revalidated across a force-dirty.
+            VersionedGraphResult::Unknown {
+                candidate: Some(Candidate {
+                    entry: self.res.expect_maybe_resident(),
+                    revision: self.res_revision,
+                    deps_to_validate: self.metadata.deps.dupe(),
+                    epsilon: self.computed_under,
+                }),
+                epsilon,
+            }
         }
     }
 
@@ -980,13 +1038,21 @@ impl InjectedGraphNode {
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
+        // Injected keys are never force-dirtied.
+        let epsilon = EpsilonToken::INITIAL;
         match self.data_at(v) {
-            Some((_, data)) => VersionedGraphResult::Match(DiceComputedValue::new_resident(
-                MaybeValidDiceValue::valid(data.value.dupe()),
-                self.invalidation_paths.at_version(v),
-                data.revision,
-            )),
-            None => VersionedGraphResult::Compute,
+            Some((_, data)) => VersionedGraphResult::Match {
+                value: DiceComputedValue::new_resident(
+                    MaybeValidDiceValue::valid(data.value.dupe()),
+                    self.invalidation_paths.at_version(v),
+                    data.revision,
+                ),
+                epsilon,
+            },
+            None => VersionedGraphResult::Unknown {
+                candidate: None,
+                epsilon,
+            },
         }
     }
 
@@ -1063,6 +1129,7 @@ mod tests {
     use crate::core::graph::nodes::ForceDirtyHistory;
     use crate::core::graph::nodes::OccupiedGraphNode;
     use crate::core::graph::nodes::PagableNodeValue;
+    use crate::core::graph::revision::EpsilonToken;
     use crate::core::graph::revision::Revision;
     use crate::core::graph::revision::RevisionMint;
     use crate::deps::graph::SeriesParallelDeps;
@@ -1121,6 +1188,7 @@ mod tests {
             TrackedInvalidationPaths::clean(),
             Revision::FIRST,
             RevisionMint::new(),
+            EpsilonToken::INITIAL,
         );
 
         assert!(entry.is_verified_at(VersionNumber::new(1)));
@@ -1130,6 +1198,7 @@ mod tests {
             VersionNumber::new(2),
             VersionRanges::new(),
             TrackedInvalidationPaths::clean(),
+            EpsilonToken::INITIAL,
         );
 
         assert!(entry.is_verified_at(VersionNumber::new(1)));
@@ -1149,6 +1218,7 @@ mod tests {
             TrackedInvalidationPaths::clean(),
             Revision::FIRST,
             RevisionMint::new(),
+            EpsilonToken::INITIAL,
         );
 
         entry.rehydrate(stale);
@@ -1183,6 +1253,7 @@ mod tests {
                 let _ = m.mint();
                 m
             },
+            EpsilonToken::INITIAL,
         );
         let initial = entry.res_revision;
 

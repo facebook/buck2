@@ -21,6 +21,7 @@ use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
+use crate::core::graph::revision::EpsilonToken;
 use crate::core::graph::revision::Revision;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::state::CoreStateHandle;
@@ -427,6 +428,11 @@ fn handle_project_eval_result(
                 storage,
                 valid_value,
                 deps.into_arc(),
+                // A projection is computed here without a lookup, so there is no ε from
+                // one to stamp; but projection keys are not `Key`s, so they can't be
+                // force-dirtied, and their untracked input never leaves its initial
+                // revision.
+                EpsilonToken::INITIAL,
                 invalidation_paths,
             );
             // Blocking here is safe: the core state runs on its own dedicated thread and never
