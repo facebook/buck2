@@ -81,6 +81,21 @@ rust_binary(
 )
 
 rust_binary(
+    name = "shapes_bench",
+    srcs = ["bin/shapes_bench.rs"],
+    deps = [
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_futures:dice_futures",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/pagable:pagable",
+    ],
+)
+
+rust_binary(
     name = "memory_by_key",
     srcs = ["bin/memory_by_key.rs"],
     target_compatible_with = [
