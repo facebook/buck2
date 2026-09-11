@@ -70,8 +70,7 @@ mod tests {
     use std::time::Duration;
     use std::time::Instant;
 
-    use buck2_util::process::background_command;
-
+    use crate::background_command;
     use crate::kill::kill;
     use crate::kill::process_exists;
     use crate::pid::Pid;

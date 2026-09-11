@@ -34,10 +34,14 @@ pub mod invocation_id;
 pub mod is_buck2;
 pub mod kill;
 pub mod pid;
+mod process;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]
 pub mod win;
+
+pub use process::async_background_command;
+pub use process::background_command;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
@@ -462,7 +466,7 @@ mod tests {
         use std::process::Stdio;
         use std::time::SystemTime;
 
-        use buck2_util::process::background_command;
+        use crate::background_command;
 
         struct ChildGuard {
             child: Child,

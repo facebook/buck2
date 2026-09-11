@@ -7,12 +7,12 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
         "fbsource//third-party/rust:serde_json",
-        "//buck2/app/buck2_util:buck2_util",
     ],
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sysinfo",
+        "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_error:buck2_error",
