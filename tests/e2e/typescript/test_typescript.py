@@ -293,3 +293,43 @@ async def test_dependency_identity_mismatch_is_rejected_during_analysis(
         )
         + "[^']+'",
     )
+
+
+@buck_test(inplace=True)
+async def test_composable_compile_bundle_and_runtime_stages(buck: Buck) -> None:
+    compiled = await buck.run(f"{FIXTURE}:compiled-program-run")
+    assert compiled.stdout.strip() == "app:compiled"
+
+    node = await buck.run(f"{FIXTURE}:source-bundle-node")
+    assert node.stdout.strip() == "source bundle"
+
+    bun_like = await buck.run(f"{FIXTURE}:source-bundle-bun")
+    assert bun_like.stdout.strip() == "bun-like:source bundle"
+
+    custom_compiler = await buck.run(f"{FIXTURE}:custom-compiler-run")
+    assert custom_compiler.stdout.strip() == "custom compiler bundle"
+
+
+@buck_test(inplace=True)
+async def test_custom_stages_keep_typechecking_and_validate_compatibility(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.build(f"{FIXTURE}:invalid-custom-bundle"),
+        stderr_regex="Type 'number' is not assignable to type 'string'",
+    )
+    runtime_failure = await expect_failure(
+        buck.build(f"{FIXTURE}:incompatible-source-bundle-runtime"),
+        stderr_regex=(
+            "adapter 'fake-browser-runtime-v1' for target "
+            f"'{FIXTURE}:source-bundle.*does not accept platform 'node'"
+        ),
+    )
+    assert (
+        f"for target '{FIXTURE}:incompatible-source-bundle-runtime"
+        not in runtime_failure.stderr
+    )
+    await expect_failure(
+        buck.build(f"{FIXTURE}:incompatible-compiler-bundle"),
+        stderr_regex="does not accept module format 'esm'",
+    )

@@ -1,7 +1,13 @@
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load(
     "@fbcode_macros//build_defs/lib/typescript:rules.bzl",
+    _typescript_bundle = "typescript_bundle",
+    _typescript_bundler_adapter = "typescript_bundler_adapter",
+    _typescript_compile = "typescript_compile",
+    _typescript_compiler_adapter = "typescript_compiler_adapter",
     _typescript_library = "typescript_library",
+    _typescript_run = "typescript_run",
+    _typescript_runtime_adapter = "typescript_runtime_adapter",
     _typescript_typecheck = "typescript_typecheck",
 )
 load(
@@ -12,10 +18,17 @@ load(
     "package_info_consumer",
     "source_info_consumer",
 )
+load(
+    ":test_rules.bzl",
+    "fake_bundler_tool",
+    "fake_compiler_tool",
+    "fake_runtime_tool",
+)
 
 oncall("build_infra")
 
 export_file(name = "identity_fixture.bzl")
+export_file(name = "test_rules.bzl")
 
 _typescript_library(
     name = "common",
@@ -295,4 +308,174 @@ package_info_consumer(
 package_info_consumer(
     name = "transitive-runtime-package-info-consumer",
     dep = ":declaration-only-runtime-wrapper",
+)
+
+_typescript_library(
+    name = "compiled-program",
+    package_name = "@e2e-example/compiled-program",
+    srcs = ["src/compiled_program/index.ts"],
+    entry_point = "src/compiled_program/index.ts",
+    deps = [":app"],
+)
+
+_typescript_compile(
+    name = "compiled-program-stage",
+    source = ":compiled-program",
+)
+
+_typescript_run(
+    name = "compiled-program-run",
+    program = ":compiled-program-stage",
+)
+
+fake_bundler_tool(
+    name = "source-bundler-tool",
+    message = "source bundle",
+    required_source_paths = [
+        "src/app/index.ts",
+        "src/common/index.ts",
+    ],
+)
+
+_typescript_bundler_adapter(
+    name = "source-bundler",
+    entry_point = "bundle.js",
+    executable = ":source-bundler-tool",
+    identity = "fake-source-bundler-v1",
+    input_kind = "sources",
+    module_format = "commonjs",
+    platform = "node",
+)
+
+_typescript_bundle(
+    name = "source-bundle",
+    bundler = ":source-bundler",
+    source = ":app",
+)
+
+_typescript_run(
+    name = "source-bundle-node",
+    program = ":source-bundle",
+)
+
+_typescript_library(
+    name = "custom-compiler-source",
+    package_name = "@e2e-example/custom-compiler",
+    srcs = ["src/custom_compiler/index.ts"],
+    emit_runtime = False,
+    entry_point = "src/custom_compiler/index.ts",
+)
+
+fake_compiler_tool(
+    name = "custom-compiler-tool",
+    message = "custom compiler modules",
+    output_entry_point = "src/custom_compiler/index.js",
+    required_source_paths = ["src/custom_compiler/index.ts"],
+)
+
+_typescript_compiler_adapter(
+    name = "custom-compiler",
+    executable = ":custom-compiler-tool",
+    identity = "fake-custom-compiler-v1",
+    module_format = "esm",
+    platform = "neutral",
+)
+
+_typescript_compile(
+    name = "custom-compiled",
+    compiler = ":custom-compiler",
+    source = ":custom-compiler-source",
+)
+
+fake_bundler_tool(
+    name = "modules-bundler-tool",
+    message = "custom compiler bundle",
+    required_module_entry = "src/custom_compiler/index.js",
+)
+
+_typescript_bundler_adapter(
+    name = "modules-bundler",
+    entry_point = "bundle.js",
+    executable = ":modules-bundler-tool",
+    identity = "fake-modules-bundler-v1",
+    input_kind = "modules",
+    input_module_formats = ["esm"],
+    input_platforms = ["neutral"],
+    module_format = "commonjs",
+    platform = "node",
+)
+
+_typescript_bundle(
+    name = "custom-compiler-bundle",
+    bundler = ":modules-bundler",
+    source = ":custom-compiled",
+)
+
+_typescript_run(
+    name = "custom-compiler-run",
+    program = ":custom-compiler-bundle",
+)
+
+fake_runtime_tool(
+    name = "bun-like-runtime-tool",
+    message = "bun-like:source bundle",
+)
+
+_typescript_runtime_adapter(
+    name = "bun-like-runtime",
+    executable = ":bun-like-runtime-tool",
+    identity = "fake-bun-v1",
+    module_formats = ["commonjs", "esm"],
+    platforms = ["node"],
+)
+
+_typescript_run(
+    name = "source-bundle-bun",
+    program = ":source-bundle",
+    runtime = ":bun-like-runtime",
+)
+
+_typescript_bundler_adapter(
+    name = "incompatible-modules-bundler",
+    entry_point = "bundle.js",
+    executable = ":modules-bundler-tool",
+    identity = "fake-incompatible-modules-bundler-v1",
+    input_kind = "modules",
+    input_module_formats = ["commonjs"],
+    input_platforms = ["node"],
+    module_format = "commonjs",
+    platform = "node",
+)
+
+_typescript_bundle(
+    name = "incompatible-compiler-bundle",
+    bundler = ":incompatible-modules-bundler",
+    source = ":custom-compiled",
+)
+
+_typescript_runtime_adapter(
+    name = "browser-only-runtime",
+    executable = ":bun-like-runtime-tool",
+    identity = "fake-browser-runtime-v1",
+    module_formats = ["commonjs"],
+    platforms = ["browser"],
+)
+
+_typescript_run(
+    name = "incompatible-source-bundle-runtime",
+    program = ":source-bundle",
+    runtime = ":browser-only-runtime",
+)
+
+_typescript_library(
+    name = "invalid-custom-source",
+    package_name = "@e2e-example/invalid-custom-source",
+    srcs = ["src/custom_invalid/index.ts"],
+    entry_point = "src/custom_invalid/index.ts",
+)
+
+_typescript_bundle(
+    name = "invalid-custom-bundle",
+    bundler = ":source-bundler",
+    source = ":invalid-custom-source",
 )
