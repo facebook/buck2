@@ -12,7 +12,6 @@
 
 mod anyhow;
 mod bumpalo;
-mod chrono;
 pub(crate) mod common;
 mod compact_str;
 mod dashmap;
