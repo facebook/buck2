@@ -935,6 +935,7 @@ impl DaemonState {
     /// This initializes (if necessary) the shared daemon state and syncs the watchman query (to flush any recent filesystem events).
     pub async fn prepare_command(
         &self,
+        repo: Arc<RepoState>,
         dispatcher: EventDispatcher,
         drop_guard: ActiveCommandDropGuard,
     ) -> buck2_error::Result<BaseServerCommandContext> {
@@ -955,11 +956,11 @@ impl DaemonState {
         self.validate_cwd()
             .buck_error_context("Error validating working directory")?;
 
-        self.validate_buck_out_mount()
+        self.validate_buck_out_mount(&repo)
             .buck_error_context("Error validating buck-out mount")?;
 
         dispatcher.instant_event(buck2_data::TagEvent {
-            tags: data.repo.tags.clone(),
+            tags: repo.tags.clone(),
         });
 
         // Sync any FS changes and invalidate DICE state if necessary.  Get the Eden
@@ -967,15 +968,15 @@ impl DaemonState {
         // Eden daemon restarted underneath us (which leaves cached state and file handles
         // stale and would otherwise surface as a silent hang).
         let verify_eden_identity = async {
-            if data.repo.detect_eden_restart {
-                data.repo.io.verify_eden_identity().await
+            if repo.detect_eden_restart {
+                repo.io.verify_eden_identity().await
             } else {
                 Ok(())
             }
         };
         let (_, eden_version, ()) = futures::future::try_join3(
-            data.repo.io.settle(),
-            data.repo.io.eden_version(),
+            repo.io.settle(),
+            repo.io.eden_version(),
             verify_eden_identity,
         )
         .await?;
@@ -985,7 +986,7 @@ impl DaemonState {
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             events: dispatcher,
-            repo: data.repo.dupe(),
+            repo,
             daemon: data.dupe(),
             _drop_guard: drop_guard,
         })
@@ -1020,14 +1021,14 @@ impl DaemonState {
         Ok(())
     }
 
-    pub fn validate_buck_out_mount(&self) -> buck2_error::Result<()> {
+    pub fn validate_buck_out_mount(&self, repo: &RepoState) -> buck2_error::Result<()> {
         #[cfg(fbcode_build)]
         {
             use buck2_core::soft_error;
             use buck2_fs::error::IoResultExt;
             use buck2_fs::fs_util;
 
-            let project_root = self.data.repo.paths.project_root().root();
+            let project_root = repo.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {
                 return Ok(());
             }

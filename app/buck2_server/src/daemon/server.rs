@@ -516,7 +516,7 @@ impl BuckdServer {
         }
 
         let data = daemon_state.data();
-        let repo = data.sole_repo();
+        let repo = data.sole_repo().dupe();
 
         // The total disk space on `buck-out`, effectively fixed for the daemon's life.
         // Captured here alongside `SystemInfo` and handed to this command's
@@ -615,8 +615,9 @@ impl BuckdServer {
             move |req, cancellations| {
                 async move {
                     let result: buck2_error::Result<Res> = try {
-                        let base_context =
-                            daemon_state.prepare_command(dispatch.dupe(), guard).await?;
+                        let base_context = daemon_state
+                            .prepare_command(repo, dispatch.dupe(), guard)
+                            .await?;
 
                         let client_ctx = req.client_context()?;
 
@@ -1065,7 +1066,9 @@ impl DaemonApi for BuckdServer {
             daemon_constraints.extra = Some(extra_constraints);
 
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
-            let valid_buck_out_mount = daemon_state.validate_buck_out_mount().is_ok();
+            let valid_buck_out_mount = daemon_state
+                .validate_buck_out_mount(daemon_state.data().sole_repo())
+                .is_ok();
 
             let io_provider = daemon_state.data().sole_repo().io.name().to_owned();
 
