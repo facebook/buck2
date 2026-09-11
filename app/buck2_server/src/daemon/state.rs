@@ -24,6 +24,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::init::SystemWarningConfig;
 use buck2_common::init::Timeout;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::invocation_paths::TenantPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -125,9 +126,8 @@ pub struct DaemonState {
 /// A shared daemon can hold multiple tenants, including multiple isolations for one project root.
 #[derive(Allocative)]
 pub struct RepoState {
-    /// Legacy path carrier used by tenant services. Its invocation cwd is excluded from the
-    /// `TenantKey` used by the registry.
-    pub paths: InvocationPaths,
+    /// Stable paths used by tenant services. Invocation cwd is not stored here.
+    pub paths: TenantPaths,
 
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
     /// (or DaemonState) itself and instead they should be represented on the computation graph.
@@ -226,7 +226,7 @@ struct TenantStateEntry {
 
 impl TenantStateRegistry {
     fn new(initial_tenant: Arc<RepoState>) -> Self {
-        let spec = TenantSpec::from_invocation_paths(&initial_tenant.paths);
+        let spec = TenantSpec::from_tenant_paths(&initial_tenant.paths);
         let initial_key = spec.key().clone();
         let tenants = StdBuckHashMap::from_iter([(
             initial_key.clone(),
@@ -415,6 +415,8 @@ impl DaemonState {
 
         let daemon_state_data_rt = rt.clone();
         let init_fut = async move {
+            let invocation_paths = paths;
+            let paths = invocation_paths.tenant_paths();
             let fs = paths.project_root().clone();
 
             tracing::info!("Reading config...");
@@ -738,9 +740,9 @@ impl DaemonState {
             tracing::info!("Launching forkserver...");
             let forkserver = maybe_launch_forkserver(
                 root_config,
-                &paths.forkserver_state_dir(),
+                &invocation_paths.forkserver_state_dir(),
                 memory_tracker.as_ref().map(|m| &m.cgroup_tree),
-                &paths.isolation,
+                &invocation_paths.isolation,
             )
             .await?;
 
@@ -851,7 +853,7 @@ impl DaemonState {
             // tokio::task::spawn(watchman_query.sync());
             let page_out_on_idle = init_ctx
                 .daemon_startup_config
-                .idle_page_out_config_for_isolation_dir(&paths.isolation)
+                .idle_page_out_config_for_isolation_dir(paths.isolation())
                 .map(|h| PageOutThresholds {
                     min_free_disk_gb: h.page_out_min_free_disk_gb,
                 });
@@ -894,7 +896,7 @@ impl DaemonState {
                     tracing::trace!("EdenFS root detected; starting health check job");
                     crate::daemon::server::eden_health::edenfs_health_check(
                         fb,
-                        repo.paths.roots.project_root.dupe(),
+                        repo.paths.project_root().dupe(),
                     )
                     .await;
                 }
@@ -1087,7 +1089,7 @@ impl DaemonState {
                 return Ok(());
             }
 
-            let buck_out_root = project_root.join(InvocationPaths::buck_out_dir_prefix());
+            let buck_out_root = project_root.join(TenantPaths::buck_out_dir_prefix());
 
             if let Some(buck_out_root_meta) = fs_util::symlink_metadata_if_exists(buck_out_root)? {
                 // If buck-out is a symlink, we'll be happy with that.

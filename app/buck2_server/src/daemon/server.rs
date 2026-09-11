@@ -296,13 +296,15 @@ impl BuckdServer {
                 init_ctx.daemon_startup_config.materializations.as_deref(),
             )?;
 
+        let tenant_paths = paths.tenant_paths();
+
         // Create buck-out and potentially chdir to there.
-        fs_util::create_dir_all(paths.buck_out_path())
+        fs_util::create_dir_all(tenant_paths.buck_out_path())
             .tag(ErrorTag::InvalidBuckOut)
             .buck_error_context("Error creating buck_out_path")?;
 
         let cwd = {
-            let dir = WorkingDirectory::open(paths.buck_out_path())?;
+            let dir = WorkingDirectory::open(tenant_paths.buck_out_path())?;
             dir.chdir_and_promise_it_will_not_change()?;
             dir
         };
@@ -1088,7 +1090,7 @@ impl DaemonApi for BuckdServer {
                     .paths
                     .project_root()
                     .to_string(),
-                isolation_dir: daemon_state.data.sole_repo().paths.isolation.to_string(),
+                isolation_dir: daemon_state.data.sole_repo().paths.isolation().to_string(),
                 forkserver_pid: match &daemon_state.data.forkserver {
                     #[cfg(unix)]
                     ForkserverAccess::Client(f) => Some(f.pid()),

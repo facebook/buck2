@@ -58,7 +58,110 @@ pub struct InvocationPaths {
     pub isolation: FileNameBuf,
 }
 
+/// Paths whose lifetime is tied to a tenant rather than an individual invocation.
+#[derive(Clone, Allocative)]
+pub struct TenantPaths {
+    project_root: ProjectRoot,
+    isolation: FileNameBuf,
+}
+
+impl TenantPaths {
+    /// Creates tenant paths from their stable address components.
+    pub fn new(project_root: ProjectRoot, isolation: FileNameBuf) -> Self {
+        Self {
+            project_root,
+            isolation,
+        }
+    }
+
+    /// Returns the tenant's project root.
+    pub fn project_root(&self) -> &ProjectRoot {
+        &self.project_root
+    }
+
+    /// Returns the tenant's isolation directory name.
+    pub fn isolation(&self) -> &FileName {
+        &self.isolation
+    }
+
+    /// Directory containing remote-execution logs for this tenant.
+    pub fn re_logs_dir(&self) -> AbsNormPathBuf {
+        self.buck_out_path()
+            .join(ForwardRelativePath::unchecked_new("re_logs"))
+    }
+
+    /// Top-level directory name under the project root used for Buck outputs.
+    pub fn buck_out_dir_prefix() -> &'static ProjectRelativePath {
+        ProjectRelativePath::unchecked_new("buck-out")
+    }
+
+    /// Project-relative output directory for this tenant.
+    pub fn buck_out_dir(&self) -> ProjectRelativePathBuf {
+        Self::buck_out_dir_prefix().join(&self.isolation)
+    }
+
+    /// Absolute output directory for this tenant.
+    pub fn buck_out_path(&self) -> AbsNormPathBuf {
+        self.project_root.root().join(self.buck_out_dir())
+    }
+
+    /// Project-relative cache directory for this tenant.
+    pub fn cache_dir(&self) -> ProjectRelativePathBuf {
+        self.buck_out_dir()
+            .join(ForwardRelativePath::unchecked_new("cache"))
+    }
+
+    /// Project-relative paranoid-download cache directory for this tenant.
+    pub fn paranoid_cache_dir(&self) -> ProjectRelativePathBuf {
+        self.buck_out_dir()
+            .join(ForwardRelativePath::unchecked_new("paranoid"))
+    }
+
+    /// Absolute cache directory for this tenant.
+    pub fn cache_dir_path(&self) -> AbsNormPathBuf {
+        self.project_root.root().join(self.cache_dir())
+    }
+
+    /// Path containing persisted materializer state for this tenant.
+    pub fn materializer_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path()
+            .join(FileName::unchecked_new("materializer_state"))
+    }
+
+    /// Path containing content-based incremental state for this tenant.
+    pub fn incremental_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path()
+            .join(FileName::unchecked_new("incremental_state"))
+    }
+
+    /// Path containing persisted local dep-file state for this tenant.
+    pub fn dep_file_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path()
+            .join(FileName::unchecked_new("dep_file_state"))
+    }
+
+    /// Path containing paged-out DICE state for this tenant.
+    pub fn dice_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path()
+            .join(FileName::unchecked_new("dice_state"))
+    }
+
+    /// Cache subdirectories that persist across tenant initialization.
+    pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
+        vec![
+            FileName::unchecked_new("materializer_state"),
+            FileName::unchecked_new("incremental_state"),
+            FileName::unchecked_new("dep_file_state"),
+        ]
+    }
+}
+
 impl InvocationPaths {
+    /// Returns the stable tenant paths, excluding the invocation cwd.
+    pub fn tenant_paths(&self) -> TenantPaths {
+        TenantPaths::new(self.project_root().clone(), self.isolation.clone())
+    }
+
     pub fn daemon_dir(&self) -> buck2_error::Result<DaemonDir> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
@@ -118,7 +221,7 @@ impl InvocationPaths {
     }
 
     pub fn buck_out_dir_prefix() -> &'static ProjectRelativePath {
-        ProjectRelativePath::unchecked_new("buck-out")
+        TenantPaths::buck_out_dir_prefix()
     }
 
     pub fn buck_out_dir(&self) -> ProjectRelativePathBuf {
@@ -354,5 +457,32 @@ mod tests {
             paths.health_check_state_dir().as_os_str(),
             OsStr::new(expected_path),
         );
+
+        let tenant_paths = paths.tenant_paths();
+        assert_eq!(tenant_paths.project_root(), paths.project_root());
+        assert_eq!(tenant_paths.isolation().as_str(), paths.isolation.as_str());
+        assert_eq!(tenant_paths.re_logs_dir(), paths.re_logs_dir());
+        assert_eq!(tenant_paths.buck_out_dir(), paths.buck_out_dir());
+        assert_eq!(tenant_paths.buck_out_path(), paths.buck_out_path());
+        assert_eq!(tenant_paths.cache_dir(), paths.cache_dir());
+        assert_eq!(
+            tenant_paths.paranoid_cache_dir(),
+            paths.paranoid_cache_dir()
+        );
+        assert_eq!(tenant_paths.cache_dir_path(), paths.cache_dir_path());
+        assert_eq!(
+            tenant_paths.materializer_state_path(),
+            paths.materializer_state_path()
+        );
+        assert_eq!(
+            tenant_paths.incremental_state_path(),
+            paths.incremental_state_path()
+        );
+        assert_eq!(
+            tenant_paths.dep_file_state_path(),
+            paths.dep_file_state_path()
+        );
+        assert_eq!(tenant_paths.dice_state_path(), paths.dice_state_path());
+        assert_eq!(tenant_paths.valid_cache_dirs(), paths.valid_cache_dirs());
     }
 }

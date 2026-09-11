@@ -15,6 +15,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 
 use crate::invocation_paths::InvocationPaths;
+use crate::invocation_paths::TenantPaths;
 
 /// Stable identity used to address one tenant within a shared daemon.
 ///
@@ -27,17 +28,25 @@ pub struct TenantKey {
 }
 
 impl TenantKey {
+    /// Derives a tenant key while excluding the invocation cwd.
     pub fn from_invocation_paths(paths: &InvocationPaths) -> Self {
+        Self::from_tenant_paths(&paths.tenant_paths())
+    }
+
+    /// Derives a tenant key from stable tenant paths.
+    pub fn from_tenant_paths(paths: &TenantPaths) -> Self {
         Self {
             project_root: paths.project_root().root().to_buf(),
-            isolation: paths.isolation.clone(),
+            isolation: paths.isolation().to_owned(),
         }
     }
 
+    /// Returns the project root component of the tenant address.
     pub fn project_root(&self) -> &AbsNormPath {
         &self.project_root
     }
 
+    /// Returns the isolation component of the tenant address.
     pub fn isolation(&self) -> &FileName {
         &self.isolation
     }
@@ -53,12 +62,19 @@ pub struct TenantSpec {
 }
 
 impl TenantSpec {
+    /// Creates the initial tenant specification while excluding invocation-only state.
     pub fn from_invocation_paths(paths: &InvocationPaths) -> Self {
+        Self::from_tenant_paths(&paths.tenant_paths())
+    }
+
+    /// Creates the initial tenant specification from stable tenant paths.
+    pub fn from_tenant_paths(paths: &TenantPaths) -> Self {
         Self {
-            key: TenantKey::from_invocation_paths(paths),
+            key: TenantKey::from_tenant_paths(paths),
         }
     }
 
+    /// Returns the stable address used to find this tenant.
     pub fn key(&self) -> &TenantKey {
         &self.key
     }
