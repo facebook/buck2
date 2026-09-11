@@ -443,6 +443,7 @@ _typescript_run(
 
 fake_runtime_tool(
     name = "bun-like-runtime-tool",
+    include_program_output = True,
     message = "bun-like:source bundle",
 )
 

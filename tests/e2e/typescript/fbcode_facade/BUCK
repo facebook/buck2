@@ -1,0 +1,202 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load(
+    "@fbcode_macros//build_defs:typescript.bzl",
+    "typescript_binary",
+    "typescript_bundler_adapter",
+    "typescript_compiler_adapter",
+    "typescript_library",
+    "typescript_prebuilt_package",
+    "typescript_runtime_adapter",
+    "typescript_typecheck",
+)
+load(
+    "//buck2/tests/e2e/typescript/first_class:test_rules.bzl",
+    "fake_bundler_tool",
+    "fake_compiler_tool",
+    "fake_runtime_tool",
+)
+load(":project_macros.bzl", "project_typescript_binary")
+
+oncall("build_infra")
+
+export_file(name = "project_macros.bzl")
+
+_SOURCE_INPUT_KIND = "sources"
+_MODULE_INPUT_KIND = "modules"
+
+typescript_library(
+    name = "common",
+    package_name = "@fbcode-facade/common",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+typescript_binary(
+    name = "binary",
+    srcs = ["src/binary/index.ts"],
+    entry_point = "src/binary/index.ts",
+    deps = [":common"],
+)
+
+fake_bundler_tool(
+    name = "bundler-tool",
+    message = "facade:bundle",
+    required_source_paths = ["src/custom_esm/index.mts"],
+)
+
+typescript_bundler_adapter(
+    name = "bundler",
+    entry_point = "bundle.js",
+    executable = ":bundler-tool",
+    identity = "facade-fake-bundler-v1",
+    input_kind = _SOURCE_INPUT_KIND,
+    module_format = "commonjs",
+    platform = "node",
+)
+
+fake_runtime_tool(
+    name = "runtime-tool",
+    include_program_output = True,
+    message = "facade:custom-runtime",
+)
+
+typescript_runtime_adapter(
+    name = "runtime",
+    executable = ":runtime-tool",
+    identity = "facade-fake-runtime-v1",
+    module_formats = ["commonjs"],
+    platforms = ["node"],
+)
+
+project_typescript_binary(
+    name = "custom-run",
+    package_name = "@fbcode-facade/project-binary",
+    srcs = ["src/custom_esm/index.mts"],
+    bundler = ":bundler",
+    bundler_input_kind = _SOURCE_INPUT_KIND,
+    entry_point = "src/custom_esm/index.mts",
+    labels = ["typescript-final-target-kwargs"],
+    runtime = ":runtime",
+)
+
+fake_bundler_tool(
+    name = "canonical-module-bundler-tool",
+    message = "facade:canonical-module-bundle",
+    required_module_entry = "src/common/index.js",
+)
+
+typescript_bundler_adapter(
+    name = "canonical-module-bundler",
+    entry_point = "bundle.js",
+    executable = ":canonical-module-bundler-tool",
+    identity = "facade-fake-canonical-module-bundler-v1",
+    input_kind = _MODULE_INPUT_KIND,
+    input_module_formats = ["commonjs"],
+    input_platforms = ["node"],
+    module_format = "commonjs",
+    platform = "node",
+)
+
+project_typescript_binary(
+    name = "canonical-modules-run",
+    package_name = "@fbcode-facade/canonical-modules-project-binary",
+    srcs = ["src/common/index.ts"],
+    bundler = ":canonical-module-bundler",
+    bundler_input_kind = _MODULE_INPUT_KIND,
+    entry_point = "src/common/index.ts",
+)
+
+fake_compiler_tool(
+    name = "compiler-tool",
+    message = "facade:compiled-modules",
+    output_entry_point = "src/common/index.js",
+    required_source_paths = ["src/common/index.ts"],
+)
+
+typescript_compiler_adapter(
+    name = "compiler",
+    executable = ":compiler-tool",
+    identity = "facade-fake-compiler-v1",
+    module_format = "esm",
+    platform = "neutral",
+)
+
+fake_bundler_tool(
+    name = "module-bundler-tool",
+    include_consumed_inputs_in_bundle = True,
+    message = "facade:module-bundle",
+    required_module_entry = "src/common/index.js",
+)
+
+typescript_bundler_adapter(
+    name = "module-bundler",
+    entry_point = "bundle.js",
+    executable = ":module-bundler-tool",
+    identity = "facade-fake-module-bundler-v1",
+    input_kind = _MODULE_INPUT_KIND,
+    input_module_formats = ["esm"],
+    input_platforms = ["neutral"],
+    module_format = "commonjs",
+    platform = "node",
+)
+
+fake_runtime_tool(
+    name = "bun-runtime-tool",
+    include_program_output = True,
+    message = "facade:bun-runtime",
+)
+
+typescript_runtime_adapter(
+    name = "bun-runtime",
+    executable = ":bun-runtime-tool",
+    identity = "facade-fake-bun-v1",
+    module_formats = ["commonjs"],
+    platforms = ["node"],
+)
+
+project_typescript_binary(
+    name = "custom-compiled-run",
+    package_name = "@fbcode-facade/compiled-project-binary",
+    srcs = ["src/common/index.ts"],
+    bundler = ":module-bundler",
+    bundler_input_kind = _MODULE_INPUT_KIND,
+    compiler = ":compiler",
+    entry_point = "src/common/index.ts",
+    runtime = ":bun-runtime",
+)
+
+typescript_typecheck(
+    name = "typecheck",
+    deps = [":common"],
+)
+
+buck_genrule(
+    name = "prebuilt-declarations",
+    out = "prebuilt-declarations",
+    cmd = "mkdir -p $OUT && echo 'export declare function value(input: string): string;' > $OUT/index.d.ts",
+)
+
+buck_genrule(
+    name = "prebuilt-runtime",
+    out = "prebuilt-runtime",
+    cmd = "mkdir -p $OUT && echo \"exports.value = input => 'prebuilt:' + input;\" > $OUT/index.js",
+)
+
+typescript_prebuilt_package(
+    name = "prebuilt",
+    package_name = "@fbcode-facade/prebuilt",
+    declaration_entry_point = "index.d.ts",
+    declarations = ":prebuilt-declarations",
+    module_format = "commonjs",
+    platform = "node",
+    runtime = ":prebuilt-runtime",
+    runtime_entry_point = "index.js",
+)
+
+typescript_binary(
+    name = "prebuilt-binary",
+    srcs = ["src/prebuilt_binary/index.ts"],
+    entry_point = "src/prebuilt_binary/index.ts",
+    deps = [":prebuilt"],
+)

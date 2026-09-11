@@ -18,6 +18,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 FIXTURE = "fbcode//buck2/tests/e2e/typescript/first_class"
 PREBUILT_FIXTURE = "fbcode//buck2/tests/e2e/typescript/prebuilt"
+FBCODE_FACADE_FIXTURE = "fbcode//buck2/tests/e2e/typescript/fbcode_facade"
 
 
 @buck_test(inplace=True)
@@ -96,6 +97,52 @@ async def test_source_info_reports_runtime_and_declaration_only_sources(
     )
     assert len(declaration_only_artifacts) == 1
     assert declaration_only_artifacts[0].name == "index.d.ts"
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_binary(buck: Buck) -> None:
+    binary = await buck.run(f"{FBCODE_FACADE_FIXTURE}:binary")
+    assert binary.stdout.strip() == "facade:binary"
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_custom_run(buck: Buck) -> None:
+    custom = await buck.run(f"{FBCODE_FACADE_FIXTURE}:custom-run")
+    assert custom.stdout.strip().splitlines() == [
+        "console.log('facade:bundle');",
+        "facade:custom-runtime",
+    ]
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_canonical_modules_run(buck: Buck) -> None:
+    canonical_modules = await buck.run(f"{FBCODE_FACADE_FIXTURE}:canonical-modules-run")
+    assert canonical_modules.stdout.strip() == "facade:canonical-module-bundle"
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_custom_compiled_run(buck: Buck) -> None:
+    compiled = await buck.run(f"{FBCODE_FACADE_FIXTURE}:custom-compiled-run")
+    assert compiled.stdout.strip().splitlines() == [
+        "console.log('facade:compiled-modules');",
+        "console.log('facade:module-bundle');",
+        "facade:bun-runtime",
+    ]
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_prebuilt_binary(buck: Buck) -> None:
+    prebuilt = await buck.run(f"{FBCODE_FACADE_FIXTURE}:prebuilt-binary")
+    assert prebuilt.stdout.strip() == "prebuilt:binary"
+
+
+@buck_test(inplace=True)
+async def test_fbcode_typescript_facade_typecheck(buck: Buck) -> None:
+    typecheck_target = f"{FBCODE_FACADE_FIXTURE}:typecheck"
+    typecheck = await buck.build(typecheck_target)
+    markers = typecheck.get_build_report().outputs_for_target(typecheck_target)
+    assert len(markers) == 1
+    assert markers[0].name == "success.json"
 
 
 @buck_test(inplace=True)
@@ -305,7 +352,10 @@ async def test_composable_compile_bundle_and_runtime_stages(buck: Buck) -> None:
     assert node.stdout.strip() == "source bundle"
 
     bun_like = await buck.run(f"{FIXTURE}:source-bundle-bun")
-    assert bun_like.stdout.strip() == "bun-like:source bundle"
+    assert bun_like.stdout.strip().splitlines() == [
+        "console.log('source bundle');",
+        "bun-like:source bundle",
+    ]
 
     custom_compiler = await buck.run(f"{FIXTURE}:custom-compiler-run")
     assert custom_compiler.stdout.strip() == "custom compiler bundle"

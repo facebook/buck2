@@ -37,6 +37,19 @@ cat "$artifact/"""
             + """" >> "$out_dir/consumed-inputs.txt"
 """
         )
+    if ctx.attrs.include_consumed_inputs_in_bundle:
+        input_checks = (
+            """
+: > "$out_dir/consumed-inputs.txt"
+"""
+            + input_checks
+            + """
+cat "$out_dir/consumed-inputs.txt" > "$out_dir/bundle.js"
+"""
+        )
+        output_redirection = ">>"
+    else:
+        output_redirection = ">"
     executable = ctx.actions.write(
         "fake-bundler.sh",
         """#!/bin/sh
@@ -63,7 +76,9 @@ source_roots=$(awk -F'"' '/"source_root":/ {print $4}' "$manifest")
         + """
 printf '%s\n' "console.log('"""
         + ctx.attrs.message
-        + """');" > "$out_dir/bundle.js"
+        + """');" """
+        + output_redirection
+        + """ "$out_dir/bundle.js"
 """,
         is_executable = True,
     )
@@ -72,6 +87,7 @@ printf '%s\n' "console.log('"""
 fake_bundler_tool = rule(
     impl = _fake_bundler_tool_impl,
     attrs = {
+        "include_consumed_inputs_in_bundle": attrs.bool(default = False),
         "message": attrs.string(),
         "required_module_entry": attrs.string(default = ""),
         "required_source_paths": attrs.list(attrs.string(), default = []),
@@ -144,11 +160,15 @@ fake_compiler_tool = rule(
 )
 
 def _fake_runtime_tool_impl(ctx: AnalysisContext) -> list[Provider]:
+    program_output = 'cat "$1"\n' if ctx.attrs.include_program_output else ""
     executable = ctx.actions.write(
         "fake-runtime.sh",
         """#!/bin/sh
 set -eu
 test -f \"$1\"
+"""
+        + program_output
+        + """
 echo '"""
         + ctx.attrs.message
         + """'
@@ -160,6 +180,7 @@ echo '"""
 fake_runtime_tool = rule(
     impl = _fake_runtime_tool_impl,
     attrs = {
+        "include_program_output": attrs.bool(default = False),
         "message": attrs.string(),
     },
 )
