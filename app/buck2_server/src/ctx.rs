@@ -318,7 +318,7 @@ impl<'a> ServerCommandContext<'a> {
             }
         }
 
-        let mut re_connection_handle = base_context.daemon.re_client_manager.get_re_connection();
+        let mut re_connection_handle = base_context.repo.re_client_manager.get_re_connection();
 
         re_connection_handle.set_observer(Arc::new(Observer {
             events: base_context.events.dupe(),
@@ -493,10 +493,7 @@ impl<'a> ServerCommandContext<'a> {
     }
 
     pub fn get_re_connection(&self) -> ReConnectionHandle {
-        self.base_context
-            .daemon
-            .re_client_manager
-            .get_re_connection()
+        self.base_context.repo.re_client_manager.get_re_connection()
     }
 
     // Called at the end of the command to perform any necessary final actions or cleanup.

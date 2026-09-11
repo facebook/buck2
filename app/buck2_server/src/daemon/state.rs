@@ -176,6 +176,11 @@ pub struct RepoState {
     /// If enabled, paranoid RE downloads.
     pub paranoid: Option<ParanoidDownloader>,
 
+    /// The RE connection for this repo, managed such that all concurrently active build commands
+    /// use the same connection. Once there are no active build commands, the connection is
+    /// terminated.
+    pub re_client_manager: Arc<ReConnectionManager>,
+
     pub buckconfig_metadata: StdBuckHashMap<String, String>,
 
     /// Tags to be logged per command.
@@ -205,11 +210,6 @@ pub struct RepoState {
 pub struct DaemonStateData {
     /// State for the repo this daemon serves.
     repo: Arc<RepoState>,
-
-    /// The RE connection, managed such that all build commands that are concurrently active uses
-    /// the same connection. Once there are no active build commands, the connection will be
-    /// terminated
-    pub re_client_manager: Arc<ReConnectionManager>,
 
     /// Executor responsible for coordinating and rate limiting I/O.
     pub blocking_executor: Arc<dyn BlockingExecutor>,
@@ -810,6 +810,7 @@ impl DaemonState {
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
                 paranoid,
+                re_client_manager,
                 buckconfig_metadata: parse_buckconfig_metadata(root_config),
                 tags,
                 system_warning_config,
@@ -842,7 +843,6 @@ impl DaemonState {
 
             Ok(Arc::new(DaemonStateData {
                 repo,
-                re_client_manager,
                 blocking_executor,
                 forkserver,
                 scribe_sink,
