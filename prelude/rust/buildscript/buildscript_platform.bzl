@@ -22,6 +22,7 @@ transition_alias = rule(
     impl = lambda ctx: ctx.attrs.actual.providers,
     attrs = {
         "actual": attrs.dep(),
+        "labels": attrs.list(attrs.string(), default = []),
     },
     supports_incoming_transition = True,
 )
