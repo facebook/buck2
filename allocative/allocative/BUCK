@@ -17,8 +17,64 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
     autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # Each is gated behind a same-named feature and wants none
+                    # of the features fbsource enables on it.
+                    "anyhow": {"features": [], "optional": True, "workspace": False},
+                    "bumpalo": {"features": [], "optional": True, "workspace": False},
+                    "compact_str": {"features": [], "optional": True, "workspace": False},
+                    "dashmap": {"features": [], "optional": True, "workspace": False},
+                    "either": {"features": [], "optional": True, "workspace": False},
+                    "futures": {"features": [], "optional": True, "workspace": False},
+                    "hashbrown": {"features": [], "optional": True, "workspace": False},
+                    "indexmap": {"features": [], "optional": True, "workspace": False},
+                    "jiff": {"features": [], "optional": True, "workspace": False},
+                    "num-bigint": {"features": [], "optional": True, "workspace": False},
+                    "once_cell": {"features": [], "optional": True, "workspace": False},
+                    "parking_lot": {"features": [], "optional": True, "workspace": False},
+                    "prost-types": {"features": [], "optional": True, "workspace": False},
+                    "serde_json": {"features": [], "optional": True, "workspace": False},
+                    "slab": {"features": [], "optional": True, "workspace": False},
+                    "smallvec": {"features": [], "optional": True, "workspace": False},
+                    "sorted_vector_map": {"features": [], "optional": True, "workspace": False},
+                    "tokio": {"features": ["sync"], "optional": True, "workspace": False},
+                    "triomphe": {"features": [], "optional": True, "workspace": False},
+                },
+            },
+            "extra_check_cfgs": ["cfg(rust_nightly)"],
+            "features": {
+                "anyhow": ["dep:anyhow"],
+                "bumpalo": ["dep:bumpalo"],
+                "compact_str": ["dep:compact_str"],
+                "dashmap": ["dep:dashmap"],
+                "default": [],
+                "either": ["dep:either"],
+                "futures": ["dep:futures"],
+                "hashbrown": ["dep:hashbrown"],
+                "indexmap": ["dep:indexmap"],
+                "jiff": ["dep:jiff"],
+                "num-bigint": ["dep:num-bigint"],
+                "once_cell": ["dep:once_cell"],
+                "parking_lot": ["dep:parking_lot"],
+                "prost-types": ["dep:prost-types"],
+                "serde_json": ["dep:serde_json"],
+                "slab": ["dep:slab"],
+                "smallvec": ["dep:smallvec"],
+                "sorted_vector_map": ["dep:sorted_vector_map"],
+                "tokio": ["dep:tokio"],
+                "triomphe": ["dep:triomphe"],
+            },
+            "package": {
+                "authors": ["Meta"],
+                "description": "Inspect rust object tree and output it as flamegraph",
+                "documentation": "https://docs.rs/allocative",
+                "version": "0.3.6",
+            },
+        },
+        # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
         "edge_features": [
             "anyhow",
             "bumpalo",
