@@ -16,9 +16,9 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-FIXTURE = "fbcode//buck2/tests/e2e/typescript/first_class"
-PREBUILT_FIXTURE = "fbcode//buck2/tests/e2e/typescript/prebuilt"
-FBCODE_FACADE_FIXTURE = "fbcode//buck2/tests/e2e/typescript/fbcode_facade"
+FIXTURE = "fbcode//buck2/tests/targets/typescript/first_class"
+PREBUILT_FIXTURE = "fbcode//buck2/tests/targets/typescript/prebuilt"
+FBCODE_FACADE_FIXTURE = "fbcode//buck2/tests/targets/typescript/fbcode_facade"
 
 
 @buck_test(inplace=True)
