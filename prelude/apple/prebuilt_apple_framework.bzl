@@ -20,6 +20,7 @@ load(
     "create_swift_dependency_info",
     "get_external_debug_info_tsets",
     "get_external_swift_ast_dump_tsets",
+    "get_external_swiftmodule_change_analysis_tsets",
     "get_swift_anonymous_targets_for_prebuilt_framework",
 )
 load(
@@ -277,6 +278,17 @@ def _compile_swiftinterface(
         tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
+    swiftmodule_change_analysis_tset = make_artifact_tset(
+        actions = ctx.actions,
+        # Just the swiftmodule, not the underlying PCM (unlike debug_info_tset
+        # above): PCM-only changes aren't swiftmodule changes, and including it
+        # would re-run this analysis action whenever the PCM changes for no
+        # reason.
+        artifacts = [swift_compiled_module.output_artifact],
+        children = get_external_swiftmodule_change_analysis_tsets(False, ctx.attrs.deps),
+        label = ctx.label,
+    )
+
     swift_ast_dump_tset = make_artifact_tset(
         actions = ctx.actions,
         children = get_external_swift_ast_dump_tsets(False, ctx.attrs.deps),
@@ -289,6 +301,7 @@ def _compile_swiftinterface(
         deps_providers,
         swift_compiled_module,
         debug_info_tset,
+        swiftmodule_change_analysis_tset,
         swift_ast_dump_tset,
         False,
     )

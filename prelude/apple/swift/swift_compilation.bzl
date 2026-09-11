@@ -32,6 +32,7 @@ load(
 )
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -1440,6 +1441,9 @@ def _get_swift_paths_tsets(is_macro: bool, deps: list[Dependency]) -> list[Swift
 def get_external_debug_info_tsets(is_macro: bool, deps: list[Dependency]) -> list[ArtifactTSet]:
     return [d.debug_info_tset for d in _get_swift_dependency_info(is_macro, deps)]
 
+def get_external_swiftmodule_change_analysis_tsets(is_macro: bool, deps: list[Dependency]) -> list[ArtifactTSet]:
+    return [d.swiftmodule_change_analysis_tset for d in _get_swift_dependency_info(is_macro, deps)]
+
 def get_external_swift_ast_dump_tsets(is_macro: bool, deps: list[Dependency]) -> list[ArtifactTSet]:
     return [d.swift_ast_dump_tset for d in _get_swift_dependency_info(is_macro, deps)]
 
@@ -1486,6 +1490,7 @@ def create_swift_dependency_info(
     deps_providers: list,
     compiled_info: [SwiftCompiledModuleInfo, None],
     debug_info_tset: ArtifactTSet,
+    swiftmodule_change_analysis_tset: ArtifactTSet,
     swift_ast_dump_tset: ArtifactTSet,
     is_macro: bool,
 ):
@@ -1508,6 +1513,7 @@ def create_swift_dependency_info(
         is_modular = ctx.attrs.modular,
         is_macro = is_macro,
         swift_ast_dump_tset = swift_ast_dump_tset,
+        swiftmodule_change_analysis_tset = swiftmodule_change_analysis_tset,
     )
 
 def get_swift_dependency_info(
@@ -1530,18 +1536,35 @@ def get_swift_dependency_info(
     else:
         compiled_info = None
 
+    all_deps = ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])
+
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = filter(None, [output_module]),
-        children = get_external_debug_info_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
+        children = get_external_debug_info_tsets(is_macro, all_deps),
         label = ctx.label,
         tags = [ArtifactInfoTag("swift_debug_info")],
+    )
+
+    # Deliberately broader than `all_deps` above (also covers toolchain
+    # `default_deps` and `deps_query`, via `cxx_attr_deps`/`cxx_attr_exported_deps`):
+    # this tset is new, so widening it to match the rest of the codebase's
+    # convention has no existing behavior to preserve. `debug_info_tset` and
+    # `swift_ast_dump_tset` predate this and keep the narrower `all_deps` to
+    # avoid changing their already-shipped output.
+    swiftmodule_change_analysis_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+
+    swiftmodule_change_analysis_tset = make_artifact_tset(
+        actions = ctx.actions,
+        artifacts = filter(None, [output_module]),
+        children = get_external_swiftmodule_change_analysis_tsets(is_macro, swiftmodule_change_analysis_deps),
+        label = ctx.label,
     )
 
     swift_ast_dump_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = swift_ast_dump_artifacts,
-        children = get_external_swift_ast_dump_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
+        children = get_external_swift_ast_dump_tsets(is_macro, all_deps),
         label = ctx.label,
     )
 
@@ -1551,6 +1574,7 @@ def get_swift_dependency_info(
         deps_providers,
         compiled_info,
         debug_info_tset,
+        swiftmodule_change_analysis_tset,
         swift_ast_dump_tset,
         is_macro,
     )

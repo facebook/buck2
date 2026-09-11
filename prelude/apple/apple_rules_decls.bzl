@@ -1566,6 +1566,7 @@ apple_tools = prelude_rule(
         "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
         "spm_packager": attrs.exec_dep(providers = [RunInfo]),
         "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),
+        "swiftmodule_change_analysis": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "xcframework_maker": attrs.exec_dep(providers = [RunInfo]),
     },
 )

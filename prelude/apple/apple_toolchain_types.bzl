@@ -72,5 +72,6 @@ AppleToolsInfo = provider(
         "static_archive_linker": provider_field(RunInfo),
         "spm_packager": provider_field(RunInfo),
         "bundle_telemetry_logger": provider_field(RunInfo | None, default = None),
+        "swiftmodule_change_analysis": provider_field(RunInfo | None, default = None),
     },
 )

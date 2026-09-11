@@ -44,6 +44,9 @@ SwiftDependencyInfo = provider(
         # Tset of this target's own `-dump-ast` output directory (see the `[ast]`
         # subtarget) merged with the same tset from all deps.
         "swift_ast_dump_tset": provider_field(ArtifactTSet),
+        # Tset of this target's own `.swiftmodule` output merged with the
+        # same tsets from all deps.
+        "swiftmodule_change_analysis_tset": provider_field(ArtifactTSet),
     }
 )
 

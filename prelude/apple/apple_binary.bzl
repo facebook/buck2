@@ -303,6 +303,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     UnstrippedLinkOutputInfo(artifact = unstripped_binary),
                     index_store_info,
                     mod_dep_graph_info,
+                    swift_dependency_info,
                 ],
             )
             + [resource_graph]

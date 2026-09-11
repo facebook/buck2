@@ -26,6 +26,7 @@ load(
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/validation:required_reasons.bzl", "get_required_reasons_validator_output")
+load("@prelude//apple/validation:swiftmodule_change_analysis.bzl", "get_swiftmodule_change_analysis_output")
 load(
     "@prelude//cxx:cxx_transitive_diagnostics.bzl",
     "cxx_transitive_diagnostics_combine",
@@ -559,6 +560,8 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         tsets = diagnostics_info.transitive_diagnostics,
     )
     sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
+
+    sub_targets["swiftmodule-change-analysis"] = [DefaultInfo(default_output = get_swiftmodule_change_analysis_output(ctx, deps_with_binary))]
 
     providers = (
         [
