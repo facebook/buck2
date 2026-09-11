@@ -81,6 +81,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.export_file(
+    name = "gen_bytecode_bundle.py",
+    src = "gen_bytecode_bundle.py",
+    visibility = ["PUBLIC"],
+)
+
 # Main file used for native python binaries
 prelude.export_file(
     name = "embedded_main.cpp",
@@ -140,6 +146,7 @@ prelude.sh_binary(
     name = "tool_tests",
     main = "tests/main.sh",
     resources = [
+        "gen_bytecode_bundle.py",
         "make_py_package_inplace.py",
         "run_inplace.py.in",
         "type_check_result_to_validation.py",
