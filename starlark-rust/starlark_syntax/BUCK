@@ -14,6 +14,32 @@ buck_filegroup(
 rust_library(
     name = "starlark_syntax",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # Only the impls the published crate needs, not everything
+                    # buck2 enables on these crates.
+                    "allocative": {"features": []},
+                    "pagable": {"features": []},
+                },
+            },
+            "extra_check_cfgs": ["cfg(rust_nightly)"],
+            "package": {
+                "authors": [
+                    "Damien Martin-Guillerez <dmarting@google.com>",
+                    "Facebook",
+                ],
+                "categories": ["parser-implementations", "development-tools"],
+                "description": "Starlark language AST",
+                "documentation": "https://docs.rs/starlark",
+                "keywords": ["starlark", "skylark", "bazel", "language", "interpreter"],
+                "license": "Apache-2.0",
+                "repository": "https://github.com/facebook/starlark-rust",
+                "version": "0.14.2",
+            },
+        },
+    },
     rustc_flags = [
         "--cfg=rust_nightly",
     ],

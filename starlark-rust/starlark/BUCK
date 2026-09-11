@@ -36,6 +36,55 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # Only the impls the published crate needs, not everything
+                    # buck2 enables on these crates.
+                    "allocative": {"features": ["bumpalo", "dashmap", "num-bigint", "triomphe"]},
+                    # fbsource enables `allocator_api`, which needs nightly; the
+                    # starlark-rust repository builds on stable.
+                    "bumpalo": {"features": ["collections"], "workspace": False},
+                    "pagable": {"features": []},
+                    "strong_hash": {"features": []},
+                },
+            },
+            "extra_buck_dependencies": {
+                # rustyline does not build for wasm, which the OSS CI covers.
+                "dependencies": [(None, "fbsource//third-party/rust:rustyline")],
+                "target": {
+                    "'cfg(not(target_arch = \"wasm32\"))'": {
+                        "dependencies": ["fbsource//third-party/rust:rustyline"],
+                    },
+                },
+            },
+            "extra_check_cfgs": [
+                "cfg(rust_nightly)",
+                "cfg(starlark_require_heap_names)",
+            ],
+            "features": {
+                "default": [],
+                "pagable": [],
+            },
+            "package": {
+                "authors": [
+                    "Damien Martin-Guillerez <dmarting@google.com>",
+                    "Stepan Koltsov <stepan.koltsov@gmail.com>",
+                    "Facebook",
+                ],
+                "categories": ["parser-implementations", "development-tools"],
+                "description": "An implementation of the Starlark language in Rust.",
+                "documentation": "https://docs.rs/starlark",
+                "keywords": ["starlark", "skylark", "bazel", "language", "interpreter"],
+                "license": "Apache-2.0",
+                "repository": "https://github.com/facebook/starlark-rust",
+                "version": "0.14.2",
+            },
+        },
+        # The `features` attribute is a `select`, which autocargo cannot read.
+        "edge_features": ["pagable"],
+    },
     # `pagable` controls type registration for starlark values which shouldn't be enforced everywhere.
     # `pagable_dep` controls whether to depend on pagable at all, used for OSS because to support stable rustc.
     features = select({

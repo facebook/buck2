@@ -5,6 +5,32 @@ oncall("build_infra")
 rust_library(
     name = "starlark_map",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # Only the impls the published crate needs, not everything
+                    # buck2 enables on these crates.
+                    "allocative": {"features": ["hashbrown"]},
+                    "pagable": {"features": [], "optional": True},
+                    "strong_hash": {"features": []},
+                },
+            },
+            "extra_check_cfgs": ["cfg(rust_nightly)"],
+            "features": {
+                "default": [],
+                "pagable_dep": ["dep:pagable"],
+            },
+            "package": {
+                "authors": ["Facebook"],
+                "description": "Map implementation with starlark-rust specific optimizations",
+                "documentation": "https://docs.rs/starlark_map",
+                "license": "Apache-2.0",
+                "repository": "https://github.com/facebook/starlark-rust",
+                "version": "0.14.2",
+            },
+        },
+    },
     # Controls whether to depend on the pagable crate.
     # This is independent from the "pagable" constraint on the starlark crate,
     # which controls pagable serialization/deserialization support for starlark values.
