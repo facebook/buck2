@@ -76,22 +76,51 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
         }
     }
 
-    /// Gets the value if it is already cached or currently being computed (in which case this
-    /// awaits that computation). Returns `None` if the key is absent or if the in-flight
-    /// computation was cancelled.
-    async fn try_get(&self, key: &K) -> Option<V> {
-        let fut = self.map.get(key).map(|entry| entry.value().clone())?;
-        fut.await.ok()
+    /// Whether this entry's computation was cancelled, so no value will ever arrive.
+    fn is_dead(fut: &Shared<oneshot::Receiver<V>>) -> bool {
+        matches!(fut.clone().now_or_never(), Some(Err(_)))
     }
 
-    /// Caches an already-computed value. Does nothing if an entry (computed or in-flight)
-    /// is already present.
-    fn seed(&self, key: K, value: V) {
-        if let Entry::Vacant(vacant) = self.map.entry(key) {
-            let (tx, rx) = oneshot::channel();
-            let _ignore = tx.send(value);
-            vacant.insert(rx.shared());
+    /// Gets the value only if its computation has already finished; never awaits.
+    fn try_get_completed(&self, key: &K) -> Option<V> {
+        let fut = self.map.get(key).map(|entry| entry.value().clone())?;
+        fut.now_or_never()?.ok()
+    }
+
+    /// Gets the value if it is already cached or currently being computed (in which case this
+    /// awaits that computation). Returns `None` if the key is absent or if the in-flight
+    /// computation was cancelled (cancelled entries are cleared so the value can be computed
+    /// or seeded again).
+    async fn try_get(&self, key: &K) -> Option<V> {
+        let fut = self.map.get(key).map(|entry| entry.value().clone())?;
+        match fut.await {
+            Ok(v) => Some(v),
+            Err(_) => {
+                self.map.remove_if(key, |_, fut| Self::is_dead(fut));
+                None
+            }
         }
+    }
+
+    /// Caches an already-computed value. Does nothing if a computed or in-flight entry is
+    /// already present, unless its computation was cancelled, in which case it is replaced.
+    fn seed(&self, key: K, value: V) {
+        let (tx, rx) = oneshot::channel();
+        let _ignore = tx.send(value);
+        match self.map.entry(key) {
+            Entry::Occupied(mut occupied) => {
+                if Self::is_dead(occupied.get()) {
+                    let _replaced_dead_entry = occupied.insert(rx.shared());
+                }
+            }
+            Entry::Vacant(vacant) => {
+                vacant.insert(rx.shared());
+            }
+        }
+    }
+
+    fn remove(&self, key: &K) {
+        self.map.remove(key);
     }
 
     /// Gets the value or computes it with the provided function. The function is called while holding
@@ -121,6 +150,7 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
                     if let Ok(v) = fut.await {
                         return v;
                     }
+                    self.map.remove_if(&key, |_, fut| Self::is_dead(fut));
                 }
                 Entry::Vacant(vacant) => {
                     let (tx, rx) = oneshot::channel();
@@ -162,6 +192,13 @@ struct TsetNode {
 struct DiceAqueryNodesCache {
     action_nodes: Arc<NodeCache<ActionKey, buck2_error::Result<ActionQueryNode>>>,
     tset_nodes: Arc<NodeCache<TransitiveSetProjectionKey, buck2_error::Result<TsetNode>>>,
+    /// Completed shallow resolutions of tset nodes, inserted as concurrent
+    /// `compute_tset_node` walks finish them so that walks over overlapping subgraphs
+    /// reuse each other's finished work. Never awaited — see the discovery loop for why
+    /// walks must not wait on one another. Entries are dropped once the built node is
+    /// seeded into `tset_nodes`.
+    tset_discovery:
+        Arc<NodeCache<TransitiveSetProjectionKey, buck2_error::Result<Arc<DiscoveredTset>>>>,
 }
 
 impl DiceAqueryNodesCache {
@@ -173,6 +210,10 @@ impl DiceAqueryNodesCache {
             tset_nodes: Arc::new(NodeCache::<
                 TransitiveSetProjectionKey,
                 buck2_error::Result<TsetNode>,
+            >::new()),
+            tset_discovery: Arc::new(NodeCache::<
+                TransitiveSetProjectionKey,
+                buck2_error::Result<Arc<DiscoveredTset>>,
             >::new()),
         }
     }
@@ -259,7 +300,7 @@ struct DiscoveredTset {
 enum TsetDiscovery {
     /// The node was already cached (or being computed elsewhere); no need to descend into it.
     Cached(TransitiveSetProjectionKey, TsetNode),
-    New(TransitiveSetProjectionKey, DiscoveredTset),
+    New(TransitiveSetProjectionKey, Arc<DiscoveredTset>),
 }
 
 /// Computes the `SetProjectionInputs` node for `root`, along with every uncached tset
@@ -276,7 +317,7 @@ async fn compute_tset_node(
     ctx: &mut DiceComputations<'_>,
     root: TransitiveSetProjectionKey,
 ) -> buck2_error::Result<TsetNode> {
-    let mut discovered: BuckMutMap<TransitiveSetProjectionKey, DiscoveredTset> =
+    let mut discovered: BuckMutMap<TransitiveSetProjectionKey, Arc<DiscoveredTset>> =
         BuckMutMap::default();
     let mut built: BuckMutMap<TransitiveSetProjectionKey, TsetNode> = BuckMutMap::default();
 
@@ -293,10 +334,20 @@ async fn compute_tset_node(
                 if probe_cache && let Some(v) = node_cache.tset_nodes.try_get(&key).await {
                     return buck2_error::Ok(TsetDiscovery::Cached(key, v?));
                 }
+                // Reuse a resolution another walk has already *completed*; one that is
+                // still in flight elsewhere is redone here instead. Waiting for it would
+                // make every overlapping walk block at each shared node until the first
+                // walk to reach that node finishes it, so walks could never run ahead of
+                // each other and all of them would advance one node per wake-up.
+                if let Some(info) = node_cache.tset_discovery.try_get_completed(&key) {
+                    return Ok(TsetDiscovery::New(key, info?));
+                }
                 let set = key.key.lookup(ctx).await?;
                 let sub_inputs = set.by_ref(|s| s.get_projection_sub_inputs(key.projection))?;
                 let (direct, children) = convert_inputs_shallow(ctx, sub_inputs.iter()).await?;
-                Ok(TsetDiscovery::New(key, DiscoveredTset { direct, children }))
+                let info = Arc::new(DiscoveredTset { direct, children });
+                node_cache.tset_discovery.seed(key.dupe(), Ok(info.dupe()));
+                Ok(TsetDiscovery::New(key, info))
             })
             .await?;
         probe_cache = true;
@@ -329,6 +380,14 @@ async fn compute_tset_node(
         match visit {
             Visit::Enter(key) => {
                 if built.contains_key(&key) || !entered.insert(key.dupe()) {
+                    continue;
+                }
+                // A concurrent walk may have finished this node since discovery; reusing
+                // it skips its whole subtree here.
+                if key != root
+                    && let Some(Ok(node)) = node_cache.tset_nodes.try_get_completed(&key)
+                {
+                    built.insert(key, node);
                     continue;
                 }
                 let info = discovered
@@ -366,12 +425,13 @@ async fn compute_tset_node(
                     ));
                 }
                 let node = TsetNode {
-                    node: SetProjectionInputs::new(key.dupe(), info.direct, children),
+                    node: SetProjectionInputs::new(key.dupe(), info.direct.clone(), children),
                     depth,
                 };
                 if key != root {
                     node_cache.tset_nodes.seed(key.dupe(), Ok(node.dupe()));
                 }
+                node_cache.tset_discovery.remove(&key);
                 built.insert(key, node);
             }
         }
@@ -616,6 +676,8 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
 
 #[cfg(test)]
 mod tests {
+    use std::future::pending;
+    use std::future::ready;
     use std::sync::Arc;
     use std::task::Poll;
 
@@ -649,5 +711,48 @@ mod tests {
 
         assert_matches!(poll!(&mut fut1), Poll::Ready(1));
         assert_matches!(poll!(&mut fut2), Poll::Ready(1));
+    }
+
+    #[tokio::test]
+    async fn test_node_cache_takes_over_cancelled_computation() {
+        let cache = Arc::new(NodeCache::new());
+
+        {
+            let fut = cache.dupe().get_or_compute(1, |_k| pending());
+            pin_mut!(fut);
+            assert_matches!(poll!(&mut fut), Poll::Pending);
+        }
+
+        assert_eq!(
+            cache.dupe().get_or_compute(1, |k| ready(k + 1)).await,
+            2,
+            "a later caller should compute the value after the owner was cancelled"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_node_cache_seed() {
+        let cache = Arc::new(NodeCache::new());
+
+        cache.seed(1, 10);
+        cache.seed(1, 11);
+        assert_eq!(
+            cache.try_get(&1).await,
+            Some(10),
+            "a live entry should not be replaced"
+        );
+
+        {
+            let fut = cache.dupe().get_or_compute(2, |_k| pending());
+            pin_mut!(fut);
+            assert_matches!(poll!(&mut fut), Poll::Pending);
+        }
+
+        cache.seed(2, 12);
+        assert_eq!(
+            cache.try_get(&2).await,
+            Some(12),
+            "a cancelled entry should be replaced"
+        );
     }
 }
