@@ -141,7 +141,7 @@ where
     I: AsyncRead + AsyncWrite + Send + Unpin + 'static + tonic::transport::server::Connected,
     E: TestExecutor + Send + Sync + 'static,
 {
-    let router = tonic::transport::Server::builder().add_service(
+    let router = buck2_grpc::server_builder().add_service(
         test_executor_server::TestExecutorServer::new(Service { inner: executor })
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX),

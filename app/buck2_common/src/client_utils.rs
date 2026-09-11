@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_grpc::configure_endpoint;
 use futures::Future;
 use tokio::time::Instant;
 use tonic::transport::Channel;
@@ -74,7 +75,7 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> buck2_error::Result<Ch
     let connect_to = connect_to.to_owned();
     // This URL string is not relevant to the connection. Some URL is required for the function to work but the closure running inside connect_with_connector()
     // deals with connecting to the unix domain socket.
-    Endpoint::try_from("http://[::]:50051")?
+    configure_endpoint(Endpoint::try_from("http://[::]:50051")?)
         .connect_with_connector(service_fn(move |_: Uri| {
             let path = connect_to.clone();
             async move {
@@ -98,7 +99,7 @@ pub async fn get_channel_uds(
 }
 
 pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> buck2_error::Result<Channel> {
-    Endpoint::try_from(format!("http://{socket_addr}:{port}"))?
+    configure_endpoint(Endpoint::try_from(format!("http://{socket_addr}:{port}"))?)
         .connect()
         .await
         .tag(ErrorTag::ServerTransportError)

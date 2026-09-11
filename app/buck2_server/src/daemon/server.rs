@@ -112,7 +112,6 @@ use tonic::Response;
 use tonic::Status;
 use tonic::service::Interceptor;
 use tonic::service::InterceptorLayer;
-use tonic::transport::Server;
 
 use crate::active_commands::ActiveCommand;
 use crate::active_commands::ActiveCommandStateWriter;
@@ -369,7 +368,7 @@ impl BuckdServer {
             daemon_idle_timeout_s,
             in_process,
         )?;
-        let server = Server::builder()
+        let server = buck2_grpc::server_builder()
             .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
                 auth_token,
             }))

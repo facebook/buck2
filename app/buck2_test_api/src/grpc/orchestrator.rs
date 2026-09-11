@@ -766,7 +766,7 @@ where
     O: TestOrchestrator + Send + Sync + 'static,
     D: DownwardApi + Send + Sync + 'static,
 {
-    let router = tonic::transport::Server::builder()
+    let router = buck2_grpc::server_builder()
         .layer(EventDispatcherLayer::new(dispatcher))
         .add_service(
             test_orchestrator_server::TestOrchestratorServer::new(TestOrchestratorService {
