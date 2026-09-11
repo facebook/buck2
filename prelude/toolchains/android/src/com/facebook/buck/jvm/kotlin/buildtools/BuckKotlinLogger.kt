@@ -61,6 +61,14 @@ internal class BuckKotlinLogger(
     stdErr.println(msg)
   }
 
+  // OSS-only: the internal `KotlinLoggerCompat` supertype lacks this Kotlin 2.2
+  // overload on some toolchain configurations.
+    override fun warn(msg: String, throwable: Throwable?) { // @oss-enable
+      if (!LOG.isLoggable(Level.WARNING)) return // @oss-enable
+      stdErr.println(msg) // @oss-enable
+      throwable?.printStackTrace(stdErr) // @oss-enable
+    } // @oss-enable
+
   companion object {
     private val LOG: Logger = Logger.get(BuckKotlinLogger::class.java)
   }
