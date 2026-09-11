@@ -902,7 +902,7 @@ def obtain_keychain_permissions(
             path=CodesignedPath(
                 path=Path(dummy_binary_copied),
                 entitlements=None,
-                flags=[],
+                flags=["--timestamp=none"],
                 extra_file_paths=None,
             ),
             identity_fingerprint=identity_fingerprint,
