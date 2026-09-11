@@ -17,6 +17,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 FIXTURE = "fbcode//buck2/tests/e2e/typescript/first_class"
+PREBUILT_FIXTURE = "fbcode//buck2/tests/e2e/typescript/prebuilt"
 
 
 @buck_test(inplace=True)
@@ -333,3 +334,132 @@ async def test_custom_stages_keep_typechecking_and_validate_compatibility(
         buck.build(f"{FIXTURE}:incompatible-compiler-bundle"),
         stderr_regex="does not accept module format 'esm'",
     )
+
+
+@buck_test(inplace=True)
+async def test_binary_compiles_bundles_runs_and_rejects_compiler_bypass(
+    buck: Buck,
+) -> None:
+    native = await buck.run(f"{FIXTURE}:native-binary")
+    assert native.stdout.strip() == "app:native"
+
+    default_entry_point = await buck.run(f"{FIXTURE}:default-entry-point-binary")
+    assert default_entry_point.stdout.strip() == "default:entry-point"
+    source_info_target = f"{FIXTURE}:default-entry-point-source-info-consumer"
+    source_info = await buck.build(source_info_target)
+    source_artifacts = source_info.get_build_report().outputs_for_target(
+        source_info_target
+    )
+    assert [artifact.name for artifact in source_artifacts] == ["index.ts"]
+
+    esm = await buck.run(f"{FIXTURE}:esm-source-binary")
+    assert esm.stdout.strip() == "source bundle esm"
+
+    await expect_failure(
+        buck.build(f"{FIXTURE}:compiler-bypass"),
+        stderr_regex="selects compiler.*but source bundler.*would bypass it",
+    )
+
+
+@buck_test(inplace=True)
+async def test_custom_compiler_rejects_incompatible_runtime_dependency(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.build(f"{FIXTURE}:incompatible-custom-compiler-dependency"),
+        stderr_regex=(
+            "dependency whose runtime modules are incompatible with compiled output "
+            "module format 'esm' and platform 'neutral'"
+        ),
+    )
+    await expect_failure(
+        buck.build(f"{FIXTURE}:malformed-runtime-capability-dependency"),
+        stderr_regex="has_runtime=True but has no runtime module format and platform capability",
+    )
+    await expect_failure(
+        buck.build(f"{FIXTURE}:partial-runtime-capability-dependency"),
+        stderr_regex="must define runtime module format and platform together",
+    )
+    await expect_failure(
+        buck.build(f"{FIXTURE}:incompatible-transitive-runtime-dependency"),
+        stderr_regex=(
+            "dependency whose runtime modules are incompatible with compiled output "
+            "module format 'esm' and platform 'neutral'"
+        ),
+    )
+
+
+@buck_test(inplace=True)
+async def test_prebuilt_packages_typecheck_and_run(buck: Buck) -> None:
+    declaration_target = f"{PREBUILT_FIXTURE}:declaration-consumer-typecheck"
+    declaration_result = await buck.build(declaration_target)
+    declaration_markers = declaration_result.get_build_report().outputs_for_target(
+        declaration_target
+    )
+    assert len(declaration_markers) == 1
+    assert declaration_markers[0].name == "success.json"
+
+    declaration_binary = await buck.run(f"{PREBUILT_FIXTURE}:declaration-only-binary")
+    assert declaration_binary.stdout.strip() == "declaration-only"
+
+    compatible_target = f"{PREBUILT_FIXTURE}:compatible-cjs"
+    compatible = await buck.run(f"{PREBUILT_FIXTURE}:compatible-binary")
+    assert compatible.stdout.strip() == "prebuilt:compatible:subpath"
+    declarations = await buck.build(f"{compatible_target}[declarations]")
+    declarations_dir = declarations.get_build_report().output_for_target(
+        compatible_target, "declarations"
+    )
+    assert json.loads((declarations_dir / "package.json").read_text()) == {
+        "name": "@prebuilt/cjs",
+        "types": "lib/index.d.ts",
+        "version": "0.0.0",
+    }
+
+    nested_target = f"{PREBUILT_FIXTURE}:nested-consumer-typecheck"
+    nested = await buck.build(nested_target)
+    assert len(nested.get_build_report().outputs_for_target(nested_target)) == 1
+
+
+@buck_test(inplace=True)
+async def test_prebuilt_incompatible_runtime_typechecks_but_cannot_run(
+    buck: Buck,
+) -> None:
+    await buck.build(f"{PREBUILT_FIXTURE}:incompatible-consumer-typecheck")
+    await expect_failure(
+        buck.build(f"{PREBUILT_FIXTURE}:incompatible-consumer-binary"),
+        stderr_regex=(
+            "dependency whose runtime modules are incompatible with compiled output "
+            "module format 'commonjs' and platform 'node'"
+        ),
+    )
+
+
+@buck_test(inplace=True)
+async def test_prebuilt_rejects_malformed_layouts(buck: Buck) -> None:
+    for target, error in [
+        (
+            "missing-declaration-entry",
+            "declaration entry point 'missing.d.ts' does not exist",
+        ),
+        ("invalid-declaration-entry", "invalid declaration_entry_point"),
+        ("runtime-without-entry", "must set runtime and runtime_entry_point together"),
+        (
+            "runtime-without-format",
+            "must set module_format and platform exactly when runtime is set",
+        ),
+        (
+            "format-without-runtime",
+            "must set module_format and platform exactly when runtime is set",
+        ),
+        ("invalid-package-path", "must end with package_name"),
+        (
+            "invalid-scoped-node-modules-package-path",
+            "invalid package_name '@scope/node_modules'",
+        ),
+        ("non-directory-declarations", "must be a directory"),
+        ("invalid-prebuilt-typecheck", "TypeScriptTypecheckInfo"),
+    ]:
+        await expect_failure(
+            buck.build(f"{PREBUILT_FIXTURE}:{target}"),
+            stderr_regex=error,
+        )

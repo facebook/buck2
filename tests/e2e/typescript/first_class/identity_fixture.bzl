@@ -92,6 +92,36 @@ typescript_source_fixture = rule(
     attrs = {},
 )
 
+def _malformed_runtime_capability_package_impl(ctx: AnalysisContext) -> list[Provider]:
+    package = ctx.attrs.dep[TypeScriptPackageInfo]
+    return [
+        DefaultInfo(default_outputs = [package.direct_declarations]),
+        TypeScriptPackageInfo(
+            compiler_identity = package.compiler_identity,
+            declaration_entry_point = package.declaration_entry_point,
+            direct_declarations = package.direct_declarations,
+            direct_runtime = package.direct_runtime,
+            has_runtime = True,
+            logical_path = package.logical_path,
+            package_name = package.package_name,
+            runtime_entry_point = package.runtime_entry_point,
+            runtime_module_format = ctx.attrs.runtime_module_format,
+            runtime_platform = ctx.attrs.runtime_platform,
+            toolchain_identity = package.toolchain_identity,
+            transitive_declarations = package.transitive_declarations,
+            transitive_runtime = package.transitive_runtime,
+        ),
+    ]
+
+malformed_runtime_capability_package = rule(
+    impl = _malformed_runtime_capability_package_impl,
+    attrs = {
+        "dep": attrs.dep(providers = [TypeScriptPackageInfo]),
+        "runtime_module_format": attrs.string(default = ""),
+        "runtime_platform": attrs.string(default = ""),
+    },
+)
+
 def _source_info_consumer_impl(ctx: AnalysisContext) -> list[Provider]:
     source_info = ctx.attrs.dep[TypeScriptSourceInfo]
     has_runtime = source_info.canonical_runtime != None
@@ -99,6 +129,8 @@ def _source_info_consumer_impl(ctx: AnalysisContext) -> list[Provider]:
         fail("TypeScriptSourceInfo canonical_runtime and canonical_runtime_entry_point must be present together")
     if has_runtime != ctx.attrs.expect_runtime:
         fail("expected canonical runtime presence={}, got {}".format(ctx.attrs.expect_runtime, has_runtime))
+    if ctx.attrs.expected_entry_point != None and source_info.entry_point != ctx.attrs.expected_entry_point:
+        fail("expected source entry point '{}', got '{}'".format(ctx.attrs.expected_entry_point, source_info.entry_point))
     return [DefaultInfo(default_outputs = source_info.source_artifacts)]
 
 source_info_consumer = rule(
@@ -106,6 +138,7 @@ source_info_consumer = rule(
     attrs = {
         "dep": attrs.dep(providers = [TypeScriptSourceInfo]),
         "expect_runtime": attrs.bool(),
+        "expected_entry_point": attrs.option(attrs.string(), default = None),
     },
 )
 

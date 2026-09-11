@@ -1,6 +1,7 @@
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 load(
     "@fbcode_macros//build_defs/lib/typescript:rules.bzl",
+    _typescript_binary = "typescript_binary",
     _typescript_bundle = "typescript_bundle",
     _typescript_bundler_adapter = "typescript_bundler_adapter",
     _typescript_compile = "typescript_compile",
@@ -13,6 +14,7 @@ load(
 load(
     ":identity_fixture.bzl",
     "empty_typecheck_provider",
+    "malformed_runtime_capability_package",
     "mismatched_toolchain_typescript_package",
     "mismatched_typescript_package",
     "package_info_consumer",
@@ -358,6 +360,29 @@ _typescript_run(
     program = ":source-bundle",
 )
 
+fake_bundler_tool(
+    name = "esm-source-bundler-tool",
+    message = "source bundle esm",
+    required_source_paths = ["src/custom_esm/index.mts"],
+)
+
+_typescript_bundler_adapter(
+    name = "esm-source-bundler",
+    entry_point = "bundle.js",
+    executable = ":esm-source-bundler-tool",
+    identity = "fake-esm-source-bundler-v1",
+    input_kind = "sources",
+    module_format = "esm",
+    platform = "node",
+)
+
+_typescript_binary(
+    name = "esm-source-binary",
+    srcs = ["src/custom_esm/index.mts"],
+    bundler = ":esm-source-bundler",
+    entry_point = "src/custom_esm/index.mts",
+)
+
 _typescript_library(
     name = "custom-compiler-source",
     package_name = "@e2e-example/custom-compiler",
@@ -453,6 +478,65 @@ _typescript_bundle(
     source = ":custom-compiled",
 )
 
+_typescript_binary(
+    name = "compiler-bypass",
+    srcs = ["src/custom_compiler/index.ts"],
+    bundler = ":source-bundler",
+    compiler = ":custom-compiler",
+    entry_point = "src/custom_compiler/index.ts",
+)
+
+_typescript_binary(
+    name = "incompatible-custom-compiler-dependency",
+    srcs = ["src/custom_compiler/index.ts"],
+    compiler = ":custom-compiler",
+    entry_point = "src/custom_compiler/index.ts",
+    deps = ["//buck2/tests/e2e/typescript/prebuilt:compatible-cjs"],
+)
+
+malformed_runtime_capability_package(
+    name = "malformed-runtime-capability",
+    dep = ":app",
+)
+
+malformed_runtime_capability_package(
+    name = "partial-runtime-capability",
+    dep = ":app",
+    runtime_module_format = "commonjs",
+)
+
+_typescript_binary(
+    name = "malformed-runtime-capability-dependency",
+    srcs = ["src/custom_compiler/index.ts"],
+    entry_point = "src/custom_compiler/index.ts",
+    deps = [":malformed-runtime-capability"],
+)
+
+_typescript_binary(
+    name = "partial-runtime-capability-dependency",
+    srcs = ["src/custom_compiler/index.ts"],
+    entry_point = "src/custom_compiler/index.ts",
+    deps = [":partial-runtime-capability"],
+)
+
+_typescript_library(
+    name = "incompatible-transitive-runtime-wrapper",
+    package_name = "@e2e-example/incompatible-transitive-runtime-wrapper",
+    srcs = ["src/ambient_provider/index.d.ts"],
+    ambient = True,
+    emit_runtime = False,
+    entry_point = "src/ambient_provider/index.d.ts",
+    deps = ["//buck2/tests/e2e/typescript/prebuilt:compatible-cjs"],
+)
+
+_typescript_binary(
+    name = "incompatible-transitive-runtime-dependency",
+    srcs = ["src/custom_compiler/index.ts"],
+    compiler = ":custom-compiler",
+    entry_point = "src/custom_compiler/index.ts",
+    deps = [":incompatible-transitive-runtime-wrapper"],
+)
+
 _typescript_runtime_adapter(
     name = "browser-only-runtime",
     executable = ":bun-like-runtime-tool",
@@ -478,4 +562,23 @@ _typescript_bundle(
     name = "invalid-custom-bundle",
     bundler = ":source-bundler",
     source = ":invalid-custom-source",
+)
+
+_typescript_binary(
+    name = "native-binary",
+    srcs = ["src/native_binary/index.ts"],
+    entry_point = "src/native_binary/index.ts",
+    deps = [":app"],
+)
+
+_typescript_binary(
+    name = "default-entry-point-binary",
+    srcs = ["index.ts"],
+)
+
+source_info_consumer(
+    name = "default-entry-point-source-info-consumer",
+    dep = ":default-entry-point-binary",
+    expect_runtime = True,
+    expected_entry_point = "index.ts",
 )

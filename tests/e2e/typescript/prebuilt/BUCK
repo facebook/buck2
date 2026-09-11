@@ -1,0 +1,229 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load(
+    "@fbcode_macros//build_defs/lib/typescript:rules.bzl",
+    _typescript_binary = "typescript_binary",
+    _typescript_library = "typescript_library",
+    _typescript_prebuilt_package = "typescript_prebuilt_package",
+    _typescript_typecheck = "typescript_typecheck",
+)
+load(
+    "//buck2/tests/e2e/typescript/first_class:identity_fixture.bzl",
+    "package_info_consumer",
+)
+
+oncall("build_infra")
+
+buck_genrule(
+    name = "cjs-declarations",
+    out = "cjs-declarations",
+    cmd = "mkdir -p $OUT/lib && echo 'export interface Thing { readonly value: string; } export declare function value(input: string): string;' > $OUT/lib/index.d.ts && echo 'export declare function withSubpath(input: string): string;' > $OUT/lib/subpath.d.ts && echo '{\"name\":\"input-declarations\"}' > $OUT/package.json && chmod 0444 $OUT/package.json",
+)
+
+buck_genrule(
+    name = "cjs-runtime",
+    out = "cjs-runtime",
+    cmd = 'mkdir -p $OUT/lib && echo "exports.value = input => \'prebuilt:\' + input;" > $OUT/lib/index.js && echo "exports.withSubpath = input => input + \':subpath\';" > $OUT/lib/subpath.js && echo \'{"name":"input-runtime"}\' > $OUT/package.json && chmod 0444 $OUT/package.json',
+)
+
+_typescript_prebuilt_package(
+    name = "compatible-cjs",
+    package_name = "@prebuilt/cjs",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    module_format = "commonjs",
+    platform = "node",
+    runtime = ":cjs-runtime",
+    runtime_entry_point = "lib/index.js",
+)
+
+package_info_consumer(
+    name = "runtime-package-info-consumer",
+    dep = ":compatible-cjs",
+)
+
+_typescript_binary(
+    name = "compatible-binary",
+    srcs = ["src/compatible_binary/index.ts"],
+    entry_point = "src/compatible_binary/index.ts",
+    deps = [":compatible-cjs"],
+)
+
+_typescript_prebuilt_package(
+    name = "declaration-only",
+    package_name = "@prebuilt/types",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+)
+
+package_info_consumer(
+    name = "declaration-only-package-info-consumer",
+    dep = ":declaration-only",
+)
+
+_typescript_library(
+    name = "declaration-consumer",
+    package_name = "@prebuilt/declaration-consumer",
+    srcs = ["src/declaration_consumer/index.ts"],
+    entry_point = "src/declaration_consumer/index.ts",
+    deps = [":declaration-only"],
+)
+
+_typescript_typecheck(
+    name = "declaration-consumer-typecheck",
+    deps = [":declaration-consumer"],
+)
+
+_typescript_binary(
+    name = "declaration-only-binary",
+    srcs = ["src/declaration_binary/index.ts"],
+    entry_point = "src/declaration_binary/index.ts",
+    deps = [":declaration-only"],
+)
+
+_typescript_prebuilt_package(
+    name = "incompatible-runtime",
+    package_name = "@prebuilt/incompatible",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    module_format = "esm",
+    platform = "browser",
+    runtime = ":cjs-runtime",
+    runtime_entry_point = "lib/index.js",
+)
+
+_typescript_library(
+    name = "incompatible-consumer",
+    package_name = "@prebuilt/incompatible-consumer",
+    srcs = ["src/incompatible_consumer/index.ts"],
+    entry_point = "src/incompatible_consumer/index.ts",
+    deps = [":incompatible-runtime"],
+)
+
+_typescript_typecheck(
+    name = "incompatible-consumer-typecheck",
+    deps = [":incompatible-consumer"],
+)
+
+_typescript_binary(
+    name = "incompatible-consumer-binary",
+    srcs = ["src/incompatible_binary/index.ts"],
+    entry_point = "src/incompatible_binary/index.ts",
+    deps = [":incompatible-consumer"],
+)
+
+buck_genrule(
+    name = "nested-declarations",
+    out = "nested-declarations",
+    cmd = "mkdir -p $OUT && echo 'export interface NestedValue { readonly nested: true; }' > $OUT/index.d.ts",
+)
+
+_typescript_prebuilt_package(
+    name = "nested-scoped",
+    package_name = "@nested/scoped",
+    declaration_entry_point = "index.d.ts",
+    declarations = ":nested-declarations",
+    package_path = "node_modules/@prebuilt/parent/node_modules/@nested/scoped",
+)
+
+buck_genrule(
+    name = "parent-declarations",
+    out = "parent-declarations",
+    cmd = "mkdir -p $OUT && echo \"import type {NestedValue} from '@nested/scoped'; export interface ParentValue { readonly child: NestedValue; }\" > $OUT/index.d.ts",
+)
+
+_typescript_prebuilt_package(
+    name = "nested-parent",
+    package_name = "@prebuilt/parent",
+    declaration_entry_point = "index.d.ts",
+    declarations = ":parent-declarations",
+    deps = [":nested-scoped"],
+)
+
+_typescript_library(
+    name = "nested-consumer",
+    package_name = "@prebuilt/nested-consumer",
+    srcs = ["src/nested_consumer/index.ts"],
+    entry_point = "src/nested_consumer/index.ts",
+    deps = [":nested-parent"],
+)
+
+_typescript_typecheck(
+    name = "nested-consumer-typecheck",
+    deps = [":nested-consumer"],
+)
+
+_typescript_prebuilt_package(
+    name = "missing-declaration-entry",
+    package_name = "@prebuilt/missing-entry",
+    declaration_entry_point = "missing.d.ts",
+    declarations = ":cjs-declarations",
+)
+
+_typescript_prebuilt_package(
+    name = "invalid-declaration-entry",
+    package_name = "@prebuilt/invalid-entry",
+    declaration_entry_point = "../outside.d.ts",
+    declarations = ":cjs-declarations",
+)
+
+_typescript_prebuilt_package(
+    name = "runtime-without-entry",
+    package_name = "@prebuilt/runtime-without-entry",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    module_format = "commonjs",
+    platform = "node",
+    runtime = ":cjs-runtime",
+)
+
+_typescript_prebuilt_package(
+    name = "runtime-without-format",
+    package_name = "@prebuilt/runtime-without-format",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    runtime = ":cjs-runtime",
+    runtime_entry_point = "lib/index.js",
+)
+
+_typescript_prebuilt_package(
+    name = "format-without-runtime",
+    package_name = "@prebuilt/format-without-runtime",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    module_format = "commonjs",
+    platform = "node",
+)
+
+_typescript_prebuilt_package(
+    name = "invalid-package-path",
+    package_name = "@prebuilt/invalid-path",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    package_path = "node_modules/other",
+)
+
+_typescript_prebuilt_package(
+    name = "invalid-scoped-node-modules-package-path",
+    package_name = "final",
+    declaration_entry_point = "lib/index.d.ts",
+    declarations = ":cjs-declarations",
+    package_path = "node_modules/@scope/node_modules/node_modules/final",
+)
+
+buck_genrule(
+    name = "declaration-file",
+    out = "declaration-file.d.ts",
+    cmd = "echo 'export interface Value {}' > $OUT",
+)
+
+_typescript_prebuilt_package(
+    name = "non-directory-declarations",
+    package_name = "@prebuilt/non-directory",
+    declaration_entry_point = "index.d.ts",
+    declarations = ":declaration-file",
+)
+
+_typescript_typecheck(
+    name = "invalid-prebuilt-typecheck",
+    deps = [":compatible-cjs"],
+)
