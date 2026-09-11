@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#[cfg(debug_assertions)]
+use std::cell::Cell;
 use std::cell::RefCell;
 
 use crate::eval::compiler::def::Def;
@@ -50,6 +52,9 @@ pub struct Freezer<'v, 'fv> {
     seal_edge: SealEdge<'fv, 'v>,
     /// Defs frozen by this freezer.
     pub(crate) frozen_defs: RefCell<Vec<ValueTyped<'fv, Def<'fv>>>>,
+    /// A freeze error occurred; the freezer must be abandoned.
+    #[cfg(debug_assertions)]
+    failed: Cell<bool>,
 }
 
 impl<'v, 'fv> Freezer<'v, 'fv> {
@@ -61,6 +66,8 @@ impl<'v, 'fv> Freezer<'v, 'fv> {
             heap,
             seal_edge,
             frozen_defs: RefCell::new(Vec::new()),
+            #[cfg(debug_assertions)]
+            failed: Cell::new(false),
         }
     }
 
@@ -83,6 +90,14 @@ impl<'v, 'fv> Freezer<'v, 'fv> {
 
     /// Freeze a nested value while freezing yourself.
     pub fn freeze(&self, value: Value<'v>) -> FreezeResult<Value<'fv>> {
+        // An error leaves sources forwarding to unpublished reservations, so
+        // the whole freeze must be abandoned.
+        #[cfg(debug_assertions)]
+        assert!(
+            !self.failed.get(),
+            "freezing must not continue after an earlier freeze error"
+        );
+
         // Case 1: Already frozen, so nothing to copy.
         if let Some(frozen) = self.seal_edge.rebrand(value) {
             return Ok(frozen);
@@ -94,7 +109,14 @@ impl<'v, 'fv> Freezer<'v, 'fv> {
             AValueHeapEntryState::Forward(x) => {
                 Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
             }
-            AValueHeapEntryState::Value(v) => unsafe { v.unpack().heap_freeze(self) },
+            AValueHeapEntryState::Value(v) => {
+                let result = unsafe { v.unpack().heap_freeze(self) };
+                #[cfg(debug_assertions)]
+                if result.is_err() {
+                    self.failed.set(true);
+                }
+                result
+            }
             AValueHeapEntryState::Reservation(_) => {
                 unreachable!("cannot freeze a heap reservation")
             }

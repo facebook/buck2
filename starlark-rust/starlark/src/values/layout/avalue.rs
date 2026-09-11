@@ -81,6 +81,13 @@ pub(crate) trait AValue<'v>: Sized + 'v {
     /// placed in a heap after `Self`. This is the type of an element of that array.
     type ExtraElem: 'v;
 
+    /// Whether this value must be allocated in the arena's drop region.
+    ///
+    /// Must be true whenever the payload or any trailing elements run
+    /// destructors; values outside the drop region are never dropped.
+    const NEEDS_DROP: bool =
+        mem::needs_drop::<Self::StarlarkValue>() || mem::needs_drop::<Self::ExtraElem>();
+
     /// Payload array length.
     fn extra_len(value: &Self::StarlarkValue) -> usize;
 

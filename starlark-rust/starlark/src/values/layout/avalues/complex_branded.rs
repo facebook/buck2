@@ -18,34 +18,31 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use super::simple::AValueSimple;
-use crate::any::AnyLifetime;
-use crate::eval::compiler::def::Def;
 use crate::private::Private;
-use crate::values::FreezeBranded;
+use crate::values::ComplexValue;
+use crate::values::FreezePlan;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::HeapSendable;
-use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
+use crate::values::freeze::FreezeDestination;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::avalue::heap_copy_impl;
 use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::layout::heap::repr::ForwardPtr;
 
 struct AValueComplexBranded<T>(PhantomData<T>);
 
 impl<'v, T> AValue<'v> for AValueComplexBranded<T>
 where
-    T: StarlarkValue<'v> + Trace<'v> + FreezeBranded<'v>,
-    for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: AValueSimpleBound<'fv>,
+    T: ComplexValue<'v>,
 {
     type StarlarkValue = T;
 
@@ -64,17 +61,28 @@ where
         freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
-            if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
-                return f;
+            if let Some(fv) = try_freeze_directly::<Self>(me, freezer) {
+                return fv;
             }
 
-            let r = freezer.reserve::<AValueSimple<T::Frozen<'fv>>>();
-            let x =
-                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, r.forward_ptr());
-            let res = x.freeze(freezer)?;
-            let fv = r.fill(res);
-            if T::Frozen::<'fv>::static_type_id() == Def::static_type_id() {
-                let frozen_def = ValueTyped::new(fv).expect("`fv` was just filled with a `Def`");
+            let plan = (*me).payload.prepare_freeze(freezer)?;
+            let destination = plan.target().reserve(freezer);
+            let slot = match destination {
+                FreezeDestination::Direct(frozen_value) => {
+                    // The destination already exists, so the source payload is
+                    // discarded here rather than consumed by `freeze_into`.
+                    drop(AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
+                        me,
+                        ForwardPtr::new_frozen(frozen_value),
+                    ));
+                    return Ok(frozen_value);
+                }
+                FreezeDestination::Slot(slot) => slot,
+            };
+            let value =
+                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, slot.forward_ptr());
+            let fv = plan.freeze_into(value, freezer, slot)?.publish();
+            if let Some(frozen_def) = ValueTyped::new(fv) {
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
             Ok(fv)
@@ -93,8 +101,8 @@ impl<'v> Heap<'v> {
     /// Allocate a value which can be traced (garbage collected) and frozen on the [`Heap`].
     pub fn alloc_complex_branded<T>(self, x: T) -> Value<'v>
     where
-        T: StarlarkValue<'v> + HeapSendable<'v> + Trace<'v> + FreezeBranded<'v>,
-        for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: AValueSimpleBound<'fv>,
+        T: ComplexValue<'v>,
+        T: HeapSendable<'v>,
     {
         assert!(!T::is_special(Private));
         self.alloc_raw(AValueImpl::<AValueComplexBranded<T>>::new(x))

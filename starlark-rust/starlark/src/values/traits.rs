@@ -53,15 +53,81 @@ use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
 use crate::typing::starlark_value::HasTyVTable;
+use crate::values::FreezeDynamic;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::StringValue;
+use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::demand::Demand;
 use crate::values::error::ControlError;
 use crate::values::function::FUNCTION_TYPE;
+
+/// A trait for values which are more complex - because they are either mutable
+/// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.
+///
+/// A `ComplexValue` is allocated with
+/// [`alloc_complex_branded`](crate::values::Heap::alloc_complex_branded). Types whose only
+/// lifetime parameter is the heap brand can derive
+/// [`FreezeBranded`](crate::values::FreezeBranded) and let
+/// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!) write the
+/// boilerplate; the blanket [`FreezeDynamic`](crate::values::FreezeDynamic) implementation
+/// carries them through the same freeze protocol.
+///
+/// ## Types containing [`Value`]
+///
+/// A Starlark type containing values is one type constructor instantiated at
+/// different heap brands: unfrozen at a mutable heap's brand, frozen at a
+/// frozen heap's. If we are defining the type containing a single value,
+/// let's call it `One`, we define it once over its brand and freeze
+/// `One<'v>` into `One<'fv>` with
+/// [`FreezeBranded`](crate::values::FreezeBranded):
+///
+/// ```
+/// use allocative::Allocative;
+/// use derive_more::Display;
+/// use starlark::values::FreezeBranded;
+/// use starlark::values::FreezeResult;
+/// use starlark::values::Freezer;
+/// use starlark::values::NoSerialize;
+/// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkPagable;
+/// use starlark::values::StarlarkValue;
+/// use starlark::values::Trace;
+/// use starlark::values::Value;
+/// use starlark_derive::starlark_value;
+///
+/// #[derive(
+///     Debug,
+///     Trace,
+///     Display,
+///     ProvidesStaticType,
+///     NoSerialize,
+///     StarlarkPagable,
+///     Allocative
+/// )]
+/// struct One<'v>(Value<'v>);
+///
+/// #[starlark_value(type = "one")]
+/// impl<'v> StarlarkValue<'v> for One<'v> {}
+///
+/// impl<'v> FreezeBranded<'v> for One<'v> {
+///     type Frozen<'fv> = One<'fv>;
+///     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
+///         Ok(One(freezer.freeze(self.0)?))
+///     }
+/// }
+/// ```
+///
+/// If the difference between frozen and non-frozen does not follow this pattern — for
+/// example your type contains no [`Value`]s and implements this trait for mutability, or
+/// it holds a [`Cell`](std::cell::Cell) when non-frozen and a direct value when frozen —
+/// write the types and trait instances you need manually.
+pub trait ComplexValue<'v>: StarlarkValue<'v> + Trace<'v> + FreezeDynamic<'v> {}
+
+impl<'v, V> ComplexValue<'v> for V where V: StarlarkValue<'v> + Trace<'v> + FreezeDynamic<'v> {}
 
 /// How to put a Rust values into [`Value`]s.
 ///

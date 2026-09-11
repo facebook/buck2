@@ -217,6 +217,10 @@ impl<'v, T: AValue<'v>> Reservation<'v, T> {
     pub(in crate::values::layout) fn entry_ptr(&self) -> *mut AValueHeapEntry {
         self.pointer.cast()
     }
+
+    pub(in crate::values::layout) fn into_entry_ptr(self) -> *mut AValueHeapEntry {
+        self.pointer.cast()
+    }
 }
 
 /// A [`Reservation`] on a frozen heap branded `'fh`; filling it publishes a
@@ -229,6 +233,10 @@ pub(crate) struct FrozenReservation<'fh, 'v, T: AValue<'v>>(
 impl<'fh, 'v, T: AValue<'v>> FrozenReservation<'fh, 'v, T> {
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
         self.0.forward_ptr()
+    }
+
+    pub(crate) fn into_entry_ptr(self) -> *mut AValueHeapEntry {
+        self.0.into_entry_ptr()
     }
 
     pub(crate) fn fill(self, x: T::StarlarkValue) -> Value<'fh> {
@@ -393,7 +401,7 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     fn bump_for_type<'v, T: AValue<'v>>(&self) -> &A {
-        if mem::needs_drop::<T::StarlarkValue>() {
+        if T::NEEDS_DROP {
             &self.drop
         } else {
             &self.non_drop
