@@ -1,0 +1,298 @@
+load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
+load(
+    "@fbcode_macros//build_defs/lib/typescript:rules.bzl",
+    _typescript_library = "typescript_library",
+    _typescript_typecheck = "typescript_typecheck",
+)
+load(
+    ":identity_fixture.bzl",
+    "empty_typecheck_provider",
+    "mismatched_toolchain_typescript_package",
+    "mismatched_typescript_package",
+    "package_info_consumer",
+    "source_info_consumer",
+)
+
+oncall("build_infra")
+
+export_file(name = "identity_fixture.bzl")
+
+_typescript_library(
+    name = "common",
+    package_name = "@e2e-example/ts-common",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "app",
+    package_name = "@e2e-example/ts-app",
+    srcs = ["src/app/index.ts"],
+    entry_point = "src/app/index.ts",
+    deps = [":common"],
+)
+
+_typescript_library(
+    name = "diamond-left",
+    package_name = "@e2e-example/diamond-left",
+    srcs = ["src/diamond_left/index.ts"],
+    entry_point = "src/diamond_left/index.ts",
+    deps = [":common"],
+)
+
+_typescript_library(
+    name = "diamond-right",
+    package_name = "@e2e-example/diamond-right",
+    srcs = ["src/diamond_right/index.ts"],
+    entry_point = "src/diamond_right/index.ts",
+    deps = [":common"],
+)
+
+_typescript_library(
+    name = "diamond-root",
+    package_name = "@e2e-example/diamond-root",
+    srcs = ["src/diamond_root/index.ts"],
+    entry_point = "src/diamond_root/index.ts",
+    deps = [
+        ":diamond-left",
+        ":diamond-right",
+    ],
+)
+
+_typescript_library(
+    name = "ambient-provider",
+    package_name = "@e2e-example/ambient-provider",
+    srcs = ["src/ambient_provider/index.d.ts"],
+    ambient = True,
+    emit_runtime = False,
+    entry_point = "src/ambient_provider/index.d.ts",
+)
+
+_typescript_library(
+    name = "declaration-only-with-runtime",
+    package_name = "@e2e-example/declaration-only-with-runtime",
+    srcs = ["src/ambient_provider/index.d.ts"],
+    ambient = True,
+    entry_point = "src/ambient_provider/index.d.ts",
+)
+
+_typescript_library(
+    name = "declaration-only-runtime-wrapper",
+    package_name = "@e2e-example/declaration-only-runtime-wrapper",
+    srcs = ["src/ambient_provider/index.d.ts"],
+    ambient = True,
+    emit_runtime = False,
+    entry_point = "src/ambient_provider/index.d.ts",
+    deps = [":common"],
+)
+
+_typescript_library(
+    name = "ambient-consumer",
+    package_name = "@e2e-example/ambient-consumer",
+    srcs = ["src/ambient_consumer/index.ts"],
+    entry_point = "src/ambient_consumer/index.ts",
+    deps = [":ambient-provider"],
+)
+
+_typescript_typecheck(
+    name = "typecheck",
+    deps = [
+        ":ambient-consumer",
+        ":app",
+        ":diamond-root",
+    ],
+)
+
+empty_typecheck_provider(name = "empty-typecheck-provider")
+
+_typescript_typecheck(
+    name = "empty-typecheck",
+    deps = [":empty-typecheck-provider"],
+)
+
+_typescript_library(
+    name = "invalid-package-name",
+    package_name = "../invalid",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-three-component-package-name",
+    package_name = "invalid/package/name",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-dot-scope-package-name",
+    package_name = "@./pkg",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-dotdot-scope-package-name",
+    package_name = "@../pkg",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-character-package-name",
+    package_name = "invalid package:name*",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-leading-dot-package-name",
+    package_name = ".invalid",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-leading-underscore-package-name",
+    package_name = "_invalid",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-leading-dot-scope-package-name",
+    package_name = "@.scope/pkg",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-leading-underscore-scoped-package-name",
+    package_name = "@scope/_pkg",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "invalid-tilde-package-name",
+    package_name = "invalid~name",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "declaration-entry-with-runtime-source",
+    package_name = "@e2e-example/declaration-entry-with-runtime-source",
+    srcs = [
+        "src/ambient_provider/index.d.ts",
+        "src/common/index.ts",
+    ],
+    entry_point = "src/ambient_provider/index.d.ts",
+)
+
+_typescript_library(
+    name = "runtime-output-collision",
+    package_name = "@e2e-example/runtime-output-collision",
+    srcs = [
+        "src/collision/index.ts",
+        "src/collision/index.tsx",
+    ],
+    entry_point = "src/collision/index.ts",
+)
+
+_typescript_library(
+    name = "declaration-output-collision-no-runtime",
+    package_name = "@e2e-example/declaration-output-collision-no-runtime",
+    srcs = [
+        "src/collision/index.ts",
+        "src/collision/index.tsx",
+    ],
+    emit_runtime = False,
+    entry_point = "src/collision/index.ts",
+)
+
+_typescript_library(
+    name = "duplicate-source",
+    package_name = "@e2e-example/duplicate-source",
+    srcs = ["src/common/index.ts"] + ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+)
+
+_typescript_library(
+    name = "distinct-artifact-source-collision",
+    package_name = "@e2e-example/distinct-artifact-source-collision",
+    srcs = [
+        "//buck2/tests/e2e/typescript/first_class/collision_a:source",
+        "//buck2/tests/e2e/typescript/first_class/collision_b:source",
+    ],
+    entry_point = "shared/index.ts",
+)
+
+_typescript_library(
+    name = "declaration-source-output-collision",
+    package_name = "@e2e-example/declaration-source-output-collision",
+    srcs = [
+        "src/declaration_collision/foo.d.ts",
+        "src/declaration_collision/foo.ts",
+    ],
+    entry_point = "src/declaration_collision/foo.ts",
+)
+
+_typescript_library(
+    name = "declaration-prefix-output-collision",
+    package_name = "@e2e-example/declaration-prefix-output-collision",
+    srcs = [
+        "src/declaration_prefix_collision/a.d.ts-other.ts",
+        "src/declaration_prefix_collision/a.d.ts/child.ts",
+        "src/declaration_prefix_collision/a.ts",
+    ],
+    emit_runtime = False,
+    entry_point = "src/declaration_prefix_collision/a.ts",
+)
+
+mismatched_typescript_package(name = "mismatched-dependency")
+
+mismatched_toolchain_typescript_package(name = "mismatched-toolchain-dependency")
+
+_typescript_library(
+    name = "identity-mismatch",
+    package_name = "@e2e-example/identity-mismatch",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+    deps = [":mismatched-dependency"],
+)
+
+_typescript_library(
+    name = "toolchain-identity-mismatch",
+    package_name = "@e2e-example/toolchain-identity-mismatch",
+    srcs = ["src/common/index.ts"],
+    entry_point = "src/common/index.ts",
+    deps = [":mismatched-toolchain-dependency"],
+)
+
+source_info_consumer(
+    name = "source-info-consumer",
+    dep = ":app",
+    expect_runtime = True,
+)
+
+source_info_consumer(
+    name = "declaration-only-source-info-consumer",
+    dep = ":ambient-provider",
+    expect_runtime = False,
+)
+
+package_info_consumer(
+    name = "runtime-package-info-consumer",
+    dep = ":app",
+)
+
+package_info_consumer(
+    name = "declaration-only-package-info-consumer",
+    dep = ":ambient-provider",
+)
+
+package_info_consumer(
+    name = "transitive-runtime-package-info-consumer",
+    dep = ":declaration-only-runtime-wrapper",
+)
