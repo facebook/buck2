@@ -296,7 +296,7 @@ bytes = { version = "1.12.1", features = ["serde"] }
 bytesize = "2.7.0"
 clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 clap_complete = { version = "4.6.9", features = ["unstable-dynamic"] }
-cmp_any = { path = "gazebo/cmp_any" }
+cmp_any = { version = "0.8.1", path = "gazebo/cmp_any" }
 common-path = "1.0.0"
 compact_str = { version = "0.10.0", features = ["serde"] }
 console = "0.16.4"
@@ -318,9 +318,10 @@ dice_error = { path = "dice/dice_error" }
 dice_futures = { path = "dice/dice_futures" }
 digest = { version = "0.10", features = ["rand_core"] }
 dirs = "6.0"
-display_container = { path = "gazebo/display_container" }
+display_container = { version = "0.9.0", path = "gazebo/display_container" }
 dunce = "1.0.5"
-dupe = { path = "gazebo/dupe" }
+dupe = { version = "0.9.1", path = "gazebo/dupe" }
+dupe_derive = { version = "0.9.1", path = "gazebo/dupe_derive" }
 either = "1.17.0"
 elf = "0.8"
 enum-iterator = "2.3.0"
@@ -336,7 +337,8 @@ futures = { version = "0.3.34", features = ["async-await", "compat"] }
 futures-intrusive = "0.5.0"
 fxhash = "0.2.1"
 games = { path = "games" }
-gazebo = { path = "gazebo/gazebo", features = ["str_pattern_extensions"] }
+gazebo = { version = "0.8.1", path = "gazebo/gazebo", features = ["str_pattern_extensions"] }
+gazebo_derive = { version = "0.8.0", path = "gazebo/gazebo_derive" }
 glob = "0.3.4"
 globset = { version = "0.4.20", features = ["serde1"] }
 h2 = "0.4.19"
@@ -358,6 +360,7 @@ hyper-util = { version = "0.1.20", features = ["client-legacy", "http1", "http2"
 hyperlocal = { version = "0.9", features = ["client"] }
 image = { version = "0.25.10", features = ["png"], default-features = false }
 indent_write = "2.2.0"
+indenter = "0.3.4"
 indexmap = { version = "2.14.0", features = ["arbitrary", "rayon", "serde"] }
 indoc = "2.0.2"
 inferno = { version = "0.12.8", default-features = false }
@@ -448,7 +451,8 @@ starlark_map = { path = "starlark-rust/starlark_map", features = ["pagable_dep"]
 starlark_syntax = { path = "starlark-rust/starlark_syntax" }
 static_assertions = "1.1.0"
 static_interner = { path = "shed/static_interner", features = ["allocative", "dupe", "strong_hash"] }
-strong_hash = { path = "gazebo/strong_hash", features = ["num-bigint", "triomphe"] }
+strong_hash = { version = "0.1.0", path = "gazebo/strong_hash", features = ["num-bigint", "triomphe"] }
+strong_hash_derive = { version = "0.1.0", path = "gazebo/strong_hash_derive" }
 strsim = "0.11.1"
 strum = { version = "0.28.0", features = ["derive"] }
 superconsole = { path = "superconsole" }

@@ -5,6 +5,27 @@ oncall("build_infra")
 rust_library(
     name = "strong_hash",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # Each is gated behind a same-named feature and wants none
+                    # of the features fbsource enables on it.
+                    "num-bigint": {"features": [], "optional": True, "workspace": False},
+                    "triomphe": {"features": [], "optional": True, "workspace": False},
+                },
+            },
+            "features": {
+                "default": [],
+                "num-bigint": ["dep:num-bigint"],
+                "triomphe": ["dep:triomphe"],
+            },
+            "package": {
+                "description": "Hash trait similar to std::hash::Hash but for strong/cryptographic hashes",
+                "version": "0.1.0",
+            },
+        },
+    },
     features = [
         "num-bigint",
         "triomphe",
