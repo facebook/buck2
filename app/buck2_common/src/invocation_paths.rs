@@ -34,11 +34,11 @@ pub const DEFAULT_ISOLATION_DIR: &str = "v2";
 pub struct InvocationPaths {
     pub roots: InvocationRoots,
 
-    /// The isolation dir is a dir relative path used to create unique directories for
-    /// all on-disk state relating to a daemon. This allows multiple daemons to run in
-    /// the same project root.
+    /// The isolation dir is a relative path used to create unique directories for
+    /// a tenant's on-disk state. This allows multiple isolated tenants to use the
+    /// same project root.
     ///
-    /// The daemon metadata directory is post-fixed with the isolation prefix
+    /// The legacy per-repo daemon metadata directory is post-fixed with the isolation prefix
     /// (i.e `$HOME/.buck/buckd/<projectroot>/<isolationdir>`).
     /// The buck-out is `<projectroot>/buck-out/<isolationdir>/`
     ///

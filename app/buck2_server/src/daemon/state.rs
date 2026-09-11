@@ -30,6 +30,8 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::parse_buckconfig_metadata;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
+use buck2_common::tenant::TenantKey;
+use buck2_common::tenant::TenantSpec;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
@@ -117,13 +119,14 @@ pub struct DaemonState {
     working_directory: WorkingDirectory,
 }
 
-/// State scoped to one repository.
+/// State scoped to one tenant.
 ///
-/// Everything here belongs to one repo, so none of it can be shared between repos. A daemon
-/// serving N repos holds N of these.
+/// A tenant is the state that historically belonged to one `(project root, isolation)` daemon.
+/// A shared daemon can hold multiple tenants, including multiple isolations for one project root.
 #[derive(Allocative)]
 pub struct RepoState {
-    /// Where this repo lives on disk.
+    /// Legacy path carrier used by tenant services. Its invocation cwd is excluded from the
+    /// `TenantKey` used by the registry.
     pub paths: InvocationPaths,
 
     /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
@@ -205,12 +208,65 @@ pub struct RepoState {
     pub(crate) clean_scratch_on_idle: bool,
 }
 
+/// Tenant states known to this daemon.
+///
+/// The registry initially contains the tenant that started the daemon. Commands continue to use
+/// that sole tenant until lifecycle and client-addressing support are added.
+#[derive(Allocative)]
+struct TenantStateRegistry {
+    initial_tenant: TenantKey,
+    tenants: StdBuckHashMap<TenantKey, TenantStateEntry>,
+}
+
+#[derive(Allocative)]
+struct TenantStateEntry {
+    spec: TenantSpec,
+    state: Arc<RepoState>,
+}
+
+impl TenantStateRegistry {
+    fn new(initial_tenant: Arc<RepoState>) -> Self {
+        let spec = TenantSpec::from_invocation_paths(&initial_tenant.paths);
+        let initial_key = spec.key().clone();
+        let tenants = StdBuckHashMap::from_iter([(
+            initial_key.clone(),
+            TenantStateEntry {
+                spec,
+                state: initial_tenant,
+            },
+        )]);
+
+        Self {
+            initial_tenant: initial_key,
+            tenants,
+        }
+    }
+
+    fn get(&self, key: &TenantKey) -> Option<&Arc<RepoState>> {
+        self.tenants.get(key).map(|entry| {
+            debug_assert_eq!(entry.spec.key(), key);
+            &entry.state
+        })
+    }
+
+    fn sole_repo(&self) -> &Arc<RepoState> {
+        match self.tenants.len() {
+            1 => self
+                .get(&self.initial_tenant)
+                .expect("initial tenant should be present while it is the sole tenant"),
+            tenant_count => panic!(
+                "sole_repo called with {} tenants in the registry",
+                tenant_count
+            ),
+        }
+    }
+}
+
 /// DaemonStateData is the main shared data across all commands and repos. It's lazily initialized
 /// on the first command that requires it.
 #[derive(Allocative)]
 pub struct DaemonStateData {
-    /// State for the repo this daemon serves.
-    repo: Arc<RepoState>,
+    tenants: TenantStateRegistry,
 
     /// Daemon-wide scheduling resources for repo-scoped blocking executors.
     pub blocking_executor_factory: Arc<BlockingExecutorFactory>,
@@ -265,11 +321,15 @@ impl DaemonStateData {
     /// way to say *which* repo before the daemon can serve more than one, so this is deliberately
     /// easy to find.
     pub fn sole_repo(&self) -> &Arc<RepoState> {
-        &self.repo
+        self.tenants.sole_repo()
     }
 
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
-        crate::daemon::dice_dump::dice_dump(self.repo.dice_manager.unsafe_dice(), path, format)
+        crate::daemon::dice_dump::dice_dump(
+            self.sole_repo().dice_manager.unsafe_dice(),
+            path,
+            format,
+        )
     }
 
     pub async fn spawn_dice_dump(
@@ -278,7 +338,7 @@ impl DaemonStateData {
         format: DiceDumpFormat,
     ) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump_spawn(
-            self.repo.dice_manager.unsafe_dice(),
+            self.sole_repo().dice_manager.unsafe_dice(),
             path,
             format,
         )
@@ -841,7 +901,7 @@ impl DaemonState {
             }
 
             Ok(Arc::new(DaemonStateData {
-                repo,
+                tenants: TenantStateRegistry::new(repo),
                 blocking_executor_factory,
                 forkserver,
                 scribe_sink,
