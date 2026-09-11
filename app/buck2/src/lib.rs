@@ -15,6 +15,7 @@ use std::thread;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
+use buck2_client::commands::cleanall::CleanallCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::expand_external_cell::ExpandExternalCellsCommand;
 use buck2_client::commands::explain::ExplainCommand;
@@ -345,7 +346,7 @@ impl ParsedArgv {
         match &opt.cmd {
             #[cfg(not(client_only))]
             CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
-            CommandKind::Clean(..) => {}
+            CommandKind::Clean(..) | CommandKind::Cleanall(..) => {}
             _ => {
                 check_user_allowed()?;
             }
@@ -420,6 +421,7 @@ pub(crate) enum CommandKind {
     #[clap(hide(true))] // @oss-enable
     Rage(RageCommand),
     Clean(CleanCommand),
+    Cleanall(CleanallCommand),
     #[clap(subcommand)]
     Log(LogCommand),
     Lsp(LspCommand),
@@ -561,6 +563,7 @@ impl CommandKind {
             CommandKind::Kill(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Killall(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Clean(cmd) => cmd.exec(matches, command_ctx, events_ctx),
+            CommandKind::Cleanall(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Root(cmd) => cmd.exec(matches, command_ctx).into(),
             CommandKind::Query(cmd) => {
                 buck2_client_ctx::eprintln!(
@@ -610,6 +613,7 @@ impl CommandKind {
             CommandKind::Kill(cmd) => cmd.logging_name(),
             CommandKind::Killall(cmd) => cmd.logging_name(),
             CommandKind::Clean(cmd) => cmd.command_name(),
+            CommandKind::Cleanall(cmd) => cmd.logging_name(),
             CommandKind::Root(_) => "root",
             CommandKind::Query(cmd) => cmd.logging_name(),
             CommandKind::Server(cmd) => cmd.logging_name(),

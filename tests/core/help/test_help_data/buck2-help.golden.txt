@@ -36,6 +36,7 @@ Commands:
   profile               Run starlark profiler
   rage                  Record information about the previous failed buck2 command
   clean                 Delete generated files and caches
+  cleanall              Clean Buck2 state for every known project and isolation directory
   log                   Commands for interacting with buck2 logs
   lsp                   Start an LSP server for starlark files
   subscribe             Subscribe to updates from the Buck2 daemon
