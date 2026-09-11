@@ -480,7 +480,6 @@ def cxx_link_into(
         allow_cache_upload = allow_cache_upload,
         error_handler = opts.error_handler,
         no_outputs_cleanup = is_incremental_link,
-        eager_materialization_enabled = True,
     )
 
     external_debug_info = link_external_debug_info(
