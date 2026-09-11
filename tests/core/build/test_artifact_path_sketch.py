@@ -191,9 +191,9 @@ async def test_estimated_symlink_file(buck: Buck) -> None:
     assert count is not None
     assert count == pytest.approx(2.0, abs=0.5)
     # Size: src.txt contents ("source_content" = 14 bytes) + link.txt symlink
-    # target string (a project-relative path; ~10 bytes for "../src.txt").
+    # target string (a content-based path; ~27 bytes).
     assert size is not None
-    assert size == pytest.approx(24.0, abs=5.0)
+    assert size == pytest.approx(41.0, abs=5.0)
 
 
 @buck_test()
@@ -210,6 +210,6 @@ async def test_estimated_symlinked_dir(buck: Buck) -> None:
     assert count is not None
     assert count == pytest.approx(4.0, abs=0.5)
     # Size: src1.txt + src2.txt ("content1"/"content2" = 8 bytes each) + two
-    # symlink target strings (~14 bytes each for "../../srcN.txt").
+    # content-based symlink target strings (~32 bytes each).
     assert size is not None
-    assert size == pytest.approx(44.0, abs=6.0)
+    assert size == pytest.approx(80.0, abs=6.0)

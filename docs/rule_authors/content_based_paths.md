@@ -229,27 +229,11 @@ ctx.actions.copy_file(out, src, has_content_based_path = True)
 ctx.actions.download_file(out, url, sha256 = "...", has_content_based_path = True)
 ```
 
-### Setting a project-wide default
+### Default behavior
 
-You can configure `declare_output` to default to content-based paths project-wide
-in your [`.buckconfig`](../concepts/buckconfig.md):
-
-```ini
-[buck2]
-  declare_output_has_content_based_path_default = true
-```
-
-There is a corresponding key for actions that *implicitly* declare an output by
-being passed a string name instead of a declared artifact (e.g.
-`ctx.actions.write("header.h", ...)`):
-
-```ini
-[buck2]
-  action_has_content_based_path_default = true
-```
-
-Both default to `false`. Individual actions can still override either default by
-passing `has_content_based_path` explicitly.
+Outputs use content-based paths by default, whether declared explicitly with
+`declare_output` or implicitly by passing a string name to an action. Individual
+calls can opt out by passing `has_content_based_path = False`.
 
 ### In prelude rules
 

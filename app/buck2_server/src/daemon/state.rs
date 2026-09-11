@@ -15,8 +15,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use buck2_build_api::interpreter::rule_defs::context::init_action_has_content_based_path_default;
-use buck2_build_api::interpreter::rule_defs::context::init_declare_output_has_content_based_path_default;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
@@ -793,21 +791,6 @@ impl DaemonState {
                 format!("eager-materialization:{}", eager_materialization_enabled,),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
-
-            let declare_output_has_content_based_path_default =
-                root_config.parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "declare_output_has_content_based_path_default",
-                })?;
-            init_declare_output_has_content_based_path_default(
-                declare_output_has_content_based_path_default,
-            )?;
-
-            let action_has_content_based_path_default = root_config.parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "action_has_content_based_path_default",
-            })?;
-            init_action_has_content_based_path_default(action_has_content_based_path_default)?;
 
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
