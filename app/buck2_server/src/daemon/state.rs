@@ -51,8 +51,7 @@ use buck2_events::source::ChannelEventSource;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
-use buck2_execute::execute::blocking::BuckBlockingExecutor;
-use buck2_execute::execute::blocking::DirectIoExecutor;
+use buck2_execute::execute::blocking::BlockingExecutorFactory;
 use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -181,6 +180,9 @@ pub struct RepoState {
     /// terminated.
     pub re_client_manager: Arc<ReConnectionManager>,
 
+    /// Executor for blocking I/O against this repo's project root.
+    pub blocking_executor: Arc<dyn BlockingExecutor>,
+
     pub buckconfig_metadata: StdBuckHashMap<String, String>,
 
     /// Tags to be logged per command.
@@ -211,8 +213,8 @@ pub struct DaemonStateData {
     /// State for the repo this daemon serves.
     repo: Arc<RepoState>,
 
-    /// Executor responsible for coordinating and rate limiting I/O.
-    pub blocking_executor: Arc<dyn BlockingExecutor>,
+    /// Daemon-wide scheduling resources for repo-scoped blocking executors.
+    pub blocking_executor_factory: Arc<BlockingExecutorFactory>,
 
     pub(crate) forkserver: ForkserverAccess,
 
@@ -469,12 +471,8 @@ impl DaemonState {
 
             let disk_state_options = DiskStateOptions::new(root_config)?;
 
-            let blocking_executor: Arc<dyn BlockingExecutor> =
-                if cfg!(any(target_os = "macos", target_os = "windows")) {
-                    Arc::new(DirectIoExecutor::new(fs.dupe())?)
-                } else {
-                    Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?)
-                };
+            let blocking_executor_factory = Arc::new(BlockingExecutorFactory::create()?);
+            let blocking_executor = blocking_executor_factory.for_project(fs.dupe());
 
             let cache_dir_path = paths.cache_dir_path();
             let valid_cache_dirs = paths.valid_cache_dirs();
@@ -811,6 +809,7 @@ impl DaemonState {
                 incremental_db_state,
                 paranoid,
                 re_client_manager,
+                blocking_executor,
                 buckconfig_metadata: parse_buckconfig_metadata(root_config),
                 tags,
                 system_warning_config,
@@ -843,7 +842,7 @@ impl DaemonState {
 
             Ok(Arc::new(DaemonStateData {
                 repo,
-                blocking_executor,
+                blocking_executor_factory,
                 forkserver,
                 scribe_sink,
                 start_time: std::time::Instant::now(),

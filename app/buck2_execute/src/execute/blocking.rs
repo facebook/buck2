@@ -77,20 +77,21 @@ pub trait IoRequest: Send + Sync + 'static {
 }
 
 struct ThreadPoolIoRequest {
+    project_fs: ProjectRoot,
     io: Box<dyn IoRequest>,
     parent_id: Option<SpanId>,
     sender: oneshot::Sender<buck2_error::Result<()>>,
 }
 
 #[derive(Allocative)]
-pub struct BuckBlockingExecutor {
+struct BuckBlockingExecutorShared {
     #[allocative(skip)]
     io_data_semaphore: Semaphore,
     #[allocative(skip)]
     command_sender: crossbeam_channel::Sender<ThreadPoolIoRequest>,
 }
 
-impl BuckBlockingExecutor {
+impl BuckBlockingExecutorShared {
     /// We choose the default concurrency as follows:
     ///
     /// - For operations executed by the thread pool, we use `directory_mutation_parallelism()`:
@@ -101,7 +102,7 @@ impl BuckBlockingExecutor {
     ///   host. This is because those operations often have to do CPU bound work to generate the data
     ///   they are trying to write, and writing to multiple files doesn't have the negative scaling
     ///   issues modifying the directory structure does.
-    pub fn default_concurrency(fs: ProjectRoot) -> buck2_error::Result<Self> {
+    fn default_concurrency() -> buck2_error::Result<Self> {
         let io_threads =
             buck2_env!("BUCK2_IO_THREADS", type=usize, default=directory_mutation_parallelism())?;
         let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=buck2_util::threads::available_parallelism())?;
@@ -110,15 +111,15 @@ impl BuckBlockingExecutor {
 
         for i in 0..io_threads {
             let command_receiver = command_receiver.clone();
-            let fs = fs.dupe();
             thread_spawn(&format!("buck-io-{i}"), move || {
                 for ThreadPoolIoRequest {
+                    project_fs,
                     sender,
                     parent_id,
                     io,
                 } in command_receiver.iter()
                 {
-                    let res = maybe_proxy_current_span(parent_id, || io.execute(&fs));
+                    let res = maybe_proxy_current_span(parent_id, || io.execute(&project_fs));
                     let _ignored = sender.send(res);
                 }
             })
@@ -132,6 +133,13 @@ impl BuckBlockingExecutor {
     }
 }
 
+#[derive(Allocative)]
+struct BuckBlockingExecutor {
+    shared: Arc<BuckBlockingExecutorShared>,
+    #[allocative(skip)]
+    project_fs: ProjectRoot,
+}
+
 #[async_trait]
 impl BlockingExecutor for BuckBlockingExecutor {
     async fn execute_dyn_io_inline<'a>(
@@ -139,6 +147,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
         f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
     ) -> buck2_error::Result<()> {
         let _permit = self
+            .shared
             .io_data_semaphore
             .acquire()
             .await
@@ -156,7 +165,8 @@ impl BlockingExecutor for BuckBlockingExecutor {
 
         // Ignore errors sending as they'll translate to an error receiving once we drop the
         // sender.
-        let _ignored = self.command_sender.send(ThreadPoolIoRequest {
+        let _ignored = self.shared.command_sender.send(ThreadPoolIoRequest {
+            project_fs: self.project_fs.dupe(),
             io,
             parent_id: current_span(),
             sender,
@@ -170,7 +180,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
     }
 
     fn queue_size(&self) -> usize {
-        self.command_sender.len()
+        self.shared.command_sender.len()
     }
 }
 
@@ -178,15 +188,9 @@ impl BlockingExecutor for BuckBlockingExecutor {
 /// blocking thread pool.
 
 #[derive(Allocative)]
-pub struct DirectIoExecutor {
+struct DirectIoExecutor {
     #[allocative(skip)]
     project_fs: ProjectRoot,
-}
-
-impl DirectIoExecutor {
-    pub fn new(project_fs: ProjectRoot) -> buck2_error::Result<Self> {
-        Ok(Self { project_fs })
-    }
 }
 
 #[async_trait]
@@ -219,6 +223,49 @@ impl BlockingExecutor for DirectIoExecutor {
         // This executor does not maintain its own queue. We are logging Tokio
         // IO thread metrics separately.
         0
+    }
+}
+
+#[derive(Allocative)]
+enum BlockingExecutorFactoryKind {
+    Pooled(Arc<BuckBlockingExecutorShared>),
+    Direct,
+}
+
+/// Owns the daemon-wide scheduling resources used to create repo-bound blocking executors.
+#[derive(Allocative)]
+pub struct BlockingExecutorFactory {
+    kind: BlockingExecutorFactoryKind,
+}
+
+impl BlockingExecutorFactory {
+    pub fn create() -> buck2_error::Result<Self> {
+        let kind = if cfg!(any(target_os = "macos", target_os = "windows")) {
+            BlockingExecutorFactoryKind::Direct
+        } else {
+            BlockingExecutorFactoryKind::Pooled(Arc::new(
+                BuckBlockingExecutorShared::default_concurrency()?,
+            ))
+        };
+
+        Ok(Self { kind })
+    }
+
+    pub fn for_project(&self, project_fs: ProjectRoot) -> Arc<dyn BlockingExecutor> {
+        match &self.kind {
+            BlockingExecutorFactoryKind::Pooled(shared) => Arc::new(BuckBlockingExecutor {
+                shared: shared.dupe(),
+                project_fs,
+            }),
+            BlockingExecutorFactoryKind::Direct => Arc::new(DirectIoExecutor { project_fs }),
+        }
+    }
+
+    pub fn queue_size(&self) -> usize {
+        match &self.kind {
+            BlockingExecutorFactoryKind::Pooled(shared) => shared.command_sender.len(),
+            BlockingExecutorFactoryKind::Direct => 0,
+        }
     }
 }
 
@@ -274,5 +321,57 @@ pub mod testing {
         fn queue_size(&self) -> usize {
             0
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::error::IoResultExt;
+    use buck2_fs::fs_util;
+
+    use super::*;
+
+    struct WriteMarker(&'static str);
+
+    impl IoRequest for WriteMarker {
+        fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
+            project_fs.write_file(ProjectRelativePath::new("marker")?, self.0, false)
+        }
+    }
+
+    #[tokio::test]
+    async fn factory_routes_io_to_each_project_root() -> buck2_error::Result<()> {
+        let first_root = ProjectRootTemp::new()?;
+        let second_root = ProjectRootTemp::new()?;
+        let factory = BlockingExecutorFactory::create()?;
+        let first_executor = factory.for_project(first_root.path().dupe());
+        let second_executor = factory.for_project(second_root.path().dupe());
+
+        first_executor
+            .execute_io(
+                Box::new(WriteMarker("first")),
+                CancellationContext::never_cancelled(),
+            )
+            .await?;
+        second_executor
+            .execute_io(
+                Box::new(WriteMarker("second")),
+                CancellationContext::never_cancelled(),
+            )
+            .await?;
+
+        let marker = ProjectRelativePath::new("marker")?;
+        assert_eq!(
+            fs_util::read_to_string(first_root.path().resolve(marker)).categorize_internal()?,
+            "first"
+        );
+        assert_eq!(
+            fs_util::read_to_string(second_root.path().resolve(marker)).categorize_internal()?,
+            "second"
+        );
+
+        Ok(())
     }
 }

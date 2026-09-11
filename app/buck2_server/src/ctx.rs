@@ -999,7 +999,7 @@ impl DiceCommandUpdater<'_, '_> {
             host_sharing_broker,
             low_pass_filter,
             self.cmd_ctx.base_context.repo.materializer.dupe(),
-            self.cmd_ctx.base_context.daemon.blocking_executor.dupe(),
+            self.cmd_ctx.base_context.repo.blocking_executor.dupe(),
             self.execution_strategy,
             executor_global_knobs,
             self.upload_all_actions,
@@ -1018,7 +1018,7 @@ impl DiceCommandUpdater<'_, '_> {
             output_trees_download_config.dupe(),
             self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));
-        data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
+        data.set_blocking_executor(self.cmd_ctx.base_context.repo.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
         data.set_materializer(self.cmd_ctx.base_context.repo.materializer.dupe());
         data.init_materialization_queue_tracker();

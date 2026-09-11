@@ -153,7 +153,7 @@ impl SnapshotCollector {
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size =
-            self.daemon.blocking_executor.queue_size() as u64;
+            self.daemon.blocking_executor_factory.queue_size() as u64;
         if let Ok(store) = DEP_FILE_STORE.get() {
             snapshot.dep_file_db_queue_size = store.queue_size();
             let writes = store.write_stats();
