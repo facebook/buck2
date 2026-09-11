@@ -65,6 +65,11 @@ const SIZES: [(usize, usize, usize, &str); 4] = [
     (50, 34, 200, "Huge"),
 ];
 
+fn format_elapsed_time(elapsed_secs: f64) -> String {
+    let elapsed_secs = elapsed_secs as u64;
+    format!("{:02}:{:02}", elapsed_secs / 60, elapsed_secs % 60)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CellState {
     Hidden,
@@ -243,6 +248,16 @@ impl Game {
         }
     }
 
+    fn refresh_revealed_numbers(&mut self) {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.state[y][x] == CellState::Revealed && !self.mines[y][x] {
+                    self.numbers[y][x] = self.adjacent_mines(x, y);
+                }
+            }
+        }
+    }
+
     fn check_win(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
@@ -318,9 +333,6 @@ impl Game {
                             continue;
                         }
                         let n = self.numbers[y][x];
-                        if n == 0 {
-                            continue;
-                        }
 
                         let mut mine_count = 0u8;
                         let mut unknown: Vec<(usize, usize)> = Vec::new();
@@ -747,6 +759,8 @@ impl Game {
         for &(ix, iy) in &interior_available[..to_place] {
             self.mines[iy][ix] = true;
         }
+
+        self.refresh_revealed_numbers();
     }
 
     fn render_cell(&self, line: &mut Line, x: usize, y: usize) {
@@ -933,16 +947,9 @@ impl super::Game for Game {
                     });
                     let cursor_is_safe = safe[self.cursor_y][self.cursor_x];
 
-                    if has_safe_moves && !cursor_is_safe {
-                        if self.safe_mode {
-                            self.blocked_click = true;
-                            return None;
-                        } else {
-                            self.state[self.cursor_y][self.cursor_x] = CellState::Revealed;
-                            self.game_over = true;
-                            self.check_win();
-                            return None;
-                        }
+                    if has_safe_moves && !cursor_is_safe && self.safe_mode {
+                        self.blocked_click = true;
+                        return None;
                     }
 
                     if !has_safe_moves {
@@ -1122,15 +1129,16 @@ impl Component for Game {
                 } else {
                     ""
                 };
+                let elapsed = format_elapsed_time(self.elapsed_secs);
                 let status = if self.blocked_click {
                     format!(
-                        "Mines: {}  Flags: {}  Remaining: {}{}{}  Use logic!",
-                        self.mine_count, flags, remaining, safe_tag, fast_tag
+                        "Mines: {}  Flags: {}  Remaining: {}  Time: {}{}{}  Use logic!",
+                        self.mine_count, flags, remaining, elapsed, safe_tag, fast_tag
                     )
                 } else {
                     format!(
-                        "Mines: {}  Flags: {}  Remaining: {}{}{}",
-                        self.mine_count, flags, remaining, safe_tag, fast_tag
+                        "Mines: {}  Flags: {}  Remaining: {}  Time: {}{}{}",
+                        self.mine_count, flags, remaining, elapsed, safe_tag, fast_tag
                     )
                 };
                 lines.push(vec![status].try_into().unwrap());
@@ -1314,7 +1322,7 @@ mod tests {
             5,
             1,
             &[
-                ((0, 0), Revealed, 0, false),
+                ((0, 0), Revealed, 1, false),
                 ((1, 0), Hidden, 0, true),
                 ((2, 0), Revealed, 2, false),
                 ((3, 0), Hidden, 0, true),
@@ -1367,6 +1375,87 @@ mod tests {
         let (safe, _mine) = game.solve_constraints();
 
         assert!(safe[2][0], "(0,2) should be safe via subset elimination");
+    }
+
+    #[test]
+    fn test_ensure_safe_refreshes_revealed_numbers_after_moving_mines() {
+        use CellState::*;
+        let mut game = make_game(
+            3,
+            1,
+            &[
+                ((0, 0), Revealed, 1, false),
+                ((1, 0), Hidden, 0, true),
+                ((2, 0), Hidden, 0, false),
+            ],
+        );
+
+        game.ensure_safe(1, 0);
+
+        assert!(!game.mines[0][1], "clicked cell should be safe");
+        assert!(
+            game.mines[0][2],
+            "mine should move to the only available cell"
+        );
+        assert_eq!(
+            game.mines.iter().flatten().filter(|&&mine| mine).count(),
+            game.mine_count,
+            "moving a mine should preserve the mine count",
+        );
+
+        assert_eq!(
+            game.numbers[0][0], 0,
+            "moving the only adjacent mine should change the revealed number",
+        );
+        assert_eq!(
+            game.numbers[0][0],
+            game.adjacent_mines(0, 0),
+            "revealed numbers should match the current mine layout after ensure_safe",
+        );
+        let (safe, _) = game.solve_constraints();
+        assert!(
+            safe[0][1],
+            "the relocated board's zero clue should prove the clicked cell safe",
+        );
+    }
+
+    #[test]
+    fn test_unproven_safe_click_only_loses_when_it_contains_a_mine() {
+        use CellState::*;
+        let mut game = make_game(
+            6,
+            1,
+            &[
+                ((0, 0), Flagged, 0, true),
+                ((1, 0), Revealed, 1, false),
+                ((2, 0), Hidden, 0, false),
+                ((3, 0), Hidden, 0, false),
+                ((4, 0), Hidden, 0, true),
+                ((5, 0), Hidden, 0, false),
+            ],
+        );
+        game.cursor_x = 3;
+        game.cursor_y = 0;
+
+        let (safe, _) = game.solve_constraints();
+        assert!(safe[0][2], "the board should have a logically safe move");
+        assert!(!safe[0][3], "the selected cell should not be proven safe");
+
+        <Game as super::super::Game>::input(&mut game, Control::Char(' '));
+
+        assert_eq!(game.state[0][3], Revealed);
+        assert!(
+            !game.game_over,
+            "revealing a non-mine should not end the game"
+        );
+    }
+
+    #[test]
+    fn test_format_elapsed_time() {
+        assert_eq!(format_elapsed_time(0.0), "00:00");
+        assert_eq!(format_elapsed_time(59.9), "00:59");
+        assert_eq!(format_elapsed_time(60.0), "01:00");
+        assert_eq!(format_elapsed_time(3600.0), "60:00");
     }
 
     /// Verify that the solver handles an already-fully-resolved board.
