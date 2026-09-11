@@ -173,6 +173,9 @@ pub struct RepoState {
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
 
+    /// If enabled, paranoid RE downloads.
+    pub paranoid: Option<ParanoidDownloader>,
+
     pub buckconfig_metadata: StdBuckHashMap<String, String>,
 
     /// Tags to be logged per command.
@@ -224,9 +227,6 @@ pub struct DaemonStateData {
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: HttpClient,
-
-    /// If enabled, paranoid RE downloads.
-    pub paranoid: Option<ParanoidDownloader>,
 
     /// Spawner
     pub spawner: Arc<BuckSpawner>,
@@ -809,6 +809,7 @@ impl DaemonState {
                 materializer_state_identity,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
+                paranoid,
                 buckconfig_metadata: parse_buckconfig_metadata(root_config),
                 tags,
                 system_warning_config,
@@ -848,7 +849,6 @@ impl DaemonState {
                 start_time: std::time::Instant::now(),
                 enable_restarter,
                 http_client,
-                paranoid,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 memory_tracker,
                 daemon_id: daemon_id.dupe(),

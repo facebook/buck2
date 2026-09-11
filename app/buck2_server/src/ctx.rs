@@ -1011,7 +1011,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.skip_cache_write,
             self.cmd_ctx.base_context.repo.io.project_root().dupe(),
             worker_pool,
-            self.cmd_ctx.base_context.daemon.paranoid.dupe(),
+            self.cmd_ctx.base_context.repo.paranoid.dupe(),
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             override_use_case,
