@@ -33,7 +33,6 @@ use crate::values::freeze::FreezeDestination;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::heap_copy_impl;
-use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
@@ -61,10 +60,6 @@ where
         freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
         unsafe {
-            if let Some(fv) = try_freeze_directly::<Self>(me, freezer) {
-                return fv;
-            }
-
             let plan = (*me).payload.prepare_freeze(freezer)?;
             let destination = plan.target().reserve(freezer);
             let slot = match destination {

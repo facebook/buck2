@@ -207,6 +207,8 @@ where
     Self: StarlarkValue<'v> + HeapSendable<'v>,
     T: Trace<'v> + ProvidesStaticType<'v> + FreezeBranded<'v>,
     for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>: AValueSimpleBound<'fv>,
+    for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>:
+        ProvidesStaticType<'fv, StaticType = StarlarkAnyComplex<T::Frozen<'static>>>,
 {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_branded(self)

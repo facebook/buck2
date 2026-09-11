@@ -33,7 +33,6 @@ use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 
@@ -188,29 +187,6 @@ pub(crate) struct AValueImpl<'v, T: AValue<'v>>(PhantomData<T>, pub(crate) T::St
 impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
     pub(crate) const fn new(value: T::StarlarkValue) -> Self {
         AValueImpl(PhantomData, value)
-    }
-}
-
-/// If `A` provides a statically allocated frozen value,
-/// replace object with the forward to that frozen value instead of using default freeze.
-pub(super) unsafe fn try_freeze_directly<'v, 'fv, A>(
-    me: *mut AValueRepr<A::StarlarkValue>,
-    freezer: &Freezer<'v, 'fv>,
-) -> Option<FreezeResult<Value<'fv>>>
-where
-    A: AValue<'v>,
-{
-    unsafe {
-        let f = match (*me).payload.try_freeze_directly(freezer)? {
-            Ok(x) => x,
-            Err(e) => return Some(Err(e)),
-        };
-
-        drop(AValueHeader::overwrite_with_forward::<A::StarlarkValue>(
-            me,
-            ForwardPtr::new_frozen(f),
-        ));
-        Some(Ok(f))
     }
 }
 
@@ -419,9 +395,8 @@ mod tests {
     }
 
     #[test]
-    fn test_try_freeze_directly() {
-        // `try_freeze_directly` is only implemented for `dict` at the moment of writing,
-        // so use it for the test.
+    fn test_freeze_to_existing_value() {
+        // Empty dictionaries freeze to one statically allocated value.
 
         Module::with_temp_heap(|module| {
             let d0 = module.heap().alloc(AllocDict::EMPTY);

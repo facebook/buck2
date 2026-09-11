@@ -28,17 +28,16 @@
 //!
 //! A value can provide its frozen representation in several ways:
 //!
-//! * A [`StarlarkValue`](crate::values::StarlarkValue) can return an existing
-//!   frozen [`Value`] from `try_freeze_directly`. The source is replaced by a
-//!   forwarding record to that value and no destination is allocated.
 //! * Built-in AValue layouts, such as lists and tuples, can implement their
 //!   complete `heap_freeze` operation directly when their trailing storage needs
 //!   specialized handling.
 //! * A value allocated with [`Heap::alloc_complex_branded`](crate::values::Heap::alloc_complex_branded)
 //!   implements [`FreezeDynamic`]. Most such values implement [`FreezeBranded`]; the
 //!   blanket [`FreezeDynamic`] implementation selects one statically known frozen Rust
-//!   type. A direct [`FreezeDynamic`] implementation can inspect the source and select
-//!   its frozen type and allocation size at runtime.
+//!   type. A `FreezeBranded` implementation can reuse an existing frozen [`Value`] from
+//!   [`FreezeBranded::prepare_freeze`] instead of allocating it. A direct
+//!   [`FreezeDynamic`] implementation can inspect the source and select its frozen
+//!   type and allocation size at runtime.
 //!
 //! Every result must be equal to the source value and produce the same hash.
 //!
@@ -418,39 +417,5 @@ impl<'fv> InitializedFreezeSlot<'fv> {
         // frozen heap. Reservations are never strings, so the pointer carries
         // no string tag.
         unsafe { Value::new_frozen_ptr(&*header, false) }
-    }
-}
-
-#[doc(hidden)]
-pub struct FreezeBrandedPlan<T>(PhantomData<fn() -> T>);
-
-impl<'v, T> FreezeDynamic<'v> for T
-where
-    T: FreezeBranded<'v>,
-    T::Frozen<'static>: AValueSimpleBound<'static>,
-{
-    type Plan<'fv> = FreezeBrandedPlan<T>;
-
-    fn prepare_freeze<'fv>(&self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Plan<'fv>> {
-        Ok(FreezeBrandedPlan(PhantomData))
-    }
-}
-
-impl<'v, 'fv, T> FreezePlan<'v, 'fv, T> for FreezeBrandedPlan<T>
-where
-    T: FreezeBranded<'v>,
-    T::Frozen<'static>: AValueSimpleBound<'static>,
-{
-    fn target(&self) -> FreezeTarget<'fv> {
-        FreezeTarget::simple::<T::Frozen<'static>>()
-    }
-
-    fn freeze_into(
-        self,
-        value: T,
-        freezer: &Freezer<'v, 'fv>,
-        slot: FreezeSlot<'fv>,
-    ) -> FreezeResult<InitializedFreezeSlot<'fv>> {
-        slot.write_branded::<T>(value.freeze(freezer)?)
     }
 }

@@ -42,6 +42,7 @@ use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::FreezeBranded;
+use starlark::values::FreezeBrandedPlan;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
@@ -548,22 +549,6 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn CommandLineArgLike>(self);
     }
-
-    fn try_freeze_directly<'fv>(
-        &self,
-        _freezer: &Freezer<'v, 'fv>,
-    ) -> Option<FreezeResult<Value<'fv>>> {
-        let StarlarkCommandLineData {
-            items,
-            hidden,
-            options,
-        } = &*self.0.borrow();
-        if items.is_empty() && hidden.is_empty() && options.is_none() {
-            Some(Ok(EMPTY_FROZEN_CMD_ARGS.at().to_value()))
-        } else {
-            None
-        }
-    }
 }
 
 #[starlark_value(type = "cmd_args", StarlarkTypeRepr, UnpackValue, frozen_vtable)]
@@ -646,8 +631,36 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs<'v> {
     }
 }
 
+/// The direct freeze plan reusing the static empty `cmd_args`.
+///
+/// A free function: naming the static's rebrand inside the early-bound
+/// `prepare_freeze` trait method trips a spurious rustc bound failure; the
+/// identical expression resolves here.
+fn empty_cmd_args_plan<'v, 'fv>() -> FreezeBrandedPlan<'v, 'fv, StarlarkCmdArgs<'v>> {
+    FreezeBrandedPlan::direct(EMPTY_FROZEN_CMD_ARGS.at())
+}
+
 impl<'v> FreezeBranded<'v> for StarlarkCmdArgs<'v> {
     type Frozen<'fv> = FrozenStarlarkCmdArgs<'fv>;
+
+    fn prepare_freeze<'fv>(
+        &self,
+        _freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<FreezeBrandedPlan<'v, 'fv, Self>>
+    where
+        Self::Frozen<'fv>: StarlarkValue<'fv>,
+    {
+        let StarlarkCommandLineData {
+            items,
+            hidden,
+            options,
+        } = &*self.0.borrow();
+        if items.is_empty() && hidden.is_empty() && options.is_none() {
+            Ok(empty_cmd_args_plan())
+        } else {
+            Ok(FreezeBrandedPlan::allocate())
+        }
+    }
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let StarlarkCommandLineData {

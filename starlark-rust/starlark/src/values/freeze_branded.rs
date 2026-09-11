@@ -26,9 +26,19 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate::any::ProvidesStaticType;
+use crate::values::FreezeDynamic;
+use crate::values::FreezeError;
+use crate::values::FreezePlan;
 use crate::values::FreezeResult;
+use crate::values::FreezeSlot;
+use crate::values::FreezeTarget;
 use crate::values::Freezer;
+use crate::values::InitializedFreezeSlot;
+use crate::values::StarlarkValue;
 use crate::values::Value;
+use crate::values::ValueTyped;
+use crate::values::layout::avalue::AValueSimpleBound;
 
 /// Need to be implemented for non-simple `StarlarkValue`.
 ///
@@ -59,6 +69,21 @@ pub trait FreezeBranded<'v> {
     /// When type is frozen, it is frozen into this type.
     type Frozen<'fv>;
 
+    /// Selects whether to allocate `Frozen` or reuse an existing frozen value.
+    ///
+    /// This is called while the source is still intact. Most implementations
+    /// should use the default allocation plan.
+    fn prepare_freeze<'fv>(
+        &self,
+        _freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<FreezeBrandedPlan<'v, 'fv, Self>>
+    where
+        Self: Sized,
+        Self::Frozen<'fv>: StarlarkValue<'fv>,
+    {
+        Ok(FreezeBrandedPlan::allocate())
+    }
+
     /// Freeze a value. The frozen value _must_ be equal to the original,
     /// and produce the same hash.
     ///
@@ -66,6 +91,95 @@ pub trait FreezeBranded<'v> {
     /// trying to unpack these objects will crash the process.
     /// So the function is only allowed to access `Value` objects after it froze them.
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>>;
+}
+
+/// Destination selected by [`FreezeBranded::prepare_freeze`].
+pub struct FreezeBrandedPlan<'v, 'fv, T>
+where
+    T: FreezeBranded<'v>,
+    T::Frozen<'fv>: StarlarkValue<'fv>,
+{
+    direct: Option<ValueTyped<'fv, T::Frozen<'fv>>>,
+    marker: PhantomData<fn(&'v ()) -> T>,
+}
+
+impl<'v, 'fv, T> FreezeBrandedPlan<'v, 'fv, T>
+where
+    T: FreezeBranded<'v>,
+    T::Frozen<'fv>: StarlarkValue<'fv>,
+{
+    /// Allocates a new `T::Frozen` in the frozen heap. This is the default.
+    pub fn allocate() -> Self {
+        Self {
+            direct: None,
+            marker: PhantomData,
+        }
+    }
+
+    /// Forwards to `value` instead of allocating a new frozen value.
+    ///
+    /// The value must be equal to the source and produce the same hash, like
+    /// any freeze result, and must be owned by a heap that outlives the
+    /// freeze destination — typically a statically allocated value.
+    ///
+    /// FIXME(JakobDegen): We may want to make it possible to *only* freeze
+    /// directly — a [`FreezeBranded::prepare_freeze`] that always returns a
+    /// direct plan, with no by-value `freeze` implementation for the type.
+    pub fn direct(value: ValueTyped<'fv, T::Frozen<'fv>>) -> Self {
+        Self {
+            direct: Some(value),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'v, T> FreezeDynamic<'v> for T
+where
+    T: FreezeBranded<'v>,
+    for<'a> T::Frozen<'a>:
+        AValueSimpleBound<'a> + ProvidesStaticType<'a, StaticType = T::Frozen<'static>>,
+{
+    type Plan<'fv> = FreezeBrandedPlan<'v, 'fv, T>;
+
+    fn prepare_freeze<'fv>(&self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Plan<'fv>> {
+        FreezeBranded::prepare_freeze(self, freezer)
+    }
+}
+
+impl<'v, 'fv, T> FreezePlan<'v, 'fv, T> for FreezeBrandedPlan<'v, 'fv, T>
+where
+    T: FreezeBranded<'v>,
+    for<'a> T::Frozen<'a>:
+        AValueSimpleBound<'a> + ProvidesStaticType<'a, StaticType = T::Frozen<'static>>,
+{
+    fn target(&self) -> FreezeTarget<'fv> {
+        match self.direct {
+            Some(value) => FreezeTarget::direct(value.to_value()),
+            // The target names the `'static` instantiation because allocation
+            // identity (vtable and `TypeId`) only exists at `'static`. The
+            // `ProvidesStaticType` bound proves the instantiations of `Frozen`
+            // are one type constructor, so the payload written at `'fv`
+            // through `write_branded` shares this target's layout.
+            None => FreezeTarget::simple::<T::Frozen<'static>>(),
+        }
+    }
+
+    fn freeze_into(
+        self,
+        value: T,
+        freezer: &Freezer<'v, 'fv>,
+        slot: FreezeSlot<'fv>,
+    ) -> FreezeResult<InitializedFreezeSlot<'fv>> {
+        if self.direct.is_some() {
+            // The freeze driver forwards to a direct target without reserving
+            // a destination or calling this method, so this arm only rejects
+            // a driver bug; `value` is dropped unfrozen.
+            return Err(FreezeError::new(
+                "a direct branded freeze plan must not be initialized".to_owned(),
+            ));
+        }
+        slot.write_branded::<T>(value.freeze(freezer)?)
+    }
 }
 
 macro_rules! impl_freeze_branded_identity {

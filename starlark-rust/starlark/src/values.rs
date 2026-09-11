@@ -79,6 +79,7 @@ pub use crate::values::freeze::FreezeSlot;
 pub use crate::values::freeze::FreezeTarget;
 pub use crate::values::freeze::InitializedFreezeSlot;
 pub use crate::values::freeze_branded::FreezeBranded;
+pub use crate::values::freeze_branded::FreezeBrandedPlan;
 pub use crate::values::freeze_error::FreezeError;
 pub use crate::values::freeze_error::FreezeErrorContext;
 pub use crate::values::freeze_error::FreezeResult;

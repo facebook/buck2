@@ -48,6 +48,7 @@ use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FreezeBranded;
+use crate::values::FreezeBrandedPlan;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -300,8 +301,32 @@ impl<'v> Dict<'v> {
     }
 }
 
+/// The direct freeze plan reusing the static empty dict.
+///
+/// A free function: naming the static's rebrand inside the early-bound
+/// `prepare_freeze` trait method trips a spurious rustc bound failure; the
+/// identical expression resolves here.
+fn empty_dict_plan<'v, 'fv>() -> FreezeBrandedPlan<'v, 'fv, DictGen<RefCell<Dict<'v>>>> {
+    FreezeBrandedPlan::direct(VALUE_EMPTY_FROZEN_DICT.at())
+}
+
 impl<'v> FreezeBranded<'v> for DictGen<RefCell<Dict<'v>>> {
     type Frozen<'fv> = DictGen<Dict<'fv>>;
+
+    fn prepare_freeze<'fv>(
+        &self,
+        _freezer: &Freezer<'v, 'fv>,
+    ) -> FreezeResult<FreezeBrandedPlan<'v, 'fv, Self>>
+    where
+        Self::Frozen<'fv>: StarlarkValue<'fv>,
+    {
+        if self.0.content().is_empty() {
+            Ok(empty_dict_plan())
+        } else {
+            Ok(FreezeBrandedPlan::allocate())
+        }
+    }
+
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let entries = self.0.into_inner().content;
         let mut content = SmallMap::with_capacity(entries.len());
@@ -512,17 +537,6 @@ where
 
     fn get_type_starlark_repr() -> Ty {
         Ty::any_dict()
-    }
-
-    fn try_freeze_directly<'fv>(
-        &self,
-        _freezer: &Freezer<'v, 'fv>,
-    ) -> Option<FreezeResult<Value<'fv>>> {
-        if self.0.content().is_empty() {
-            Some(Ok(Value::new_empty_dict()))
-        } else {
-            None
-        }
     }
 }
 

@@ -35,7 +35,6 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::avalue::heap_copy_impl;
 use crate::values::layout::avalue::heap_freeze_simple_impl;
-use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueRepr;
 
 pub(crate) fn simple<'v, T: AValueSimpleBound<'v> + 'v>(x: T) -> AValueImpl<'v, AValueSimple<T>> {
@@ -63,13 +62,7 @@ impl<'v, T: AValueSimpleBound<'v>> AValue<'v> for AValueSimple<T> {
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer<'v, 'fv>,
     ) -> FreezeResult<Value<'fv>> {
-        unsafe {
-            if let Some(f) = try_freeze_directly::<Self>(me, freezer) {
-                return f;
-            }
-
-            heap_freeze_simple_impl::<Self>(me, freezer)
-        }
+        unsafe { heap_freeze_simple_impl::<Self>(me, freezer) }
     }
 
     unsafe fn heap_copy(
