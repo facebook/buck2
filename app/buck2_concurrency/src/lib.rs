@@ -1063,6 +1063,31 @@ mod tests {
         }
     }
 
+    struct FailingUpdater;
+
+    #[async_trait]
+    impl DiceUpdater for FailingUpdater {
+        async fn update(
+            &self,
+            _ctx: DiceTransactionUpdater,
+            _early_timings: &mut EarlyCommandTimingBuilder,
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+            Err(internal_error!("updater failed"))
+        }
+    }
+
+    struct FailingObserver;
+
+    #[async_trait]
+    impl CommandTransactionObserver for FailingObserver {
+        async fn on_transaction_committed(
+            &self,
+            _transaction: &DiceTransaction,
+        ) -> buck2_error::Result<()> {
+            Err(internal_error!("observer failed"))
+        }
+    }
+
     struct NoChanges;
 
     #[async_trait]
@@ -1184,6 +1209,21 @@ mod tests {
             F: FnOnce(DiceTransaction, EarlyCommandTimingBuilder) -> Fut,
             Fut: Future<Output = R> + Send,
         {
+            self.run_with_observer(concurrency, updates, &NoTelemetry, exec)
+                .await
+        }
+
+        async fn run_with_observer<F, Fut, R>(
+            self,
+            concurrency: &Arc<ConcurrencyHandler>,
+            updates: &dyn DiceUpdater,
+            observer: &dyn CommandTransactionObserver,
+            exec: F,
+        ) -> buck2_error::Result<R>
+        where
+            F: FnOnce(DiceTransaction, EarlyCommandTimingBuilder) -> Fut,
+            Fut: Future<Output = R> + Send,
+        {
             concurrency
                 .enter(
                     self.dispatcher,
@@ -1194,7 +1234,7 @@ mod tests {
                     None,
                     CancellationContext::testing(),
                     self.preemptible,
-                    &NoTelemetry,
+                    observer,
                     self.exit_when,
                     EarlyCommandTimingBuilder::new(Instant::now()),
                 )
@@ -2024,6 +2064,98 @@ mod tests {
         );
 
         different.await??;
+
+        Ok(())
+    }
+
+    /// A failing `DiceUpdater` fails its command without wedging the handler for the next one.
+    #[tokio::test]
+    async fn a_failing_updater_leaves_the_handler_usable() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let failed = TestCommand::new()
+            .run(&concurrency, &FailingUpdater, |_, _timing| async move {})
+            .await;
+        assert!(
+            failed.is_err(),
+            "the command should surface the update failure"
+        );
+
+        TestCommand::new()
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        Ok(())
+    }
+
+    /// A failing `CommandTransactionObserver` fails after the transaction is committed and
+    /// `dice_status` has been set, but before the command registers. That leaves an active DICE
+    /// version with no active commands — a state the handler must recover from, since nothing
+    /// notifies waiters on this path.
+    #[tokio::test]
+    async fn a_failing_observer_leaves_the_handler_usable() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let failed = TestCommand::new()
+            .run_with_observer(
+                &concurrency,
+                &NoChanges,
+                &FailingObserver,
+                |_, _timing| async move {},
+            )
+            .await;
+        assert!(
+            failed.is_err(),
+            "the command should surface the observer failure"
+        );
+
+        {
+            let data = concurrency.data.lock().await;
+            assert!(
+                data.has_no_active_commands(),
+                "a command that failed before registering must not be left active"
+            );
+        }
+
+        // Same state: reuses the version the failed command installed, rather than installing a
+        // fresh one. `DiceEqualityCheck` is only emitted when an existing `ActiveDice` is compared
+        // against, so observing it is what distinguishes reuse from teardown-and-reinstall.
+        let reuse = TestEvents::new();
+        TestCommand::new()
+            .dispatcher(reuse.dupe())
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+        reuse
+            .wait_for(|e| {
+                matches!(
+                    e,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::DiceEqualityCheck(
+                        DiceEqualityCheck { is_equal: true }
+                    ))
+                )
+            })
+            .await?;
+
+        // Deregistration is asynchronous, so without this the next command can still see the
+        // previous one registered, take the `Block` path instead of cleanup, and pass without
+        // exercising the transition this is meant to cover.
+        wait_for_commands_to_be_reaped(&concurrency).await?;
+
+        // Different state: must transition through cleanup despite the orphaned version, which
+        // ends with a fresh `ActiveDice` installed and therefore `NoActiveDiceState` reported.
+        let cleanup = TestEvents::new();
+        TestCommand::new()
+            .dispatcher(cleanup.dupe())
+            .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+            .await?;
+        cleanup
+            .wait_for(|e| {
+                matches!(
+                    e,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::NoActiveDiceState(..))
+                )
+            })
+            .await?;
 
         Ok(())
     }
