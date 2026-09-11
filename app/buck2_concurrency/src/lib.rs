@@ -1221,6 +1221,119 @@ mod tests {
         .buck_error_context("Timed out waiting for finished commands to be deregistered")
     }
 
+    /// Direct tests of the `ConcurrencyHandlerData` state machine.
+    ///
+    /// These exercise the transition methods as plain functions rather than through `enter`. That
+    /// makes cases reachable that the command path cannot produce deterministically — notably the
+    /// stale-epoch guard, which via `enter` needs three commands and a specific scheduling delay.
+    ///
+    /// The trade is that these pin the transitions' **contract**, not their **reachability**. That
+    /// a guard behaves correctly when handed a stale epoch does not demonstrate that a stale epoch
+    /// can arise in practice; only an interleaving test would show that, and it needs a
+    /// deterministically drivable arbiter.
+    mod state_machine {
+        use super::*;
+
+        fn cleanup_at(epoch: usize) -> DiceStatus {
+            DiceStatus::Cleanup {
+                future: futures::future::ready(()).boxed().shared(),
+                epoch,
+            }
+        }
+
+        async fn active_status(dice: &Arc<Dice>) -> DiceStatus {
+            DiceStatus::active(dice.updater().commit().await.equality_token())
+        }
+
+        fn data_with(dice_status: DiceStatus, cleanup_epoch: usize) -> ConcurrencyHandlerData {
+            ConcurrencyHandlerData {
+                dice_status,
+                active_commands: SmallMap::new(),
+                next_command_id: CommandId(0),
+                cleanup_epoch,
+                previously_tainted: false,
+            }
+        }
+
+        fn a_command() -> CommandData {
+            CommandData {
+                trace_id: TraceId::new(),
+                argv: Vec::new(),
+                events: Arc::new(TestEvents::new()),
+                preemption_setting: PreemptibleWhen::Never,
+                preempt: None,
+            }
+        }
+
+        #[tokio::test]
+        async fn transition_to_idle_completes_the_matching_cleanup() {
+            let mut data = data_with(cleanup_at(3), 3);
+            data.transition_to_idle(3);
+            assert_matches!(data.dice_status, DiceStatus::Available { active: None });
+        }
+
+        /// Guard A. Two commands can await the same cleanup future; the first to reacquire the lock
+        /// completes the transition and may install a fresh `ActiveDice`. The second must not then
+        /// clear it.
+        #[tokio::test]
+        async fn transition_to_idle_is_a_noop_once_already_available() {
+            let dice = make_default_dice();
+            let mut data = data_with(active_status(&dice).await, 3);
+            data.transition_to_idle(3);
+            assert_matches!(
+                data.dice_status,
+                DiceStatus::Available { active: Some(..) },
+                "an already-completed cleanup must not discard the active DICE version"
+            );
+        }
+
+        /// Guard B. A waiter parked across an entire later command can return holding an epoch that
+        /// has since been superseded by a *new* cleanup. Completing that stale cleanup would
+        /// release commands to run against a DICE state that has not drained.
+        #[tokio::test]
+        async fn transition_to_idle_is_a_noop_for_a_superseded_epoch() {
+            let mut data = data_with(cleanup_at(4), 4);
+            data.transition_to_idle(3);
+            assert_matches!(
+                data.dice_status,
+                DiceStatus::Cleanup { epoch: 4, .. },
+                "a stale waiter must not complete a newer cleanup"
+            );
+        }
+
+        #[tokio::test]
+        async fn transition_to_cleanup_advances_the_epoch_when_idle() {
+            let dice = make_default_dice();
+            let mut data = data_with(active_status(&dice).await, 7);
+
+            assert!(data.transition_to_cleanup(&dice));
+            assert_eq!(data.cleanup_epoch, 8);
+            assert_matches!(
+                data.dice_status,
+                DiceStatus::Cleanup { epoch: 8, .. },
+                "the new cleanup should carry the advanced epoch"
+            );
+        }
+
+        #[tokio::test]
+        async fn transition_to_cleanup_refuses_while_commands_are_active() {
+            let dice = make_default_dice();
+            let mut data = data_with(active_status(&dice).await, 7);
+            data.active_commands.insert(CommandId(0), a_command());
+
+            assert!(!data.transition_to_cleanup(&dice));
+            assert_eq!(
+                data.cleanup_epoch, 7,
+                "a refused transition must not burn an epoch"
+            );
+            assert_matches!(
+                data.dice_status,
+                DiceStatus::Available { active: Some(..) },
+                "a refused transition must leave the active DICE version in place"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
         // FIXME: This times out on open source, and we don't know why
