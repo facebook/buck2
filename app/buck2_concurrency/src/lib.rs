@@ -1355,6 +1355,90 @@ mod tests {
             );
         }
 
+        fn preemptible_command(setting: PreemptibleWhen) -> CommandData {
+            // The receiver is dropped immediately; `cancel_preemptible_commands` ignores the send
+            // result, and what is under test is whether it takes the sender.
+            let (tx, _rx) = oneshot::channel();
+            CommandData {
+                trace_id: TraceId::new(),
+                argv: Vec::new(),
+                events: Arc::new(TestEvents::new()),
+                preemption_setting: setting,
+                preempt: Some(tx),
+            }
+        }
+
+        /// Exhaustive mapping for `determine_bypass_semaphore`.
+        ///
+        /// Region coverage already shows every arm of this function executes, and would continue to
+        /// show that if the arms were permuted — which input produces which outcome is precisely
+        /// what region coverage cannot see, and what branch coverage would have caught. Hence a
+        /// table.
+        #[tokio::test]
+        async fn bypass_semaphore_mapping() {
+            let c = ConcurrencyHandler::new(make_default_dice());
+
+            assert_matches!(
+                c.determine_bypass_semaphore(true, true),
+                BypassSemaphore::Run(RunState::NestedSameState)
+            );
+            assert_matches!(
+                c.determine_bypass_semaphore(true, false),
+                BypassSemaphore::Run(RunState::ParallelSameState)
+            );
+            assert_matches!(
+                c.determine_bypass_semaphore(false, true),
+                BypassSemaphore::Error
+            );
+            assert_matches!(
+                c.determine_bypass_semaphore(false, false),
+                BypassSemaphore::Block
+            );
+        }
+
+        /// Exhaustive `PreemptibleWhen` x `is_same_state` matrix, for the same reason.
+        ///
+        /// All six are reachable — `Never` is the proto default, so it is the most common setting
+        /// in production. What each call site fixes is `is_same_state`, not the setting: the site
+        /// inside `if !is_same_state` always passes `false`, and the one under
+        /// `BypassSemaphore::Run` always passes `true`. So both columns occur, and every row is
+        /// exercised at both.
+        #[tokio::test]
+        async fn preemption_matrix() {
+            let concurrency = ConcurrencyHandler::new(make_default_dice());
+            let settings = [
+                PreemptibleWhen::Never,
+                PreemptibleWhen::Always,
+                PreemptibleWhen::OnDifferentState,
+            ];
+
+            //                     Never, Always, OnDifferentState
+            for (is_same_state, expected) in
+                [(true, [false, true, false]), (false, [false, true, true])]
+            {
+                let mut data = data_with(cleanup_at(0), 0);
+                for (i, setting) in settings.iter().enumerate() {
+                    data.active_commands
+                        .insert(CommandId(i), preemptible_command(*setting));
+                }
+
+                concurrency.cancel_preemptible_commands(&mut data, is_same_state);
+
+                for (i, setting) in settings.iter().enumerate() {
+                    let preempted = data
+                        .active_commands
+                        .get(&CommandId(i))
+                        .unwrap()
+                        .preempt
+                        .is_none();
+                    assert_eq!(
+                        preempted, expected[i],
+                        "{setting:?} with is_same_state={is_same_state}"
+                    );
+                }
+            }
+        }
+
         #[tokio::test]
         async fn transition_to_cleanup_refuses_while_commands_are_active() {
             let dice = make_default_dice();
