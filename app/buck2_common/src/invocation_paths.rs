@@ -21,14 +21,10 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+pub use buck2_wrapper_common::DEFAULT_ISOLATION_DIR;
 
 use crate::daemon_dir::DaemonDir;
 use crate::invocation_roots::InvocationRoots;
-
-/// Default buck2 isolation dir. Must match the `--isolation-dir` clap
-/// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test
-/// (`denied.golden.stderr`) catches drift.
-pub const DEFAULT_ISOLATION_DIR: &str = "v2";
 
 #[derive(Clone, Allocative)]
 pub struct InvocationPaths {

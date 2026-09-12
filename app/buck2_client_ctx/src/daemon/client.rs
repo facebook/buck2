@@ -26,6 +26,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_wrapper_common::BUCKD_LIFECYCLE;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -53,7 +54,7 @@ use crate::startup_deadline::StartupDeadline;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
 enum LifecycleError {
-    #[error("Missing `{}` file in `{}` directory", BuckdLifecycleLock::BUCKD_LIFECYCLE, _0.display())]
+    #[error("Missing `{}` file in `{}` directory", BUCKD_LIFECYCLE, _0.display())]
     MissingLifecycle(AbsNormPathBuf),
 }
 
@@ -92,7 +93,6 @@ pub struct LifecycleLockError {
 }
 
 impl BuckdLifecycleLock {
-    const BUCKD_LIFECYCLE: &'static str = "buckd.lifecycle";
     const BUCKD_PREV_DIR: &'static str = "prev";
 
     pub async fn lock_with_timeout(
@@ -104,10 +104,7 @@ impl BuckdLifecycleLock {
             deadline: StartupDeadline,
         ) -> buck2_error::Result<BuckdLifecycleLock> {
             create_dir_all(&daemon_dir.path)?;
-            let lifecycle_path = daemon_dir
-                .path
-                .as_path()
-                .join(BuckdLifecycleLock::BUCKD_LIFECYCLE);
+            let lifecycle_path = daemon_dir.path.as_path().join(BUCKD_LIFECYCLE);
             let file = File::create(lifecycle_path)?;
             let fileref = &file;
             deadline
@@ -149,7 +146,7 @@ impl BuckdLifecycleLock {
         let mut seen_lifecycle = false;
         for p in fs_util::read_dir(&self.daemon_dir.path).categorize_internal()? {
             let p = p?;
-            if p.file_name() == Self::BUCKD_LIFECYCLE {
+            if p.file_name() == BUCKD_LIFECYCLE {
                 seen_lifecycle = true;
                 continue;
             }

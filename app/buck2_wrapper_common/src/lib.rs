@@ -30,6 +30,7 @@ use sysinfo::UpdateKind;
 use crate::is_buck2::is_buck2_exe;
 use crate::pid::Pid;
 
+mod cleanall;
 pub mod invocation_id;
 pub mod is_buck2;
 pub mod kill;
@@ -46,6 +47,11 @@ pub use process::background_command;
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
+pub const BUCKD_LIFECYCLE: &str = "buckd.lifecycle";
+/// Default buck2 isolation dir. Must match the `--isolation-dir` clap
+/// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test
+/// (`denied.golden.stderr`) catches drift.
+pub const DEFAULT_ISOLATION_DIR: &str = "v2";
 pub const CLEAN_STALE_HELP: &str =
     "Delete artifacts from buck-out using the configured clean-stale policy";
 pub const EXPERIMENTS_FILENAME: &str = "experiments_from_buck_start";
