@@ -584,14 +584,6 @@ impl DaemonState {
                 let mut clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
                 clean_stale_config.suppress_unmaterialize_without_ttl_refresh(ttl_refresh_enabled);
 
-                let eager_materialization_enabled = root_config
-                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                        section: "buck2",
-                        property: "eager_materialization_enabled",
-                    })?
-                    .unwrap_or_else(RolloutPercentage::never)
-                    .roll();
-
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         final_artifact_materialization,
@@ -606,11 +598,8 @@ impl DaemonState {
                     update_access_times,
                     verbose_materializer_log,
                     clean_stale_config,
-                    eager_materialization_enabled,
                 }
             };
-            let eager_materialization_enabled =
-                deferred_materializer_configs.eager_materialization_enabled;
 
             let use_eden_thrift_read = root_config
                 .parse(BuckconfigKeyRef {
@@ -843,7 +832,6 @@ impl DaemonState {
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
                 format!("has-cgroup:{}", memory_tracker.is_some()),
-                format!("eager-materialization:{}", eager_materialization_enabled,),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 

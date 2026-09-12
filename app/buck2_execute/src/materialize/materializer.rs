@@ -43,13 +43,6 @@ use crate::execute::action_digest::TrackedActionDigest;
 use crate::materialize::http::Checksum;
 use crate::re::error::RemoteExecutionError;
 
-/// Opaque guard returned by `Materializer::register_eager_paths`.
-/// Dropping this guard releases the eager path registrations and cancels
-/// any in-flight low-priority materializations for those paths.
-pub trait EagerMaterializationGuard: Send + Sync + 'static {}
-
-impl EagerMaterializationGuard for () {}
-
 pub struct WriteRequest {
     pub path: ProjectRelativePathBuf,
     pub content: Vec<u8>,
@@ -367,34 +360,13 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         >,
     >;
 
-    /// Whether eager materialization is enabled for this materializer.
-    fn is_eager_materialization_enabled(&self) -> bool {
-        false
-    }
-
-    /// Returns the configuration-hash path to use for eager materialization lookups when the
-    /// feature is enabled for a content-based artifact path.
+    /// Returns the configuration-hash path to tag a declare at `path` with, if any.
     fn maybe_eager_configuration_path(
         &self,
-        fs: &ArtifactFs,
-        path: &BuildArtifactPath,
+        _fs: &ArtifactFs,
+        _path: &BuildArtifactPath,
     ) -> buck2_error::Result<Option<ProjectRelativePathBuf>> {
-        if self.is_eager_materialization_enabled() && path.is_content_based_path() {
-            Ok(Some(fs.resolve_build_configuration_hash_path(path)?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Register paths for eager materialization. When artifacts are declared at these paths,
-    /// they will be materialized at low priority. Returns a guard that, when dropped,
-    /// unregisters the paths and cancels any in-flight low-priority materializations.
-    async fn register_eager_paths(
-        &self,
-        _paths: Vec<ProjectRelativePathBuf>,
-        _event_dispatcher: EventDispatcher,
-    ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
-        Ok(Box::new(()))
+        Ok(None)
     }
 }
 

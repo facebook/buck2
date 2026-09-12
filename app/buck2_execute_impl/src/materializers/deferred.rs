@@ -10,7 +10,6 @@
 
 pub mod clean_stale;
 mod data_tree;
-mod eager_materialization;
 mod extension;
 mod io_handler;
 mod materialize_stack;
@@ -61,7 +60,6 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
-use buck2_execute::materialize::materializer::EagerMaterializationGuard;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
@@ -91,7 +89,6 @@ use crate::materializers::deferred::clean_stale::CleanStaleConfig;
 use crate::materializers::deferred::command_processor::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::command_processor::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::command_processor::MaterializerCommand;
-use crate::materializers::deferred::eager_materialization::EagerPathLeases;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
@@ -135,7 +132,6 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
-    eager_materialization_enabled: bool,
 
     io: Arc<T>,
 
@@ -205,7 +201,6 @@ pub struct DeferredMaterializerConfigs {
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
     pub clean_stale_config: CleanStaleConfig,
-    pub eager_materialization_enabled: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -728,28 +723,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         Ok(result)
     }
-
-    fn is_eager_materialization_enabled(&self) -> bool {
-        self.eager_materialization_enabled
-    }
-
-    async fn register_eager_paths(
-        &self,
-        paths: Vec<ProjectRelativePathBuf>,
-        event_dispatcher: EventDispatcher,
-    ) -> buck2_error::Result<Box<dyn EagerMaterializationGuard>> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender
-            .send(MaterializerCommand::RegisterEagerPaths(
-                paths,
-                event_dispatcher,
-                sender,
-            ))?;
-        let leases = receiver
-            .await
-            .buck_error_context("No response from materializer")?;
-        Ok(Box::new(EagerPathLeases(leases)))
-    }
 }
 
 impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
@@ -850,7 +823,6 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
             command_sender,
             materialize_final_artifacts: configs.materialize_final_artifacts,
             defer_write_actions: configs.defer_write_actions,
-            eager_materialization_enabled: configs.eager_materialization_enabled,
             io,
             materializer_state_info,
             stats,
@@ -921,7 +893,6 @@ impl DeferredMaterializerAccessor<NoDiskIoHandler> {
                 update_access_times: AccessTimesUpdates::Disabled,
                 verbose_materializer_log: false,
                 clean_stale_config: CleanStaleConfig::default(),
-                eager_materialization_enabled: false,
             },
             EventDispatcher::null(),
         )

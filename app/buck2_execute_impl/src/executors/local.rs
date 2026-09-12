@@ -1043,11 +1043,7 @@ impl LocalExecutor {
         let mut builder = ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
         builder.add_symlinked(value, hashed_path.clone(), &configuration_hash_path)?;
         let symlink_value = builder.build(&configuration_hash_path)?;
-        let cfg_path = if self.materializer.is_eager_materialization_enabled() {
-            Some(configuration_hash_path.clone())
-        } else {
-            None
-        };
+        let cfg_path = None;
         to_declare.push(DeclareArtifactPayload {
             path: output_path.clone(),
             artifact: value.dupe(),
@@ -1341,10 +1337,6 @@ impl PreparedCommandExecutor for LocalExecutor {
 
     fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
         true
-    }
-
-    fn is_full_hybrid_enabled(&self) -> bool {
-        false
     }
 }
 

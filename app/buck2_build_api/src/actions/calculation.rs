@@ -15,14 +15,12 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
-use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
@@ -34,12 +32,10 @@ use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
 use buck2_hash::BuckIndexMap;
-use buck2_hash::BuckMutSet;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -122,32 +118,6 @@ async fn build_action_no_redirect(
         .get_action_executor(action.execution_config())
         .await
         .buck_error_context(format!("for action `{action}`"))?;
-
-    let _eager_guard = if executor.materializer().is_eager_materialization_enabled()
-        && action.eager_materialization_enabled()
-        && action.executor_preference().is_some_and(|pref| {
-            !pref.prefers_remote()
-                && executor.is_local_execution_possible(pref)
-                && (pref.prefers_local() || executor.is_full_hybrid_enabled())
-        }) {
-        let artifact_fs = ctx.get_artifact_fs().await?;
-        let eager_paths = collect_eager_paths(ctx, &inputs, artifact_fs)
-            .boxed()
-            .await?;
-
-        if eager_paths.is_empty() {
-            None
-        } else {
-            Some(
-                executor
-                    .materializer()
-                    .register_eager_paths(eager_paths, get_dispatcher())
-                    .await?,
-            )
-        }
-    } else {
-        None
-    };
 
     let ensured_inputs = if inputs.is_empty() {
         BuckIndexMap::default()
@@ -233,59 +203,6 @@ async fn build_action_no_redirect(
     ctx.action_executed(execution_metrics)?;
 
     action_execution_data.action_result
-}
-
-/// Collect all materializable artifact paths from an `ArtifactGroup` list,
-/// traversing transitive set projections via BFS.
-async fn collect_eager_paths(
-    ctx: &mut DiceComputations<'_>,
-    inputs: &[ArtifactGroup],
-    artifact_fs: &ArtifactFs,
-) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
-    let mut eager_paths = BuckMutSet::default();
-    let mut queue: Vec<ArtifactGroup> = inputs.to_vec();
-    let mut visited = BuckMutSet::default();
-
-    while let Some(input) = queue.pop() {
-        if !visited.insert(input.dupe()) {
-            continue;
-        }
-
-        match &input {
-            ArtifactGroup::Artifact(a) => {
-                if a.requires_materialization(artifact_fs) {
-                    // For projected artifacts (a file inside a directory output), register
-                    // the base directory's configuration path. The materializer only declares
-                    // base artifact paths, so the projected sub-path would never match a
-                    // Declare. Materializing the base directory covers all projected files.
-                    let path = if a.is_projected() {
-                        match a.as_parts().0 {
-                            BaseArtifactKind::Build(b) => {
-                                artifact_fs.resolve_build_configuration_hash_path(b.get_path())?
-                            }
-                            BaseArtifactKind::Source(s) => {
-                                artifact_fs.resolve_source(s.get_path())?
-                            }
-                        }
-                    } else {
-                        a.resolve_configuration_hash_path(artifact_fs)?
-                    };
-                    eager_paths.insert(path);
-                }
-            }
-            ArtifactGroup::TransitiveSetProjection(tset) => {
-                let set = tset.key.key.lookup(ctx).await?;
-                let sub_inputs =
-                    set.by_ref(|set| set.get_projection_sub_inputs(tset.key.projection))?;
-                queue.extend(sub_inputs);
-            }
-            ArtifactGroup::Promise(_) => {
-                // Skip promise artifacts - they should not be eagerly materialized
-            }
-        }
-    }
-
-    Ok(eager_paths.into_iter().collect())
 }
 
 async fn build_action_inner(

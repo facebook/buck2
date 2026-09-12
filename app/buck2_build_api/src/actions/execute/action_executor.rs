@@ -404,22 +404,6 @@ impl<'d> BuckActionExecutor<'d> {
             output_trees_download_config,
         }
     }
-
-    pub(crate) fn materializer(&self) -> &dyn Materializer {
-        self.materializer
-    }
-
-    pub(crate) fn is_local_execution_possible(
-        &self,
-        executor_preference: buck2_execute::execute::request::ExecutorPreference,
-    ) -> bool {
-        self.command_executor
-            .is_local_execution_possible(executor_preference)
-    }
-
-    pub(crate) fn is_full_hybrid_enabled(&self) -> bool {
-        self.command_executor.is_full_hybrid_enabled()
-    }
 }
 
 struct BuckActionExecutionContext<'a, 'd> {

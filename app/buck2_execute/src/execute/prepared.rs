@@ -67,9 +67,6 @@ pub trait PreparedCommandExecutor: Send + Sync {
     /// Checks if there is any possibility for a command with a given executor preference to
     /// be executed locally.
     fn is_local_execution_possible(&self, executor_preference: ExecutorPreference) -> bool;
-
-    /// Whether this executor is configured for full hybrid execution (racing local and remote).
-    fn is_full_hybrid_enabled(&self) -> bool;
 }
 
 #[async_trait]

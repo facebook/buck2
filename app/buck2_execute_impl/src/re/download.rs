@@ -477,18 +477,7 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
-                let configuration_path = if self.materializer.is_eager_materialization_enabled()
-                    && requested.has_content_based_path()
-                {
-                    Some(
-                        requested
-                            .resolve_configuration_hash_path(artifact_fs)?
-                            .path
-                            .to_owned(),
-                    )
-                } else {
-                    None
-                };
+                let configuration_path = None;
                 to_declare.push(DeclareArtifactPayload {
                     path: requested
                         .resolve(

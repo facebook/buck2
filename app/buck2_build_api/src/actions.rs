@@ -231,20 +231,6 @@ pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
         None
     }
 
-    /// Returns the executor preference for this action, if applicable.
-    /// Only command-based actions (like RunAction) have executor preferences.
-    /// Returns None for actions that don't support executor preferences.
-    fn executor_preference(&self) -> Option<ExecutorPreference> {
-        None
-    }
-
-    /// Whether this action opts into eager materialization of inputs.
-    /// When enabled, input artifacts will start materializing at low priority
-    /// immediately after they get declared
-    fn eager_materialization_enabled(&self) -> bool {
-        false
-    }
-
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 

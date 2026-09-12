@@ -3764,19 +3764,12 @@ message MaterializerCommand {
     repeated string paths = 1;
   }
 
-  message RegisterEagerPaths {
-    repeated string paths = 1;
-  }
-
-  message EagerDispatchOnDeclare {
-    string path = 1;
-  }
+  reserved 4, 5;
+  reserved "register_eager_paths", "eager_dispatch_on_declare";
 
   oneof data {
     Declare declare = 1;
     Ensure ensure = 2;
     InvalidateFilePaths invalidate_file_paths = 3;
-    RegisterEagerPaths register_eager_paths = 4;
-    EagerDispatchOnDeclare eager_dispatch_on_declare = 5;
   }
 }

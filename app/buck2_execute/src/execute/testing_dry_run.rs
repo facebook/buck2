@@ -113,8 +113,4 @@ impl PreparedCommandExecutor for DryRunExecutor {
     fn is_local_execution_possible(&self, _executor_preference: ExecutorPreference) -> bool {
         false
     }
-
-    fn is_full_hybrid_enabled(&self) -> bool {
-        false
-    }
 }

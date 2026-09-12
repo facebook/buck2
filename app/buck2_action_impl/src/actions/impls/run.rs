@@ -277,7 +277,6 @@ pub(crate) fn new_executor_preference(
 pub(crate) struct UnregisteredRunAction {
     pub(crate) executor_preference: ExecutorPreference,
     pub(crate) always_print_stderr: bool,
-    pub(crate) eager_materialization_enabled: bool,
     pub(crate) weight: WeightClass,
     pub(crate) low_pass_filter: bool,
     pub(crate) dep_files: RunActionDepFiles,
@@ -1485,14 +1484,6 @@ impl Action for RunAction {
 
     fn is_expected_eligible_for_dedupe(&self) -> Option<bool> {
         self.inner.expected_eligible_for_dedupe
-    }
-
-    fn executor_preference(&self) -> Option<ExecutorPreference> {
-        Some(self.inner.executor_preference)
-    }
-
-    fn eager_materialization_enabled(&self) -> bool {
-        self.inner.eager_materialization_enabled
     }
 
     fn aquery_attributes(

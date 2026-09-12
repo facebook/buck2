@@ -55,8 +55,4 @@ where
         self.fallback
             .is_local_execution_possible(executor_preference)
     }
-
-    fn is_full_hybrid_enabled(&self) -> bool {
-        self.fallback.is_full_hybrid_enabled()
-    }
 }

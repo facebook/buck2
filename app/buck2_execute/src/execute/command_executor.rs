@@ -190,10 +190,6 @@ impl CommandExecutor {
             .is_local_execution_possible(executor_preference)
     }
 
-    pub fn is_full_hybrid_enabled(&self) -> bool {
-        self.0.inner.is_full_hybrid_enabled()
-    }
-
     pub fn prepare_action(
         &self,
         request: &CommandExecutionRequest,
