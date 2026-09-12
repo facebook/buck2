@@ -183,6 +183,7 @@ repository = "https://github.com/facebook/buck2"
 [workspace.dependencies]
 allocative = { version = "0.3.6", path = "allocative/allocative", features = ["anyhow", "bumpalo", "compact_str", "dashmap", "either", "futures", "hashbrown", "indexmap", "jiff", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "sorted_vector_map", "tokio", "triomphe"] }
 allocative_derive = { version = "0.3.6", path = "allocative/allocative_derive" }
+annotate-snippets = "0.12.16"
 anyhow = "1.0.104"
 anymap3 = "1.1.0"
 arc-swap = { version = "1.9.2", features = ["weak"] }
@@ -377,6 +378,7 @@ linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.37", features = ["used_linker"] }
 lock_free_hashtable = { version = "0.1.4", path = "shed/lock_free_hashtable", features = ["allocative"] }
 lock_free_vec = { path = "shed/lock_free_vec" }
+logos = "0.16.1"
 lru = { version = "0.18.2", default-features = false }
 lsp-server = "0.10.0"
 lsp-types = "0.97"
@@ -391,6 +393,7 @@ nom = "8"
 nom-language = "0.1"
 notify = "8.2.0"
 num-bigint = { version = "0.5.1", features = ["rand_0_10", "serde"] }
+num-traits = { version = "0.2.19", default-features = false }
 num_cpus = "1.16"
 num_enum = "0.7.6"
 object = { version = "0.40.0", features = ["read", "write"] }
@@ -437,6 +440,7 @@ rustc-hash = "2.1.3"
 rustls = { version = "0.23.37", features = ["ring"] }
 rustls-native-certs = "0.8.3"
 rustls-pki-types = { version = "1.15.1", features = ["alloc", "std"] }
+rustyline = { version = "18.0.1", features = ["derive"] }
 scopeguard = "1.2.0"
 sequence_trie = { version = "0.3.6", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
@@ -452,10 +456,11 @@ sled = "0.34.7"
 slog = { version = "2.8.2", features = ["max_level_trace", "nested-values"] }
 smallvec = { version = "1.15.2", features = ["const_generics", "impl_bincode", "serde", "specialization", "union", "write"] }
 sorted_vector_map = "0.2.1"
-starlark = { path = "starlark-rust/starlark", features = ["pagable"] }
-starlark_lsp = { path = "starlark-rust/starlark_lsp" }
-starlark_map = { path = "starlark-rust/starlark_map", features = ["pagable_dep"] }
-starlark_syntax = { path = "starlark-rust/starlark_syntax" }
+starlark = { version = "0.14.2", path = "starlark-rust/starlark", features = ["pagable"] }
+starlark_derive = { version = "0.14.2", path = "starlark-rust/starlark_derive" }
+starlark_lsp = { version = "0.14.2", path = "starlark-rust/starlark_lsp" }
+starlark_map = { version = "0.14.2", path = "starlark-rust/starlark_map", features = ["pagable_dep"] }
+starlark_syntax = { version = "0.14.2", path = "starlark-rust/starlark_syntax" }
 static_assertions = "1.1.0"
 static_interner = { version = "0.1.3", path = "shed/static_interner", features = ["allocative", "dupe", "strong_hash"] }
 strong_hash = { version = "0.1.0", path = "gazebo/strong_hash", features = ["num-bigint", "triomphe"] }
