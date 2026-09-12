@@ -7,8 +7,27 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
     autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # fbsource enables features on bytemuck that need nightly,
+                    # and far more of rusqlite than the backend uses.
+                    "bytemuck": {"features": [], "workspace": False},
+                    "rusqlite": {"features": ["bundled", "limits"], "workspace": False},
+                    "tokio": {"optional": True},
+                },
+            },
+            "features": {
+                "default": [],
+                "tokio": ["dep:tokio"],
+            },
+            "package": {
+                "description": "Sled and SQLite storage backends for the pagable serialization framework",
+                "version": "0.4.2",
+            },
+        },
+        # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
         "edge_features": [
             "tokio",
         ],

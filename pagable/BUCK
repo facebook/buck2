@@ -8,6 +8,28 @@ rust_library(
         ["src/**/*.rs"],
     ),
     autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    # fbsource enables features on these that need nightly.
+                    "bytemuck": {"features": ["const_zeroed", "derive", "min_const_generics", "must_cast"], "workspace": False},
+                    "smallvec": {"features": ["const_generics"], "workspace": False},
+                    "tokio": {"optional": True},
+                },
+            },
+            "extra_buck_dependencies": {
+                # The tests use tokio whether or not the feature is on.
+                "dev-dependencies": ["fbsource//third-party/rust:tokio"],
+            },
+            "features": {
+                "default": [],
+                "tokio": ["dep:tokio"],
+            },
+            "package": {
+                "description": "Serialization framework with content-addressed `Arc` deduplication and runtime polymorphism via typetag",
+                "version": "0.4.2",
+            },
+        },
         # FIXME(JakobDegen): Needed because autocargo doesn't handle the select below
         "edge_features": [
             "tokio",
