@@ -150,6 +150,8 @@ class BuildTest(BundleTestBase):
         # rust_make_par synthesizes for a namespace directory; whether it is
         # importable at all is likewise not the packer's business.
         paths = ["top.py", "__init__.py", "pkg.py", "pkg/__init__.py", "pkg/mod.py"]
+        # pyre-fixme[6]: For 2nd argument expected `Dict[str, str]` but got
+        #  `Dict[str, Literal['VALUE = 1']]`.
         bundle = self._bundle(self._library("lib", dict.fromkeys(paths, "VALUE = 1")))
 
         self.assertEqual(set(bundle.index), set(paths))
