@@ -95,8 +95,6 @@ use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
 use crate::materializers::deferred::materialize_stack::MaterializeStack;
-use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
-use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
 use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
@@ -113,8 +111,6 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     pub(super) command_sender: Arc<MaterializerSender<T>>,
     /// The actual materializer state.
     pub(super) tree: ArtifactTree,
-    /// Active subscriptions
-    pub(super) subscriptions: MaterializerSubscriptions,
     /// History of refreshes. This *does* grow without bound, but considering the data is pretty
     /// small and we create it infrequently, that's fine.
     pub(super) ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
@@ -185,8 +181,6 @@ pub(super) enum MaterializerCommand<T: 'static> {
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
-    Subscription(MaterializerSubscriptionOperation<T>),
-
     Extension(Box<dyn ExtensionCommand<T>>),
 
     /// Terminate command processor loop, used by tests
@@ -239,7 +233,6 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Ensure(paths, purpose, _, _, _) => {
                 write!(f, "Ensure({paths:?}, {purpose:?}, _)",)
             }
-            MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
@@ -399,7 +392,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         clean_stale_config: CleanStaleConfig,
         rematerialization_ttl: Option<SignedDuration>,
     ) -> Self {
-        let subscriptions = MaterializerSubscriptions::new();
         let ttl_refresh_history = Vec::new();
         let ttl_refresh_instance = None;
         let version_tracker = VersionTracker::new();
@@ -412,7 +404,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             version_tracker,
             command_sender,
             tree,
-            subscriptions,
             ttl_refresh_history,
             ttl_refresh_instance,
             cancellations,
@@ -719,7 +710,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .send(self.materialize_many_artifacts(paths, event_dispatcher))
                     .ok();
             }),
-            MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
@@ -786,18 +776,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             },
             None => None,
         };
-    }
-
-    pub(super) fn is_path_materialized(&self, path: &ProjectRelativePath) -> bool {
-        match self.tree.prefix_get(&mut path.iter()) {
-            None => false,
-            Some(data) => {
-                matches!(
-                    data.stage,
-                    ArtifactMaterializationStage::Materialized { .. }
-                )
-            }
-        }
     }
 
     pub(super) fn flush_access_times(&mut self) -> String {
@@ -941,7 +919,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
         on_materialization(
             self.sqlite_db.as_mut(),
-            &self.subscriptions,
             path,
             &metadata,
             Timestamp::now(),
@@ -1546,7 +1523,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             // future on this path.
                             on_materialization(
                                 self.sqlite_db.as_mut(),
-                                &self.subscriptions,
                                 &artifact_path,
                                 &metadata,
                                 timestamp,
@@ -1593,10 +1569,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 }
 
-/// Run callbacks for an artifact being materialized at `path`.
+/// Record an artifact materialized at `path` in the materializer state database.
 fn on_materialization(
     sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-    subscriptions: &MaterializerSubscriptions,
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
     timestamp: Timestamp,
@@ -1612,8 +1587,6 @@ fn on_materialization(
             let _unused = soft_error!(error_name, e, quiet: true);
         }
     }
-
-    subscriptions.on_materialization_finished(path);
 }
 
 /// Spawns a future to clean output paths while waiting for any
@@ -1673,6 +1646,7 @@ impl ExistingFutures {
 #[doc(hidden)]
 pub(super) trait TestingDeferredMaterializerCommandProcessor<T> {
     fn testing_has_artifact(&mut self, path: ProjectRelativePathBuf) -> bool;
+    fn testing_is_path_materialized(&self, path: &ProjectRelativePath) -> bool;
     fn testing_declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
 
     fn testing_process_one_low_priority_command(&mut self, command: LowPriorityMaterializerCommand);
@@ -1716,6 +1690,18 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
 {
     fn testing_has_artifact(&mut self, path: ProjectRelativePathBuf) -> bool {
         self.has_artifact(path)
+    }
+
+    fn testing_is_path_materialized(&self, path: &ProjectRelativePath) -> bool {
+        match self.tree.prefix_get(&mut path.iter()) {
+            None => false,
+            Some(data) => {
+                matches!(
+                    data.stage,
+                    ArtifactMaterializationStage::Materialized { .. }
+                )
+            }
+        }
     }
 
     fn testing_declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {

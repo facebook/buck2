@@ -53,15 +53,6 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                     }
                 }
             }
-            DeferredMaterializerSubcommand::ListSubscriptions => {
-                let mut stream = deferred_materializer
-                    .list_subscriptions()
-                    .buck_error_context("Failed to start listing subscriptions")?;
-
-                while let Some(path) = stream.next().await {
-                    writeln!(stdout, "{path}")?;
-                }
-            }
             DeferredMaterializerSubcommand::Fsck => {
                 let mut stream = deferred_materializer
                     .fsck()

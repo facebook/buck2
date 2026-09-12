@@ -13,7 +13,6 @@ mod data_tree;
 mod extension;
 mod io_handler;
 mod materialize_stack;
-mod subscriptions;
 
 pub(crate) mod artifact_tree;
 mod command_processor;
@@ -65,7 +64,6 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
-use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
@@ -624,12 +622,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         self.iterate_impl()
     }
 
-    fn list_subscriptions(
-        &self,
-    ) -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>> {
-        self.list_subscriptions_impl()
-    }
-
     async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput> {
         self.allocative_impl().await
     }
@@ -665,10 +657,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn flush_all_access_times(&self) -> buck2_error::Result<String> {
         self.flush_all_access_times_impl().await
-    }
-
-    async fn create_subscription(&self) -> buck2_error::Result<Box<dyn MaterializerSubscription>> {
-        self.create_subscription_impl().await
     }
 
     fn log_materializer_state(&self, events: &EventDispatcher) {

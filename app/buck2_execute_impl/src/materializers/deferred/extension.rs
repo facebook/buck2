@@ -27,7 +27,6 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::MaterializerEntry;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
-use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -58,7 +57,6 @@ use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCom
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommandKind;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::io_handler::create_ttl_refresh;
-use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);
@@ -184,24 +182,6 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                 artifact_display: Box::new(path_data) as _,
                 deps,
             }) {
-                Ok(..) => {}
-                Err(..) => break, // No use sending more if the client disconnected.
-            }
-        }
-    }
-}
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-struct ListSubscriptions {
-    #[derivative(Debug = "ignore")]
-    sender: UnboundedSender<ProjectRelativePathBuf>,
-}
-
-impl<T> ExtensionCommand<T> for ListSubscriptions {
-    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
-        for path in processor.subscriptions.list_subscribed_paths() {
-            match self.sender.send(path.to_owned()) {
                 Ok(..) => {}
                 Err(..) => break, // No use sending more if the client disconnected.
             }
@@ -391,17 +371,6 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
-    pub(super) fn list_subscriptions_impl(
-        &self,
-    ) -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>> {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        self.command_sender
-            .send(MaterializerCommand::Extension(
-                Box::new(ListSubscriptions { sender }) as _,
-            ))?;
-        Ok(UnboundedReceiverStream::new(receiver).boxed())
-    }
-
     pub(super) async fn allocative_impl(
         &self,
     ) -> buck2_error::Result<allocative::FlameGraphOutput> {
@@ -534,19 +503,5 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
         receiver
             .await
             .buck_error_context("No response from materializer")
-    }
-
-    pub(super) async fn create_subscription_impl(
-        &self,
-    ) -> buck2_error::Result<Box<dyn MaterializerSubscription>> {
-        let (sender, receiver) = oneshot::channel();
-        self.command_sender.send(MaterializerCommand::Subscription(
-            MaterializerSubscriptionOperation::Create { sender },
-        ))?;
-        Ok(Box::new(
-            receiver
-                .await
-                .buck_error_context("No response from materializer")?,
-        ) as _)
     }
 }

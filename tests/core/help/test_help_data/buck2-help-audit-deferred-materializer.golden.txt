@@ -6,7 +6,6 @@ Usage: buck2 audit deferred-materializer [OPTIONS] <COMMAND>
 
 Commands:
   list
-  list-subscriptions
   fsck
   refresh
   get-refresh-log     Get the log for TTL refreshes

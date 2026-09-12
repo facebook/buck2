@@ -293,9 +293,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
 
     fn iterate(&self) -> buck2_error::Result<BoxStream<'static, MaterializerIterItem>>;
 
-    fn list_subscriptions(&self)
-    -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>>;
-
     async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput>;
 
     /// Obtain a list of files that don't match their in-memory representation. This may not catch
@@ -321,8 +318,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     async fn test_iter(&self, count: usize) -> buck2_error::Result<String>;
 
     async fn flush_all_access_times(&self) -> buck2_error::Result<String>;
-
-    async fn create_subscription(&self) -> buck2_error::Result<Box<dyn MaterializerSubscription>>;
 
     fn log_materializer_state(&self, events: &EventDispatcher);
 
@@ -770,22 +765,6 @@ pub struct MaterializerIterItem {
     pub artifact_path: ProjectRelativePathBuf,
     pub artifact_display: Box<dyn MaterializerEntry>,
     pub deps: Vec<(ProjectRelativePathBuf, &'static str)>,
-}
-
-/// Obtain notifications for entries as they are materialized.
-#[async_trait]
-pub trait MaterializerSubscription: Send + Sync {
-    /// Get notifications for specific paths. Paths that are already declared but not yet
-    /// materialized are materialized as a result of this call; paths declared afterwards are
-    /// reported only once something else materializes them.
-    fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
-
-    /// Stop getting notifications for specific paths. In-flight notifications may still be
-    /// received.
-    fn unsubscribe_from_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
-
-    /// Await the next materialization on this subscription.
-    async fn next_materialization(&mut self) -> Option<ProjectRelativePathBuf>;
 }
 
 #[derive(Debug, Clone)]

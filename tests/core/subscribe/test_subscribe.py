@@ -11,7 +11,6 @@
 
 import asyncio
 import json
-import os
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
@@ -27,50 +26,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 # Buck2's client/daemon protocol, and the existing field number for
 # `subscribe_to_active_commands` must remain backward-compatible.
 SUBSCRIBE_TO_ACTIVE_COMMANDS_REQUEST = b"\x02\x22\x00"
-
-
-@buck_test()
-async def test_subscribe(buck: Buck) -> None:
-    path = (await buck.targets("//:stage1", "--show-output")).stdout.strip().split()[1]
-
-    # Buck2 wants normalized paths here.
-    path = path.replace("\\", "/")
-
-    # Build a downstream target first. That declares `stage1`'s output to the
-    # materializer without materializing it, since nothing needs it on disk.
-    # Subscribing to it below is what forces the materialization we then expect
-    # to be notified about.
-    await buck.build("//:stage2")
-
-    expect = os.environ["BUCK2_EXPECT"]
-    args = [
-        "--buck2",
-        buck.path_to_executable,
-        path,
-    ]
-
-    if buck.isolation_prefix is not None:
-        args.extend(
-            [
-                "--isolation-dir",
-                buck.isolation_prefix,
-            ]
-        )
-
-    proc = await asyncio.create_subprocess_exec(
-        expect,
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=buck.cwd,
-        env=buck._env,
-    )
-
-    # We don't expect this to actually take anywhere near 20 seconds, but on CI
-    # on a busy host this could take a while.
-    (stdout, stderr) = await asyncio.wait_for(proc.communicate(), timeout=20)
-    assert proc.returncode == 0
-    assert stdout.strip().decode("utf-8") == path
 
 
 @buck_test()

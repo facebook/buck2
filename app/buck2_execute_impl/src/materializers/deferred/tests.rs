@@ -21,7 +21,6 @@ use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
-use buck2_execute::materialize::materializer::MaterializerSubscription;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
@@ -156,8 +155,7 @@ mod state_machine {
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
     use crate::materializers::deferred::clean_stale::CleanStaleSchedule;
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
-    use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
-    use crate::materializers::deferred::subscriptions::SubscriptionHandle;
+    use crate::materializers::deferred::extension::ExtensionCommand;
     use crate::sqlite::materializer_db::testing_materializer_state_sqlite_db;
 
     #[derive(Debug, Eq, PartialEq, Allocative)]
@@ -439,10 +437,25 @@ mod state_machine {
         ProjectRootTemp::new().unwrap().path().clone()
     }
 
+    /// Queries whether the materializer considers `path` materialized, which it only does once it
+    /// has processed the completion of the materialization.
+    #[derive(Debug)]
+    struct IsPathMaterialized {
+        path: ProjectRelativePathBuf,
+        sender: oneshot::Sender<bool>,
+    }
+
+    impl<T: IoHandler> ExtensionCommand<T> for IsPathMaterialized {
+        fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+            let _ignored = self
+                .sender
+                .send(processor.testing_is_path_materialized(&self.path));
+        }
+    }
+
     async fn materialize_write(
         path: &ProjectRelativePathBuf,
         contents: &'static [u8],
-        handle: &mut SubscriptionHandle<StubIoHandler>,
         dm: &DeferredMaterializerAccessor<StubIoHandler>,
     ) -> buck2_error::Result<()> {
         dm.declare_write(Box::new(|| {
@@ -455,16 +468,30 @@ mod state_machine {
         }))
         .await?;
 
-        handle.subscribe_to_paths(vec![path.clone()]);
-
         dm.materialize_many(vec![path.clone()])
             .await?
             .next()
             .await
             .unwrap()?;
-        // block until materialization_finished updates the tree
-        handle.receiver().recv().await;
-        Ok(())
+
+        // Materialization resolves once the file is on disk, but callers need the state the
+        // materializer records when it processes the completion (notably the sqlite entry).
+        loop {
+            let (sender, receiver) = oneshot::channel();
+            dm.command_sender.send(MaterializerCommand::Extension(
+                Box::new(IsPathMaterialized {
+                    path: path.clone(),
+                    sender,
+                }) as _,
+            ))?;
+            if receiver
+                .await
+                .buck_error_context("No response from materializer")?
+            {
+                return Ok(());
+            }
+            sleep(TokioDuration::from_millis(1)).await;
+        }
     }
 
     fn make_db(fs: &ProjectRoot) -> (MaterializerStateSqliteDb, Option<MaterializerState>) {
@@ -534,19 +561,12 @@ mod state_machine {
         clean_stale_config: Option<CleanStaleConfig>,
     ) -> (
         DeferredMaterializerAccessor<StubIoHandler>,
-        SubscriptionHandle<StubIoHandler>,
         ChannelEventSource,
     ) {
         let (mut processor, command_sender, command_receiver, daemon_dispatcher_events) =
             make_processor_for_io(io.dupe());
         processor.clean_stale_config = clean_stale_config.unwrap_or_default();
         let stats = processor.stats.dupe();
-
-        let handle = {
-            let (sender, recv) = oneshot::channel();
-            MaterializerSubscriptionOperation::Create { sender }.execute(&mut processor);
-            recv.await.unwrap()
-        };
 
         let command_thread = thread_spawn("buck2-dm", {
             move || {
@@ -581,7 +601,6 @@ mod state_machine {
                 },
                 stats,
             },
-            handle,
             daemon_dispatcher_events,
         )
     }
@@ -592,7 +611,7 @@ mod state_machine {
             let io = Arc::new(StubIoHandler::new(temp_root()));
             let path = make_path("foo/bar");
             let artifact = ArtifactValue::file(io.digest_config().empty_file());
-            let (dm, _handle, _daemon_dispatcher_events) = make_materializer(io, None).await;
+            let (dm, _daemon_dispatcher_events) = make_materializer(io, None).await;
 
             dm.declare_existing(vec![DeclareArtifactPayload { path, artifact }])
                 .await?;
@@ -1039,7 +1058,7 @@ mod state_machine {
                 digest: TrackedFileDigest::from_content(content, digest_config.cas_digest_config()),
                 is_executable: false,
             });
-            let (mut dm, _handle, _events) = make_materializer(io, None).await;
+            let (mut dm, _events) = make_materializer(io, None).await;
             dm.materialize_final_artifacts = false;
             dm.declare_existing(vec![DeclareArtifactPayload {
                 path: path.clone(),
@@ -1211,169 +1230,6 @@ mod state_machine {
             assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
 
             Ok(())
-        })
-        .await
-    }
-
-    #[tokio::test]
-    async fn test_subscription_create_destroy() {
-        let (mut dm, mut channel) = make_processor(Default::default());
-
-        let handle = {
-            let (sender, recv) = oneshot::channel();
-            MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-            recv.await.unwrap()
-        };
-
-        assert!(dm.subscriptions.has_subscription(&handle));
-
-        drop(handle);
-
-        while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.testing_process_one_command(cmd);
-        }
-
-        assert!(!dm.subscriptions.has_any_subscriptions());
-    }
-
-    #[tokio::test]
-    async fn test_subscription_notifications() {
-        ignore_stack_overflow_checks_for_future(async {
-            let (mut dm, mut channel) = make_processor(Default::default());
-            let digest_config = dm.io.digest_config();
-            let value = ArtifactValue::file(digest_config.empty_file());
-
-            let mut handle = {
-                let (sender, recv) = oneshot::channel();
-                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-                recv.await.unwrap()
-            };
-
-            let foo_bar = make_path("foo/bar");
-            let foo_bar_baz = make_path("foo/bar/baz");
-            let bar = make_path("bar");
-            let qux = make_path("qux");
-
-            dm.testing_declare_existing(&foo_bar, value.dupe());
-
-            handle.subscribe_to_paths(vec![foo_bar_baz.clone(), bar.clone()]);
-            while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.testing_process_one_command(cmd);
-            }
-
-            dm.testing_declare_existing(&bar, value.dupe());
-            dm.testing_declare_existing(&foo_bar_baz, value.dupe());
-            dm.testing_declare_existing(&qux, value.dupe());
-
-            let mut paths = Vec::new();
-            while let Ok(path) = handle.receiver().try_recv() {
-                paths.push(path);
-            }
-
-            assert_eq!(paths, vec![foo_bar_baz.clone(), bar, foo_bar_baz]);
-        })
-        .await
-    }
-
-    #[tokio::test]
-    async fn test_subscription_subscribe_also_materializes() -> buck2_error::Result<()> {
-        ignore_stack_overflow_checks_for_future(async {
-            let (mut dm, mut channel) = make_processor(Default::default());
-            let digest_config = dm.io.digest_config();
-            let value = ArtifactValue::file(digest_config.empty_file());
-
-            let mut handle = {
-                let (sender, recv) = oneshot::channel();
-                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-                recv.await.unwrap()
-            };
-
-            let foo_bar = make_path("foo/bar");
-
-            dm.testing_declare(&foo_bar, value.dupe());
-
-            handle.subscribe_to_paths(vec![foo_bar.clone()]);
-            while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.testing_process_one_command(cmd);
-            }
-
-            // We need to yield to let the materialization task run. If we had a handle to it, we'd
-            // just await it, but the subscription isn't retaining those handles.
-            let mut log = Vec::new();
-            while log.len() < 2 {
-                log.extend(dm.io.take_log());
-                tokio::task::yield_now().await;
-            }
-
-            assert_eq!(
-                &log,
-                &[
-                    (Op::Clean, foo_bar.clone()),
-                    (Op::Materialize, foo_bar.clone())
-                ]
-            );
-
-            // Drain low priority commands. This should include our materialization finished message,
-            // at which point we'll notify the subscription handle.
-            while let Ok(cmd) = channel.low_priority.try_recv() {
-                dm.testing_process_one_low_priority_command(cmd);
-            }
-
-            let mut paths = Vec::new();
-            while let Ok(path) = handle.receiver().try_recv() {
-                paths.push(path);
-            }
-            assert_eq!(paths, vec![foo_bar]);
-
-            Ok(())
-        })
-        .await
-    }
-
-    #[tokio::test]
-    async fn test_subscription_unsubscribe() {
-        ignore_stack_overflow_checks_for_future(async {
-            let (mut dm, mut channel) = make_processor(Default::default());
-            let digest_config = dm.io.digest_config();
-            let value1 = ArtifactValue::file(digest_config.empty_file());
-            let value2 = ArtifactValue::dir(digest_config.empty_directory());
-
-            let mut handle = {
-                let (sender, recv) = oneshot::channel();
-                MaterializerSubscriptionOperation::Create { sender }.execute(&mut dm);
-                recv.await.unwrap()
-            };
-
-            let path = make_path("foo/bar");
-
-            handle.subscribe_to_paths(vec![path.clone()]);
-            while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.testing_process_one_command(cmd);
-            }
-
-            dm.testing_declare_existing(&path, value1.dupe());
-
-            handle.unsubscribe_from_paths(vec![path.clone()]);
-            while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.testing_process_one_command(cmd);
-            }
-
-            dm.sqlite_db
-                .as_mut()
-                .expect("db missing")
-                .materializer_state_table()
-                .delete(vec![path.clone()])
-                .buck_error_context("delete failed")
-                .unwrap();
-            dm.testing_declare_existing(&path, value2.dupe());
-
-            let mut paths = Vec::new();
-            while let Ok(path) = handle.receiver().try_recv() {
-                paths.push(path);
-            }
-
-            // Expect only one notification
-            assert_eq!(paths, vec![path]);
         })
         .await
     }
@@ -1573,12 +1429,12 @@ mod state_machine {
             let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
-            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &dm).await?;
             // Drop dm and flush sqlite connection.
             dm.abort();
             // Create new materializer from db state so that artifacts are not active
-            let (dm, _, _) = make_materializer(io, None).await;
+            let (dm, _) = make_materializer(io, None).await;
 
             let res = dm
                 .clean_stale_artifacts(CleanStaleArtifactsArgs {
@@ -1627,7 +1483,7 @@ mod state_machine {
             fs_util::create_dir_all(&cleanable_dir)?;
 
             let io = Arc::new(StubIoHandler::new(project_root));
-            let (dm, _, _) = make_materializer(io.dupe(), None).await;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
             io.set_fail_read_dirs(vec![failed_dir]);
 
             let result = dm
@@ -1669,7 +1525,7 @@ mod state_machine {
             fs_util::create_dir_all(&second_dir)?;
 
             let io = Arc::new(StubIoHandler::new(project_root));
-            let (dm, _, _) = make_materializer(io.dupe(), None).await;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
             io.set_fail_next_invalidated_cleans(1);
 
             let result = dm
@@ -1714,12 +1570,12 @@ mod state_machine {
             let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
-            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &dm).await?;
             // Drop dm and flush sqlite connection.
             dm.abort();
             // Create new materializer from db state so that artifacts are not active
-            let (dm, _, _) = make_materializer(io, None).await;
+            let (dm, _) = make_materializer(io, None).await;
 
             // An untracked artifact containing a directory the scan cannot read.
             let untracked_dir = project_root.resolve(make_path("buck-out/v2/art/foo/untracked"));
@@ -1792,7 +1648,7 @@ mod state_machine {
         ignore_stack_overflow_checks_for_future(async {
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, _handle, _) = make_materializer(io.dupe(), None).await;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
 
             // Dead scratch is deleted regardless of age.
             let dead = project_root.resolve(make_path("buck-out/v2/tmp/dead"));
@@ -1857,8 +1713,8 @@ mod state_machine {
             let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
-            let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
-            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            let (dm, _) = make_materializer(io.dupe(), None).await;
+            materialize_write(&path, b"contents", &dm).await?;
 
             let read_dir_barriers =
                 Arc::new((std::sync::Barrier::new(2), std::sync::Barrier::new(2)));
@@ -1866,7 +1722,7 @@ mod state_machine {
                 StubIoHandler::new(project_root.dupe())
                     .with_read_dir_barriers(read_dir_barriers.dupe()),
             );
-            let (dm, _, _) = make_materializer(io, None).await;
+            let (dm, _) = make_materializer(io, None).await;
 
             // Interrupt while scanning buck-out
             let dm = Arc::new(dm);
@@ -1912,7 +1768,7 @@ mod state_machine {
             let io = Arc::new(
                 StubIoHandler::new(project_root.dupe()).with_clean_barriers(clean_barriers.dupe()),
             );
-            let (dm, _, _) = make_materializer(io, None).await;
+            let (dm, _) = make_materializer(io, None).await;
 
             // Interrupt while deleting files
             let dm = Arc::new(dm);
@@ -1976,9 +1832,9 @@ mod state_machine {
                 dry_run: true,
             };
             let io = Arc::new(StubIoHandler::new(project_root.dupe()));
-            let (dm, mut handle, mut daemon_dispatcher_events) =
+            let (dm, mut daemon_dispatcher_events) =
                 make_materializer(io.dupe(), Some(clean_stale_config)).await;
-            materialize_write(&path, b"contents", &mut handle, &dm).await?;
+            materialize_write(&path, b"contents", &dm).await?;
 
             let receive_clean_result = |events: &mut ChannelEventSource| {
                 let event = events.receive().unwrap();

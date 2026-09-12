@@ -10,7 +10,6 @@
 
 use std::time::Duration;
 
-use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -20,7 +19,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
 use futures::future::FutureExt;
-use gazebo::prelude::*;
 use tokio::time::MissedTickBehavior;
 
 use crate::active_commands;
@@ -37,13 +35,6 @@ pub(crate) async fn run_subscription_server_command(
         .await?;
     span_async(start_event, async move {
         let result: buck2_error::Result<buck2_cli_proto::SubscriptionCommandResponse> = try {
-            let materializer = ctx.materializer();
-
-            let mut materializer_subscription = materializer
-                .create_subscription()
-                .await
-                .buck_error_context("Error creating a materializer subscription")?;
-
             let mut wants_active_commands = false;
 
             let mut ticker = tokio::time::interval(Duration::from_millis(100));
@@ -65,26 +56,10 @@ pub(crate) async fn run_subscription_server_command(
                             Request::Disconnect(disconnect) => {
                                 break disconnect;
                             }
-                            Request::SubscribeToPaths(buck2_subscription_proto::SubscribeToPaths { paths }) => {
-                                let paths = paths.into_try_map(|path| path.try_into())?;
-                                materializer_subscription.subscribe_to_paths(paths);
-                            }
-                            Request::UnsubscribeFromPaths(buck2_subscription_proto::UnsubscribeFromPaths { paths }) => {
-                                let paths = paths.into_try_map(|path| path.try_into())?;
-                                materializer_subscription.unsubscribe_from_paths(paths);
-                            }
                             Request::SubscribeToActiveCommands(buck2_subscription_proto::SubscribeToActiveCommands {}) => {
                                 wants_active_commands = true;
                             }
                         }
-                    }
-                    path = materializer_subscription.next_materialization().fuse() => {
-                        let path = path.internal_error("Materializer hung up")?;
-                        partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
-                            response: Some(buck2_subscription_proto::SubscriptionResponse {
-                                response: Some(buck2_subscription_proto::Materialized { path: path.to_string() }.into())
-                            })
-                        });
                     }
                     _ = ticker.tick().fuse() => {
                         if wants_active_commands {
