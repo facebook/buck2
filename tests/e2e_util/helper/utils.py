@@ -25,6 +25,16 @@ def daemon_is_alive(pid: int) -> bool:
     return psutil.pid_exists(pid)
 
 
+def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> None:
+    """Replace every occurrence of `old` in `file`; `old` must occur at least once."""
+    with open(file, encoding=encoding) as f:
+        file_content = f.read()
+    assert old in file_content, f"{old!r} not found in {file}"
+    file_content = file_content.replace(old, new)
+    with open(file, "w", encoding=encoding) as f:
+        f.write(file_content)
+
+
 async def read_what_ran(buck: Buck, *args) -> typing.List[typing.Dict[str, typing.Any]]:
     out = await buck.log("what-ran", "--format", "json", *args)
     out = [line.strip() for line in out.stdout.splitlines()]

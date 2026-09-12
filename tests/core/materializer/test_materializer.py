@@ -14,19 +14,11 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import filter_events
+from buck2.tests.e2e_util.helper.utils import filter_events, replace_in_file
 
 
 def watchman_dependency_linux_only() -> bool:
     return sys.platform == "linux"
-
-
-def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> None:
-    with open(file, encoding=encoding) as f:
-        file_content = f.read()
-    file_content = file_content.replace(old, new)
-    with open(file, "w", encoding=encoding) as f:
-        f.write(file_content)
 
 
 @buck_test(data_dir="modify_deferred_materialization")

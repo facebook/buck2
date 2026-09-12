@@ -14,29 +14,11 @@ import re
 import shutil
 import time
 from datetime import datetime, timedelta, UTC
-from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
 from buck2.tests.e2e_util.helper.utils import expect_exec_count
-
-
-def modify_acess_times_updates(buck: Buck, new_status: str) -> None:
-    config_file = buck.cwd / ".buckconfig"
-    replace_in_file(
-        "update_access_times = full",
-        f"update_access_times = {new_status}",
-        file=config_file,
-    )
-
-
-def replace_in_file(old: str, new: str, file: Path, encoding: str = "utf-8") -> None:
-    with open(file, encoding=encoding) as f:
-        file_content = f.read()
-    file_content = file_content.replace(old, new)
-    with open(file, "w", encoding=encoding) as f:
-        f.write(file_content)
 
 
 def configure_active_unmaterialization(buck: Buck, enabled: bool) -> None:
