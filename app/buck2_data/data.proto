@@ -2347,6 +2347,13 @@ message CacheQuery {
   CacheType cache_type = 2;
 }
 
+// A cache query that failed with a real error, i.e. anything other than a hit
+// or an outright miss. The lookup is treated as a cache miss.
+message CacheQueryError {
+  string error = 1;
+  optional string re_error_code = 2;
+}
+
 message CacheHit {
   string action_digest = 1;
   optional string action_key = 3;
@@ -2510,7 +2517,11 @@ message WorkerInit {
   WorkerInitCommand command = 1;
 }
 
-message ExecutorStageEnd {}
+message ExecutorStageEnd {
+  // Set when a cache_query stage failed with a real error; the lookup was
+  // degraded to a cache miss.
+  CacheQueryError cache_query_error = 1;
+}
 
 // For most tests, tpx calls the test orchestrator's `execute` method.
 // The `execute` method calls a test binary.
@@ -3266,6 +3277,11 @@ message InvocationRecord {
   // the memory paging is currently saving.
   optional int64 paging_memory_offloaded_bytes = 461;
   optional int64 paging_memory_restored_bytes = 462;
+
+  // Action cache queries (including remote dep-file cache queries) that failed
+  // with a real error - anything other than a hit or an outright miss. Each
+  // such failure was degraded to a cache miss.
+  optional uint64 re_action_cache_query_error_count = 463;
 
   // Distribution of how many actions were executing concurrently during this
   // invocation (execution-only intervals; cache hits excluded), computed by the

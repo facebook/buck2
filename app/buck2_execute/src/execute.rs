@@ -43,7 +43,7 @@ pub fn executor_stage_async<F: Future>(
     let event = buck2_data::ExecutorStageStart {
         stage: Some(stage.into()),
     };
-    span_async_simple(event, f, buck2_data::ExecutorStageEnd {})
+    span_async_simple(event, f, buck2_data::ExecutorStageEnd::default())
 }
 
 pub fn executor_stage<F, R>(stage: impl Into<buck2_data::executor_stage_start::Stage>, f: F) -> R
@@ -55,6 +55,6 @@ where
     };
     span(event, || {
         let r = f();
-        (r, buck2_data::ExecutorStageEnd {})
+        (r, buck2_data::ExecutorStageEnd::default())
     })
 }

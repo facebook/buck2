@@ -16,10 +16,10 @@ use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_events::dispatch::span_async;
 use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest::ActionDigestKind;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
-use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -30,6 +30,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ActionCacheResult;
@@ -99,12 +100,30 @@ async fn query_action_cache_and_download_result(
         CacheType::ActionCache => action_digest.dupe(),
     };
 
-    let action_cache_response = executor_stage_async(
-        buck2_data::CacheQuery {
-            action_digest: digest.to_string(),
-            cache_type: cache_type.to_proto().into(),
+    let action_cache_response = span_async(
+        buck2_data::ExecutorStageStart {
+            stage: Some(
+                buck2_data::CacheQuery {
+                    action_digest: digest.to_string(),
+                    cache_type: cache_type.to_proto().into(),
+                }
+                .into(),
+            ),
         },
-        re_client.action_cache(digest.dupe(), &command.prepared_action.platform),
+        async {
+            let result = re_client
+                .action_cache(digest.dupe(), &command.prepared_action.platform)
+                .await;
+            let end = buck2_data::ExecutorStageEnd {
+                cache_query_error: result.as_ref().err().map(|e| buck2_data::CacheQueryError {
+                    error: format!("{e:#}"),
+                    re_error_code: e
+                        .find_typed_context::<RemoteExecutionError>()
+                        .map(|re_err| re_err.code.to_string()),
+                }),
+            };
+            (result, end)
+        },
     )
     .await;
 
@@ -128,8 +147,12 @@ async fn query_action_cache_and_download_result(
     }
 
     let response = match action_cache_response {
-        Err(e) => {
-            return ControlFlow::Break(manager.error("remote_action_cache", e));
+        Err(_) => {
+            // The action cache is best-effort: a failed query degrades to a
+            // miss rather than failing the action, but not silently — the
+            // failure is recorded on the CacheQuery span end and counted into
+            // the invocation record.
+            return ControlFlow::Continue(manager);
         }
         Ok(Some(response)) => response,
         Ok(None) => return ControlFlow::Continue(manager),

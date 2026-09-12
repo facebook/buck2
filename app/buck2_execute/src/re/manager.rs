@@ -364,14 +364,13 @@ impl ManagedRemoteExecutionClient {
         action_digest: ActionDigest,
         platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
-        Ok(self
-            .lock()?
+        // `Ok(None)` is an outright miss; `Err` is a real failure. The caller
+        // decides whether to degrade failures into misses.
+        self.lock()?
             .get()
             .await?
             .action_cache(action_digest, self.use_case, platform)
             .await
-            .ok()
-            .flatten())
     }
 
     pub async fn upload(

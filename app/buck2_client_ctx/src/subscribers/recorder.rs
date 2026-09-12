@@ -146,6 +146,7 @@ pub struct InvocationRecorder {
     min_build_count_since_rebase: u64,
     cache_upload_count: u64,
     cache_upload_attempt_count: u64,
+    re_action_cache_query_error_count: u64,
     dep_file_upload_count: u64,
     dep_file_upload_attempt_count: u64,
     parsed_target_patterns: Option<buck2_data::ParsedTargetPatterns>,
@@ -375,6 +376,7 @@ impl InvocationRecorder {
             min_build_count_since_rebase: 0,
             cache_upload_count: 0,
             cache_upload_attempt_count: 0,
+            re_action_cache_query_error_count: 0,
             dep_file_upload_count: 0,
             dep_file_upload_attempt_count: 0,
             parsed_target_patterns: None,
@@ -1075,6 +1077,7 @@ impl InvocationRecorder {
             min_build_count_since_rebase: self.min_build_count_since_rebase,
             cache_upload_count: self.cache_upload_count,
             cache_upload_attempt_count: self.cache_upload_attempt_count,
+            re_action_cache_query_error_count: Some(self.re_action_cache_query_error_count),
             dep_file_upload_count: self.dep_file_upload_count,
             dep_file_upload_attempt_count: self.dep_file_upload_attempt_count,
             parsed_target_patterns: self.parsed_target_patterns.take(),
@@ -1710,9 +1713,12 @@ impl InvocationRecorder {
 
     fn handle_executor_stage_end(
         &mut self,
-        _executor_stage: buck2_data::ExecutorStageEnd,
+        executor_stage: &buck2_data::ExecutorStageEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
+        if executor_stage.cache_query_error.is_some() {
+            self.re_action_cache_query_error_count += 1;
+        }
         // Look up the stage type from the span ID and decrement the appropriate counter
         if let Some(span_id) = event.span_id() {
             if let Some(stage_type) = self.executor_stages_by_span.remove(&span_id.into()) {
@@ -2493,7 +2499,7 @@ impl InvocationRecorder {
                         self.handle_dice_cleanup_end(*dice_cleanup_end, event)
                     }
                     buck2_data::span_end_event::Data::ExecutorStage(executor_stage) => {
-                        self.handle_executor_stage_end(*executor_stage, event)
+                        self.handle_executor_stage_end(executor_stage, event)
                     }
                     buck2_data::span_end_event::Data::BxlEnsureArtifacts(_bxl_ensure_artifacts) => {
                         self.handle_bxl_ensure_artifacts_end(*_bxl_ensure_artifacts, event)
