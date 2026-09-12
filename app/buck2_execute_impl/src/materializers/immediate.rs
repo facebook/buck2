@@ -310,7 +310,6 @@ pub async fn write_to_disk<'a>(
                     content,
                     is_executable,
                     path_kind,
-                    configuration_path: _,
                 } in requests
                 {
                     let digest = TrackedFileDigest::from_content(

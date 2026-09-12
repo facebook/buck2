@@ -434,7 +434,6 @@ async fn declare_all_source_artifacts(
             content: entry.contents.to_vec(),
             is_executable: entry.metadata.is_executable,
             path_kind: BuckOutPathKind::Configuration,
-            configuration_path: None,
         });
     }
 

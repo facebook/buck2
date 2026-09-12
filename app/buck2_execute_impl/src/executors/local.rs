@@ -947,7 +947,6 @@ impl LocalExecutor {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
                                 artifact: value.dupe(),
-                                configuration_path: None,
                             });
                         }
                     }
@@ -969,16 +968,16 @@ impl LocalExecutor {
             .collect();
         self.materializer.declare_existing(to_declare).await?;
         buck2_util::future::try_join_all(output_path_to_content_based_path_copies.into_iter().map(
-            |(path, value, copied_artifacts, cfg_path)| {
+            |(path, value, copied_artifacts)| {
                 self.materializer
-                    .declare_copy(path, value, copied_artifacts, cfg_path)
+                    .declare_copy(path, value, copied_artifacts)
             },
         ))
         .await?;
         buck2_util::future::try_join_all(
             configuration_path_to_content_based_path_symlinks
                 .into_iter()
-                .map(|(path, value)| self.materializer.declare_copy(path, value, vec![], None)),
+                .map(|(path, value)| self.materializer.declare_copy(path, value, vec![])),
         )
         .await?;
 
@@ -1024,12 +1023,7 @@ impl LocalExecutor {
         digest_config: DigestConfig,
         to_declare: &mut Vec<DeclareArtifactPayload>,
         symlinks: &mut Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        copies: &mut Vec<(
-            ProjectRelativePathBuf,
-            ArtifactValue,
-            Vec<CopiedArtifact>,
-            Option<ProjectRelativePathBuf>,
-        )>,
+        copies: &mut Vec<(ProjectRelativePathBuf, ArtifactValue, Vec<CopiedArtifact>)>,
     ) -> buck2_error::Result<()> {
         let hashed_path = output
             .as_ref()
@@ -1043,11 +1037,9 @@ impl LocalExecutor {
         let mut builder = ArtifactValueBuilder::new(self.artifact_fs.fs(), digest_config);
         builder.add_symlinked(value, hashed_path.clone(), &configuration_hash_path)?;
         let symlink_value = builder.build(&configuration_hash_path)?;
-        let cfg_path = None;
         to_declare.push(DeclareArtifactPayload {
             path: output_path.clone(),
             artifact: value.dupe(),
-            configuration_path: None,
         });
         symlinks.push((configuration_hash_path, symlink_value));
         copies.push((
@@ -1059,7 +1051,6 @@ impl LocalExecutor {
                 dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
                 executable_bit_override: None,
             }],
-            cfg_path,
         ));
         Ok(())
     }
@@ -1451,7 +1442,7 @@ pub async fn materialize_inputs(
     buck2_util::future::try_join_all(
         configuration_path_to_content_based_path_symlinks
             .into_iter()
-            .map(|(path, value)| materializer.declare_copy(path, value, vec![], None)),
+            .map(|(path, value)| materializer.declare_copy(path, value, vec![])),
     )
     .await?;
 

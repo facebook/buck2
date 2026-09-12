@@ -454,7 +454,6 @@ mod state_machine {
                 content: contents.to_vec(),
                 is_executable: false,
                 path_kind: BuckOutPathKind::Configuration,
-                configuration_path: None,
             }])
         }))
         .await?;
@@ -598,12 +597,8 @@ mod state_machine {
             let artifact = ArtifactValue::file(io.digest_config().empty_file());
             let (dm, _handle, _daemon_dispatcher_events) = make_materializer(io, None).await;
 
-            dm.declare_existing(vec![DeclareArtifactPayload {
-                path,
-                artifact,
-                configuration_path: None,
-            }])
-            .await?;
+            dm.declare_existing(vec![DeclareArtifactPayload { path, artifact }])
+                .await?;
 
             let source = dm.allocative().await?.flamegraph().write();
             assert!(
@@ -689,7 +684,6 @@ mod state_machine {
             DeclareArtifactPayload {
                 path: path.clone(),
                 artifact: value,
-                configuration_path: None,
             },
             method,
             EventDispatcher::null(),
@@ -724,7 +718,6 @@ mod state_machine {
             DeclareArtifactPayload {
                 path: path.clone(),
                 artifact: value,
-                configuration_path: None,
             },
             cas_method(),
             EventDispatcher::null(),
@@ -1055,7 +1048,6 @@ mod state_machine {
             dm.declare_existing(vec![DeclareArtifactPayload {
                 path: path.clone(),
                 artifact: value,
-                configuration_path: None,
             }])
             .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);

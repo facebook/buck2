@@ -379,7 +379,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
         // TODO(rafaelc): get rid of this tree; it'd save a lot of memory.
         let mut srcs_tree = FileTree::new();
@@ -407,7 +406,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             DeclareArtifactPayload {
                 path,
                 artifact: value,
-                configuration_path,
             },
             Box::new(ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs)),
             get_dispatcher(),
@@ -438,13 +436,11 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         &self,
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
-        configuration_path: Option<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::Declare(
             DeclareArtifactPayload {
                 path,
                 artifact: ArtifactValue::file(info.metadata.dupe()),
-                configuration_path,
             },
             Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
             get_dispatcher(),
@@ -466,7 +462,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         let contents = generate()?;
 
         let mut paths = Vec::with_capacity(contents.len());
-        let mut configuration_paths = Vec::with_capacity(contents.len());
         let mut values = Vec::with_capacity(contents.len());
         let mut methods = Vec::with_capacity(contents.len());
 
@@ -475,7 +470,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             content,
             is_executable,
             path_kind: _,
-            configuration_path,
         } in contents
         {
             let digest = TrackedFileDigest::from_content(
@@ -489,7 +483,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             };
 
             paths.push(path);
-            configuration_paths.push(configuration_path);
             values.push(ArtifactValue::file(meta));
             methods.push(ArtifactMaterializationMethod::Write(WriteFile::try_new(
                 content,
@@ -497,15 +490,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             )?));
         }
 
-        for ((path, cfg_path), (value, method)) in std::iter::zip(
-            std::iter::zip(paths, configuration_paths),
-            std::iter::zip(values.iter(), methods),
-        ) {
+        for (path, (value, method)) in std::iter::zip(paths, std::iter::zip(values.iter(), methods))
+        {
             self.command_sender.send(MaterializerCommand::Declare(
                 DeclareArtifactPayload {
                     path,
                     artifact: value.dupe(),
-                    configuration_path: cfg_path,
                 },
                 Box::new(method),
                 get_dispatcher(),

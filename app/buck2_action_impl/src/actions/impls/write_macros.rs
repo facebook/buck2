@@ -175,7 +175,6 @@ impl Action for WriteMacrosToFileAction {
         ctx: &mut dyn ActionExecutionCtx,
         waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
-        let artifact_fs = ctx.fs();
         let mut execution_start = None;
 
         let values = ctx
@@ -225,15 +224,11 @@ impl Action for WriteMacrosToFileAction {
                         } else {
                             fs.fs().resolve_build(output.get_path(), None)?
                         };
-                        let configuration_path = ctx
-                            .materializer()
-                            .maybe_eager_configuration_path(artifact_fs, output.get_path())?;
                         Ok(WriteRequest {
                             path,
                             content,
                             is_executable: false,
                             path_kind: output.get_path().path_resolution_method(),
-                            configuration_path,
                         })
                     })
                     .collect::<buck2_error::Result<_>>()

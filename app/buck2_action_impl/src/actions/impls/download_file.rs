@@ -290,10 +290,6 @@ impl Action for DownloadFileAction {
                         .as_ref(),
                     )?;
 
-                    let configuration_path = ctx
-                        .materializer()
-                        .maybe_eager_configuration_path(ctx.fs(), self.output().get_path())?;
-
                     // Fast path: download later via the materializer.
                     ctx.materializer()
                         .declare_http(
@@ -304,7 +300,6 @@ impl Action for DownloadFileAction {
                                 metadata,
                                 owner: ctx.target().owner().dupe(),
                             },
-                            configuration_path,
                         )
                         .await?;
 
@@ -347,7 +342,6 @@ impl Action for DownloadFileAction {
                         .declare_existing(vec![DeclareArtifactPayload {
                             path: rel_path,
                             artifact: ArtifactValue::file(metadata.dupe()),
-                            configuration_path: None,
                         }])
                         .await?;
 

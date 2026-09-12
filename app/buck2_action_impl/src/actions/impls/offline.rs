@@ -34,7 +34,7 @@ pub(crate) async fn declare_copy_to_offline_output_cache(
     let offline_cache_path = ctx
         .fs()
         .resolve_offline_output_cache_path(output.get_path())?;
-    declare_copy_materialization(ctx, build_path, offline_cache_path.clone(), value, None).await?;
+    declare_copy_materialization(ctx, build_path, offline_cache_path.clone(), value).await?;
 
     Ok(offline_cache_path)
 }
@@ -82,17 +82,7 @@ pub(crate) async fn declare_copy_from_offline_cache(
         let build_path = ctx
             .fs()
             .resolve_build(output.get_path(), Some(&value.content_based_path_hash()))?;
-        let configuration_path = ctx
-            .materializer()
-            .maybe_eager_configuration_path(ctx.fs(), output.get_path())?;
-        declare_copy_materialization(
-            ctx,
-            offline_cache_path,
-            build_path,
-            value.dupe(),
-            configuration_path,
-        )
-        .await?;
+        declare_copy_materialization(ctx, offline_cache_path, build_path, value.dupe()).await?;
 
         restored_outputs.insert(output.get_path().dupe(), value);
     }
@@ -106,7 +96,6 @@ async fn declare_copy_materialization(
     src: ProjectRelativePathBuf,
     dest: ProjectRelativePathBuf,
     value: ArtifactValue,
-    configuration_path: Option<ProjectRelativePathBuf>,
 ) -> buck2_error::Result<()> {
     let immutable_entry = value.entry().dupe().map_dir(|d| d.as_immutable());
     ctx.materializer()
@@ -114,7 +103,6 @@ async fn declare_copy_materialization(
             dest.clone(),
             value,
             vec![CopiedArtifact::new(src, dest, immutable_entry, None)],
-            configuration_path,
         )
         .await
 }

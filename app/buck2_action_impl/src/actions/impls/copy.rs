@@ -211,10 +211,6 @@ impl Action for CopyAction {
             tmp_dest
         };
 
-        let configuration_path = ctx
-            .materializer()
-            .maybe_eager_configuration_path(ctx.fs(), self.output().get_path())?;
-
         ctx.materializer()
             .declare_copy(
                 dest.clone(),
@@ -233,7 +229,6 @@ impl Action for CopyAction {
                         CopyMode::Symlink => None,
                     },
                 )],
-                configuration_path,
             )
             .await?;
 

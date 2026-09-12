@@ -998,10 +998,6 @@ impl RunAction {
                 .buck_out_path_resolver()
                 .resolve_gen(&path, Some(&content_hash))?;
 
-            let configuration_path = ctx
-                .materializer()
-                .maybe_eager_configuration_path(fs.fs(), &path)?;
-
             ctx.materializer()
                 .declare_write(Box::new(|| {
                     Ok(vec![WriteRequest {
@@ -1009,7 +1005,6 @@ impl RunAction {
                         content: data.0.0,
                         is_executable: false,
                         path_kind: path.path_resolution_method(),
-                        configuration_path,
                     }])
                 }))
                 .await

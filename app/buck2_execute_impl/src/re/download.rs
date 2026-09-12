@@ -477,7 +477,6 @@ impl CasDownloader<'_> {
         for (requested, (path, _)) in requested_outputs.into_iter().zip(output_paths.iter()) {
             let value = extract_artifact_value(&input_dir, path, self.digest_config)?;
             if let Some(value) = value {
-                let configuration_path = None;
                 to_declare.push(DeclareArtifactPayload {
                     path: requested
                         .resolve(
@@ -492,7 +491,6 @@ impl CasDownloader<'_> {
                         .path
                         .to_owned(),
                     artifact: value.dupe(),
-                    configuration_path,
                 });
                 mapped_outputs.insert(requested.cloned(), value);
             }

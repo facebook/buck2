@@ -222,11 +222,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 )
             }
             MaterializerCommand::Declare(
-                DeclareArtifactPayload {
-                    path,
-                    artifact,
-                    configuration_path: _,
-                },
+                DeclareArtifactPayload { path, artifact },
                 method,
                 _dispatcher,
                 _parent_id,
@@ -672,12 +668,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                for DeclareArtifactPayload {
-                    path,
-                    artifact,
-                    configuration_path: _,
-                } in artifacts
-                {
+                for DeclareArtifactPayload { path, artifact } in artifacts {
                     self.declare_existing(&path, artifact);
                 }
             }
@@ -686,7 +677,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 DeclareArtifactPayload {
                     path,
                     artifact: value,
-                    configuration_path: _,
                 },
                 method,
                 event_dispatcher,
