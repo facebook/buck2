@@ -772,12 +772,12 @@ pub struct MaterializerIterItem {
     pub deps: Vec<(ProjectRelativePathBuf, &'static str)>,
 }
 
-/// Obtain notifications for entries as they are materialized, and request eager materialization of
-/// those paths.
+/// Obtain notifications for entries as they are materialized.
 #[async_trait]
 pub trait MaterializerSubscription: Send + Sync {
-    /// Get notifications for specific paths. This also implicitly requests their eager
-    /// materialization.
+    /// Get notifications for specific paths. Paths that are already declared but not yet
+    /// materialized are materialized as a result of this call; paths declared afterwards are
+    /// reported only once something else materializes them.
     fn subscribe_to_paths(&mut self, paths: Vec<ProjectRelativePathBuf>);
 
     /// Stop getting notifications for specific paths. In-flight notifications may still be

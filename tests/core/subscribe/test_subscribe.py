@@ -36,6 +36,12 @@ async def test_subscribe(buck: Buck) -> None:
     # Buck2 wants normalized paths here.
     path = path.replace("\\", "/")
 
+    # Build a downstream target first. That declares `stage1`'s output to the
+    # materializer without materializing it, since nothing needs it on disk.
+    # Subscribing to it below is what forces the materialization we then expect
+    # to be notified about.
+    await buck.build("//:stage2")
+
     expect = os.environ["BUCK2_EXPECT"]
     args = [
         "--buck2",
@@ -59,8 +65,6 @@ async def test_subscribe(buck: Buck) -> None:
         cwd=buck.cwd,
         env=buck._env,
     )
-
-    await buck.build("//:stage2")
 
     # We don't expect this to actually take anywhere near 20 seconds, but on CI
     # on a busy host this could take a while.

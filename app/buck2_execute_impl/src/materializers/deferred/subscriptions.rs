@@ -35,8 +35,8 @@ use crate::materializers::deferred::IoHandler;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::MaterializerSender;
 
-/// Subscriptions allow clients to request eager materialization of specific paths as well as
-/// notifications when those paths are materialized.
+/// Subscriptions notify clients when specific paths are materialized. Subscribing to a path that
+/// has been declared but not yet materialized also requests its materialization.
 pub(super) struct MaterializerSubscriptions {
     index: SubscriptionIndex,
     active: BuckMutMap<SubscriptionIndex, SubscriptionData>,
@@ -48,17 +48,6 @@ impl MaterializerSubscriptions {
             index: SubscriptionIndex(0),
             active: BuckMutMap::default(),
         }
-    }
-
-    /// Return whether a given path should be materialized eagerly.
-    pub fn should_materialize_eagerly(&self, path: &ProjectRelativePath) -> bool {
-        for sub in self.active.values() {
-            if sub.paths.contains(path) {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Notify this subscription that a given path has been materialized.

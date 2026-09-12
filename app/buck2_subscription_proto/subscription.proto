@@ -32,9 +32,11 @@ message Disconnect {
   bool ok = 2;
 }
 
-// Request eager materialization of specific paths AND notifications when they
-// get materialized. If the paths have already been materialized, a
-// `Materialized` notification will be sent immediately.
+// Request notifications for when specific paths get materialized. If a path
+// has already been materialized, a `Materialized` notification will be sent
+// immediately. If it has been declared but not yet materialized, its
+// materialization is requested as part of this call. Paths declared after
+// this request are reported only once something else materializes them.
 message SubscribeToPaths {
   // The paths to subscribe to. Those paths must be ProjectRelativePaths, which
   // are fully-normalized paths relative to the project root. It is expected

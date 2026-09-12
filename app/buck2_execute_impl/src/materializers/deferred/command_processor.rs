@@ -691,10 +691,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 });
 
                 self.declare(&path, value, method, &event_dispatcher);
-
-                if self.subscriptions.should_materialize_eagerly(&path) {
-                    self.materialize_artifact(&path, event_dispatcher);
-                }
             }),
             MaterializerCommand::MatchArtifacts(paths, sender) => {
                 let all_matches = paths
