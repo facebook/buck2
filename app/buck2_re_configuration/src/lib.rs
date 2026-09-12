@@ -23,6 +23,7 @@ pub trait RemoteExecutionStaticMetadataImpl: Sized {
     fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
     fn cas_semaphore_size(&self) -> usize;
     fn exec_semaphore_size(&self) -> usize;
+    fn action_cache_semaphore_size(&self) -> usize;
 }
 
 #[derive(Clone, Debug, Allocative)]
@@ -110,6 +111,8 @@ mod fbcode {
         pub shared_casd_address: Option<CASdAddress>,
         pub shared_casd_use_tls: Option<bool>,
         pub cas_client_label: Option<String>,
+        /// Client-side cap on concurrent action cache RPCs (reads and writes).
+        pub action_cache_semaphore_size: Option<usize>,
         // End gRPC settings
         pub verbose_logging: bool,
 
@@ -224,6 +227,10 @@ mod fbcode {
                 cas_client_label: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "cas_client_label_v2",
+                })?,
+                action_cache_semaphore_size: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "action_cache_semaphore_size",
                 })?,
                 verbose_logging: legacy_config
                     .parse(BuckconfigKeyRef {
@@ -356,6 +363,12 @@ mod fbcode {
             self.cas_connection_count as usize * 30
         }
 
+        fn action_cache_semaphore_size(&self) -> usize {
+            // See D116018045 for data showing that scaling this much higher doesn't really matter, and
+            // hurts Max RSS as more state is kept in-flight without actually completing anything faster
+            self.action_cache_semaphore_size.unwrap_or(1000)
+        }
+
         fn exec_semaphore_size(&self) -> usize {
             self.execution_concurrency_limit as usize
         }
@@ -378,6 +391,11 @@ mod not_fbcode {
         }
 
         fn cas_semaphore_size(&self) -> usize {
+            // FIXME: make this configurable?
+            1024
+        }
+
+        fn action_cache_semaphore_size(&self) -> usize {
             // FIXME: make this configurable?
             1024
         }

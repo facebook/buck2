@@ -240,6 +240,8 @@ impl RemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
+        let _ac = self.data.client.action_cache_semaphore.acquire().await;
+
         self.data
             .action_cache
             .op(self
@@ -450,6 +452,8 @@ impl RemoteExecutionClient {
         platform: &RE::Platform,
         write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
+        let _ac = self.data.client.action_cache_semaphore.acquire().await;
+
         self.data
             .write_action_results
             .op(self
@@ -501,6 +505,11 @@ struct RemoteExecutionClientImpl {
     /// How many simultaneous requests to RE
     #[allocative(skip)]
     cas_semaphore: Arc<Semaphore>,
+    /// Bounds concurrent action cache reads/writes. Particularly at build start thousands
+    /// of actions become ready at once, and this prevents us from issuing requests
+    /// faster than they can be filled, reducing the transient memory we have to hold.
+    #[allocative(skip)]
+    action_cache_semaphore: Arc<Semaphore>,
     /// How many simultaneous execute requests to RE
     #[allocative(skip)]
     exec_semaphore: Arc<Semaphore>,
@@ -1009,6 +1018,9 @@ impl RemoteExecutionClientImpl {
                 client: Some(client),
                 skip_remote_cache: re_config.skip_remote_cache,
                 cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
+                action_cache_semaphore: Arc::new(Semaphore::new(
+                    static_metadata.action_cache_semaphore_size(),
+                )),
                 exec_semaphore: Arc::new(Semaphore::new(static_metadata.exec_semaphore_size())),
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
