@@ -148,6 +148,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         res = js_bundle_info.res,
         res_priority = RESOURCE_PRIORITY_NORMAL,
         text_symbols = get_text_symbols(ctx, js_bundle_info.res, [], identifier),
+        unused_resource_dep_validation_has_non_xml_resources = True,
     )
 
 def _get_extra_providers(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, identifier: str) -> list[Provider]:

@@ -1310,6 +1310,7 @@ android_resource = prelude_rule(
                  Android resources, although this option is deprecated and might be removed in the future.
             """,
             ),
+            "unused_resource_dep_validation_has_non_xml_resources": attrs.option(attrs.bool(), default = None),
             "package": attrs.option(
                 attrs.string(),
                 default = None,

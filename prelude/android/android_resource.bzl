@@ -43,6 +43,10 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
     res = _convert_to_artifact_dir(ctx, ctx.attrs.res, "res")
     asset = _convert_to_artifact_dir(ctx, ctx.attrs.assets, "assets")
     assets = [asset] if asset else []
+    unused_resource_dep_validation_has_non_xml_resources = ctx.attrs.unused_resource_dep_validation_has_non_xml_resources
+    if unused_resource_dep_validation_has_non_xml_resources == None:
+        unused_resource_dep_validation_has_non_xml_resources = ctx.attrs.res != None
+    unused_resource_dep_validation_has_non_xml_resources = unused_resource_dep_validation_has_non_xml_resources or bool(assets) or ctx.attrs.manifest != None
 
     if res:
         aapt2_compile_output = aapt2_compile(ctx, res, ctx.attrs._android_toolchain[AndroidToolchainInfo])
@@ -65,6 +69,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             res = res,
             res_priority = RESOURCE_PRIORITY_NORMAL,
             text_symbols = r_dot_txt_output,
+            unused_resource_dep_validation_has_non_xml_resources = unused_resource_dep_validation_has_non_xml_resources,
         )
     else:
         resource_info = AndroidResourceInfo(
@@ -79,6 +84,7 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             res = None,
             res_priority = RESOURCE_PRIORITY_NORMAL,
             text_symbols = None,
+            unused_resource_dep_validation_has_non_xml_resources = unused_resource_dep_validation_has_non_xml_resources,
         )
     providers.append(resource_info)
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, ctx.attrs.deps, manifest = ctx.attrs.manifest, resource_info = resource_info))

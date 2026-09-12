@@ -274,6 +274,7 @@ def _get_extra_providers(
             res = None if skip_resources else android_resource_info.res,
             res_priority = android_resource_info.res_priority,
             text_symbols = None if skip_resources else android_resource_info.text_symbols,
+            unused_resource_dep_validation_has_non_xml_resources = True,
         )
         providers.append(new_android_resource_info)
         providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], resource_info = new_android_resource_info))

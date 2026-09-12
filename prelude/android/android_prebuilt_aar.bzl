@@ -81,6 +81,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         res = res,
         res_priority = RESOURCE_PRIORITY_LOW,
         text_symbols = r_dot_txt,
+        unused_resource_dep_validation_has_non_xml_resources = True,
     )
 
     dummy_r_dot_java_info = get_dummy_r_dot_java(
