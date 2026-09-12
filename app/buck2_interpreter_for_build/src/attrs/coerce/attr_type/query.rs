@@ -11,6 +11,8 @@
 use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorOptionContext;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
@@ -27,6 +29,13 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum QueryError {
+    #[error("Query literal `{0}` names a subtarget; query evaluation resolves whole targets")]
+    SubtargetInQueryLiteral(String),
+}
 
 pub trait QueryAttrTypeExt {
     fn coerce(
@@ -53,13 +62,13 @@ impl QueryAttrTypeExt for QueryAttrType {
                 // TODO(cjhopman): We could probably parse the pattern first. This would likely at least give a better error message when the query contains a non-literal target pattern.
                 // We could optimize this to do less work for duplicates, but it's generally not helpful.
                 let label = self.ctx.coerce_providers_label(pattern)?;
-                /*
                 if label.name() != &ProvidersName::Default {
-                    return Err(
-                        MacroError::ProviderNameUnsupportedInQuery(pattern.to_owned()).into(),
-                    );
-                }*/
-
+                    soft_error!(
+                        "query_literal_subtarget",
+                        QueryError::SubtargetInQueryLiteral(pattern.to_owned()).into(),
+                        quiet: true
+                    )?;
+                }
                 self.literals.insert(pattern, label);
                 Ok(())
             }
