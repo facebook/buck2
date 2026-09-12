@@ -11,4 +11,3 @@
 pub mod http;
 
 pub mod materializer;
-pub mod utils;

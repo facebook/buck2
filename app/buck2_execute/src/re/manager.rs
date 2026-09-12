@@ -52,7 +52,6 @@ use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
-use crate::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::ActionCacheWriteType;
 use crate::re::client::ExecuteResponseOrCancelled;
@@ -464,14 +463,13 @@ impl ManagedRemoteExecutionClient {
     pub async fn materialize_files(
         &self,
         files: Vec<NamedDigestWithPermissions>,
-        priority_control: DynamicPriorityHandle,
         info: &CasDownloadInfo,
     ) -> buck2_error::Result<()> {
         let result = self
             .lock()?
             .get()
             .await?
-            .materialize_files(files, self.use_case, priority_control)
+            .materialize_files(files, self.use_case)
             .await;
         self.classify_cas_result(info, result)
     }

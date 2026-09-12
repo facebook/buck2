@@ -25,7 +25,8 @@ package buck.data.error;
 //
 // Feel free to continue using error types if you like.
 enum ErrorTag {
-  reserved 2001, 11, 19, 6001;
+  reserved 2001, 11, 19, 6001, 2600;
+  reserved "MATERIALIZATION_CANCELLED";
 
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
@@ -145,8 +146,6 @@ enum ErrorTag {
 
   // Build failed during materialization
   MATERIALIZATION_ERROR = 26;
-  // Materialization was cancelled
-  MATERIALIZATION_CANCELLED = 2600;
   // A path was missing while copying a file into buck-out during
   // materialization.
   MATERIALIZE_COPY_MISSING_FILE = 2601;

@@ -22,8 +22,6 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CleanStaleArtifactsPolicy;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializerSubscription;
-use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
-use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
@@ -338,7 +336,6 @@ mod state_machine {
             path: ProjectRelativePathBuf,
             _method: Arc<ArtifactMaterializationMethod>,
             _entry: ActionDirectoryEntry<ActionSharedDirectory>,
-            _priority_control: DynamicPriorityHandle,
             _event_dispatcher: EventDispatcher,
             _cancellations: &CancellationContext,
         ) -> Result<(), MaterializeEntryError> {
@@ -794,7 +791,6 @@ mod state_machine {
                     .shared(),
             ),
             Version(100),
-            DynamicPriorityHandle::new(Priority::High),
         );
         dm.tree
             .prefix_get_mut(&mut paths[3].iter())
@@ -2190,140 +2186,6 @@ mod state_machine {
             assert_eq!(returned_path, nonexistent);
             assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
-            Ok(())
-        })
-        .await
-    }
-
-    // ---- Materialization priority tests ----
-
-    /// Helper to extract the priority_control from an Active/Materializing artifact in the tree.
-    fn get_priority_control<T: IoHandler>(
-        dm: &mut DeferredMaterializerCommandProcessor<T>,
-        path: &ProjectRelativePathBuf,
-    ) -> DynamicPriorityHandle {
-        let mut path_iter = path.iter();
-        let data = dm
-            .tree
-            .prefix_get_mut(&mut path_iter)
-            .unwrap_or_else(|| panic!("artifact {} should be in tree", path));
-        data.processing
-            .active_ref()
-            .unwrap_or_else(|| panic!("Expected Active processing for {}", path))
-            .priority_control
-            .clone()
-    }
-
-    /// Declares `path` and starts materializing it at `Priority::Low`, the state a caller that
-    /// doesn't need the artifact yet leaves it in.
-    fn declare_and_materialize_at_low<T: IoHandler>(
-        dm: &mut DeferredMaterializerCommandProcessor<T>,
-        path: &ProjectRelativePathBuf,
-        value: ArtifactValue,
-    ) {
-        dm.testing_declare(path, value);
-        let _fut = dm
-            .materialize_artifact_with_priority(path, EventDispatcher::null(), Priority::Low)
-            .expect("Expected a materializing future");
-    }
-
-    #[tokio::test]
-    async fn test_join_cancelled_future_starts_fresh() {
-        ignore_stack_overflow_checks_for_future(async {
-            let path = make_path("buck-out/v2/low/cancel-on-join");
-            let (mut dm, _) = make_processor(Default::default());
-            let digest_config = dm.io.digest_config();
-
-            declare_and_materialize_at_low(
-                &mut dm,
-                &path,
-                ArtifactValue::file(digest_config.empty_file()),
-            );
-            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
-
-            let priority_control = get_priority_control(&mut dm, &path);
-            assert_eq!(priority_control.priority(), Priority::Low);
-            priority_control.cancel();
-
-            let version_before = dm
-                .tree
-                .prefix_get_mut(&mut path.iter())
-                .unwrap()
-                .processing
-                .current_version();
-
-            let fut = dm
-                .materialize_artifact_with_priority(&path, EventDispatcher::null(), Priority::High)
-                .expect("Expected a materializing future");
-
-            let new_priority_control = get_priority_control(&mut dm, &path);
-            let version_after = dm
-                .tree
-                .prefix_get_mut(&mut path.iter())
-                .unwrap()
-                .processing
-                .current_version();
-            assert!(version_after > version_before);
-            assert!(!new_priority_control.cancel_token().is_cancelled());
-            assert_eq!(new_priority_control.priority(), Priority::High);
-
-            fut.await.expect("Fresh materialization should succeed");
-            assert!(
-                dm.io
-                    .take_log()
-                    .iter()
-                    .any(|(op, p)| *op == Op::Materialize && *p == path),
-                "Fresh materialize IO should have been dispatched"
-            );
-        })
-        .await
-    }
-
-    /// High-priority promotion should propagate to direct symlink-dep targets.
-    #[tokio::test]
-    async fn test_priority_promotion_propagates_to_symlink_deps() -> buck2_error::Result<()> {
-        ignore_stack_overflow_checks_for_future(async {
-            let symlink_path = make_path("foo/parent_symlink");
-            let target_path = make_path("foo/dep_target");
-            let target_from_symlink = RelativePathBuf::from_system_path(Path::new("dep_target"))?;
-
-            let (mut dm, _) = make_processor(Default::default());
-            let digest_config = dm.io.digest_config();
-
-            declare_and_materialize_at_low(
-                &mut dm,
-                &target_path,
-                ArtifactValue::file(digest_config.empty_file()),
-            );
-            assert_eq!(
-                get_priority_control(&mut dm, &target_path).priority(),
-                Priority::Low
-            );
-
-            let symlink_value = make_artifact_value_with_symlink_dep(
-                &target_path,
-                &target_from_symlink,
-                digest_config,
-            )?;
-            declare_and_materialize_at_low(&mut dm, &symlink_path, symlink_value);
-            assert_eq!(
-                get_priority_control(&mut dm, &symlink_path).priority(),
-                Priority::Low
-            );
-
-            let _fut = dm
-                .materialize_artifact(&symlink_path, EventDispatcher::null())
-                .expect("Expected a materializing future");
-
-            assert_eq!(
-                get_priority_control(&mut dm, &symlink_path).priority(),
-                Priority::High,
-            );
-            assert_eq!(
-                get_priority_control(&mut dm, &target_path).priority(),
-                Priority::High,
-                "Direct symlink-dep target should be promoted to High along with its parent",
-            );
             Ok(())
         })
         .await

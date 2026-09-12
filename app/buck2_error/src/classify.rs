@@ -437,7 +437,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DaemonDisconnect => rank!(environment),
         // Could not determine the BuckVersion
         ErrorTag::BuckVersionError => rank!(tier0),
-        ErrorTag::MaterializationCancelled => rank!(tier0),
         ErrorTag::MaterializeCopyMissingFile => rank!(tier0),
 
         // Input errors

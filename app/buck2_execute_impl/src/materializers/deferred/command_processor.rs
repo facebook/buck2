@@ -32,8 +32,6 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
-use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -513,45 +511,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         F::Output: Send + 'static,
     {
         Self::spawn_from_rt(&self.rt, dispatcher, f)
-    }
-
-    /// Propagate a Low→High priority bump to the artifact's direct deps tracked here
-    /// (local copy sources + symlink destinations).
-    fn promote_direct_deps_priority(&mut self, path: &ProjectRelativePath, priority: Priority) {
-        let (symlink_deps, copy_sources) = {
-            let Some(data) = self.tree.prefix_get(&mut path.iter()) else {
-                return;
-            };
-            let symlink_deps = data.deps.dupe();
-            let copy_sources = match &data.stage {
-                ArtifactMaterializationStage::Declared { method, .. } => match method.as_ref() {
-                    ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
-                        copied_artifacts
-                            .iter()
-                            .map(|a| a.src.clone())
-                            .collect::<Vec<_>>()
-                    }
-                    _ => Vec::new(),
-                },
-                ArtifactMaterializationStage::Materialized { .. } => Vec::new(),
-            };
-            (symlink_deps, copy_sources)
-        };
-
-        let mut dep_paths = copy_sources;
-        if let Some(deps) = symlink_deps.as_ref() {
-            dep_paths.extend(self.tree.find_artifacts(deps));
-        }
-
-        for dep_path in dep_paths {
-            if let Some((_, data)) = Self::find_artifact_containing_path(&mut self.tree, &dep_path)
-                && let Some(active) = data.processing.active_ref()
-                && matches!(&active.future, ProcessingFuture::Materializing(_))
-                && active.priority_control.priority() == Priority::Low
-            {
-                active.priority_control.update(priority);
-            }
-        }
     }
 
     /// Loop that runs for as long as the materializer is alive.
@@ -1121,11 +1080,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 entry: value.entry().dupe(),
                 method,
             },
-            processing: Processing::active(
-                future,
-                version,
-                DynamicPriorityHandle::new(Priority::High),
-            ),
+            processing: Processing::active(future, version),
         });
         self.tree.insert(path.iter().map(|f| f.to_owned()), data);
     }
@@ -1221,16 +1176,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
     ) -> Option<MaterializingFuture> {
-        self.materialize_artifact_with_priority(path, event_dispatcher, Priority::High)
-    }
-
-    pub(super) fn materialize_artifact_with_priority(
-        &mut self,
-        path: &ProjectRelativePath,
-        event_dispatcher: EventDispatcher,
-        priority: Priority,
-    ) -> Option<MaterializingFuture> {
-        self.materialize_artifact_recurse(MaterializeStack::Empty, path, event_dispatcher, priority)
+        self.materialize_artifact_recurse(MaterializeStack::Empty, path, event_dispatcher)
     }
 
     fn materialize_artifact_recurse(
@@ -1238,12 +1184,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         stack: MaterializeStack<'_>,
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
-        priority: Priority,
     ) -> Option<MaterializingFuture> {
         let stack = MaterializeStack::Child(&stack, path);
         // We only add context to outer error, because adding context to the future
         // is expensive. Errors in futures should add stack context themselves.
-        match self.materialize_artifact_inner(stack, path, event_dispatcher, priority) {
+        match self.materialize_artifact_inner(stack, path, event_dispatcher) {
             Ok(res) => res,
             Err(e) => Some(
                 future::err(SharedMaterializingError::Error(
@@ -1304,7 +1249,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         stack: MaterializeStack<'_>,
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
-        priority: Priority,
     ) -> buck2_error::Result<Option<MaterializingFuture>> {
         // TODO(nga): rewrite without recursion or figure out why we overflow stack here.
         check_stack_overflow().tag(ErrorTag::ServerStackOverflow)?;
@@ -1323,22 +1267,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Some(active) => match &active.future {
                 ProcessingFuture::Cleaning(f) => Some(f.clone()),
                 ProcessingFuture::Materializing(f) => {
-                    // Joining a cancelled materialization would surface MaterializationCancelled.
-                    // Fall through and start a fresh one at the requested priority instead.
-                    if active.priority_control.cancel_token().is_cancelled() {
-                        tracing::debug!("existing future cancelled, starting fresh");
-                        None
-                    } else {
-                        let existing = f.clone();
-                        if priority == Priority::High
-                            && active.priority_control.priority() == Priority::Low
-                        {
-                            active.priority_control.update(priority);
-                            self.promote_direct_deps_priority(path, priority);
-                        }
-                        tracing::debug!("join existing future");
-                        return Ok(Some(existing));
-                    }
+                    tracing::debug!("join existing future");
+                    return Ok(Some(f.clone()));
                 }
             },
             None => None,
@@ -1402,33 +1332,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         );
         // Those are special because if the artifact copies from other artifacts, we must materialize them first
         let materialize_copy_source_tasks =
-            self.materialize_copy_source_tasks(&stack, &event_dispatcher, path, method, priority);
+            self.materialize_copy_source_tasks(&stack, &event_dispatcher, path, method);
 
         // The artifact might have symlinks pointing to other artifacts. We must
         // materialize them as well, to avoid dangling symlinks.
-        let materialize_symlink_destination_tasks = self.materialize_symlink_destination_tasks(
-            &stack,
-            &event_dispatcher,
-            path,
-            deps,
-            priority,
-        );
+        let materialize_symlink_destination_tasks =
+            self.materialize_symlink_destination_tasks(&stack, &event_dispatcher, path, deps);
 
         let spawn_dispatcher = event_dispatcher.dupe();
-        let priority_control = DynamicPriorityHandle::new(priority);
         let materialize_entry: BoxFuture<'static, Result<(), MaterializeEntryError>> =
             match entry_details {
                 EntryDetails::Entry { entry, method } => {
                     let io = self.io.dupe();
                     let path_buf = path.to_buf();
-                    let priority_control = priority_control.dupe();
                     let cancellations = CancellationContext::never_cancelled(); // spawned
                     async move {
                         io.materialize_entry(
                             path_buf,
                             method,
                             entry,
-                            priority_control,
                             event_dispatcher,
                             cancellations,
                         )
@@ -1472,11 +1394,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             .shared();
 
         let data = self.tree.prefix_get_mut(&mut path.iter()).unwrap();
-        data.processing = Processing::active(
-            ProcessingFuture::Materializing(task.clone()),
-            version,
-            priority_control.dupe(),
-        );
+        data.processing =
+            Processing::active(ProcessingFuture::Materializing(task.clone()), version);
 
         Ok(Some(task))
     }
@@ -1525,7 +1444,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         event_dispatcher: &EventDispatcher,
         path: &ProjectRelativePath,
         deps: Option<ActionSharedDirectory>,
-        priority: Priority,
     ) -> Vec<MaterializingFuture> {
         if let Some(deps) = deps.as_ref() {
             self.tree
@@ -1536,7 +1454,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         MaterializeStack::Child(stack, path),
                         p.as_ref(),
                         event_dispatcher.dupe(),
-                        priority,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -1551,7 +1468,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         event_dispatcher: &EventDispatcher,
         path: &ProjectRelativePath,
         method: Option<&ArtifactMaterializationMethod>,
-        priority: Priority,
     ) -> Vec<MaterializingFuture> {
         match method {
             Some(ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts)) => copied_artifacts
@@ -1561,7 +1477,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         MaterializeStack::Child(stack, path),
                         a.src.as_ref(),
                         event_dispatcher.dupe(),
-                        priority,
                     )
                 })
                 .collect::<Vec<_>>(),
@@ -1612,11 +1527,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 self.cancellations,
                                 &EventDispatcher::error_on_event(),
                             ));
-                            info.processing = Processing::active(
-                                future,
-                                version,
-                                DynamicPriorityHandle::new(Priority::High),
-                            );
+                            info.processing = Processing::active(future, version);
                         }
                     }
                 } else {

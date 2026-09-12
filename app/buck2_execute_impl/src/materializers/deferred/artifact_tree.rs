@@ -32,8 +32,6 @@ use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
-use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
-use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_execute::output_size::OutputSize;
 use derive_more::Display;
 use dupe::Dupe;
@@ -112,21 +110,11 @@ pub(crate) struct ActiveProcessing {
     #[allocative(skip)]
     pub(crate) future: ProcessingFuture,
     pub(crate) version: Version,
-    #[allocative(skip)]
-    pub(crate) priority_control: DynamicPriorityHandle,
 }
 
 impl Processing {
-    pub(crate) fn active(
-        future: ProcessingFuture,
-        version: Version,
-        priority_control: DynamicPriorityHandle,
-    ) -> Self {
-        Self::Active(Box::new(ActiveProcessing {
-            future,
-            version,
-            priority_control,
-        }))
+    pub(crate) fn active(future: ProcessingFuture, version: Version) -> Self {
+        Self::Active(Box::new(ActiveProcessing { future, version }))
     }
 
     pub(crate) fn active_ref(&self) -> Option<&ActiveProcessing> {
@@ -648,11 +636,7 @@ impl ArtifactTree {
                 "Unmaterialized artifact `{path}` was not declared when its cleaning future was attached"
             ));
         }
-        data.processing = Processing::active(
-            ProcessingFuture::Cleaning(cleaning_fut),
-            version,
-            DynamicPriorityHandle::new(Priority::High),
-        );
+        data.processing = Processing::active(ProcessingFuture::Cleaning(cleaning_fut), version);
         Ok(())
     }
 }
