@@ -106,6 +106,7 @@ use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
 use crate::paging::PageOutThresholds;
+use crate::snapshot::DepFileDbSizeSampler;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
@@ -303,6 +304,11 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
+    /// Keeps the dep-file cache database's size up to date without any command's snapshot having
+    /// to read the database. One per daemon, so the cost does not scale with concurrent commands.
+    #[allocative(skip)]
+    pub dep_file_db_size: Arc<DepFileDbSizeSampler>,
+
     /// Idle page-out config: the resource-pressure thresholds, `Some` iff
     /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
     /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
@@ -414,6 +420,8 @@ impl DaemonState {
         }
 
         let daemon_state_data_rt = rt.clone();
+        // Owned, because the sampler outlives the borrow of `rt` in this function.
+        let dep_file_db_size_rt = rt.clone();
         let init_fut = async move {
             let invocation_paths = paths;
             let paths = invocation_paths.tenant_paths();
@@ -903,6 +911,7 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
+                dep_file_db_size: DepFileDbSizeSampler::start(&dep_file_db_size_rt),
                 // `Some` (with thresholds) iff idle page-out is enabled for this
                 // daemon's isolation dir; `None` otherwise.
                 page_out_on_idle,

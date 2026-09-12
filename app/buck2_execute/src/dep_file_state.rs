@@ -144,9 +144,9 @@ pub struct DepFileReadStats {
     pub read_connections: u64,
 }
 
-/// What the database held when the daemon opened it. Constant for the daemon's life, so it reaches
-/// Scuba through `InvocationRecord::first_snapshot` without being recomputed per snapshot.
-#[derive(Clone, Copy, Debug, Default)]
+/// How many entries -- (logical_key, config_key) pairs -- the database holds in the
+/// `dep_file_state` table, and what its footprint on disk is.
+#[derive(Clone, Copy, Debug)]
 pub struct DepFileDbSize {
     pub entries: u64,
     pub bytes: u64,
@@ -196,11 +196,12 @@ pub trait DepFileStore: Send + Sync + 'static {
     /// outputs were still materialized. Reported by the caller because the store cannot know:
     /// `get_entry` returning a row only means the row exists, and `fetches_found` counts that.
     fn note_persisted_hit(&self) {}
-    /// Rows and bytes the database held at startup. Reported so the size a daemon inherits is
-    /// visible without inferring it from write counts, which cannot tell an insert from a replace
-    /// and say nothing about what survived the last prune.
-    fn db_size(&self) -> DepFileDbSize {
-        DepFileDbSize::default()
+    /// Measures the database size in number of records and disk footprint.
+    ///
+    /// Blocking, and for as long as the disk takes, so callers keep it off any path that is waited
+    /// on.
+    fn db_size(&self) -> Option<DepFileDbSize> {
+        None
     }
     /// Block until every write issued so far has been applied. Called at the end of a command so
     /// that a daemon restart afterwards sees everything the command produced. Implementations that

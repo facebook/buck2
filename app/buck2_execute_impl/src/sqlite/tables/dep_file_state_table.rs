@@ -36,6 +36,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_execute::dep_file_state::DepFileDbSize;
 use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileIdentity;
 use buck2_execute::dep_file_state::StoredDepFileState;
@@ -44,6 +45,7 @@ use buck2_execute::dep_file_state::StoredOutputValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_util::threads::available_parallelism;
 use parking_lot::Mutex;
@@ -266,6 +268,30 @@ impl LockWait {
     }
 }
 
+/// Bytes the database occupies on disk: the file itself, plus the log and shared-index files SQLite keeps beside it.
+fn disk_bytes(db_path: &AbsNormPath) -> Option<u64> {
+    // SQLite names the two companions by appending to the file name, not by replacing an
+    // extension, so these are string suffixes rather than `with_extension`.
+    ["", "-wal", "-shm"]
+        .iter()
+        .map(
+            |suffix| match std::fs::metadata(format!("{db_path}{suffix}")) {
+                Ok(metadata) => Some(metadata.len()),
+                // Neither companion exists until the first write, and neither exists at all where
+                // the journal is not WAL. Nothing there is nothing on disk, not a failed reading.
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Some(0),
+                Err(_) => None,
+            },
+        )
+        .sum()
+}
+
+/// The connection `measure` reads through, with the path it was opened from.
+struct MeasureHandle {
+    connection: Arc<Mutex<Connection>>,
+    db_path: AbsNormPathBuf,
+}
+
 pub struct DepFileStateSqliteTable {
     /// Carries every write, and every read when `read_connections` is empty.
     shared_connection: Arc<Mutex<Connection>>,
@@ -274,6 +300,10 @@ pub struct DepFileStateSqliteTable {
     /// that up. Empty when the database has no path to reopen (in-memory, i.e. tests), in which case
     /// reads fall back to `connection`.
     read_connections: Vec<Arc<Mutex<Connection>>>,
+    /// Used only by `measure`, and kept out of `read_connections` on purpose: instrumentation must
+    /// not queue behind a lookup, must not take a lookup's turn, and must not have its own waiting
+    /// charged to `lock_wait`, which exists to say whether *lookups* are queueing.
+    measure: Option<MeasureHandle>,
     lock_wait: LockWait,
 }
 
@@ -282,6 +312,7 @@ impl DepFileStateSqliteTable {
         Self {
             shared_connection,
             read_connections: Vec::new(),
+            measure: None,
             lock_wait: LockWait::default(),
         }
     }
@@ -313,6 +344,25 @@ impl DepFileStateSqliteTable {
         Self {
             shared_connection,
             read_connections,
+            measure: match SqliteTables::<Self>::create_connection(path) {
+                Ok(connection) => Some(MeasureHandle {
+                    connection,
+                    db_path: path.to_buf(),
+                }),
+                Err(e) => {
+                    let _unused = soft_error!(
+                        "dep_file_db_measure_connection",
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Tier0,
+                            "Failed to open the dep-file db connection used for size metrics; \
+                             they will be absent for this daemon. {}",
+                            e
+                        ),
+                        quiet: true
+                    );
+                    None
+                }
+            },
             lock_wait: LockWait::default(),
         }
     }
@@ -344,25 +394,29 @@ impl DepFileStateSqliteTable {
         guard
     }
 
-    /// Rows present and bytes on disk. Read once at startup rather than per snapshot: `count(*)` is
-    /// a b-tree walk, and what sizes the database is what it holds when a daemon opens it, not what
-    /// it holds a second later. Bytes come from the page count, so no path is needed.
-    pub(crate) fn measure(&self) -> (u64, u64) {
-        let conn = self.shared_connection.lock();
-        let entries = conn
-            .query_row(
-                &format!("SELECT count(*) FROM {STATE_TABLE_NAME}"),
-                [],
-                |r| r.get::<_, i64>(0),
-            )
-            .unwrap_or(0) as u64;
-        let pages = conn
-            .query_row("PRAGMA page_count", [], |r| r.get::<_, i64>(0))
-            .unwrap_or(0) as u64;
-        let page_size = conn
-            .query_row("PRAGMA page_size", [], |r| r.get::<_, i64>(0))
-            .unwrap_or(0) as u64;
-        (entries, pages * page_size)
+    /// Measures the database size in number of entries and disk footprint.
+    ///
+    /// The footprint comes from the files on disk, the item count from SQLite. The rows are
+    /// counted before the files are sized, so the two can be slightly out of step.
+    ///
+    /// Needs no coordination with writers. SQLite allows one writer at a time and enforces that
+    /// itself, and a WAL reader sees the snapshot that existed when its statement began, so this
+    /// neither blocks a write nor waits for one.
+    ///
+    /// Returns `None` if either the count or the sizing fails, discarding a count that succeeded.
+    pub(crate) fn measure(&self) -> Option<DepFileDbSize> {
+        static COUNT_SQL: LazyLock<String> =
+            LazyLock::new(|| format!("SELECT count(*) FROM {STATE_TABLE_NAME}"));
+        let handle = self.measure.as_ref()?;
+        let entries = {
+            let conn = handle.connection.lock();
+            conn.query_row(&COUNT_SQL, [], |r| r.get::<_, i64>(0))
+                .ok()? as u64
+        };
+        Some(DepFileDbSize {
+            entries,
+            bytes: disk_bytes(&handle.db_path)?,
+        })
     }
 
     /// Connections reads are spread over. Zero means every read shares the write connection, which
@@ -919,6 +973,20 @@ mod tests {
         let table = DepFileStateSqliteTable::new(Arc::new(Mutex::new(conn)));
         table.create_table().unwrap();
         table
+    }
+
+    #[test]
+    fn test_disk_bytes_sums_the_files_that_are_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = AbsNormPathBuf::new(dir.path().join("db.sqlite")).unwrap();
+        std::fs::write(&db, vec![0; 100]).unwrap();
+
+        // A database with no log yet is sized, not reported as unreadable.
+        assert_eq!(Some(100), disk_bytes(&db));
+
+        std::fs::write(format!("{db}-wal"), vec![0; 20]).unwrap();
+        std::fs::write(format!("{db}-shm"), vec![0; 3]).unwrap();
+        assert_eq!(Some(123), disk_bytes(&db));
     }
 
     fn file_value(

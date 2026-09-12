@@ -1292,15 +1292,16 @@ message Snapshot {
   uint64 dep_file_db_delete_duration_us = 462;
   uint64 dep_file_db_clears = 463;
   uint64 dep_file_db_clear_duration_us = 464;
-  // What the database held when this daemon opened it, after pruning. Constant
-  // for the daemon's life. Write counts cannot substitute: they cannot tell an
-  // insert from a replace, and say nothing about what survived the prune.
   // Entries actually served from disk: the row survived re-validation and its
   // outputs were still materialized. Strictly fewer than `fetches_found`, which
   // only says the row existed.
   uint64 dep_file_db_hits = 456;
-  uint64 dep_file_db_entries_at_start = 454;
-  uint64 dep_file_db_bytes_at_start = 455;
+  reserved 454, 455; // dep_file_db_{entries,bytes}_at_start, replaced below
+  // How many entries -- (logical_key, config_key) pairs -- the database holds
+  // in the dep_file_state table. Absent when it could not be measured.
+  optional uint64 dep_file_db_entries = 465;
+  // The database's footprint on disk. Absent when it could not be measured.
+  optional uint64 dep_file_db_bytes = 466;
 
   // Delay between time snapshot is created and time it is received
   // by the client.

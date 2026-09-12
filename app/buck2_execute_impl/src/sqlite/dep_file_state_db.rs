@@ -343,8 +343,6 @@ pub struct PersistedDepFileStore {
     /// Shared with the writer thread, which is why this one is an `Arc`.
     write: Arc<WriteCounters>,
     read: ReadCounters,
-    /// Measured once, after `initialize` has pruned, so it is the size this daemon inherited.
-    db_size: DepFileDbSize,
 }
 
 impl PersistedDepFileStore {
@@ -353,7 +351,6 @@ impl PersistedDepFileStore {
         db: DepFileStateSqliteDb,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
-        let (entries, bytes) = db.dep_file_state_table().measure();
         let db = Arc::new(db);
         let (writes, receiver) = crossbeam_channel::unbounded();
         let writer_db = db.dupe();
@@ -379,7 +376,6 @@ impl PersistedDepFileStore {
             writer_gone: AtomicBool::new(false),
             write,
             read: ReadCounters::default(),
-            db_size: DepFileDbSize { entries, bytes },
         })
     }
 
@@ -471,8 +467,8 @@ impl DepFileStore for PersistedDepFileStore {
         self.read.hits.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn db_size(&self) -> DepFileDbSize {
-        self.db_size
+    fn db_size(&self) -> Option<DepFileDbSize> {
+        self.db.dep_file_state_table().measure()
     }
 
     fn read_stats(&self) -> DepFileReadStats {

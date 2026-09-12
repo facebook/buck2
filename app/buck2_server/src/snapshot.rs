@@ -10,14 +10,18 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
+use std::sync::PoisonError;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 use std::time::Instant;
 
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::DepFileDbSize;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::fs_util::DiskSpaceStats;
 use buck2_fs::fs_util::disk_space_stats;
@@ -25,6 +29,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
+use dupe::Dupe;
 
 use crate::cpu_usage_collector::CpuUsageCollector;
 use crate::daemon::state::DaemonStateData;
@@ -115,6 +120,73 @@ pub struct SnapshotCollector {
     tokio_metrics_state: Arc<TokioMetricsState>,
 }
 
+/// How long the sampler pauses after each reading of the dep-file database.
+const DB_SIZE_SAMPLE_DELAY: Duration = Duration::from_millis(500);
+
+/// Keeps the latest reading of the dep-file cache database, sampled off to the side so that
+/// building a snapshot never reads the database.
+pub struct DepFileDbSizeSampler {
+    /// The last attempt's outcome.
+    latest: Mutex<Option<DepFileDbSize>>,
+    /// Set once, by `start`, after the task it refers to has been spawned.
+    sampler: OnceLock<tokio::task::JoinHandle<()>>,
+}
+
+impl DepFileDbSizeSampler {
+    /// Starts sampling on `rt`, which must outlive the daemon's commands. Each reading is handed
+    /// to that runtime's blocking pool, and the lock is taken only to store the result, so no lock
+    /// is ever held across the read.
+    pub fn start(rt: &tokio::runtime::Handle) -> Arc<Self> {
+        let this = Arc::new(Self {
+            latest: Mutex::new(None),
+            sampler: OnceLock::new(),
+        });
+        let sampling = rt.spawn({
+            // Weak, so the task does not keep the sampler alive: the strong count reaching zero is
+            // what runs `Drop`, and `Drop` is what stops this loop.
+            let this = Arc::downgrade(&this);
+            let rt = rt.clone();
+            async move {
+                loop {
+                    if let Ok(store) = DEP_FILE_STORE.get() {
+                        let store = store.dupe();
+                        let measured = rt.spawn_blocking(move || store.db_size()).await;
+                        // A panicking measurement leaves the previous reading in place rather than
+                        // reporting nothing, since the reading itself was not disproved.
+                        if let Ok(measured) = measured {
+                            let Some(this) = this.upgrade() else {
+                                return;
+                            };
+                            *this.latest.lock().unwrap_or_else(PoisonError::into_inner) = measured;
+                        }
+                    }
+                    // Pausing after the reading rather than ticking to a schedule: a slow reading
+                    // is followed by the same pause as any other, so a slow database is sampled
+                    // less often instead of more. Every path through the loop reaches this.
+                    tokio::time::sleep(DB_SIZE_SAMPLE_DELAY).await;
+                }
+            }
+        });
+        // Cannot already be set: `start` is the only writer and runs once per sampler.
+        let _unused = this.sampler.set(sampling);
+        this
+    }
+
+    /// The latest reading, or `None` if there is not one yet or the database could not be read.
+    /// Cheap enough for the snapshot path: a lock and a copy, never any I/O.
+    pub fn latest(&self) -> Option<DepFileDbSize> {
+        *self.latest.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+impl Drop for DepFileDbSizeSampler {
+    fn drop(&mut self) {
+        if let Some(sampling) = self.sampler.take() {
+            sampling.abort();
+        }
+    }
+}
+
 impl SnapshotCollector {
     pub fn new(
         daemon: Arc<DaemonStateData>,
@@ -148,7 +220,18 @@ impl SnapshotCollector {
         self.add_cpu_usage(&mut snapshot);
         self.add_memory_metrics(&mut snapshot).await;
         self.add_tokio_runtime_stats(&mut snapshot);
+        self.add_dep_file_db_size(&mut snapshot);
         snapshot
+    }
+
+    /// Copies the latest database size from the daemon's sampler. No I/O: snapshots feed
+    /// superconsole, and sizing the database can block for as long as a cold disk takes.
+    fn add_dep_file_db_size(&self, snapshot: &mut buck2_data::Snapshot) {
+        let Some(size) = self.daemon.dep_file_db_size.latest() else {
+            return;
+        };
+        snapshot.dep_file_db_entries = Some(size.entries);
+        snapshot.dep_file_db_bytes = Some(size.bytes);
     }
 
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
@@ -177,9 +260,6 @@ impl SnapshotCollector {
             snapshot.dep_file_db_read_lock_wait_max_us = reads.lock_wait_max_us;
             snapshot.dep_file_db_read_connections = reads.read_connections;
             snapshot.dep_file_db_hits = reads.hits;
-            let size = store.db_size();
-            snapshot.dep_file_db_entries_at_start = size.entries;
-            snapshot.dep_file_db_bytes_at_start = size.bytes;
         }
     }
 
@@ -893,5 +973,20 @@ mod compute_runtime_counter_deltas_tests {
         };
         let d = compute_runtime_counter_deltas(&prev, &curr);
         assert_eq!(d.budget_forced_yield_count, 0);
+    }
+}
+
+#[cfg(test)]
+mod dep_file_db_size_sampler_tests {
+    use std::sync::Arc;
+
+    use super::DepFileDbSizeSampler;
+
+    /// The sampling task must not hold a strong reference back to the sampler. If it does, the
+    /// strong count never reaches zero, `Drop` never runs, and the task is never aborted.
+    #[tokio::test]
+    async fn task_does_not_keep_the_sampler_alive() {
+        let sampler = DepFileDbSizeSampler::start(&tokio::runtime::Handle::current());
+        assert_eq!(1, Arc::strong_count(&sampler));
     }
 }
