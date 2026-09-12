@@ -33,6 +33,8 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_events::dispatch::get_dispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use buck2_hash::IntentionallyStdHashMap;
@@ -580,10 +582,10 @@ struct RequestId(u64);
 struct GetDigestsTtlDeduper<'s> {
     /// Used to allow `digests` to index into `queries`.
     next_request_id: u64,
-    /// Maps a given digest to a request that will produce this digest (and
-    /// possibly / likely others). The request is referenced as an ID that
-    /// can be used to lookup in `queries`.
-    digests: BuckMutMap<TrackedFileDigest, RequestId>,
+    /// Maps a given (digest, use-case) to a request that will produce
+    /// this digest (and possibly / likely others). The request is referenced
+    /// as an ID that can be used to lookup in `queries`.
+    digests: BuckMutMap<(TrackedFileDigest, RemoteExecutorUseCase), RequestId>,
     /// Maps a request to the actual future that will contain its results.
     queries: BuckMutMap<
         RequestId,
@@ -591,18 +593,18 @@ struct GetDigestsTtlDeduper<'s> {
     >,
 }
 
-impl<'s> GetDigestsTtlDeduper<'s> {
+impl GetDigestsTtlDeduper<'static> {
     /// Obtain a future that will return the TTLs for the digests that are
     /// queried (and possibly more TTLs).
     fn get_ttls<'a>(
-        deduper: &'s Mutex<Self>,
+        deduper: &'static Mutex<Self>,
         client: &'a RemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
         identity: Option<&'a ReActionIdentity<'a>>,
         digest_config: DigestConfig,
         digests: impl IntoIterator<Item = &'a TrackedFileDigest>,
     ) -> (
-        impl Future<Output = buck2_error::Result<BuckMutMap<TrackedFileDigest, i64>>> + 's,
+        impl Future<Output = buck2_error::Result<BuckMutMap<TrackedFileDigest, i64>>> + 'static,
         usize,
         usize,
     ) {
@@ -613,7 +615,7 @@ impl<'s> GetDigestsTtlDeduper<'s> {
         let mut to_schedule = Vec::new();
 
         for digest in digests {
-            if let Some(req_id) = guard.digests.get(digest) {
+            if let Some(req_id) = guard.digests.get(&(digest.dupe(), use_case)) {
                 reqs.insert(*req_id);
             } else {
                 to_schedule.push(digest.dupe());
@@ -629,11 +631,11 @@ impl<'s> GetDigestsTtlDeduper<'s> {
             reqs.insert(request_id);
 
             for digest in &to_schedule {
-                guard.digests.insert(digest.dupe(), request_id);
+                guard.digests.insert((digest.dupe(), use_case), request_id);
             }
 
-            guard.queries.insert(
-                request_id,
+            let query = tokio::spawn(with_dispatcher_async(
+                get_dispatcher(),
                 query_digest_ttls(
                     deduper,
                     request_id,
@@ -642,7 +644,16 @@ impl<'s> GetDigestsTtlDeduper<'s> {
                     identity,
                     digest_config,
                     to_schedule,
-                )
+                ),
+            ));
+            guard.queries.insert(
+                request_id,
+                async move {
+                    query
+                        .await
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+                }
+                .boxed()
                 .shared(),
             );
         }
@@ -685,7 +696,7 @@ fn query_digest_ttls<'s>(
             let mut guard = deduper.lock().expect("Poisoned lock");
             guard.queries.remove(&request_id);
             for digest in &input_digests {
-                guard.digests.remove(digest);
+                guard.digests.remove(&(digest.dupe(), use_case));
             }
         }
 
