@@ -399,7 +399,7 @@ plist = "1.10.0"
 pretty_assertions = { version = "1.4.1", features = ["alloc"], default-features = false }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 prost = { version = "0.14.4", default-features = false }
-prost-types = { version = "0.14.4", default-features = false }
+prost-types = { version = "0.14.4", features = ["std"], default-features = false }
 protoc-bin-vendored = "3.0.0"
 psutil = "5.4.0"
 quick-xml = { version = "0.42.0", features = ["overlapped-lists", "serialize"] }
