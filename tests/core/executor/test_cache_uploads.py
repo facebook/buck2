@@ -12,6 +12,7 @@
 import sys
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import json_get, random_string
 
@@ -99,3 +100,27 @@ async def test_re_uploads_default(buck: Buck) -> None:
     ]
     await buck.build("root//:write_default", *args)
     await _assert_locally_executed_upload_attempted(buck, 1)
+
+
+@buck_test()
+async def test_missing_output_is_not_uploaded(buck: Buck) -> None:
+    # Give the action a fresh digest so an entry left by a buggy Buck2 cannot
+    # turn this into an action-cache hit.
+    args = ["-c", f"write.nonce={random_string()}"]
+    await expect_failure(
+        buck.build("root//:missing_output", *args),
+        stderr_regex="Required outputs are missing",
+    )
+
+    # A successful command with an invalid output set must be rejected before
+    # Buck2 enters the cache-upload path. Check all CacheUpload events here,
+    # including rejected uploads that the other tests tolerate as CI infra
+    # limitations.
+    log = (await buck.log("show")).stdout.strip().splitlines()
+    uploads = [
+        line
+        for line in log
+        if json_get(line, "Event", "data", "SpanEnd", "data", "CacheUpload")
+        is not None
+    ]
+    assert uploads == []
