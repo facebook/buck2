@@ -723,12 +723,14 @@ async def test_cancellation_on_re(buck: Buck) -> None:
 
     # Make sure we are ready to go
     await buck.build(
-        "fbcode//buck2/tests/targets/rules/python/test:cancellation",
+        "fbcode//buck2/tests/targets/rules/python/test:cancellation_re",
+        get_mode_from_platform(),
         "--build-test-info",
     )
 
     tests = buck.test(
-        "fbcode//buck2/tests/targets/rules/python/test:cancellation",
+        "fbcode//buck2/tests/targets/rules/python/test:cancellation_re",
+        get_mode_from_platform(),
         "--unstable-force-tests-on-re",
         "--remote-only",
         "--no-remote-cache",
