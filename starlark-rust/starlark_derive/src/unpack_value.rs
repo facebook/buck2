@@ -82,6 +82,9 @@ fn derive_unpack_value_impl(input: syn::DeriveInput) -> syn::Result<proc_macro2:
         impl #impl_generics starlark::values::UnpackValue<'v> for #ident #type_generics #where_clause {
             type Error = #error;
 
+            // A variant's error type may be `Infallible`, in which case wrapping the
+            // error in `Either` below is intentionally unreachable.
+            #[allow(unreachable_code)]
             fn unpack_value_impl(value: starlark::values::Value<'v>) -> std::result::Result<std::option::Option<Self>, Self::Error> {
                 #(#branches)*
                 let _unused_when_enum_is_empty = value;
