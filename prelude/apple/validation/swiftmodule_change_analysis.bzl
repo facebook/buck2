@@ -50,6 +50,33 @@ def get_swiftmodule_change_analysis_output(ctx: AnalysisContext, deps: list[Depe
         has_content_based_path = False,
     )
 
+    # Only populated when `apple.swift_dump_ast_subtarget_enabled` is set, so
+    # this is `None` for the vast majority of builds. Ignored by the default
+    # bootstrap tool; consumed by richer out-of-tree implementations (see
+    # `apple.swiftmodule_change_analysis` buckconfig) that classify changes
+    # via AST diffing instead of a raw `.swiftinterface` text diff.
+    ast_dump_tsets = [dep[SwiftDependencyInfo].swift_ast_dump_tset for dep in deps if SwiftDependencyInfo in dep]
+    ast_tset = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        children = ast_dump_tsets,
+    )
+    ast_manifest = None
+    if ast_tset._tset != None:
+        label_to_ast_artifacts = {}
+        for infos in ast_tset._tset.traverse():
+            for info in infos:
+                if info.artifacts:
+                    label_to_ast_artifacts.setdefault(stringify_artifact_label(info.label), []).extend(info.artifacts)
+
+        if label_to_ast_artifacts:
+            ast_manifest = ctx.actions.write_json(
+                "swiftmodule_change_analysis/ast_manifest.json",
+                label_to_ast_artifacts,
+                with_inputs = True,
+                has_content_based_path = False,
+            )
+
     # Not content-addressed, and `no_outputs_cleanup` below keeps this file
     # around across runs, so the checker can compare the current state
     # against what it saw the last time this action ran.
@@ -70,6 +97,15 @@ def get_swiftmodule_change_analysis_output(ctx: AnalysisContext, deps: list[Depe
         output.as_output(),
     ])
 
+    if ast_manifest:
+        command.add("--ast-manifest", ast_manifest)
+
+    # The manifest only bakes in each artifact's *path*; without also listing
+    # them as hidden inputs here, Buck2 wouldn't know this action actually
+    # depends on their content, and `metadata_path` below wouldn't include
+    # their digests.
+    command.add(cmd_args(hidden = [artifact for artifacts in label_to_artifacts.values() for artifact in artifacts]))
+
     ctx.actions.run(
         command,
         category = "swiftmodule_change_analysis",
@@ -78,6 +114,12 @@ def get_swiftmodule_change_analysis_output(ctx: AnalysisContext, deps: list[Depe
         prefer_local = True,
         allow_cache_upload = False,
         no_outputs_cleanup = True,
+        # Buck2 already knows a content digest for every one of this
+        # action's inputs (it needs one for its own caching); this hands
+        # them to the tool as a `path -> digest` JSON file so it can compare
+        # digests instead of reading and hashing `.swiftmodule` files itself.
+        metadata_env_var = "SWIFTMODULE_CHANGE_ANALYSIS_METADATA",
+        metadata_path = "swiftmodule_change_analysis/action_metadata.json",
     )
 
     return output
