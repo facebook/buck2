@@ -24,6 +24,8 @@ use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestResult;
 use buck2_test_api::data::TestStage;
 use buck2_test_api::data::TestStatus;
+use buck2_test_api::environment::TestEnvironment;
+use buck2_test_api::environment::build_test_env;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use clap::Parser;
 use futures::StreamExt;
@@ -155,32 +157,11 @@ impl Buck2TestRunner {
             .iter()
             .map(|s| s.parse())
             .collect::<buck2_error::Result<_>>()?;
-        let config_env = config_env.iter().map(|EnvValue { name, value }| {
-            (
-                name.to_owned(),
-                ArgValue {
-                    content: ArgValueContent::ExternalRunnerSpecValue(
-                        ExternalRunnerSpecValue::Verbatim(value.to_owned()),
-                    ),
-                    format: None,
-                },
-            )
-        });
-
-        let env = spec
-            .env
-            .into_iter()
-            .map(|(key, value)| {
-                (
-                    key,
-                    ArgValue {
-                        content: ArgValueContent::ExternalRunnerSpecValue(value),
-                        format: None,
-                    },
-                )
-            })
-            .chain(config_env)
-            .collect();
+        let env = build_env(
+            spec.env,
+            &config_env,
+            std::env::var_os("LC_CTYPE").map(|value| value.to_string_lossy().into_owned()),
+        );
 
         let target_handle = spec.target.handle;
         let host_sharing_requirements = HostSharingRequirements::default();
@@ -207,6 +188,28 @@ impl Buck2TestRunner {
         self.orchestrator_client
             .report_test_result(test_result)
             .await
+    }
+}
+
+fn build_env(
+    spec_env: impl IntoIterator<Item = (String, ExternalRunnerSpecValue)>,
+    config_env: &[EnvValue],
+    process_lc_ctype: Option<String>,
+) -> TestEnvironment {
+    let mut env = build_test_env(spec_env, process_lc_ctype);
+
+    // Test-executor `--env` values have highest precedence.
+    for EnvValue { name, value } in config_env {
+        env.insert(name.to_owned(), verbatim_env_value(value.to_owned()));
+    }
+
+    env
+}
+
+fn verbatim_env_value(value: String) -> ArgValue {
+    ArgValue {
+        content: ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(value)),
+        format: None,
     }
 }
 
@@ -248,5 +251,33 @@ impl RunVerdict {
             RunVerdict::Pass => 0,
             RunVerdict::Fail => 32,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn lc_ctype(env: &TestEnvironment) -> Option<&str> {
+        match env.get("LC_CTYPE").map(|value| &value.content) {
+            Some(ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(
+                value,
+            ))) => Some(value),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn test_cli_env_overrides_base_environment() {
+        let config_env = vec![EnvValue::new("LC_CTYPE", "from-cli")];
+        let env = build_env(
+            vec![(
+                "LC_CTYPE".to_owned(),
+                ExternalRunnerSpecValue::Verbatim("from-test".to_owned()),
+            )],
+            &config_env,
+            Some("from-process".to_owned()),
+        );
+        assert_eq!(lc_ctype(&env), Some("from-cli"));
     }
 }
