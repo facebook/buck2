@@ -312,6 +312,10 @@ control how the dependencies of this library are linked, use `link_style` instea
 )
 
 cxx_extra_attributes = {
+    "cxx_binary": {
+        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "_generated_build_info_spec": BUILD_INFO_ATTR,
+    },
     "cxx_genrule": genrule_attributes()
     | {
         "_cxx_toolchain": toolchains_common.cxx(),
