@@ -21,8 +21,13 @@ def _system_ocaml_toolchain_impl(ctx):
     """
 
     runtime_dep_link_flags = ["-ldl", "-lpthread"]
-    if ctx.attrs._exec_os_type[OsLookup].os == Os("macos"):
+    exec_os = ctx.attrs._exec_os_type[OsLookup].os
+    if exec_os == Os("macos"):
         runtime_dep_link_flags.extend(["-L/opt/homebrew/lib", "-lzstd"])
+    elif exec_os == Os("linux"):
+        # OCaml 5.3's runtime archive uses zstd for marshalled data. Linux
+        # finds the system library without an explicit -L flag.
+        runtime_dep_link_flags.append("-lzstd")
 
     return [
         DefaultInfo(),
