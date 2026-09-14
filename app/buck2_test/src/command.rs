@@ -137,14 +137,24 @@ struct TestOutcome {
 impl TestOutcome {
     fn exit_code(&self) -> buck2_error::Result<i32> {
         self.executor_report
-            .exit_code
+            .exit_code()
             .internal_error("Test executor did not provide an exit code")
     }
 }
 
+/// Exit code for a run in which tests failed;
+/// matches `RunVerdict::Fail` in the OSS test runner
+const TESTS_FAILED_EXIT_CODE: i32 = 32;
+
 #[derive(Default)]
 struct ExecutorReport {
-    exit_code: Option<i32>,
+    /// Exit code reported by the external test executor via
+    /// `end_of_test_results`; `None` if the executor exited without
+    /// reporting. Not the run's verdict — see `exit_code()`.
+    executor_exit_code: Option<i32>,
+    /// Whether any target ran in-process. Only then can the executor's
+    /// exit code miss results collected here.
+    used_internal_runner: bool,
     statuses: TestStatuses,
     info_messages: Vec<String>,
 }
@@ -156,11 +166,22 @@ impl ExecutorReport {
                 self.statuses.ingest(res, session);
             }
             ExecutorMessage::ExitCode(exit_code) => {
-                self.exit_code = Some(*exit_code);
+                self.executor_exit_code = Some(*exit_code);
             }
             ExecutorMessage::InfoMessage(message) => {
                 self.info_messages.push(message.clone());
             }
+        }
+    }
+
+    /// Verdict for the whole run. The executor's exit code is authoritative
+    /// unless it reports success while internal-runner tests failed.
+    fn exit_code(&self) -> Option<i32> {
+        match self.executor_exit_code {
+            Some(0) if self.used_internal_runner && self.statuses.has_failures() => {
+                Some(TESTS_FAILED_EXIT_CODE)
+            }
+            code => code,
         }
     }
 }
@@ -230,6 +251,17 @@ impl TestStatuses {
             TestStatus::LISTING_SUCCESS => self.listing_success.add(name),
             TestStatus::LISTING_FAILED => self.listing_failed.add(name),
         }
+    }
+
+    /// Whether any result with a failing status was reported. SKIP/OMITTED
+    /// deliberately don't count: ignored tests and cancellations must not
+    /// fail a run.
+    fn has_failures(&self) -> bool {
+        self.failed.count > 0
+            || self.fatals.count > 0
+            || self.timed_out.count > 0
+            || self.infra_failure.count > 0
+            || self.listing_failed.count > 0
     }
 }
 
@@ -797,10 +829,13 @@ async fn test_targets(
                     std::mem::replace(&mut driver.build_target_result, BuildTargetResult::new());
                 drop(driver);
 
-                // Drop internal runner resources so their senders don't
-                // keep the results channel open during try_fold.
-                drop(internal_orchestrator);
+                // Drop the internal runner's sender clone so it doesn't keep
+                // the results channel open during try_fold. Orchestrator is not
+                // dropped yet -- see below.
                 drop(internal_test_status_sender);
+
+                // Whether any target ran in-process deciding whether the exit code accounts for every result collected.
+                let used_internal_runner = internal_orchestrator.initialized();
 
                 test_executor
                     .end_of_test_requests()
@@ -808,13 +843,19 @@ async fn test_targets(
                     .buck_error_context("Failed to notify test executor of end-of-tests")?;
 
                 // Wait for the tests to finish running.
-                let test_statuses = test_status_receiver
+                let mut test_statuses = test_status_receiver
                     .try_fold(ExecutorReport::default(), |mut acc, result| {
                         acc.ingest(&result, &session);
                         future::ready(Ok(acc))
                     })
                     .await
                     .buck_error_context("Did not receive all results from executor")?;
+
+                test_statuses.used_internal_runner = used_internal_runner;
+
+                // The results channel is closed now, so the internal
+                // orchestrator's Drop poison lands nowhere.
+                drop(internal_orchestrator);
 
                 // Shutdown our server. This is technically not *required* since dropping it would shut it
                 // down implicitly, but let's do it anyway so we can collect any errors.
