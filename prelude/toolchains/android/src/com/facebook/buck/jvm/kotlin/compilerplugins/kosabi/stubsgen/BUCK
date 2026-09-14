@@ -38,15 +38,15 @@ buck_kotlin_library(
     name = "stubsgen-k2-plugin",
     srcs = glob(
         [
-            "plugin/stubsgen_k2/*.kt",
+            "plugin/*.kt",
         ],
     ),
     labels = ["codegen_rule"],
     provided_deps = [
         "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",
     ],
-    resources = glob(["plugin/stubsgen_k2/resources/**"]),
-    resources_root = "plugin/stubsgen_k2/resources",
+    resources = glob(["plugin/resources/**"]),
+    resources_root = "plugin/resources",
     tests = [
         "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/integrationtest:integration-test",
         "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/stubsgen:stubsgen",
