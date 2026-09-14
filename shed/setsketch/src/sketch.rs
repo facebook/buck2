@@ -218,8 +218,10 @@ impl SetSketch {
         }
 
         let registers: Vec<I> = bytes
-            .chunks_exact(2)
-            .map(|chunk| I::from_ne_bytes([chunk[0], chunk[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|chunk| I::from_ne_bytes(*chunk))
             .collect();
 
         if registers.len() != params.m {

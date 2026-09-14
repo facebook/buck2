@@ -397,7 +397,7 @@ mod tests {
             crate::ErrorTag::AnyActionExecution,
             crate::ErrorTag::ReInternal,
         ]);
-        assert_eq!(err.category_key(), format!("RE_INTERNAL"));
+        assert_eq!(err.category_key(), "RE_INTERNAL");
     }
 
     #[test]
