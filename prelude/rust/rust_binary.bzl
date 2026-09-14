@@ -53,6 +53,7 @@ load(
     "LinkStrategy",
     "get_lib_output_style",
     "process_link_strategy_for_pic_behavior",
+    "unpack_link_args",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -79,7 +80,9 @@ load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
     "generate_rustdoc",
+    "get_inherited_link_args",
     "rust_compile",
+    "rust_compile_invalidation_inputs",
     "rust_link_binary",
 )
 load(
@@ -190,7 +193,11 @@ def _create_content_based_dist(
     return make_content_based_dist(ctx, name, exe, copies = copies, symlinks = symlinks)
 
 def _rust_binary_common(
-    ctx: AnalysisContext, compile_ctx: CompileContext, default_roots: list[str], extra_flags: list[str], allow_cache_upload: bool
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    default_roots: list[str],
+    extra_flags: list[str],
+    allow_cache_upload: bool,
 ) -> (list[Provider], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
@@ -199,13 +206,12 @@ def _rust_binary_common(
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
-    generated_build_info_link_args = []
-    generated_build_info = generate_build_info(ctx)
-    if generated_build_info:
-        generated_build_info_link_args.extend(generated_build_info.linker_flags)
-        generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info))
-
     cxx_deps = cxx_attr_deps(ctx)
+    generated_build_info_spec = getattr(ctx.attrs, "_generated_build_info_spec", {})
+    generated_build_info_enabled = bool(generated_build_info_spec and generated_build_info_spec["enabled"])
+
+    generated_build_info_link_args = []
+
     resources = flatten_dict(
         gather_resources(
             label = ctx.label,
@@ -281,6 +287,14 @@ def _rust_binary_common(
         labels_to_links_map = {}
         targets_consumed_by_link_groups = {}
         filtered_targets = []
+
+    native_link_args = get_inherited_link_args(
+        ctx,
+        compile_ctx,
+        params.dep_link_strategy,
+        rust_cxx_link_group_info,
+        transformation_spec_context,
+    )
 
     runtime_dep_handling = _get_runtime_dependency_handling(ctx, compile_ctx)
 
@@ -388,6 +402,25 @@ def _rust_binary_common(
         shlib_args_output,
         shared_libs,
     )
+    if generated_build_info_enabled and not links_via_cxx:
+        generated_build_info = generate_build_info(
+            ctx,
+            invalidation_inputs = [
+                rust_compile_invalidation_inputs(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = bin_emit,
+                    params = params,
+                    default_roots = default_roots,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                ),
+                unpack_link_args(native_link_args),
+                executable_shlib_args.extra_link_args,
+            ],
+        )
+        if generated_build_info:
+            generated_build_info_link_args.extend(generated_build_info.linker_flags)
+            generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info).objects)
     extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_link_args
 
     # Compile rust binary. Under `Emit("rlib")`, this only compiles: rustc's
@@ -405,12 +438,33 @@ def _rust_binary_common(
         allow_cache_upload = allow_cache_upload,
         transformation_spec_context = transformation_spec_context,
         incremental_enabled = ctx.attrs.incremental_enabled,
+        precomputed_inherited_link_args = native_link_args,
     )
 
     dwp_output = link.link_output.dwp_output if link.link_output else None
     pdb_output = link.link_output.pdb if link.link_output else None
     prebolt_output = None
     if links_via_cxx:
+        rust_link_inputs = [
+            link.link_extraction.out_argsfile,
+            link.link_extraction.out_artifacts_dir,
+            link.link_extraction.out_manifest,
+        ]
+        if link.link_extraction.out_archive != None:
+            rust_link_inputs.append(link.link_extraction.out_archive)
+        if generated_build_info_enabled:
+            generated_build_info = generate_build_info(
+                ctx,
+                invalidation_inputs = rust_link_inputs
+                + [
+                    unpack_link_args(native_link_args),
+                    executable_shlib_args.extra_link_args,
+                ],
+            )
+            if generated_build_info:
+                generated_build_info_link_args.extend(generated_build_info.linker_flags)
+                generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info).objects)
+                extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_link_args
         link_result = rust_link_binary(
             ctx = ctx,
             compile_ctx = compile_ctx,
@@ -418,8 +472,7 @@ def _rust_binary_common(
             dep_link_strategy = params.dep_link_strategy,
             reloc_model = params.reloc_model,
             extra_link_args = extra_link_args,
-            rust_cxx_link_group_info = rust_cxx_link_group_info,
-            transformation_spec_context = transformation_spec_context,
+            inherited_link_args = native_link_args,
             dwo_output_directory = link.compile_output.dwo_output_directory,
             output = predeclared_output,
             output_has_content_based_path = exe_content_based,

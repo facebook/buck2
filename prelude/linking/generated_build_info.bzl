@@ -23,6 +23,11 @@ GeneratedBuildInfoData = record(
     json = Artifact,
 )
 
+GeneratedBuildInfoCompileOutput = record(
+    external_debug_info = list[Artifact],
+    objects = list[Artifact],
+)
+
 _REQUIRED_GENERATED_BUILD_INFO_FIELDS = [
     "allow_cache_upload",
     "base_linker_flags",
@@ -33,7 +38,13 @@ _REQUIRED_GENERATED_BUILD_INFO_FIELDS = [
     "local_only",
 ]
 
-def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo) -> list[Artifact]:
+GeneratedBuildInfoInvalidationInfo = provider(
+    fields = {
+        "inputs": provider_field(typing.Any),
+    },
+)
+
+def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo) -> GeneratedBuildInfoCompileOutput:
     compiled = cxx_compile_srcs(
         actions = ctx.actions,
         target_label = ctx.label,
@@ -52,8 +63,12 @@ def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo)
         inherited_exported_preprocessor_infos = [],
         preferred_linkage = Linkage("shared"),
         add_coverage_instrumentation_compiler_flags = False,
+        filename_prefix = "generated_build_info_",
     )
-    return compiled.pic.objects
+    return GeneratedBuildInfoCompileOutput(
+        external_debug_info = (compiled.pic.external_debug_info + (compiled.pic.objects if compiled.pic.objects_have_external_debug_info else [])),
+        objects = compiled.pic.objects,
+    )
 
 def _generated_build_info_config(ctx: AnalysisContext):
     spec = getattr(ctx.attrs, "_generated_build_info_spec", None)

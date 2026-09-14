@@ -1556,6 +1556,7 @@ def cxx_compile_srcs(
     add_coverage_instrumentation_compiler_flags: bool,
     compile_pch: CxxPrecompiledHeader | None = None,
     own_exported_preprocessors: list[CPreprocessor] = [],
+    filename_prefix: str = "",
 ) -> _CxxCompiledSourcesOutput:
     """
     Compile objects we'll need for archives and shared libraries.
@@ -1571,6 +1572,7 @@ def cxx_compile_srcs(
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
         add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
         compile_pch = compile_pch,
+        filename_prefix = filename_prefix,
     )
 
     # Define header unit.

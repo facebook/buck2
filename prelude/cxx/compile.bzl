@@ -219,6 +219,7 @@ def create_compile_cmds(
     inherited_preprocessor_infos: list[CPreprocessorInfo],
     add_coverage_instrumentation_compiler_flags: bool,
     compile_pch: CxxPrecompiledHeader | None = None,
+    filename_prefix: str = "",
 ) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
@@ -281,7 +282,16 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(actions, target_label, toolchain, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(
+            actions,
+            target_label,
+            toolchain,
+            impl_params,
+            pre,
+            headers_tag,
+            ext,
+            filename_prefix = filename_prefix,
+        )
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         if cmd.xcode_argsfile != None:

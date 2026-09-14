@@ -566,6 +566,7 @@ def rust_compile(
     infallible_diagnostics: bool = False,
     transformation_spec_context: TransformationSpecContext | None = None,
     profile_mode: ProfileMode | None = None,
+    precomputed_inherited_link_args: LinkArgs | None = None,
 ) -> RustcOutput:
     toolchain_info = compile_ctx.toolchain_info
 
@@ -717,13 +718,15 @@ def rust_compile(
         subdir = common_args.subdir
         tempfile = common_args.tempfile
 
-        inherited_link_args = _inherited_link_args(
-            ctx,
-            compile_ctx,
-            params.dep_link_strategy,
-            None,  # link group info
-            transformation_spec_context,
-        )
+        inherited_link_args = precomputed_inherited_link_args
+        if inherited_link_args == None:
+            inherited_link_args = get_inherited_link_args(
+                ctx,
+                compile_ctx,
+                params.dep_link_strategy,
+                None,  # link group info
+                transformation_spec_context,
+            )
 
         link_args_output = make_link_args(
             ctx,
@@ -1431,6 +1434,27 @@ def _compute_common_args(
     compile_ctx.common_args[args_key] = common_args
     return common_args
 
+def rust_compile_invalidation_inputs(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    emit: Emit,
+    params: BuildParams,
+    default_roots: list[str],
+    incremental_enabled: bool,
+) -> cmd_args:
+    return _compute_common_args(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        dep_ctx = compile_ctx.dep_ctx,
+        emit = emit,
+        params = params,
+        default_roots = default_roots,
+        infallible_diagnostics = False,
+        incremental_enabled = incremental_enabled,
+        is_rustdoc_test = False,
+        profile_mode = None,
+    ).args
+
 # Returns the full label and its hash. The full label is used for `-Cmetadata`
 # which provided the primary disambiguator for two otherwise identically named
 # crates. The hash is added to the filename to give them a lower likelihood of
@@ -1974,7 +1998,7 @@ def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> 
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     return linker_info.supports_distributed_thinlto and linker_info.lto_mode == LtoMode("thin")
 
-def _inherited_link_args(
+def get_inherited_link_args(
     ctx: AnalysisContext,
     compile_ctx: CompileContext,
     dep_link_style: LinkStrategy,
@@ -2016,7 +2040,7 @@ def _inherited_link_args(
     return inherited_link_args
 
 def rust_link_shared(ctx: AnalysisContext, compile_ctx: CompileContext, dep_link_style: LinkStrategy, static_lib: LinkInfo) -> LinkedObject:
-    inherited_link_args = _inherited_link_args(
+    inherited_link_args = get_inherited_link_args(
         ctx,
         compile_ctx,
         dep_link_style,
@@ -2068,8 +2092,7 @@ def rust_link_binary(
     dep_link_strategy: LinkStrategy,
     reloc_model: RelocModel,
     extra_link_args: list[typing.Any],
-    rust_cxx_link_group_info: RustCxxLinkGroupInfo | None,
-    transformation_spec_context: TransformationSpecContext | None,
+    inherited_link_args: LinkArgs,
     dwo_output_directory: Artifact | None,
     output: Artifact,
     output_has_content_based_path: bool,
@@ -2132,14 +2155,6 @@ def rust_link_binary(
                 )
             ]
         )
-
-    inherited_link_args = _inherited_link_args(
-        ctx,
-        compile_ctx,
-        dep_link_strategy,
-        rust_cxx_link_group_info,
-        transformation_spec_context,
-    )
 
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     if split_debug_mode != SplitDebugMode("none"):

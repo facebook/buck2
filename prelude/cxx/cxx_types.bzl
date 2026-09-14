@@ -167,6 +167,8 @@ CxxRuleConstructorParams = record(
     # These flags are _not_ propagated up the dep tree.
     extra_link_flags = field(list[typing.Any], []),
     extra_binary_link_flags = field(list[typing.Any], []),
+    # Inputs that invalidate generated build info without becoming inputs to the executable link.
+    generated_build_info_invalidation_inputs = field(list[typing.Any], []),
     # Additional artifacts to be linked together with the cxx compilation output.
     extra_link_input = field(list[Artifact], []),
     # If True the extra_link_input should be considered as external debug info.

@@ -64,6 +64,7 @@ load(
     "generate_xcode_data",
 )
 load("@prelude//linking:add_elf_sections.bzl", "PRE_ADD_ELF_SECTIONS_SUFFIX", "get_elf_sections")
+load("@prelude//linking:generated_build_info.bzl", "compile_generated_build_info", "generate_build_info")
 load(
     "@prelude//linking:link_groups.bzl",
     "gather_link_group_libs",
@@ -83,6 +84,7 @@ load(
     "make_link_command_debug_output_json_info",
     "process_link_strategy_for_pic_behavior",
     "to_link_strategy",
+    "unpack_link_args",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -704,6 +706,24 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
+    generated_build_info_external_debug_info = []
+    generated_build_info_objects = []
+    generated_build_info_invalidation_inputs = (
+        [out.object for out in cxx_outs]
+        + [unpack_link_args(dep_links)]
+        + [shared_lib.lib.output for shared_lib in shared_libs]
+        + impl_params.generated_build_info_invalidation_inputs
+    )
+    generated_build_info = generate_build_info(
+        ctx,
+        invalidation_inputs = generated_build_info_invalidation_inputs,
+    )
+    if generated_build_info:
+        generated_build_info_compile_output = compile_generated_build_info(ctx, generated_build_info)
+        generated_build_info_external_debug_info = generated_build_info_compile_output.external_debug_info
+        generated_build_info_objects = generated_build_info_compile_output.objects
+        own_exe_link_flags += generated_build_info.linker_flags
+
     links = [
         LinkArgs(
             infos = [
@@ -712,7 +732,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     pre_flags = own_exe_link_flags,
                     linkables = [
                         ObjectsLinkable(
-                            objects = [out.object for out in cxx_outs] + impl_params.extra_link_input,
+                            objects = [out.object for out in cxx_outs] + generated_build_info_objects + impl_params.extra_link_input,
                             linker_type = linker_info.type,
                             link_whole = True,
                         )
@@ -723,6 +743,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                         artifacts = (
                             [out.object for out in cxx_outs if out.object_has_external_debug_info]
                             + [out.external_debug_info for out in cxx_outs if out.external_debug_info != None]
+                            + generated_build_info_external_debug_info
                             + (impl_params.extra_link_input if impl_params.extra_link_input_has_external_debug_info else [])
                         ),
                     ),
