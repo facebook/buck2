@@ -787,7 +787,8 @@ async def test_timeout_local(buck: Buck) -> None:
 async def test_timeout_re(buck: Buck) -> None:
     result = await expect_failure(
         buck.test(
-            "fbcode//buck2/tests/targets/rules/python/test:timeout",
+            "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
+            get_mode_from_platform(),
             "--unstable-allow-all-tests-on-re",
             "--remote-only",
             "--no-remote-cache",
@@ -796,7 +797,7 @@ async def test_timeout_re(buck: Buck) -> None:
             "SLOW_DURATION=60",
             "--timeout=5",
         ),
-        stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout",
+        stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout_re",
     )
     assert "1 TESTS TIMED OUT" in result.stderr
 
