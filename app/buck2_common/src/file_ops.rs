@@ -11,6 +11,7 @@
 pub mod delegate;
 pub mod dice;
 pub mod error;
+pub mod invalidation;
 pub mod io;
 pub mod metadata;
 pub mod testing;

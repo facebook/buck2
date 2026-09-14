@@ -195,6 +195,7 @@ impl BuckdServerInitPreferences {
         root_config: &LegacyBuckConfig,
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
+        filesystem_invalidation: bool,
     ) -> buck2_error::Result<Arc<Dice>> {
         // `hydration` is `Some` when paging is enabled (via `enable_paging` or
         // `page_out_on_idle`), which is what gates setting up on-disk storage.
@@ -207,6 +208,7 @@ impl BuckdServerInitPreferences {
             tenting_acl_provider,
             hydration.map(|_| dice_state_path),
             hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
+            filesystem_invalidation,
         )
         .await
     }

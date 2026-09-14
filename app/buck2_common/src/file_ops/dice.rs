@@ -38,6 +38,7 @@ use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
 use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
+use crate::file_ops::invalidation::record_filesystem_dependency;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
@@ -305,6 +306,7 @@ impl Key for ReadFileKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        record_filesystem_dependency(ctx).await?;
         let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
         Ok(ReadFileValue {
             file_ops,
@@ -341,6 +343,7 @@ impl Key for ReadDirKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        record_filesystem_dependency(ctx).await?;
         let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
         file_ops.read_dir(ctx, self.path.as_ref().path()).await
     }
@@ -374,6 +377,7 @@ impl Key for ExistsMatchingExactCaseKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        record_filesystem_dependency(ctx).await?;
         get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::Yes)
             .await?
             .exists_matching_exact_case(self.0.path(), ctx)
@@ -408,6 +412,7 @@ impl Key for PathMetadataKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
+        record_filesystem_dependency(ctx).await?;
         let res = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
             .await?
             .read_path_metadata_if_exists(ctx, self.0.as_ref().path())

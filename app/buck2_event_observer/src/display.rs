@@ -612,6 +612,12 @@ pub fn display_file_watcher_end(file_watcher_end: &buck2_data::FileWatcherEnd) -
             }
         }
 
+        if stats.filesystem_inputs_invalidated {
+            res.push(
+                "File watcher missed some changes; rechecking build inputs as needed.".to_owned(),
+            );
+        }
+
         if let Some(fresh_instance) = &stats.fresh_instance_data {
             let file_watcher = if stats.watchman_version.is_some() {
                 "Watchman"
