@@ -83,18 +83,28 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             }
         }
 
-        // Materialize the whole cell, and then copy it into the repository.
+        // Materialize the whole cell, then copy its files into the repository.
         //
         // FIXME(JakobDegen): Ideally we'd be able to ask the materializer to just make a copy
         // without doing the actual materialization. However, that's not currently possible without
         // it resulting in the materializer tracking paths in the repo, so this will have to do for
         // now.
-        let materialized_path = match origin {
-            ExternalCellOrigin::Bundled(cell) => bundled::materialize_all(ctx, cell).await?,
-            ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
-        };
+        match origin {
+            ExternalCellOrigin::Bundled(cell) => {
+                // Copy files individually rather than the whole buck-out directory; see
+                // `materialize_all`'s doc comment for why.
+                for (rel_path, source_path) in bundled::materialize_all(ctx, cell).await? {
+                    io.project_root()
+                        .copy(&source_path, dest_path.join(&rel_path))?;
+                }
+            }
+            ExternalCellOrigin::Git(setup) => {
+                let materialized_path = git::materialize_all(ctx, cell, setup).await?;
+                io.project_root().copy(&materialized_path, &dest_path)?;
+            }
+        }
 
-        Ok(io.project_root().copy(&materialized_path, &dest_path)?)
+        Ok(())
     }
 }
 
