@@ -57,20 +57,13 @@ def erlang_extract_otp_app_error_handler(ctx: ActionErrorCtx) -> list[ActionSubE
                     apps_list = "\n".join(["   - {}".format(app) for app in available_apps])
                     available_apps_section = "\n\n Available OTP applications ({count}):\n{apps_list}".format(count = len(available_apps), apps_list = apps_list)
 
-                remediation = """To fix:
-
- 1. Verify '{app_name}' exists in your OTP installation:
+                remediation = """To fix, verify '{app_name}' exists in your OTP installation:
 
     $ ls -Al "{root_dir}/lib/{app_name}-*"
 
- 2. Regenerate your toolchain's otp_versions.bzl file:
-
-    $ python3 buck2/prelude/erlang/toolchain/generate_otp_versions.py my_otp_versions.bzl
-
  Common causes:
    - The application is not part of your OTP version (e.g., jinterface was removed in OTP 27)
-   - You're using a toolchain configured for a different OTP version
-   - Your toolchain's 'applications' list needs updating{available_apps_section}""".format(
+   - You're using a toolchain configured for a different OTP version{available_apps_section}""".format(
                     app_name = app_name,
                     root_dir = error_json["root_dir"],
                     available_apps_section = available_apps_section,
