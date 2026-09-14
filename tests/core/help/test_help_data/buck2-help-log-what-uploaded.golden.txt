@@ -1,6 +1,17 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-Outputs stats about uploads to RE from the selected invocation
+Get what uploaded to RE/CAS from a buck invocation
+
+Outputs a tab-separated table of: kind, action, action_digest, digests_uploaded, bytes_uploaded.
+
+  kind          action                                     act. digest  #digests #bytes
+  re_inputs     root//foo:bar (cfg) (cxx_compile foo.cpp)                  12    4096
+  action_cache  root//foo:bar (cfg) (cxx_compile foo.cpp)  3f8a9cabcd:142   3   20480
+
+Kinds:
+- re_inputs - inputs to a remotely executed action, without any digest
+- action_cache - locally-run action whose outputs were uploaded to action cache, with action
+                 digest.
 
 Usage: buck2 log what-uploaded [OPTIONS] [PATH]
 
@@ -33,7 +44,7 @@ Options:
           [default: readable]
 
       --aggregate-by-ext
-          Aggregates the output by file extension
+          Aggregates input uploads by file extension. Excludes action-cache uploads
 
   -h, --help
           Print help (see a summary with '-h')
