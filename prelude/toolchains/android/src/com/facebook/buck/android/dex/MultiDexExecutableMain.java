@@ -215,8 +215,13 @@ public class MultiDexExecutableMain {
         Predicate<String> matchesAllFiles = f -> true;
         PrimaryDexClassNamesHolder primaryDexClassNamesHolder =
             getPrimaryDexClassNames(primaryDexFilesToDex, matchesAllFiles, deobfuscateFunction);
-        Preconditions.checkState(classpath.isEmpty());
-        classpath = ImmutableSet.copyOf(primaryDexFilesToDex);
+        ImmutableSet<Path> primaryDexClasspath =
+            ImmutableSet.copyOf(
+                Sets.difference(
+                    ImmutableSet.<Path>builder().addAll(filesToDex).addAll(classpath).build(),
+                    ImmutableSet.copyOf(primaryDexFilesToDex)));
+        classpath =
+            ImmutableSet.<Path>builder().addAll(primaryDexFilesToDex).addAll(classpath).build();
         if (enableBootstrapDexes) {
           Preconditions.checkNotNull(
               bootstrapDexOutputDir,
@@ -236,7 +241,7 @@ public class MultiDexExecutableMain {
                 noOptimize ? EnumSet.of(D8Options.NO_OPTIMIZE) : EnumSet.noneOf(D8Options.class),
                 Optional.of(hackMainDexListForBootstrapRun),
                 Paths.get(androidJar),
-                filesToDex,
+                primaryDexClasspath,
                 minSdkVersion,
                 D8_THREAD_COUNT);
           } catch (CompilationFailedException e) {
@@ -272,7 +277,7 @@ public class MultiDexExecutableMain {
                 noOptimize ? EnumSet.of(D8Options.NO_OPTIMIZE) : EnumSet.noneOf(D8Options.class),
                 Optional.empty(),
                 Paths.get(androidJar),
-                filesToDex,
+                primaryDexClasspath,
                 minSdkVersion,
                 D8_THREAD_COUNT);
           } catch (CompilationFailedException e) {

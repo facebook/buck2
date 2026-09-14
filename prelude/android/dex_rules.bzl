@@ -92,7 +92,11 @@ def get_split_dex_merge_config(ctx: AnalysisContext, android_toolchain: AndroidT
     )
 
 def get_single_primary_dex(
-    ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, java_library_jars: list[Artifact], is_optimized: bool = False
+    ctx: AnalysisContext,
+    android_toolchain: AndroidToolchainInfo,
+    java_library_jars: list[Artifact],
+    is_optimized: bool = False,
+    classpath_jars: list[Artifact] = [],
 ) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
@@ -105,6 +109,9 @@ def get_single_primary_dex(
 
     jar_to_dex_file = argfile(actions = ctx.actions, name = "jar_to_dex_file.txt", args = java_library_jars)
     d8_cmd.add(["--files-to-dex-list", jar_to_dex_file])
+    if classpath_jars:
+        classpath_file = argfile(actions = ctx.actions, name = "classpath_jars.txt", args = classpath_jars)
+        d8_cmd.add(["--classpath-files", classpath_file])
 
     d8_cmd.add(["--android-jar", android_toolchain.android_jar])
     if not is_optimized:
@@ -140,6 +147,7 @@ def get_multi_dex(
     enable_bootstrap_dexes = False,
     multidex_min_api: str | None = None,
     pre_dexed_inputs: bool = False,
+    classpath_jars: list[Artifact] = [],
 ) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
@@ -183,7 +191,8 @@ def get_multi_dex(
 
         secondary_dex_dir_srcs = {}
         all_inputs = flatten(module_to_inputs.values())
-        all_inputs_list = argfile(actions = ctx.actions, name = "all_inputs_classpath.txt", args = all_inputs)
+        all_inputs_list = argfile(actions = ctx.actions, name = "all_inputs_classpath.txt", args = all_inputs + classpath_jars)
+        classpath_jars_list = argfile(actions = ctx.actions, name = "classpath_jars.txt", args = classpath_jars) if classpath_jars else None
         for module, module_inputs in module_to_inputs.items():
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
             secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
@@ -243,7 +252,12 @@ def get_multi_dex(
                 )
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
                 inputs_to_dex = module_inputs
-                if not pre_dexed_inputs:
+
+            if not pre_dexed_inputs:
+                if is_root_module(module):
+                    if classpath_jars_list:
+                        multi_dex_cmd.add("--classpath-files", classpath_jars_list)
+                else:
                     multi_dex_cmd.add("--classpath-files", all_inputs_list)
 
             multi_dex_cmd.add("--module", module)
