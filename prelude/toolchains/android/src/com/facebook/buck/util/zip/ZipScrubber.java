@@ -233,14 +233,6 @@ public class ZipScrubber {
     }
   }
 
-  /** Read the name of a zip file from a local entry. Useful for debugging. */
-  @SuppressWarnings("unused")
-  private static String localEntryName(LargeByteBuffer entry) throws IOException {
-    byte[] nameBytes = new byte[entry.getShort(ZipEntry.LOCNAM)];
-    entry.slice().position(ZipEntry.LOCHDR).get(nameBytes);
-    return new String(nameBytes);
-  }
-
   @Option(name = "--paths-to-scrub")
   private Path pathsToScrubFile;
 

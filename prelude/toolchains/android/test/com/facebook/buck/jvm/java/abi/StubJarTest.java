@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.abi;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.fail;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -7853,7 +7852,6 @@ public class StubJarTest {
 
     private final List<String> expectedStubDirectory = new ArrayList<>();
     private final List<String> actualStubDirectory = new ArrayList<>();
-    private final List<String> actualFullDirectory = new ArrayList<>();
     private final Map<String, List<String>> expectedFullAbis = new HashMap<>();
     private final Map<String, List<String>> actualFullAbis = new HashMap<>();
     private final Map<String, List<String>> expectedStubs = new HashMap<>();
@@ -7885,7 +7883,6 @@ public class StubJarTest {
 
     private void resetActuals() {
       actualStubDirectory.clear();
-      actualFullDirectory.clear();
       actualFullAbis.clear();
       actualStubs.clear();
       stubJarPath = null;
@@ -8235,70 +8232,6 @@ public class StubJarTest {
       assertNotEquals(originalHash, Files.asByteSource(stubJarPath.toFile()).hash(Hashing.sha1()));
     }
 
-    @SuppressWarnings("unused")
-    public Tester dumpTestCode(boolean includeFullAbi) throws IOException {
-      if (includeFullAbi) {
-        compileFullJar();
-        dumpFullJarAbi();
-      }
-      createStubJar();
-      dumpStubJar();
-
-      String indent = "            ";
-      StringBuilder result = new StringBuilder();
-      result.append("Test lines:\n");
-      result.append("    tester\n");
-      result.append("        .setSourceFile(\n");
-      result.append(indent);
-      result.append('"');
-      result.append(sourceFileName);
-      for (String sourceLine : sourceFileContents.split("\n")) {
-        result.append("\",\n");
-        result.append(indent);
-        result.append('"');
-        result.append(sourceLine.replace("\"", "\\\""));
-      }
-      result.append("\")\n");
-      for (String fileName : actualFullDirectory) {
-        if (fileName.endsWith("/") || fileName.equals(JarFile.MANIFEST_NAME)) {
-          continue;
-        }
-        if (includeFullAbi) {
-          result.append("        .addExpectedFullAbi(\n");
-          result.append(indent);
-          result.append('"');
-          result.append(fileName, 0, fileName.length() - ".class".length());
-
-          for (String abiLine : actualFullAbis.get(fileName)) {
-            result.append("\",\n");
-            result.append(indent);
-            result.append('"');
-            result.append(abiLine.replace("\"", "\\\""));
-          }
-          result.append("\")\n");
-        }
-
-        if (actualStubs.containsKey(fileName)) {
-          result.append("        .addExpectedStub(\n");
-          result.append(indent);
-          result.append('"');
-          result.append(fileName, 0, fileName.length() - ".class".length());
-
-          for (String stubLine : actualStubs.get(fileName)) {
-            result.append("\",\n");
-            result.append(indent);
-            result.append('"');
-            result.append(stubLine.replace("\"", "\\\""));
-          }
-          result.append("\")\n");
-        }
-      }
-      result.append("        .createAndCheckStubJar();\n");
-
-      fail(result.toString());
-      return this;
-    }
-
     protected void dumpStubJar() throws IOException {
       try (JarFile file = new JarFile(stubJarPath.toFile())) {
         Iterable<JarEntry> entries = file.stream()::iterator;
@@ -8324,7 +8257,6 @@ public class StubJarTest {
           if (JarFile.MANIFEST_NAME.equals(name)) {
             continue;
           }
-          actualFullDirectory.add(name);
           actualFullAbis.put(
               name,
               new JarDumper()
