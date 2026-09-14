@@ -60,8 +60,7 @@ public class ClasspathUtils {
             .map(AbsPath::toString)
             .collect(ImmutableSortedSet.toImmutableSortedSet(Ordering.natural()));
 
-    return "-Xfriend-paths="
-        + absoluteFriendPaths.stream().reduce("", (path1, path2) -> path1 + "," + path2);
+    return "-Xfriend-paths=" + String.join(",", absoluteFriendPaths);
   }
 
   private ImmutableSortedSet<AbsPath> getFriendAbsPaths(ImmutableList.Builder<IsolatedStep> steps) {
