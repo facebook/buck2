@@ -9,12 +9,14 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
+compact_str = { version = "0.10.0", optional = true }
 num-bigint = { version = "0.5.1", optional = true }
 ref-cast.workspace = true
 strong_hash_derive.workspace = true
 triomphe = { version = "0.1.16", optional = true }
 
 [features]
+compact_str = ["dep:compact_str"]
 default = []
 num-bigint = ["dep:num-bigint"]
 triomphe = ["dep:triomphe"]

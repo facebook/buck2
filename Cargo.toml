@@ -463,7 +463,7 @@ starlark_map = { version = "0.14.2", path = "starlark-rust/starlark_map", featur
 starlark_syntax = { version = "0.14.2", path = "starlark-rust/starlark_syntax" }
 static_assertions = "1.1.0"
 static_interner = { version = "0.1.3", path = "shed/static_interner", features = ["allocative", "dupe", "strong_hash"] }
-strong_hash = { version = "0.1.0", path = "gazebo/strong_hash", features = ["num-bigint", "triomphe"] }
+strong_hash = { version = "0.1.0", path = "gazebo/strong_hash", features = ["compact_str", "num-bigint", "triomphe"] }
 strong_hash_derive = { version = "0.1.0", path = "gazebo/strong_hash_derive" }
 strsim = "0.11.1"
 strum = { version = "0.28.0", features = ["derive"] }
