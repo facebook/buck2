@@ -45,7 +45,7 @@ bit-set = "0.11.1"
 bit-vec = "0.10.1"
 bitflags = { version = "2.13.1", features = ["serde", "std"], default-features = false }
 blake3 = { version = "1.8", features = ["mmap", "rayon", "traits-preview"] }
-bstr = { version = "1.13.0", features = ["serde", "std", "unicode"] }
+bstr = { version = "1.13.1", features = ["serde", "std", "unicode"] }
 buck-resources = "1"
 bumpalo = { version = "3.20.3", features = ["allocator_api", "collections"] }
 bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
