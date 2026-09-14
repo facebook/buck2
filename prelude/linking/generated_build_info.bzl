@@ -6,6 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
+load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
+load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
+load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
+load("@prelude//linking:types.bzl", "Linkage")
+
 GeneratedBuildInfo = record(
     json = Artifact,
     linker_flags = list[typing.Any],
@@ -25,6 +32,28 @@ _REQUIRED_GENERATED_BUILD_INFO_FIELDS = [
     "finalize_build_info_at_link",
     "local_only",
 ]
+
+def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo) -> list[Artifact]:
+    compiled = cxx_compile_srcs(
+        actions = ctx.actions,
+        target_label = ctx.label,
+        cxx_toolchain_info = get_cxx_toolchain_info(ctx),
+        impl_params = CxxRuleConstructorParams(
+            rule_type = "generated_build_info",
+            headers_layout = CxxHeadersLayout(
+                namespace = "",
+                naming = CxxHeadersNaming("regular"),
+            ),
+            srcs = [CxxSrcWithFlags(file = info.source)],
+            _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        ),
+        own_preprocessors = [],
+        inherited_non_exported_preprocessor_infos = [],
+        inherited_exported_preprocessor_infos = [],
+        preferred_linkage = Linkage("shared"),
+        add_coverage_instrumentation_compiler_flags = False,
+    )
+    return compiled.pic.objects
 
 def _generated_build_info_config(ctx: AnalysisContext):
     spec = getattr(ctx.attrs, "_generated_build_info_spec", None)
@@ -49,25 +78,29 @@ def _generate_build_info_data(
     invalidation_inputs: list[typing.Any] = [],
 ) -> GeneratedBuildInfoData:
     output_dir = "__generated_build_info__"
-    generator_spec = ctx.actions.write_json(
-        output_dir + "/generator_spec.json",
-        spec,
-    )
-    json = ctx.actions.declare_output(output_dir, "build_info.json")
-    command = cmd_args(
-        tool,
-        "--spec-json",
-        generator_spec,
-        "--output-json",
-        json.as_output(),
-    )
-    command.add(cmd_args(hidden = invalidation_inputs))
-    ctx.actions.run(
-        command,
-        category = "generate_build_info_json",
-        local_only = spec["local_only"],
-        allow_cache_upload = spec["allow_cache_upload"],
-    )
+    json = getattr(ctx.attrs, "_generated_build_info_data", None)
+    # A caller that supplies the JSON artifact owns its invalidation edges;
+    # `invalidation_inputs` apply only when this rule generates the JSON.
+    if json == None:
+        generator_spec = ctx.actions.write_json(
+            output_dir + "/generator_spec.json",
+            spec,
+        )
+        json = ctx.actions.declare_output(output_dir, "build_info.json")
+        command = cmd_args(
+            tool,
+            "--spec-json",
+            generator_spec,
+            "--output-json",
+            json.as_output(),
+        )
+        command.add(cmd_args(hidden = invalidation_inputs))
+        ctx.actions.run(
+            command,
+            category = "generate_build_info_json",
+            local_only = spec["local_only"],
+            allow_cache_upload = spec["allow_cache_upload"],
+        )
     return GeneratedBuildInfoData(json = json)
 
 def generate_build_info_data(

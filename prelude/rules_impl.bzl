@@ -491,6 +491,11 @@ _python_extra_attributes = {
 }
 
 _rust_extra_attributes = {
+    "rust_binary": {
+        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
+        "_generated_build_info_spec": BUILD_INFO_ATTR,
+    },
     "rust_test": {},
 }
 

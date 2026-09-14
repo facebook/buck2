@@ -46,6 +46,7 @@ load(
     "DistInfo",
 )
 load("@prelude//linking:add_elf_sections.bzl", "get_elf_sections")
+load("@prelude//linking:generated_build_info.bzl", "compile_generated_build_info", "generate_build_info")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
@@ -197,6 +198,12 @@ def _rust_binary_common(
 
     link_strategy = LinkStrategy(ctx.attrs.link_style) if ctx.attrs.link_style else DEFAULT_STATIC_LINK_STRATEGY
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
+
+    generated_build_info_link_args = []
+    generated_build_info = generate_build_info(ctx)
+    if generated_build_info:
+        generated_build_info_link_args.extend(generated_build_info.linker_flags)
+        generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info))
 
     cxx_deps = cxx_attr_deps(ctx)
     resources = flatten_dict(
@@ -381,6 +388,7 @@ def _rust_binary_common(
         shlib_args_output,
         shared_libs,
     )
+    extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_link_args
 
     # Compile rust binary. Under `Emit("rlib")`, this only compiles: rustc's
     # synthesized objects are extracted and linked below.
@@ -390,7 +398,7 @@ def _rust_binary_common(
         emit = bin_emit,
         params = params,
         default_roots = default_roots,
-        extra_link_args = executable_shlib_args.extra_link_args,
+        extra_link_args = extra_link_args,
         predeclared_output = None if links_via_cxx else predeclared_output,
         predeclared_output_has_content_based_path = exe_content_based,
         extra_flags = extra_flags,
@@ -409,7 +417,7 @@ def _rust_binary_common(
             extraction = link.link_extraction,
             dep_link_strategy = params.dep_link_strategy,
             reloc_model = params.reloc_model,
-            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_link_args = extra_link_args,
             rust_cxx_link_group_info = rust_cxx_link_group_info,
             transformation_spec_context = transformation_spec_context,
             dwo_output_directory = link.compile_output.dwo_output_directory,
@@ -599,6 +607,7 @@ def _rust_binary_common(
         emit = bin_emit,
         params = params,
         default_roots = default_roots,
+        extra_link_args = extra_link_args,
         extra_flags = extra_flags,
         incremental_enabled = False,
         profile_mode = ProfileMode("remarks"),
@@ -637,7 +646,7 @@ def _rust_binary_common(
             emit = bin_emit,
             params = params,
             default_roots = default_roots,
-            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_link_args = extra_link_args,
             extra_flags = extra_flags,
             incremental_enabled = ctx.attrs.incremental_enabled,
             profile_mode = ProfileMode("llvm-time-trace"),
@@ -648,7 +657,7 @@ def _rust_binary_common(
             emit = bin_emit,
             params = params,
             default_roots = default_roots,
-            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_link_args = extra_link_args,
             extra_flags = extra_flags,
             incremental_enabled = ctx.attrs.incremental_enabled,
             profile_mode = ProfileMode("self-profile"),
