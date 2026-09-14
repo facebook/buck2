@@ -25,7 +25,7 @@ load(
     "@prelude//cxx:cuda.bzl",
     "CudaCompileStyle",
 )
-load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
+load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags", "get_srcs_with_flags")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "RuntimeDependencyHandling",
@@ -39,6 +39,7 @@ load(
 # @oss-disable[end= ]: load("@prelude//cxx/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//graphql:graphql.bzl", "graphql_providers")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load("@prelude//linking:generated_build_info.bzl", "generate_build_info")
 load(
     "@prelude//linking:link_groups.bzl",
     "merge_link_group_lib_info",
@@ -317,6 +318,13 @@ def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupI
     return create_shared_lib_link_group_specs(ctx, link_group_info.groups.values())
 
 def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    srcs = get_srcs_with_flags(ctx)
+    extra_binary_link_flags = []
+    generated_build_info = generate_build_info(ctx)
+    if generated_build_info:
+        srcs.append(CxxSrcWithFlags(file = generated_build_info.source))
+        extra_binary_link_flags.extend(generated_build_info.linker_flags)
+
     link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
     link_group_info = get_link_group_info(
         ctx,
@@ -328,7 +336,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         generate_sub_targets = CxxRuleSubTargetParams(xcode_data = xcode_data_enabled()),
         executable_name = ctx.attrs.executable_name,
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
-        srcs = get_srcs_with_flags(ctx),
+        srcs = srcs,
+        extra_binary_link_flags = extra_binary_link_flags,
         link_group_info = link_group_info,
         auto_link_group_specs = get_auto_link_group_specs(ctx, link_group_info),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_objects,
