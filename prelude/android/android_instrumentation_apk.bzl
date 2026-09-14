@@ -62,18 +62,10 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
 
     is_self_instrumenting = ctx.attrs.is_self_instrumenting
 
-    all_java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.dex]
     java_packaging_deps = [
         packaging_dep
-        for packaging_dep in all_java_packaging_deps
-        if is_self_instrumenting or packaging_dep.label.raw_target() not in apk_under_test_info.java_packaging_deps
-    ]
-
-    # D8 still needs excluded APK-under-test classes for desugaring
-    desugar_classpath_jars = [
-        packaging_dep.jar
-        for packaging_dep in all_java_packaging_deps
-        if not is_self_instrumenting and packaging_dep.label.raw_target() in apk_under_test_info.java_packaging_deps
+        for packaging_dep in get_all_java_packaging_deps(ctx, deps)
+        if packaging_dep.dex and (is_self_instrumenting or packaging_dep.label.raw_target() not in apk_under_test_info.java_packaging_deps)
     ]
 
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
@@ -129,14 +121,12 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
                 ctx.attrs.primary_dex_patterns,
                 enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
                 multidex_min_api = ctx.attrs.multidex_min_api,
-                classpath_jars = desugar_classpath_jars,
             )
         else:
             dex_files_info = get_single_primary_dex(
                 ctx,
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
                 jars_to_owners.keys(),
-                classpath_jars = desugar_classpath_jars,
             )
     native_library_info = get_android_binary_native_library_info(
         enhance_ctx,
