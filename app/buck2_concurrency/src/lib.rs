@@ -18,6 +18,8 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -117,6 +119,9 @@ pub struct ConcurrencyHandler {
     dice: Arc<Dice>,
     /// Used to prevent commands (clean --stale) from running in parallel with dice commands
     exclusive_command_lock: ExclusiveCommandLock,
+    /// Source of `CommandId`s. Deliberately outside `data` so that a command has an identity
+    /// before it competes for the lock.
+    next_command_id: AtomicUsize,
 }
 
 #[derive(Allocative)]
@@ -126,25 +131,19 @@ struct ConcurrencyHandlerData {
     dice_status: DiceStatus,
     /// A list of the currently running commands.
     active_commands: SmallMap<CommandId, CommandData>,
-    /// When a command enters
-    next_command_id: CommandId,
     /// The epoch of the last ActiveDice we assigned.
     cleanup_epoch: usize,
     /// Whether this has been tainted previously.
     previously_tainted: bool,
 }
 
+/// Identifies one entry in `active_commands`. `TraceId` cannot serve this purpose because it is not
+/// unique across concurrently live entries.
+///
+/// Values are distinct and increasing, but not contiguous: every error path between allocation and
+/// registration burns one.
 #[derive(Allocative, Display, Copy, Clone, Dupe, PartialEq, Eq, Hash)]
 struct CommandId(usize);
-
-impl CommandId {
-    /// Increment this counter and return the next command.
-    fn increment(&mut self) -> CommandId {
-        let res = CommandId(self.0);
-        self.0 += 1;
-        res
-    }
-}
 
 #[derive(Allocative)]
 struct CommandData {
@@ -393,14 +392,19 @@ impl ConcurrencyHandler {
             data: Mutex::new(ConcurrencyHandlerData {
                 dice_status: DiceStatus::idle(),
                 active_commands: SmallMap::new(),
-                next_command_id: CommandId(0),
                 cleanup_epoch: 0,
                 previously_tainted: false,
             }),
             cond: Condvar::new(),
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
+            next_command_id: AtomicUsize::new(0),
         })
+    }
+
+    /// Allocates the next `CommandId`. Returns a distinct value to every caller.
+    fn allocate_command_id(&self) -> CommandId {
+        CommandId(self.next_command_id.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Enters a critical section that requires concurrent command synchronization,
@@ -525,9 +529,7 @@ impl ConcurrencyHandler {
         // descheduled from this executor thread, so this may show up in the wrong places
         let _enter = span.enter();
 
-        let mut data = self.data.lock().await;
-
-        let command_id = data.next_command_id.increment();
+        let command_id = self.allocate_command_id();
 
         let (preempt_sender, preempt_receiver) = oneshot::channel::<()>();
 
@@ -538,6 +540,8 @@ impl ConcurrencyHandler {
             preemption_setting: preemptible,
             preempt: Some(preempt_sender),
         };
+
+        let mut data = self.data.lock().await;
 
         let (transaction, tainted) = loop {
             match &data.dice_status {
@@ -1138,6 +1142,44 @@ mod tests {
         Dice::builder().build(DetectCycles::Enabled)
     }
 
+    /// Distinctness of `CommandId` used to be a consequence of the read-modify-write happening
+    /// under the state lock. It is now the atomic's job, so it is worth pinning directly: a
+    /// collision otherwise surfaces far from its cause, as the duplicate-registration
+    /// `internal_error!` in `OnExecExit::new`.
+    ///
+    /// The multi-threaded flavour is load-bearing: on the default current-thread runtime the tasks
+    /// never overlap, and a non-atomic read-modify-write passes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+    async fn concurrently_allocated_command_ids_are_distinct() {
+        const TASKS: usize = 8;
+        const PER_TASK: usize = 1024;
+
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let start = Arc::new(tokio::sync::Barrier::new(TASKS));
+
+        let handles: Vec<_> = (0..TASKS)
+            .map(|_| {
+                let concurrency = concurrency.dupe();
+                let start = start.dupe();
+                tokio::spawn(async move {
+                    start.wait().await;
+                    (0..PER_TASK)
+                        .map(|_| concurrency.allocate_command_id())
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+
+        let mut seen = SmallSet::new();
+        for handle in handles {
+            for id in handle.await.unwrap() {
+                assert!(seen.insert(id), "duplicate CommandId `{id}`");
+            }
+        }
+
+        assert_eq!(seen.len(), TASKS * PER_TASK);
+    }
+
     /// The `Debug` impl is hand-written, so it needs its own check — in particular that it elides
     /// the cleanup future, which is the only reason it is not derived.
     #[tokio::test]
@@ -1289,7 +1331,6 @@ mod tests {
             ConcurrencyHandlerData {
                 dice_status,
                 active_commands: SmallMap::new(),
-                next_command_id: CommandId(0),
                 cleanup_epoch,
                 previously_tainted: false,
             }
