@@ -13,6 +13,7 @@ use std::mem;
 use std::sync::LazyLock;
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_hash::BuckMutSet;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
@@ -56,6 +57,8 @@ enum MacroError {
     ExpectedSinglePathArgument(Vec<String>),
     #[error("Incorrect number of args to macro `{0}` (had {1} args)")]
     InvalidNumberOfArgs(String, usize),
+    #[error("Unrecognized macro `{0}` (with {1} args)")]
+    UnrecognizedMacro(String, usize),
 }
 
 impl AttrTypeCoerce for ArgAttrType {
@@ -111,7 +114,27 @@ impl AttrTypeCoerce for ArgAttrType {
                         {
                             UnconfiguredMacro::new_user_keyed_placeholder(ctx, macro_type, args)?
                         }
-                        _ => UnconfiguredMacro::new_unrecognized(macro_type, args),
+                        _ => {
+                            // TODO(jtbraun): Remove the remaining generation sites and turn
+                            // this into a load-time error.
+                            // The macro name is arbitrary user input; the logview key must
+                            // stay low-cardinality, so only known names pass through.
+                            let logview_key = if UNIMPLEMENTED_MACROS.contains(macro_type.as_str())
+                            {
+                                macro_type.clone()
+                            } else {
+                                "other".to_owned()
+                            };
+                            soft_error!(
+                                "unrecognized_arg_macro",
+                                MacroError::UnrecognizedMacro(macro_type.clone(), args.len())
+                                    .into(),
+                                deprecation: true,
+                                low_cardinality_key_for_additional_logview_samples:
+                                    Some(Box::new(logview_key))
+                            )?;
+                            UnconfiguredMacro::new_unrecognized(macro_type, args)
+                        }
                     };
                     parts.push(StringWithMacrosPart::Macro(write_to_file, part));
                 }
@@ -312,6 +335,37 @@ mod tests {
                 ),
                 configured.as_display_no_ctx().to_string(),
             );
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_unrecognized_macro_coerces() -> buck2_error::Result<()> {
+        // ast-grep-ignore: rust/buck2-no-starlark-module
+        Module::with_temp_heap(|env| {
+            let globals = GlobalsBuilder::standard().with(register_select).build();
+            let attr = AttrType::arg(true);
+            let value = to_value(&env, &globals, r#""$(output foo.yaml)""#);
+
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            match coerced {
+                CoercedAttr::Arg(UnconfiguredStringWithMacros::ManyParts(parts)) => {
+                    assert!(matches!(
+                        &*parts,
+                        [StringWithMacrosPart::Macro(
+                            false,
+                            MacroBase::UnrecognizedMacro(..)
+                        )]
+                    ));
+                }
+                _ => {
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Expected single-part arg"
+                    ));
+                }
+            }
 
             Ok(())
         })
