@@ -247,21 +247,13 @@ impl AccessTimesUpdates {
     }
 }
 
-#[derive(Copy, Dupe, Clone)]
+#[derive(Default)]
 struct MaterializerCounters {
-    sent: &'static AtomicUsize,
-    received: &'static AtomicUsize,
+    sent: AtomicUsize,
+    received: AtomicUsize,
 }
 
 impl MaterializerCounters {
-    /// New counters. Note that this leaks the underlying data. See comments on MaterializerSender.
-    fn leak_new() -> Self {
-        Self {
-            sent: Box::leak(Box::new(AtomicUsize::new(0))),
-            received: Box::leak(Box::new(AtomicUsize::new(0))),
-        }
-    }
-
     fn ack_received(&self) {
         self.received.fetch_add(1, Ordering::Relaxed);
     }
@@ -279,7 +271,7 @@ pub struct MaterializerSender<T: 'static> {
     /// Low priority commands are processed in order relative to each other, but high priority
     /// commands can be reordered ahead of them.
     low_priority: mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
-    counters: MaterializerCounters,
+    counters: Arc<MaterializerCounters>,
     /// Liveliness guard held while clean stale executes, dropped to interrupt clean.
     clean_guard: RwLock<Option<LivelinessGuard>>,
 }
@@ -315,7 +307,7 @@ impl<T> MaterializerSender<T> {
 struct MaterializerReceiver<T: 'static> {
     high_priority: mpsc::UnboundedReceiver<MaterializerCommand<T>>,
     low_priority: mpsc::UnboundedReceiver<LowPriorityMaterializerCommand>,
-    counters: MaterializerCounters,
+    counters: Arc<MaterializerCounters>,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -717,12 +709,12 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
         let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
         let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();
 
-        let counters = MaterializerCounters::leak_new();
+        let counters = Arc::new(MaterializerCounters::default());
 
         let command_sender = Arc::new(MaterializerSender {
             high_priority: high_priority_sender,
             low_priority: low_priority_sender,
-            counters,
+            counters: counters.dupe(),
             clean_guard: RwLock::new(None),
         });
 

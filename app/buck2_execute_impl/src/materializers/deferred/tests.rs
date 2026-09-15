@@ -403,22 +403,15 @@ mod state_machine {
         Arc<MaterializerSender<StubIoHandler>>,
         MaterializerReceiver<StubIoHandler>,
     ) {
-        // We don't use those counts in tests.
-        static SENT: AtomicUsize = AtomicUsize::new(0);
-        static RECEIVED: AtomicUsize = AtomicUsize::new(0);
-
         let (hi_send, hi_recv) = mpsc::unbounded_channel();
         let (lo_send, lo_recv) = mpsc::unbounded_channel();
-        let counters = MaterializerCounters {
-            sent: &SENT,
-            received: &RECEIVED,
-        };
+        let counters = Arc::new(MaterializerCounters::default());
 
         (
             Arc::new(MaterializerSender {
                 high_priority: hi_send,
                 low_priority: lo_send,
-                counters,
+                counters: counters.dupe(),
                 clean_guard: Default::default(),
             }),
             MaterializerReceiver {
