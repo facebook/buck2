@@ -55,22 +55,25 @@ async def test_sh_test(buck: Buck) -> None:
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_sh_test_remote_checks(buck: Buck) -> None:
-    # Forcing a `local_only = True` test onto RE is an infra failure
-    # (Buck2InfraError), not a fatal error.
-    result = await buck.test(
-        "fbcode//buck2/tests/targets/rules/sh_test:test",
-        "--remote-only",
+    result = await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/sh_test:test",
+            "--remote-only",
+        ),
+        stderr_regex="RemoteOnly.*is incompatible",
     )
-    assert "Infra Failure 1" in result.stderr
-    assert "Incompatible executor preferences" in result.stderr
+    assert "Skip 1" in result.stderr
     assert "FATAL" not in result.stderr
     await buck.test(
         "fbcode//buck2/tests/targets/rules/sh_test:test_remote_implicit",
         "--local-only",
     )
-    await buck.test(
-        "fbcode//buck2/tests/targets/rules/sh_test:test_remote_implicit",
-        "--remote-only",
+    await expect_failure(
+        buck.test(
+            "fbcode//buck2/tests/targets/rules/sh_test:test_remote_implicit",
+            "--remote-only",
+        ),
+        stderr_regex="RemoteOnly.*is incompatible",
     )
     await expect_failure(
         buck.test(
