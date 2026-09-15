@@ -41,6 +41,7 @@ ref-cast.workspace = true
 regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+stacker.workspace = true
 starlark_derive.workspace = true
 starlark_map.workspace = true
 starlark_syntax.workspace = true

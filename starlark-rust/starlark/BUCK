@@ -136,6 +136,7 @@ rust_library(
         "fbsource//third-party/rust:rustyline",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:stacker",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:strsim",
         "fbsource//third-party/rust:textwrap",

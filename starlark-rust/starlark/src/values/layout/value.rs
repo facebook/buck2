@@ -93,6 +93,7 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::none::none_type::VALUE_NONE;
 use crate::values::range::Range;
+use crate::values::recursive_repr_or_json_guard::JsonStackError;
 use crate::values::recursive_repr_or_json_guard::json_stack_push;
 use crate::values::recursive_repr_or_json_guard::repr_stack_push;
 use crate::values::stack_guard;
@@ -1083,7 +1084,10 @@ impl<'v> Serialize for Value<'v> {
     {
         match json_stack_push(*self) {
             Ok(_guard) => erased_serde::serialize(self.get_ref().as_serialize(), s),
-            Err(..) => Err(serde::ser::Error::custom(ToJsonCycleError(self.get_type()))),
+            Err(e) => Err(serde::ser::Error::custom(match e {
+                JsonStackError::Cycle => ToJsonError::Cycle(self.get_type()),
+                JsonStackError::TooDeep => ToJsonError::TooDeep(self.get_type()),
+            })),
         }
     }
 }
@@ -1175,8 +1179,14 @@ pub trait ValueLike<'v>: Copy + Trace<'v> + ProvidesStaticType<'v> + 'v {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("Cycle detected when serializing value of type `{0}` to JSON")]
-struct ToJsonCycleError(&'static str);
+enum ToJsonError {
+    #[error("Cycle detected when serializing value of type `{0}` to JSON")]
+    Cycle(&'static str),
+    #[error(
+        "Value of type `{0}` is nested too deeply to serialize to JSON without running out of stack"
+    )]
+    TooDeep(&'static str),
+}
 
 impl<'v> ValueLike<'v> for Value<'v> {
     #[inline]

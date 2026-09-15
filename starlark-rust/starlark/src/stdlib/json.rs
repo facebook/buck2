@@ -245,6 +245,35 @@ mod tests {
     }
 
     #[test]
+    fn test_json_encode_deeply_nested() {
+        let a = Assert::new();
+
+        // Deeply nested values are rejected rather than overflowing the native stack. How deep we
+        // get before that depends on how much stack is left, so this uses a value deep enough to
+        // be rejected on any stack we might run on.
+        a.fail(
+            "def f():\n    x = []\n    for _ in range(10000):\n        x = [x]\n    return json.encode(x)\nf()",
+            "nested too deeply",
+        );
+        a.fail(
+            "def f():\n    x = {}\n    for _ in range(10000):\n        x = {'a': x}\n    return json.encode(x)\nf()",
+            "nested too deeply",
+        );
+
+        // Ordinary nesting is unaffected.
+        a.eq(
+            "'%s0%s' % ('[' * 50, ']' * 50)",
+            "def f():\n    x = 0\n    for _ in range(50):\n        x = [x]\n    return json.encode(x)\nf()",
+        );
+
+        // A cycle is still reported as a cycle, not as excessive nesting.
+        a.fail(
+            "def f():\n    x = []\n    x.append(x)\n    return json.encode(x)\nf()",
+            "Cycle detected",
+        );
+    }
+
+    #[test]
     fn test_json_decode() {
         let a = Assert::new();
         a.eq(
