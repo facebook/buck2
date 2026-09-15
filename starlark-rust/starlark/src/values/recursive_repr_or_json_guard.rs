@@ -86,13 +86,13 @@ thread_local! {
 pub(crate) fn repr_stack_push(value: Value) -> Result<ReprStackGuard, ReprCycle> {
     REPR_STACK.with(|repr_stack| {
         let mut stack = Cell::take(repr_stack);
-        if unlikely(!stack.insert(value.ptr_value())) {
-            repr_stack.set(stack);
+        let res = if unlikely(!stack.insert(value.ptr_value())) {
             Err(ReprCycle)
         } else {
-            repr_stack.set(stack);
             Ok(ReprStackGuard)
-        }
+        };
+        repr_stack.set(stack);
+        res
     })
 }
 
