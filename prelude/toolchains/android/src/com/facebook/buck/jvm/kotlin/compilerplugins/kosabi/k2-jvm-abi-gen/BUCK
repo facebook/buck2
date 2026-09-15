@@ -5,7 +5,13 @@ oncall("android_devxx")
 
 source_listing()
 
-KOTLIN_VERSION = read_config("kotlin", "kotlin_version_for_upgrade_only_do_not_use", "2.2.0")
+# compilercompat shims are bucketed by Kotlin minor version: every 2.3.x compiler
+# uses the compilercompat/2.3.0 folder. Key off kotlin_version_for_upgrade_only_do_not_use
+# (the same config the kotlincd toolchain selects the compiler jar from) so the shims
+# always match the compiler actually run -- not kotlin_version, which can differ.
+_KOTLIN_VERSION_PARTS = read_config("kotlin", "kotlin_version_for_upgrade_only_do_not_use", "2.2.0").split(".")
+
+KOTLIN_VERSION = _KOTLIN_VERSION_PARTS[0] + "." + _KOTLIN_VERSION_PARTS[1] + ".0"
 
 buck_kotlin_library(
     name = "k2-jvm-abi-gen-lib",
