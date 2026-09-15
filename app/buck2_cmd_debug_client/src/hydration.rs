@@ -22,6 +22,7 @@ use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_error::BuckErrorContext;
 
 /// Subcommands for `buck2 debug hydration`.
 #[derive(Debug, clap::Parser)]
@@ -106,6 +107,12 @@ impl StreamingCommand for HydrationCommand {
         // Only `status` returns a report; page-out / page-in leave it `None`.
         if let Some(summary) = response.summary {
             buck2_client_ctx::println!("{}", summary.trim_end())?;
+        }
+        // JSON consumed by tests and tooling, fields match the `buck2_page_outs` columns.
+        if let Some(page_out_summary) = response.page_out_summary {
+            let json = serde_json::to_string_pretty(&page_out_summary)
+                .buck_error_context("Failed to serialize page-out summary")?;
+            buck2_client_ctx::println!("{}", json)?;
         }
         ExitResult::success()
     }

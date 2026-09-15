@@ -13,6 +13,7 @@ import asyncio
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
@@ -37,6 +38,15 @@ async def _build(buck: Buck) -> BuildResult:
 def _output(result: BuildResult) -> str:
     output = result.get_build_report().output_for_target("root//:mysrcrule")
     return Path(output).read_text()
+
+
+async def _page_out(buck: Buck) -> dict[str, Any]:
+    # Page out, returning the `PageOutSummary` describing what moved.
+    out = (await buck.debug("hydration", "page-out")).stdout
+    try:
+        return json.loads(out)
+    except json.JSONDecodeError as e:
+        raise AssertionError(f"page-out did not print a JSON summary:\n{out}") from e
 
 
 async def _paged_out_count(buck: Buck) -> int:
@@ -92,6 +102,17 @@ async def _analysis_activity(buck: Buck, result: BuildResult) -> tuple[int, int]
 def _target_output(result: BuildResult, target: str) -> str:
     output = result.get_build_report().output_for_target(f"root//:{target}")
     return Path(output).read_text()
+
+
+def _disable_idle_page_out(buck: Buck) -> None:
+    # Through the settings layer: the fixture's `.buckconfig` sets
+    # `page_out_on_idle = true` as a project config, which outranks the external
+    # config `extra_buck_config` writes - but settings outrank both, and
+    # `page_out_on_idle` only falls back to buckconfig when settings leave it
+    # unset. `enable_paging` stays unset here so the fixture still provides it.
+    (buck.get_settings_home_dir() / ".bucksettings.local.toml").write_text(
+        "[hydration]\npage_out_on_idle = false\n"
+    )
 
 
 async def _wait_for_page_out_idle(buck: Buck) -> int:
@@ -449,16 +470,21 @@ def _data_key_io(result: BuildResult, prefix: str) -> dict[str, int]:
 async def test_data_key_io_in_invocation_record(buck: Buck) -> None:
     # Two views reach the record: `paging_data_key_*` is this command's own work,
     # `paging_daemon_data_key_*` the daemon's running total.
+    #
+    # A value is paged out at most once per daemon, so an idle page-out would
+    # leave nothing for the explicit one below. With it off, this test's own
+    # page-out is the only one, and every counter it asserts on is its doing.
+    _disable_idle_page_out(buck)
     (buck.cwd / "src.txt").write_text("content-0\n")
     await _build(buck)
-    # Settle the fixture's idle page-out so only this test moves the counters.
-    await _wait_for_page_out_idle(buck)
-    await buck.debug("hydration", "page-out")
+    page_out = await _page_out(buck)
+    assert page_out["data_key_bytes_out"] > 0, (
+        f"expected the page-out to write DataKeys, got {page_out}"
+    )
     assert await _paged_out_count(buck) > 0, "expected values to be paged out"
 
-    # The rebuild pages those values back in. Page-out happened in earlier
-    # commands, so only the running totals see bytes going out — which is exactly
-    # what makes the two views non-redundant.
+    # The rebuild pages those values back in. Page-out happened in earlier commands,
+    # so only the running totals see bytes going out.
     rebuild = await _build(buck)
     delta = _data_key_io(rebuild, "paging_")
     cumulative = _data_key_io(rebuild, "paging_daemon_")
@@ -468,6 +494,11 @@ async def test_data_key_io_in_invocation_record(buck: Buck) -> None:
     )
     assert cumulative["data_key_bytes_out"] > 0, (
         f"the earlier page-out should show in the running totals, got {cumulative}"
+    )
+    # Both read the same daemon counters, so the record cannot lag the page-out.
+    assert cumulative["data_key_bytes_out"] >= page_out["daemon_data_key_bytes_out"], (
+        f"record running total {cumulative['data_key_bytes_out']} is behind the "
+        f"page-out's {page_out['daemon_data_key_bytes_out']}"
     )
     # DataKeys are content-addressed, so nothing can be read that was not written
     # first: net offloaded bytes are never negative.
@@ -498,4 +529,36 @@ async def test_data_key_io_in_invocation_record(buck: Buck) -> None:
     ), (
         f"the running totals must carry the earlier commands' work forward, "
         f"got {settled_cumulative} after {cumulative}"
+    )
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_command_reports_summary(buck: Buck) -> None:
+    # The manual page-out reports the same `PageOutSummary` the idle one logs.
+    # Idle page-out is off: a value is paged out at most once per daemon, so an
+    # idle one would leave nothing for the manual one this test is about.
+    _disable_idle_page_out(buck)
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    await _build(buck)
+
+    summary = await _page_out(buck)
+
+    assert summary.get("error") is None, f"page-out reported an error: {summary}"
+    assert not summary["cancelled"], (
+        "a manual page-out holds the exclusive command lock, so nothing can cancel it"
+    )
+    assert summary["data_keys_out"] > 0 and summary["data_key_bytes_out"] > 0, (
+        f"expected the page-out to write DataKeys, got {summary}"
+    )
+    # A page-out only writes, and the command lock keeps a page-in from overlapping.
+    assert summary["data_keys_in"] == 0 and summary["data_key_bytes_in"] == 0, (
+        f"nothing should have been paged in during the page-out, got {summary}"
+    )
+    # Running totals are read after the delta, so they include it.
+    assert summary["daemon_data_key_bytes_out"] >= summary["data_key_bytes_out"], (
+        f"running totals should include this page-out's own bytes, got {summary}"
+    )
+    # The store is append-only.
+    assert summary["db_size_bytes_after"] >= summary["db_size_bytes_before"], (
+        f"the pagable store shrank across a page-out: {summary}"
     )

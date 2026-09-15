@@ -35,8 +35,8 @@ use starlark::pagable::starlark_serialization_state_retained_bytes;
 
 use crate::ctx::ServerCommandContext;
 use crate::paging::cancel_active_page_out;
-use crate::paging::page_out;
 use crate::paging::page_out_in_progress;
+use crate::paging::page_out_measured;
 use crate::paging::wait_for_idle_page_out;
 
 pub(crate) async fn hydration_command(
@@ -83,7 +83,7 @@ impl ServerCommandTemplate for HydrationServerCommand {
 
     async fn command(
         &self,
-        _server_ctx: &dyn ServerCommandContextTrait,
+        server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
@@ -92,8 +92,14 @@ impl ServerCommandTemplate for HydrationServerCommand {
                 // A manual page-out supersedes any idle one; stop it first so they
                 // don't page the same graph out concurrently.
                 cancel_active_page_out();
-                page_out(&self.dice, || false).await?;
-                Ok(buck2_cli_proto::HydrationResponse::default())
+                // Never cancelled: holds the exclusive command lock.
+                let (result, summary) =
+                    page_out_measured(&self.dice, || false, server_ctx.events()).await;
+                result?;
+                Ok(buck2_cli_proto::HydrationResponse {
+                    page_out_summary: Some(summary),
+                    ..Default::default()
+                })
             }
             HydrationSubcommand::PageIn => {
                 // Page-in wants values resident; stop any idle page-out racing it.
@@ -125,6 +131,7 @@ impl ServerCommandTemplate for HydrationServerCommand {
                         starlark_serialization_state_bytes,
                         starlark_deserialization_state_bytes,
                     )),
+                    ..Default::default()
                 })
             }
         }

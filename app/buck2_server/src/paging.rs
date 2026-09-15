@@ -456,15 +456,40 @@ async fn page_out_on_idle(
     // A command may have arrived (and cancelled us) while we waited for idle. That's
     // rare, so don't check here — `page_out` observes the flag and stops promptly.
     tracing::info!("Daemon is idle; paging DICE out to reclaim memory");
+    let (result, summary) = page_out_measured(&dice, page_out_cancelled, &dispatcher).await;
+    if result.is_err() {
+        // Set before this function returns (dropping the single-flight guard) so a
+        // `status --wait` that unblocks on guard release already sees the flag.
+        PAGE_OUT_FAILED.store(true, Ordering::Relaxed);
+    }
+    // A "late" event on the finalized triggering command's trace: its
+    // per-command channel is gone, but the dispatcher tees to the daemon
+    // Scribe sink, so this still reaches `buck2_page_outs` with the command's
+    // trace id. The manual command deliberately leaves that table alone.
+    dispatcher.instant_event(summary);
+    result.map(|_| ())
+}
+
+/// Page out, measuring memory and DataKey I/O around it.
+///
+/// Shared with `buck2 debug hydration page-out` so both paths report the same
+/// measurements. `cancelled` both drives the page-out and fills the summary
+/// field. The `Result` is for control flow; the failure is also in the
+/// summary's `error`.
+pub(crate) async fn page_out_measured(
+    dice: &Arc<Dice>,
+    cancelled: PageOutCancel,
+    dispatcher: &EventDispatcher,
+) -> (buck2_error::Result<usize>, buck2_data::PageOutSummary) {
     let (resident_bytes_before, allocated_bytes_before, db_size_bytes_before) =
-        page_out_memory_snapshot(&dice);
+        page_out_memory_snapshot(dice);
     let io_before = dice.storage_io_metrics();
     let memory_before = dice.paging_memory_metrics();
     let start = Instant::now();
-    let result = page_out(&dice, page_out_cancelled).await;
+    let result = page_out(dice, cancelled).await;
     let duration_ms = (Instant::now() - start).as_millis() as u64;
     let (resident_bytes_after, allocated_bytes_after, db_size_bytes_after) =
-        page_out_memory_snapshot(&dice);
+        page_out_memory_snapshot(dice);
     let starlark_serialization_state_bytes_after =
         dice.pagable_storage_context().and_then(|storage| {
             u64::try_from(starlark_serialization_state_retained_bytes(storage)).ok()
@@ -479,25 +504,14 @@ async fn page_out_on_idle(
         .map(|(after, before)| after.since(before));
     let (paged_out_count, error) = match &result {
         Ok(n) => (*n as u64, None),
-        Err(e) => {
-            // Set before this function returns (dropping the single-flight guard) so a
-            // `status --wait` that unblocks on guard release already sees the flag.
-            PAGE_OUT_FAILED.store(true, Ordering::Relaxed);
-            (0, Some(e.into()))
-        }
+        Err(e) => (0, Some(e.into())),
     };
-    // Emitted on the triggering command's dispatcher. That command has already
-    // finalized, so this is a "late" event on its trace and its per-command channel
-    // is gone — but the dispatcher tees to the daemon Scribe sink, and
-    // `ChannelEventSink` drops post-disconnect `Buck` events without panicking, so
-    // it still reaches Scribe with the command's trace id. Logged to the
-    // `buck2_page_outs` table.
-    dispatcher.instant_event(buck2_data::PageOutSummary {
+    let summary = buck2_data::PageOutSummary {
         metadata: metadata::collect(dispatcher.daemon_id()),
         command_uuid: Some(dispatcher.trace_id().to_string()),
         paged_out_count,
         duration_ms,
-        cancelled: page_out_cancelled(),
+        cancelled: cancelled(),
         error,
         resident_bytes_before,
         resident_bytes_after,
@@ -518,8 +532,8 @@ async fn page_out_on_idle(
         daemon_memory_restored_bytes: memory.map(|m| m.bytes_restored),
         memory_offloaded_bytes: memory_delta.map(|d| d.bytes_offloaded),
         memory_restored_bytes: memory_delta.map(|d| d.bytes_restored),
-    });
-    result.map(|_| ())
+    };
+    (result, summary)
 }
 
 /// `(resident RSS, jemalloc allocated, pagable DB on-disk size)` in bytes, each

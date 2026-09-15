@@ -997,6 +997,9 @@ message HydrationResponse {
   // Human-readable status report. Set only for `status`;
   // absent for page-out / page-in.
   optional string summary = 1;
+  // What the page-out moved. Set only for `page-out`, and only on success —
+  // failures surface as a command error.
+  optional buck.data.PageOutSummary page_out_summary = 2;
 }
 
 message SetLogFilterRequest {
