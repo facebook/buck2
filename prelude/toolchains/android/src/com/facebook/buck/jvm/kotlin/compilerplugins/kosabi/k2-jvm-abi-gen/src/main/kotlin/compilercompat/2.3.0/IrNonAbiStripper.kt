@@ -472,24 +472,23 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     // For primitive types, create a default constant value
     // The code handles properties like val DEFAULT_SHADOW_COLOR: Int = Color.argb(128, 0, 0, 0)
     // If we don't set a default value, compiler crashes because it expects a ConstExpression
+    // Primitives are matched by classifier (isInt/isLong/...) rather than by instance equality with
+    // irBuiltins: a value class deserialized from another module carries a non-canonical underlying
+    // primitive type that is not `==` to irBuiltins.longType, and matching it by instance used to
+    // drop through to the null branch -- storing ACONST_NULL into an unboxed primitive slot. The
+    // predicates are non-null-only, so a nullable primitive (a boxed, reference slot) still falls
+    // through to null, which is correct there.
     var defaultValue: IrExpression? =
         when {
-          constructedType == irBuiltins.intType -> IrConstImpl.int(-1, -1, irBuiltins.intType, 0)
-          constructedType == irBuiltins.booleanType ->
-              IrConstImpl.boolean(-1, -1, irBuiltins.booleanType, false)
-          constructedType == irBuiltins.stringType ->
-              IrConstImpl.string(-1, -1, irBuiltins.stringType, "")
-          constructedType == irBuiltins.doubleType ->
-              IrConstImpl.double(-1, -1, irBuiltins.doubleType, 0.0)
-          constructedType == irBuiltins.floatType ->
-              IrConstImpl.float(-1, -1, irBuiltins.floatType, 0.0f)
-          constructedType == irBuiltins.longType ->
-              IrConstImpl.long(-1, -1, irBuiltins.longType, 0L)
-          constructedType == irBuiltins.charType ->
-              IrConstImpl.char(-1, -1, irBuiltins.charType, '\u0000')
-          constructedType == irBuiltins.byteType -> IrConstImpl.byte(-1, -1, irBuiltins.byteType, 0)
-          constructedType == irBuiltins.shortType ->
-              IrConstImpl.short(-1, -1, irBuiltins.shortType, 0)
+          constructedType.isInt() -> IrConstImpl.int(-1, -1, irBuiltins.intType, 0)
+          constructedType.isBoolean() -> IrConstImpl.boolean(-1, -1, irBuiltins.booleanType, false)
+          constructedType.isString() -> IrConstImpl.string(-1, -1, irBuiltins.stringType, "")
+          constructedType.isDouble() -> IrConstImpl.double(-1, -1, irBuiltins.doubleType, 0.0)
+          constructedType.isFloat() -> IrConstImpl.float(-1, -1, irBuiltins.floatType, 0.0f)
+          constructedType.isLong() -> IrConstImpl.long(-1, -1, irBuiltins.longType, 0L)
+          constructedType.isChar() -> IrConstImpl.char(-1, -1, irBuiltins.charType, '\u0000')
+          constructedType.isByte() -> IrConstImpl.byte(-1, -1, irBuiltins.byteType, 0)
+          constructedType.isShort() -> IrConstImpl.short(-1, -1, irBuiltins.shortType, 0)
           else ->
               // For value/inline classes (e.g. Compose's `Color`, which wraps `ULong`/`long`) a
               // null default is wrong: the JVM slot is the unboxed primitive, so the
@@ -508,18 +507,38 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     return defaultValue
   }
 
-  // Build a default value for a value/inline class by invoking its primary constructor with the
-  // (recursively derived) default of its single underlying field. Returns null when the type is not
-  // a value class or its constructor is unavailable.
+  // Build a default value for a non-null value/inline class over a primitive, whose `<fn>$default`
+  // slot is the *unboxed* primitive. Returns null (leaving the caller's ACONST_NULL fallback) for a
+  // non-value class or a nullable value class -- which is boxed, so its slot is a reference and
+  // null
+  // is correct.
+  //
+  // The underlying primitive is read from the class's inline-class representation, which survives
+  // deserialization even when the value class's constructor does not: a value class reached through
+  // a source-only-ABI dependency deserializes with zero constructors (e.g. WA
+  // `TranscriptionStatus`,
+  // `ctors=0`). When a constructor *is* materialized we invoke it, so inline-class lowering unboxes
+  // the call to the primitive zero (ICONST_0/LCONST_0). When it is not, we emit the underlying
+  // primitive directly -- the slot is already that primitive, so a bare zero verifies -- rather
+  // than
+  // dropping through to ACONST_NULL and failing bytecode verification ("Expected I, but found R").
   private fun generateInlineClassDefaultValue(type: IrSimpleType): IrExpression? {
     val irClass = type.classOrNull?.owner ?: return null
     if (!irClass.isValue) return null
-    val constructor = irClass.primaryConstructor ?: return null
-    val underlyingParam = constructor.valueParameters.singleOrNull() ?: return null
-    val underlyingDefault = generateDefaultValue(underlyingParam.type) ?: return null
-    return DeclarationIrBuilder(pluginContext, constructor.symbol)
-        .irCallConstructor(constructor.symbol, emptyList())
-        .apply { putValueArgument(0, underlyingDefault) }
+    if (type.isNullable()) return null
+    val constructor = irClass.primaryConstructor ?: irClass.constructors.singleOrNull()
+    val underlyingType =
+        irClass.inlineClassRepresentation?.underlyingType
+            ?: constructor?.valueParameters?.singleOrNull()?.type
+            ?: return null
+    val underlyingDefault = generateDefaultValue(underlyingType) ?: return null
+    return if (constructor != null && constructor.valueParameters.size == 1) {
+      DeclarationIrBuilder(pluginContext, constructor.symbol)
+          .irCallConstructor(constructor.symbol, emptyList())
+          .apply { putValueArgument(0, underlyingDefault) }
+    } else {
+      underlyingDefault
+    }
   }
 
   private fun IrDeclarationContainer.removeNonPublicApi() {
@@ -580,6 +599,21 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     return irFactory.createExpressionBody(-1, -1, defaultValue)
   }
 
+  // Replace each defaulted value parameter's default with a fabricated, type-correct default.
+  // For source-only ABI only the presence and type of a default matter, not its value. This
+  // turns a value-class-over-primitive default into a boxed constructor call, which inline-class
+  // lowering unboxes to the primitive zero, rather than the ACONST_NULL codegen would otherwise
+  // store into the synthetic `$default` overload's unboxed slot ("Expected I, but found R").
+  // Shared by visitSimpleFunction and visitConstructor -- the latter is where the WA
+  // TranscriptionViewModel.VmState `<init>$default` crash lived.
+  private fun regenerateDefaultParameterValues(function: IrFunction) {
+    function.valueParameters
+        .filter { it.defaultValue != null }
+        .forEach { parameter ->
+          generateDefaultExpressionBody(parameter.type)?.let { parameter.defaultValue = it }
+        }
+  }
+
   override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
     if (!declaration.origin.isSynthetic) {
       if (declaration.parent is IrProperty) {
@@ -594,13 +628,8 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
       } else {
         declaration.body = irFactory.createBlockBody(-1, -1)
       }
-      val parametersWithDefaultValues =
-          declaration.valueParameters.filter { it.defaultValue != null }
-      for (parameter in parametersWithDefaultValues) {
-        // if we can - we resolve the default value to a constant
-        // handles default values in functions like fun foo(x: Int = Something.SomeValue)
-        generateDefaultExpressionBody(parameter.type)?.let { parameter.defaultValue = it }
-      }
+      // handles default values in functions like fun foo(x: Int = Something.SomeValue)
+      regenerateDefaultParameterValues(declaration)
     } else if (declaration.body?.containsErrorExpression() == true) {
       // Synthetic dispatchers -- most commonly the `<fn>$default` overload generated for a
       // function/data-class member with default parameters -- keep a when/IrErrorExpression
@@ -640,6 +669,15 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     // stripped body is not well-formed for that lowering we synthesize a trivial delegation to the
     // superclass constructor (see the predicate below for exactly which shapes qualify).
     val parentClass = declaration.parentAsClass
+    // A defaulted value-class-over-primitive constructor parameter reaches the synthetic
+    // `<init>$default` with an unboxed slot; regenerate its default as visitSimpleFunction does
+    // so the slot gets the unboxed primitive zero rather than ACONST_NULL. Skip annotation classes:
+    // their constructor parameter defaults ARE the ABI (the `AnnotationDefault` attribute), so
+    // regenerating them drops the element default and breaks consumers ("annotation @X is missing a
+    // default value for the element ...").
+    if (parentClass.kind != ClassKind.ANNOTATION_CLASS) {
+      regenerateDefaultParameterValues(declaration)
+    }
     sanitizeErrorDefaultValues(declaration)
     if (parentClass.isInner) {
       // A stripped inner-class constructor body is well-formed for InnerClassesLowering only if it
