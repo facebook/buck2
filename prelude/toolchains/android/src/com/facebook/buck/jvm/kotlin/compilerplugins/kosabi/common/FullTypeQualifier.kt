@@ -43,7 +43,7 @@ class FullTypeQualifier : Comparable<FullTypeQualifier> {
     } else {
       pkg = segments.take(firstUpperCaseIndex)
       val lastSegment = segments.last()
-      if (NonConventionalImports.interfaces.contains(segments)) {
+      if (NonConventionalImports.classLikeDeclarations.contains(segments)) {
         names = listOf(lastSegment)
         member = null
       } else if (lastSegment.isStaticConstQualifier() || lastSegment.isStaticMethodQualifier()) {
