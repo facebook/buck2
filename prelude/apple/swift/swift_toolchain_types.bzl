@@ -79,6 +79,8 @@ SdkUncompiledModuleInfo = provider(
         "is_swiftmodule": provider_field(typing.Any, default = None),
         # A real name of a module, without distinguishing suffixes.
         "module_name": provider_field(typing.Any, default = None),
+        # Transitive closure filtered to overlay owners and underlyings.
+        "overlays_transitive_deps": provider_field(typing.Any, default = None),
         # Partial arguments, required to compile a particular SDK module.
         "partial_cmd": provider_field(typing.Any, default = None),
         # A string of the compiler target triple to use for clang module deps, eg arm64-apple-ios16.4
