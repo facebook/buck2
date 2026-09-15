@@ -57,7 +57,7 @@ clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "w
 clap_complete = { version = "4.6.9", features = ["unstable-dynamic"] }
 common-path = "1.0.0"
 compact_str = { version = "0.10.0", features = ["serde"] }
-console = "0.16.6"
+console = "0.16.4"
 const_format = "0.2.36"
 constant_time_eq = "0.6.0"
 convert_case = "0.12"
@@ -72,7 +72,7 @@ debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = { version = "2.1.1", features = ["full"] }
 digest-010 = { package = "digest", version = "0.10", features = ["rand_core"] }
-dirs = "6.0"
+dirs = "7.0"
 dunce = "1.0.5"
 either = "1.18.0"
 elf = "0.8"
