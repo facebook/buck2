@@ -36,6 +36,12 @@ use crate::watchman::interface::WatchmanFileWatcher;
 
 #[async_trait]
 pub trait FileWatcher: Allocative + Send + Sync + 'static {
+    /// Whether filesystem observations need a versioned recovery dependency.
+    /// Selected once, before constructing DICE; other providers add no edges.
+    fn uses_filesystem_invalidation(&self) -> bool {
+        false
+    }
+
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,

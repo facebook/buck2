@@ -746,17 +746,6 @@ impl DaemonState {
             tracing::info!("Creating tenting ACL provider...");
             let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());
 
-            tracing::info!("Constructing DICE...");
-            let dice = init_ctx
-                .construct_dice(
-                    io.dupe(),
-                    digest_config,
-                    root_config,
-                    tenting_acl_provider,
-                    paths.dice_state_path().as_ref(),
-                )
-                .await?;
-
             tracing::info!("Creating file watcher...");
             let file_watcher = <dyn FileWatcher>::new(
                 fb,
@@ -771,6 +760,18 @@ impl DaemonState {
                     paths.project_root()
                 )
             })?;
+
+            tracing::info!("Constructing DICE...");
+            let dice = init_ctx
+                .construct_dice(
+                    io.dupe(),
+                    digest_config,
+                    root_config,
+                    tenting_acl_provider,
+                    paths.dice_state_path().as_ref(),
+                    file_watcher.uses_filesystem_invalidation(),
+                )
+                .await?;
 
             let use_network_action_output_cache = root_config
                 .parse(BuckconfigKeyRef {

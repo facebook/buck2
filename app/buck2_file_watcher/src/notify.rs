@@ -11,10 +11,13 @@
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::dice::FileChangeTracker;
+use buck2_common::file_ops::invalidation::set_filesystem_invalidation_token;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellResolver;
@@ -130,19 +133,12 @@ impl NotifyFileData {
     fn sync(self) -> (buck2_data::FileWatcherStats, Option<FileChangeTracker>) {
         // The changes that go into the DICE transaction
         let mut changed = FileChangeTracker::new();
-        // If we missed events, sync2() will drop the entire DICE graph. Surface that to
-        // telemetry/UI by reusing the fresh-instance fields the watchman path uses for
-        // the equivalent wipe.
+        // Missing notifications make the entire incremental event batch unreliable.
         let base = if self.missed_events {
             buck2_data::FileWatcherStats {
-                fresh_instance: true,
-                fresh_instance_data: Some(buck2_data::FreshInstance {
-                    new_mergebase: false,
-                    cleared_dice: true,
-                    cleared_dep_files: false,
-                }),
+                filesystem_inputs_invalidated: true,
                 incomplete_events_reason: Some(
-                    "notify dropped events (kernel queue overflow)".to_owned(),
+                    "notify requested a rescan after missed filesystem events".to_owned(),
                 ),
                 ..Default::default()
             }
@@ -270,6 +266,7 @@ impl NotifyFileData {
 
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
+    invalidation_token: AtomicU64,
     #[allocative(skip)]
     #[expect(unused)]
     // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
@@ -298,7 +295,11 @@ impl NotifyFileWatcher {
         watcher
             .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        Ok(Self { watcher, data })
+        Ok(Self {
+            invalidation_token: AtomicU64::new(0),
+            watcher,
+            data,
+        })
     }
 
     fn sync2(
@@ -310,11 +311,26 @@ impl NotifyFileWatcher {
             mem::replace(&mut *guard, Ok(NotifyFileData::new()))
         };
         let (stats, changes) = old?.sync();
+        // Watcher updates/commits are serialized by the concurrency manager.
+        // Retain the advanced token even if this command aborts before commit.
+        let token = if changes.is_none() {
+            self.invalidation_token
+                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                    value.checked_add(1)
+                })
+                .map_err(|_| {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Filesystem invalidation token exhausted"
+                    )
+                })?
+                + 1
+        } else {
+            self.invalidation_token.load(Ordering::Relaxed)
+        };
+        set_filesystem_invalidation_token(&mut dice, token)?;
         if let Some(changes) = changes {
             changes.write_to_dice(&mut dice)?;
-        } else {
-            // We missed some file system notifications, so we drop everything
-            dice = dice.unstable_take();
         }
         Ok((stats, dice))
     }
@@ -322,6 +338,10 @@ impl NotifyFileWatcher {
 
 #[async_trait]
 impl FileWatcher for NotifyFileWatcher {
+    fn uses_filesystem_invalidation(&self) -> bool {
+        true
+    }
+
     async fn sync(
         &self,
         dice: DiceTransactionUpdater,
@@ -402,19 +422,15 @@ mod tests {
         assert!(state.missed_events);
     }
 
-    /// Missed events: the sync result carries no tracker (the caller drops the graph) and the
-    /// stats surface the wipe the same way watchman's fresh-instance path does.
     #[test]
-    fn sync_with_missed_events_reports_fresh_instance_and_drops_changes() {
+    fn sync_with_missed_events_reports_input_invalidation() {
         let mut state = NotifyFileData::new();
         state.missed_events = true;
         let (stats, changes) = state.sync();
         assert!(changes.is_none(), "missed events must drop the tracker");
-        assert!(stats.fresh_instance);
-        let fresh = stats
-            .fresh_instance_data
-            .expect("fresh instance data populated");
-        assert!(fresh.cleared_dice);
+        assert!(stats.filesystem_inputs_invalidated);
+        assert!(!stats.fresh_instance);
+        assert!(stats.fresh_instance_data.is_none());
         assert!(stats.incomplete_events_reason.is_some());
     }
 
@@ -426,6 +442,8 @@ mod tests {
             "no missed events: incremental tracker must survive"
         );
         assert!(!stats.fresh_instance);
+        assert!(!stats.filesystem_inputs_invalidated);
+        assert!(stats.fresh_instance_data.is_none());
         assert!(stats.incomplete_events_reason.is_none());
     }
 }

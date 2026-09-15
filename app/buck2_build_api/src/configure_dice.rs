@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::SetIoProvider;
+use buck2_common::file_ops::invalidation::configure_filesystem_invalidation;
+use buck2_common::file_ops::invalidation::set_filesystem_invalidation_token;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
@@ -44,6 +46,7 @@ pub async fn configure_dice_for_buck(
     dice_state_path: Option<&Path>,
     // On-disk backend for pagable storage (`buck2_hydration.pagable_storage_backend`).
     pagable_storage_backend: PagableStorageBackend,
+    filesystem_invalidation: bool,
 ) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
@@ -61,6 +64,7 @@ pub async fn configure_dice_for_buck(
     )?;
 
     let mut dice = Dice::builder();
+    configure_filesystem_invalidation(&mut dice, filesystem_invalidation);
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
     dice.set_tenting_acl_provider(tenting_acl_provider);
@@ -100,6 +104,9 @@ pub async fn configure_dice_for_buck(
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();
+    if filesystem_invalidation {
+        set_filesystem_invalidation_token(&mut dice_ctx, 0)?;
+    }
     dice_ctx.set_none_cell_resolver()?;
     dice_ctx.set_none_legacy_config_external_data()?;
     dice_ctx.commit().await;

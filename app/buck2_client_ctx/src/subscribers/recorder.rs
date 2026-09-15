@@ -2800,6 +2800,7 @@ fn merge_file_watcher_stats(
     };
 
     a.fresh_instance = a.fresh_instance || b.fresh_instance;
+    a.filesystem_inputs_invalidated |= b.filesystem_inputs_invalidated;
     a.events_total += b.events_total;
     a.events_processed += b.events_processed;
     a.branched_from_revision = a.branched_from_revision.or(b.branched_from_revision);
