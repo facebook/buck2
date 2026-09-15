@@ -67,6 +67,8 @@ impl Provenance {
 enum SettingsError {
     #[error("Error parsing buck settings: {0}")]
     Parse(toml::de::Error),
+    #[error("BUCK2_SETTINGS_OVERRIDE file `{0}` does not exist")]
+    OverrideFileMissing(String),
     #[error("Buck setting `{key}` cannot be overridden from {origin}")]
     InvalidOverride {
         key: String,
@@ -363,15 +365,42 @@ pub fn parse_settings(
         .map(PathBuf::from)
         .or_else(dirs::home_dir);
     let home_dir = home_dir.map(AbsPathBuf::new).transpose()?;
-    parse_settings_with_home(repo_root, home_dir.as_deref(), settings_args)
+    let override_file = buck2_env!("BUCK2_SETTINGS_OVERRIDE", applicability = testing)?
+        .map(|path| {
+            // Absolute only: this parses in the daemon, whose cwd is not the
+            // caller's, so a relative path has nothing sound to resolve
+            // against.
+            AbsPathBuf::new(PathBuf::from(path))
+                .buck_error_context("`BUCK2_SETTINGS_OVERRIDE` must be an absolute path")
+        })
+        .transpose()?;
+    parse_settings_with_home(
+        repo_root,
+        home_dir.as_deref(),
+        override_file.as_deref(),
+        settings_args,
+    )
 }
 
 fn parse_settings_with_home(
     repo_root: &AbsPath,
     home_dir: Option<&AbsPath>,
+    override_file: Option<&AbsPath>,
     settings_args: &[toml::Table],
 ) -> buck2_error::Result<BuckSettings> {
     let mut layers = parse_layers(repo_root, home_dir, rollout_layer(home_dir))?;
+    // Outranks every on-disk layer so a harness can pin settings; only
+    // per-command `--setting` flags are more specific.
+    if let Some(path) = override_file {
+        // Unlike ordinary layers, missing is an error: the caller asked for
+        // this file by name, so running without it is the silent wrong answer.
+        let table = parse_table(path)?
+            .ok_or_else(|| SettingsError::OverrideFileMissing(path.display().to_string()))?;
+        layers.push(SettingsLayer::new(
+            Provenance::LocalSettings(path.to_owned()),
+            table,
+        ));
+    }
     layers.extend(
         settings_args
             .iter()
@@ -531,6 +560,7 @@ mod tests {
             parse_settings_with_home(
                 repo.path().root().as_abs_path(),
                 Some(home.path().root().as_abs_path()),
+                None,
                 &[],
             )
         }
@@ -550,28 +580,55 @@ mod tests {
             let repo_root = repo.path().root().as_abs_path();
             let home_dir = home.path().root().as_abs_path();
 
-            let settings = parse_settings_with_home(repo_root, Some(home_dir), &[])?;
+            let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(settings.log_download.log_url(), Some("https://rollout/"));
 
             home.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://home-local/\"\n",
             );
-            let settings = parse_settings_with_home(repo_root, Some(home_dir), &[])?;
+            let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(settings.log_download.log_url(), Some("https://home-local/"));
 
             repo.write_file(
                 DOT_BUCKSETTINGS_LOCAL,
                 "[log_download]\nlog_url = \"https://repo-local/\"\n",
             );
-            let settings = parse_settings_with_home(repo_root, Some(home_dir), &[])?;
+            let settings = parse_settings_with_home(repo_root, Some(home_dir), None, &[])?;
             assert_eq!(settings.log_download.log_url(), Some("https://repo-local/"));
 
+            let override_dir = ProjectRootTemp::new()?;
+            override_dir.write_file(
+                "override.toml",
+                "[log_download]\nlog_url = \"https://override/\"\n",
+            );
+            let override_file = override_dir
+                .path()
+                .root()
+                .as_abs_path()
+                .join("override.toml");
+            let settings =
+                parse_settings_with_home(repo_root, Some(home_dir), Some(&override_file), &[])?;
+            assert_eq!(settings.log_download.log_url(), Some("https://override/"));
+
             let settings_args = [table("[log_download]\nlog_url = \"https://command-line/\"")];
-            let settings = parse_settings_with_home(repo_root, Some(home_dir), &settings_args)?;
+            let settings = parse_settings_with_home(
+                repo_root,
+                Some(home_dir),
+                Some(&override_file),
+                &settings_args,
+            )?;
             assert_eq!(
                 settings.log_download.log_url(),
                 Some("https://command-line/")
+            );
+
+            // A missing override file is an error, not an absent layer.
+            let missing = override_dir.path().root().as_abs_path().join("nope.toml");
+            let result = parse_settings_with_home(repo_root, Some(home_dir), Some(&missing), &[]);
+            assert!(
+                result.is_err(),
+                "a missing BUCK2_SETTINGS_OVERRIDE file must refuse, not fall through"
             );
             Ok(())
         }
@@ -618,6 +675,7 @@ mod tests {
             let settings = parse_settings_with_home(
                 repo.path().root().as_abs_path(),
                 Some(home.path().root().as_abs_path()),
+                None,
                 &[],
             )?;
             assert_eq!(settings.log_download.log_url(), Some(REPO_URL));
@@ -641,6 +699,7 @@ mod tests {
             let settings = parse_settings_with_home(
                 repo.path().root().as_abs_path(),
                 Some(home.path().root().as_abs_path()),
+                None,
                 &[],
             )?;
             let config = parse_legacy_config(&[("config", "")], "config")?;
@@ -693,6 +752,7 @@ mod tests {
         let settings = parse_settings_with_home(
             repo.path().root().as_abs_path(),
             Some(home.path().root().as_abs_path()),
+            None,
             &[],
         )?;
         assert_eq!(settings.log_download.log_url(), None);
