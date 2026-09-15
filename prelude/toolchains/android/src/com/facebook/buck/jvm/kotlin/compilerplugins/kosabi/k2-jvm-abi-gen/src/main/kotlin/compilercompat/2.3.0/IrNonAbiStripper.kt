@@ -636,17 +636,30 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     // that every inner-class constructor body contains an IrDelegatingConstructorCall (it
     // rewrites that call to thread the outer `this`). A bodyless inner constructor is skipped by
     // that lowering but then fails codegen; an *empty* stub body makes the lowering run and trip
-    // its "Delegating constructor call expected" assertion. So for inner-class constructors that
-    // have lost their delegating call we synthesize a trivial delegation to the superclass
-    // constructor.
+    // its "Delegating constructor call expected" assertion. So for inner-class constructors whose
+    // stripped body is not well-formed for that lowering we synthesize a trivial delegation to the
+    // superclass constructor (see the predicate below for exactly which shapes qualify).
     val parentClass = declaration.parentAsClass
     sanitizeErrorDefaultValues(declaration)
     if (parentClass.isInner) {
-      val existingBody = declaration.body
-      val hasDelegatingCall =
-          existingBody is IrBlockBody &&
-              existingBody.statements.any { it is IrDelegatingConstructorCall }
-      if (!hasDelegatingCall) {
+      // A stripped inner-class constructor body is well-formed for InnerClassesLowering only if it
+      // has an IrInstanceInitializerCall (super-delegation) or an IrDelegatingConstructorCall to
+      // this same class (this()-delegation). The lowering treats a body WITHOUT an instance
+      // initializer as a this()-delegation and threads the outer instance onto the delegating
+      // call's dispatch receiver; for a super-delegation -- e.g. silverstonedgw's `private inner
+      // class InternalListener(..) : SomeInterface`, whose only supertype is an interface so it
+      // super-delegates to kotlin.Any -- that crashes with "no argument slot for the corresponding
+      // dispatch receiver parameter". Any other shape (no delegating call, or a super-delegation
+      // that lost its instance initializer) is replaced with a synthesized super-delegation.
+      val existingBody = declaration.body as? IrBlockBody
+      val isBodyWellFormed =
+          existingBody != null &&
+              existingBody.statements.any {
+                it is IrInstanceInitializerCall ||
+                    (it is IrDelegatingConstructorCall &&
+                        it.symbol.owner.parentAsClass == parentClass)
+              }
+      if (!isBodyWellFormed) {
         declaration.body =
             createSuperDelegatingConstructorBody(declaration) ?: irFactory.createBlockBody(-1, -1)
       }
