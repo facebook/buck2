@@ -11,6 +11,8 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:dirs",
+        "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:tokio",

@@ -41,6 +41,7 @@ mod unix;
 #[cfg(windows)]
 pub mod win;
 
+pub use cleanall::cleanall_stale;
 pub use process::async_background_command;
 pub use process::background_command;
 

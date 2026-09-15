@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
-#![allow(dead_code)]
-
 mod discovery;
+mod stale;
+
+pub use stale::cleanall_stale;
