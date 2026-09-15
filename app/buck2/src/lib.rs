@@ -507,15 +507,17 @@ impl CommandKind {
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
-            let v = buck2_daemon::no_buckd::start_in_process_daemon(
-                immediate_config.daemon_startup_config()?,
-                paths.clone().get_result()?,
-                runtime,
-            )?;
+            {
+                buck2_daemon::no_buckd::start_in_process_daemon(
+                    immediate_config.daemon_startup_config()?,
+                    paths.clone().get_result()?,
+                    runtime,
+                )?
+            }
             #[cfg(client_only)]
-            let v = unreachable!(); // case covered above
-            #[allow(dead_code)]
-            v
+            {
+                unreachable!() // case covered above
+            }
         } else {
             None
         };
