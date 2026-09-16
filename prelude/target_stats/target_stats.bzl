@@ -89,14 +89,17 @@ def _cycles_action(
     )
     return out
 
-def _all_target_stats_output(ctx: AnalysisContext, tset: TargetStatsInfoTSet) -> Artifact:
-    """A file listing every transitive target's manifest."""
-    return ctx.actions.write(
-        _OUT_DIR + "/all_target_stats.txt",
-        tset.project_as_args("manifests"),
-        with_inputs = True,
-        has_content_based_path = False,
-    )
+def _all_target_stats_subtarget(ctx: AnalysisContext, tset: TargetStatsInfoTSet) -> list[Provider]:
+    """A JSON object mapping every transitive target's label to its manifest."""
+    manifest_by_target = {record.label: record.manifest for record in tset.traverse()}
+    out = ctx.actions.declare_output(_OUT_DIR, "all_target_stats.json", has_content_based_path = False)
+    out_with_inputs = ctx.actions.write_json(out, manifest_by_target, with_inputs = True)
+    return [
+        DefaultInfo(
+            default_output = out,
+            other_outputs = [out_with_inputs, tset.project_as_args("manifests")],
+        )
+    ]
 
 def target_stats_aggregate_providers_and_subtargets(
     ctx: AnalysisContext,
@@ -115,7 +118,7 @@ def target_stats_aggregate_providers_and_subtargets(
     tset = ctx.actions.tset(TargetStatsInfoTSet, children = children)
     info = TargetStatsInfo(label = str(ctx.label.raw_target()), tset = tset)
     subtargets = {
-        "all_target_stats": [DefaultInfo(default_output = _all_target_stats_output(ctx, tset))],
+        "all_target_stats": _all_target_stats_subtarget(ctx, tset),
     }
     return [info], subtargets
 
@@ -164,13 +167,17 @@ def target_stats_providers_and_subtargets(
     children = [dep[TargetStatsInfo].tset for dep in deps if dep.get(TargetStatsInfo) != None]
     tset = ctx.actions.tset(
         TargetStatsInfoTSet,
-        value = TargetStatsRecord(label = label, manifest = manifest),
+        value = TargetStatsRecord(
+            label = label,
+            manifest = manifest,
+            manifest_with_inputs = manifest_inputs,
+        ),
         children = children,
     )
     info = TargetStatsInfo(label = label, tset = tset)
 
     subtargets = {
-        "all_target_stats": [DefaultInfo(default_output = _all_target_stats_output(ctx, tset))],
+        "all_target_stats": _all_target_stats_subtarget(ctx, tset),
         "target_stats": [DefaultInfo(default_output = manifest, other_outputs = [manifest_inputs]), info],
     }
     return [info], subtargets

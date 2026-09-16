@@ -18,18 +18,16 @@
 TargetStatsRecord = record(
     # The (unconfigured) label of the target these stats are for.
     label = field(str),
-    # The per-target manifest JSON: aggregate info, the cycles output, and the
-    # mapping of source file -> its file_stats JSON. Produced with
-    # ctx.actions.write_json(..., with_inputs = True) so it carries the per-file
-    # JSONs + cycles artifact as inputs.
+    # The per-target manifest JSON: cycles + source file -> file_stats JSON.
     manifest = field(Artifact),
+    manifest_with_inputs = field(typing.Any),
 )
 
-def _project_manifests(record: TargetStatsRecord) -> list[Artifact]:
-    return [record.manifest]
+def _project_manifests(record: TargetStatsRecord) -> typing.Any:
+    return record.manifest_with_inputs
 
-# Transitive set of TargetStatsRecord. The "manifests" projection yields every
-# transitive target's manifest, used to build the [all_target_stats] subtarget.
+# The "manifests" projection yields each manifest bundled with what it
+# references, which is what materializes [all_target_stats].
 TargetStatsInfoTSet = transitive_set(
     args_projections = {
         "manifests": _project_manifests,
