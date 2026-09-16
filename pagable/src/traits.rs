@@ -65,7 +65,14 @@ impl StorageContext {
     }
 
     /// Get the state of type `T`, initializing it atomically if absent.
+    ///
+    /// Reads before it writes: `entry` takes the shard exclusively even when the
+    /// entry is present, and the key is a fixed `TypeId`, so on a path taken once
+    /// per deserialized value every caller lands on one contended lock.
     pub fn get_or_init<T: StorageState>(&self, init: impl FnOnce() -> T) -> Arc<T> {
+        if let Some(value) = self.get::<T>() {
+            return value;
+        }
         let value = self
             .states
             .entry(TypeId::of::<T>())

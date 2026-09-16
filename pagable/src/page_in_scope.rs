@@ -44,7 +44,12 @@ impl PageInStateRegistry {
             .map(Self::downcast)
     }
 
+    /// Reads before it writes, for the reason on
+    /// [`StorageContext::get_or_init`](crate::StorageContext::get_or_init).
     fn get_or_init<T: PageInState>(&self, init: impl FnOnce() -> T) -> Arc<T> {
+        if let Some(state) = self.get::<T>() {
+            return state;
+        }
         match self.states.entry(TypeId::of::<T>()) {
             Entry::Occupied(entry) => Self::downcast(entry.get().dupe()),
             Entry::Vacant(entry) => {
