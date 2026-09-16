@@ -74,16 +74,11 @@ fn next_chunk_size(chunk_count_in_bump: usize) -> AlignedSize {
     // Replicate `bumpalo` behavior: 512 in the first chunk, double each next,
     // but not greater than 2G.
     // TODO(nga): we should stop doubling after 1M or so.
-    let size = AlignedSize::new_bytes(
-        512u32
-            .checked_shl(chunk_count_in_bump.try_into().unwrap())
-            .unwrap() as usize,
-    );
-    if size.bytes() == 0 {
-        AlignedSize::new_bytes(1 << 31)
-    } else {
-        size
-    }
+    const MAX_CHUNK_BYTES: usize = 1 << 31;
+    // `512 << 22` is the cap itself; a heap with more chunks than that is a
+    // real state, hit by a large target during page-in, and stays at the cap.
+    let doubled = 512usize << chunk_count_in_bump.min(22);
+    AlignedSize::new_bytes(doubled.min(MAX_CHUNK_BYTES))
 }
 
 /// Allocate chunk which is large enough for given number of words.
@@ -127,7 +122,26 @@ mod tests {
     use crate::values::layout::aligned_size::AlignedSize;
     use crate::values::layout::heap::allocator::alloc::chunk_part::ChunkPart;
     use crate::values::layout::heap::allocator::alloc::per_thread::PerThreadChunkCache;
+    use crate::values::layout::heap::allocator::alloc::per_thread::next_chunk_size;
     use crate::values::layout::heap::repr::AValueHeader;
+
+    #[test]
+    fn test_next_chunk_size_doubles_then_caps() {
+        const CAP: usize = 1 << 31;
+        // 512 = 2^9 doubled per chunk: 2^(9+n) up to the cap.
+        assert_eq!(AlignedSize::new_bytes(512), next_chunk_size(0));
+        assert_eq!(AlignedSize::new_bytes(1024), next_chunk_size(1));
+        // 22 is the last exact doubling: 2^31 is the cap itself.
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(22));
+        // Every count past that clamps to the cap, including the ones that
+        // used to shift the bit out (23 and up) or overflow the shift width
+        // and panic (32 and up).
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(23));
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(31));
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(32));
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(64));
+        assert_eq!(AlignedSize::new_bytes(CAP), next_chunk_size(usize::MAX));
+    }
 
     #[test]
     fn test_release_partial() {
