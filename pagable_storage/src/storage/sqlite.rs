@@ -16,6 +16,7 @@ use std::sync::Condvar;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread::JoinHandle;
@@ -53,21 +54,38 @@ const NUM_SHARDS: usize = 10;
 /// the lock; reads are single-row lookups, so that side never comes close.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The error for a failed read of `key`, where `what` is the step that failed.
-/// A wait on the shard's lock that ran out is reported as such, apart from
-/// every other failure, so its rate can be read off production errors.
-fn sqlite_read_error(key: &DataKey, what: &str, error: rusqlite::Error) -> anyhow::Error {
-    match error {
+/// A read whose wait for the shard's lock ran out is tried again this many
+/// times, each waiting `BUSY_TIMEOUT` afresh, before it fails. A page-out
+/// commit holds the lock for as long as the commit takes; the timeout covers
+/// most commits and the retries the tail. Each retry is logged and counted,
+/// so lengthening the timeout instead would hide how often the tail is hit.
+const BUSY_READ_RETRIES: u32 = 2;
+
+fn is_busy(error: &rusqlite::Error) -> bool {
+    matches!(
+        error,
         rusqlite::Error::SqliteFailure(sqlite_error, _)
-            if sqlite_error.code == rusqlite::ErrorCode::DatabaseBusy =>
-        {
-            anyhow::anyhow!(
-                "sqlite read of key {key:?} timed out after {BUSY_TIMEOUT:?} waiting for the \
-                 shard's lock (SQLITE_BUSY): a page-out commit was in progress"
-            )
-        }
-        error => anyhow::anyhow!("{what} failed for key {key:?}: {error}"),
+            if sqlite_error.code == rusqlite::ErrorCode::DatabaseBusy
+    )
+}
+
+/// The error for a failed read of `key`, where `what` is the step that failed
+/// and `waits` how many times the read waited for the shard's lock. A wait
+/// that ran out is reported as such, apart from every other failure, so its
+/// rate can be read off production errors.
+fn sqlite_read_error(
+    key: &DataKey,
+    what: &str,
+    error: rusqlite::Error,
+    waits: u32,
+) -> anyhow::Error {
+    if is_busy(&error) {
+        return anyhow::anyhow!(
+            "sqlite read of key {key:?} gave up after {waits} waits of {BUSY_TIMEOUT:?} for the \
+             shard's lock (SQLITE_BUSY): a page-out commit was in progress"
+        );
     }
+    anyhow::anyhow!("{what} failed for key {key:?}: {error}")
 }
 
 const DEFAULT_WRITE_BUFFER_ROWS: usize = 1 << 20;
@@ -146,6 +164,8 @@ pub struct SqliteBackedPagableStorage {
     shards: Vec<Shard>,
     arcs: DeserializedArcCache,
     storage_context: StorageContext,
+    /// Reads retried after waiting `BUSY_TIMEOUT` for a shard's lock.
+    busy_read_retries: AtomicU64,
 }
 
 struct Shard {
@@ -583,7 +603,14 @@ impl SqliteBackedPagableStorage {
             shards,
             arcs: DeserializedArcCache::new(),
             storage_context: StorageContext::new(),
+            busy_read_retries: AtomicU64::new(0),
         })
+    }
+
+    /// How many reads so far waited `BUSY_TIMEOUT` for a shard's lock and were
+    /// tried again.
+    pub fn busy_read_retries(&self) -> u64 {
+        self.busy_read_retries.load(Ordering::Relaxed)
     }
 
     #[inline]
@@ -594,14 +621,35 @@ impl SqliteBackedPagableStorage {
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         let shard = self.shard_for(key);
         let (key_lo, key_hi) = data_key_parts(*key);
-        let read = || -> anyhow::Result<Option<Vec<u8>>> {
+        let read_once = || -> Result<Option<Vec<u8>>, (&'static str, rusqlite::Error)> {
             let conn = shard.inner.conns.get_reader();
             let mut stmt = conn
                 .prepare_cached("SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2")
-                .map_err(|e| sqlite_read_error(key, "prepare", e))?;
+                .map_err(|e| ("prepare", e))?;
             stmt.query_row(rusqlite::params![key_lo, key_hi], |row| row.get(0))
                 .optional()
-                .map_err(|e| sqlite_read_error(key, "fetch", e))
+                .map_err(|e| ("fetch", e))
+        };
+        // Each attempt takes and releases a reader, so a retry does not hold
+        // one across its wait.
+        let read = || -> anyhow::Result<Option<Vec<u8>>> {
+            let mut waits = 0;
+            loop {
+                match read_once() {
+                    Ok(row) => return Ok(row),
+                    Err((_, error)) if is_busy(&error) && waits < BUSY_READ_RETRIES => {
+                        waits += 1;
+                        self.busy_read_retries.fetch_add(1, Ordering::Relaxed);
+                        tracing::warn!(
+                            "sqlite read of key {key:?} waited {BUSY_TIMEOUT:?} for the shard's \
+                             lock (SQLITE_BUSY); retry {waits} of {BUSY_READ_RETRIES}"
+                        );
+                    }
+                    Err((what, error)) => {
+                        return Err(sqlite_read_error(key, what, error, waits + 1));
+                    }
+                }
+            }
         };
         let bytes = match read()? {
             Some(bytes) => bytes,
@@ -974,7 +1022,53 @@ mod tests {
             format!("{error:#}").contains("SQLITE_BUSY"),
             "the timeout is named as such: {error:#}"
         );
+        assert!(
+            format!("{error:#}").contains("gave up after 3 waits"),
+            "the error counts every wait: {error:#}"
+        );
+        assert_eq!(storage.busy_read_retries(), 2);
         assert_eq!(storage.fetch_data_blocking(&key)?.data, b"busy");
+        Ok(())
+    }
+
+    /// A read that meets the lock while a commit is in progress succeeds once
+    /// the commit is done, on one of its retries.
+    #[test]
+    fn sqlite_read_retries_after_a_busy_timeout() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("busy_retry")?;
+        let storage = Arc::new(SqliteBackedPagableStorage::try_new(&dir.path)?);
+        let key = storage.store_data(pagable_data(b"retried", Vec::new()))?;
+        storage.flush()?;
+        let shard = storage.shard_for(&key);
+        for _ in 0..shard.inner.conns.readers.len() {
+            storage.fetch_data_blocking(&key)?;
+        }
+        for reader in &shard.inner.conns.readers {
+            reader
+                .lock()
+                .unwrap()
+                .busy_timeout(Duration::from_millis(50))?;
+        }
+
+        let writer = shard.inner.conns.readwrite.lock().unwrap();
+        writer.execute_batch("BEGIN EXCLUSIVE;")?;
+        let reader = std::thread::spawn({
+            let storage = Arc::clone(&storage);
+            move || storage.fetch_data_blocking(&key)
+        });
+        // Release the lock once the read has waited for it once, so the read
+        // succeeds on a retry whatever the thread timing.
+        while storage.busy_read_retries() == 0 {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        writer.execute_batch("COMMIT;")?;
+        drop(writer);
+        let data = reader
+            .join()
+            .expect("the reading thread does not panic")
+            .expect("the read succeeds once the commit is done");
+        assert_eq!(data.data, b"retried");
+        assert!(storage.busy_read_retries() >= 1);
         Ok(())
     }
 
