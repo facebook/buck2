@@ -87,6 +87,7 @@ use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_file_watcher::mergebase::SetMergebase;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -509,7 +510,7 @@ impl<'a> ServerCommandContext<'a> {
             let store = store.dupe();
             let queued = store.queue_size();
             let flush_started = Instant::now();
-            if let Err(e) = tokio::task::spawn_blocking(move || store.flush()).await {
+            if let Err(e) = spawn_blocking(move || store.flush()).await {
                 tracing::debug!("Failed to flush the persisted dep-file cache: {}", e);
             }
             // The wait is unbounded and lands after the build is otherwise done, so a long one is

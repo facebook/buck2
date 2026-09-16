@@ -43,9 +43,7 @@ use buck2_common::memory;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::tenting::TentingAclProvider;
 use buck2_core::buck2_env;
-use buck2_core::error::reload_hard_error_config;
-use buck2_core::error::reload_show_soft_error_config;
-use buck2_core::error::reset_soft_error_counters;
+use buck2_core::error::SoftErrorContext;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
@@ -58,6 +56,7 @@ use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::FinalArtifactMaterialization;
 use buck2_execute_impl::executors::local::ForkserverAccess;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::DiskSpaceStats;
@@ -491,19 +490,17 @@ impl BuckdServer {
         }
 
         let client_ctx = req.get_ref().client_context()?;
-
-        // This will reset counters incorrectly if commands are running concurrently.
-        // This is fine.
-        reset_soft_error_counters();
-
-        reload_hard_error_config(&client_ctx.buck2_hard_error)?;
-        reload_show_soft_error_config(&client_ctx.buck2_show_soft_errors);
+        let soft_error_context = Arc::new(SoftErrorContext::new(
+            &client_ctx.buck2_hard_error,
+            &client_ctx.buck2_show_soft_errors,
+        )?);
 
         OneshotCommandOptions::pre_run(&opts, self)?;
 
         let daemon_state = self.0.daemon_state.dupe();
         let trace_id = client_ctx.trace_id.parse()?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
+        let dispatch = dispatch.with_soft_error_context(soft_error_context);
         let ActiveCommand {
             guard,
             daemon_shutdown_channel,
@@ -1147,9 +1144,7 @@ impl DaemonApi for BuckdServer {
                 // Only this branch reaches the persisted cache, and dropping it waits for the
                 // dep-file db writer thread to drain, so it goes to the blocking pool rather than
                 // parking a runtime worker.
-                let _ignored =
-                    tokio::task::spawn_blocking(buck2_file_watcher::dep_files::flush_dep_files)
-                        .await;
+                let _ignored = spawn_blocking(buck2_file_watcher::dep_files::flush_dep_files).await;
             }
             Ok(GenericResponse {})
         })
@@ -1524,11 +1519,16 @@ impl DaemonApi for BuckdServer {
 
         let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
+            let soft_error_context = Arc::new(SoftErrorContext::new(
+                &client_ctx.buck2_hard_error,
+                &client_ctx.buck2_show_soft_errors,
+            )?);
             let trace_id = client_ctx
                 .trace_id
                 .parse()
                 .map_err(buck2_error::Error::from)?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
+            let dispatcher = dispatcher.with_soft_error_context(soft_error_context);
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
             (event_source, dispatcher, active_command)
         };

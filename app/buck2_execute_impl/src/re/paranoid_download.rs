@@ -14,6 +14,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::with_dispatcher_opt_async;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
@@ -78,6 +81,8 @@ impl ParanoidDownloader {
         cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
         let inner = self.inner.dupe();
+        let dispatcher = get_dispatcher_opt();
+        let download_dispatcher = dispatcher.clone();
 
         let mut paths_to_clean = Vec::with_capacity(artifacts.len());
 
@@ -95,35 +100,37 @@ impl ParanoidDownloader {
             )
             .collect::<Vec<_>>();
 
-        let future = tokio::task::spawn(async move {
-            // We just spawned this!
-            let cancellations = CancellationContext::never_cancelled();
+        let future =
+            tokio::task::spawn(with_dispatcher_opt_async(download_dispatcher, async move {
+                // We just spawned this!
+                let cancellations = CancellationContext::never_cancelled();
 
-            for (path, _) in cache_artifacts.iter() {
-                tracing::trace!(path = %path, "Materialize path");
-            }
+                for (path, _) in cache_artifacts.iter() {
+                    tracing::trace!(path = %path, "Materialize path");
+                }
 
-            cas_download(
-                &inner.fs,
-                inner.io.as_ref(),
-                inner.re.as_ref(),
-                &info,
-                cache_artifacts,
-                cancellations,
-            )
-            .await?;
+                cas_download(
+                    &inner.fs,
+                    inner.io.as_ref(),
+                    inner.re.as_ref(),
+                    &info,
+                    cache_artifacts,
+                    cancellations,
+                )
+                .await?;
 
-            buck2_error::Result::Ok(())
-        })
-        .map(|r| r.unwrap_or_else(|e| Err(e.into())))
-        .boxed()
-        .shared();
+                buck2_error::Result::Ok(())
+            }))
+            .map(|r| r.unwrap_or_else(|e| Err(e.into())))
+            .boxed()
+            .shared();
 
         let dl = CacheDownload {
             inner: Some(CacheDownloadInner {
                 io: self.inner.io.dupe(),
                 future,
                 paths: paths_to_clean,
+                dispatcher,
             }),
         };
 
@@ -199,30 +206,36 @@ struct CacheDownloadInner {
     io: Arc<dyn BlockingExecutor>,
     future: Shared<BoxFuture<'static, buck2_error::Result<()>>>,
     paths: Vec<ProjectRelativePathBuf>,
+    dispatcher: Option<EventDispatcher>,
 }
 
 impl Drop for CacheDownload {
     fn drop(&mut self) {
         let inner = self.inner.take().expect("Dropped twice");
 
-        tokio::task::spawn(async move {
-            // We just spawned this!
-            let cancellations = CancellationContext::never_cancelled();
+        tokio::task::spawn(with_dispatcher_opt_async(
+            inner.dispatcher.clone(),
+            async move {
+                // We just spawned this!
+                let cancellations = CancellationContext::never_cancelled();
 
-            let CacheDownloadInner { io, future, paths } = inner;
+                let CacheDownloadInner {
+                    io, future, paths, ..
+                } = inner;
 
-            // Wait for the materialization to finish.
-            let _ignored = future.await;
+                // Wait for the materialization to finish.
+                let _ignored = future.await;
 
-            for path in &paths {
-                tracing::trace!(path = %path, "Delete path");
-            }
+                for path in &paths {
+                    tracing::trace!(path = %path, "Delete path");
+                }
 
-            // Delete the cache path.
-            let _ignored = io
-                .execute_io(Box::new(CleanOutputPaths { paths }), cancellations)
-                .await;
-        });
+                // Delete the cache path.
+                let _ignored = io
+                    .execute_io(Box::new(CleanOutputPaths { paths }), cancellations)
+                    .await;
+            },
+        ));
     }
 }
 

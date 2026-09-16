@@ -29,6 +29,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
 use buck2_execute::digest::CasDigestToReExt;
@@ -530,6 +531,7 @@ impl IoHandler for NoDiskIoHandler {
                     path,
                     version,
                     result: Ok(()),
+                    dispatcher: get_dispatcher_opt(),
                 });
             Ok(())
         }
@@ -757,6 +759,7 @@ impl IoRequest for CleanIoRequest {
                 path: self.path,
                 version: self.version,
                 result: res.dupe().map_err(SharedMaterializingError::Error),
+                dispatcher: get_dispatcher_opt(),
             },
         );
 

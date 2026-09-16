@@ -20,6 +20,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_fs::IoResultExt;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -87,7 +88,7 @@ impl FsIoProvider {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
-        tokio::task::spawn_blocking(move || {
+        spawn_blocking(move || {
             Ok(
                 read_unchecked(fs.root(), path, file_digest_config, options)?
                     .map(ProjectRelativePathBuf::from),
@@ -121,7 +122,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
+        spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
     }
 
     async fn read_dir_impl(
@@ -137,7 +138,7 @@ impl IoProvider for FsIoProvider {
         let path = self.fs.resolve(&path);
         let is_eden = self.is_eden;
 
-        tokio::task::spawn_blocking(move || {
+        spawn_blocking(move || {
             let dir_entries = match fs_util::read_dir(&path) {
                 Ok(entries) => entries,
                 Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
@@ -177,7 +178,7 @@ impl IoProvider for FsIoProvider {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
-        tokio::task::spawn_blocking(move || {
+        spawn_blocking(move || {
             let meta = read_path_metadata(fs.root(), &path, file_digest_config)?.map(
                 |raw_meta_or_redirection| raw_meta_or_redirection.map(ProjectRelativePathBuf::from),
             );

@@ -16,8 +16,11 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::current_span;
+use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::maybe_proxy_current_span;
+use buck2_events::dispatch::with_dispatcher_opt;
 use buck2_events::span::SpanId;
 use buck2_util::threads::directory_mutation_parallelism;
 use buck2_util::threads::thread_spawn;
@@ -80,6 +83,7 @@ struct ThreadPoolIoRequest {
     project_fs: ProjectRoot,
     io: Box<dyn IoRequest>,
     parent_id: Option<SpanId>,
+    dispatcher: Option<EventDispatcher>,
     sender: oneshot::Sender<buck2_error::Result<()>>,
 }
 
@@ -116,10 +120,13 @@ impl BuckBlockingExecutorShared {
                     project_fs,
                     sender,
                     parent_id,
+                    dispatcher,
                     io,
                 } in command_receiver.iter()
                 {
-                    let res = maybe_proxy_current_span(parent_id, || io.execute(&project_fs));
+                    let res = with_dispatcher_opt(dispatcher, || {
+                        maybe_proxy_current_span(parent_id, || io.execute(&project_fs))
+                    });
                     let _ignored = sender.send(res);
                 }
             })
@@ -169,6 +176,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
             project_fs: self.project_fs.dupe(),
             io,
             parent_id: current_span(),
+            dispatcher: get_dispatcher_opt(),
             sender,
         });
 
@@ -208,13 +216,16 @@ impl BlockingExecutor for DirectIoExecutor {
         cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, buck2_error::Result<()>> {
         let project_fs = self.project_fs.dupe();
+        let dispatcher = get_dispatcher_opt();
 
         cancellations
             .critical_section(|| async move {
                 // Execute IO operation in Tokio's blocking thread pool
-                tokio::task::spawn_blocking(move || io.execute(&project_fs))
-                    .await
-                    .buck_error_context("Direct IO spawn_blocking failed")?
+                tokio::task::spawn_blocking(move || {
+                    with_dispatcher_opt(dispatcher, || io.execute(&project_fs))
+                })
+                .await
+                .buck_error_context("Direct IO spawn_blocking failed")?
             })
             .boxed()
     }
@@ -326,8 +337,13 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::error::SoftErrorContext;
+    use buck2_core::error::capture_soft_error_context;
+    use buck2_core::error::with_soft_error_context;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_events::dispatch::with_dispatcher_async;
+    use buck2_fs::async_fs_util::spawn_blocking as spawn_blocking_with_context;
     use buck2_fs::error::IoResultExt;
     use buck2_fs::fs_util;
 
@@ -339,6 +355,33 @@ mod tests {
         fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
             project_fs.write_file(ProjectRelativePath::new("marker")?, self.0, false)
         }
+    }
+
+    struct RequireSoftErrorContext;
+
+    impl IoRequest for RequireSoftErrorContext {
+        fn execute(self: Box<Self>, _project_fs: &ProjectRoot) -> buck2_error::Result<()> {
+            let _context = get_dispatcher_opt()
+                .and_then(|dispatcher| dispatcher.soft_error_context())
+                .internal_error("blocking worker should inherit the soft-error context")?;
+            Ok(())
+        }
+    }
+
+    async fn assert_propagates_soft_error_context(
+        executor: &dyn BlockingExecutor,
+    ) -> buck2_error::Result<()> {
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let dispatcher = EventDispatcher::null().with_soft_error_context(context);
+        with_dispatcher_async(dispatcher, async {
+            executor
+                .execute_io(
+                    Box::new(RequireSoftErrorContext),
+                    CancellationContext::never_cancelled(),
+                )
+                .await
+        })
+        .await
     }
 
     #[tokio::test]
@@ -372,6 +415,35 @@ mod tests {
             "second"
         );
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn executors_propagate_soft_error_context() -> buck2_error::Result<()> {
+        let root = ProjectRootTemp::new()?;
+        let pooled = BuckBlockingExecutor {
+            shared: Arc::new(BuckBlockingExecutorShared::default_concurrency()?),
+            project_fs: root.path().dupe(),
+        };
+        assert_propagates_soft_error_context(&pooled).await?;
+
+        let direct = DirectIoExecutor {
+            project_fs: root.path().dupe(),
+        };
+        assert_propagates_soft_error_context(&direct).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn generic_spawn_blocking_propagates_soft_error_context() -> buck2_error::Result<()> {
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let handle = with_soft_error_context(Some(context.dupe()), || {
+            spawn_blocking_with_context(capture_soft_error_context)
+        });
+        let observed = handle.await?;
+
+        assert!(observed.is_some_and(|observed| Arc::ptr_eq(&context, &observed)));
         Ok(())
     }
 }

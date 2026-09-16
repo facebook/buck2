@@ -8,13 +8,13 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::Once;
 
 use buck2_core::error::StructuredErrorOptions;
 use buck2_core::error::initialize;
-use buck2_core::error::reset_soft_error_counters;
 use buck2_core::soft_error;
 use buck2_error::buck2_error;
 
@@ -24,6 +24,7 @@ fn mock_handler(
     category: &str,
     err: &buck2_error::Error,
     loc: (&str, u32, u32),
+    _context: &Arc<buck2_core::error::SoftErrorContext>,
     options: StructuredErrorOptions,
 ) {
     RESULT.lock().unwrap().push(format!(
@@ -40,7 +41,7 @@ fn test_init() -> MutexGuard<'static, ()> {
 
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-        initialize(Box::new(mock_handler)).unwrap();
+        initialize(Box::new(mock_handler), Box::new(|| None)).unwrap();
     });
 
     RESULT.lock().unwrap().clear();
@@ -68,14 +69,14 @@ fn test_soft_error() {
 }
 
 #[test]
-fn test_reset_counters() {
+fn test_counter_limit() {
     let _guard = test_init();
 
     assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");
 
     for _ in 0..100 {
         let _ignore = soft_error!(
-            "test_reset_counters",
+            "test_counter_limit",
             buck2_error!(buck2_error::ErrorTag::Input, "Message").into()
         );
     }
@@ -84,20 +85,5 @@ fn test_reset_counters() {
         10,
         RESULT.lock().unwrap().len(),
         "Should be logged 10 times"
-    );
-
-    reset_soft_error_counters();
-
-    for _ in 0..100 {
-        let _ignore = soft_error!(
-            "test_reset_counters",
-            buck2_error!(buck2_error::ErrorTag::Input, "Message").into()
-        );
-    }
-
-    assert_eq!(
-        20,
-        RESULT.lock().unwrap().len(),
-        "Should be logged 10 more times"
     );
 }

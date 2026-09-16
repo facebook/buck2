@@ -16,6 +16,7 @@ use allocative::FlameGraphOutput;
 use allocative::Key;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -117,7 +118,7 @@ pub(crate) async fn spawn_allocative(
     dispatcher.console_message("Visiting deferred materializer...".to_owned());
     let deferred_materializer_profile = materializer.allocative().await?;
 
-    tokio::task::spawn_blocking(move || {
+    spawn_blocking(move || {
         let mut graph = FlameGraphBuilder::default();
         dispatcher.console_message(
             "Starting allocative profiling. It may take a while to finish...".to_owned(),

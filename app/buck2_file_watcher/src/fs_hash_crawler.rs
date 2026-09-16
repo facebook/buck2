@@ -32,6 +32,7 @@ use buck2_data::FileWatcherKind;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_events::dispatch::span_async;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -78,8 +79,7 @@ impl FsHashCrawler {
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let root = self.root.dupe();
         let cells = self.cells.dupe();
-        let new_snapshot =
-            tokio::task::spawn_blocking(move || FsSnapshot::build(&root, &cells)).await??;
+        let new_snapshot = spawn_blocking(move || FsSnapshot::build(&root, &cells)).await??;
         let mut guard = self.snapshot.lock().unwrap();
         let old_snapshot = mem::replace(&mut *guard, new_snapshot);
         let (stats, changes) = old_snapshot.get_updates_for_dice(&guard, &self.ignore_specs)?;

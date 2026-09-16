@@ -294,13 +294,12 @@ impl<T> MaterializerSender<T> {
         res
     }
 
-    fn send_low_priority(
-        &self,
-        command: LowPriorityMaterializerCommand,
-    ) -> Result<(), mpsc::error::SendError<LowPriorityMaterializerCommand>> {
-        let res = self.low_priority.send(command);
-        self.counters.sent.fetch_add(1, Ordering::Relaxed);
-        res
+    fn send_low_priority(&self, command: LowPriorityMaterializerCommand) -> bool {
+        let sent = self.low_priority.send(command).is_ok();
+        if sent {
+            self.counters.sent.fetch_add(1, Ordering::Relaxed);
+        }
+        sent
     }
 }
 
@@ -355,11 +354,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         &self,
         artifacts: Vec<DeclareArtifactPayload>,
     ) -> buck2_error::Result<()> {
-        let cmd = MaterializerCommand::DeclareExisting(
-            artifacts,
-            current_span(),
-            get_dispatcher_opt().map(|d| d.trace_id().dupe()),
-        );
+        let cmd =
+            MaterializerCommand::DeclareExisting(artifacts, current_span(), get_dispatcher_opt());
         self.command_sender.send(cmd)?;
         Ok(())
     }
@@ -515,8 +511,11 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> buck2_error::Result<bool> {
         let (sender, recv) = oneshot::channel();
 
-        self.command_sender
-            .send(MaterializerCommand::HasArtifact(path, sender))?;
+        self.command_sender.send(MaterializerCommand::HasArtifact(
+            path,
+            sender,
+            get_dispatcher_opt(),
+        ))?;
 
         let has_artifact = recv
             .await

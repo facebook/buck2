@@ -44,6 +44,7 @@ use buck2_core::soft_error;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::metadata;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
@@ -423,14 +424,15 @@ pub(crate) async fn spawn_page_out_on_idle(
     }
 
     IDLE_PAGE_OUT_HAS_RUN.store(true, Ordering::Relaxed);
-    tokio::spawn(async move {
+    let context_dispatcher = dispatcher.clone();
+    tokio::spawn(with_dispatcher_async(context_dispatcher, async move {
         if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {
             let _unused = soft_error!(
                 "page_out_on_idle_failed",
                 e.context("Automatic page-out on idle failed")
             );
         }
-    });
+    }));
     PageOutStarted::Started
 }
 

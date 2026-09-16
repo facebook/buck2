@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use buck2_core::soft_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use tokio::task::JoinHandle;
 
 use crate::snapshot::SnapshotCollector;
@@ -50,20 +51,22 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
 
 impl HeartbeatGuard {
     pub(crate) fn new(events: EventDispatcher, collector: SnapshotCollector) -> Self {
-        // NOTE: This doesn't use the ambient dispatcher wrappers because we want to control the
-        // exact lifetime of the dispatcher.
-        let handle = tokio::spawn(buck2_util::async_move_clone!(events, collector, {
-            let mut interval = tokio::time::interval(Duration::from_secs(1));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            let mut consecutive_slow: u32 = 0;
-            loop {
-                let start = Instant::now();
-                let snapshot = collector.create_snapshot().await;
-                events.instant_event(Box::new(snapshot));
-                check_slow_snapshot(Instant::now() - start, &mut consecutive_slow);
-                interval.tick().await;
-            }
-        }));
+        let context_events = events.clone();
+        let handle = tokio::spawn(with_dispatcher_async(
+            context_events,
+            buck2_util::async_move_clone!(events, collector, {
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                let mut consecutive_slow: u32 = 0;
+                loop {
+                    let start = Instant::now();
+                    let snapshot = collector.create_snapshot().await;
+                    events.instant_event(Box::new(snapshot));
+                    check_slow_snapshot(Instant::now() - start, &mut consecutive_slow);
+                    interval.tick().await;
+                }
+            }),
+        ));
 
         Self {
             handle: Some(handle),

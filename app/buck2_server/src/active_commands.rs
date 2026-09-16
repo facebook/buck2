@@ -11,6 +11,7 @@
 use std::sync::Arc;
 use std::sync::LazyLock;
 
+use buck2_core::error::SoftErrorContext;
 use buck2_event_observer::dice_state::DiceState;
 use buck2_event_observer::pending_estimate::pending_estimate;
 use buck2_event_observer::span_tracker;
@@ -81,6 +82,25 @@ pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>
     }
 
     has_subscribers
+}
+
+/// Sends an event only to the active command that owns `context`.
+pub fn dispatch_soft_error_for_context<E: Into<buck2_data::instant_event::Data> + Clone>(
+    context: &Arc<SoftErrorContext>,
+    event: &E,
+) -> bool {
+    let active = ACTIVE_COMMANDS.lock();
+    let Some(command) = active.values().find(|command| {
+        command
+            .dispatcher
+            .soft_error_context()
+            .is_some_and(|candidate| Arc::ptr_eq(&candidate, context))
+    }) else {
+        return false;
+    };
+
+    command.dispatcher.instant_event(event.clone());
+    true
 }
 
 pub fn broadcast_shutdown(shutdown: &buck2_data::DaemonShutdown) {
@@ -310,6 +330,8 @@ mod tests {
 
     use super::*;
 
+    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_active_command_state() {
         let mut writer =
@@ -475,6 +497,7 @@ mod tests {
 
     #[test]
     fn test_multiple_active_commands() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         let (dispatcher1, mut source1, id1) = create_dispatcher();
         let _active1 = ActiveCommand::new(&dispatcher1, Vec::new());
 
@@ -493,5 +516,61 @@ mod tests {
             source3.try_receive(),
             &[id1.to_string(), id2.to_string()],
         );
+    }
+
+    #[test]
+    fn soft_error_context_routes_to_owning_command() -> buck2_error::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let first_context = Arc::new(SoftErrorContext::new("", "")?);
+        let second_context = Arc::new(SoftErrorContext::new("", "")?);
+
+        let (first_dispatcher, mut first_source, _) = create_dispatcher();
+        let first_dispatcher = first_dispatcher.with_soft_error_context(first_context.dupe());
+        let _first = ActiveCommand::new(&first_dispatcher, Vec::new());
+
+        let (second_dispatcher, mut second_source, _) = create_dispatcher();
+        let second_dispatcher = second_dispatcher.with_soft_error_context(second_context);
+        let _second = ActiveCommand::new(&second_dispatcher, Vec::new());
+
+        first_source.try_receive();
+        second_source.try_receive();
+
+        assert!(dispatch_soft_error_for_context(
+            &first_context,
+            &buck2_data::ConsoleMessage {
+                message: "first only".to_owned(),
+            }
+        ));
+        assert!(first_source.try_receive().is_some());
+        assert!(second_source.try_receive().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn soft_error_context_does_not_route_after_owner_finishes() -> buck2_error::Result<()> {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+
+        let (owner_dispatcher, mut owner_source, _) = create_dispatcher();
+        let owner_dispatcher = owner_dispatcher.with_soft_error_context(context.dupe());
+        let owner = ActiveCommand::new(&owner_dispatcher, Vec::new());
+
+        let (other_dispatcher, mut other_source, _) = create_dispatcher();
+        let _other = ActiveCommand::new(&other_dispatcher, Vec::new());
+
+        owner_source.try_receive();
+        other_source.try_receive();
+        drop(owner);
+
+        assert!(!dispatch_soft_error_for_context(
+            &context,
+            &buck2_data::ConsoleMessage {
+                message: "no owner".to_owned(),
+            }
+        ));
+        assert!(other_source.try_receive().is_none());
+
+        Ok(())
     }
 }

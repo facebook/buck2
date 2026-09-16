@@ -16,6 +16,8 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorOptionContext;
+use buck2_events::dispatch::with_dispatcher_opt_async;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_hash::BuckMutSet;
 use dupe::Dupe;
 
@@ -86,12 +88,24 @@ impl DetailedAggregatedMetricsStateTracker {
             DetailedAggregatedMetricsEvent::AnalysisComplete(key, data) => {
                 analysis_nodes.insert(key, data);
             }
-            DetailedAggregatedMetricsEvent::ComputeMetrics(events, sender) => {
-                drop(sender.send(self.compute_metrics(events).await))
+            DetailedAggregatedMetricsEvent::ComputeMetrics(events, sender, dispatcher) => {
+                drop(sender.send(
+                    with_dispatcher_opt_async(dispatcher, self.compute_metrics(events)).await,
+                ))
             }
-            DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(top_level_targets, sender) => {
-                drop(sender.send(self.compute_action_graph_sketch(&top_level_targets).await))
-            }
+            DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(
+                top_level_targets,
+                sender,
+                dispatcher,
+            ) => drop(
+                sender.send(
+                    with_dispatcher_opt_async(
+                        dispatcher,
+                        self.compute_action_graph_sketch(&top_level_targets),
+                    )
+                    .await,
+                ),
+            ),
             DetailedAggregatedMetricsEvent::ActionExecuted(metrics) => {
                 self.observed_executions.insert(metrics.key.dupe(), metrics);
             }
@@ -111,7 +125,7 @@ impl DetailedAggregatedMetricsStateTracker {
             .map(|(idx, spec)| {
                 let analysis_nodes = self.analysis_nodes.dupe();
                 let rule_type_name = spec.target.rule_type().name().to_owned();
-                tokio::task::spawn_blocking(move || {
+                spawn_blocking(move || {
                     let mut target_graph = BuckMutSet::default();
                     traverse_target_graph(&spec.target, |target| {
                         target_graph.insert(target.dupe());
@@ -213,7 +227,7 @@ impl DetailedAggregatedMetricsStateTracker {
             let analysis_nodes = self.analysis_nodes.dupe();
             let label = spec.label.clone();
             let outputs = spec.outputs.dupe();
-            tokio::task::spawn_blocking(move || {
+            spawn_blocking(move || {
                 match compute_action_graph_sketch(
                     outputs.iter().map(|(artifact, _)| artifact),
                     &analysis_nodes,

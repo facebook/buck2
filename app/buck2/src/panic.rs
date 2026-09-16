@@ -27,20 +27,27 @@ pub fn initialize() -> buck2_error::Result<()> {
         the_panic_hook(fb, info);
         hook(info);
     }));
-    buck2_core::error::initialize(Box::new(move |category, err, loc, options| {
-        let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
-        imp::write_soft_error(
-            fb,
-            category,
-            err,
-            buck2_data::Location {
-                file: loc.0.to_owned(),
-                line: loc.1,
-                column: loc.2,
-            },
-            options,
-        );
-    }))
+    buck2_core::error::initialize(
+        Box::new(move |category, err, loc, context, options| {
+            let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
+            imp::write_soft_error(
+                fb,
+                category,
+                err,
+                buck2_data::Location {
+                    file: loc.0.to_owned(),
+                    line: loc.1,
+                    column: loc.2,
+                },
+                context,
+                options,
+            );
+        }),
+        Box::new(|| {
+            buck2_events::dispatch::get_dispatcher_opt()
+                .and_then(|dispatcher| dispatcher.soft_error_context())
+        }),
+    )
     .buck_error_context("Error initializing soft errors")?;
     Ok(())
 }
@@ -56,8 +63,10 @@ fn the_panic_hook(fb: FacebookInit, info: &PanicHookInfo) {
 
 mod imp {
     use std::panic::PanicHookInfo;
+    use std::sync::Arc;
 
     use backtrace::Backtrace;
+    use buck2_core::error::SoftErrorContext;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::BuckEvent;
@@ -167,6 +176,7 @@ mod imp {
         category: &str,
         err: &buck2_error::Error,
         location: Location,
+        context: &Arc<SoftErrorContext>,
         options: StructuredErrorOptions,
     ) {
         let event = panic_payload(
@@ -191,8 +201,16 @@ mod imp {
                 #[cfg(client_only)]
                 let warn = !options.quiet;
                 #[cfg(not(client_only))]
-                let warn = !buck2_server::active_commands::broadcast_instant_event(&event)
-                    && !options.quiet;
+                let warn = {
+                    let sent = if context.is_command_scoped() {
+                        buck2_server::active_commands::dispatch_soft_error_for_context(
+                            context, &event,
+                        )
+                    } else {
+                        buck2_server::active_commands::broadcast_instant_event(&event)
+                    };
+                    !sent && !options.quiet
+                };
                 if warn {
                     tracing::warn!("Warning \"{}\": {:#}", category, err);
                 }

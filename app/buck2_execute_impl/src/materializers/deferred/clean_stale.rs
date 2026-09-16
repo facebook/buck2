@@ -36,6 +36,7 @@ use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
@@ -1100,14 +1101,15 @@ fn create_clean_fut<T: IoHandler>(
                 .boxed()
                 .shared();
                 let (finish_sender, finish_receiver) = tokio::sync::oneshot::channel();
-                if let Err(error) = command_sender.send(MaterializerCommand::Extension(Box::new(
-                    FinishUnmaterializationUpload {
+                if let Err(error) = command_sender.send(MaterializerCommand::Extension(
+                    Box::new(FinishUnmaterializationUpload {
                         upload,
                         info,
                         cleaning_fut: attached_fut,
                         sender: finish_sender,
-                    },
-                ))) {
+                    }),
+                    get_dispatcher_opt(),
+                )) {
                     return CleanPathOutcome::Failed {
                         size,
                         error: error.into(),
@@ -1147,6 +1149,7 @@ fn create_clean_fut<T: IoHandler>(
                         path,
                         version: cleaning_version,
                         result,
+                        dispatcher: get_dispatcher_opt(),
                     },
                 );
                 let _ignored = completion_sender.send(());

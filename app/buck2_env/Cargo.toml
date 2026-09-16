@@ -8,8 +8,8 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-arc-swap.workspace = true
 buck2_error.workspace = true
+buck2_hash.workspace = true
 dupe.workspace = true
 linkme.workspace = true
 starlark_map.workspace = true

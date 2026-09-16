@@ -8,28 +8,54 @@
  * above-listed licenses.
  */
 
+use std::cell::RefCell;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::LazyLock;
-use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use arc_swap::ArcSwapOption;
-use buck2_error::BuckErrorOptionContext;
+use buck2_hash::BuckDashMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::env::buck2_env;
 
 type StructuredErrorHandler = Box<
-    dyn for<'a> Fn(&'a str, &buck2_error::Error, (&'a str, u32, u32), StructuredErrorOptions)
-        + Send
+    dyn for<'a> Fn(
+            &'a str,
+            &buck2_error::Error,
+            (&'a str, u32, u32),
+            &Arc<SoftErrorContext>,
+            StructuredErrorOptions,
+        ) + Send
         + Sync
         + 'static,
 >;
 
 static HANDLER: OnceLock<StructuredErrorHandler> = OnceLock::new();
+
+/// Supplies the soft-error context associated with the current command, when one exists.
+pub type SoftErrorContextProvider =
+    Box<dyn Fn() -> Option<Arc<SoftErrorContext>> + Send + Sync + 'static>;
+
+static CONTEXT_PROVIDER: OnceLock<SoftErrorContextProvider> = OnceLock::new();
+// Work with no command dispatcher shares one process-lifetime policy and emission quota.
+static FALLBACK_CONTEXT: OnceLock<Arc<SoftErrorContext>> = OnceLock::new();
+
+thread_local! {
+    static THREAD_CONTEXT: RefCell<Option<Arc<SoftErrorContext>>> = const { RefCell::new(None) };
+}
+
+struct RestoreSoftErrorContext(Option<Arc<SoftErrorContext>>);
+
+impl Drop for RestoreSoftErrorContext {
+    fn drop(&mut self) {
+        THREAD_CONTEXT.with(|context| {
+            context.replace(self.0.take());
+        });
+    }
+}
 
 pub fn buck2_hard_error_env() -> buck2_error::Result<Option<&'static str>> {
     buck2_env!("BUCK2_HARD_ERROR")
@@ -68,48 +94,9 @@ impl ShowSoftErrorConfig {
     }
 }
 
-static SHOW_SOFT_ERROR_CONFIG: ShowSoftErrorConfigHolder = ShowSoftErrorConfigHolder {
-    config: ArcSwapOption::const_empty(),
-};
-
-struct ShowSoftErrorConfigHolder {
-    config: ArcSwapOption<ShowSoftErrorConfig>,
-}
-
-impl ShowSoftErrorConfigHolder {
-    fn reload(&self, var_value: &str) {
-        let config = ShowSoftErrorConfig::parse(var_value);
-        if let Some(old_config) = &*self.config.load() {
-            if **old_config == config {
-                return;
-            }
-        }
-        self.config.store(Some(Arc::new(config)));
-    }
-}
-
 pub fn buck2_show_soft_errors_env() -> buck2_error::Result<Option<&'static str>> {
     buck2_env!("BUCK2_SHOW_SOFT_ERRORS")
 }
-
-/// Reload the show soft error config from the client-provided value.
-/// Called on every command, mirroring `reload_hard_error_config`.
-pub fn reload_show_soft_error_config(var_value: &str) {
-    SHOW_SOFT_ERROR_CONFIG.reload(var_value);
-}
-
-fn should_show_soft_error(category: &str) -> bool {
-    match SHOW_SOFT_ERROR_CONFIG.config.load_full() {
-        Some(config) => config.should_show(category),
-        None => false,
-    }
-}
-
-static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
-    config: ArcSwapOption::const_empty(),
-};
-
-static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
 static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<SmallSet<String>> =
     LazyLock::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
@@ -156,13 +143,9 @@ pub macro soft_error {
         $crate::soft_error::soft_error!($category, $err, $($k: $v,)*)
     },
     ($category:expr, $err:expr, $($k:ident : $v:expr ,)*) => { {
-        static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        static ONCE: std::sync::Once = std::sync::Once::new();
         $crate::soft_error::handle_soft_error(
             $category,
             $err,
-            &COUNT,
-            &ONCE,
             (file!(), line!(), column!()),
             $crate::soft_error::StructuredErrorOptions {
                 $($k: $v,)*
@@ -199,27 +182,6 @@ pub macro tag_result {
     ($category:expr, $res:expr, $($k:ident : $v:expr ,)*) => {
         $res.map_err(|err| $crate::soft_error::tag_error!($category, err, $($k: $v,)*))
     },
-}
-
-fn hard_error_config() -> buck2_error::Result<Arc<HardErrorConfig>> {
-    // This function should return `Guard<Arc<HardErrorConfig>>` to make it a little bit faster,
-    // see https://github.com/vorner/arc-swap/issues/90
-
-    if let Some(config) = HARD_ERROR_CONFIG.config.load_full() {
-        return Ok(config);
-    }
-
-    let config = buck2_hard_error_env()?.unwrap_or_default();
-    let config = HardErrorConfig::from_str(config)?;
-    HARD_ERROR_CONFIG.config.store(Some(Arc::new(config)));
-    HARD_ERROR_CONFIG
-        .config
-        .load_full()
-        .internal_error("Just stored a value")
-}
-
-pub fn reload_hard_error_config(var_value: &str) -> buck2_error::Result<()> {
-    HARD_ERROR_CONFIG.reload_hard_error_config(var_value)
 }
 
 pub struct StructuredErrorOptions {
@@ -263,38 +225,34 @@ impl Default for StructuredErrorOptions {
 pub fn handle_soft_error(
     category: &str,
     err: buck2_error::Error,
-    count: &'static AtomicUsize,
-    once: &std::sync::Once,
     loc: (&'static str, u32, u32),
     options: StructuredErrorOptions,
 ) -> Result<buck2_error::Error, buck2_error::Error> {
     validate_logview_category(category)?;
 
-    once.call_once(|| {
-        ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
-    });
+    let context = soft_error_context()?;
 
     let mut options = options;
-    if options.quiet && should_show_soft_error(category) {
+    if options.quiet && context.show_soft_error_config.should_show(category) {
         options.quiet = false;
     }
 
     let error_on_oss = options.error_on_oss;
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
-    if count.fetch_add(1, Ordering::SeqCst) < 10 {
+    if context.should_emit(loc) {
         if let Some(handler) = HANDLER.get() {
-            handler(category, &err, loc, options);
+            handler(category, &err, loc, &context, options);
         }
     }
 
-    if hard_error_config()?.should_panic(category) {
+    if context.hard_error_config.should_panic(category) {
         panic!(
             "Upgraded warning to panic via $BUCK2_HARD_ERROR\n {category}: {:?}",
             err
         );
     }
-    if hard_error_config()?.should_hard_error(category) {
+    if context.hard_error_config.should_hard_error(category) {
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
     }
 
@@ -310,21 +268,110 @@ pub fn handle_soft_error(
     Ok(err)
 }
 
-#[allow(clippy::significant_drop_in_scrutinee)] // False positive.
-pub fn reset_soft_error_counters() {
-    for counter in ALL_SOFT_ERROR_COUNTERS.lock().unwrap().iter() {
-        counter.store(0, Ordering::Relaxed);
+fn soft_error_context() -> buck2_error::Result<Arc<SoftErrorContext>> {
+    if let Some(context) = capture_soft_error_context() {
+        return Ok(context);
     }
+
+    if let Some(context) = FALLBACK_CONTEXT.get() {
+        return Ok(context.clone());
+    }
+
+    let context = Arc::new(SoftErrorContext::from_environment()?);
+    let _ignored = FALLBACK_CONTEXT.set(context.clone());
+    Ok(FALLBACK_CONTEXT.get().cloned().unwrap_or(context))
 }
 
-pub fn initialize(handler: StructuredErrorHandler) -> buck2_error::Result<()> {
-    hard_error_config()?;
+/// Captures command-scoped policy without manufacturing a process fallback.
+pub fn capture_soft_error_context() -> Option<Arc<SoftErrorContext>> {
+    THREAD_CONTEXT
+        .with(|context| context.borrow().clone())
+        .or_else(|| CONTEXT_PROVIDER.get().and_then(|provider| provider()))
+}
+
+/// Installs captured command policy while executing synchronous work on another thread.
+pub fn with_soft_error_context<R>(
+    context: Option<Arc<SoftErrorContext>>,
+    func: impl FnOnce() -> R,
+) -> R {
+    let Some(context) = context else {
+        return func();
+    };
+
+    THREAD_CONTEXT.with(|current| {
+        let previous = current.replace(Some(context));
+        let _restore = RestoreSoftErrorContext(previous);
+        func()
+    })
+}
+
+pub fn initialize(
+    handler: StructuredErrorHandler,
+    context_provider: SoftErrorContextProvider,
+) -> buck2_error::Result<()> {
+    soft_error_context()?;
+
+    if let Err(_e) = CONTEXT_PROVIDER.set(context_provider) {
+        panic!("Cannot initialize SoftErrorContextProvider more than once");
+    }
 
     if let Err(_e) = HANDLER.set(handler) {
         panic!("Cannot initialize StructuredErrorHandler handler more than once");
     }
 
     Ok(())
+}
+
+/// Policy and rate-limit state shared by work attributed to one command.
+#[derive(Debug)]
+pub struct SoftErrorContext {
+    hard_error_config: HardErrorConfig,
+    show_soft_error_config: ShowSoftErrorConfig,
+    counts: BuckDashMap<(&'static str, u32, u32), AtomicUsize>,
+    command_scoped: bool,
+}
+
+impl SoftErrorContext {
+    /// Parses the client-provided soft-error policy for a command.
+    pub fn new(hard_error_config: &str, show_soft_error_config: &str) -> buck2_error::Result<Self> {
+        Ok(Self {
+            hard_error_config: HardErrorConfig::from_str(hard_error_config)?,
+            show_soft_error_config: ShowSoftErrorConfig::parse(show_soft_error_config),
+            counts: BuckDashMap::default(),
+            command_scoped: true,
+        })
+    }
+
+    fn from_environment() -> buck2_error::Result<Self> {
+        let mut context = Self::new(
+            buck2_hard_error_env()?.unwrap_or_default(),
+            buck2_show_soft_errors_env()?.unwrap_or_default(),
+        )?;
+        context.command_scoped = false;
+        Ok(context)
+    }
+
+    /// Whether this context belongs to a client command rather than process-wide fallback work.
+    pub fn is_command_scoped(&self) -> bool {
+        self.command_scoped
+    }
+
+    fn should_emit(&self, loc: (&'static str, u32, u32)) -> bool {
+        if let Some(count) = self.counts.get(&loc) {
+            return increment_soft_error_counter(&count);
+        }
+
+        let count = self.counts.entry(loc).or_default();
+        increment_soft_error_counter(&count)
+    }
+}
+
+fn increment_soft_error_counter(count: &AtomicUsize) -> bool {
+    count
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+            (count < 10).then_some(count + 1)
+        })
+        .is_ok()
 }
 
 /// Parse either a boolean or `only=category1,category2`
@@ -377,24 +424,6 @@ impl FromStr for HardErrorConfig {
         }
 
         Err(InvalidHardErrorConfig(s.to_owned()))
-    }
-}
-
-struct HardErrorConfigHolder {
-    config: ArcSwapOption<HardErrorConfig>,
-}
-
-impl HardErrorConfigHolder {
-    fn reload_hard_error_config(&self, var_value: &str) -> buck2_error::Result<()> {
-        let config = HardErrorConfig::from_str(var_value)?;
-        if let Some(old_config) = &*self.config.load() {
-            if **old_config == config {
-                return Ok(());
-            }
-        }
-
-        self.config.store(Some(Arc::new(config)));
-        Ok(())
     }
 }
 
@@ -459,26 +488,64 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_reset_soft_error_handler() {
-        let config = HardErrorConfigHolder {
-            config: ArcSwapOption::const_empty(),
-        };
+    fn test_soft_error_contexts_are_isolated() -> buck2_error::Result<()> {
+        let first = SoftErrorContext::new("true", "")?;
+        let second = SoftErrorContext::new("false", "only=test_category")?;
+        let loc = ("test.rs", 1, 1);
 
-        assert!(config.config.load().is_none());
+        assert!(first.hard_error_config.should_hard_error("test_category"));
+        assert!(!first.show_soft_error_config.should_show("test_category"));
+        assert!(!second.hard_error_config.should_hard_error("test_category"));
+        assert!(second.show_soft_error_config.should_show("test_category"));
 
-        config.reload_hard_error_config("true").unwrap();
-        let c0 = config.config.load();
-        let c0 = c0.as_ref().unwrap();
-        config.reload_hard_error_config("true").unwrap();
-        let c1 = config.config.load();
-        let c1 = c1.as_ref().unwrap();
-        assert!(Arc::ptr_eq(c0, c1), "Reload identical config is no-op");
-        assert_eq!(**c0, HardErrorConfig::Bool(true));
+        for _ in 0..10 {
+            assert!(first.should_emit(loc));
+        }
+        assert!(!first.should_emit(loc));
+        assert!(second.should_emit(loc));
 
-        config.reload_hard_error_config("false").unwrap();
-        let c2 = config.config.load();
-        let c2 = c2.as_ref().unwrap();
-        assert_eq!(**c2, HardErrorConfig::Bool(false));
+        Ok(())
+    }
+
+    #[test]
+    fn test_soft_error_context_limits_concurrent_emission() -> buck2_error::Result<()> {
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let emitted = std::thread::scope(|scope| {
+            (0..4)
+                .map(|_| {
+                    let context = context.clone();
+                    scope.spawn(move || {
+                        (0..100)
+                            .filter(|_| context.should_emit(("test.rs", 1, 1)))
+                            .count()
+                    })
+                })
+                .map(|handle| handle.join().expect("worker should not panic"))
+                .sum::<usize>()
+        });
+
+        assert_eq!(10, emitted);
+        Ok(())
+    }
+
+    #[test]
+    fn test_soft_error_context_sync_scope_restores_nested_context() -> buck2_error::Result<()> {
+        let outer = Arc::new(SoftErrorContext::new("", "")?);
+        let inner = Arc::new(SoftErrorContext::new("", "")?);
+
+        with_soft_error_context(Some(outer.clone()), || {
+            with_soft_error_context(Some(inner.clone()), || {
+                let observed = capture_soft_error_context()
+                    .expect("inner context should be visible on the worker thread");
+                assert!(Arc::ptr_eq(&inner, &observed));
+            });
+            let observed = capture_soft_error_context()
+                .expect("outer context should be restored on the worker thread");
+            assert!(Arc::ptr_eq(&outer, &observed));
+        });
+
+        assert!(capture_soft_error_context().is_none());
+        Ok(())
     }
 
     #[test]

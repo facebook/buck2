@@ -19,6 +19,8 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
 use dupe::Dupe;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -38,10 +40,12 @@ pub(crate) enum DetailedAggregatedMetricsEvent {
     ComputeMetrics(
         PerBuildEvents,
         tokio::sync::oneshot::Sender<buck2_error::Result<DetailedAggregatedMetrics>>,
+        Option<EventDispatcher>,
     ),
     ComputeActionGraphSketch(
         Vec<TopLevelTargetSpec>,
         tokio::sync::oneshot::Sender<buck2_error::Result<ActionGraphSketchResult>>,
+        Option<EventDispatcher>,
     ),
     ActionExecuted(ActionExecutionMetrics),
 }
@@ -80,7 +84,11 @@ impl DetailedAggregatedMetricsEventHandler {
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        self.send(DetailedAggregatedMetricsEvent::ComputeMetrics(events, tx))?;
+        self.send(DetailedAggregatedMetricsEvent::ComputeMetrics(
+            events,
+            tx,
+            get_dispatcher_opt(),
+        ))?;
         rx.await?
     }
 
@@ -92,6 +100,7 @@ impl DetailedAggregatedMetricsEventHandler {
         self.send(DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(
             top_level_targets,
             tx,
+            get_dispatcher_opt(),
         ))?;
         rx.await?
     }

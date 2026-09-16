@@ -19,6 +19,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::with_dispatcher_opt_async;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_hash::BuckMutMap;
@@ -113,14 +115,15 @@ impl BuckStarlarkDebuggerServer {
         project_root: ProjectRoot,
     ) -> Self {
         let (to_state, state_recv) = mpsc::unbounded_channel();
-        tokio::task::spawn(async move {
+        let dispatcher = get_dispatcher_opt();
+        tokio::task::spawn(with_dispatcher_opt_async(dispatcher, async move {
             let mut server = ServerState::new(to_client, project_root);
             let res = server.run(state_recv).await;
             // We always send the ::Shutdown message when the state thread finishes. It may be normal
             // shutdown (on detach()) or indicate an internal state error or that the client has already
             // exited (and dropped its side of the channel).
             let _ignored = server.to_client.send(ToClientMessage::Shutdown(res));
-        });
+        }));
         // TODO(cjhopman): figure out a better value for the limit on evaluations. This should probably be
         // passed in as we should at the least respect any `-j` flag.
         Self {

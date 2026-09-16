@@ -21,6 +21,9 @@ use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::sqlite::sqlite_db::SqliteTable;
 use buck2_common::sqlite::sqlite_db::SqliteTables;
+use buck2_core::error::SoftErrorContext;
+use buck2_core::error::capture_soft_error_context;
+use buck2_core::error::with_soft_error_context;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::dep_file_state::DepFileDbSize;
@@ -151,7 +154,25 @@ impl DepFileStateSqliteDb {
 
 /// A queued mutation of the db. Writes are applied on a dedicated thread (see
 /// [`PersistedDepFileStore`]), in the order they were issued.
-enum DepFileWrite {
+struct DepFileWrite {
+    context: Option<Arc<SoftErrorContext>>,
+    operation: DepFileWriteOperation,
+}
+
+impl DepFileWrite {
+    fn capture(operation: DepFileWriteOperation) -> Self {
+        Self {
+            context: capture_soft_error_context(),
+            operation,
+        }
+    }
+
+    fn with_context<R>(self, func: impl FnOnce(DepFileWriteOperation) -> R) -> R {
+        with_soft_error_context(self.context, || func(self.operation))
+    }
+}
+
+enum DepFileWriteOperation {
     Insert {
         logical_key: Vec<u8>,
         config_key: Vec<u8>,
@@ -167,10 +188,10 @@ enum DepFileWrite {
 }
 
 /// Applies one write, returning what it did, or `None` for a `Flush`.
-fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) -> Option<WriteKind> {
+fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWriteOperation) -> Option<WriteKind> {
     let table = db.dep_file_state_table();
     let (result, category, kind) = match write {
-        DepFileWrite::Insert {
+        DepFileWriteOperation::Insert {
             logical_key,
             config_key,
             state,
@@ -179,7 +200,7 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) -> Option<WriteKi
             "insert_to_dep_file_db",
             WriteKind::Insert,
         ),
-        DepFileWrite::Delete {
+        DepFileWriteOperation::Delete {
             logical_key,
             config_key,
         } => (
@@ -187,8 +208,8 @@ fn apply_write(db: &DepFileStateSqliteDb, write: DepFileWrite) -> Option<WriteKi
             "delete_from_dep_file_db",
             WriteKind::Delete,
         ),
-        DepFileWrite::Clear => (table.clear(), "clear_dep_file_db", WriteKind::Clear),
-        DepFileWrite::Flush(ack) => {
+        DepFileWriteOperation::Clear => (table.clear(), "clear_dep_file_db", WriteKind::Clear),
+        DepFileWriteOperation::Flush(ack) => {
             // Dropping the sender would also wake the waiter, so the send result is irrelevant.
             let _ignored = ack.send(());
             return None;
@@ -352,7 +373,7 @@ impl PersistedDepFileStore {
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
         let db = Arc::new(db);
-        let (writes, receiver) = crossbeam_channel::unbounded();
+        let (writes, receiver) = crossbeam_channel::unbounded::<DepFileWrite>();
         let writer_db = db.dupe();
         let write = Arc::new(WriteCounters::default());
         let writer_counters = write.dupe();
@@ -362,7 +383,7 @@ impl PersistedDepFileStore {
         thread_spawn("buck2-dep-file-db", move || {
             for write in receiver.iter() {
                 let started = Instant::now();
-                let kind = apply_write(&writer_db, write);
+                let kind = write.with_context(|operation| apply_write(&writer_db, operation));
                 let applied =
                     kind.map(|kind| (kind, (Instant::now() - started).as_micros() as u64));
                 writer_counters.record(applied);
@@ -410,7 +431,8 @@ impl PersistedDepFileStore {
     /// Queue a write. The channel only fails once the writer thread is gone (it panicked, since it
     /// otherwise lives as long as this store), after which every later write is dropped too. That
     /// silently disables persistence, so report it -- once, because the failure is permanent.
-    fn queue(&self, write: DepFileWrite) {
+    fn queue(&self, operation: DepFileWriteOperation) {
+        let write = DepFileWrite::capture(operation);
         // Counted only once accepted, so a rejected write does not leave `queued` permanently ahead of
         // `applied` and turn the depth gauge into a monotonic counter.
         if self.writes.send(write).is_ok() {
@@ -433,7 +455,7 @@ impl PersistedDepFileStore {
 
 impl DepFileStore for PersistedDepFileStore {
     fn insert(&self, logical_key: Vec<u8>, config_key: Vec<u8>, state: StoredDepFileState) {
-        self.queue(DepFileWrite::Insert {
+        self.queue(DepFileWriteOperation::Insert {
             logical_key,
             config_key,
             state,
@@ -441,7 +463,7 @@ impl DepFileStore for PersistedDepFileStore {
     }
 
     fn delete(&self, logical_key: Vec<u8>, config_key: Vec<u8>) {
-        self.queue(DepFileWrite::Delete {
+        self.queue(DepFileWriteOperation::Delete {
             logical_key,
             config_key,
         });
@@ -491,13 +513,13 @@ impl DepFileStore for PersistedDepFileStore {
         // Queued (not applied inline) so it cannot overtake writes issued before it, then waited on:
         // the in-memory cache is cleared synchronously by the caller, so leaving rows on disk that a
         // lookup could still reach would defeat the invalidation. It is rare enough to block for.
-        self.queue(DepFileWrite::Clear);
+        self.queue(DepFileWriteOperation::Clear);
         self.flush();
     }
 
     fn flush(&self) {
         let (ack, wait) = crossbeam_channel::bounded(1);
-        self.queue(DepFileWrite::Flush(ack));
+        self.queue(DepFileWriteOperation::Flush(ack));
         // Resolves either on acknowledgement or when the writer thread drops the sender.
         let _ignored = wait.recv();
     }
@@ -524,5 +546,22 @@ impl DepFileStore for PersistedDepFileStore {
             .queued
             .load(Ordering::Relaxed)
             .saturating_sub(self.write.applied.load(Ordering::Relaxed))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn queued_write_preserves_soft_error_context() -> buck2_error::Result<()> {
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let write = with_soft_error_context(Some(context.clone()), || {
+            DepFileWrite::capture(DepFileWriteOperation::Clear)
+        });
+
+        let observed = write.with_context(|_| capture_soft_error_context());
+        assert!(observed.is_some_and(|observed| Arc::ptr_eq(&context, &observed)));
+        Ok(())
     }
 }

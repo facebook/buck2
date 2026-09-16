@@ -11,6 +11,7 @@
 use buck2_core::soft_error;
 use buck2_data::VersionControlRevision;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::async_fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -27,7 +28,8 @@ pub(crate) fn spawn_version_control_collector(
     repo_root: AbsNormPathBuf,
 ) -> AbortOnDropHandle {
     buck2_core::execution_types::revision::clear_revision();
-    let handle = tokio::spawn(async move {
+    let context_dispatch = dispatch.clone();
+    let handle = tokio::spawn(with_dispatcher_async(context_dispatch, async move {
         let mut tasks = FuturesUnordered::<BoxFuture<VersionControlRevision>>::new();
 
         tasks.push(Box::pin(create_revision_data(
@@ -51,7 +53,7 @@ pub(crate) fn spawn_version_control_collector(
 
             dispatch.instant_event(event);
         }
-    });
+    }));
 
     AbortOnDropHandle { handle }
 }

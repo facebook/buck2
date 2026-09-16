@@ -24,6 +24,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::BuckMutSet;
 use buck2_test_api::data::RemoteStorageConfig;
@@ -105,8 +106,7 @@ impl ReClientWithCache {
         let file_config = FileDigestConfig::build(digest_config.cas_digest_config());
         let file_path = AbsPathBuf::new(local_path)?;
         let tracked_digest =
-            tokio::task::spawn_blocking(move || FileDigest::from_file(&file_path, file_config))
-                .await??;
+            spawn_blocking(move || FileDigest::from_file(&file_path, file_config)).await??;
         let re_digest = tracked_digest.to_re();
 
         let re_use_case = RemoteExecutorUseCase::new(use_case.to_owned());

@@ -129,6 +129,7 @@ mod state_machine {
 
     use assert_matches::assert_matches;
     use buck2_common::file_ops::metadata::Symlink;
+    use buck2_core::error::SoftErrorContext;
     use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
@@ -189,6 +190,20 @@ mod state_machine {
         digest_config: DigestConfig,
         buck_out_path: ProjectRelativePathBuf,
         fs: ProjectRoot,
+    }
+
+    #[derive(Debug)]
+    struct CaptureSoftErrorContext {
+        sender: oneshot::Sender<bool>,
+    }
+
+    impl<T: 'static> ExtensionCommand<T> for CaptureSoftErrorContext {
+        fn execute(self: Box<Self>, _processor: &mut DeferredMaterializerCommandProcessor<T>) {
+            let has_context = get_dispatcher_opt()
+                .and_then(|dispatcher| dispatcher.soft_error_context())
+                .is_some();
+            let _ignored = self.sender.send(has_context);
+        }
     }
 
     impl DeferredMaterializerAccessor<StubIoHandler> {
@@ -300,6 +315,7 @@ mod state_machine {
                         path,
                         version,
                         result: Ok(()),
+                        dispatcher: None,
                     },
                 );
                 Ok(())
@@ -492,6 +508,7 @@ mod state_machine {
                     path: path.clone(),
                     sender,
                 }) as _,
+                None,
             ))?;
             if receiver
                 .await
@@ -649,6 +666,28 @@ mod state_machine {
         let dispatcher = EventDispatcher::new(TraceId::null(), DaemonId::new(), sink);
         let result = with_dispatcher_async(dispatcher, dm.clean_stale_artifacts(args)).await;
         (result, events)
+    }
+
+    #[tokio::test]
+    async fn command_thread_propagates_soft_error_context() -> buck2_error::Result<()> {
+        let io = Arc::new(StubIoHandler::new(temp_root()));
+        let (dm, _daemon_dispatcher_events) = make_materializer(io, None).await;
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let dispatcher = EventDispatcher::null().with_soft_error_context(context);
+        let (sender, receiver) = oneshot::channel();
+
+        with_dispatcher_async(dispatcher, async {
+            dm.command_sender.send(MaterializerCommand::Extension(
+                Box::new(CaptureSoftErrorContext { sender }),
+                get_dispatcher_opt(),
+            ))?;
+            assert!(receiver.await?);
+            buck2_error::Ok(())
+        })
+        .await?;
+
+        dm.abort();
+        Ok(())
     }
 
     #[tokio::test]

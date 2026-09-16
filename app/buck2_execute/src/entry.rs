@@ -24,6 +24,7 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
@@ -281,7 +282,7 @@ fn build_file_metadata(
 
     async move {
         let _permit = SEMAPHORE.acquire().await.unwrap();
-        let io_task = tokio::task::spawn_blocking(io_task);
+        let io_task = spawn_blocking(io_task);
         let (is_executable, hashing_info, file_digest) = io_task.await??;
         let file_digest = file_digest?;
         let file_metadata = FileMetadata {

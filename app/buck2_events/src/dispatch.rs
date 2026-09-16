@@ -24,6 +24,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::error::SoftErrorContext;
 use buck2_core::event::EventDispatch;
 use buck2_data::SpanEndEvent;
 use buck2_data::SpanStartEvent;
@@ -53,6 +54,8 @@ pub struct EventDispatcher {
     /// The sink to log events to.
     #[allocative(skip)] // TODO(nga): do not skip.
     sink: Arc<dyn EventSink>,
+    #[allocative(skip)]
+    soft_error_context: Option<Arc<SoftErrorContext>>,
 }
 
 impl EventDispatcher {
@@ -66,7 +69,19 @@ impl EventDispatcher {
             trace_id,
             daemon_id,
             sink: Arc::new(sink),
+            soft_error_context: None,
         }
+    }
+
+    /// Associates command-scoped soft-error policy and rate-limit state with this dispatcher.
+    pub fn with_soft_error_context(mut self, context: Arc<SoftErrorContext>) -> Self {
+        self.soft_error_context = Some(context);
+        self
+    }
+
+    /// Returns the command-scoped soft-error context, if this dispatcher has one.
+    pub fn soft_error_context(&self) -> Option<Arc<SoftErrorContext>> {
+        self.soft_error_context.clone()
     }
 
     pub fn sink(&self) -> Arc<dyn EventSink> {
@@ -79,6 +94,7 @@ impl EventDispatcher {
             trace_id: TraceId::null(),
             daemon_id: DaemonId::null(),
             sink: Arc::new(NullEventSink::new()),
+            soft_error_context: None,
         }
     }
 
@@ -92,6 +108,7 @@ impl EventDispatcher {
             trace_id: TraceId::null(),
             daemon_id: DaemonId::null(),
             sink: Arc::new(ErrorOnEventSink),
+            soft_error_context: None,
         }
     }
 
@@ -510,12 +527,34 @@ where
     EVENTS.sync_scope(dispatcher, func)
 }
 
+/// Invokes `func` with an optional captured dispatcher, preserving the absence of command context.
+pub fn with_dispatcher_opt<R, F>(dispatcher: Option<EventDispatcher>, func: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    match dispatcher {
+        Some(dispatcher) => with_dispatcher(dispatcher, func),
+        None => func(),
+    }
+}
+
 // Wraps the Future fut with a TaskLocalFuture that sets the task_local dispatcher and the current_span (if any) before polling fut.
 pub fn with_dispatcher_async<F, R>(dispatcher: EventDispatcher, fut: F) -> impl Future<Output = R>
 where
     F: Future<Output = R>,
 {
     EVENTS.scope(dispatcher, SpanProxyAsync::new(fut))
+}
+
+/// Polls `fut` with an optional captured dispatcher, preserving absent command context.
+pub async fn with_dispatcher_opt_async<F, R>(dispatcher: Option<EventDispatcher>, fut: F) -> R
+where
+    F: Future<Output = R>,
+{
+    match dispatcher {
+        Some(dispatcher) => with_dispatcher_async(dispatcher, fut).await,
+        None => fut.await,
+    }
 }
 
 /// Get the ambient dispatcher, if one is available (and None otherwise). In contexts that aren't
@@ -728,6 +767,7 @@ pub fn async_record_root_spans<Fut>(fut: Fut) -> RootSpansRecordingFuture<Fut> {
 
 #[cfg(test)]
 mod tests {
+    use buck2_core::error::SoftErrorContext;
     use buck2_data::CommandEnd;
     use buck2_data::CommandStart;
     use tokio::task::JoinHandle;
@@ -760,6 +800,20 @@ mod tests {
         };
 
         (start, end)
+    }
+
+    #[tokio::test]
+    async fn soft_error_context_propagates_through_spawn() -> buck2_error::Result<()> {
+        let context = Arc::new(SoftErrorContext::new("", "")?);
+        let dispatcher = EventDispatcher::null().with_soft_error_context(context.dupe());
+
+        let observed = tokio::spawn(with_dispatcher_async(dispatcher, async {
+            get_dispatcher_opt().and_then(|dispatcher| dispatcher.soft_error_context())
+        }))
+        .await?;
+
+        assert!(observed.is_some_and(|observed| Arc::ptr_eq(&context, &observed)));
+        Ok(())
     }
 
     #[tokio::test]

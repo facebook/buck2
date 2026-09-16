@@ -24,8 +24,10 @@ use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_events::dispatch::with_dispatcher_opt;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -39,7 +41,6 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::BuckMutSet;
 use buck2_util::threads::check_stack_overflow;
-use buck2_wrapper_common::invocation_id::TraceId;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -144,7 +145,11 @@ pub(super) enum MaterializerCommand<T: 'static> {
     ),
 
     /// Declares that a set of artifacts already exist
-    DeclareExisting(Vec<DeclareArtifactPayload>, Option<SpanId>, Option<TraceId>),
+    DeclareExisting(
+        Vec<DeclareArtifactPayload>,
+        Option<SpanId>,
+        Option<EventDispatcher>,
+    ),
 
     /// Declares an artifact: its path, value, and how to materialize it.
     Declare(
@@ -159,7 +164,11 @@ pub(super) enum MaterializerCommand<T: 'static> {
         oneshot::Sender<bool>,
     ),
 
-    HasArtifact(ProjectRelativePathBuf, oneshot::Sender<bool>),
+    HasArtifact(
+        ProjectRelativePathBuf,
+        oneshot::Sender<bool>,
+        Option<EventDispatcher>,
+    ),
 
     /// Declares that given paths are no longer eligible to be materialized by this materializer.
     /// This typically should reflect a change made to the underlying filesystem, either because
@@ -184,7 +193,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
-    Extension(Box<dyn ExtensionCommand<T>>),
+    Extension(Box<dyn ExtensionCommand<T>>, Option<EventDispatcher>),
 
     /// Terminate command processor loop, used by tests
     #[allow(dead_code)]
@@ -204,16 +213,34 @@ pub(super) enum MaterializerCommand<T: 'static> {
     },
 }
 
+impl<T> MaterializerCommand<T> {
+    fn dispatcher(&self) -> Option<EventDispatcher> {
+        match self {
+            Self::DeclareExisting(_, _, dispatcher)
+            | Self::HasArtifact(_, _, dispatcher)
+            | Self::Extension(_, dispatcher) => dispatcher.clone(),
+            Self::Declare(_, _, dispatcher, _)
+            | Self::InvalidateFilePaths(_, _, dispatcher, _)
+            | Self::Ensure(_, _, dispatcher, _, _) => Some(dispatcher.dupe()),
+            Self::GetMaterializedFilePaths(..)
+            | Self::MatchArtifacts(..)
+            | Self::Abort
+            | Self::GetArtifactEntriesForMaterializedPaths { .. } => None,
+        }
+    }
+}
+
 impl<T> std::fmt::Debug for MaterializerCommand<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MaterializerCommand::GetMaterializedFilePaths(paths, _) => {
                 write!(f, "GetMaterializedFilePaths({paths:?}, _)",)
             }
-            MaterializerCommand::DeclareExisting(paths, current_span, trace_id) => {
+            MaterializerCommand::DeclareExisting(paths, current_span, dispatcher) => {
                 write!(
                     f,
-                    "DeclareExisting({paths:?}, {current_span:?}, {trace_id:?})"
+                    "DeclareExisting({paths:?}, {current_span:?}, {:?})",
+                    dispatcher.as_ref().map(EventDispatcher::trace_id)
                 )
             }
             MaterializerCommand::Declare(
@@ -227,7 +254,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::MatchArtifacts(paths, _) => {
                 write!(f, "MatchArtifacts({paths:?})")
             }
-            MaterializerCommand::HasArtifact(path, _) => {
+            MaterializerCommand::HasArtifact(path, ..) => {
                 write!(f, "HasArtifact({path:?})")
             }
             MaterializerCommand::InvalidateFilePaths(paths, ..) => {
@@ -236,7 +263,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Ensure(paths, purpose, _, _, _) => {
                 write!(f, "Ensure({paths:?}, {purpose:?}, _)",)
             }
-            MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
+            MaterializerCommand::Extension(ext, _) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
@@ -265,13 +292,24 @@ pub(super) enum LowPriorityMaterializerCommand {
         timestamp: Timestamp,
         version: Version,
         result: Result<(), SharedMaterializingError>,
+        dispatcher: Option<EventDispatcher>,
     },
 
     CleanupFinished {
         path: ProjectRelativePathBuf,
         version: Version,
         result: Result<(), SharedMaterializingError>,
+        dispatcher: Option<EventDispatcher>,
     },
+}
+
+impl LowPriorityMaterializerCommand {
+    fn dispatcher(&self) -> Option<EventDispatcher> {
+        match self {
+            Self::MaterializationFinished { dispatcher, .. }
+            | Self::CleanupFinished { dispatcher, .. } => dispatcher.clone(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -629,17 +667,20 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn process_one_command(&mut self, command: MaterializerCommand<T>) {
-        match command {
+        let dispatcher = command.dispatcher();
+        with_dispatcher_opt(dispatcher, || match command {
             // Entry point for `get_materialized_file_paths` calls
             MaterializerCommand::GetMaterializedFilePaths(paths, result_sender) => {
                 let result =
                     paths.into_map(|p| self.tree.file_contents_path(p, self.io.digest_config()));
                 result_sender.send(result).ok();
             }
-            MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                for DeclareArtifactPayload { path, artifact } in artifacts {
-                    self.declare_existing(&path, artifact);
-                }
+            MaterializerCommand::DeclareExisting(artifacts, parent_id, _) => {
+                maybe_proxy_current_span(parent_id, || {
+                    for DeclareArtifactPayload { path, artifact } in artifacts {
+                        self.declare_existing(&path, artifact);
+                    }
+                })
             }
             // Entry point for `declare_{copy|cas}` calls
             MaterializerCommand::Declare(
@@ -667,7 +708,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .all(|(path, value)| self.match_artifact(path, value));
                 sender.send(all_matches).ok();
             }
-            MaterializerCommand::HasArtifact(path, sender) => {
+            MaterializerCommand::HasArtifact(path, sender, _) => {
                 sender.send(self.has_artifact(path)).ok();
             }
             MaterializerCommand::InvalidateFilePaths(
@@ -675,36 +716,34 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 sender,
                 event_dispatcher,
                 parent_id,
-            ) => {
-                maybe_proxy_current_span(parent_id, || {
-                    tracing::trace!(
-                        paths = ?paths,
-                        "invalidate paths",
-                    );
-                    self.maybe_log_command(&event_dispatcher, || {
-                        buck2_data::materializer_command::Data::InvalidateFilePaths(
-                            buck2_data::materializer_command::InvalidateFilePaths {
-                                paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
-                            },
-                        )
-                    });
+            ) => maybe_proxy_current_span(parent_id, || {
+                tracing::trace!(
+                    paths = ?paths,
+                    "invalidate paths",
+                );
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::InvalidateFilePaths(
+                        buck2_data::materializer_command::InvalidateFilePaths {
+                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                        },
+                    )
+                });
 
-                    let existing_futs = self.tree.invalidate_paths_and_collect_futures(
-                        paths,
-                        self.sqlite_db.as_mut(),
-                        &self.stats,
-                    );
+                let existing_futs = self.tree.invalidate_paths_and_collect_futures(
+                    paths,
+                    self.sqlite_db.as_mut(),
+                    &self.stats,
+                );
 
-                    // TODO: This probably shouldn't return a CleanFuture
-                    sender
-                        .send(
-                            async move { join_all_existing_futs(existing_futs?).await }
-                                .boxed()
-                                .shared(),
-                        )
-                        .ok();
-                })
-            }
+                // TODO: This probably shouldn't return a CleanFuture
+                sender
+                    .send(
+                        async move { join_all_existing_futs(existing_futs?).await }
+                            .boxed()
+                            .shared(),
+                    )
+                    .ok();
+            }),
             // Entry point for `ensure_materialized` calls
             MaterializerCommand::Ensure(
                 paths,
@@ -729,7 +768,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .send(self.materialize_many_artifacts(paths, event_dispatcher))
                     .ok();
             }),
-            MaterializerCommand::Extension(ext) => ext.execute(self),
+            MaterializerCommand::Extension(ext, _) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
@@ -743,17 +782,19 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     ))
                     .ok();
             }
-        }
+        })
     }
 
     fn process_one_low_priority_command(&mut self, command: LowPriorityMaterializerCommand) {
-        match command {
+        let dispatcher = command.dispatcher();
+        with_dispatcher_opt(dispatcher, || match command {
             // Materialization of artifact succeeded
             LowPriorityMaterializerCommand::MaterializationFinished {
                 path,
                 timestamp,
                 version,
                 result,
+                dispatcher: _,
             } => {
                 self.materialization_finished(path, timestamp, version, result);
             }
@@ -761,10 +802,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 path,
                 version,
                 result,
+                dispatcher: _,
             } => {
                 self.tree.cleanup_finished(path, version, result);
             }
-        }
+        })
     }
 
     /// Poll the current TTL refresh and remove it if it's done. Add the outcome to
@@ -1380,6 +1422,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         timestamp,
                         version,
                         result: res.dupe(),
+                        dispatcher: get_dispatcher_opt(),
                     },
                 );
 
@@ -1513,6 +1556,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             // so we need to delete anything at artifact_path before we ever retry materializing it.
                             // TODO(scottcao): Once command processor accepts an ArtifactTree instead of initializing one,
                             // add a test case to ensure this behavior.
+                            let dispatcher = get_dispatcher_opt()
+                                .unwrap_or_else(EventDispatcher::error_on_event);
                             let future = ProcessingFuture::Cleaning(clean_path(
                                 &self.io,
                                 artifact_path.clone(),
@@ -1521,7 +1566,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 ExistingFutures::empty(),
                                 &self.rt,
                                 self.cancellations,
-                                &EventDispatcher::error_on_event(),
+                                &dispatcher,
                             ));
                             info.processing = Processing::active(future, version);
                         }

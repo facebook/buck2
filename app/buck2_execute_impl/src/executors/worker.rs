@@ -21,6 +21,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -154,6 +155,7 @@ fn spawn_via_forkserver(
     std_redirects: &StdRedirectPaths,
     socket_path: &AbsNormPathBuf,
     graceful_shutdown_timeout_s: Option<u32>,
+    dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -166,7 +168,7 @@ fn spawn_via_forkserver(
     let std_redirects = std_redirects.clone();
 
     let socket_path = socket_path.clone();
-    tokio::spawn(async move {
+    tokio::spawn(with_dispatcher_async(dispatcher, async move {
         let mut req = buck2_forkserver_proto::CommandRequest {
             exe: exe.as_bytes().into(),
             argv: args.into_iter().map(|s| s.as_bytes().into()).collect(),
@@ -200,7 +202,7 @@ fn spawn_via_forkserver(
             fs_util::remove_file(&socket_path).categorize_internal()?;
         }
         res
-    })
+    }))
 }
 
 #[cfg(not(unix))]
@@ -214,6 +216,7 @@ fn spawn_via_forkserver(
     _std_redirects: &StdRedirectPaths,
     _socket_path: &AbsNormPathBuf,
     _graceful_shutdown_timeout_s: Option<u32>,
+    _dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     unreachable!("workers should not be initialized off unix")
 }
@@ -271,6 +274,7 @@ async fn spawn_worker(
         &std_redirects,
         &socket_path,
         graceful_shutdown_timeout_s,
+        dispatcher,
     );
 
     let initial_delay = Duration::from_millis(50);
