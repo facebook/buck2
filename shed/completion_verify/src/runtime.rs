@@ -120,51 +120,55 @@ impl BashRuntime {
 #[derive(Debug)]
 pub(crate) struct FishRuntime {
     home: PathBuf,
+    completion_script: Option<PathBuf>,
 }
 
 impl FishRuntime {
     /// Initialize a new runtime's home
     pub(crate) fn new(home: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&home)?;
-
-        let config_path = home.join("fish/config.fish");
-        let config = "\
-set -U fish_greeting \"\"
-set -U fish_autosuggestion_enabled 0
-function fish_title
-end
-function fish_prompt
-    printf '%% '
-end;
-"
-        .to_owned();
-        std::fs::create_dir_all(config_path.parent().expect("path created with parent"))?;
-        std::fs::write(config_path, config)?;
-
-        Self::with_home(home)
-    }
-
-    /// Reuse an existing runtime's home
-    pub(crate) fn with_home(home: PathBuf) -> std::io::Result<Self> {
-        Ok(Self { home })
+        Ok(Self {
+            home,
+            completion_script: None,
+        })
     }
 
     /// Register a completion script
     pub(crate) fn register(&mut self, name: &str, content: &str) -> std::io::Result<()> {
-        let path = self.home.join(format!("fish/completions/{name}.fish"));
-        std::fs::create_dir_all(path.parent().expect("path created with parent"))?;
-        std::fs::write(path, content)
+        let path = self.home.join(format!("{name}.fish"));
+        std::fs::write(&path, content)?;
+        self.completion_script = Some(path);
+        Ok(())
     }
 
-    /// Get the output from typing `input` into the shell
+    /// Ask Fish to compute completions for `input` without rendering an interactive prompt.
     pub(crate) fn complete(&self, input: &str) -> std::io::Result<String> {
+        let completion = self
+            .completion_script
+            .as_ref()
+            .ok_or_else(|| std::io::Error::other("no Fish completion has been registered"))?;
         let mut command = Shell::Fish.find()?;
         command
-            // fish requires TERM to be set.
             .env("TERM", "xterm")
-            .env("XDG_CONFIG_HOME", &self.home);
-        let echo = false;
-        comptest(command, echo, input, &self.home)
+            .env("XDG_CONFIG_HOME", &self.home)
+            .args([
+                "-c",
+                "source \"$argv[1]\"; complete --do-complete=\"$argv[2]\"",
+                "--",
+            ]);
+        command.arg(completion).arg(input);
+
+        let output = command.output()?;
+        if !output.status.success() {
+            return Err(std::io::Error::other(format!(
+                "fish completion failed with {}: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr),
+            )));
+        }
+
+        String::from_utf8(output.stdout)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
     }
 }
 

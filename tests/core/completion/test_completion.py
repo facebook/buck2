@@ -70,16 +70,18 @@ def completion_test(
             script_path.write_text(script)
             script_path.chmod(0o755)
 
-            # Because shells don't report when they're done generating completions, these tests are
-            # fundamentally racey. Improve on that a little bit by "warming up" the daemon before
-            # doing the actual test.
+            # Bash and Zsh infer completion through PTY idle periods, so avoid including daemon
+            # startup in that timing window. Fish also uses the warmed daemon for parity.
             await buck.uquery("//...")
 
+            # The generated completion script invokes Buck recursively. It must inherit the same
+            # external config and file watcher settings as the warmed daemon.
             actual = subprocess.check_output(
                 script_path.absolute(),
                 input=f"{bin} {input}",
                 text=True,
                 cwd=buck.cwd.joinpath(cwd),
+                env=buck._env,
             )
             actual = actual.splitlines()
             if isinstance(expected, list):
@@ -180,10 +182,10 @@ completion_test(
     # FIXME(JakobDegen): Bug
     # expected=["other/far/", "other/far:", "other/foo/", "other/foo:"],
     expected=[
-        "other//other/far/",
-        "other//other/far:",
-        "other//other/foo/",
-        "other//other/foo:",
+        "root//other/far/",
+        "root//other/far:",
+        "root//other/foo/",
+        "root//other/foo:",
     ],
     shells=["fish"],
 )

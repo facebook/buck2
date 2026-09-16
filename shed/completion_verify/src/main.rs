@@ -155,9 +155,9 @@ fn run(
 /// Other than the args, it accepts a single line of input containing a partial command invocation
 /// to be completed and outputs the possible completions, newline delimited.
 ///
-/// Completion checking from shells are fundamentally racey - to help guard against this, when the
-/// completion script is invoked, the test environment sets `COMPLETION_VERIFY_LOCKFILE` to a path.
-/// A backing completion impl can create a file at this path to indicate that it is still executing.
+/// PTY-based completion checking for Bash and Zsh is fundamentally racey. To help guard against
+/// this, the test environment sets `COMPLETION_VERIFY_LOCKFILE` to a path when invoking the
+/// completion script. A backing completion impl can create the file while it is still executing.
 #[derive(Debug, clap::Parser)]
 #[clap(name = "completion-verify")]
 struct CompletionVerify {
