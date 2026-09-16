@@ -62,6 +62,7 @@ load(
     "@prelude//cxx:headers.bzl",
     "HeaderMode",
     "cxx_attr_headers",
+    "cxx_attr_headers_list",
     "cxx_get_regular_cxx_headers_layout",
     "prepare_headers",
 )
@@ -83,6 +84,8 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
 )
+load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_val")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
@@ -94,7 +97,7 @@ load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deseria
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_apple_binary")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
-load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
+load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "target_stats_header_name")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
@@ -272,6 +275,29 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
         cxx_output.sub_targets.update(mod_dep_graph_subtargets)
 
+        target_stats_providers = []
+        if TARGET_STATS_ENABLED:
+            target_stats_tools = get_cxx_toolchain_info(ctx).target_stats_tools
+            if target_stats_tools != None:
+                # Headers as well as srcs: file_cycles derives its ObjC import
+                # edges from the header entries, so without them a binary can
+                # never report a cycle.
+                target_stats_srcs = {src.file.short_path: src.file for src in cxx_srcs + swift_srcs}
+                target_stats_srcs.update({
+                    target_stats_header_name(header): header.artifact
+                    for header in cxx_attr_headers_list(ctx, ctx.attrs.headers, get_apple_cxx_headers_layout(ctx))
+                })
+                target_stats_providers, target_stats_subtargets = target_stats_providers_and_subtargets(
+                    ctx,
+                    tools = target_stats_tools,
+                    srcs = target_stats_srcs,
+                    deps = all_deps,
+                    cycle_mode = CycleMode("file"),
+                    module_name = module_name,
+                    swift_dot = swift_compile.modularization_dependency_graph if swift_compile else None,
+                )
+                cxx_output.sub_targets.update(target_stats_subtargets)
+
         validation_providers = [ValidationInfo(validations = cxx_output.validation_specs)] if cxx_output.validation_specs else []
 
         all_diagnostics = []
@@ -312,6 +338,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             + sanitizer_runtime_providers
             + validation_providers
             + diagnostics_providers
+            + target_stats_providers
         )
 
         if cxx_output.xplugins_debug_artifacts_info:

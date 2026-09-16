@@ -89,6 +89,36 @@ def _cycles_action(
     )
     return out
 
+def _all_target_stats_output(ctx: AnalysisContext, tset: TargetStatsInfoTSet) -> Artifact:
+    """A file listing every transitive target's manifest."""
+    return ctx.actions.write(
+        _OUT_DIR + "/all_target_stats.txt",
+        tset.project_as_args("manifests"),
+        with_inputs = True,
+        has_content_based_path = False,
+    )
+
+def target_stats_aggregate_providers_and_subtargets(
+    ctx: AnalysisContext,
+    *,
+    deps: list[Dependency],
+) -> (list[Provider], dict[str, list[Provider]]):
+    """target_stats for a rule that contributes no sources of its own.
+
+    Bundles and app binaries exist to aggregate what is beneath them, so they
+    get no per-target manifest and therefore no [target_stats]; they expose
+    [all_target_stats] over the whole graph and re-export a TargetStatsInfo so
+    an enclosing bundle keeps propagating (e.g. an app bundle over its
+    extensions).
+    """
+    children = [dep[TargetStatsInfo].tset for dep in deps if dep.get(TargetStatsInfo) != None]
+    tset = ctx.actions.tset(TargetStatsInfoTSet, children = children)
+    info = TargetStatsInfo(label = str(ctx.label.raw_target()), tset = tset)
+    subtargets = {
+        "all_target_stats": [DefaultInfo(default_output = _all_target_stats_output(ctx, tset))],
+    }
+    return [info], subtargets
+
 def target_stats_providers_and_subtargets(
     ctx: AnalysisContext,
     *,
@@ -139,16 +169,8 @@ def target_stats_providers_and_subtargets(
     )
     info = TargetStatsInfo(label = label, tset = tset)
 
-    # [all_target_stats]: a file listing every transitive target's manifest.
-    all_manifests = ctx.actions.write(
-        _OUT_DIR + "/all_target_stats.txt",
-        tset.project_as_args("manifests"),
-        with_inputs = True,
-        has_content_based_path = False,
-    )
-
     subtargets = {
-        "all_target_stats": [DefaultInfo(default_output = all_manifests)],
+        "all_target_stats": [DefaultInfo(default_output = _all_target_stats_output(ctx, tset))],
         "target_stats": [DefaultInfo(default_output = manifest, other_outputs = [manifest_inputs]), info],
     }
     return [info], subtargets
