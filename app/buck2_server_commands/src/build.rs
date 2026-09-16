@@ -751,12 +751,7 @@ async fn process_build_result(
                 .get_create_unhashed_symlink_lock();
             let _guard = lock.lock().await;
             let res = create_unhashed_outputs(provider_artifacts, artifact_fs, fs);
-
-            let created = match res.as_ref() {
-                Ok(n) => *n,
-                Err(..) => 0,
-            };
-            (res, buck2_data::CreateOutputSymlinksEnd { created })
+            (res, buck2_data::CreateOutputSymlinksEnd {})
         })
         .await?;
     }

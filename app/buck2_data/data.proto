@@ -3553,7 +3553,7 @@ message DepFileUploadEnd {
 message CreateOutputSymlinksStart {};
 
 message CreateOutputSymlinksEnd {
-  uint64 created = 1;
+  reserved 1;
 };
 
 message InstallEventInfoStart {

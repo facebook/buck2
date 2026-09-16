@@ -31,7 +31,7 @@ pub(crate) fn create_unhashed_outputs(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
     fs: &ProjectRoot,
-) -> buck2_error::Result<u64> {
+) -> buck2_error::Result<()> {
     let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
 
     let start = std::time::Instant::now();
@@ -81,7 +81,7 @@ pub(crate) fn create_unhashed_outputs(
         num_unhashed_links_made,
         duration.as_secs_f64()
     );
-    Ok(num_unhashed_links_made)
+    Ok(())
 }
 
 fn create_unhashed_link(
