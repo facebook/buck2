@@ -586,14 +586,13 @@ impl CleanStaleArtifactsCommand {
             adaptive_outcome = match self.root_abs_path.as_ref() {
                 Some(root_abs_path) => match disk_space_stats(&**root_abs_path) {
                     Ok(disk_stats) => {
+                        let mut params = params.clone();
+                        params.unmaterialize_active &= rematerialization_ttl.is_some();
                         let adaptive = apply_adaptive_low_disk(
                             &mut found_paths,
                             disk_stats.free_space,
                             disk_stats.total_space,
-                            params.threshold_percent,
-                            params.min_access_time,
-                            params.delete_intermediate_within_min_ttl,
-                            params.unmaterialize_active && rematerialization_ttl.is_some(),
+                            &params,
                         );
                         stats.adaptive_free_bytes_before = adaptive.free_bytes_before;
                         stats.adaptive_total_bytes = adaptive.total_bytes;
@@ -1808,18 +1807,15 @@ struct AdaptiveCleanupResult {
 }
 
 /// Promotes retained, non-active artifacts to stale, oldest-access-first, until
-/// projected free disk space rises above `threshold_percent` of `total_space`,
+/// projected free disk space rises above `params.threshold_percent` of `total_space`,
 /// or every promotable artifact has been promoted. Artifacts last accessed at
-/// or after `min_access_time` are excluded unless they are intermediate-only
-/// and `delete_intermediate_within_min_ttl` is enabled.
+/// or after `params.min_access_time` are excluded unless they are intermediate-only
+/// and `params.delete_intermediate_within_min_ttl` is enabled.
 fn apply_adaptive_low_disk(
     found_paths: &mut [FoundPath],
     free_space: u64,
     total_space: u64,
-    threshold_percent: f64,
-    min_access_time: Timestamp,
-    delete_intermediate_within_min_ttl: bool,
-    unmaterialize_active: bool,
+    params: &AdaptiveLowDiskParams,
 ) -> AdaptiveCleanupResult {
     if total_space == 0 {
         return AdaptiveCleanupResult {
@@ -1832,7 +1828,7 @@ fn apply_adaptive_low_disk(
         };
     }
     let free_pct = free_space as f64 / total_space as f64 * 100.0;
-    if free_pct > threshold_percent {
+    if free_pct > params.threshold_percent {
         return AdaptiveCleanupResult {
             outcome: AdaptiveOutcome::AboveThreshold,
             free_bytes_before: free_space,
@@ -1843,7 +1839,7 @@ fn apply_adaptive_low_disk(
         };
     }
 
-    let target_free = (threshold_percent / 100.0 * total_space as f64).ceil() as u64;
+    let target_free = (params.threshold_percent / 100.0 * total_space as f64).ceil() as u64;
     let bytes_needed = target_free.saturating_sub(free_space);
     if bytes_needed == 0 {
         return AdaptiveCleanupResult {
@@ -1868,8 +1864,8 @@ fn apply_adaptive_low_disk(
                     },
                 size,
                 ..
-            } if *last_access_time < min_access_time
-                || (delete_intermediate_within_min_ttl
+            } if *last_access_time < params.min_access_time
+                || (params.delete_intermediate_within_min_ttl
                     && *classification == ArtifactClassification::IntermediateOnly) =>
             {
                 Some((i, *last_access_time, *size))
@@ -1890,7 +1886,7 @@ fn apply_adaptive_low_disk(
         accumulated = accumulated.saturating_add(size);
     }
 
-    if accumulated >= bytes_needed || !unmaterialize_active {
+    if accumulated >= bytes_needed || !params.unmaterialize_active {
         return AdaptiveCleanupResult {
             outcome: if accumulated >= bytes_needed {
                 AdaptiveOutcome::SatisfiedByStaleDeletion
@@ -2234,6 +2230,7 @@ mod tests {
     use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
     use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibleArtifact;
     use crate::materializers::deferred::artifact_tree::UnmaterializeArtifactsResult;
+    use crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams;
     use crate::materializers::deferred::clean_stale::CleanStaleStatsExt;
     use crate::materializers::deferred::clean_stale::FoundPath;
     use crate::materializers::deferred::clean_stale::StaleOrigin;
@@ -2359,11 +2356,39 @@ mod tests {
         Timestamp::MAX
     }
 
+    fn adaptive_params(threshold_percent: f64) -> AdaptiveLowDiskParams {
+        AdaptiveLowDiskParams {
+            threshold_percent,
+            min_access_time: no_min_ttl(),
+            delete_intermediate_within_min_ttl: false,
+            unmaterialize_active: false,
+        }
+    }
+
+    fn adaptive_params_with_min_access_time(
+        threshold_percent: f64,
+        min_access_time: Timestamp,
+        delete_intermediate_within_min_ttl: bool,
+    ) -> AdaptiveLowDiskParams {
+        AdaptiveLowDiskParams {
+            min_access_time,
+            delete_intermediate_within_min_ttl,
+            ..adaptive_params(threshold_percent)
+        }
+    }
+
+    fn adaptive_params_with_unmaterialization(threshold_percent: f64) -> AdaptiveLowDiskParams {
+        AdaptiveLowDiskParams {
+            unmaterialize_active: true,
+            ..adaptive_params(threshold_percent)
+        }
+    }
+
     #[test]
     fn threshold_already_met_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
         // 60% free, threshold 50% -> already above, do nothing.
-        let result = apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 60, 100, &adaptive_params(50.0));
         assert_eq!(result.outcome, AdaptiveOutcome::AboveThreshold);
         assert!(
             is_retained(&paths[0]),
@@ -2379,8 +2404,7 @@ mod tests {
             retained("oldest", 100, 100),
             retained("old", 200, 350),
         ];
-        let result =
-            apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 100, 1000, &adaptive_params(50.0));
         assert_eq!(result.outcome, AdaptiveOutcome::SatisfiedByStaleDeletion);
         assert_eq!(result.bytes_needed, 400);
         assert_eq!(result.shortfall_bytes, 0);
@@ -2408,8 +2432,7 @@ mod tests {
             retained("b", 200, 20),
             active_retained(9999),
         ];
-        let result =
-            apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 0, 1000, &adaptive_params(100.0));
         assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
         assert_eq!(result.shortfall_bytes, 970);
         assert!(
@@ -2444,7 +2467,7 @@ mod tests {
             retained("r", 100, 100),
             active_retained(50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
+        apply_adaptive_low_disk(&mut paths, 0, 1000, &adaptive_params(100.0));
         assert!(
             matches!(&paths[0], FoundPath::Untracked(_, _, 42)),
             "untracked entries should never be touched",
@@ -2466,7 +2489,7 @@ mod tests {
     #[test]
     fn zero_total_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
-        let result = apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 0, 0, &adaptive_params(100.0));
         assert_eq!(result.outcome, AdaptiveOutcome::InvalidDiskStats);
         assert!(
             is_retained(&paths[0]),
@@ -2484,7 +2507,12 @@ mod tests {
             retained("on_boundary", 150, 50),
             retained("recent", 200, 50),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false, false);
+        apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_min_access_time(100.0, t(150), false),
+        );
         assert!(
             is_stale(&paths[0], 50),
             "retained accessed before min_access_time is eligible for promotion",
@@ -2505,7 +2533,12 @@ mod tests {
         // retained access time means every artifact is within the min-TTL
         // window — adaptive cleaning never violates the minimum TTL floor.
         let mut paths = vec![retained("a", 100, 100), retained("b", 200, 100)];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(50), false, false);
+        apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_min_access_time(100.0, t(50), false),
+        );
         assert!(
             is_retained(&paths[0]) && is_retained(&paths[1]),
             "no retained artifact may be promoted when all are within the adaptive min-TTL window",
@@ -2524,7 +2557,12 @@ mod tests {
             retained("final", 200, 50),
         ];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), true, false);
+        apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_min_access_time(100.0, t(150), true),
+        );
 
         assert!(
             is_stale(&paths[0], 50),
@@ -2545,7 +2583,12 @@ mod tests {
             ArtifactClassification::IntermediateOnly,
         )];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, t(150), false, false);
+        apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_min_access_time(100.0, t(150), false),
+        );
 
         assert!(
             is_retained(&paths[0]),
@@ -2573,7 +2616,12 @@ mod tests {
             ),
         ];
 
-        let result = apply_adaptive_low_disk(&mut paths, 0, 1000, 10.0, no_min_ttl(), false, true);
+        let result = apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_unmaterialization(10.0),
+        );
 
         assert_eq!(
             result.outcome,
@@ -2618,7 +2666,12 @@ mod tests {
             true,
         )];
 
-        let result = apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, true);
+        let result = apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_unmaterialization(100.0),
+        );
 
         assert!(is_active_retained(&paths[0]));
         assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
