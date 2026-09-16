@@ -22,6 +22,30 @@ include_workspace_members = true
 # Support Cargo's unstable "artifact dependencies" functionality, RFC 3028.
 bindeps = true
 
+# Reindeer's built-in platform list does not include FreeBSD. Defining a custom
+# platform list replaces the built-in list, so keep the existing defaults here
+# and add x86_64 FreeBSD explicitly.
+[platform.linux-x86_64]
+target = "x86_64-unknown-linux-gnu"
+
+[platform.linux-arm64]
+target = "aarch64-unknown-linux-gnu"
+
+[platform.macos-x86_64]
+target = "x86_64-apple-darwin"
+
+[platform.macos-arm64]
+target = "aarch64-apple-darwin"
+
+[platform.windows-msvc]
+target = "x86_64-pc-windows-msvc"
+
+[platform.windows-gnu]
+target = "x86_64-pc-windows-gnu"
+
+[platform.freebsd-x86_64]
+target = "x86_64-unknown-freebsd"
+
 [buck]
 platform_compatibility_on_all_targets = true
 
