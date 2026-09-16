@@ -114,9 +114,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     ]
 
-    # ctx.attrs.deps is split-transitioned here (one Dependency per ABI), so use
-    # the primary platform's deps as the rest of the rule does -- otherwise every
-    # library would be counted once per ABI.
+    # ctx.attrs.deps is split-transitioned here (one Dependency per ABI).
     target_stats_providers, target_stats_subtargets = _target_stats_data(
         ctx,
         android_binary_info.deps_by_platform[android_binary_info.primary_platform],
