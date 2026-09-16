@@ -267,6 +267,7 @@ impl DiceStorage {
         let num_workers = env_concurrency("BUCK2_DICE_PAGE_OUT_WORKERS");
 
         let mut remaining = keys;
+        let mut worker_error = None;
         while !remaining.is_empty() {
             if cancelled() {
                 break;
@@ -300,16 +301,49 @@ impl DiceStorage {
                 }));
             }
 
+            // Join every worker even after a failure - abandoning one mid-chunk
+            // would leave it writing and evicting concurrently with the flush
+            // below - and keep only the first error.
+            let mut chunk_error: Option<anyhow::Error> = None;
             for handle in handles {
-                handle.await??;
+                let result = match handle.await {
+                    Ok(result) => result,
+                    Err(join_error) => Err(join_error.into()),
+                };
+                if let Err(e) = result {
+                    // The first failure is the one returned; the rest may have
+                    // different root causes, so they are logged, not dropped.
+                    if chunk_error.is_none() {
+                        chunk_error = Some(e);
+                    } else {
+                        tracing::warn!("additional page-out worker failure: {e:#}");
+                    }
+                }
+            }
+            if let Some(e) = chunk_error {
+                worker_error = Some(e);
+                break;
             }
         }
 
-        self.storage.flush()?;
+        // Flushed on the error path too: workers evict keys as their writes
+        // land in the buffers, so returning without committing would leave
+        // keys marked paged out whose data the read path cannot see.
+        let flushed = self.storage.flush();
         self.storage.release_memory();
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
+        if let Some(e) = worker_error {
+            // The worker error is the root cause and gets returned; the flush
+            // failure still decides whether the evicted keys' data committed,
+            // so it is logged, not dropped.
+            if let Err(flush_error) = flushed {
+                tracing::error!("flush after page-out worker failure also failed: {flush_error:#}");
+            }
+            return Err(e);
+        }
+        flushed?;
         Ok(())
     }
 
@@ -349,7 +383,14 @@ impl DiceStorage {
                 non_pageable.push((dice_key, value));
             }
         }
-        self.storage.flush()?;
+        // No flush here: flushing per worker slice makes the effective
+        // transaction a few thousand rows, and each commit rewrites every
+        // index page it touched - the dominant page-out cost at scale
+        // (measurements in the diff summary). Buffers rotate and commit at
+        // their byte bound, so transient memory stays bounded, and `page_out`
+        // flushes once at the end. Eviction never waited for durability, and
+        // the store is a content-addressed cache nothing references after a
+        // crash, so no ordering invariant is lost.
         if !pending_evictions.is_empty() {
             state_handle.evict_keys(pending_evictions);
         }

@@ -26,6 +26,7 @@ use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::traits::StorageContext;
 use rusqlite::Connection;
+use rusqlite::OptionalExtension;
 use rusqlite::ToSql;
 
 const NUM_SHARDS: usize = 10;
@@ -451,14 +452,25 @@ impl SqliteBackedPagableStorage {
     }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
-        let conn = self.shard_for(key).inner.conns.get_reader();
+        let shard = self.shard_for(key);
         let (key_lo, key_hi) = data_key_parts(*key);
-        let bytes: Vec<u8> = {
+        let read = || -> anyhow::Result<Option<Vec<u8>>> {
+            let conn = shard.inner.conns.get_reader();
             let mut stmt = conn
                 .prepare_cached("SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2")
                 .map_err(|e| anyhow::anyhow!("prepare failed: {}", e))?;
             stmt.query_row(rusqlite::params![key_lo, key_hi], |row| row.get(0))
-                .map_err(|e| anyhow::anyhow!("fetch failed for key {:?}: {}", key, e))?
+                .optional()
+                .map_err(|e| anyhow::anyhow!("fetch failed for key {:?}: {}", key, e))
+        };
+        let bytes = match read()? {
+            Some(bytes) => bytes,
+            None => {
+                // A returned key may still be in the shard's write buffers.
+                // `read` releases its SQLite reader before waiting for the writer.
+                shard.flush()?;
+                read()?.ok_or_else(|| anyhow::anyhow!("fetch failed for key {:?}: no row", key))?
+            }
         };
         Self::decode_pagable_data(&bytes, key)
     }
@@ -742,6 +754,48 @@ mod tests {
             data: data.to_vec(),
             arcs,
         }
+    }
+
+    #[test]
+    fn sqlite_reads_pending_rows_without_explicit_flush() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("pending_read")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let arcs = vec![DataKey::testing_new(17)];
+        let key = storage.store_data(pagable_data(b"pending", arcs.clone()))?;
+        assert_eq!(
+            key,
+            storage.store_data(pagable_data(b"pending", arcs.clone()))?
+        );
+        let fetched = storage.fetch_data_blocking(&key)?;
+        assert_eq!(fetched.data, b"pending");
+        assert_eq!(fetched.arcs, arcs);
+        assert_eq!(shard_row_count(storage.shard_for(&key))?, 1);
+        assert!(
+            storage
+                .fetch_data_blocking(&DataKey::testing_new(123))
+                .is_err()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sqlite_pending_read_reports_writer_failure() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("pending_read_failure")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let key = storage.store_data(pagable_data(b"pending failure", Vec::new()))?;
+        storage
+            .shard_for(&key)
+            .inner
+            .write_state
+            .lock()
+            .unwrap()
+            .error = Some("injected write failure".to_owned());
+        let error = storage
+            .fetch_data_blocking(&key)
+            .err()
+            .expect("pending row must report the writer failure");
+        assert!(format!("{error:#}").contains("injected write failure"));
+        Ok(())
     }
 
     fn shard_row_count(shard: &Shard) -> anyhow::Result<usize> {
