@@ -72,6 +72,9 @@ JavaToolchainInfo = provider(
         "src_root_elements": provider_field(typing.Any, default = None),
         "src_root_prefixes": provider_field(typing.Any, default = None),
         "target_level": provider_field(typing.Any, default = None),
+        # TargetStatsToolsInfo, when codebase-stats collection is wired up for
+        # this toolchain. None (the default) disables it, as for OSS toolchains.
+        "target_stats_tools": provider_field(typing.Any, default = None),
         "track_class_usage": provider_field(bool, default = True),
         "uses_content_based_paths": provider_field(bool, default = True),
         "zip_scrubber": provider_field(typing.Any, default = None),

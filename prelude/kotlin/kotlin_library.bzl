@@ -12,6 +12,7 @@ load("@prelude//android:android_providers.bzl", "merge_android_packageable_info"
 load(
     "@prelude//java:java_library.bzl",
     "build_java_library",
+    "jvm_target_stats",
     "split_on_archives_and_plain_files",
 )
 load(
@@ -383,11 +384,14 @@ def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
             android_packageable_info,
         ]
 
+    target_stats_providers, target_stats_subtargets = jvm_target_stats(ctx)
+
     java_providers = build_kotlin_library(
         ctx = ctx,
         validation_deps_outputs = get_validation_deps_outputs(ctx),
+        extra_sub_targets = target_stats_subtargets,
     )
-    return to_list(java_providers) + [android_packageable_info]
+    return to_list(java_providers) + [android_packageable_info] + target_stats_providers
 
 def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
     for exported_dep in exported_deps:
