@@ -45,6 +45,7 @@ rust_library(
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:sled",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
         "//buck2/pagable:pagable",
     ],
 )

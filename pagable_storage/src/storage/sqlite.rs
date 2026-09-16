@@ -9,11 +9,13 @@
  */
 
 use std::collections::VecDeque;
+use std::env;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread::JoinHandle;
@@ -30,8 +32,63 @@ use rusqlite::OptionalExtension;
 use rusqlite::ToSql;
 
 const NUM_SHARDS: usize = 10;
-const WRITE_BUFFER_CAPACITY: usize = 32768;
+const DEFAULT_WRITE_BUFFER_ROWS: usize = 1 << 20;
+const DEFAULT_WRITE_BUFFER_BYTES: usize = 128 << 20;
+/// Buffers usually rotate on bytes well before the row cap, so preallocate
+/// modestly and let the vec grow.
+const WRITE_BUFFER_PREALLOC_ROWS: usize = 32768;
+
+/// Rows a producer buffers before publishing one write transaction.
+/// `BUCK2_PAGABLE_WRITE_BUFFER_ROWS` overrides, as a measurement probe:
+/// shrinking it reproduces large-table index write amplification on a small
+/// target.
+fn write_buffer_rows() -> usize {
+    static ROWS: OnceLock<usize> = OnceLock::new();
+    *ROWS.get_or_init(|| {
+        parse_positive_env("BUCK2_PAGABLE_WRITE_BUFFER_ROWS", DEFAULT_WRITE_BUFFER_ROWS)
+    })
+}
+
+/// A set-but-unusable value falls back loudly: a typo silently measuring the
+/// default would produce a wrong conclusion. `default` 0 = off unless set.
+fn parse_positive_env(var: &str, default: usize) -> usize {
+    let Some(raw) = env::var_os(var) else {
+        return default;
+    };
+    match raw.to_str().and_then(|v| v.parse::<usize>().ok()) {
+        Some(v) if v > 0 => v,
+        _ => {
+            tracing::warn!(
+                "ignoring {var}={raw:?}: not a positive integer; using default {default}"
+            );
+            default
+        }
+    }
+}
+
+/// Serialized bytes a producer buffers before publishing one write
+/// transaction; `BUCK2_PAGABLE_WRITE_BUFFER_BYTES` overrides.
+///
+/// The row cap alone would let byte volume swing with row size, and
+/// transaction size is what page-out cost scales by: content-hash keys land
+/// uniformly across the `UNIQUE(key_hi, key_lo)` index, the batch sort writes
+/// each touched index page once per transaction, so total index churn is
+/// (rows / transaction-rows) passes over an index that grows with row count
+/// (buffer-size sweep in the diff summary).
+fn write_buffer_bytes() -> usize {
+    static BYTES: OnceLock<usize> = OnceLock::new();
+    *BYTES.get_or_init(|| {
+        parse_positive_env(
+            "BUCK2_PAGABLE_WRITE_BUFFER_BYTES",
+            DEFAULT_WRITE_BUFFER_BYTES,
+        )
+    })
+}
 const IDLE_SPARE_WRITE_BUFFERS: usize = 1;
+// Bounds transient buffering with the byte cap: per shard, one active buffer
+// + `pending_capacity` pending + one draining in the writer, at
+// `DEFAULT_WRITE_BUFFER_BYTES` each - ~0.5GB per shard, ~5GB across ten. The
+// transient measured on a large target sits inside that bound.
 const BASELINE_PENDING_WRITE_BUFFERS: usize = 16;
 const INSERT_BATCH_ROWS: usize = 8;
 const INSERT_COLUMNS: usize = 3;
@@ -81,8 +138,13 @@ struct SqliteInsertConfig {
 }
 
 struct ShardWriteState {
+    max_rows: usize,
+    max_bytes: usize,
     /// The buffer that producers enqueue writes into. Once full it's moved to pending_buffers
     active_buffer: Vec<(DataKey, Vec<u8>)>,
+    /// Payload bytes held in `active_buffer`. Keys and per-row index overhead
+    /// are not counted; the bound is on the dominant, variable part.
+    active_bytes: usize,
     /// Empty buffers available to replace active_buffer once it becomes pending.
     /// May grow dynamically during page-out; flush and release_memory trim extras.
     spare_buffers: Vec<Vec<(DataKey, Vec<u8>)>>,
@@ -103,6 +165,15 @@ impl ShardWriteState {
         while self.spare_buffers.len() > IDLE_SPARE_WRITE_BUFFERS {
             self.spare_buffers.pop();
         }
+        // A buffer grown toward the byte cap can hold hundreds of thousands
+        // of slots; give that back when idle. Only when empty: `shrink_to` on
+        // a filled Vec reallocates and copies it.
+        if self.active_buffer.is_empty() {
+            self.active_buffer.shrink_to(WRITE_BUFFER_PREALLOC_ROWS);
+        }
+        for spare in &mut self.spare_buffers {
+            spare.shrink_to(WRITE_BUFFER_PREALLOC_ROWS);
+        }
     }
 
     fn queue_active_for_later_flush(&mut self) {
@@ -110,9 +181,18 @@ impl ShardWriteState {
         let replacement = self
             .spare_buffers
             .pop()
-            .unwrap_or_else(|| Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+            .unwrap_or_else(|| Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS));
         self.pending_buffers
             .push_back(std::mem::replace(&mut self.active_buffer, replacement));
+        self.active_bytes = 0;
+    }
+
+    fn active_is_full(&self) -> bool {
+        self.is_full_at(self.max_rows, self.max_bytes)
+    }
+
+    fn is_full_at(&self, max_rows: usize, max_bytes: usize) -> bool {
+        self.active_buffer.len() >= max_rows || self.active_bytes >= max_bytes
     }
 }
 
@@ -126,6 +206,7 @@ impl ConnectionPool {
     fn open(path: &Path, num_readers: usize) -> anyhow::Result<Self> {
         let writer = Connection::open(path)?;
         Self::init_pragmas(&writer)?;
+        Self::init_writer_pragmas(&writer)?;
 
         let mut readers = Vec::with_capacity(num_readers);
         for _ in 0..num_readers {
@@ -151,6 +232,22 @@ impl ConnectionPool {
             PRAGMA journal_mode=OFF;
             PRAGMA page_size=8192;",
         )?;
+        Ok(())
+    }
+
+    /// Pragmas for the writer connection only; readers keep the defaults.
+    fn init_writer_pragmas(conn: &Connection) -> anyhow::Result<()> {
+        // Measurement probe. The default page cache (~16MB) is far below the
+        // per-shard index working set at tens of millions of rows, so
+        // transactions spill and rewrite the same index pages many times.
+        // Writer-only: sizing every reader's cache too would multiply the
+        // memory cost by the reader count per shard.
+        // Cached so a bad value warns once, not once per shard connection.
+        static CACHE_KB: OnceLock<usize> = OnceLock::new();
+        let kb = *CACHE_KB.get_or_init(|| parse_positive_env("BUCK2_PAGABLE_CACHE_KB", 0));
+        if kb > 0 {
+            conn.execute_batch(&format!("PRAGMA cache_size=-{kb};"))?;
+        }
         Ok(())
     }
 
@@ -196,9 +293,12 @@ impl Shard {
             conns,
             insert,
             write_state: Mutex::new(ShardWriteState {
-                active_buffer: Vec::with_capacity(WRITE_BUFFER_CAPACITY),
+                max_rows: write_buffer_rows(),
+                max_bytes: write_buffer_bytes(),
+                active_buffer: Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS),
+                active_bytes: 0,
                 spare_buffers: (0..IDLE_SPARE_WRITE_BUFFERS)
-                    .map(|_| Vec::with_capacity(WRITE_BUFFER_CAPACITY))
+                    .map(|_| Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS))
                     .collect(),
                 pending_buffers: VecDeque::with_capacity(pending_capacity),
                 pending_capacity,
@@ -293,10 +393,11 @@ impl ShardInner {
         let mut state = self.write_state.lock().expect("lock poisoned");
         Self::check_error(&state)?;
         state = self.queue_full_active_for_later_flush(state)?;
-        debug_assert!(state.active_buffer.len() < WRITE_BUFFER_CAPACITY);
+        debug_assert!(!state.active_is_full());
 
+        state.active_bytes += item.1.len();
         state.active_buffer.push(item);
-        if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+        if !state.active_is_full() {
             return Ok(());
         }
 
@@ -308,19 +409,19 @@ impl ShardInner {
         &self,
         mut state: MutexGuard<'a, ShardWriteState>,
     ) -> anyhow::Result<MutexGuard<'a, ShardWriteState>> {
-        if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+        if !state.active_is_full() {
             return Ok(state);
         }
 
         while state.pending_buffers.len() >= state.pending_capacity {
             state = self.write_state_changed.wait(state).expect("lock poisoned");
             Self::check_error(&state)?;
-            if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+            if !state.active_is_full() {
                 return Ok(state);
             }
         }
 
-        if state.active_buffer.len() >= WRITE_BUFFER_CAPACITY {
+        if state.active_is_full() {
             state.queue_active_for_later_flush();
             self.write_state_changed.notify_one();
         }
@@ -809,10 +910,73 @@ mod tests {
     }
 
     #[test]
+    fn sqlite_write_buffer_fills_on_bytes_or_rows() {
+        let mut state = ShardWriteState {
+            max_rows: 2,
+            max_bytes: 100,
+            active_buffer: Vec::new(),
+            active_bytes: 0,
+            spare_buffers: Vec::new(),
+            pending_buffers: VecDeque::new(),
+            pending_capacity: 2,
+            writing: false,
+            shutdown: false,
+            error: None,
+        };
+        state
+            .active_buffer
+            .push((DataKey::testing_new(1), Vec::new()));
+        state.active_bytes = 99;
+        assert!(
+            !state.is_full_at(2, 100),
+            "1 of 2 rows and 99 of 100 bytes is not full"
+        );
+        assert!(state.is_full_at(1, 100), "the row cap alone must rotate");
+        assert!(state.is_full_at(2, 99), "the byte cap alone must rotate");
+    }
+
+    #[test]
+    fn sqlite_enqueue_accumulates_payload_bytes() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("enqueue_bytes")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let shard = &storage.shards[0];
+        {
+            let mut state = shard.inner.write_state.lock().unwrap();
+            state.max_rows = 10;
+            state.max_bytes = 19;
+        }
+
+        shard.enqueue((DataKey::testing_new(1), vec![0u8; 7]))?;
+        shard.enqueue((DataKey::testing_new(2), vec![0u8; 11]))?;
+
+        let state = shard.inner.write_state.lock().expect("lock poisoned");
+        assert_eq!(
+            18, state.active_bytes,
+            "active_bytes must be the payload lengths (7 + 11), or byte \
+             rotation silently degrades to row-only"
+        );
+        assert_eq!(2, state.active_buffer.len());
+        drop(state);
+        shard.enqueue((DataKey::testing_new(3), vec![0u8; 1]))?;
+        let state = shard.inner.write_state.lock().unwrap();
+        assert_eq!(
+            0, state.active_bytes,
+            "reaching the byte cap rotates the buffer"
+        );
+        assert!(state.active_buffer.is_empty());
+        drop(state);
+        assert_eq!(shard_row_count(shard)?, 3);
+        Ok(())
+    }
+
+    #[test]
     fn sqlite_write_buffer_rotation_allocates_replacement_when_no_spare_exists() {
         let pending_capacity = 2;
         let mut state = ShardWriteState {
-            active_buffer: Vec::with_capacity(WRITE_BUFFER_CAPACITY),
+            max_rows: DEFAULT_WRITE_BUFFER_ROWS,
+            max_bytes: DEFAULT_WRITE_BUFFER_BYTES,
+            active_buffer: Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS),
+            active_bytes: 0,
             spare_buffers: Vec::new(),
             pending_buffers: VecDeque::with_capacity(pending_capacity),
             pending_capacity,
@@ -822,14 +986,20 @@ mod tests {
         };
 
         state.active_buffer.extend(
-            (0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey::testing_new((i + 1) as u128), Vec::new())),
+            (0..WRITE_BUFFER_PREALLOC_ROWS)
+                .map(|i| (DataKey::testing_new((i + 1) as u128), Vec::new())),
         );
+        state.active_bytes = 1;
         state.queue_active_for_later_flush();
 
         assert_eq!(1, state.pending_buffers.len());
         assert!(state.active_buffer.is_empty());
+        assert_eq!(
+            0, state.active_bytes,
+            "rotation should reset the byte count for the fresh buffer"
+        );
         assert!(
-            state.active_buffer.capacity() >= WRITE_BUFFER_CAPACITY,
+            state.active_buffer.capacity() >= WRITE_BUFFER_PREALLOC_ROWS,
             "rotation should leave active with enough capacity for the next writes",
         );
     }
@@ -844,10 +1014,10 @@ mod tests {
             let mut state = shard.inner.write_state.lock().expect("lock poisoned");
             state
                 .spare_buffers
-                .push(Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+                .push(Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS));
             state
                 .spare_buffers
-                .push(Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+                .push(Vec::with_capacity(WRITE_BUFFER_PREALLOC_ROWS));
             assert!(state.spare_buffers.len() > IDLE_SPARE_WRITE_BUFFERS);
         }
 
