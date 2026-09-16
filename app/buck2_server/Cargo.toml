@@ -92,5 +92,8 @@ psutil.workspace = true
 buck2_forkserver.workspace = true
 psutil.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+buck2_forkserver.workspace = true
+
 [lints]
 workspace = true

@@ -81,6 +81,12 @@ dirs.workspace = true
 libc.workspace = true
 nix.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+buck2_forkserver.workspace = true
+dirs.workspace = true
+libc.workspace = true
+nix.workspace = true
+
 [target.'cfg(target_os = "windows")'.dependencies]
 mimalloc.workspace = true
 windows-sys.workspace = true

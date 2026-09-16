@@ -105,5 +105,8 @@ rust_library(
             "fbsource//third-party/rust:psutil",
             "//buck2/app/buck2_forkserver:buck2_forkserver",
         ],
+        "ovr_config//os:freebsd": [
+            "//buck2/app/buck2_forkserver:buck2_forkserver",
+        ],
     }),
 )

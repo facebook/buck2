@@ -118,5 +118,11 @@ rust_library(
             "fbsource//third-party/rust:tower",
             "fbsource//third-party/rust:xattr",
         ],
+        "ovr_config//os:freebsd": [
+            "fbsource//third-party/rust:hyper-util",
+            "fbsource//third-party/rust:nix",
+            "fbsource//third-party/rust:tower",
+            "fbsource//third-party/rust:xattr",
+        ],
     }),
 )

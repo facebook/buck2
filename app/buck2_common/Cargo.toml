@@ -82,5 +82,11 @@ nix.workspace = true
 tower.workspace = true
 xattr.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+hyper-util.workspace = true
+nix.workspace = true
+tower.workspace = true
+xattr.workspace = true
+
 [lints]
 workspace = true

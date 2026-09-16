@@ -13,6 +13,9 @@ rust_library(
         "ovr_config//os:macos": [
             "fbsource//third-party/rust:tempfile",
         ],
+        "ovr_config//os:freebsd": [
+            "fbsource//third-party/rust:tempfile",
+        ],
     }),
     deps = [
         "fbsource//third-party/rust:serde",
