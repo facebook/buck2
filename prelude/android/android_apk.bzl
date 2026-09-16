@@ -26,8 +26,15 @@ load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
+load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
+
+def _target_stats_data(ctx: AnalysisContext, deps: list[Dependency]) -> (list[Provider], dict[str, list[Provider]]):
+    if not TARGET_STATS_ENABLED:
+        return [], {}
+    return target_stats_aggregate_providers_and_subtargets(ctx, deps = deps)
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -107,6 +114,15 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     ]
 
+    # ctx.attrs.deps is split-transitioned here (one Dependency per ABI), so use
+    # the primary platform's deps as the rest of the rule does -- otherwise every
+    # library would be counted once per ABI.
+    target_stats_providers, target_stats_subtargets = _target_stats_data(
+        ctx,
+        android_binary_info.deps_by_platform[android_binary_info.primary_platform],
+    )
+    sub_targets.update(target_stats_subtargets)
+
     providers = [
         AndroidApkInfo(
             apk = output_apk,
@@ -156,7 +172,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             },
         ),
         class_to_srcs,
-    ]
+    ] + target_stats_providers
 
     # Expose the exopackage secondary-dex dir so android_instrumentation_test can push it to the device.
     if exopackage_info != None and exopackage_info.secondary_dex_info != None:
