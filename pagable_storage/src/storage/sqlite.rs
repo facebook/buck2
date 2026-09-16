@@ -19,6 +19,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use bytesize::ByteSize;
 use pagable::arc_erase::ArcEraseDyn;
@@ -32,6 +33,43 @@ use rusqlite::OptionalExtension;
 use rusqlite::ToSql;
 
 const NUM_SHARDS: usize = 10;
+
+/// How long a connection waits for a shard's file lock before its statement
+/// fails with `SQLITE_BUSY`.
+///
+/// With `journal_mode=OFF` there is no write-ahead log, so while the page-out
+/// writer commits a transaction it holds the shard's file exclusively, and
+/// every reader of that shard waits: from the start of the commit until it
+/// finishes, or from earlier still if the transaction's dirty pages outgrew
+/// the writer's page cache and had to be written out before the commit. A read
+/// that waits longer than this fails, and the page-in with it. rusqlite's
+/// default is 5 seconds, and page-ins have failed that way in production when a
+/// command started while a cancelled page-out was still committing what it had
+/// queued. 10 seconds covers a commit of ordinary size; it is deliberately not
+/// so long that a timeout stops being visible. `fetch_data_read` names these
+/// timeouts distinctly so their rate in production can be read off.
+///
+/// The writer waits the same amount for readers to clear before it can take
+/// the lock; reads are single-row lookups, so that side never comes close.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The error for a failed read of `key`, where `what` is the step that failed.
+/// A wait on the shard's lock that ran out is reported as such, apart from
+/// every other failure, so its rate can be read off production errors.
+fn sqlite_read_error(key: &DataKey, what: &str, error: rusqlite::Error) -> anyhow::Error {
+    match error {
+        rusqlite::Error::SqliteFailure(sqlite_error, _)
+            if sqlite_error.code == rusqlite::ErrorCode::DatabaseBusy =>
+        {
+            anyhow::anyhow!(
+                "sqlite read of key {key:?} timed out after {BUSY_TIMEOUT:?} waiting for the \
+                 shard's lock (SQLITE_BUSY): a page-out commit was in progress"
+            )
+        }
+        error => anyhow::anyhow!("{what} failed for key {key:?}: {error}"),
+    }
+}
+
 const DEFAULT_WRITE_BUFFER_ROWS: usize = 1 << 20;
 const DEFAULT_WRITE_BUFFER_BYTES: usize = 128 << 20;
 /// Buffers usually rotate on bytes well before the row cap, so preallocate
@@ -232,6 +270,7 @@ impl ConnectionPool {
             PRAGMA journal_mode=OFF;
             PRAGMA page_size=8192;",
         )?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
         Ok(())
     }
 
@@ -559,10 +598,10 @@ impl SqliteBackedPagableStorage {
             let conn = shard.inner.conns.get_reader();
             let mut stmt = conn
                 .prepare_cached("SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2")
-                .map_err(|e| anyhow::anyhow!("prepare failed: {}", e))?;
+                .map_err(|e| sqlite_read_error(key, "prepare", e))?;
             stmt.query_row(rusqlite::params![key_lo, key_hi], |row| row.get(0))
                 .optional()
-                .map_err(|e| anyhow::anyhow!("fetch failed for key {:?}: {}", key, e))
+                .map_err(|e| sqlite_read_error(key, "fetch", e))
         };
         let bytes = match read()? {
             Some(bytes) => bytes,
@@ -896,6 +935,46 @@ mod tests {
             .err()
             .expect("pending row must report the writer failure");
         assert!(format!("{error:#}").contains("injected write failure"));
+        Ok(())
+    }
+
+    /// A shard held exclusively, as it is while the writer commits, times a
+    /// read out with a message that names the cause; the read succeeds once
+    /// the lock is released.
+    #[test]
+    fn sqlite_read_reports_a_busy_timeout_distinctly() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("busy_timeout")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let key = storage.store_data(pagable_data(b"busy", Vec::new()))?;
+        storage.flush()?;
+        let shard = storage.shard_for(&key);
+        // A reader that has never prepared a statement reads the schema on its
+        // first one, and a lock met there reports as a missing table rather
+        // than as busy. Production readers are warm; make these warm too.
+        for _ in 0..shard.inner.conns.readers.len() {
+            storage.fetch_data_blocking(&key)?;
+        }
+        // The production timeout would make this test take that long.
+        for reader in &shard.inner.conns.readers {
+            reader
+                .lock()
+                .unwrap()
+                .busy_timeout(Duration::from_millis(50))?;
+        }
+
+        let writer = shard.inner.conns.readwrite.lock().unwrap();
+        writer.execute_batch("BEGIN EXCLUSIVE;")?;
+        let error = storage
+            .fetch_data_blocking(&key)
+            .err()
+            .expect("a read of an exclusively locked shard times out");
+        writer.execute_batch("COMMIT;")?;
+        drop(writer);
+        assert!(
+            format!("{error:#}").contains("SQLITE_BUSY"),
+            "the timeout is named as such: {error:#}"
+        );
+        assert_eq!(storage.fetch_data_blocking(&key)?.data, b"busy");
         Ok(())
     }
 
