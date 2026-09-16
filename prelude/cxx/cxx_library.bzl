@@ -120,6 +120,8 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_info",
@@ -1401,6 +1403,25 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     )
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
+
+    if TARGET_STATS_ENABLED:
+        target_stats_tools = get_cxx_toolchain_info(ctx).target_stats_tools
+        if target_stats_tools != None:
+            # Keyed by each file's path within the target, which is what a
+            # consumer can line up against the target's own source list.
+            target_stats_srcs = {src.file.short_path: src.file for src in impl_params.srcs + impl_params.additional.srcs}
+            target_stats_srcs.update(impl_params.target_stats_extra_srcs)
+            target_stats_providers, target_stats_subtargets = target_stats_providers_and_subtargets(
+                ctx,
+                tools = target_stats_tools,
+                srcs = target_stats_srcs,
+                deps = non_exported_deps + exported_deps,
+                cycle_mode = CycleMode(impl_params.target_stats_cycle_mode),
+                module_name = impl_params.target_stats_module_name or ctx.label.name,
+                swift_dot = impl_params.target_stats_swift_dot,
+            )
+            providers.extend(target_stats_providers)
+            sub_targets.update(target_stats_subtargets)
 
     if impl_params.generate_providers.default:
         if False:

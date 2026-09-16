@@ -8,8 +8,18 @@
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
-load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
+load("@prelude//cxx:headers.bzl", "CHeader", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@prelude//utils:utils.bzl", "value_or")
+
+def target_stats_header_name(header: CHeader) -> str:
+    """The path a target refers to a header by.
+
+    A header given as a dict is named by its key, which is the only thing
+    separating two files that share a basename. A plain list keeps its
+    package-relative path: Apple's naming would flatten it to the basename,
+    which loses the sub-directory for no benefit here.
+    """
+    return header.name if header.named else header.artifact.short_path
 
 def get_apple_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout:
     namespace = value_or(ctx.attrs.header_path_prefix, ctx.attrs.name)

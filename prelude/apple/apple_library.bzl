@@ -131,7 +131,7 @@ load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_library")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
-load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
+load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name", "target_stats_header_name")
 load(
     ":debug.bzl",
     "AppleDebuggableInfo",
@@ -577,6 +577,12 @@ def apple_library_rule_constructor_params_and_swift_providers(
         extra_preprocessors = [swift_pre, modular_pre],
         extra_exported_preprocessors = filter(None, [exported_pre]),
         srcs = cxx_srcs,
+        target_stats_cycle_mode = "file",
+        target_stats_module_name = get_module_name(ctx),
+        target_stats_extra_srcs = {
+            target_stats_header_name(header): header.artifact for header in cxx_attr_headers_list(ctx, ctx.attrs.headers, header_layout) + exported_hdrs
+        },
+        target_stats_swift_dot = swift_compile.modularization_dependency_graph if swift_compile else None,
         additional = CxxRuleAdditionalParams(
             srcs = swift_srcs,
             argsfiles = swift_compile.argsfiles if swift_compile else CompileArgsfiles(),

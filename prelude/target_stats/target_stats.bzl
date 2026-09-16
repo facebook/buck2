@@ -27,12 +27,12 @@ CycleMode = enum("file", "package", "none")
 
 _OUT_DIR = "__target_stats__"
 
-def _file_stats_action(ctx: AnalysisContext, tools: TargetStatsToolsInfo, src: Artifact) -> Artifact:
-    out = ctx.actions.declare_output(_OUT_DIR, src.short_path + ".file_stats.json", has_content_based_path = False)
+def _file_stats_action(ctx: AnalysisContext, tools: TargetStatsToolsInfo, src: Artifact, name: str) -> Artifact:
+    out = ctx.actions.declare_output(_OUT_DIR, name + ".file_stats.json", has_content_based_path = False)
     ctx.actions.run(
         cmd_args([tools.file_stats, "--input", src, "--output", out.as_output()]),
         category = "target_stats_file_stats",
-        identifier = src.short_path,
+        identifier = name,
         allow_cache_upload = True,
     )
     return out
@@ -93,7 +93,7 @@ def target_stats_providers_and_subtargets(
     ctx: AnalysisContext,
     *,
     tools: TargetStatsToolsInfo,
-    srcs: list[Artifact],
+    srcs: dict[str, Artifact],
     deps: list[Dependency],
     cycle_mode: CycleMode,
     module_name: str,
@@ -109,8 +109,8 @@ def target_stats_providers_and_subtargets(
 
     # Per-file metrics, keyed by each source's package-relative path.
     file_stats_by_path = {}
-    for src in srcs:
-        file_stats_by_path[src.short_path] = _file_stats_action(ctx, tools, src)
+    for name, src in srcs.items():
+        file_stats_by_path[name] = _file_stats_action(ctx, tools, src, name)
 
     target_data = _extract_target_data_action(ctx, tools, file_stats_by_path)
     cycles = _cycles_action(ctx, tools, cycle_mode, target_data, module_name, swift_dot)

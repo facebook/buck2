@@ -305,4 +305,10 @@ CxxRuleConstructorParams = record(
     supports_stripping = field(bool, True),
     # Whether to set expect_eligible_for_dedupe on compile actions.
     expect_eligible_for_dedupe = field(bool, False),
+    target_stats_cycle_mode = field(str, "none"),
+    target_stats_extra_srcs = field(dict[str, Artifact], {}),
+    target_stats_swift_dot = field(Artifact | None, None),
+    # The module the cycle tools resolve imports against. Not how the target is
+    # reported -- that stays the target's label.
+    target_stats_module_name = field(str | None, None),
 )
