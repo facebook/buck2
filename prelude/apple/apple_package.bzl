@@ -12,6 +12,7 @@ load(
     "AppleBundleInfo",
     "AppleBundleLinkerMapInfo",
     "AppleInfoPlistInfo",
+    "ApplePackageExtension",
 )
 load(":apple_package_config.bzl", "IpaCompressionLevel")
 load(":apple_package_types.bzl", "ApplePackageInfo")
@@ -65,7 +66,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
         ApplePackageInfo(
             name = package_name,
             bundle_info = ctx.attrs.bundle[AppleBundleInfo],
-            extension = ctx.attrs.ext,
+            extension = ApplePackageExtension(ctx.attrs.ext),
             package = package,
             dsyms = ctx.attrs.bundle[AppleDebuggableInfo].dsyms,
             info_plist = ctx.attrs.bundle[AppleInfoPlistInfo].info_plist,
