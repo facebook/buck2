@@ -253,6 +253,7 @@ def _cxx_toolchain_override(ctx):
         libclang = value_or(ctx.attrs.libclang, base_toolchain.libclang),
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
+        target_stats_tools = base_toolchain.target_stats_tools,
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
         hip_debug_extract = base_toolchain.hip_debug_extract,
