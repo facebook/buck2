@@ -10,6 +10,7 @@
 
 import os
 import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -33,6 +34,37 @@ async def test_projected_output(buck: Buck) -> None:
     assert p.exists()
     assert p.is_symlink()
     assert (p / "file").is_file()
+
+
+@buck_test()
+async def test_materializer_managed_unhashed_output(buck: Buck) -> None:
+    await buck.build("//pack:trivial_build")
+
+    p = buck.cwd / "buck-out" / "v2" / "gen" / "root" / "pack" / "foo.txt"
+    assert p.is_symlink()
+
+    materializer_state = await buck.audit("deferred-materializer", "list")
+    assert "buck-out/v2/gen/root/pack/foo.txt" in materializer_state.stdout
+
+    future_time = int((datetime.now() + timedelta(weeks=7)).timestamp())
+    await buck.clean(f"--keep-since-time={future_time}")
+    assert p.is_symlink()
+    assert p.is_file()
+    materializer_state = await buck.audit("deferred-materializer", "list")
+    assert "buck-out/v2/gen/root/pack/foo.txt" in materializer_state.stdout
+
+
+@buck_test()
+async def test_materializer_managed_unhashed_output_without_materialization(
+    buck: Buck,
+) -> None:
+    await buck.build("//pack:trivial_build", "--materializations=none")
+    unhashed = buck.cwd / "buck-out" / "v2" / "gen" / "root" / "pack" / "foo.txt"
+
+    assert not unhashed.is_symlink()
+
+    materializer_state = await buck.audit("deferred-materializer", "list")
+    assert "buck-out/v2/gen/root/pack/foo.txt" in materializer_state.stdout
 
 
 @buck_test()
@@ -67,7 +99,7 @@ async def test_conflict_with_content_based_paths(buck: Buck) -> None:
     def base_checks(*, should_symlink_exist: bool) -> None:
         if should_symlink_exist:
             assert symlink_path.is_symlink()
-            assert symlink_path.readlink().is_file()
+            assert symlink_path.resolve().is_file()
         else:
             assert not symlink_path.exists()
 

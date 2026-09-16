@@ -66,6 +66,8 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
+use buck2_execute::digest_config::HasDigestConfig;
+use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_hash::BuckMutSet;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -90,7 +92,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::build::result_report::ResultReporter;
 use crate::build::result_report::ResultReporterOptions;
-use crate::build::unhashed_outputs::create_unhashed_outputs;
+use crate::build::unhashed_outputs::create_unhashed_outputs_via_materializer;
 
 mod result_report;
 mod unhashed_outputs;
@@ -231,8 +233,7 @@ async fn build(
 
     let final_artifact_materializations =
         Materializations::try_from(request.final_artifact_materializations)
-            .with_buck_error_context(|| "Invalid final_artifact_materializations")
-            .unwrap();
+            .with_buck_error_context(|| "Invalid final_artifact_materializations")?;
     let final_artifact_uploads = Uploads::try_from(request.final_artifact_uploads)
         .with_buck_error_context(|| "Invalid final_artifact_uploads")
         .unwrap();
@@ -539,6 +540,7 @@ async fn build(
         detailed_metrics,
         action_graph_sketch_result,
         artifact_path_sketch_result,
+        final_artifact_materializations,
         graph_properties,
     )
     .await
@@ -677,6 +679,7 @@ async fn process_build_result(
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     action_graph_sketch_result: Option<ActionGraphSketchResult>,
     artifact_path_sketch_result: Option<ArtifactPathSketchResult>,
+    final_artifact_materializations: Materializations,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
@@ -750,7 +753,14 @@ async fn process_build_result(
                 .per_transaction_data()
                 .get_create_unhashed_symlink_lock();
             let _guard = lock.lock().await;
-            let res = create_unhashed_outputs(provider_artifacts, artifact_fs, fs);
+            let res = create_unhashed_outputs_via_materializer(
+                provider_artifacts,
+                artifact_fs,
+                ctx.global_data().get_digest_config(),
+                ctx.per_transaction_data().get_materializer(),
+                final_artifact_materializations,
+            )
+            .await;
             (res, buck2_data::CreateOutputSymlinksEnd {})
         })
         .await?;

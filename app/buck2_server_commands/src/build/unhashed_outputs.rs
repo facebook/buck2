@@ -8,36 +8,32 @@
  * above-listed licenses.
  */
 
-use std::path;
-use std::time::Instant;
-
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
+use buck2_cli_proto::build_request::Materializations;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-use buck2_fs::error::IoResultExt;
-use buck2_fs::fs_util;
-use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_fs::paths::abs_path::AbsPath;
-use buck2_hash::BuckMutSet;
+use buck2_execute::artifact_utils::ArtifactValueBuilder;
+use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::Materializer;
 use buck2_query::__derive_refs::indexmap::IndexMap;
+use buck2_util::future::try_join_all;
 use itertools::Itertools;
 use tracing::info;
 
-pub(crate) fn create_unhashed_outputs(
+type UnhashedOutputLinks =
+    IndexMap<ProjectRelativePathBuf, IndexMap<ProjectRelativePathBuf, ArtifactValue>>;
+
+fn unhashed_output_links(
     provider_artifacts: Vec<ProviderArtifacts>,
     artifact_fs: &ArtifactFs,
-    fs: &ProjectRoot,
-) -> buck2_error::Result<()> {
-    let buck_out_root = fs.resolve(artifact_fs.buck_out_path_resolver().root());
-
-    let start = std::time::Instant::now();
-    // The following IndexMap will contain a key of the unhashed/symlink path and values of all the hashed locations that map to the unhashed location.
-    let mut unhashed_to_hashed: IndexMap<AbsNormPathBuf, BuckMutSet<AbsNormPathBuf>> =
-        IndexMap::new();
+) -> buck2_error::Result<UnhashedOutputLinks> {
+    let mut unhashed_to_hashed: UnhashedOutputLinks = IndexMap::new();
     for provider_artifact in provider_artifacts {
         if !matches!(provider_artifact.provider_type, BuildProviderType::Default) {
             continue;
@@ -56,18 +52,50 @@ pub(crate) fn create_unhashed_outputs(
                 }
                 .as_ref(),
             )?;
-            let abs_unhashed_path = fs.resolve(&unhashed_path);
-            let entry = unhashed_to_hashed.entry(abs_unhashed_path).or_default();
-            entry.insert(fs.resolve(&path));
+            unhashed_to_hashed
+                .entry(unhashed_path)
+                .or_default()
+                .insert(path, value.clone());
         }
     }
-    // The IndexMap is used now to determine if and what conflicts exist where multiple hashed artifact locations
-    // all want a symlink to the same unhashed artifact location and deal with them accordingly.
-    let mut num_unhashed_links_made = 0;
+    Ok(unhashed_to_hashed)
+}
+
+pub(crate) async fn create_unhashed_outputs_via_materializer(
+    provider_artifacts: Vec<ProviderArtifacts>,
+    artifact_fs: &ArtifactFs,
+    digest_config: DigestConfig,
+    materializer: &dyn Materializer,
+    materializations: Materializations,
+) -> buck2_error::Result<()> {
+    create_unhashed_outputs_via_materializer_impl(
+        provider_artifacts,
+        artifact_fs,
+        digest_config,
+        materializer,
+        materializations,
+    )
+    .await
+    .tag(ErrorTag::UnhashedOutputSymlink)
+    .with_buck_error_context(|| "while creating materializer-managed unhashed output symlinks")
+}
+
+async fn create_unhashed_outputs_via_materializer_impl(
+    provider_artifacts: Vec<ProviderArtifacts>,
+    artifact_fs: &ArtifactFs,
+    digest_config: DigestConfig,
+    materializer: &dyn Materializer,
+    materializations: Materializations,
+) -> buck2_error::Result<()> {
+    let unhashed_to_hashed = unhashed_output_links(provider_artifacts, artifact_fs)?;
+    let mut declarations = Vec::new();
+
     for (unhashed, hashed_set) in unhashed_to_hashed {
-        if hashed_set.len() == 1 {
-            create_unhashed_link(&unhashed, hashed_set.iter().next().unwrap(), &buck_out_root)?;
-            num_unhashed_links_made += 1;
+        if let Ok((hashed, value)) = hashed_set.iter().exactly_one() {
+            let mut builder = ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
+            builder.add_symlinked(value, hashed.clone(), &unhashed)?;
+            let symlink_value = builder.build(&unhashed)?;
+            declarations.push((unhashed, symlink_value));
         } else {
             info!(
                 "The following outputs have a conflicting unhashed path at {}: {:?}",
@@ -75,119 +103,29 @@ pub(crate) fn create_unhashed_outputs(
             );
         }
     }
-    let duration = Instant::now() - start;
-    info!(
-        "Creating {} output compatibility symlinks in {:3}s",
-        num_unhashed_links_made,
-        duration.as_secs_f64()
-    );
-    Ok(())
-}
-
-fn create_unhashed_link(
-    unhashed_path: &AbsNormPathBuf,
-    original_path: &AbsNormPathBuf,
-    buck_out_root: &AbsNormPathBuf,
-) -> buck2_error::Result<()> {
-    // Remove the final path separator if it exists so that the path looks like a file and not a directory or else symlink() fails.
-    tracing::debug!("Creating link: `{}` -> `{}`", unhashed_path, original_path);
-
-    let mut abs_unhashed_path = unhashed_path.to_owned();
-    if let Some(path) = unhashed_path
-        .to_str()
-        .unwrap()
-        .strip_suffix(path::is_separator)
-    {
-        abs_unhashed_path = AbsNormPathBuf::from(path.to_owned())?;
-    }
-
-    // We are going to need to clear the path between buck-out and the symlink we want to create.
-    // To do this, we need to traverse forward out of buck_out_root and towards our symlink, and
-    // delete any files or symlinks we find along the way. As soon as we find one, we can stop.
-
-    if let Some(parent) = abs_unhashed_path.parent() {
-        for prefix in iter_reverse_ancestors(parent, buck_out_root.as_ref()) {
-            let meta = match fs_util::symlink_metadata_if_exists(prefix)? {
-                Some(meta) => meta,
-                None => continue,
-            };
-
-            if meta.is_file() || meta.is_symlink() {
-                fs_util::remove_file(prefix)
-                    .categorize_tagged(ErrorTag::UnhashedOutputSymlink)
-                    .with_buck_error_context(
-                        || "was not able to remove file while cleaning up prefixes",
-                    )?;
-            }
+    let unhashed_paths: Vec<_> = declarations.iter().map(|(path, _)| path.clone()).collect();
+    try_join_all(
+        declarations
+            .into_iter()
+            .map(|(path, value)| materializer.declare_copy(path, value, Vec::new())),
+    )
+    .await?;
+    match materializations {
+        Materializations::Skip => {}
+        Materializations::Default => {
+            try_join_all(
+                unhashed_paths
+                    .into_iter()
+                    .map(|path| materializer.try_materialize_final_artifact(path)),
+            )
+            .await?;
         }
-
-        fs_util::create_dir_all(parent)
-            .tag(ErrorTag::UnhashedOutputSymlink)
-            .with_buck_error_context(|| "while creating unhashed directory for symlink")?;
-    }
-
-    if let Ok(metadata) = fs_util::symlink_metadata(&abs_unhashed_path)
-        .categorize_tagged(ErrorTag::UnhashedOutputSymlink)
-    {
-        if metadata.is_dir() {
-            fs_util::remove_dir_all(&abs_unhashed_path)
-                .categorize_tagged(ErrorTag::UnhashedOutputSymlink)
-                .with_buck_error_context(
-                    || "was not able to remove absolute unhashed path (directory)",
-                )?
-        } else {
-            fs_util::remove_file(&abs_unhashed_path)
-                .categorize_tagged(ErrorTag::UnhashedOutputSymlink)
-                .with_buck_error_context(
-                    || "was not able to remove absolute unhashed path (file)",
-                )?
+        Materializations::Materialize => {
+            materializer
+                .ensure_materialized(unhashed_paths, MaterializationPurpose::FinalOutput)
+                .await?;
         }
     }
-    fs_util::symlink(original_path, abs_unhashed_path)
-        .categorize_tagged(ErrorTag::UnhashedOutputSymlink)
-        .with_buck_error_context(
-            || "was not able to symlink original path to absolute unhashed path",
-        )?;
+
     Ok(())
-}
-
-/// Iterate over the path components between stop_at and path.
-fn iter_reverse_ancestors<'a>(
-    path: &'a AbsPath,
-    stop_at: &'_ AbsPath,
-) -> impl Iterator<Item = &'a AbsPath> + use<'a> {
-    let ancestors = path
-        .ancestors()
-        .take_while(|a| *a != stop_at)
-        .collect::<Vec<_>>();
-
-    ancestors.into_iter().rev()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_iter_reverse_ancestors() {
-        let prefix = if cfg!(windows) { "C:" } else { "" };
-        let root = AbsNormPathBuf::try_from(format!("{prefix}/repo/buck-out/v2")).unwrap();
-        let path =
-            AbsNormPathBuf::try_from(format!("{prefix}/repo/buck-out/v2/foo/bar/some")).unwrap();
-
-        let mut iter = iter_reverse_ancestors(&path, &root);
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo"),
-        );
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo/bar"),
-        );
-        assert_eq!(
-            iter.next().unwrap().to_str().unwrap(),
-            &format!("{prefix}/repo/buck-out/v2/foo/bar/some"),
-        );
-        assert_eq!(iter.next(), None);
-    }
 }
