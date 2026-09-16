@@ -76,10 +76,7 @@ impl Buck2TestRunner {
         }
         let run_verdict = receiver
             .map(|spec| async move {
-                let name = format!(
-                    "{}//{}:{}",
-                    spec.target.cell, spec.target.package, spec.target.target
-                );
+                let name = spec.target.label.to_string();
                 let target_handle = spec.target.handle.to_owned();
 
                 let execution_response = self
@@ -126,7 +123,7 @@ impl Buck2TestRunner {
         spec: ExternalRunnerSpec,
     ) -> buck2_error::Result<ExecuteResponse> {
         let stage = TestStage::Testing {
-            suite: spec.target.target,
+            suite: spec.target.label.to_string(),
             testcases: Vec::new(),
             variant: None,
             repeat_count: None,
