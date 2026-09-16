@@ -114,6 +114,8 @@ pub struct UnmaterializationUploadConfig {
 #[derive(Debug, Clone)]
 pub struct AdaptiveLowDiskParams {
     pub threshold_percent: f64,
+    /// Free disk percentage to recover to by unmaterializing active artifacts.
+    pub unmaterialization_threshold_percent: f64,
     /// Retained artifacts last accessed at or after this instant are protected
     /// from adaptive promotion, regardless of free disk pressure.
     pub min_access_time: Timestamp,
@@ -1901,6 +1903,33 @@ fn apply_adaptive_low_disk(
         };
     }
 
+    let projected_free = found_paths
+        .iter()
+        .filter_map(|path| match path {
+            FoundPath::Untracked(_, _, size)
+            | FoundPath::Tracked {
+                size,
+                state: TrackedState::Stale(_),
+                ..
+            } => Some(*size),
+            _ => None,
+        })
+        .fold(free_space, u64::saturating_add);
+    let unmaterialization_target_free =
+        (params.unmaterialization_threshold_percent / 100.0 * total_space as f64).ceil() as u64;
+    let unmaterialization_bytes_needed =
+        unmaterialization_target_free.saturating_sub(projected_free);
+    if unmaterialization_bytes_needed == 0 {
+        return AdaptiveCleanupResult {
+            outcome: AdaptiveOutcome::InsufficientCandidates,
+            free_bytes_before: free_space,
+            total_bytes: total_space,
+            bytes_needed,
+            shortfall_bytes: bytes_needed.saturating_sub(accumulated),
+            reached_unmaterialization: false,
+        };
+    }
+
     let mut active: Vec<(usize, Timestamp, u64, bool)> = found_paths
         .iter()
         .enumerate()
@@ -1930,15 +1959,18 @@ fn apply_adaptive_low_disk(
         .collect();
     // Prefer to clean artifacts that are already remote-backed over ones that need uploads
     active.sort_by_key(|(_, last_access_time, _, upload)| (*upload, *last_access_time));
+    let mut unmaterialized_bytes = 0;
     for (index, _, size, _) in active {
-        if accumulated >= bytes_needed {
+        if unmaterialized_bytes >= unmaterialization_bytes_needed {
             break;
         }
         if let FoundPath::Tracked { state, .. } = &mut found_paths[index] {
             *state = TrackedState::Unmaterialize;
         }
-        accumulated = accumulated.saturating_add(size);
+        unmaterialized_bytes = unmaterialized_bytes.saturating_add(size);
     }
+
+    let accumulated = accumulated.saturating_add(unmaterialized_bytes);
 
     AdaptiveCleanupResult {
         outcome: if accumulated >= bytes_needed {
@@ -2003,6 +2035,7 @@ pub enum LowDiskCleanMode {
         min_ttl: Duration,
         delete_intermediate_within_min_ttl: bool,
         unmaterialize_active: bool,
+        unmaterialization_threshold_percent: f64,
     },
 }
 
@@ -2018,6 +2051,39 @@ fn duration_from_config_hours(hours: f64, property: &str) -> buck2_error::Result
             e
         )
     })
+}
+
+fn percentage_from_config(value: f64, property: &str) -> buck2_error::Result<f64> {
+    if (0.0..=100.0).contains(&value) {
+        Ok(value)
+    } else {
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid value `{}` for `buck2.{}`: expected a percentage between 0.0 and 100.0",
+            value,
+            property,
+        ))
+    }
+}
+
+fn unmaterialization_threshold_from_config(
+    value: Option<f64>,
+    low_disk_threshold: f64,
+) -> buck2_error::Result<f64> {
+    let value = percentage_from_config(
+        value.unwrap_or(low_disk_threshold),
+        "clean_stale_low_disk_unmaterialization_threshold",
+    )?;
+    if value <= low_disk_threshold {
+        Ok(value)
+    } else {
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "`buck2.clean_stale_low_disk_unmaterialization_threshold` ({}) must not exceed `buck2.clean_stale_low_disk_threshold` ({})",
+            value,
+            low_disk_threshold,
+        ))
+    }
 }
 
 impl CleanStaleConfig {
@@ -2076,6 +2142,11 @@ impl CleanStaleConfig {
                 property: "clean_stale_low_disk_adaptive_unmaterialize_active",
             })?
             .unwrap_or(false);
+        let unmaterialization_threshold_percent: Option<f64> =
+            root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_low_disk_unmaterialization_threshold",
+            })?;
         let unmaterialize_upload_enabled = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",
@@ -2109,30 +2180,43 @@ impl CleanStaleConfig {
             section: "buck2",
             property: "clean_stale_low_disk_artifact_ttl_hours",
         })?;
-        let low_disk_mode = if adaptive_enabled {
-            LowDiskCleanMode::Adaptive {
-                min_ttl: duration_from_config_hours(
-                    adaptive_min_ttl_hours,
-                    "clean_stale_low_disk_adaptive_min_ttl_hours",
-                )?,
-                delete_intermediate_within_min_ttl,
-                unmaterialize_active,
-            }
-        } else {
-            let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
-            LowDiskCleanMode::Fixed(duration_from_config_hours(
-                hours,
-                "clean_stale_low_disk_artifact_ttl_hours",
-            )?)
-        };
         let low_disk_threshold_percent: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_threshold",
         })?;
-        let low_disk = low_disk_threshold_percent.map(|threshold_percent| LowDiskCleanConfig {
-            threshold_percent,
-            mode: low_disk_mode,
-        });
+        let low_disk = match low_disk_threshold_percent {
+            Some(threshold_percent) => {
+                let threshold_percent =
+                    percentage_from_config(threshold_percent, "clean_stale_low_disk_threshold")?;
+                let mode = if adaptive_enabled {
+                    let unmaterialization_threshold_percent =
+                        unmaterialization_threshold_from_config(
+                            unmaterialization_threshold_percent,
+                            threshold_percent,
+                        )?;
+                    LowDiskCleanMode::Adaptive {
+                        min_ttl: duration_from_config_hours(
+                            adaptive_min_ttl_hours,
+                            "clean_stale_low_disk_adaptive_min_ttl_hours",
+                        )?,
+                        delete_intermediate_within_min_ttl,
+                        unmaterialize_active,
+                        unmaterialization_threshold_percent,
+                    }
+                } else {
+                    let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
+                    LowDiskCleanMode::Fixed(duration_from_config_hours(
+                        hours,
+                        "clean_stale_low_disk_artifact_ttl_hours",
+                    )?)
+                };
+                Some(LowDiskCleanConfig {
+                    threshold_percent,
+                    mode,
+                })
+            }
+            None => None,
+        };
         let schedule = if clean_stale_enabled {
             Some(CleanStaleSchedule {
                 clean_period: duration_from_config_hours(
@@ -2193,6 +2277,7 @@ impl CleanStaleConfig {
                         min_ttl,
                         delete_intermediate_within_min_ttl,
                         unmaterialize_active,
+                        unmaterialization_threshold_percent,
                     },
             }) => vec![
                 "adaptive-clean-stale:true".to_owned(),
@@ -2211,6 +2296,10 @@ impl CleanStaleConfig {
                 format!(
                     "adaptive-clean-stale-unmaterialize-active:{}",
                     unmaterialize_active
+                ),
+                format!(
+                    "adaptive-clean-stale-unmaterialization-threshold-percent:{}",
+                    unmaterialization_threshold_percent
                 ),
             ],
             _ => vec!["adaptive-clean-stale:false".to_owned()],
@@ -2237,6 +2326,8 @@ mod tests {
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
     use crate::materializers::deferred::clean_stale::duration_from_config_hours;
+    use crate::materializers::deferred::clean_stale::percentage_from_config;
+    use crate::materializers::deferred::clean_stale::unmaterialization_threshold_from_config;
 
     #[test]
     fn test_duration_from_config_hours() {
@@ -2247,6 +2338,29 @@ mod tests {
         assert!(duration_from_config_hours(-1.0, "prop").is_err());
         assert!(duration_from_config_hours(f64::NAN, "prop").is_err());
         assert!(duration_from_config_hours(f64::INFINITY, "prop").is_err());
+    }
+
+    #[test]
+    fn test_percentage_from_config() {
+        assert_eq!(percentage_from_config(0.0, "prop").unwrap(), 0.0);
+        assert_eq!(percentage_from_config(100.0, "prop").unwrap(), 100.0);
+        assert!(percentage_from_config(-1.0, "prop").is_err());
+        assert!(percentage_from_config(100.1, "prop").is_err());
+        assert!(percentage_from_config(f64::NAN, "prop").is_err());
+        assert!(percentage_from_config(f64::INFINITY, "prop").is_err());
+    }
+
+    #[test]
+    fn test_unmaterialization_threshold_from_config() {
+        assert_eq!(
+            unmaterialization_threshold_from_config(None, 10.0).unwrap(),
+            10.0
+        );
+        assert_eq!(
+            unmaterialization_threshold_from_config(Some(5.0), 10.0).unwrap(),
+            5.0
+        );
+        assert!(unmaterialization_threshold_from_config(Some(11.0), 10.0).is_err());
     }
 
     fn t(secs: i64) -> Timestamp {
@@ -2359,6 +2473,7 @@ mod tests {
     fn adaptive_params(threshold_percent: f64) -> AdaptiveLowDiskParams {
         AdaptiveLowDiskParams {
             threshold_percent,
+            unmaterialization_threshold_percent: threshold_percent,
             min_access_time: no_min_ttl(),
             delete_intermediate_within_min_ttl: false,
             unmaterialize_active: false,
@@ -2377,8 +2492,12 @@ mod tests {
         }
     }
 
-    fn adaptive_params_with_unmaterialization(threshold_percent: f64) -> AdaptiveLowDiskParams {
+    fn adaptive_params_with_unmaterialization(
+        threshold_percent: f64,
+        unmaterialization_threshold_percent: f64,
+    ) -> AdaptiveLowDiskParams {
         AdaptiveLowDiskParams {
+            unmaterialization_threshold_percent,
             unmaterialize_active: true,
             ..adaptive_params(threshold_percent)
         }
@@ -2620,7 +2739,7 @@ mod tests {
             &mut paths,
             0,
             1000,
-            &adaptive_params_with_unmaterialization(10.0),
+            &adaptive_params_with_unmaterialization(10.0, 10.0),
         );
 
         assert_eq!(
@@ -2657,6 +2776,62 @@ mod tests {
     }
 
     #[test]
+    fn unmaterialization_stops_at_separate_threshold() {
+        let mut paths = vec![
+            active_retained_with_classification(
+                "newer_active",
+                200,
+                500,
+                ArtifactClassification::IntermediateOnly,
+                true,
+            ),
+            active_retained_with_classification(
+                "older_active",
+                100,
+                100,
+                ArtifactClassification::IntermediateOnly,
+                true,
+            ),
+        ];
+
+        let result = apply_adaptive_low_disk(
+            &mut paths,
+            0,
+            1000,
+            &adaptive_params_with_unmaterialization(100.0, 10.0),
+        );
+
+        assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
+        assert_eq!(result.shortfall_bytes, 900);
+        assert!(result.reached_unmaterialization);
+        assert!(is_active_retained(&paths[0]));
+        assert!(matches!(
+            &paths[1],
+            FoundPath::Tracked {
+                state: TrackedState::Unmaterialize,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn inactive_cleanup_can_avoid_unmaterialization() {
+        let mut paths = vec![retained("retained", 100, 20), active_retained(100)];
+
+        let result = apply_adaptive_low_disk(
+            &mut paths,
+            40,
+            1000,
+            &adaptive_params_with_unmaterialization(10.0, 5.0),
+        );
+
+        assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
+        assert!(!result.reached_unmaterialization);
+        assert!(is_stale(&paths[0], 20));
+        assert!(is_active_retained(&paths[1]));
+    }
+
+    #[test]
     fn final_outputs_are_never_unmaterialized() {
         let mut paths = vec![active_retained_with_classification(
             "final",
@@ -2670,7 +2845,7 @@ mod tests {
             &mut paths,
             0,
             1000,
-            &adaptive_params_with_unmaterialization(100.0),
+            &adaptive_params_with_unmaterialization(100.0, 100.0),
         );
 
         assert!(is_active_retained(&paths[0]));

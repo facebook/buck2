@@ -452,6 +452,7 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
                         .unwrap_or_else(|| std::time::Duration::from_secs(12 * 60 * 60));
                     crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams {
                         threshold_percent,
+                        unmaterialization_threshold_percent: threshold_percent,
                         min_access_time: Timestamp::now()
                             .checked_sub(min_ttl)
                             .unwrap_or(Timestamp::MIN),

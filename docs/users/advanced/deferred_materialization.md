@@ -118,8 +118,14 @@ clean_stale_start_offset_hours = 12
   final adaptive escalation step that discards active intermediate artifacts
   backed by CAS or HTTP downloads. Their materializer entries return to the
   declared state, so a later build downloads them again without rerunning the
-  producing action. This option is suppressed unless `ttl_refresh_enabled` is
-  enabled for the daemon, because CAS blobs must remain available for future
+  producing action.
+- `clean_stale_low_disk_unmaterialization_threshold` (defaults to
+  `clean_stale_low_disk_threshold`) sets the free-disk percentage that active
+  unmaterialization recovers to. It must not exceed
+  `clean_stale_low_disk_threshold` and only applies when
+  `clean_stale_low_disk_adaptive_unmaterialize_active` is enabled. Active
+  unmaterialization is also suppressed unless `ttl_refresh_enabled` is enabled
+  for the daemon, because CAS blobs must remain available for future
   rematerialization.
 
 If clean stale is running in the background at the same time that a build begins

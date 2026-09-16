@@ -485,6 +485,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 min_ttl,
                 delete_intermediate_within_min_ttl,
                 unmaterialize_active,
+                unmaterialization_threshold_percent,
             } => (
                 default_ttl,
                 Some(AdaptiveLowDiskParams {
@@ -496,6 +497,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .unwrap_or(Timestamp::MIN),
                     delete_intermediate_within_min_ttl: *delete_intermediate_within_min_ttl,
                     unmaterialize_active: *unmaterialize_active,
+                    unmaterialization_threshold_percent: *unmaterialization_threshold_percent,
                 }),
             ),
             LowDiskCleanMode::Fixed(duration) => {
