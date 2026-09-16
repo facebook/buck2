@@ -25,6 +25,20 @@ use crate::cleanall::discovery::discover_cleanall_targets;
 
 const MAX_CONCURRENT_CLEANS: usize = 8;
 
+/// Env var overriding how many `clean --stale` subprocesses run concurrently.
+///
+/// Exists so tests can force serialized execution (e.g. `=1`) and verify that
+/// a failing target does not prevent later targets from running.
+const MAX_CONCURRENT_CLEANS_ENV_VAR: &str = "BUCK2_CLEANALL_MAX_CONCURRENT_CLEANS";
+
+fn max_concurrent_cleans() -> usize {
+    std::env::var(MAX_CONCURRENT_CLEANS_ENV_VAR)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|parsed| *parsed > 0)
+        .unwrap_or(MAX_CONCURRENT_CLEANS)
+}
+
 #[derive(Debug, Eq, PartialEq)]
 enum CleanStaleOutcome {
     Cleaned,
@@ -81,23 +95,30 @@ impl CleanallTarget {
                 self.project_root.display(),
             )
         })?;
-        let output = child.wait_with_output().await.with_buck_error_context(|| {
+        let child_output = child.wait_with_output().await.with_buck_error_context(|| {
             format!(
                 "Failed to wait for `buck2 --isolation-dir {} clean --stale` in `{}`",
                 self.isolation_dir,
                 self.project_root.display(),
             )
         })?;
-        if output.status.success() {
+        if child_output.status.success() {
             return Ok(CleanStaleOutcome::Cleaned);
         }
+
+        let stdout = String::from_utf8_lossy(&child_output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&child_output.stderr).into_owned();
+        let output = ChildOutput::new(
+            format!("{}:{}", self.project_root.display(), self.isolation_dir),
+            stdout,
+            stderr,
+        );
 
         Err(CleanallError::CleanFailed {
             project_root: self.project_root.clone(),
             isolation_dir: self.isolation_dir.clone(),
-            status: output.status,
-            stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            status: child_output.status,
+            output,
         }
         .into())
     }
@@ -105,6 +126,54 @@ impl CleanallTarget {
 
 #[derive(Debug)]
 struct CleanallErrors(Vec<buck2_error::Error>);
+
+#[derive(Debug)]
+struct ChildOutput {
+    prefix: String,
+    stdout: String,
+    stderr: String,
+}
+
+impl ChildOutput {
+    fn new(prefix: String, stdout: String, stderr: String) -> Self {
+        Self {
+            prefix,
+            stdout,
+            stderr,
+        }
+    }
+
+    fn format_stream(&self, name: &str, output: &str) -> String {
+        std::iter::once(format!("  [{}] {name}:", self.prefix))
+            .chain(
+                output
+                    .lines()
+                    .map(|line| self.format_line(line))
+                    .chain(output.is_empty().then(|| self.format_line(""))),
+            )
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    fn format_line(&self, line: &str) -> String {
+        if line.is_empty() {
+            format!("  [{}]", self.prefix)
+        } else {
+            format!("  [{}] {line}", self.prefix)
+        }
+    }
+}
+
+impl fmt::Display for ChildOutput {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}\n{}",
+            self.format_stream("stdout", &self.stdout),
+            self.format_stream("stderr", &self.stderr),
+        )
+    }
+}
 
 impl fmt::Display for CleanallErrors {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -120,15 +189,14 @@ impl fmt::Display for CleanallErrors {
 #[buck2(tag = Environment)]
 enum CleanallError {
     #[error(
-        "`buck2 --isolation-dir {isolation_dir} clean --stale` failed in `{}` with status {status}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        "`buck2 --isolation-dir {isolation_dir} clean --stale` failed in `{}` with status {status}\n{output}",
         project_root.display()
     )]
     CleanFailed {
         project_root: PathBuf,
         isolation_dir: String,
         status: ExitStatus,
-        stdout: String,
-        stderr: String,
+        output: ChildOutput,
     },
     #[error("No home directory found for the current user")]
     HomeDirectoryNotFound,
@@ -137,7 +205,9 @@ enum CleanallError {
 }
 
 async fn run_stale_clean_commands(targets: Vec<CleanallTarget>) -> Vec<buck2_error::Error> {
-    stream::iter(targets)
+    let total = targets.len();
+
+    let errors: Vec<buck2_error::Error> = stream::iter(targets)
         .map(|target| async move {
             if target.is_valid().await {
                 target.clean_stale().await
@@ -145,17 +215,22 @@ async fn run_stale_clean_commands(targets: Vec<CleanallTarget>) -> Vec<buck2_err
                 Ok(CleanStaleOutcome::TargetRemoved)
             }
         })
-        .buffer_unordered(MAX_CONCURRENT_CLEANS)
+        .buffer_unordered(max_concurrent_cleans())
         .filter_map(|result| async move { result.err() })
         .collect()
-        .await
+        .await;
+
+    let failed = errors.len();
+    let succeeded = total - failed;
+    eprintln!("Cleanall --stale: {succeeded} succeeded, {failed} failed");
+    errors
 }
 
 /// Runs `buck2 clean --stale` for every persisted Buck2 project and isolation directory.
 ///
 /// Returns every child-process failure after all clean commands finish.
 pub async fn cleanall_stale() -> buck2_error::Result<()> {
-    let Some(home) = dirs::home_dir() else {
+    let Some(home) = crate::buck2_home_dir() else {
         return Err(CleanallError::HomeDirectoryNotFound.into());
     };
     let buckd_root = home.join(".buck").join("buckd");
@@ -185,16 +260,22 @@ mod tests {
     const EXPECTED_CLEANALL_ERRORS: &str = concat!(
         "Failed to clean stale Buck2 state:\n",
         "- `buck2 --isolation-dir v2 clean --stale` failed in `/project` with status exit status: 42\n",
-        "stdout:\nclean stdout\n",
-        "stderr:\nclean stderr\n",
+        "  [/project:v2] stdout:\n",
+        "  [/project:v2] clean stdout\n",
+        "  [/project:v2] second stdout line\n",
+        "  [/project:v2] stderr:\n",
+        "  [/project:v2]\n",
         "- No home directory found for the current user\n",
     );
     #[cfg(windows)]
     const EXPECTED_CLEANALL_ERRORS: &str = concat!(
         "Failed to clean stale Buck2 state:\n",
         "- `buck2 --isolation-dir v2 clean --stale` failed in `/project` with status exit code: 42\n",
-        "stdout:\nclean stdout\n",
-        "stderr:\nclean stderr\n",
+        "  [/project:v2] stdout:\n",
+        "  [/project:v2] clean stdout\n",
+        "  [/project:v2] second stdout line\n",
+        "  [/project:v2] stderr:\n",
+        "  [/project:v2]\n",
         "- No home directory found for the current user\n",
     );
 
@@ -215,8 +296,11 @@ mod tests {
                 project_root: PathBuf::from("/project"),
                 isolation_dir: String::from("v2"),
                 status: failed_exit_status(),
-                stdout: String::from("clean stdout"),
-                stderr: String::from("clean stderr"),
+                output: ChildOutput::new(
+                    String::from("/project:v2"),
+                    String::from("clean stdout\nsecond stdout line"),
+                    String::new(),
+                ),
             }
             .into(),
             CleanallError::HomeDirectoryNotFound.into(),

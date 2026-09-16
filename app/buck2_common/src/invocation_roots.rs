@@ -143,7 +143,8 @@ pub fn get_invocation_paths_result(
 ///    output directories between different buckd instances.
 pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
     fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
-        let home = dirs::home_dir().internal_error("Expected a HOME directory to be available")?;
+        let home = buck2_wrapper_common::buck2_home_dir()
+            .internal_error("Expected a HOME directory to be available")?;
         let home =
             AbsNormPathBuf::new(home).buck_error_context("Expected an absolute HOME directory")?;
         Ok(home.join(FileName::new(".buck")?))

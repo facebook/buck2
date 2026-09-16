@@ -49,6 +49,7 @@ pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
 pub const BUCKD_LIFECYCLE: &str = "buckd.lifecycle";
+const BUCK2_TEST_HOME_DIR_ENV_VAR: &str = "BUCK2_TEST_HOME_DIR";
 /// Default buck2 isolation dir. Must match the `--isolation-dir` clap
 /// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test
 /// (`denied.golden.stderr`) catches drift.
@@ -58,6 +59,13 @@ pub const CLEAN_STALE_HELP: &str =
 pub const EXPERIMENTS_FILENAME: &str = "experiments_from_buck_start";
 pub const DOT_BUCKCONFIG_D: &str = ".buckconfig.d";
 pub const SETTINGS_ROLLOUTS_FILENAME: &str = ".bucksettings.rollouts";
+
+/// Returns the home directory used for Buck2 state.
+pub fn buck2_home_dir() -> Option<PathBuf> {
+    std::env::var_os(BUCK2_TEST_HOME_DIR_ENV_VAR)
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+}
 
 /// Because `sysinfo::Process` is not `Clone`.
 struct ProcessInfo {

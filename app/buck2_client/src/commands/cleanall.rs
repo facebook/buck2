@@ -35,12 +35,14 @@ impl BuckSubcommand for CleanallCommand {
         _ctx: ClientCommandContext<'_>,
         _events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let command = if self.stale {
-            "`buck2 cleanall --stale`"
-        } else {
-            "`buck2 cleanall`"
-        };
-        ExitResult::bail(format_args!("{command} is not implemented yet"))
+        if !self.stale {
+            return ExitResult::bail("`buck2 cleanall` without `--stale` is not implemented yet");
+        }
+
+        match buck2_wrapper_common::cleanall_stale().await {
+            Ok(()) => ExitResult::success(),
+            Err(error) => ExitResult::err(error),
+        }
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
