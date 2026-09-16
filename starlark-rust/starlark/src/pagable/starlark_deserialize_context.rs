@@ -863,29 +863,37 @@ struct HeapValueId {
 /// at once and corrupt these keys — key by a per-deserialization token instead.
 #[derive(Default)]
 struct StarlarkDeserWaitGraph {
-    inner: Mutex<StarlarkDeserWaitGraphInner>,
+    /// Maps an exact heap value to the thread currently deserializing it.
+    ///
+    /// Written on every claim and release; read only when a thread is about to
+    /// block, to walk the wait-for chain.
+    claimers: DashMap<HeapValueId, ThreadId>,
+    /// Maps a thread to the exact heap value it is blocked waiting on.
+    ///
+    /// A thread about to block inserts its edge here and then follows the
+    /// chain - the value's claimer, what that thread waits on, its claimer,
+    /// and so on - looking for itself, all under this lock
+    /// (`begin_wait_and_check_cycle`). Holding the lock across both steps is
+    /// what makes the check sound: two threads about to wait on each other
+    /// cannot both walk before either's edge is in, so one of them sees the
+    /// cycle. `claimers` is not covered by the lock and can change during a
+    /// walk, but every edge of a real deadlock belongs to a thread already
+    /// blocked here, and those edges cannot change.
+    waiters: Mutex<HashMap<ThreadId, HeapValueId>>,
 }
 
 impl StorageState for StarlarkDeserWaitGraph {}
 
-#[derive(Default)]
-struct StarlarkDeserWaitGraphInner {
-    /// Maps an exact heap value to the thread currently deserializing it.
-    claimers: HashMap<HeapValueId, ThreadId>,
-    /// Maps a thread to the exact heap value it is blocked waiting on.
-    waiters: HashMap<ThreadId, HeapValueId>,
-}
-
 impl StarlarkDeserWaitGraph {
-    fn lock(&self) -> MutexGuard<'_, StarlarkDeserWaitGraphInner> {
-        self.inner.lock().expect("wait-for graph lock poisoned")
+    fn lock_waiters(&self) -> MutexGuard<'_, HashMap<ThreadId, HeapValueId>> {
+        self.waiters.lock().expect("wait-for graph lock poisoned")
     }
 
     /// Record that `thread` has claimed `value` for deserialization. The
     /// returned guard removes the `claimers` edge on drop, so every exit path
     /// from a claimed deserialization unwinds it exactly once.
     fn claim(self: &Arc<Self>, value: HeapValueId, thread: ThreadId) -> ClaimGuard {
-        self.lock().claimers.insert(value, thread);
+        self.claimers.insert(value, thread);
         ClaimGuard {
             graph: self.dupe(),
             value,
@@ -900,10 +908,10 @@ impl StarlarkDeserWaitGraph {
         thread: ThreadId,
         value: HeapValueId,
     ) -> (WaitGuard, bool) {
-        let mut inner = self.lock();
-        inner.waiters.insert(thread, value);
-        let cycle = inner.has_cycle(thread, value);
-        drop(inner);
+        let mut waiters = self.lock_waiters();
+        waiters.insert(thread, value);
+        let cycle = self.has_cycle(&waiters, thread, value);
+        drop(waiters);
         (
             WaitGuard {
                 graph: self.dupe(),
@@ -912,21 +920,34 @@ impl StarlarkDeserWaitGraph {
             cycle,
         )
     }
-}
 
-impl StarlarkDeserWaitGraphInner {
     /// True if blocking on `start_value` would deadlock: the wait-for chain
     /// leads back to `my_thread` (covers same-thread re-entry too).
-    fn has_cycle(&self, my_thread: ThreadId, start_value: HeapValueId) -> bool {
+    fn has_cycle(
+        &self,
+        waiters: &HashMap<ThreadId, HeapValueId>,
+        my_thread: ThreadId,
+        start_value: HeapValueId,
+    ) -> bool {
         let mut current = start_value;
-        for _ in 0..self.claimers.len() {
-            let Some(&claimer) = self.claimers.get(&current) else {
+        // Bounded by `waiters`: each step lands on a distinct waiting thread.
+        // `claimers` is not frozen by this lock, but a real deadlock's edges
+        // all belong to blocked threads and cannot move mid-walk, and a chain
+        // that churn cuts or extends passes through a live thread and is not
+        // one. The caller's own wait edge must already be in, as
+        // `begin_wait_and_check_cycle` ensures.
+        debug_assert!(
+            waiters.contains_key(&my_thread),
+            "cycle check requires the caller's wait edge to be present"
+        );
+        for _ in 0..waiters.len() {
+            let Some(claimer) = self.claimers.get(&current).map(|c| *c) else {
                 return false;
             };
             if claimer == my_thread {
                 return true;
             }
-            let Some(&waiting_for) = self.waiters.get(&claimer) else {
+            let Some(&waiting_for) = waiters.get(&claimer) else {
                 return false;
             };
             current = waiting_for;
@@ -944,7 +965,7 @@ struct ClaimGuard {
 
 impl Drop for ClaimGuard {
     fn drop(&mut self) {
-        self.graph.lock().claimers.remove(&self.value);
+        self.graph.claimers.remove(&self.value);
     }
 }
 
@@ -956,7 +977,7 @@ struct WaitGuard {
 
 impl Drop for WaitGuard {
     fn drop(&mut self) {
-        self.graph.lock().waiters.remove(&self.thread);
+        self.graph.lock_waiters().remove(&self.thread);
     }
 }
 
@@ -1286,5 +1307,156 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
             .expect("slot must be done after ensure_initialized");
         let header = unsafe { &*ptr };
         Ok(Value::new_frozen_ptr(header, is_str))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::Ordering;
+    use std::thread::ThreadId;
+    use std::time::Duration;
+
+    use dupe::Dupe;
+
+    use super::HeapValueId;
+    use super::StarlarkDeserWaitGraph;
+    use crate::values::layout::heap::heap_type::FrozenHeapPtr;
+
+    fn value_id(n: usize) -> HeapValueId {
+        HeapValueId {
+            heap_ptr: FrozenHeapPtr::testing_new(0x1000 + n * 0x100),
+            value_index: 0,
+        }
+    }
+
+    // Only used as a key, so an exited thread's id serves.
+    fn spawn_for_id() -> ThreadId {
+        let handle = std::thread::spawn(|| {});
+        let id = handle.thread().id();
+        handle.join().unwrap();
+        id
+    }
+
+    #[test]
+    fn test_two_live_claimers_detect_cycle_and_clean_up() {
+        let graph = Arc::new(StarlarkDeserWaitGraph::default());
+        let claims_ready = Arc::new(Barrier::new(2));
+        let waits_ready = Arc::new(Barrier::new(2));
+        let (tx, rx) = std::sync::mpsc::channel();
+        let threads: Vec<_> = (0..2)
+            .map(|i| {
+                let tx = tx.clone();
+                let graph = graph.dupe();
+                let claims_ready = claims_ready.dupe();
+                let waits_ready = waits_ready.dupe();
+                std::thread::spawn(move || {
+                    let me = std::thread::current().id();
+                    let claim = graph.claim(value_id(i), me);
+                    claims_ready.wait();
+                    let (wait, cycle) = graph.begin_wait_and_check_cycle(me, value_id(1 - i));
+                    // Both edges stay live until both verdicts have been computed.
+                    waits_ready.wait();
+                    drop(wait);
+                    drop(claim);
+                    tx.send(cycle).expect("test receiver is alive");
+                })
+            })
+            .collect();
+        drop(tx);
+        let cycles = (0..2)
+            .map(|_| {
+                usize::from(
+                    rx.recv_timeout(Duration::from_secs(10))
+                        .expect("claimers must finish"),
+                )
+            })
+            .sum::<usize>();
+        for thread in threads {
+            thread.join().expect("claimer panicked");
+        }
+        assert_eq!(cycles, 1, "the second wait edge must close the cycle");
+        assert!(graph.claimers.is_empty());
+        assert!(graph.lock_waiters().is_empty());
+    }
+
+    /// `has_cycle` reads `claimers` while other threads add and remove entries.
+    /// Drives the claim/wait protocol from one thread under that churn, so a
+    /// regression in the lock split shows as a wrong verdict rather than as a
+    /// rare hang in `test_cross_thread_cycle_does_not_deadlock`.
+    #[test]
+    fn test_cycle_verdicts_hold_under_concurrent_claim_churn() {
+        let graph = Arc::new(StarlarkDeserWaitGraph::default());
+        let thread_a = spawn_for_id();
+        let thread_b = spawn_for_id();
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let churners: Vec<_> = (0..2)
+            .map(|i| {
+                let graph = graph.dupe();
+                let stop = stop.dupe();
+                std::thread::spawn(move || {
+                    let me = std::thread::current().id();
+                    // Runs until the main loop is done. The bound only guards
+                    // against a main loop that never finishes, and fails loudly
+                    // so it cannot quietly end the churn early instead.
+                    let mut n = 0usize;
+                    while !stop.load(Ordering::Relaxed) {
+                        assert!(
+                            n < 10_000_000,
+                            "churn ran out before the main loop finished"
+                        );
+                        // Ids disjoint from the test's own.
+                        let guard = graph.claim(value_id(0x10000 + i * 0x1000 + (n % 64)), me);
+                        drop(guard);
+                        std::thread::yield_now();
+                        n += 1;
+                    }
+                })
+            })
+            .collect();
+
+        for round in 0..1000 {
+            let value_a = value_id(round * 2);
+            let value_b = value_id(round * 2 + 1);
+            let claim_a = graph.claim(value_a, thread_a);
+            let claim_b = graph.claim(value_b, thread_b);
+
+            // B waits on A's value: chain ends at a non-waiting thread.
+            let (wait_b, cycle) = graph.begin_wait_and_check_cycle(thread_b, value_a);
+            assert!(
+                !cycle,
+                "B waiting on {value_a:?} must not be a cycle: its claimer A waits on nothing"
+            );
+
+            // A waiting on B's value closes the loop: A -> B -> A.
+            let (wait_a, cycle) = graph.begin_wait_and_check_cycle(thread_a, value_b);
+            assert!(
+                cycle,
+                "A -> {value_b:?} -> B -> {value_a:?} -> A must be a cycle"
+            );
+
+            drop(wait_a);
+            drop(wait_b);
+            // `wait_b` was dropped above: a thread holds one `waiters` entry,
+            // and a second live guard would overwrite it.
+            let (wait_b2, cycle) = graph.begin_wait_and_check_cycle(thread_b, value_a);
+            assert!(!cycle, "the cycle must dissolve once A stops waiting");
+
+            drop(wait_b2);
+            drop(claim_b);
+            // The value is unclaimed now, so the walk ends there.
+            let (wait_b3, cycle) = graph.begin_wait_and_check_cycle(thread_b, value_b);
+            assert!(!cycle, "an unclaimed value cannot be part of a cycle");
+            drop(wait_b3);
+            drop(claim_a);
+        }
+
+        stop.store(true, Ordering::Relaxed);
+        for churner in churners {
+            churner.join().unwrap();
+        }
     }
 }

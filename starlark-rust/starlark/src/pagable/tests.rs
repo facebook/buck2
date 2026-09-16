@@ -3866,9 +3866,11 @@ b.append(a)
         tx2.send(r_b).ok();
     });
 
-    rx.recv_timeout(Duration::from_secs(10))
-        .expect("cross-thread cycle test deadlocked")
-        .unwrap_or_else(|e| panic!("deser thread failed: {:#}", e));
+    for _ in 0..2 {
+        rx.recv_timeout(Duration::from_secs(10))
+            .expect("cross-thread cycle test deadlocked")
+            .unwrap_or_else(|e| panic!("deser thread failed: {:#}", e));
+    }
 }
 
 // ---- Ser/deser micro-benchmarks ----

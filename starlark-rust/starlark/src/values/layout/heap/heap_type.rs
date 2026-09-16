@@ -468,6 +468,13 @@ impl FrozenHeapPtr {
     pub(crate) fn addr(self) -> usize {
         self.0
     }
+
+    /// A synthetic pointer for tests that only need identity, never a
+    /// dereference (e.g. wait-graph keys).
+    #[cfg(test)]
+    pub(crate) fn testing_new(addr: usize) -> FrozenHeapPtr {
+        FrozenHeapPtr(addr)
+    }
 }
 
 #[derive(Clone, Dupe, Allocative)]
