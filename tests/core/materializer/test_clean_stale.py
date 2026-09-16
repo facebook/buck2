@@ -18,17 +18,19 @@ from datetime import datetime, timedelta, UTC
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
-from buck2.tests.e2e_util.helper.utils import expect_exec_count
+from buck2.tests.e2e_util.helper.utils import expect_exec_count, replace_in_file
 
 
-def configure_active_unmaterialization(buck: Buck, enabled: bool) -> None:
+def configure_active_unmaterialization(
+    buck: Buck, enabled: bool, *, scheduled: bool = True
+) -> None:
     config_file = buck.cwd / ".buckconfig.local"
     with open(config_file, "w") as f:
         f.write(
             f"""
 [buck2]
 ttl_refresh_enabled = true
-clean_stale_enabled = true
+clean_stale_enabled = {str(scheduled).lower()}
 clean_stale_artifact_ttl_hours = 8
 clean_stale_start_offset_hours = 0.001
 clean_stale_period_hours = 0.0001
@@ -36,6 +38,7 @@ clean_stale_low_disk_threshold = 100.0
 clean_stale_low_disk_adaptive_enabled = true
 clean_stale_low_disk_adaptive_min_ttl_hours = 24
 clean_stale_low_disk_adaptive_unmaterialize_active = {str(enabled).lower()}
+clean_stale_unmaterialize_upload_enabled = {str(enabled).lower()}
         """
         )
 
@@ -159,7 +162,7 @@ async def test_clean_stale_artifacts(buck: Buck) -> None:
 @buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 async def test_clean_stale_artifact_dir(buck: Buck) -> None:
-    target_1 = "root//:copy_dir"
+    target_1 = "root//:copy"
     result_1 = await buck.build(target_1)
     output_1 = result_1.get_build_report().output_for_target(target_1)
     assert output_1.exists()
@@ -516,21 +519,106 @@ async def test_adaptive_unmaterializes_active_remote_intermediate(
 
 
 @buck_test(skip_for_os=["windows"])
-async def test_adaptive_does_not_unmaterialize_active_local_intermediate(
+async def test_adaptive_unmaterializes_active_write_intermediate(
     buck: Buck,
 ) -> None:
-    configure_active_unmaterialization(buck, enabled=True)
+    configure_active_unmaterialization(buck, enabled=True, scheduled=False)
+    # This build materializes `root//:write` as intermediate artifact
     result = await buck.build(
         "root//:consume_local", "--local-only", "--no-remote-cache"
     )
     assert result.get_build_report().output_for_target("root//:consume_local").exists()
     audit_entries = [await audit_entry(buck, "__write__")]
 
-    await asyncio.sleep(30)
+    # `root//:write` should get unmaterialized here
+    await buck.clean("--stale")
+    audit_entries.append(await audit_entry(buck, "__write__"))
+
+    # Now we request `root//:write` as final output, which should require the unmaterialized
+    # artifact to be re-materialized.
+    write = await buck.build("root//:write")
+    await expect_exec_count(buck, 0)
+    assert write.get_build_report().output_for_target("root//:write").exists()
     audit_entries.append(await audit_entry(buck, "__write__"))
     golden_audit_entries(
         entries=audit_entries,
-        rel_path="golden/test_adaptive_does_not_unmaterialize_active_local_intermediate.golden.txt",
+        rel_path="golden/test_adaptive_unmaterializes_active_write_intermediate.golden.txt",
+    )
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_unmaterialization_fails_for_modified_local_intermediate(
+    buck: Buck,
+) -> None:
+    configure_active_unmaterialization(buck, enabled=True, scheduled=False)
+    original = f"ORIGINAL-{time.time_ns()}"
+    replace_in_file(
+        'content = "HELLO"',
+        f'content = "{original}"',
+        file=buck.cwd / "TARGETS.fixture",
+    )
+    result = await buck.build(
+        "root//:consume_local", "--local-only", "--no-remote-cache"
+    )
+    assert result.get_build_report().output_for_target("root//:consume_local").exists()
+
+    entry = await audit_entry(buck, "__write__")
+    assert "\tmaterialized" in entry
+    artifact = buck.cwd / entry.split("\t", 1)[0]
+    assert artifact.read_text(encoding="utf-8") == original
+    artifact.write_text("EDITED", encoding="utf-8")
+
+    await buck.clean("--stale")
+
+    assert "\tmaterialized" in await audit_entry(buck, "__write__")
+    assert artifact.read_text(encoding="utf-8") == "EDITED"
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_unmaterializes_active_local_copy_intermediate(
+    buck: Buck,
+) -> None:
+    configure_active_unmaterialization(buck, enabled=True, scheduled=False)
+    result = await buck.build(
+        "root//:consume_copy", "--local-only", "--no-remote-cache"
+    )
+    assert result.get_build_report().output_for_target("root//:consume_copy").exists()
+    audit_entries = [await audit_entry(buck, "__consume_local__")]
+
+    await buck.clean("--stale")
+    audit_entries.append(await audit_entry(buck, "__consume_local__"))
+
+    copied = await buck.build("root//:consume_local")
+    await expect_exec_count(buck, 0)
+    assert copied.get_build_report().output_for_target("root//:consume_local").exists()
+    audit_entries.append(await audit_entry(buck, "__consume_local__"))
+    golden_audit_entries(
+        entries=audit_entries,
+        rel_path="golden/test_adaptive_unmaterializes_active_local_copy_intermediate.golden.txt",
+    )
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_adaptive_unmaterializes_active_local_action_intermediate(
+    buck: Buck,
+) -> None:
+    configure_active_unmaterialization(buck, enabled=True, scheduled=False)
+    result = await buck.build(
+        "root//:consume_action", "--local-only", "--no-remote-cache"
+    )
+    assert result.get_build_report().output_for_target("root//:consume_action").exists()
+    audit_entries = [await audit_entry(buck, "__copy_dir__")]
+
+    await buck.clean("--stale")
+    audit_entries.append(await audit_entry(buck, "__copy_dir__"))
+
+    action = await buck.build("root//:copy_dir")
+    await expect_exec_count(buck, 0)
+    assert action.get_build_report().output_for_target("root//:copy_dir").exists()
+    audit_entries.append(await audit_entry(buck, "__copy_dir__"))
+    golden_audit_entries(
+        entries=audit_entries,
+        rel_path="golden/test_adaptive_unmaterializes_active_local_action_intermediate.golden.txt",
     )
 
 

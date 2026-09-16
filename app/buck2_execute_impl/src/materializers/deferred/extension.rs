@@ -461,6 +461,7 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
                     tracked_only: args.tracked_only,
                     dispatcher,
                     adaptive_low_disk,
+                    unmaterialize_upload: None,
                     root_abs_path: AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned())),
                     trigger: Trigger::ManualExplicit,
                     policy_mode: if adaptive_low_disk_threshold.is_some() {

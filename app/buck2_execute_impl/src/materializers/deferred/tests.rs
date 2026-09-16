@@ -866,6 +866,7 @@ mod state_machine {
         let result = dm.tree.unmaterialize_artifacts(
             requested,
             deadline,
+            None,
             dm.sqlite_db
                 .as_mut()
                 .expect("test processor should have sqlite state"),
@@ -968,6 +969,7 @@ mod state_machine {
         let result = dm.tree.unmaterialize_artifacts(
             vec![(path.clone(), 1)],
             deadline,
+            None,
             dm.sqlite_db
                 .as_mut()
                 .expect("test processor should have sqlite state"),
@@ -2030,6 +2032,7 @@ mod state_machine {
                 }),
                 artifact_ttl: std::time::Duration::from_secs(0),
                 low_disk: None,
+                unmaterialize_upload: None,
                 dry_run: true,
             };
             let io = Arc::new(StubIoHandler::new(project_root.dupe()));

@@ -242,6 +242,7 @@ pub struct ArtifactRematerializationMethod(Arc<ArtifactMaterializationMethod>);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum UnmaterializationEligibility {
     Eligible,
+    EligibleAfterUpload,
     Ineligible(UnmaterializationIneligibilityReason),
 }
 
@@ -249,6 +250,7 @@ pub(crate) enum UnmaterializationEligibility {
 pub(crate) enum UnmaterializationIneligibilityReason {
     FinalOutput,
     NoRematerializationMethod,
+    UploadTooLarge,
     RemoteTtlTooShort,
     Processing,
     StateChanged,
@@ -260,9 +262,18 @@ pub(crate) struct UnmaterializationIneligibleArtifact {
     pub(crate) size: u64,
 }
 
+#[derive(Debug)]
+pub(crate) struct UnmaterializationUpload {
+    pub(crate) path: ProjectRelativePathBuf,
+    pub(crate) size: u64,
+    pub(crate) entry: ActionDirectoryEntry<ActionSharedDirectory>,
+    pub(crate) version: Version,
+}
+
 #[derive(Default)]
 pub(crate) struct UnmaterializeArtifactsResult {
     pub(crate) unmaterialized: Vec<(ProjectRelativePathBuf, u64)>,
+    pub(crate) uploads: Vec<UnmaterializationUpload>,
     pub(crate) ineligible: Vec<UnmaterializationIneligibleArtifact>,
 }
 
@@ -577,6 +588,7 @@ impl ArtifactTree {
         &mut self,
         paths: Vec<(ProjectRelativePathBuf, u64)>,
         deadline: Timestamp,
+        upload_max_bytes: Option<u64>,
         sqlite_db: &mut MaterializerStateSqliteDb,
         stats: &DeferredMaterializerStats,
     ) -> buck2_error::Result<UnmaterializeArtifactsResult> {
@@ -589,39 +601,66 @@ impl ArtifactTree {
                 result.record_ineligible(UnmaterializationIneligibilityReason::StateChanged, size);
                 continue;
             };
+            if path_iter.next().is_some() {
+                result.record_ineligible(UnmaterializationIneligibilityReason::StateChanged, size);
+                continue;
+            }
+            if data.classification == ArtifactClassification::FinalOutput {
+                result.record_ineligible(UnmaterializationIneligibilityReason::FinalOutput, size);
+                continue;
+            }
+            if data.processing.active_ref().is_some() {
+                result.record_ineligible(UnmaterializationIneligibilityReason::Processing, size);
+                continue;
+            }
 
-            let replacement = if path_iter.next().is_some() {
-                Err(UnmaterializationIneligibilityReason::StateChanged)
-            } else if data.classification == ArtifactClassification::FinalOutput {
-                Err(UnmaterializationIneligibilityReason::FinalOutput)
-            } else if data.processing.active_ref().is_some() {
-                Err(UnmaterializationIneligibilityReason::Processing)
-            } else {
-                match &data.stage {
-                    ArtifactMaterializationStage::Materialized {
-                        metadata,
-                        rematerialization_method: Some(method),
-                        ..
-                    } => match method.unmaterialization_eligibility(metadata, deadline) {
-                        UnmaterializationEligibility::Eligible => {
-                            Ok(ArtifactMaterializationStage::Declared {
+            match &data.stage {
+                ArtifactMaterializationStage::Materialized {
+                    metadata,
+                    rematerialization_method: Some(method),
+                    ..
+                } => match method.unmaterialization_eligibility(metadata, deadline) {
+                    UnmaterializationEligibility::Eligible => {
+                        eligible.push((
+                            path,
+                            size,
+                            ArtifactMaterializationStage::Declared {
                                 entry: metadata.dupe(),
                                 method: method.materialization_method().dupe(),
-                            })
-                        }
-                        UnmaterializationEligibility::Ineligible(reason) => Err(reason),
-                    },
-                    ArtifactMaterializationStage::Materialized {
-                        rematerialization_method: None,
-                        ..
-                    } => Err(UnmaterializationIneligibilityReason::NoRematerializationMethod),
-                    _ => Err(UnmaterializationIneligibilityReason::StateChanged),
-                }
-            };
-
-            match replacement {
-                Ok(replacement) => eligible.push((path, size, replacement)),
-                Err(reason) => result.record_ineligible(reason, size),
+                            },
+                        ));
+                    }
+                    UnmaterializationEligibility::EligibleAfterUpload => unreachable!(
+                        "artifacts with a rematerialization method cannot require upload"
+                    ),
+                    UnmaterializationEligibility::Ineligible(reason) => {
+                        result.record_ineligible(reason, size);
+                    }
+                },
+                ArtifactMaterializationStage::Materialized {
+                    metadata,
+                    rematerialization_method: None,
+                    ..
+                } => match upload_max_bytes {
+                    Some(max_bytes) if size <= max_bytes => {
+                        result.uploads.push(UnmaterializationUpload {
+                            path,
+                            size,
+                            entry: metadata.dupe(),
+                            version: data.processing.current_version(),
+                        });
+                    }
+                    Some(_) => result.record_ineligible(
+                        UnmaterializationIneligibilityReason::UploadTooLarge,
+                        size,
+                    ),
+                    None => result.record_ineligible(
+                        UnmaterializationIneligibilityReason::NoRematerializationMethod,
+                        size,
+                    ),
+                },
+                _ => result
+                    .record_ineligible(UnmaterializationIneligibilityReason::StateChanged, size),
             }
         }
 
@@ -656,6 +695,51 @@ impl ArtifactTree {
             .collect();
 
         Ok(result)
+    }
+
+    pub(crate) fn finish_unmaterialization_upload(
+        &mut self,
+        upload: UnmaterializationUpload,
+        info: Arc<CasDownloadInfo>,
+        cleaning_fut: CleaningFuture,
+        sqlite_db: &mut MaterializerStateSqliteDb,
+        stats: &DeferredMaterializerStats,
+    ) -> buck2_error::Result<Option<UnmaterializationIneligibleArtifact>> {
+        let mut path_iter = upload.path.iter();
+        let Some(data) = self.prefix_get_mut(&mut path_iter) else {
+            return Ok(Some(UnmaterializationIneligibleArtifact {
+                reason: UnmaterializationIneligibilityReason::StateChanged,
+                size: upload.size,
+            }));
+        };
+        if path_iter.next().is_some()
+            || data.classification == ArtifactClassification::FinalOutput
+            || data.processing.active_ref().is_some()
+            || data.processing.current_version() != upload.version
+            || !matches!(
+                &data.stage,
+                ArtifactMaterializationStage::Materialized { metadata, .. }
+                    if artifact_metadata_matches_entry(metadata, &upload.entry)
+            )
+        {
+            return Ok(Some(UnmaterializationIneligibleArtifact {
+                reason: UnmaterializationIneligibilityReason::StateChanged,
+                size: upload.size,
+            }));
+        }
+
+        sqlite_db
+            .materializer_state_table()
+            .delete(vec![upload.path])
+            .buck_error_context("Error unmaterializing uploaded path in materializer state")?;
+        data.stage = ArtifactMaterializationStage::Declared {
+            entry: upload.entry,
+            method: Arc::new(ArtifactMaterializationMethod::CasDownload { info }),
+        };
+        data.processing =
+            Processing::active(ProcessingFuture::Cleaning(cleaning_fut), upload.version);
+        stats.remove_materialized(data.classification, data.logical_size_bytes);
+        Ok(None)
     }
 
     pub(crate) fn attach_unmaterialization_future(

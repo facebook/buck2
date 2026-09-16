@@ -1733,6 +1733,14 @@ message CleanStaleStats {
   uint64 scan_failed_directory_count = 59;
   uint64 adaptive_unmaterialization_statically_ineligible_artifact_count = 60;
   uint64 adaptive_unmaterialization_statically_ineligible_bytes = 61;
+  uint64 unmaterialization_upload_attempted_artifact_count = 62;
+  uint64 unmaterialization_upload_attempted_bytes = 63;
+  uint64 unmaterialization_upload_succeeded_artifact_count = 64;
+  uint64 unmaterialization_upload_succeeded_bytes = 65;
+  uint64 unmaterialization_upload_failed_artifact_count = 66;
+  uint64 unmaterialization_upload_failed_bytes = 67;
+  uint64 unmaterialization_upload_skipped_oversize_artifact_count = 68;
+  uint64 unmaterialization_upload_skipped_oversize_bytes = 69;
 }
 
 enum CleanStaleResultKind {

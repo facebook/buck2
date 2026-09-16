@@ -499,6 +499,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             tracked_only,
             dispatcher,
             adaptive_low_disk,
+            unmaterialize_upload: config.unmaterialize_upload.clone(),
             root_abs_path: self.root_abs_path.dupe(),
             trigger,
             policy_mode: match config.low_disk.as_ref().map(|config| &config.mode) {

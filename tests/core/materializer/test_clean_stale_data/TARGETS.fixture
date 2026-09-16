@@ -12,6 +12,8 @@ download(name = "download_deferred", deferrable = True)
 download(name = "download_immediate", deferrable = False)
 consume(name = "consume_remote", src = ":download_deferred")
 consume(name = "consume_local", src = ":write")
+consume(name = "consume_copy", src = ":consume_local")
+consume(name = "consume_action", src = ":copy_dir")
 
 symlink_files(
     name = "out",

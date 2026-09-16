@@ -18,6 +18,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserverSync;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -30,6 +31,7 @@ use buck2_data::clean_stale_result::FailurePhase;
 use buck2_data::clean_stale_result::PolicyMode;
 use buck2_data::clean_stale_result::Trigger;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::daemon_id::DaemonId;
@@ -37,6 +39,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
+use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -57,13 +60,20 @@ use tokio::sync::oneshot::Sender;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::DeferredMaterializerStats;
+use crate::materializers::deferred::LowPriorityMaterializerCommand;
+use crate::materializers::deferred::MaterializerCommand;
+use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::MaterializerSizeStats;
+use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
+use crate::materializers::deferred::artifact_tree::CleaningFuture;
 use crate::materializers::deferred::artifact_tree::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
 use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
+use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibleArtifact;
+use crate::materializers::deferred::artifact_tree::UnmaterializationUpload;
 use crate::materializers::deferred::artifact_tree::UnmaterializeArtifactsResult;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
@@ -84,6 +94,7 @@ pub struct CleanStaleArtifactsCommand {
     /// non-active retained artifacts to stale until projected free disk %
     /// rises above the threshold.
     pub adaptive_low_disk: Option<AdaptiveLowDiskParams>,
+    pub unmaterialize_upload: Option<UnmaterializationUploadConfig>,
     /// Root path for `disk_space_stats` during the adaptive promotion pass.
     /// Constructed once by the caller and shared via `Arc::dupe`. `None` when no
     /// valid filesystem root could be constructed (e.g. on Windows, where `/` is
@@ -91,6 +102,12 @@ pub struct CleanStaleArtifactsCommand {
     pub root_abs_path: Option<Arc<AbsPathBuf>>,
     pub trigger: Trigger,
     pub policy_mode: PolicyMode,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnmaterializationUploadConfig {
+    pub re_use_case: RemoteExecutorUseCase,
+    pub max_bytes: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -306,6 +323,42 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
+struct FinishUnmaterializationUpload {
+    upload: UnmaterializationUpload,
+    info: Arc<CasDownloadInfo>,
+    #[derivative(Debug = "ignore")]
+    cleaning_fut: CleaningFuture,
+    #[derivative(Debug = "ignore")]
+    sender: Sender<buck2_error::Result<Option<UnmaterializationIneligibleArtifact>>>,
+}
+
+impl<T: IoHandler> ExtensionCommand<T> for FinishUnmaterializationUpload {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let Self {
+            upload,
+            info,
+            cleaning_fut,
+            sender,
+        } = *self;
+        let result = processor
+            .sqlite_db
+            .as_mut()
+            .internal_error("Materializer sqlite state disappeared during unmaterialization")
+            .and_then(|sqlite_db| {
+                processor.tree.finish_unmaterialization_upload(
+                    upload,
+                    info,
+                    cleaning_fut,
+                    sqlite_db,
+                    &processor.stats,
+                )
+            });
+        let _ignored = sender.send(result);
+    }
+}
+
 impl CleanStaleArtifactsCommand {
     pub(super) fn create_clean_fut<T: IoHandler>(
         &self,
@@ -383,7 +436,9 @@ impl CleanStaleArtifactsCommand {
                     processor.cancellations,
                     liveliness_observer.clone(),
                     processor.rematerialization_ttl,
+                    self.unmaterialize_upload.as_ref(),
                     cleaning_version,
+                    processor.command_sender.dupe(),
                     stats,
                 )
             }
@@ -406,7 +461,9 @@ impl CleanStaleArtifactsCommand {
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
         rematerialization_ttl: Option<SignedDuration>,
+        upload_config: Option<&UnmaterializationUploadConfig>,
         cleaning_version: Version,
+        command_sender: Arc<MaterializerSender<T>>,
         mut stats: CleanStaleStats,
     ) -> Result<PendingCleanResult, CleanFailure> {
         let start_time = Instant::now();
@@ -500,6 +557,7 @@ impl CleanStaleArtifactsCommand {
                     keep_since_time: self.keep_since_time,
                     rematerialization_deadline: rematerialization_deadline(rematerialization_ttl),
                     found_paths: &mut found_paths,
+                    unmaterialize_upload_enabled: self.unmaterialize_upload.is_some(),
                     stats: &mut stats,
                     liveliness_observer: liveliness_observer.clone(),
                 }
@@ -635,7 +693,9 @@ impl CleanStaleArtifactsCommand {
                 cancellations,
                 liveliness_observer,
                 rematerialization_ttl,
+                upload_config,
                 cleaning_version,
+                command_sender,
                 scan_error,
                 adaptive_outcome,
             )?))
@@ -784,6 +844,11 @@ impl CleanStaleStatsExt for CleanStaleStats {
                 &mut self.unmaterialization_ineligible_no_rematerialization_method_artifact_count,
                 &mut self.unmaterialization_ineligible_no_rematerialization_method_bytes,
             ),
+            UnmaterializationIneligibilityReason::UploadTooLarge => {
+                self.unmaterialization_upload_skipped_oversize_artifact_count += 1;
+                self.unmaterialization_upload_skipped_oversize_bytes += size;
+                return;
+            }
             UnmaterializationIneligibilityReason::RemoteTtlTooShort => (
                 &mut self.unmaterialization_ineligible_remote_ttl_too_short_artifact_count,
                 &mut self.unmaterialization_ineligible_remote_ttl_too_short_bytes,
@@ -817,7 +882,9 @@ fn create_clean_fut<T: IoHandler>(
     cancellations: &'static CancellationContext,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
     rematerialization_ttl: Option<SignedDuration>,
+    upload_config: Option<&UnmaterializationUploadConfig>,
     cleaning_version: Version,
+    command_sender: Arc<MaterializerSender<T>>,
     scan_error: Option<PendingCleanFailure>,
     mut adaptive_outcome: AdaptiveOutcome,
 ) -> Result<BoxFuture<'static, CleanOutcome>, CleanFailure> {
@@ -885,6 +952,7 @@ fn create_clean_fut<T: IoHandler>(
         .unmaterialize_artifacts(
             paths_to_unmaterialize,
             rematerialization_deadline,
+            upload_config.map(|config| config.max_bytes),
             sqlite_db,
             materializer_stats,
         )
@@ -899,6 +967,7 @@ fn create_clean_fut<T: IoHandler>(
             )
         })?;
     let unmaterialized_bytes = stats.record_unmaterialization_result(&unmaterialization);
+    let uploads = unmaterialization.uploads;
     if matches!(
         adaptive_outcome,
         AdaptiveOutcome::SatisfiedByUnmaterialization | AdaptiveOutcome::InsufficientCandidates
@@ -992,6 +1061,103 @@ fn create_clean_fut<T: IoHandler>(
         clean_futs.push((clean_fut, origin));
     }
 
+    if let Some(upload_config) = upload_config.cloned() {
+        for upload in uploads {
+            stats.unmaterialization_upload_attempted_artifact_count += 1;
+            stats.unmaterialization_upload_attempted_bytes += upload.size;
+            let io = io.dupe();
+            let command_sender = command_sender.dupe();
+            let liveliness_observer = liveliness_observer.dupe();
+            let wait_for_existing_futs = wait_for_existing_futs.clone();
+            let path = upload.path.clone();
+            let size = upload.size;
+            // TODO(scottcao): Use a dedicated RE use case for clean-stale uploads.
+            let info = Arc::new(CasDownloadInfo::new_uploaded(upload_config.re_use_case));
+            let clean_fut = async move {
+                if let Err(error) = wait_for_existing_futs.await {
+                    return CleanPathOutcome::UploadFailed { size, error };
+                }
+                if !liveliness_observer.is_alive_sync() {
+                    return CleanPathOutcome::Interrupted(size);
+                }
+                if let Err(error) = io
+                    .upload_materialized_artifact(
+                        path.clone(),
+                        upload.entry.dupe(),
+                        info.dupe(),
+                    )
+                    .await
+                {
+                    tracing::warn!(path = %path, "Failed to upload artifact before unmaterialization: {error:#}");
+                    return CleanPathOutcome::UploadFailed { size, error };
+                }
+
+                let (completion_sender, completion_receiver) = tokio::sync::oneshot::channel();
+                let attached_fut = async move {
+                    let _ignored = completion_receiver.await;
+                    Ok(())
+                }
+                .boxed()
+                .shared();
+                let (finish_sender, finish_receiver) = tokio::sync::oneshot::channel();
+                if let Err(error) = command_sender.send(MaterializerCommand::Extension(Box::new(
+                    FinishUnmaterializationUpload {
+                        upload,
+                        info,
+                        cleaning_fut: attached_fut,
+                        sender: finish_sender,
+                    },
+                ))) {
+                    return CleanPathOutcome::Failed {
+                        size,
+                        error: error.into(),
+                    };
+                }
+                match finish_receiver.await {
+                    Ok(Ok(None)) => {}
+                    Ok(Ok(Some(ineligible))) => {
+                        let _ignored = completion_sender.send(());
+                        return CleanPathOutcome::UnmaterializationIneligible(ineligible);
+                    }
+                    Ok(Err(error)) => return CleanPathOutcome::Failed { size, error },
+                    Err(error) => {
+                        return CleanPathOutcome::Failed {
+                            size,
+                            error: error.into(),
+                        };
+                    }
+                }
+
+                let cleaned = clean_artifact(
+                    path.clone(),
+                    size,
+                    cancellations,
+                    &io,
+                    liveliness_observer,
+                )
+                .await;
+                let result = match &cleaned {
+                    CleanPathOutcome::Failed { error, .. } => {
+                        Err(SharedMaterializingError::Error(error.dupe()))
+                    }
+                    _ => Ok(()),
+                };
+                let _ignored = command_sender.send_low_priority(
+                    LowPriorityMaterializerCommand::CleanupFinished {
+                        path,
+                        version: cleaning_version,
+                        result,
+                    },
+                );
+                let _ignored = completion_sender.send(());
+                cleaned
+            }
+            .boxed()
+            .shared();
+            clean_futs.push((clean_fut, CleanupOrigin::Uploaded));
+        }
+    }
+
     let materializer_stats = materializer_stats.dupe();
     let fut = async move {
         let start_time = Instant::now();
@@ -1020,11 +1186,28 @@ fn create_clean_fut<T: IoHandler>(
                             stats.cleaned_stale_artifact_count += 1;
                             stats.cleaned_stale_bytes += size;
                         }
-                        CleanupOrigin::Unmaterialized => {
+                        CleanupOrigin::Unmaterialized | CleanupOrigin::Uploaded => {
                             stats.unmaterialized_only_artifact_count += 1;
                             stats.unmaterialized_only_bytes += size;
+                            if origin == CleanupOrigin::Uploaded {
+                                stats.unmaterialization_upload_succeeded_artifact_count += 1;
+                                stats.unmaterialization_upload_succeeded_bytes += size;
+                            }
                         }
                     }
+                }
+                CleanPathOutcome::UploadFailed { size, error } => {
+                    tracing::warn!("Skipping upload-backed unmaterialization: {error:#}");
+                    stats.unmaterialization_upload_failed_artifact_count += 1;
+                    stats.unmaterialization_upload_failed_bytes += size;
+                }
+                CleanPathOutcome::UnmaterializationIneligible(artifact) => {
+                    stats.unmaterialization_ineligible_artifact_count += 1;
+                    stats.unmaterialization_ineligible_bytes += artifact.size;
+                    stats.record_unmaterialization_ineligibility_reason(
+                        artifact.reason,
+                        artifact.size,
+                    );
                 }
                 CleanPathOutcome::SkippedPermissionDenied(size) => {
                     stats.skipped_unreadable_count += 1;
@@ -1066,6 +1249,7 @@ enum CleanupOrigin {
     Untracked,
     Stale,
     Unmaterialized,
+    Uploaded,
 }
 
 struct CleanupPath {
@@ -1084,6 +1268,11 @@ enum CleanPathOutcome {
     Cleaned(u64),
     Interrupted(u64),
     SkippedPermissionDenied(u64),
+    UploadFailed {
+        size: u64,
+        error: buck2_error::Error,
+    },
+    UnmaterializationIneligible(UnmaterializationIneligibleArtifact),
     Failed {
         size: u64,
         error: buck2_error::Error,
@@ -1253,7 +1442,11 @@ async fn scratch_sweep<T: IoHandler>(
                 kind = CleanStaleResultKind::Interrupted;
                 break;
             }
-            CleanPathOutcome::Failed { error, .. } => return Err(error),
+            CleanPathOutcome::Failed { error, .. }
+            | CleanPathOutcome::UploadFailed { error, .. } => return Err(error),
+            CleanPathOutcome::UnmaterializationIneligible(_) => {
+                unreachable!("upload-backed outcomes are not produced by untracked cleanup")
+            }
         }
     }
     stats.clean_duration_s = (Instant::now() - clean_start).as_secs();
@@ -1307,6 +1500,7 @@ struct StaleFinder<'a, T: IoHandler> {
     keep_since_time: Timestamp,
     rematerialization_deadline: Timestamp,
     found_paths: &'a mut Vec<FoundPath>,
+    unmaterialize_upload_enabled: bool,
     stats: &'a mut CleanStaleStats,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
@@ -1522,6 +1716,9 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                                     metadata,
                                     self.rematerialization_deadline,
                                 ),
+                                None if self.unmaterialize_upload_enabled => {
+                                    UnmaterializationEligibility::EligibleAfterUpload
+                                }
                                 None => UnmaterializationEligibility::Ineligible(
                                     UnmaterializationIneligibilityReason::NoRematerializationMethod,
                                 ),
@@ -1705,7 +1902,7 @@ fn apply_adaptive_low_disk(
         };
     }
 
-    let mut active: Vec<(usize, Timestamp, u64)> = found_paths
+    let mut active: Vec<(usize, Timestamp, u64, bool)> = found_paths
         .iter()
         .enumerate()
         .filter_map(|(index, path)| match path {
@@ -1715,15 +1912,26 @@ fn apply_adaptive_low_disk(
                     TrackedState::ActiveRetained {
                         last_access_time,
                         classification: ArtifactClassification::IntermediateOnly,
-                        unmaterialization_eligibility: UnmaterializationEligibility::Eligible,
+                        unmaterialization_eligibility:
+                            eligibility @ (UnmaterializationEligibility::Eligible
+                            | UnmaterializationEligibility::EligibleAfterUpload),
                     },
                 ..
-            } => Some((index, *last_access_time, *size)),
+            } => Some((
+                index,
+                *last_access_time,
+                *size,
+                matches!(
+                    eligibility,
+                    UnmaterializationEligibility::EligibleAfterUpload
+                ),
+            )),
             _ => None,
         })
         .collect();
-    active.sort_by_key(|(_, last_access_time, _)| *last_access_time);
-    for (index, _, size) in active {
+    // Prefer to clean artifacts that are already remote-backed over ones that need uploads
+    active.sort_by_key(|(_, last_access_time, _, upload)| (*upload, *last_access_time));
+    for (index, _, size, _) in active {
         if accumulated >= bytes_needed {
             break;
         }
@@ -1753,6 +1961,7 @@ pub struct CleanStaleConfig {
     pub artifact_ttl: Duration,
     pub dry_run: bool,
     pub low_disk: Option<LowDiskCleanConfig>,
+    pub unmaterialize_upload: Option<UnmaterializationUploadConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -1768,6 +1977,7 @@ impl Default for CleanStaleConfig {
             artifact_ttl: Duration::from_secs(DEFAULT_CLEAN_STALE_TTL_DAYS * 24 * 60 * 60),
             dry_run: false,
             low_disk: None,
+            unmaterialize_upload: None,
         }
     }
 }
@@ -1867,6 +2077,35 @@ impl CleanStaleConfig {
                 property: "clean_stale_low_disk_adaptive_unmaterialize_active",
             })?
             .unwrap_or(false);
+        let unmaterialize_upload_enabled = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_unmaterialize_upload_enabled",
+            })?
+            .unwrap_or(false);
+        let unmaterialize_upload_max_bytes = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_unmaterialize_upload_max_bytes",
+            })?
+            .unwrap_or(1024 * 1024 * 1024);
+        let re_use_case = root_config
+            .parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
+                section: "buck2_re_client",
+                property: "override_use_case",
+            })?
+            .or(
+                root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
+                    section: "build",
+                    property: "default_remote_execution_use_case",
+                })?,
+            )
+            .unwrap_or_else(RemoteExecutorUseCase::buck2_default);
+        let unmaterialize_upload =
+            unmaterialize_upload_enabled.then_some(UnmaterializationUploadConfig {
+                re_use_case,
+                max_bytes: unmaterialize_upload_max_bytes,
+            });
         let low_disk_artifact_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_artifact_ttl_hours",
@@ -1916,6 +2155,7 @@ impl CleanStaleConfig {
                 "clean_stale_artifact_ttl_hours",
             )?,
             low_disk,
+            unmaterialize_upload,
             dry_run: clean_stale_dry_run,
         })
     }
@@ -2402,6 +2642,7 @@ mod tests {
     #[test]
     fn selected_unmaterializations_include_runtime_ineligible_artifacts() {
         let result = UnmaterializeArtifactsResult {
+            uploads: Vec::new(),
             unmaterialized: vec![(
                 ProjectRelativePathBuf::unchecked_new("selected".to_owned()),
                 10,
