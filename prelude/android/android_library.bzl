@@ -36,6 +36,8 @@ load(
     "get_string_concat_inline_javac_args",
 )
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
+load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:label_provider.bzl", "LabelInfo")
 
@@ -47,6 +49,21 @@ def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
         bootclasspath = bootclasspath_entries,
         bootclasspath_jar_snapshots = bootclasspath_snapshots,
         system_image = ctx.attrs._android_toolchain[AndroidToolchainInfo].jdk_system_image,
+    )
+
+def _android_target_stats(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
+    if not TARGET_STATS_ENABLED:
+        return [], {}
+    tools = ctx.attrs._android_toolchain[AndroidToolchainInfo].target_stats_tools
+    if tools == None:
+        return [], {}
+    return target_stats_providers_and_subtargets(
+        ctx,
+        tools = tools,
+        srcs = {src.short_path: src for src in ctx.attrs.srcs},
+        deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
+        cycle_mode = CycleMode("package"),
+        module_name = ctx.label.name,
     )
 
 def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -74,9 +91,12 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         ]
 
+    target_stats_providers, target_stats_subtargets = _android_target_stats(ctx)
+
     java_providers, android_library_intellij_info = build_android_library(
         ctx = ctx,
         validation_deps_outputs = get_validation_deps_outputs(ctx),
+        extra_sub_targets = target_stats_subtargets,
     )
     android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
@@ -95,6 +115,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
         + [LabelInfo(labels = ctx.attrs.labels)]
         + graphql_providers(ctx)
         + capabilities_registration_providers(ctx)
+        + target_stats_providers
     )
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
