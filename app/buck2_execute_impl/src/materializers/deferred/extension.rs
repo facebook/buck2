@@ -468,7 +468,10 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
             .send(MaterializerCommand::Extension(Box::new(
                 CleanStaleArtifactsExtensionCommand { kind, sender },
             )))?;
-        recv.await?.await.map(|res| res.into())
+        recv.await?
+            .await
+            .map(|res| res.into())
+            .map_err(|failure| failure.into_error())
     }
 
     pub(super) async fn clean_scratch_impl(

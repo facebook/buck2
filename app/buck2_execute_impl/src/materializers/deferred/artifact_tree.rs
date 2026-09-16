@@ -239,6 +239,40 @@ pub enum ArtifactMaterializationMethod {
 #[derive(Allocative, Debug, Display)]
 pub struct ArtifactRematerializationMethod(Arc<ArtifactMaterializationMethod>);
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum UnmaterializationEligibility {
+    Eligible,
+    Ineligible(UnmaterializationIneligibilityReason),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum UnmaterializationIneligibilityReason {
+    FinalOutput,
+    NoRematerializationMethod,
+    RemoteTtlTooShort,
+    Processing,
+    StateChanged,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct UnmaterializationIneligibleArtifact {
+    pub(crate) reason: UnmaterializationIneligibilityReason,
+    pub(crate) size: u64,
+}
+
+#[derive(Default)]
+pub(crate) struct UnmaterializeArtifactsResult {
+    pub(crate) unmaterialized: Vec<(ProjectRelativePathBuf, u64)>,
+    pub(crate) ineligible: Vec<UnmaterializationIneligibleArtifact>,
+}
+
+impl UnmaterializeArtifactsResult {
+    fn record_ineligible(&mut self, reason: UnmaterializationIneligibilityReason, size: u64) {
+        self.ineligible
+            .push(UnmaterializationIneligibleArtifact { reason, size });
+    }
+}
+
 impl ArtifactRematerializationMethod {
     pub(crate) fn from_materialization_method(
         method: &Arc<ArtifactMaterializationMethod>,
@@ -258,11 +292,11 @@ impl ArtifactRematerializationMethod {
 
     /// Whether every blob backing this artifact is expected to still be fetchable, so its local
     /// contents can be discarded and downloaded again later.
-    pub(crate) fn is_rematerializable(
+    pub(crate) fn unmaterialization_eligibility(
         &self,
         entry: &ActionDirectoryEntry<ActionSharedDirectory>,
         deadline: Timestamp,
-    ) -> bool {
+    ) -> UnmaterializationEligibility {
         match self.materialization_method().as_ref() {
             ArtifactMaterializationMethod::CasDownload { .. } => {
                 let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
@@ -270,13 +304,19 @@ impl ArtifactRematerializationMethod {
                     if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry
                         && file.digest.expires().unwrap_or_default() < deadline
                     {
-                        return false;
+                        return UnmaterializationEligibility::Ineligible(
+                            UnmaterializationIneligibilityReason::RemoteTtlTooShort,
+                        );
                     }
                 }
-                true
+                UnmaterializationEligibility::Eligible
             }
-            ArtifactMaterializationMethod::HttpDownload { .. } => true,
-            _ => false,
+            ArtifactMaterializationMethod::HttpDownload { .. } => {
+                UnmaterializationEligibility::Eligible
+            }
+            _ => UnmaterializationEligibility::Ineligible(
+                UnmaterializationIneligibilityReason::NoRematerializationMethod,
+            ),
         }
     }
 }
@@ -539,48 +579,49 @@ impl ArtifactTree {
         deadline: Timestamp,
         sqlite_db: &mut MaterializerStateSqliteDb,
         stats: &DeferredMaterializerStats,
-    ) -> buck2_error::Result<(Vec<(ProjectRelativePathBuf, u64)>, u64, u64)> {
+    ) -> buck2_error::Result<UnmaterializeArtifactsResult> {
+        let mut result = UnmaterializeArtifactsResult::default();
         let mut eligible = Vec::new();
-        let mut ineligible_artifact_count = 0;
-        let mut ineligible_bytes = 0;
 
         for (path, size) in paths {
             let mut path_iter = path.iter();
             let Some(data) = self.prefix_get(&mut path_iter) else {
-                ineligible_artifact_count += 1;
-                ineligible_bytes += size;
+                result.record_ineligible(UnmaterializationIneligibilityReason::StateChanged, size);
                 continue;
             };
 
-            let replacement = match (
-                &data.stage,
-                data.classification,
-                data.processing.active_ref(),
-            ) {
-                (
+            let replacement = if path_iter.next().is_some() {
+                Err(UnmaterializationIneligibilityReason::StateChanged)
+            } else if data.classification == ArtifactClassification::FinalOutput {
+                Err(UnmaterializationIneligibilityReason::FinalOutput)
+            } else if data.processing.active_ref().is_some() {
+                Err(UnmaterializationIneligibilityReason::Processing)
+            } else {
+                match &data.stage {
                     ArtifactMaterializationStage::Materialized {
                         metadata,
                         rematerialization_method: Some(method),
                         ..
+                    } => match method.unmaterialization_eligibility(metadata, deadline) {
+                        UnmaterializationEligibility::Eligible => {
+                            Ok(ArtifactMaterializationStage::Declared {
+                                entry: metadata.dupe(),
+                                method: method.materialization_method().dupe(),
+                            })
+                        }
+                        UnmaterializationEligibility::Ineligible(reason) => Err(reason),
                     },
-                    ArtifactClassification::IntermediateOnly,
-                    None,
-                ) if path_iter.next().is_none()
-                    && method.is_rematerializable(metadata, deadline) =>
-                {
-                    Some(ArtifactMaterializationStage::Declared {
-                        entry: metadata.dupe(),
-                        method: method.materialization_method().dupe(),
-                    })
+                    ArtifactMaterializationStage::Materialized {
+                        rematerialization_method: None,
+                        ..
+                    } => Err(UnmaterializationIneligibilityReason::NoRematerializationMethod),
+                    _ => Err(UnmaterializationIneligibilityReason::StateChanged),
                 }
-                _ => None,
             };
 
-            if let Some(replacement) = replacement {
-                eligible.push((path, size, replacement));
-            } else {
-                ineligible_artifact_count += 1;
-                ineligible_bytes += size;
+            match replacement {
+                Ok(replacement) => eligible.push((path, size, replacement)),
+                Err(reason) => result.record_ineligible(reason, size),
             }
         }
 
@@ -602,7 +643,7 @@ impl ArtifactTree {
             .delete(eligible.iter().map(|(path, _, _)| path.clone()).collect())
             .buck_error_context("Error unmaterializing paths in materializer state")?;
 
-        let unmaterialized = eligible
+        result.unmaterialized = eligible
             .into_iter()
             .map(|(path, size, replacement)| {
                 let data = self.prefix_get_mut(&mut path.iter()).expect(
@@ -614,7 +655,7 @@ impl ArtifactTree {
             })
             .collect();
 
-        Ok((unmaterialized, ineligible_artifact_count, ineligible_bytes))
+        Ok(result)
     }
 
     pub(crate) fn attach_unmaterialization_future(

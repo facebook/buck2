@@ -22,6 +22,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_core::tag_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
 use buck2_error::BuckErrorContext;
@@ -56,6 +57,8 @@ use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::ProcessingFuture;
+use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
+use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -98,14 +101,14 @@ pub struct AdaptiveLowDiskParams {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct CleanStaleArtifactsExtensionCommand {
+pub(super) struct CleanStaleArtifactsExtensionCommand {
     pub kind: CleanStaleArtifactsExtensionCommandKind,
     #[derivative(Debug = "ignore")]
-    pub sender: Sender<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
+    pub sender: Sender<BoxFuture<'static, CleanOutcome>>,
 }
 
 #[derive(Debug)]
-pub enum CleanStaleArtifactsExtensionCommandKind {
+pub(super) enum CleanStaleArtifactsExtensionCommandKind {
     Configured {
         dispatcher: EventDispatcher,
         dry_run: bool,
@@ -120,9 +123,54 @@ pub struct CleanResult {
     stats: CleanStaleStats,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum CleanFailurePhase {
+    RootDiscovery,
+    Scan,
+    StateValidation,
+    Invalidation,
+    Unmaterialization,
+    Clean,
+}
+
+#[derive(Clone)]
+pub(crate) struct CleanFailure {
+    phase: CleanFailurePhase,
+    stats: Box<CleanStaleStats>,
+    error: buck2_error::Error,
+}
+
+impl CleanFailure {
+    fn new(phase: CleanFailurePhase, stats: CleanStaleStats, error: buck2_error::Error) -> Self {
+        Self {
+            phase,
+            stats: Box::new(stats),
+            error,
+        }
+    }
+
+    pub(crate) fn into_error(self) -> buck2_error::Error {
+        self.error
+    }
+}
+
+#[derive(Clone)]
+struct PendingCleanFailure {
+    phase: CleanFailurePhase,
+    error: buck2_error::Error,
+}
+
+impl PendingCleanFailure {
+    fn with_stats(self, stats: CleanStaleStats) -> CleanFailure {
+        CleanFailure::new(self.phase, stats, self.error)
+    }
+}
+
+pub(crate) type CleanOutcome = Result<CleanResult, CleanFailure>;
+
 enum PendingCleanResult {
     Finished(CleanResult),
-    Pending(BoxFuture<'static, buck2_error::Result<CleanResult>>),
+    Pending(BoxFuture<'static, CleanOutcome>),
 }
 
 impl From<CleanStaleResultKind> for PendingCleanResult {
@@ -163,18 +211,21 @@ impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
 }
 
 fn create_result(
-    result: Result<CleanResult, buck2_error::Error>,
+    result: CleanOutcome,
     trace_id: Option<TraceId>,
     daemon_id: &DaemonId,
     total_duration_s: u64,
 ) -> buck2_data::CleanStaleResult {
     let (kind, mut stats, error) = match result {
         Ok(result) => (result.kind, result.stats, None),
-        Err(e) => (
-            CleanStaleResultKind::Failed,
-            CleanStaleStats::default(),
-            Some((&e).into()),
-        ),
+        Err(failure) => {
+            let _failure_phase = failure.phase;
+            (
+                CleanStaleResultKind::Failed,
+                *failure.stats,
+                Some((&failure.error).into()),
+            )
+        }
     };
     stats.total_duration_s = total_duration_s;
     buck2_data::CleanStaleResult {
@@ -209,7 +260,7 @@ impl CleanStaleArtifactsCommand {
         processor: &mut DeferredMaterializerCommandProcessor<T>,
         trace_id: Option<TraceId>,
         daemon_id: DaemonId,
-    ) -> BoxFuture<'static, buck2_error::Result<CleanResult>> {
+    ) -> BoxFuture<'static, CleanOutcome> {
         let start_time = Instant::now();
         let pending_result = self.create_pending_clean_result(processor);
         let dispatcher_dup = self.dispatcher.dupe();
@@ -221,7 +272,6 @@ impl CleanStaleArtifactsCommand {
                 },
                 Err(e) => Err(e),
             };
-            let result: Result<CleanResult, buck2_error::Error> = result;
             let result_event: buck2_data::CleanStaleResult = create_result(
                 result.clone(),
                 trace_id,
@@ -237,7 +287,7 @@ impl CleanStaleArtifactsCommand {
     fn create_pending_clean_result<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
-    ) -> buck2_error::Result<PendingCleanResult> {
+    ) -> Result<PendingCleanResult, CleanFailure> {
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
         *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
         let cleaning_version = processor.next_version();
@@ -282,11 +332,11 @@ impl CleanStaleArtifactsCommand {
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
         rematerialization_ttl: Option<SignedDuration>,
         cleaning_version: Version,
-    ) -> buck2_error::Result<PendingCleanResult> {
+    ) -> Result<PendingCleanResult, CleanFailure> {
         let start_time = Instant::now();
 
         let mut artifact_dirs = Vec::new();
-        let mut scan_error = None;
+        let mut scan_error: Option<PendingCleanFailure> = None;
         for dir_name in &["gen", "gen-anon", "gen-bxl", "art", "art-anon", "art-bxl"] {
             let dir_path = io
                 .buck_out_path()
@@ -301,14 +351,23 @@ impl CleanStaleArtifactsCommand {
                     ));
                     tracing::warn!("Skipping clean-stale artifact directory: {error:#}");
                     if scan_error.is_none() {
-                        scan_error = Some(error);
+                        scan_error = Some(PendingCleanFailure {
+                            phase: CleanFailurePhase::RootDiscovery,
+                            error,
+                        });
                     }
                 }
             }
         }
         if artifact_dirs.is_empty() {
             return match scan_error {
-                Some(error) => Err(error),
+                Some(error) => {
+                    let stats = CleanStaleStats {
+                        scan_duration_s: (Instant::now() - start_time).as_secs(),
+                        ..Default::default()
+                    };
+                    Err(error.with_stats(stats))
+                }
                 None => Ok(CleanStaleResultKind::SkippedNoGenDir.into()),
             };
         }
@@ -333,7 +392,10 @@ impl CleanStaleArtifactsCommand {
                             "Skipping clean-stale artifact directory after tree lookup failed: {error:#}"
                         );
                         if scan_error.is_none() {
-                            scan_error = Some(error);
+                            scan_error = Some(PendingCleanFailure {
+                                phase: CleanFailurePhase::Scan,
+                                error,
+                            });
                         }
                         continue;
                     }
@@ -367,7 +429,10 @@ impl CleanStaleArtifactsCommand {
                         "Skipping the rest of a clean-stale artifact directory: {error:#}"
                     );
                     if scan_error.is_none() {
-                        scan_error = Some(error);
+                        scan_error = Some(PendingCleanFailure {
+                            phase: CleanFailurePhase::Scan,
+                            error,
+                        });
                     }
                 }
             }
@@ -424,22 +489,34 @@ impl CleanStaleArtifactsCommand {
             // Checking the db directly in case tree is somehow not in sync.
             let materializer_state = sqlite_db
                 .materializer_state_table()
-                .read_materializer_state(io.digest_config())?;
+                .read_materializer_state(io.digest_config())
+                .map_err(|error| {
+                    CleanFailure::new(CleanFailurePhase::StateValidation, stats, error)
+                })?;
 
             // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
             if !materializer_state.is_empty() {
-                let error = CleanStaleError {
+                let state_error = CleanStaleError {
                     db_size: materializer_state.len(),
                     stats,
                 };
-                // quiet just because it's also returned, soft_error to log to scribe
-                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
+                // The error is also returned, so report it quietly.
+                let error = tag_error!(
+                    "clean_stale_error",
+                    state_error.into(),
+                    quiet: true
+                );
+                return Err(CleanFailure::new(
+                    CleanFailurePhase::StateValidation,
+                    stats,
+                    error,
+                ));
             }
         }
 
         if self.dry_run {
             match scan_error {
-                Some(error) => Err(error),
+                Some(error) => Err(error.with_stats(stats)),
                 None => Ok(PendingCleanResult::Finished(CleanResult {
                     kind: CleanStaleResultKind::SkippedDryRun,
                     stats,
@@ -514,8 +591,8 @@ fn create_clean_fut<T: IoHandler>(
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
     rematerialization_ttl: Option<SignedDuration>,
     cleaning_version: Version,
-    scan_error: Option<buck2_error::Error>,
-) -> buck2_error::Result<BoxFuture<'static, buck2_error::Result<CleanResult>>> {
+    scan_error: Option<PendingCleanFailure>,
+) -> Result<BoxFuture<'static, CleanOutcome>, CleanFailure> {
     let io = io.dupe();
 
     let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
@@ -530,11 +607,13 @@ fn create_clean_fut<T: IoHandler>(
         })
         .collect();
 
-    let existing_clean_futs = tree.invalidate_paths_and_collect_futures(
-        paths_to_invalidate,
-        Some(sqlite_db),
-        materializer_stats,
-    )?;
+    let existing_clean_futs = tree
+        .invalidate_paths_and_collect_futures(
+            paths_to_invalidate,
+            Some(sqlite_db),
+            materializer_stats,
+        )
+        .map_err(|error| CleanFailure::new(CleanFailurePhase::Invalidation, stats, error))?;
     let mut existing_materialization_futs = vec![];
     for data in tree.iter_without_paths() {
         if let Some(active) = data.processing.active_ref()
@@ -565,35 +644,54 @@ fn create_clean_fut<T: IoHandler>(
         })
         .collect();
     let rematerialization_deadline = rematerialization_deadline(rematerialization_ttl);
-    let (unmaterialized, ineligible_count, ineligible_bytes) = tree.unmaterialize_artifacts(
-        paths_to_unmaterialize,
-        rematerialization_deadline,
-        sqlite_db,
-        materializer_stats,
-    )?;
-    stats.unmaterialization_ineligible_artifact_count += ineligible_count;
-    stats.unmaterialization_ineligible_bytes += ineligible_bytes;
+    let unmaterialization = tree
+        .unmaterialize_artifacts(
+            paths_to_unmaterialize,
+            rematerialization_deadline,
+            sqlite_db,
+            materializer_stats,
+        )
+        .map_err(|error| CleanFailure::new(CleanFailurePhase::Unmaterialization, stats, error))?;
+    stats.unmaterialization_ineligible_artifact_count += unmaterialization.ineligible.len() as u64;
+    stats.unmaterialization_ineligible_bytes += unmaterialization
+        .ineligible
+        .iter()
+        .map(|artifact| artifact.size)
+        .sum::<u64>();
 
-    let mut paths_to_clean: Vec<(ProjectRelativePathBuf, u64, bool)> = found_paths
+    let mut paths_to_clean: Vec<CleanupPath> = found_paths
         .into_iter()
         .filter_map(|path| match path {
-            FoundPath::Untracked(path, _, size) => Some((path, size, false)),
+            FoundPath::Untracked(path, _, size) => Some(CleanupPath {
+                path,
+                size,
+                origin: CleanupOrigin::Untracked,
+            }),
             FoundPath::Tracked {
                 path,
                 size,
                 state: TrackedState::Stale,
-            } => Some((path, size, false)),
+            } => Some(CleanupPath {
+                path,
+                size,
+                origin: CleanupOrigin::Stale,
+            }),
             _ => None,
         })
         .collect();
     paths_to_clean.extend(
-        unmaterialized
+        unmaterialization
+            .unmaterialized
             .into_iter()
-            .map(|(path, size)| (path, size, true)),
+            .map(|(path, size)| CleanupPath {
+                path,
+                size,
+                origin: CleanupOrigin::Unmaterialized,
+            }),
     );
 
     let mut clean_futs = Vec::with_capacity(paths_to_clean.len());
-    for (path, size, unmaterialized) in paths_to_clean {
+    for CleanupPath { path, size, origin } in paths_to_clean {
         let wait_for_existing_futs = wait_for_existing_futs.clone();
         let io = io.dupe();
         let liveliness_observer = liveliness_observer.dupe();
@@ -610,7 +708,7 @@ fn create_clean_fut<T: IoHandler>(
         .boxed()
         .shared();
 
-        if unmaterialized {
+        if origin == CleanupOrigin::Unmaterialized {
             let cleaning_fut = {
                 let clean_fut = clean_fut.clone();
                 async move {
@@ -622,10 +720,13 @@ fn create_clean_fut<T: IoHandler>(
                 .boxed()
                 .shared()
             };
-            tree.attach_unmaterialization_future(&path, cleaning_fut, cleaning_version)?;
+            tree.attach_unmaterialization_future(&path, cleaning_fut, cleaning_version)
+                .map_err(|error| {
+                    CleanFailure::new(CleanFailurePhase::Unmaterialization, stats, error)
+                })?;
         }
 
-        clean_futs.push((clean_fut, unmaterialized));
+        clean_futs.push((clean_fut, origin));
     }
 
     let fut = async move {
@@ -633,21 +734,19 @@ fn create_clean_fut<T: IoHandler>(
         let results = buck2_util::future::join_all(
             clean_futs
                 .into_iter()
-                .map(|(clean_fut, unmaterialized)| {
-                    clean_fut.map(move |cleaned| (cleaned, unmaterialized))
-                })
+                .map(|(clean_fut, origin)| clean_fut.map(move |cleaned| (cleaned, origin)))
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
         .await;
 
         let mut first_error = scan_error;
-        for (cleaned, unmaterialized) in results {
+        for (cleaned, origin) in results {
             match cleaned {
                 CleanPathOutcome::Cleaned(size) => {
                     stats.cleaned_artifact_count += 1;
                     stats.cleaned_bytes += size;
-                    if unmaterialized {
+                    if origin == CleanupOrigin::Unmaterialized {
                         stats.unmaterialized_only_artifact_count += 1;
                         stats.unmaterialized_only_bytes += size;
                     }
@@ -656,7 +755,10 @@ fn create_clean_fut<T: IoHandler>(
                 CleanPathOutcome::Interrupted => {}
                 CleanPathOutcome::Failed(error) => {
                     if first_error.is_none() {
-                        first_error = Some(error);
+                        first_error = Some(PendingCleanFailure {
+                            phase: CleanFailurePhase::Clean,
+                            error,
+                        });
                     }
                 }
             }
@@ -668,11 +770,24 @@ fn create_clean_fut<T: IoHandler>(
             CleanStaleResultKind::Finished
         };
         match first_error {
-            Some(error) => Err(error),
+            Some(error) => Err(error.with_stats(stats)),
             None => Ok(CleanResult { kind, stats }),
         }
     };
     Ok(fut.boxed())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CleanupOrigin {
+    Untracked,
+    Stale,
+    Unmaterialized,
+}
+
+struct CleanupPath {
+    path: ProjectRelativePathBuf,
+    size: u64,
+    origin: CleanupOrigin,
 }
 
 fn rematerialization_deadline(ttl: Option<SignedDuration>) -> Timestamp {
@@ -771,8 +886,11 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanScratchExtensionCommand {
         let dispatcher = self.dispatcher;
         let fut = async move {
             let result = scratch_sweep(&io, cancellations, liveliness_observer).await;
+            let event_result = result.clone().map_err(|error| {
+                CleanFailure::new(CleanFailurePhase::Clean, CleanStaleStats::default(), error)
+            });
             let result_event: buck2_data::CleanStaleResult = create_result(
-                result.clone(),
+                event_result,
                 Some(trace_id),
                 &daemon_id,
                 (Instant::now() - start_time).as_secs(),
@@ -947,7 +1065,7 @@ enum TrackedState {
     ActiveRetained {
         last_access_time: Timestamp,
         classification: ArtifactClassification,
-        rematerializable: bool,
+        unmaterialization_eligibility: UnmaterializationEligibility,
     },
     /// Will be returned to the declared state and deleted on disk.
     Unmaterialize,
@@ -1108,20 +1226,29 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     ..
                 }) => {
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as active retained");
+                    let unmaterialization_eligibility =
+                        if *classification == ArtifactClassification::FinalOutput {
+                            UnmaterializationEligibility::Ineligible(
+                                UnmaterializationIneligibilityReason::FinalOutput,
+                            )
+                        } else {
+                            match rematerialization_method {
+                                Some(method) => method.unmaterialization_eligibility(
+                                    metadata,
+                                    self.rematerialization_deadline,
+                                ),
+                                None => UnmaterializationEligibility::Ineligible(
+                                    UnmaterializationIneligibilityReason::NoRematerializationMethod,
+                                ),
+                            }
+                        };
                     self.found_paths.push(FoundPath::Tracked {
                         path,
                         size: artifact_metadata_size(metadata),
                         state: TrackedState::ActiveRetained {
                             last_access_time: *last_access_time,
                             classification: *classification,
-                            rematerializable: rematerialization_method.as_ref().is_some_and(
-                                |method| {
-                                    method.is_rematerializable(
-                                        metadata,
-                                        self.rematerialization_deadline,
-                                    )
-                                },
-                            ),
+                            unmaterialization_eligibility,
                         },
                     });
                 }
@@ -1165,7 +1292,9 @@ fn find_stale_tracked_only(
                     state: TrackedState::ActiveRetained {
                         last_access_time: *last_access_time,
                         classification: v.classification,
-                        rematerializable: false,
+                        unmaterialization_eligibility: UnmaterializationEligibility::Ineligible(
+                            UnmaterializationIneligibilityReason::NoRematerializationMethod,
+                        ),
                     },
                 });
             } else {
@@ -1259,7 +1388,7 @@ fn apply_adaptive_low_disk(
                     TrackedState::ActiveRetained {
                         last_access_time,
                         classification: ArtifactClassification::IntermediateOnly,
-                        rematerializable: true,
+                        unmaterialization_eligibility: UnmaterializationEligibility::Eligible,
                     },
                 ..
             } => Some((index, *last_access_time, *size)),
@@ -1516,6 +1645,8 @@ mod tests {
     use jiff::Timestamp;
 
     use crate::materializers::deferred::artifact_tree::ArtifactClassification;
+    use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
+    use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
     use crate::materializers::deferred::clean_stale::FoundPath;
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
@@ -1584,7 +1715,13 @@ mod tests {
             state: TrackedState::ActiveRetained {
                 last_access_time: t(last_access_secs),
                 classification,
-                rematerializable,
+                unmaterialization_eligibility: if rematerializable {
+                    UnmaterializationEligibility::Eligible
+                } else {
+                    UnmaterializationEligibility::Ineligible(
+                        UnmaterializationIneligibilityReason::NoRematerializationMethod,
+                    )
+                },
             },
         }
     }

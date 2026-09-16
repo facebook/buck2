@@ -86,6 +86,7 @@ use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams;
+use crate::materializers::deferred::clean_stale::CleanFailure;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
@@ -302,7 +303,7 @@ struct CommandStream<T: 'static> {
     refresh_ttl_ticker: Option<Interval>,
     io_buffer_ticker: Interval,
     clean_stale_ticker: Option<Interval>,
-    clean_stale_fut: Option<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
+    clean_stale_fut: Option<BoxFuture<'static, Result<CleanResult, CleanFailure>>>,
 }
 
 enum Op<T: 'static> {

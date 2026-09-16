@@ -152,6 +152,7 @@ mod state_machine {
 
     use super::*;
     use crate::materializers::deferred::artifact_tree::Processing;
+    use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
     use crate::materializers::deferred::clean_stale::CleanStaleSchedule;
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
@@ -810,19 +811,39 @@ mod state_machine {
             .classification = ArtifactClassification::FinalOutput;
 
         let requested = paths.iter().cloned().map(|path| (path, 1)).collect();
-        let (unmaterialized, ineligible_count, ineligible_bytes) =
-            dm.tree.unmaterialize_artifacts(
-                requested,
-                deadline,
-                dm.sqlite_db
-                    .as_mut()
-                    .expect("test processor should have sqlite state"),
-                &dm.stats,
-            )?;
+        let result = dm.tree.unmaterialize_artifacts(
+            requested,
+            deadline,
+            dm.sqlite_db
+                .as_mut()
+                .expect("test processor should have sqlite state"),
+            &dm.stats,
+        )?;
 
-        assert_eq!(unmaterialized, vec![(paths[0].clone(), 1)]);
-        assert_eq!(ineligible_count, 4);
-        assert_eq!(ineligible_bytes, 4);
+        assert_eq!(result.unmaterialized, vec![(paths[0].clone(), 1)]);
+        assert_eq!(result.ineligible.len(), 4);
+        assert_eq!(
+            result
+                .ineligible
+                .iter()
+                .map(|artifact| artifact.size)
+                .sum::<u64>(),
+            4
+        );
+        for reason in [
+            UnmaterializationIneligibilityReason::RemoteTtlTooShort,
+            UnmaterializationIneligibilityReason::Processing,
+            UnmaterializationIneligibilityReason::FinalOutput,
+            UnmaterializationIneligibilityReason::NoRematerializationMethod,
+        ] {
+            assert!(
+                result
+                    .ineligible
+                    .iter()
+                    .any(|artifact| artifact.reason == reason),
+                "expected ineligibility reason {reason:?}"
+            );
+        }
         assert!(matches!(
             dm.tree
                 .prefix_get(&mut paths[0].iter())
