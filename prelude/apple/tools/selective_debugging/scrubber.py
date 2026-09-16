@@ -64,11 +64,11 @@ def _get_target_output_path_from_debug_file_path(
     # Without content based path:
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/libFoo.a
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/__objects__/bar.o
-    # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/swift_object_file.o
+    # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/swift_object_file.swift.o
     # With content based path:
     # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/libFoo.a
     # buck-out/isolation_dir/gen/project_cell/.../__name__/__objects__/{hash}/bar.o
-    # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/swift_object_file.o
+    # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/swift_object_file.swift.o
     parts = debug_target_path.split("/")
 
     # We are doing the traverse in reverse order because this way we'll find the first

@@ -881,7 +881,7 @@ def _compile_object(
     else:
         num_threads = 1
         swiftdeps = []
-        output_object = ctx.actions.declare_output(module_name + ".o", has_content_based_path = uses_content_based_paths)
+        output_object = ctx.actions.declare_output(module_name + SWIFT_EXTENSION + ".o", has_content_based_path = uses_content_based_paths)
         objects = [output_object]
         object_format = toolchain.object_format.value
         embed_bitcode = False
