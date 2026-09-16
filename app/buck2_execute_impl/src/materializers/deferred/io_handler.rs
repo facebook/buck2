@@ -154,6 +154,13 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         min_ttl: SignedDuration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>>;
 
+    async fn upload_materialized_artifact(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        info: Arc<CasDownloadInfo>,
+    ) -> buck2_error::Result<()>;
+
     fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir>;
     fn buck_out_path(&self) -> &ProjectRelativePathBuf;
     fn re_client_manager(&self) -> &Arc<ReConnectionManager>;
@@ -437,6 +444,37 @@ impl IoHandler for DefaultIoHandler {
             .map(|f| f.boxed())
     }
 
+    async fn upload_materialized_artifact(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        info: Arc<CasDownloadInfo>,
+    ) -> buck2_error::Result<()> {
+        let files = {
+            let mut files = Vec::new();
+            let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
+            while let Some((entry_path, entry)) = walk.next() {
+                if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
+                    let path = self.fs.resolve(path.join(entry_path.get()));
+                    files.push(NamedDigest {
+                        name: path.as_maybe_relativized_str()?.to_owned(),
+                        digest: file.digest.to_re(),
+                        ..Default::default()
+                    });
+                }
+            }
+            files
+        };
+
+        let connection = self.re_client_manager.get_re_connection();
+        let re_client = connection.get_client().with_use_case(info.re_use_case);
+        re_client
+            .upload_files_and_directories(files, vec![], vec![])
+            .await?;
+
+        Ok(())
+    }
+
     fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
         fs_util::read_dir(path).categorize_internal()
     }
@@ -523,6 +561,18 @@ impl IoHandler for NoDiskIoHandler {
         _min_ttl: SignedDuration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
         None
+    }
+
+    async fn upload_materialized_artifact(
+        self: &Arc<Self>,
+        _path: ProjectRelativePathBuf,
+        _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        _info: Arc<CasDownloadInfo>,
+    ) -> buck2_error::Result<()> {
+        Err(buck2_error::buck2_error!(
+            ErrorTag::Tier0,
+            "No-disk materializers cannot upload artifacts"
+        ))
     }
 
     fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {

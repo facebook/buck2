@@ -373,6 +373,15 @@ mod state_machine {
             unimplemented!()
         }
 
+        async fn upload_materialized_artifact(
+            self: &Arc<Self>,
+            _path: ProjectRelativePathBuf,
+            _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+            _info: Arc<CasDownloadInfo>,
+        ) -> buck2_error::Result<()> {
+            unimplemented!()
+        }
+
         fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
             if self.fail_read_dirs.lock().contains(path) {
                 return Err(buck2_error!(
