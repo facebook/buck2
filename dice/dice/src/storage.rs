@@ -257,9 +257,9 @@ impl DiceStorage {
         key_index: &DiceKeyIndex,
         state_handle: &CoreStateHandle,
         cancelled: PageOutCancel,
-    ) -> anyhow::Result<usize> {
+    ) -> anyhow::Result<()> {
         if keys.is_empty() {
-            return Ok(0);
+            return Ok(());
         }
         // Process this many keys in parallel at a time, limit peak RSS
         const CHUNK_SIZE: usize = 32768;
@@ -310,7 +310,7 @@ impl DiceStorage {
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
-        Ok(finished.len())
+        Ok(())
     }
 
     fn page_out_chunk(
@@ -433,6 +433,11 @@ impl DiceStorage {
             handle.await??;
         }
         Ok(())
+    }
+
+    /// Cumulative graph nodes evicted by page-out since daemon start.
+    pub(crate) fn paged_out_node_total(&self) -> u64 {
+        self.paging_memory.nodes_paged_out()
     }
 
     /// Deserialize the value at `data_key` back into a `DiceValidValue` via `key_dyn`'s

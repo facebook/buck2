@@ -10,6 +10,7 @@
 
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicI64;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::thread;
 use std::thread::ThreadId;
@@ -137,6 +138,11 @@ impl AllocWindow {
 pub(crate) struct PagingMemoryMetrics {
     bytes_offloaded: AtomicI64,
     bytes_restored: AtomicI64,
+    /// Graph nodes whose value was actually dropped for a `DataKey`.
+    ///
+    /// Not part of [`PagingMemorySnapshot`]: that is `None` when the allocator
+    /// counters are unreadable, and this count does not depend on them.
+    nodes_paged_out: AtomicU64,
 }
 
 impl PagingMemoryMetrics {
@@ -146,6 +152,15 @@ impl PagingMemoryMetrics {
 
     pub(crate) fn record_restored(&self, bytes: i64) {
         self.bytes_restored.fetch_add(bytes, Ordering::Relaxed);
+    }
+
+    pub(crate) fn record_nodes_paged_out(&self, nodes: u64) {
+        self.nodes_paged_out.fetch_add(nodes, Ordering::Relaxed);
+    }
+
+    /// Cumulative graph nodes evicted since daemon start.
+    pub(crate) fn nodes_paged_out(&self) -> u64 {
+        self.nodes_paged_out.load(Ordering::Relaxed)
     }
 
     /// `None` when the allocator counters cannot be read. The totals would be

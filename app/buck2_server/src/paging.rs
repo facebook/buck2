@@ -261,15 +261,14 @@ fn compute_page_in_delta(
 pub(crate) async fn page_out(
     dice: &Arc<Dice>,
     cancelled: PageOutCancel,
-) -> buck2_error::Result<usize> {
+) -> buck2_error::Result<()> {
     if buck2_env!("BUCK2_TEST_FAIL_PAGE_OUT", bool, applicability = testing).unwrap() {
         return Err(buck2_error::buck2_error!(
             ErrorTag::TestOnly,
             "Injected page-out failure (BUCK2_TEST_FAIL_PAGE_OUT)"
         ));
     }
-    let paged_out_count = dice
-        .page_out_cancellable(cancelled)
+    dice.page_out_cancellable(cancelled)
         .await
         .map_err(|e| from_any_with_tag(e, ErrorTag::Environment))?;
 
@@ -277,7 +276,7 @@ pub(crate) async fn page_out(
     // processed before we purge.
     let _ = dice.metrics();
     memory::purge_jemalloc()?;
-    Ok(paged_out_count)
+    Ok(())
 }
 
 /// Lock-free state of the background idle page-out, doubling as the single-flight
@@ -502,11 +501,12 @@ pub(crate) async fn page_out_measured(
     dice: &Arc<Dice>,
     cancelled: PageOutCancel,
     dispatcher: &EventDispatcher,
-) -> (buck2_error::Result<usize>, buck2_data::PageOutSummary) {
+) -> (buck2_error::Result<()>, buck2_data::PageOutSummary) {
     let (resident_bytes_before, allocated_bytes_before, db_size_bytes_before) =
         page_out_memory_snapshot(dice);
     let io_before = dice.storage_io_metrics();
     let memory_before = dice.paging_memory_metrics();
+    let nodes_before = dice.paged_out_node_total();
     let start = Instant::now();
     let result = page_out(dice, cancelled).await;
     let duration_ms = (Instant::now() - start).as_millis() as u64;
@@ -524,10 +524,17 @@ pub(crate) async fn page_out_measured(
     let memory_delta = memory
         .zip(memory_before)
         .map(|(after, before)| after.since(before));
-    let (paged_out_count, error) = match &result {
-        Ok(n) => (*n as u64, None),
-        Err(e) => (0, Some(e.into())),
+    let error = match &result {
+        Ok(()) => None,
+        Err(e) => Some(e.into()),
     };
+    // Read after `page_out` has drained the state queue, so every eviction it
+    // queued has been applied. A daemon-lifetime total, so differenced like the
+    // memory counters beside it.
+    let paged_out_count = dice
+        .paged_out_node_total()
+        .zip(nodes_before)
+        .map_or(0, |(after, before)| after.saturating_sub(before));
     let summary = buck2_data::PageOutSummary {
         metadata: metadata::collect(dispatcher.daemon_id()),
         command_uuid: Some(dispatcher.trace_id().to_string()),

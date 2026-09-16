@@ -142,8 +142,9 @@ impl ActorState {
         // queued — so the drops below are where the memory is actually released,
         // and jemalloc charges a free to the thread performing it.
         let window = AllocWindow::open();
-        self.graph.evict_keys(keys);
+        let evicted = self.graph.evict_keys(keys);
         if let Some(metrics) = &self.paging_memory {
+            metrics.record_nodes_paged_out(evicted);
             metrics.record_offloaded(window.net_freed());
         }
     }

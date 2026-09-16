@@ -543,8 +543,10 @@ impl VersionedGraph {
     }
 
     /// Evicts each value that is still the exact allocation page-out serialized. A value that a
-    /// write replaced in the meantime is left alone.
-    pub(crate) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) {
+    /// write replaced in the meantime is left alone. Returns how many values
+    /// were evicted.
+    pub(crate) fn evict_keys(&mut self, keys: Vec<(DiceKey, PageOutResult)>) -> u64 {
+        let mut evicted = 0u64;
         for (
             key,
             PageOutResult {
@@ -560,10 +562,12 @@ impl VersionedGraph {
                         .is_some_and(|current| current.ptr_eq(&serialized_value))
                     {
                         *value = PagableValue::PagedOut(data_key);
+                        evicted += 1;
                     }
                 }
             });
         }
+        evicted
     }
 
     /// Marks each value page-out could not serialize, if it is still the exact allocation

@@ -210,7 +210,8 @@ message PageOutSummary {
   map<string, string> metadata = 1;
   /// The command whose finalize triggered this idle page-out.
   optional string command_uuid = 2;
-  /// Number of DICE values written out to disk.
+  /// Graph nodes whose value was dropped for a `DataKey` — what the page-out
+  /// actually evicted.
   uint64 paged_out_count = 3;
   /// Wall-clock duration of the page-out.
   uint64 duration_ms = 4;

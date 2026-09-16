@@ -149,6 +149,14 @@ impl Dice {
             .and_then(|storage| storage.paging_memory_snapshot())
     }
 
+    /// Cumulative graph nodes evicted by page-out since daemon start, or `None`
+    /// if pagable storage is not configured.
+    pub fn paged_out_node_total(&self) -> Option<u64> {
+        self.pagable_storage
+            .as_ref()
+            .map(|storage| storage.paged_out_node_total())
+    }
+
     /// Last measured on-disk size in bytes of the pagable store, or `None` if
     /// pagable storage is not configured. `Some(Err)` if the measurement walk failed.
     /// Cached at page-out (the store is append-only), so this is cheap.
@@ -235,19 +243,21 @@ impl Dice {
     /// No-op if `DiceStorage` was not configured on the builder.
     pub async fn page_out(self: &StdArc<Self>) -> anyhow::Result<()> {
         // Never cancelled.
-        self.page_out_cancellable(|| false).await?;
-        Ok(())
+        self.page_out_cancellable(|| false).await
     }
 
     /// Like [`Dice::page_out`], but stops promptly once `cancelled` returns true
     /// (checked per key), leaving a partially paged-out graph (a valid state —
     /// paged-out values hydrate back on demand). Used by automatic idle page-out
-    /// so it can yield promptly when a new command starts. Returns the number of
-    /// values written out to disk.
+    /// so it can yield promptly when a new command starts.
+    ///
+    /// Returns no count. Evictions are applied asynchronously on the state
+    /// thread and are not all done when this returns, so read
+    /// [`Dice::paged_out_node_total`] once the queue has drained instead.
     pub async fn page_out_cancellable(
         self: &StdArc<Self>,
         cancelled: PageOutCancel,
-    ) -> anyhow::Result<usize> {
+    ) -> anyhow::Result<()> {
         if !self.is_idle().await {
             // A command can race in and make DICE non-idle even after the caller
             // waited for idle — `wait_for_idle` is not a lasting guarantee. On the
@@ -256,14 +266,14 @@ impl Dice {
             // aren't cancelled, something called this on a non-idle graph, which
             // risks paging out a value that's being recomputed — surface it.
             if cancelled() {
-                return Ok(0);
+                return Ok(());
             }
             return Err(anyhow::anyhow!(
                 "Dice::page_out called while DICE is not idle"
             ));
         }
         let Some(storage) = self.pagable_storage.as_ref() else {
-            return Ok(0);
+            return Ok(());
         };
         let keys = self.state_handle.keys_to_page_out().await;
         storage
