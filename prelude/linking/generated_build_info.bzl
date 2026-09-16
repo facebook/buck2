@@ -6,11 +6,26 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx_types.bzl", "CxxRuleConstructorParams")
 load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
+load("@prelude//cxx:link.bzl", "cxx_link_shared_library")
+load("@prelude//cxx:link_types.bzl", "link_options")
+load("@prelude//cxx:shared_library_interface.bzl", "shared_library_interface")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkArgs",
+    "LinkInfo",
+    "ObjectsLinkable",
+    "SharedLibLinkable",
+    "unpack_link_args_metadata",
+    "wrap_with_no_as_needed_shared_libs_flags",
+)
+load("@prelude//linking:shared_libraries.bzl", "SharedLibrary", "create_shlib")
 load("@prelude//linking:types.bzl", "Linkage")
 
 GeneratedBuildInfo = record(
@@ -45,6 +60,12 @@ GeneratedBuildInfoInvalidationInfo = provider(
     fields = {
         "inputs": provider_field(typing.Any),
     },
+)
+
+GeneratedBuildInfoSharedLibrary = record(
+    library = SharedLibrary,
+    link_args = LinkArgs,
+    manifest_entries = field(Artifact | None, None),
 )
 
 def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo) -> GeneratedBuildInfoCompileOutput:
@@ -184,3 +205,77 @@ def generate_build_info(ctx: AnalysisContext, invalidation_inputs: list[typing.A
         manifest_entries = data.manifest_entries,
         source = source,
     )
+
+def generate_build_info_shared_library(
+    ctx: AnalysisContext,
+    metadata_link_args: LinkArgs,
+    invalidation_inputs: list[typing.Any] = [],
+) -> GeneratedBuildInfoSharedLibrary | None:
+    config = _generated_build_info_config(ctx)
+    if config == None:
+        return None
+    spec, _tool = config
+
+    info = generate_build_info(ctx, invalidation_inputs)
+    if info == None:
+        return None
+
+    linker_info = get_cxx_toolchain_info(ctx).linker_info
+    soname = "libgenerated_build_info.so"
+    compile_output = compile_generated_build_info(ctx, info)
+    exported_symbols = spec["exported_symbols"]
+    links = [
+        LinkArgs(
+            infos = [
+                LinkInfo(
+                    external_debug_info = make_artifact_tset(
+                        actions = ctx.actions,
+                        label = ctx.label,
+                        artifacts = compile_output.external_debug_info,
+                    ),
+                    pre_flags = info.linker_flags + ["-Wl,--export-dynamic-symbol={}".format(symbol) for symbol in exported_symbols],
+                    linkables = [
+                        ObjectsLinkable(
+                            objects = compile_output.objects,
+                            linker_type = linker_info.type,
+                            link_whole = True,
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        LinkArgs(
+            flags = cmd_args(
+                unpack_link_args_metadata(metadata_link_args),
+                format = "--build-info-link-metadata={}",
+            ),
+        ),
+    ]
+    link_result = cxx_link_shared_library(
+        ctx = ctx,
+        output = "__generated_build_info__/{}".format(soname),
+        name = soname,
+        opts = link_options(
+            links = links,
+            link_execution_preference = LinkExecutionPreference("any"),
+            link_weight = linker_info.link_weight,
+        ),
+    )
+    interface = shared_library_interface(ctx, link_result.linked_object.output)
+    link_info = wrap_with_no_as_needed_shared_libs_flags(
+        linker_info.type,
+        LinkInfo(linkables = [SharedLibLinkable(lib = interface)]),
+    )
+    return GeneratedBuildInfoSharedLibrary(
+        library = create_shlib(
+            label = ctx.label,
+            lib = link_result.linked_object,
+            soname = soname,
+        ),
+        link_args = LinkArgs(infos = [link_info]),
+        manifest_entries = info.manifest_entries,
+    )
+
+def generated_build_info_is_shared_library(ctx: AnalysisContext) -> bool:
+    spec = getattr(ctx.attrs, "_generated_build_info_spec", {})
+    return bool(spec.get("enabled", False) and spec.get("link_as_shared_library", False))

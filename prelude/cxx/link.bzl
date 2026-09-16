@@ -180,6 +180,7 @@ def cxx_link_into(
     result_type: CxxLinkResultType,
     opts: LinkOptions,
     output_has_content_based_path: bool = False,
+    build_info_section_source: Artifact | None = None,
 ) -> CxxLinkResult:
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
@@ -249,6 +250,7 @@ def cxx_link_into(
                 gc_sections_output,
                 dwp_tool_available,
                 is_result_executable,
+                build_info_section_source,
             )
             extra_outputs = {}
         else:
@@ -539,7 +541,12 @@ def cxx_link_into(
 
     if is_result_executable:
         output = add_elf_sections_to_executable(ctx, output, has_content_based_path = output_has_content_based_path)
-        output = stamp_build_info(ctx, output, links = opts.links)
+        output = stamp_build_info(
+            ctx,
+            output,
+            links = opts.links,
+            section_source = build_info_section_source,
+        )
 
     linked_object = LinkedObject(
         output = output,
