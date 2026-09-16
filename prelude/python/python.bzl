@@ -77,6 +77,11 @@ def _source_type_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
         return []
     return [a for a, _ in value.src_types.artifacts]
 
+def _extension_artifacts(value: PythonLibraryManifests) -> list[Artifact]:
+    if value.extensions == None:
+        return []
+    return [extension.output for extension in value.extensions.values()]
+
 # Mode strings mirror PackageStyle.value
 _RESOURCE_MODES = {
     "inplace": ("", "default_resources"),
@@ -87,6 +92,7 @@ _RESOURCE_MODES = {
 args_projections = {
     "bytecode_artifacts": _bytecode_artifacts,
     "bytecode_manifests": _bytecode_manifests,
+    "extension_artifacts": _extension_artifacts,
     "source_artifacts": _source_artifacts,
     "source_manifests": _source_manifests,
     "source_type_artifacts": _source_type_artifacts,
