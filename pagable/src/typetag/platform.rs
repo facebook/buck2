@@ -23,7 +23,10 @@
 //! libraries). Constructor sections are run by the loader for each image, so
 //! every image registers its own monomorphizations.
 
-#[cfg(all(target_os = "linux", target_pointer_width = "64"))]
+#[cfg(any(
+    all(target_os = "linux", target_pointer_width = "64"),
+    all(target_os = "freebsd", target_arch = "x86_64"),
+))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __pagable_emit_generic_typetag_registration {
@@ -149,6 +152,7 @@ macro_rules! __pagable_emit_generic_typetag_registration {
         any(target_os = "linux", target_os = "macos"),
         target_pointer_width = "64",
     ),
+    all(target_os = "freebsd", target_arch = "x86_64"),
     all(
         target_os = "windows",
         any(target_arch = "x86_64", target_arch = "aarch64"),
@@ -160,7 +164,7 @@ macro_rules! __pagable_emit_generic_typetag_registration {
 macro_rules! __pagable_emit_generic_typetag_registration {
     ($register:path) => {
         compile_error!(
-            "generic pagable typetag registration supports only 64-bit Linux/macOS, x86_64/aarch64 Windows, and wasm (unregistered)"
+            "generic pagable typetag registration supports only 64-bit Linux/macOS, x86_64 FreeBSD, x86_64/aarch64 Windows, and wasm (unregistered)"
         );
     };
 }
