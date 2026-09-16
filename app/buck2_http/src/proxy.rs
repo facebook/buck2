@@ -63,6 +63,7 @@ impl TryFrom<Vec<String>> for ProxyHostAllowlist {
 }
 
 impl ProxyHostAllowlist {
+    #[allow(unused)] // outside fbcode_build
     pub fn is_empty(&self) -> bool {
         self.hosts.is_empty()
     }
