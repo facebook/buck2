@@ -45,6 +45,15 @@ class PrimitiveStubsGenerator(private val postfixToSkip: String?) : StubsGenerat
 private const val KOTLIN_STDLIB_PREFIX = "kotlin"
 private const val JAVA_STDLIB_PREFIX = "java"
 private const val JAVA_LANG_PREFIX = "java.lang"
+// `jdk.compiler` classes are loaded from JRT rather than `jvmClasspathRoots`. Generated stubs would
+// shadow the real classes and erase inherited member contracts used for JVM descriptor lowering.
+private val JDK_COMPILER_PACKAGE_PREFIXES = listOf(
+    "com.sun.source",
+    "com.sun.tools.javac",
+    "javax.annotation.processing",
+    "javax.lang.model",
+    "javax.tools",
+)
 
 // kotlin.Unit - is an SDK class
 // kotlinx.Parcelize - is not
@@ -52,12 +61,18 @@ private fun isKotlinSdk(pkg: String): Boolean =
     pkg == KOTLIN_STDLIB_PREFIX || pkg.startsWith("$KOTLIN_STDLIB_PREFIX.")
 
 private fun isJavaSdk(pkg: String): Boolean =
-    pkg == JAVA_STDLIB_PREFIX || pkg.startsWith("$JAVA_STDLIB_PREFIX.")
+    pkg == JAVA_STDLIB_PREFIX ||
+        pkg.startsWith("$JAVA_STDLIB_PREFIX.") ||
+        JDK_COMPILER_PACKAGE_PREFIXES.any { prefix ->
+          pkg == prefix || pkg.startsWith("$prefix.")
+        }
 
 private fun String.isSdkImport(): Boolean = isKotlinSdk(this) || isJavaSdk(this)
 
-fun FullTypeQualifier.isSdkQualifier(): Boolean =
-    isKotlinSdk(segments.first()) || isJavaSdk(segments.first())
+fun FullTypeQualifier.isSdkQualifier(): Boolean {
+  val pkg = pkgAsString()
+  return isKotlinSdk(pkg) || isJavaSdk(pkg)
+}
 
 // Types that don't require imports (auto-imported)
 fun FullTypeQualifier.isAutoImported(): Boolean {
