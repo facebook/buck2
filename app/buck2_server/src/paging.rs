@@ -53,6 +53,7 @@ use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dice::StorageIoSnapshot;
 use dupe::Dupe;
+use starlark::pagable::starlark_partial_deser_stats;
 use starlark::pagable::starlark_serialization_state_retained_bytes;
 use tokio::sync::Notify;
 
@@ -128,6 +129,7 @@ impl PagingManager {
             paging_daemon_data_key_bytes_in: cumulative.map(|c| c.bytes_in),
             paging_memory_offloaded_bytes: memory.map(|m| m.bytes_offloaded),
             paging_memory_restored_bytes: memory.map(|m| m.bytes_restored),
+            starlark_partial_deser: starlark_partial_deser_proto(),
         }
     }
 
@@ -188,6 +190,22 @@ fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Opt
     }
 }
 
+/// Daemon-lifetime Starlark partial-deserialization counters, as proto stats.
+fn starlark_partial_deser_proto() -> Option<buck2_data::StarlarkPartialDeserStats> {
+    let s = starlark_partial_deser_stats()?;
+    Some(buck2_data::StarlarkPartialDeserStats {
+        heaps_loaded: s.heaps_loaded,
+        heap_retained_blob_bytes: s.heap_retained_blob_bytes,
+        heaps_with_metadata: s.heaps_with_metadata,
+        used_heap_retained_blob_bytes: s.used_heap_retained_blob_bytes,
+        heap_value_serialized_bytes: s.heap_value_serialized_bytes,
+        heap_values: s.heap_values,
+        heap_value_alloc_bytes: s.heap_value_alloc_bytes,
+        claimed_values: s.claimed_values,
+        claimed_alloc_bytes: s.claimed_alloc_bytes,
+    })
+}
+
 /// Cumulative per-key-type page-in counters, as proto stats.
 fn page_in_proto_map(
     repo: &RepoState,
@@ -204,6 +222,7 @@ fn page_in_proto_map(
                     fetch_us: stats.fetch_us,
                     deser_us: stats.deser_us,
                     bytes: stats.bytes,
+                    restored_bytes: stats.restored_bytes,
                 },
             )
         })
@@ -227,6 +246,9 @@ fn compute_page_in_delta(
                 fetch_us: c.fetch_us.saturating_sub(base.map_or(0, |b| b.fetch_us)),
                 deser_us: c.deser_us.saturating_sub(base.map_or(0, |b| b.deser_us)),
                 bytes: c.bytes.saturating_sub(base.map_or(0, |b| b.bytes)),
+                restored_bytes: c
+                    .restored_bytes
+                    .saturating_sub(base.map_or(0, |b| b.restored_bytes)),
             };
             (delta.count > 0).then(|| (key_type.clone(), delta))
         })
@@ -561,23 +583,25 @@ mod tests {
 
     #[test]
     fn delta_subtracts_baseline_and_drops_unchanged() {
-        let stat = |count, fetch_us, deser_us, bytes| buck2_data::DicePageInKeyTypeStats {
-            count,
-            fetch_us,
-            deser_us,
-            bytes,
-        };
+        let stat =
+            |count, fetch_us, deser_us, bytes, restored_bytes| buck2_data::DicePageInKeyTypeStats {
+                count,
+                fetch_us,
+                deser_us,
+                bytes,
+                restored_bytes,
+            };
 
         // Baseline cumulatives include page-ins from earlier commands on this
         // daemon, so they must be subtracted out.
         let mut baseline = IntentionallyStdHashMap::default();
-        baseline.insert("A".to_owned(), stat(10, 100, 200, 1000));
-        baseline.insert("C".to_owned(), stat(5, 50, 50, 500));
+        baseline.insert("A".to_owned(), stat(10, 100, 200, 1000, 10000));
+        baseline.insert("C".to_owned(), stat(5, 50, 50, 500, 5000));
 
         let mut current = IntentionallyStdHashMap::default();
-        current.insert("A".to_owned(), stat(12, 130, 260, 1300)); // +2 this command
-        current.insert("B".to_owned(), stat(3, 30, 60, 300)); // new key type, baseline 0
-        current.insert("C".to_owned(), stat(5, 50, 50, 500)); // unchanged -> omitted
+        current.insert("A".to_owned(), stat(12, 130, 260, 1300, 13000)); // +2 this command
+        current.insert("B".to_owned(), stat(3, 30, 60, 300, 3000)); // new key type, baseline 0
+        current.insert("C".to_owned(), stat(5, 50, 50, 500, 5000)); // unchanged -> omitted
 
         let delta = compute_page_in_delta(&baseline, &current);
 
@@ -587,9 +611,15 @@ mod tests {
             "only key types with page-ins during the command are kept"
         );
         let a = delta.get("A").expect("A had new page-ins");
-        assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 30, 60, 300));
+        assert_eq!(
+            (a.count, a.fetch_us, a.deser_us, a.bytes, a.restored_bytes),
+            (2, 30, 60, 300, 3000)
+        );
         let b = delta.get("B").expect("B is new this command (baseline 0)");
-        assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (3, 30, 60, 300));
+        assert_eq!(
+            (b.count, b.fetch_us, b.deser_us, b.bytes, b.restored_bytes),
+            (3, 30, 60, 300, 3000)
+        );
         assert!(
             !delta.contains_key("C"),
             "a key type with no new page-ins is omitted"

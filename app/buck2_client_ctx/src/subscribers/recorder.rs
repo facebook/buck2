@@ -1366,6 +1366,10 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_memory_restored_bytes),
+            starlark_partial_deser: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.starlark_partial_deser),
             repo_path: self.repo_path.take(),
         };
 

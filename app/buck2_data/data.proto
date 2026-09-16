@@ -525,6 +525,11 @@ message DicePageInKeyTypeStats {
   // Top-level blob bytes only; excludes nested PagableArc sub-values, so
   // near-zero for arc-heavy values.
   uint64 bytes = 4;
+  // Memory the rebuilt values added, measured from the allocator. Unlike
+  // `bytes` this covers nested PagableArc sub-values, and is zero when an arc
+  // came back from the cache instead of being deserialized. Signed: a page-in
+  // that reuses a cached arc allocates only scratch and can net negative.
+  int64 restored_bytes = 5;
 }
 
 // Per-command statistics about DICE pagable storage, emitted once at command
@@ -590,6 +595,35 @@ message PagingSummary {
   // an upper bound on what paging is currently saving.
   optional int64 paging_memory_offloaded_bytes = 15;
   optional int64 paging_memory_restored_bytes = 16;
+  // Daemon-lifetime totals, not a per-command delta.
+  optional StarlarkPartialDeserStats starlark_partial_deser = 17;
+}
+
+// What paging in a Starlark value costs at heap granularity versus value
+// granularity. A value is only reachable through its heap, so claiming one
+// value pays for the heap's whole blob and slot table: `heap_*` is what
+// page-in must load, `claimed_*` what it actually uses.
+message StarlarkPartialDeserStats {
+  // Heaps whose blob was fetched and retained, dependency-only heaps included.
+  uint64 heaps_loaded = 1;
+  // Serialized bytes those blobs held so any value in them could still be
+  // claimed later. Cumulative, like every field here: nothing is subtracted
+  // when a heap is dropped.
+  uint64 heap_retained_blob_bytes = 2;
+  // Of heaps_loaded, those whose slot table was parsed; the remainder were
+  // loaded but never used.
+  uint64 heaps_with_metadata = 3;
+  // The heap_retained_blob_bytes belonging to those heaps; the remainder is
+  // held by heaps nothing ever read.
+  uint64 used_heap_retained_blob_bytes = 9;
+  // Serialized value-region bytes of the heaps in heaps_with_metadata.
+  uint64 heap_value_serialized_bytes = 4;
+  // Values in those heaps, and the memory they would take if all were built.
+  uint64 heap_values = 5;
+  uint64 heap_value_alloc_bytes = 6;
+  // Values actually built, and their memory.
+  uint64 claimed_values = 7;
+  uint64 claimed_alloc_bytes = 8;
 }
 
 message RemoteExecutionSessionCreated {
@@ -3378,6 +3412,9 @@ message InvocationRecord {
   // the memory paging is currently saving.
   optional int64 paging_memory_offloaded_bytes = 461;
   optional int64 paging_memory_restored_bytes = 462;
+  // Heap-granularity versus value-granularity cost of Starlark page-in, as
+  // daemon-lifetime totals rather than a per-command delta.
+  optional StarlarkPartialDeserStats starlark_partial_deser = 759;
 
   // Action cache queries (including remote dep-file cache queries) that failed
   // with a real error - anything other than a hit or an outright miss. Each

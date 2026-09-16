@@ -474,11 +474,19 @@ impl DiceStorage {
                 }
             }
         };
-        self.paging_memory.record_restored(window.net_allocated());
+        let restored_bytes = window.net_allocated();
+        self.paging_memory.record_restored(restored_bytes);
         let deser_us = deser_start.elapsed().as_micros() as u64;
 
-        self.page_in_metrics
-            .record(key_dyn.key_type_name(), fetch_us, deser_us, bytes);
+        self.page_in_metrics.record(
+            key_dyn.key_type_name(),
+            PageInSample {
+                fetch_us,
+                deser_us,
+                bytes,
+                restored_bytes,
+            },
+        );
 
         Ok(DiceValidValue::from_arc(arc))
     }
@@ -492,13 +500,22 @@ struct PageInMetrics {
     by_key_type: DashMap<&'static str, PageInKeyTypeMetrics>,
 }
 
+/// One page-in's costs, accumulated into [`PageInMetrics`] under its key type.
+struct PageInSample {
+    fetch_us: u64,
+    deser_us: u64,
+    bytes: u64,
+    restored_bytes: i64,
+}
+
 impl PageInMetrics {
-    fn record(&self, key_type: &'static str, fetch_us: u64, deser_us: u64, bytes: u64) {
+    fn record(&self, key_type: &'static str, sample: PageInSample) {
         let mut entry = self.by_key_type.entry(key_type).or_default();
         entry.count += 1;
-        entry.fetch_us += fetch_us;
-        entry.deser_us += deser_us;
-        entry.bytes += bytes;
+        entry.fetch_us += sample.fetch_us;
+        entry.deser_us += sample.deser_us;
+        entry.bytes += sample.bytes;
+        entry.restored_bytes += sample.restored_bytes;
     }
 
     fn snapshot(&self) -> HashMap<&'static str, PageInKeyTypeMetrics> {
@@ -643,22 +660,85 @@ mod tests {
 
     use crate::storage::MeteredPagableStorage;
     use crate::storage::PageInMetrics;
+    use crate::storage::PageInSample;
     use crate::storage::StorageIoMetrics;
 
     #[test]
     fn page_in_metrics_breakdown() {
         let metrics = PageInMetrics::default();
-        metrics.record("A", 10, 20, 100);
-        metrics.record("A", 5, 5, 50);
-        metrics.record("B", 1, 2, 3);
+        metrics.record(
+            "A",
+            PageInSample {
+                fetch_us: 10,
+                deser_us: 20,
+                bytes: 100,
+                restored_bytes: 1000,
+            },
+        );
+        metrics.record(
+            "A",
+            PageInSample {
+                fetch_us: 5,
+                deser_us: 5,
+                bytes: 50,
+                restored_bytes: 500,
+            },
+        );
+        metrics.record(
+            "B",
+            PageInSample {
+                fetch_us: 1,
+                deser_us: 2,
+                bytes: 3,
+                restored_bytes: 30,
+            },
+        );
 
         // Snapshot is per-key-type only; "A"'s two records collapse into one
         // entry, and summing across types is the caller's job.
         let snap = metrics.snapshot();
         let a = snap.get("A").expect("A was recorded");
-        assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 15, 25, 150));
+        assert_eq!(
+            (a.count, a.fetch_us, a.deser_us, a.bytes, a.restored_bytes),
+            (2, 15, 25, 150, 1500)
+        );
         let b = snap.get("B").expect("B was recorded");
-        assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (1, 1, 2, 3));
+        assert_eq!(
+            (b.count, b.fetch_us, b.deser_us, b.bytes, b.restored_bytes),
+            (1, 1, 2, 3, 30)
+        );
+    }
+
+    #[test]
+    fn page_in_metrics_restored_bytes_can_net_negative() {
+        // A cached-arc page-in allocates only scratch and can net negative;
+        // accumulating as-is lets it cancel instead of biasing totals upward.
+        let metrics = PageInMetrics::default();
+        metrics.record(
+            "A",
+            PageInSample {
+                fetch_us: 10,
+                deser_us: 20,
+                bytes: 100,
+                restored_bytes: 1000,
+            },
+        );
+        metrics.record(
+            "A",
+            PageInSample {
+                fetch_us: 10,
+                deser_us: 20,
+                bytes: 100,
+                restored_bytes: -1500,
+            },
+        );
+
+        let snap = metrics.snapshot();
+        let a = snap.get("A").expect("A was recorded");
+        assert_eq!(
+            a.restored_bytes, -500,
+            "a negative record must cancel against a positive one"
+        );
     }
 
     #[test]

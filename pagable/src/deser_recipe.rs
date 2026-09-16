@@ -37,6 +37,11 @@ pub trait PagableDeserializerRecipe: Allocative + Send + Sync {
         &'a self,
         storage: &'a PagableStorageHandle,
     ) -> Box<dyn PagableDeserializer<'a> + 'a>;
+
+    /// Serialized payload bytes this recipe keeps alive so it can be reopened
+    /// — the standing memory cost of being able to page a value in lazily.
+    /// The retained arc list is not counted.
+    fn retained_data_len(&self) -> usize;
 }
 
 static_assertions::assert_obj_safe!(PagableDeserializerRecipe);
@@ -70,6 +75,10 @@ impl PagableDeserializerRecipe for PagableDeserializerRecipeImpl {
         storage: &'a PagableStorageHandle,
     ) -> Box<dyn PagableDeserializer<'a> + 'a> {
         Box::new(self.page_in_scope.deserializer(&self.data, storage))
+    }
+
+    fn retained_data_len(&self) -> usize {
+        self.data.data.len()
     }
 }
 

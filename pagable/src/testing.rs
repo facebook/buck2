@@ -295,6 +295,10 @@ impl PagableDeserializerRecipe for TestingRecipe {
             self.page_in_scope.dupe(),
         ))
     }
+
+    fn retained_data_len(&self) -> usize {
+        self.bytes.len()
+    }
 }
 
 #[async_trait::async_trait]

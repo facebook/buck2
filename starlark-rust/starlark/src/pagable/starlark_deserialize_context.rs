@@ -325,6 +325,15 @@ impl HeapDeserializationState {
         recipe: Arc<dyn PagableDeserializerRecipe>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
+        // Counts blob fetched-and-retained, whether or not any value is ever
+        // claimed — dependency-only heaps land here too.
+        if partial_deser_stats::enabled() {
+            partial_deser_stats::add(&partial_deser_stats::HEAPS_LOADED, 1);
+            partial_deser_stats::add(
+                &partial_deser_stats::HEAP_RETAINED_BLOB_BYTES,
+                recipe_retained_data_len(&*recipe),
+            );
+        }
         Self {
             scope,
             heap_id,
@@ -351,7 +360,10 @@ impl HeapDeserializationState {
     /// Parse the metadata region from the recipe: `total_count`,
     /// `drop_value_count`, offset table, per-value metadata. Called
     /// once on first `metadata()`; subsequent calls hit `OnceLock`.
-    fn parse_metadata(&self, storage: &PagableStorageHandle) -> crate::Result<HeapMetadata> {
+    fn parse_metadata(
+        &self,
+        storage: &PagableStorageHandle,
+    ) -> crate::Result<(HeapMetadata, Option<partial_deser_stats::MetadataStats>)> {
         let mut de = self.recipe.open(storage);
         // SAFETY: `metadata_start` was captured during `deserialize_skeleton`
         // from this recipe's data; it is a valid position in the recipe.
@@ -394,16 +406,35 @@ impl HeapDeserializationState {
         }
         // base_pos is the cursor right after per-value metadata — i.e. now.
         let base_pos = de.position();
+
+        // Recorded by `metadata` only for the parse that is kept: two threads
+        // can race to parse one heap, and counting here would count it twice.
+        let stats = partial_deser_stats::enabled().then(|| partial_deser_stats::MetadataStats {
+            retained_blob_bytes: recipe_retained_data_len(&*self.recipe),
+            values: total_count as u64,
+            // Walks every slot, so it is behind the same branch.
+            value_alloc_bytes: slots.iter().map(|s| s.alloc_size.get() as u64).sum(),
+            // The sentinel entry makes the value region's extent last minus
+            // first offset. `saturating_sub`: these come off the stream, and a
+            // diagnostic must not panic on a malformed table.
+            value_serialized_bytes: match (offset_table.first(), offset_table.last()) {
+                (Some(first), Some(last)) => last.0.saturating_sub(first.0) as u64,
+                _ => 0,
+            },
+        });
         let init_states: Vec<AtomicSlotState> = (0..total_count)
             .map(|_| AtomicSlotState::not_started())
             .collect();
-        Ok(HeapMetadata {
-            slots,
-            base_pos,
-            init_states,
-            original_indices_by_payload: RwLock::new(HashMap::new()),
-            init_waiters: InitWaiters::new(),
-        })
+        Ok((
+            HeapMetadata {
+                slots,
+                base_pos,
+                init_states,
+                original_indices_by_payload: RwLock::new(HashMap::new()),
+                init_waiters: InitWaiters::new(),
+            },
+            stats,
+        ))
     }
 
     /// Get parsed metadata, parsing on first call. Subsequent calls hit `OnceLock`.
@@ -411,8 +442,18 @@ impl HeapDeserializationState {
         if let Some(m) = self.metadata.get() {
             return Ok(m);
         }
-        let parsed = self.parse_metadata(storage)?;
-        Ok(self.metadata.get_or_init(|| parsed))
+        let (parsed, stats) = self.parse_metadata(storage)?;
+        // `set` reports whether this parse is the one kept, so a heap is
+        // counted once however many threads raced to parse it.
+        if self.metadata.set(parsed).is_ok()
+            && let Some(stats) = stats
+        {
+            stats.record();
+        }
+        Ok(self
+            .metadata
+            .get()
+            .expect("metadata is populated: this thread set it, or lost to one that did"))
     }
 
     /// Return the header pointer for slot `index` if it's been finalized.
@@ -528,6 +569,15 @@ impl HeapDeserializationState {
             );
         state.publish_in_progress(header_ptr);
         drop(arena);
+
+        // On the winning claim only, so each value is counted once.
+        if partial_deser_stats::enabled() {
+            partial_deser_stats::add(&partial_deser_stats::CLAIMED_VALUES, 1);
+            partial_deser_stats::add(
+                &partial_deser_stats::CLAIMED_ALLOC_BYTES,
+                slot.alloc_size.get() as u64,
+            );
+        }
 
         Ok(ClaimResult::Claimed(DeserializeRecipe {
             abs_pos: PagableCursor {
@@ -658,6 +708,136 @@ impl PageInState for StarlarkDeserScope {}
 /// recipe data are counted once. The heap arenas themselves are not followed.
 pub fn starlark_deserialization_state_retained_bytes(storage: &PagableStorageHandle) -> usize {
     cached_heap_deserialization_state_retained_bytes(storage)
+}
+
+/// `recipe.retained_data_len()`, compiled out where the OSS build's published
+/// `pagable` predates the method. Unreachable there: `enabled()` is false
+/// without `fbcode_build`. Remove with that check once a release has it.
+fn recipe_retained_data_len(recipe: &dyn PagableDeserializerRecipe) -> u64 {
+    #[cfg(fbcode_build)]
+    return recipe.retained_data_len() as u64;
+    #[cfg(not(fbcode_build))]
+    {
+        let _ = recipe;
+        unreachable!("counting is disabled outside fbcode_build")
+    }
+}
+
+/// Process-wide counters contrasting what a page-in must load with what it
+/// uses. A value is only reachable through its heap, so claiming one value
+/// pays for the whole heap's blob and slot table: `heap_*` is that cost,
+/// `claimed_*` the part actually asked for.
+mod partial_deser_stats {
+    use std::sync::atomic::AtomicU64;
+    use std::sync::atomic::Ordering;
+
+    pub(super) static HEAPS_LOADED: AtomicU64 = AtomicU64::new(0);
+    pub(super) static HEAP_RETAINED_BLOB_BYTES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static HEAPS_WITH_METADATA: AtomicU64 = AtomicU64::new(0);
+    pub(super) static USED_HEAP_RETAINED_BLOB_BYTES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static HEAP_VALUE_SERIALIZED_BYTES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static HEAP_VALUES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static HEAP_VALUE_ALLOC_BYTES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static CLAIMED_VALUES: AtomicU64 = AtomicU64::new(0);
+    pub(super) static CLAIMED_ALLOC_BYTES: AtomicU64 = AtomicU64::new(0);
+
+    /// Off unless `BUCK2_STARLARK_PARTIAL_DESER_STATS` is set: the claim site
+    /// runs millions of times per page-in and shared counters there are a
+    /// contended cache line. Always on under `cfg(test)` in the fbcode build —
+    /// the `fbcode_build` gate below runs first — so the counting paths stay
+    /// exercised there; the counters are process-global and never reset, so
+    /// tests must not assert on absolute values. Callers branch on this
+    /// before computing anything a counter needs, not just before storing it.
+    pub(super) fn enabled() -> bool {
+        // fbcode-only until a `pagable` release with `retained_data_len` is
+        // published (see `recipe_retained_data_len`).
+        if !cfg!(fbcode_build) {
+            return false;
+        }
+        if cfg!(test) {
+            return true;
+        }
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var_os("BUCK2_STARLARK_PARTIAL_DESER_STATS").is_some())
+    }
+
+    /// What one heap's metadata parse contributes, held until the parse is
+    /// known to be the one kept - see `HeapDeserializationState::metadata`.
+    pub(super) struct MetadataStats {
+        pub(super) retained_blob_bytes: u64,
+        pub(super) values: u64,
+        pub(super) value_alloc_bytes: u64,
+        pub(super) value_serialized_bytes: u64,
+    }
+
+    impl MetadataStats {
+        pub(super) fn record(&self) {
+            add(&HEAPS_WITH_METADATA, 1);
+            add(&USED_HEAP_RETAINED_BLOB_BYTES, self.retained_blob_bytes);
+            add(&HEAP_VALUES, self.values);
+            add(&HEAP_VALUE_ALLOC_BYTES, self.value_alloc_bytes);
+            add(&HEAP_VALUE_SERIALIZED_BYTES, self.value_serialized_bytes);
+        }
+    }
+
+    /// Relaxed throughout: these are monotonic counters read as a gauge, never
+    /// used to order other memory.
+    pub(super) fn add(counter: &AtomicU64, n: u64) {
+        counter.fetch_add(n, Ordering::Relaxed);
+    }
+
+    pub(super) fn get(counter: &AtomicU64) -> u64 {
+        counter.load(Ordering::Relaxed)
+    }
+}
+
+/// A snapshot of [`starlark_partial_deser_stats`].
+#[derive(Debug, Clone, Copy, Dupe, Default, PartialEq, Eq)]
+pub struct PartialDeserStats {
+    /// Heaps whose blob has been fetched and retained, including heaps pulled in
+    /// only as another heap's dependency.
+    pub heaps_loaded: u64,
+    /// Serialized bytes those blobs held so any value in them could still be
+    /// claimed later. Cumulative like the rest: bytes are not subtracted when
+    /// a heap is dropped. Recipes and heap blobs are one-to-one today; a
+    /// shared blob would be counted once per heap.
+    pub heap_retained_blob_bytes: u64,
+    /// Of `heaps_loaded`, those whose slot table was parsed — a resolve
+    /// reached them. The remainder were loaded but never used.
+    pub heaps_with_metadata: u64,
+    /// The `heap_retained_blob_bytes` belonging to those heaps.
+    pub used_heap_retained_blob_bytes: u64,
+    /// Serialized value-region bytes of the heaps in `heaps_with_metadata`.
+    pub heap_value_serialized_bytes: u64,
+    /// Values contained in those heaps.
+    pub heap_values: u64,
+    /// In-memory bytes those heaps would occupy if every value were materialized.
+    pub heap_value_alloc_bytes: u64,
+    /// Values actually claimed for deserialization.
+    pub claimed_values: u64,
+    /// In-memory bytes of the claimed values — the part of
+    /// `heap_value_alloc_bytes` actually built.
+    pub claimed_alloc_bytes: u64,
+}
+
+/// Process-wide partial-deserialization counters since daemon start, or `None`
+/// if counting is off, so callers report "not measured" rather than zeros.
+pub fn starlark_partial_deser_stats() -> Option<PartialDeserStats> {
+    use partial_deser_stats as s;
+    if !s::enabled() {
+        return None;
+    }
+    Some(PartialDeserStats {
+        heaps_loaded: s::get(&s::HEAPS_LOADED),
+        heap_retained_blob_bytes: s::get(&s::HEAP_RETAINED_BLOB_BYTES),
+        heaps_with_metadata: s::get(&s::HEAPS_WITH_METADATA),
+        used_heap_retained_blob_bytes: s::get(&s::USED_HEAP_RETAINED_BLOB_BYTES),
+        heap_value_serialized_bytes: s::get(&s::HEAP_VALUE_SERIALIZED_BYTES),
+        heap_values: s::get(&s::HEAP_VALUES),
+        heap_value_alloc_bytes: s::get(&s::HEAP_VALUE_ALLOC_BYTES),
+        claimed_values: s::get(&s::CLAIMED_VALUES),
+        claimed_alloc_bytes: s::get(&s::CLAIMED_ALLOC_BYTES),
+    })
 }
 
 /// Exact process-local value identity used only while a claim or wait guard is

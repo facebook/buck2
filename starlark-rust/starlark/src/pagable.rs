@@ -81,8 +81,10 @@ pub use starlark_deserialize::StarlarkDeserialize;
 pub use starlark_deserialize::StarlarkDeserializeAt;
 pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_deserialize::starlark_deserialize_field;
+pub use starlark_deserialize_context::PartialDeserStats;
 #[doc(hidden)]
 pub use starlark_deserialize_context::starlark_deserialization_state_retained_bytes;
+pub use starlark_deserialize_context::starlark_partial_deser_stats;
 pub use starlark_pagable::StarlarkPagable;
 pub use starlark_pagable_impls::SmallMapKeyDeserialize;
 pub use starlark_serialize::StarlarkSerialize;

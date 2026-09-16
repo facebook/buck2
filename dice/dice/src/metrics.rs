@@ -36,6 +36,11 @@ pub struct PageInKeyTypeMetrics {
     /// Top-level blob bytes only; excludes nested `PagableArc` sub-values, so
     /// near-zero for arc-heavy values whose payload lives in those arcs.
     pub bytes: u64,
+    /// Memory the rebuilt value added, measured from the allocator. Unlike
+    /// `bytes` this covers nested `PagableArc` sub-values, and is zero when the
+    /// arc came back from the cache. Signed for the same reason as
+    /// [`AllocWindow::net_allocated`].
+    pub restored_bytes: i64,
 }
 
 /// Reads the calling thread's cumulative `(allocated, deallocated)` byte totals.
