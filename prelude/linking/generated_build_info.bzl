@@ -16,11 +16,13 @@ load("@prelude//linking:types.bzl", "Linkage")
 GeneratedBuildInfo = record(
     json = Artifact,
     linker_flags = list[typing.Any],
+    manifest_entries = field(Artifact | None, None),
     source = Artifact,
 )
 
 GeneratedBuildInfoData = record(
     json = Artifact,
+    manifest_entries = field(Artifact | None, None),
 )
 
 GeneratedBuildInfoCompileOutput = record(
@@ -31,6 +33,7 @@ GeneratedBuildInfoCompileOutput = record(
 _REQUIRED_GENERATED_BUILD_INFO_FIELDS = [
     "allow_cache_upload",
     "base_linker_flags",
+    "emit_manifest_entries",
     "enabled",
     "exported_symbols",
     "final_linker_flags",
@@ -70,6 +73,12 @@ def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo)
         objects = compiled.pic.objects,
     )
 
+# Expected `_generated_build_info_spec` shape:
+# {
+#     "<generator-owned-field>": <JSON-compatible value>,
+# }
+# Generator-owned fields remain at the top level so configured selectors are
+# resolved before the specification is serialized.
 def _generated_build_info_config(ctx: AnalysisContext):
     spec = getattr(ctx.attrs, "_generated_build_info_spec", None)
     if not spec:
@@ -94,6 +103,9 @@ def _generate_build_info_data(
 ) -> GeneratedBuildInfoData:
     output_dir = "__generated_build_info__"
     json = getattr(ctx.attrs, "_generated_build_info_data", None)
+    if json != None and spec["emit_manifest_entries"]:
+        fail("supplied generated build-info data does not provide manifest entries")
+    manifest_entries = None
     # A caller that supplies the JSON artifact owns its invalidation edges;
     # `invalidation_inputs` apply only when this rule generates the JSON.
     if json == None:
@@ -102,6 +114,7 @@ def _generate_build_info_data(
             spec,
         )
         json = ctx.actions.declare_output(output_dir, "build_info.json")
+        manifest_entries = ctx.actions.declare_output(output_dir, "manifest_entries.json") if spec.get("emit_manifest_entries", False) else None
         command = cmd_args(
             tool,
             "--spec-json",
@@ -109,6 +122,8 @@ def _generate_build_info_data(
             "--output-json",
             json.as_output(),
         )
+        if manifest_entries != None:
+            command.add("--output-manifest-entries", manifest_entries.as_output())
         command.add(cmd_args(hidden = invalidation_inputs))
         ctx.actions.run(
             command,
@@ -116,7 +131,10 @@ def _generate_build_info_data(
             local_only = spec["local_only"],
             allow_cache_upload = spec["allow_cache_upload"],
         )
-    return GeneratedBuildInfoData(json = json)
+    return GeneratedBuildInfoData(
+        json = json,
+        manifest_entries = manifest_entries,
+    )
 
 def generate_build_info_data(
     ctx: AnalysisContext,
@@ -163,5 +181,6 @@ def generate_build_info(ctx: AnalysisContext, invalidation_inputs: list[typing.A
     return GeneratedBuildInfo(
         json = data.json,
         linker_flags = json_linker_flags + spec["base_linker_flags"],
+        manifest_entries = data.manifest_entries,
         source = source,
     )
