@@ -149,8 +149,6 @@ def system_android_toolchain(name, android_sdk_tools_target, jdk_system_image, *
     )
     kwargs["secondary_dex_compression_command"] = "prelude//toolchains/android/src/com/facebook/buck/android/dex:secondary_dex_compression_binary"
     kwargs["secondary_dex_weight_limit"] = 1024
-    kwargs["set_application_id_to_specified_package"] = True
-    kwargs["should_run_sanity_check_for_placeholders"] = True
     kwargs["unpack_aar"] = "prelude//android/tools:unpack_aar"
     kwargs["zipalign"] = "{}[zipalign]".format(android_sdk_tools_target)
 
@@ -220,8 +218,6 @@ def system_android_toolchain_rule_impl(ctx):
             replace_application_id_placeholders = ctx.attrs.replace_application_id_placeholders,
             secondary_dex_compression_command = ctx.attrs.secondary_dex_compression_command,
             secondary_dex_weight_limit = ctx.attrs.secondary_dex_weight_limit,
-            set_application_id_to_specified_package = ctx.attrs.set_application_id_to_specified_package,
-            should_run_sanity_check_for_placeholders = ctx.attrs.should_run_sanity_check_for_placeholders,
             sort_pre_dexed_files = ctx.attrs.sort_pre_dexed_files,
             unpack_aar = ctx.attrs.unpack_aar,
             zipalign = ctx.attrs.zipalign,
@@ -282,8 +278,6 @@ system_android_toolchain_rule = rule(
         "replace_application_id_placeholders": attrs.dep(providers = [RunInfo]),
         "secondary_dex_compression_command": attrs.dep(providers = [RunInfo]),
         "secondary_dex_weight_limit": attrs.int(),
-        "set_application_id_to_specified_package": attrs.bool(),
-        "should_run_sanity_check_for_placeholders": attrs.bool(),
         "sort_pre_dexed_files": attrs.dep(providers = [RunInfo]),
         "target_stats_tools": attrs.option(attrs.dep(providers = [TargetStatsToolsInfo]), default = None),
         "unpack_aar": attrs.dep(providers = [RunInfo]),

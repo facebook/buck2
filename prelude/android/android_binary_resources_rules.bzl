@@ -473,7 +473,7 @@ def get_manifest(
             manifest_entries.get("placeholders", {}),
         )
 
-    if android_toolchain.set_application_id_to_specified_package and should_replace_application_id_placeholders:
+    if should_replace_application_id_placeholders:
         android_manifest_with_replaced_application_id = ctx.actions.declare_output("replaced/AndroidManifest.xml", has_content_based_path = False)
         replace_application_id_placeholders_cmd = cmd_args([
             ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
@@ -481,9 +481,8 @@ def get_manifest(
             android_manifest,
             "--output",
             android_manifest_with_replaced_application_id.as_output(),
+            "--sanity-check-placeholders",
         ])
-        if android_toolchain.should_run_sanity_check_for_placeholders:
-            replace_application_id_placeholders_cmd.add("--sanity-check-placeholders")
 
         ctx.actions.run(replace_application_id_placeholders_cmd, category = "replace_application_id_placeholders", allow_cache_upload = True)
         return android_manifest_with_replaced_application_id
