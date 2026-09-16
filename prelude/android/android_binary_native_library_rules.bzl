@@ -162,6 +162,7 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output(
             "unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}, has_content_based_path = False)
         )
+        enhance_ctx.debug_output("relinker_extra_outputs", ctx.actions.symlinked_dir("relinker_extra_outputs", {}, has_content_based_path = False))
         return AndroidBinaryNativeLibsInfo(
             prebuilt_native_library_dirs = [],
             shared_libraries = [],
@@ -271,6 +272,13 @@ def get_android_binary_native_library_info(
     if enable_relinker:
         unrelinked_libs_output = ctx.actions.declare_output("unrelinked_libs", dir = True)
         dynamic_outputs.append(unrelinked_libs_output)
+
+    # The `extra_relinker_outputs` of every relinked library, as
+    # <type>/<abi>/<soname>/<file>, exposed as the [relinker_extra_outputs] sub-target so
+    # they can be built (and so put on disk) without knowing their paths. Always
+    # present; empty when nothing is configured or nothing is relinked.
+    relinker_extra_outputs = ctx.actions.declare_output("relinker_extra_outputs", dir = True, has_content_based_path = False)
+    dynamic_outputs.append(relinker_extra_outputs)
 
     lib_outputs_by_platform = _declare_library_subtargets(
         ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence, enable_relinker
@@ -464,9 +472,11 @@ def get_android_binary_native_library_info(
         else:
             final_shared_libs_by_platform = original_shared_libs_by_platform
 
+        relinked_libs_for_extra_outputs = {}
         if enable_relinker and not defer_relink:
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
             final_shared_libs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
+            relinked_libs_for_extra_outputs = final_shared_libs_by_platform
             _link_library_subtargets(
                 ctx,
                 outputs,
@@ -492,6 +502,7 @@ def get_android_binary_native_library_info(
             # A JSON manifest listing the <abi>/<soname> entries is produced alongside so that
             # the combine script knows exactly which libraries to replace without guessing.
             relinked_libs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
+            relinked_libs_for_extra_outputs = relinked_libs_by_platform
 
             if False: # @oss-enable
             # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
@@ -558,6 +569,8 @@ def get_android_binary_native_library_info(
                     "Native libraries in modules should only depend on libraries in the same module or the root. Remove these deps:\n"
                     + "\n".join(cross_module_link_errors)
                 )
+
+        _write_relinker_extra_outputs_dir(ctx, relinked_libs_for_extra_outputs, outputs[relinker_extra_outputs])
 
         native_lib_dynamic_outputs = {
             "linker_argsfiles": outputs[linker_argsfiles],
@@ -661,6 +674,7 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("relinked_libs_manifest", relinked_libs_manifest)
     if unrelinked_libs_output:
         enhance_ctx.debug_output("unrelinked_libs", unrelinked_libs_output)
+    enhance_ctx.debug_output("relinker_extra_outputs", relinker_extra_outputs)
 
     native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
     return AndroidBinaryNativeLibsInfo(
@@ -689,6 +703,23 @@ _NativeLibSubtargetArtifacts = record(
 # knows which libraries to replace); [unrelinked_libs] mirrors the per-library
 # [unrelinked] sub-target, exposing the unstripped linker output, and needs no
 # manifest (pass out_manifest = None).
+def _write_relinker_extra_outputs_dir(ctx: AnalysisContext, libs_by_platform: dict[str, dict[str, SharedLibrary]], out_dir: Artifact):
+    # Only the configured types: the relinker records other things under
+    # `extra_outputs` as well, and they are not for building on their own.
+    output_types = getattr(ctx.attrs, "extra_relinker_outputs", [])
+    files = {}
+    for platform, libs in libs_by_platform.items():
+        abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
+        for soname, lib in libs.items():
+            for output_type in output_types:
+                for info in lib.extra_outputs.get(output_type, []):
+                    for artifact in info.default_outputs:
+                        # Key by soname as well: two libraries in the same
+                        # abi/type can emit outputs sharing a basename, which
+                        # would otherwise collide and drop one silently.
+                        files["{}/{}/{}/{}".format(output_type, abi_directory, soname, artifact.basename)] = artifact
+    ctx.actions.symlinked_dir(out_dir, files)
+
 def _write_native_libs_dir_and_manifest(ctx, libs_by_platform, out_dir, out_manifest, stripped):
     lib_files = {}
     for platform in libs_by_platform:

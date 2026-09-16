@@ -22,6 +22,7 @@ _OPTIONAL_NATIVE_LIB_SUBTARGETS = [
     "native_merge_debug",
     "relinked_libs",
     "relinked_libs_manifest",
+    "relinker_extra_outputs",
     "unrelinked_libs",
 ]
 
