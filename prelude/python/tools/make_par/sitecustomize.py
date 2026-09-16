@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import shlex
 import stat
 import sys
 import threading
@@ -90,8 +91,8 @@ def __install_path_propagating_finder() -> None:
     on-disk .so.
 
     Runs in the parent (via __run_par_main__.py: `import sitecustomize`) AND
-    in spawn / forkserver / subprocess.run children (via __patch_spawn /
-    __patch_subprocess_run, which export PYTHONPATH so the child finds this
+    in spawn / forkserver / subprocess children (via __patch_spawn /
+    __patch_subprocess_popen, which export PYTHONPATH so the child finds this
     sitecustomize during Py_Initialize). Idempotent.
     """
     if any(getattr(f, _PATH_PROPAGATING_FINDER_SENTINEL, False) for f in sys.meta_path):
@@ -345,70 +346,205 @@ def __patch_spawn_preparation_data() -> None:
     mp_spawn.get_preparation_data = get_preparation_data
 
 
-def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
+def _prepare_self_reexec_env(
+    env: MutableMapping[str, str] | None,
+    saved_env: dict[str, str],
+) -> dict[str, str]:
+    inherited_env = env is None
+    child_env = os.environ.copy() if inherited_env else dict(env)
+
+    if inherited_env or (
+        "PYTHONPATH" not in child_env and "PYTHONHOME" not in child_env
+    ):
+        resolved = _resolve_path_entries(sys.path, dirs_only=True)
+        proxy_dir = _extract_sitecustomize()
+        child_env["PYTHONPATH"] = os.path.pathsep.join(
+            ([proxy_dir] if proxy_dir else []) + resolved
+        )
+        if proxy_dir is not None or any(
+            os.path.isfile(os.path.join(path, "sitecustomize.py")) for path in resolved
+        ):
+            child_env["PYTHONHOME"] = sys.prefix
+
+    lib_path_vars = (
+        ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
+        if sys.platform == "darwin"
+        else ("LD_LIBRARY_PATH", "LD_PRELOAD")
+    )
+    for var in lib_path_vars:
+        if var not in child_env and var in saved_env:
+            child_env[var] = saved_env[var]
+    _inject_runtime_lib_path(child_env, _runtime_lib_path_var())
+    return child_env
+
+
+def _make_self_reexec_checker() -> Callable[[object], bool]:
+    from functools import lru_cache
+
+    @lru_cache(maxsize=128)
+    def _realpath(path: str) -> str | None:
+        try:
+            return os.path.realpath(path)
+        except (OSError, ValueError):
+            return None
+
+    def _is_self_reexec(executable: object) -> bool:
+        if not isinstance(executable, (str, bytes, os.PathLike)):
+            return False
+        try:
+            executable_path = os.fsdecode(executable)
+        except (TypeError, ValueError):
+            return False
+        if executable_path == sys.executable:
+            return True
+        real_sys_executable = _realpath(sys.executable)
+        return (
+            real_sys_executable is not None
+            and _realpath(executable_path) == real_sys_executable
+        )
+
+    return _is_self_reexec
+
+
+def _shell_command_reexecs_self(
+    args: object, is_self_reexec: Callable[[object], bool]
+) -> bool:
+    command = args[0] if isinstance(args, (list, tuple)) and args else args
+    if isinstance(command, bytes):
+        try:
+            command = os.fsdecode(command)
+        except ValueError:
+            return False
+    if not isinstance(command, str):
+        return False
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return False
+    for token in tokens:
+        name, separator, _ = token.partition("=")
+        if separator and name.isidentifier():
+            continue
+        if token in ("command", "exec"):
+            continue
+        return is_self_reexec(token)
+    return False
+
+
+def __patch_windows_subprocess_run(saved_env: dict[str, str]) -> None:
     import subprocess
     from functools import wraps
 
     std_run = subprocess.run
 
-    if sys.platform == "darwin":
-        _lib_path_vars = ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
-    else:
-        _lib_path_vars = ("LD_LIBRARY_PATH", "LD_PRELOAD")
-
     @wraps(std_run)
     # pyre-fixme[2]: Parameter must be annotated.
     # pyre-fixme[53]: Captured variable `std_run` is not annotated.
-    def _patched_run(args, env=None, **kwargs) -> subprocess.CompletedProcess[str]:
+    def _patched_run(*popenargs, **kwargs) -> subprocess.CompletedProcess[str]:
+        args = popenargs[0] if popenargs else kwargs.get("args")
+        env = kwargs.get("env")
         if (
             args
             and isinstance(args, (list, tuple))
-            # We use is for a few reasons:
-            # 1) It's super conservative, you must literally be passing sys.executable
-            # 2) We don't need to worry about checking the type if you're passing a path
             and args[0] is sys.executable
             and (env is None or "PYTHONPATH" not in env)
             and (env is None or "PYTHONHOME" not in env)
         ):
-            # make subprocess.run work with par files when invoking sys.executable
-            if env is None:
-                env = os.environ.copy()
-            # Resolve /proc/self/fd/<N> paths (used by fastzip PARs) to real
-            # filesystem paths so the child process can find modules (including
-            # sitecustomize.py which clears PYTHONHOME).
-            # dirs_only=True filters out .par zip files from PYTHONPATH to
-            # avoid RecursionError during early Python init (zipimport's
-            # _read_directory triggers a lazy `import struct` cycle).
-            resolved = _resolve_path_entries(sys.path, dirs_only=True)
-            # Extract sitecustomize.py from the PAR zip to a namespaced
-            # subdir so the child interpreter can find it via PYTHONPATH.
-            proxy_dir = _extract_sitecustomize()
-            parts = []
-            if proxy_dir:
-                parts.append(proxy_dir)
-            parts.extend(resolved)
-            env["PYTHONPATH"] = os.path.pathsep.join(parts)
-            # Only set PYTHONHOME if the child will find sitecustomize.py
-            # (which clears it). Otherwise PYTHONHOME leaks and the child
-            # uses the PAR's prefix for stdlib, causing hangs.
-            if proxy_dir is not None or any(
-                os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved
-            ):
-                env["PYTHONHOME"] = sys.prefix
-            # Restore library path env vars so the child process can find
-            # bundled native libraries (e.g. libpython, libX11).
-            for var in _lib_path_vars:
-                if var not in env and var in saved_env:
-                    env[var] = saved_env[var]
-            # saved_env is empty when the bootstrap lib path was scrubbed before
-            # Python captured it, so also reconstruct runtime/lib directly. This
-            # is what lets a native-strategy sys.executable child load its
-            # bundled .so's when $ORIGIN doesn't resolve to the link-tree.
-            _inject_runtime_lib_path(env, _runtime_lib_path_var())
-
-        return std_run(args, env=env, **kwargs)
+            kwargs["env"] = _prepare_self_reexec_env(env, saved_env)
+        return std_run(*popenargs, **kwargs)
 
     subprocess.run = _patched_run
+
+
+def __patch_subprocess_popen(saved_env: dict[str, str]) -> None:
+    """Prepare POSIX self-reexec environments without replacing Popen.__init__."""
+    if sys.platform == "win32":
+        __patch_windows_subprocess_run(saved_env)
+        return
+
+    import subprocess
+    from functools import wraps
+
+    orig_execute_child = subprocess.Popen._execute_child
+    expected_prefix = (
+        "self",
+        "args",
+        "executable",
+        "preexec_fn",
+        "close_fds",
+        "pass_fds",
+        "cwd",
+        "env",
+        "startupinfo",
+        "creationflags",
+        "shell",
+    )
+    code = getattr(orig_execute_child, "__code__", None)
+    # Fail open if a future CPython changes this private call boundary.
+    if code is None or code.co_varnames[: len(expected_prefix)] != expected_prefix:
+        return
+    is_self_reexec = _make_self_reexec_checker()
+
+    @wraps(orig_execute_child)
+    # pyre-fixme[2]: Parameters must be annotated.
+    # pyre-fixme[53]: Captured variable `orig_execute_child` is not annotated.
+    def _patched_execute_child(
+        self,
+        args,
+        executable,
+        preexec_fn,
+        close_fds,
+        pass_fds,
+        cwd,
+        env,
+        startupinfo,
+        creationflags,
+        shell,
+        *pargs,
+        **kwargs,
+    ) -> None:
+        candidate = (
+            executable
+            if executable is not None
+            else (args[0] if isinstance(args, (list, tuple)) and args else args)
+        )
+        if is_self_reexec(candidate) or (
+            shell and _shell_command_reexecs_self(args, is_self_reexec)
+        ):
+            if env is None and preexec_fn is not None:
+                prepared_env = _prepare_self_reexec_env(None, saved_env)
+                env_updates = {
+                    key: value
+                    for key, value in prepared_env.items()
+                    if os.environ.get(key) != value
+                }
+                original_preexec_fn = preexec_fn
+
+                # CPython serializes an explicit env before preexec_fn runs.
+                def _prepared_preexec_fn() -> None:
+                    os.environ.update(env_updates)
+                    original_preexec_fn()
+
+                preexec_fn = _prepared_preexec_fn
+            else:
+                env = _prepare_self_reexec_env(env, saved_env)
+        return orig_execute_child(
+            self,
+            args,
+            executable,
+            preexec_fn,
+            close_fds,
+            pass_fds,
+            cwd,
+            env,
+            startupinfo,
+            creationflags,
+            shell,
+            *pargs,
+            **kwargs,
+        )
+
+    subprocess.Popen._execute_child = _patched_execute_child
 
 
 def __patch_resource_tracker_fork() -> None:
@@ -527,7 +663,7 @@ def __clear_env(
         __patch_spawn(var_names, saved_env)
         __patch_spawn_preparation_data()
         __patch_ctypes(saved_env)
-        __patch_subprocess_run(saved_env)
+        __patch_subprocess_popen(saved_env)
         __patch_resource_tracker_fork()
 
 
