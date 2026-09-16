@@ -18,6 +18,8 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+use buck2_data::clean_stale_result::PolicyMode;
+use buck2_data::clean_stale_result::Trigger;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
@@ -440,22 +442,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             return (default_ttl, None);
         };
 
-        let Some(root_abs_path) = self.root_abs_path.as_ref() else {
-            return (default_ttl, None);
-        };
-        let disk_stats = match disk_space_stats(&**root_abs_path) {
-            Ok(stats) => stats,
-            Err(e) => {
-                let _unused = soft_error!("disk_space_stats", e);
-                return (default_ttl, None);
-            }
-        };
-        let free_pct = disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0;
-        if free_pct > cfg.threshold_percent {
-            return (default_ttl, None);
-        }
-        match cfg.mode {
-            LowDiskCleanMode::Fixed(d) => (d, None),
+        match &cfg.mode {
             LowDiskCleanMode::Adaptive {
                 min_ttl,
                 delete_intermediate_within_min_ttl,
@@ -467,12 +454,30 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     // Clamping to MIN keeps everything protected, which is the safe direction
                     // for something that deletes artifacts.
                     min_access_time: Timestamp::now()
-                        .checked_sub(min_ttl)
+                        .checked_sub(*min_ttl)
                         .unwrap_or(Timestamp::MIN),
-                    delete_intermediate_within_min_ttl,
-                    unmaterialize_active,
+                    delete_intermediate_within_min_ttl: *delete_intermediate_within_min_ttl,
+                    unmaterialize_active: *unmaterialize_active,
                 }),
             ),
+            LowDiskCleanMode::Fixed(duration) => {
+                let Some(root_abs_path) = self.root_abs_path.as_ref() else {
+                    return (default_ttl, None);
+                };
+                let disk_stats = match disk_space_stats(&**root_abs_path) {
+                    Ok(stats) => stats,
+                    Err(e) => {
+                        let _unused = soft_error!("disk_space_stats", e);
+                        return (default_ttl, None);
+                    }
+                };
+                let free_pct = disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0;
+                if free_pct > cfg.threshold_percent {
+                    (default_ttl, None)
+                } else {
+                    (*duration, None)
+                }
+            }
         }
     }
 
@@ -481,6 +486,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         dispatcher: EventDispatcher,
         dry_run: bool,
         tracked_only: bool,
+        trigger: Trigger,
     ) -> CleanStaleArtifactsCommand {
         let config = &self.clean_stale_config;
         let (artifact_ttl, adaptive_low_disk) =
@@ -494,6 +500,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             dispatcher,
             adaptive_low_disk,
             root_abs_path: self.root_abs_path.dupe(),
+            trigger,
+            policy_mode: match config.low_disk.as_ref().map(|config| &config.mode) {
+                None => PolicyMode::ConfiguredTtl,
+                Some(LowDiskCleanMode::Fixed(_)) => PolicyMode::ConfiguredFixedTtl,
+                Some(LowDiskCleanMode::Adaptive { .. }) => PolicyMode::ConfiguredAdaptive,
+            },
         }
     }
 
@@ -603,7 +615,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::CleanStaleRequest => {
                     let dispatcher = self.daemon_dispatcher.dupe();
                     let daemon_id = dispatcher.daemon_id().dupe();
-                    let cmd = self.configured_clean_stale_command(dispatcher, false, false);
+                    let cmd = self.configured_clean_stale_command(
+                        dispatcher,
+                        false,
+                        false,
+                        Trigger::Scheduled,
+                    );
                     stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None, daemon_id));
                 }
             }

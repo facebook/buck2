@@ -293,6 +293,7 @@ fn main() -> io::Result<()> {
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
         .boxed("SpanEndEvent.data.cache_upload")
+        .boxed("CommandEnd.data.clean")
         .boxed("InstantEvent.data.snapshot")
         .extern_path(".buck.host_sharing", "::buck2_host_sharing_proto")
         .compile(proto_files, &includes)

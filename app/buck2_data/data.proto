@@ -1684,6 +1684,55 @@ message CleanStaleStats {
   // Paths skipped because they could not be read or deleted due to
   // insufficient permissions.
   uint64 skipped_unreadable_count = 17;
+  uint64 materialized_final_output_bytes_before = 18;
+  uint64 materialized_final_output_bytes_after = 19;
+  uint64 materialized_intermediate_only_bytes_before = 20;
+  uint64 materialized_intermediate_only_bytes_after = 21;
+  uint64 adaptive_free_bytes_before = 22;
+  uint64 adaptive_total_bytes = 23;
+  uint64 adaptive_bytes_needed = 24;
+  uint64 adaptive_shortfall_bytes = 25;
+  uint64 ttl_stale_artifact_count = 26;
+  uint64 ttl_stale_bytes = 27;
+  uint64 adaptive_stale_artifact_count = 28;
+  uint64 adaptive_stale_bytes = 29;
+  // Retained totals partition into inactive, active, and artifacts selected
+  // for adaptive unmaterialization.
+  uint64 retained_inactive_artifact_count = 30;
+  uint64 retained_inactive_bytes = 31;
+  uint64 retained_active_artifact_count = 32;
+  uint64 retained_active_bytes = 33;
+  uint64 cleaned_untracked_artifact_count = 34;
+  uint64 cleaned_untracked_bytes = 35;
+  uint64 cleaned_stale_artifact_count = 36;
+  uint64 cleaned_stale_bytes = 37;
+  // Counted when adaptive policy selects paths, before runtime validation.
+  uint64 adaptive_unmaterialization_selected_artifact_count = 38;
+  uint64 adaptive_unmaterialization_selected_bytes = 39;
+  uint64 unmaterialization_ineligible_final_output_artifact_count = 40;
+  uint64 unmaterialization_ineligible_final_output_bytes = 41;
+  uint64
+      unmaterialization_ineligible_no_rematerialization_method_artifact_count =
+          42;
+  uint64 unmaterialization_ineligible_no_rematerialization_method_bytes = 43;
+  uint64 unmaterialization_ineligible_remote_ttl_too_short_artifact_count = 44;
+  uint64 unmaterialization_ineligible_remote_ttl_too_short_bytes = 45;
+  uint64 unmaterialization_ineligible_processing_artifact_count = 46;
+  uint64 unmaterialization_ineligible_processing_bytes = 47;
+  uint64 unmaterialization_ineligible_state_changed_artifact_count = 48;
+  uint64 unmaterialization_ineligible_state_changed_bytes = 49;
+  uint64 delete_permission_denied_artifact_count = 50;
+  uint64 delete_permission_denied_bytes = 51;
+  uint64 delete_interrupted_artifact_count = 52;
+  uint64 delete_interrupted_bytes = 53;
+  uint64 delete_failed_artifact_count = 54;
+  uint64 delete_failed_bytes = 55;
+  uint64 scan_unreadable_count = 56;
+  uint64 scan_invalid_filename_count = 57;
+  uint64 scan_tree_state_mismatch_count = 58;
+  uint64 scan_failed_directory_count = 59;
+  uint64 adaptive_unmaterialization_statically_ineligible_artifact_count = 60;
+  uint64 adaptive_unmaterialization_statically_ineligible_bytes = 61;
 }
 
 enum CleanStaleResultKind {
@@ -1697,12 +1746,56 @@ enum CleanStaleResultKind {
 }
 
 message CleanStaleResult {
+  enum Trigger {
+    TRIGGER_UNSPECIFIED = 0;
+    MANUAL_EXPLICIT = 1;
+    MANUAL_CONFIGURED = 2;
+    SCHEDULED = 3;
+  }
+
+  enum PolicyMode {
+    POLICY_MODE_UNSPECIFIED = 0;
+    EXPLICIT_TTL = 1;
+    EXPLICIT_ADAPTIVE = 2;
+    CONFIGURED_FIXED_TTL = 3;
+    CONFIGURED_ADAPTIVE = 4;
+    CONFIGURED_TTL = 5;
+  }
+
+  enum FailurePhase {
+    NONE = 0;
+    ROOT_DISCOVERY = 1;
+    SCAN = 2;
+    STATE_VALIDATION = 3;
+    INVALIDATION = 4;
+    UNMATERIALIZATION = 5;
+    CLEAN = 6;
+  }
+
+  enum AdaptiveOutcome {
+    ADAPTIVE_OUTCOME_UNSPECIFIED = 0;
+    DISABLED = 1;
+    ROOT_UNAVAILABLE = 2;
+    DISK_STAT_FAILURE = 3;
+    ABOVE_THRESHOLD = 4;
+    NO_BYTES_NEEDED = 5;
+    SATISFIED_BY_STALE_DELETION = 6;
+    SATISFIED_BY_UNMATERIALIZATION = 7;
+    INSUFFICIENT_CANDIDATES = 8;
+    INVALID_DISK_STATS = 9;
+  }
+
   map<string, string> metadata = 1;
   CleanStaleResultKind kind = 2;
   optional ErrorReport error = 3;
   CleanStaleStats stats = 4;
   // Set if clean stale is invoked as a command
   optional string command_uuid = 5;
+  Trigger trigger = 6;
+  PolicyMode policy_mode = 7;
+  FailurePhase failure_phase = 8;
+  AdaptiveOutcome adaptive_outcome = 9;
+  bool tracked_only = 10;
 }
 
 message InstallCommandEnd {

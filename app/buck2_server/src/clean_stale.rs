@@ -41,7 +41,7 @@ struct CleanStaleServerCommand {
 #[async_trait]
 impl ServerCommandTemplate for CleanStaleServerCommand {
     type StartEvent = buck2_data::CleanCommandStart;
-    type EndEvent = buck2_data::CleanCommandEnd;
+    type EndEvent = Box<buck2_data::CleanCommandEnd>;
     type Response = buck2_cli_proto::CleanStaleResponse;
     type PartialResult = NoPartialResult;
 
@@ -90,6 +90,6 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
         } else {
             None
         };
-        buck2_data::CleanCommandEnd { clean_stale_stats }
+        Box::new(buck2_data::CleanCommandEnd { clean_stale_stats })
     }
 }

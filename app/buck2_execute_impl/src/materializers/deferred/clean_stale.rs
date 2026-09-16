@@ -25,6 +25,10 @@ use buck2_core::soft_error;
 use buck2_core::tag_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
+use buck2_data::clean_stale_result::AdaptiveOutcome;
+use buck2_data::clean_stale_result::FailurePhase;
+use buck2_data::clean_stale_result::PolicyMode;
+use buck2_data::clean_stale_result::Trigger;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
@@ -53,12 +57,14 @@ use tokio::sync::oneshot::Sender;
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::DeferredMaterializerStats;
+use crate::materializers::deferred::MaterializerSizeStats;
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
 use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
+use crate::materializers::deferred::artifact_tree::UnmaterializeArtifactsResult;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -83,6 +89,8 @@ pub struct CleanStaleArtifactsCommand {
     /// valid filesystem root could be constructed (e.g. on Windows, where `/` is
     /// not an absolute path); the adaptive pass is then skipped.
     pub root_abs_path: Option<Arc<AbsPathBuf>>,
+    pub trigger: Trigger,
+    pub policy_mode: PolicyMode,
 }
 
 #[derive(Debug, Clone)]
@@ -120,7 +128,22 @@ pub(super) enum CleanStaleArtifactsExtensionCommandKind {
 #[derive(Clone)]
 pub struct CleanResult {
     kind: CleanStaleResultKind,
-    stats: CleanStaleStats,
+    stats: Box<CleanStaleStats>,
+    adaptive_outcome: AdaptiveOutcome,
+}
+
+impl CleanResult {
+    fn new(
+        kind: CleanStaleResultKind,
+        stats: CleanStaleStats,
+        adaptive_outcome: AdaptiveOutcome,
+    ) -> Self {
+        Self {
+            kind,
+            stats: Box::new(stats),
+            adaptive_outcome,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -137,14 +160,21 @@ pub(crate) enum CleanFailurePhase {
 pub(crate) struct CleanFailure {
     phase: CleanFailurePhase,
     stats: Box<CleanStaleStats>,
+    adaptive_outcome: AdaptiveOutcome,
     error: buck2_error::Error,
 }
 
 impl CleanFailure {
-    fn new(phase: CleanFailurePhase, stats: CleanStaleStats, error: buck2_error::Error) -> Self {
+    fn new(
+        phase: CleanFailurePhase,
+        stats: CleanStaleStats,
+        adaptive_outcome: AdaptiveOutcome,
+        error: buck2_error::Error,
+    ) -> Self {
         Self {
             phase,
             stats: Box::new(stats),
+            adaptive_outcome,
             error,
         }
     }
@@ -161,8 +191,8 @@ struct PendingCleanFailure {
 }
 
 impl PendingCleanFailure {
-    fn with_stats(self, stats: CleanStaleStats) -> CleanFailure {
-        CleanFailure::new(self.phase, stats, self.error)
+    fn with_stats(self, stats: CleanStaleStats, adaptive_outcome: AdaptiveOutcome) -> CleanFailure {
+        CleanFailure::new(self.phase, stats, adaptive_outcome, self.error)
     }
 }
 
@@ -171,15 +201,6 @@ pub(crate) type CleanOutcome = Result<CleanResult, CleanFailure>;
 enum PendingCleanResult {
     Finished(CleanResult),
     Pending(BoxFuture<'static, CleanOutcome>),
-}
-
-impl From<CleanStaleResultKind> for PendingCleanResult {
-    fn from(val: CleanStaleResultKind) -> Self {
-        PendingCleanResult::Finished(CleanResult {
-            kind: val,
-            stats: CleanStaleStats::default(),
-        })
-    }
 }
 
 impl From<CleanResult> for PendingCleanResult {
@@ -205,7 +226,7 @@ impl From<CleanResult> for buck2_cli_proto::CleanStaleResponse {
         };
         Self {
             message: message.map(|m| m.to_owned()),
-            stats: Some(result.stats),
+            stats: Some(*result.stats),
         }
     }
 }
@@ -215,25 +236,51 @@ fn create_result(
     trace_id: Option<TraceId>,
     daemon_id: &DaemonId,
     total_duration_s: u64,
+    trigger: Trigger,
+    policy_mode: PolicyMode,
+    tracked_only: bool,
 ) -> buck2_data::CleanStaleResult {
-    let (kind, mut stats, error) = match result {
-        Ok(result) => (result.kind, result.stats, None),
-        Err(failure) => {
-            let _failure_phase = failure.phase;
-            (
-                CleanStaleResultKind::Failed,
-                *failure.stats,
-                Some((&failure.error).into()),
-            )
-        }
+    let (kind, mut stats, error, failure_phase, adaptive_outcome) = match result {
+        Ok(result) => (
+            result.kind,
+            result.stats,
+            None,
+            FailurePhase::None,
+            result.adaptive_outcome,
+        ),
+        Err(failure) => (
+            CleanStaleResultKind::Failed,
+            failure.stats,
+            Some((&failure.error).into()),
+            failure.phase.as_proto(),
+            failure.adaptive_outcome,
+        ),
     };
     stats.total_duration_s = total_duration_s;
     buck2_data::CleanStaleResult {
         kind: kind.into(),
-        stats: Some(stats),
+        stats: Some(*stats),
         metadata: metadata::collect(daemon_id),
         error,
         command_uuid: trace_id.map(|id| id.to_string()),
+        trigger: trigger.into(),
+        policy_mode: policy_mode.into(),
+        failure_phase: failure_phase.into(),
+        adaptive_outcome: adaptive_outcome.into(),
+        tracked_only,
+    }
+}
+
+impl CleanFailurePhase {
+    fn as_proto(self) -> FailurePhase {
+        match self {
+            Self::RootDiscovery => FailurePhase::RootDiscovery,
+            Self::Scan => FailurePhase::Scan,
+            Self::StateValidation => FailurePhase::StateValidation,
+            Self::Invalidation => FailurePhase::Invalidation,
+            Self::Unmaterialization => FailurePhase::Unmaterialization,
+            Self::Clean => FailurePhase::Clean,
+        }
     }
 }
 
@@ -244,7 +291,12 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
                 dispatcher,
                 dry_run,
                 tracked_only,
-            } => processor.configured_clean_stale_command(dispatcher, dry_run, tracked_only),
+            } => processor.configured_clean_stale_command(
+                dispatcher,
+                dry_run,
+                tracked_only,
+                Trigger::ManualConfigured,
+            ),
             CleanStaleArtifactsExtensionCommandKind::Explicit(cmd) => cmd,
         };
         let trace_id = cmd.dispatcher.trace_id().clone();
@@ -262,6 +314,9 @@ impl CleanStaleArtifactsCommand {
         daemon_id: DaemonId,
     ) -> BoxFuture<'static, CleanOutcome> {
         let start_time = Instant::now();
+        let trigger = self.trigger;
+        let policy_mode = self.policy_mode;
+        let tracked_only = self.tracked_only;
         let pending_result = self.create_pending_clean_result(processor);
         let dispatcher_dup = self.dispatcher.dupe();
         async move {
@@ -277,6 +332,9 @@ impl CleanStaleArtifactsCommand {
                 trace_id,
                 &daemon_id,
                 (Instant::now() - start_time).as_secs(),
+                trigger,
+                policy_mode,
+                tracked_only,
             );
             dispatcher_dup.instant_event(result_event);
             result
@@ -291,10 +349,21 @@ impl CleanStaleArtifactsCommand {
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
         *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
         let cleaning_version = processor.next_version();
+        let stats = initial_stats(processor.stats.sizes());
+        let adaptive_outcome = if self.adaptive_low_disk.is_some() {
+            AdaptiveOutcome::Unspecified
+        } else {
+            AdaptiveOutcome::Disabled
+        };
 
         if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {
-                Ok(CleanStaleResultKind::SkippedDeferWriteDisabled.into())
+                Ok(CleanResult::new(
+                    CleanStaleResultKind::SkippedDeferWriteDisabled,
+                    stats,
+                    adaptive_outcome,
+                )
+                .into())
             } else {
                 if self
                     .adaptive_low_disk
@@ -315,10 +384,16 @@ impl CleanStaleArtifactsCommand {
                     liveliness_observer.clone(),
                     processor.rematerialization_ttl,
                     cleaning_version,
+                    stats,
                 )
             }
         } else {
-            Ok(CleanStaleResultKind::SkippedSqliteDisabled.into())
+            Ok(CleanResult::new(
+                CleanStaleResultKind::SkippedSqliteDisabled,
+                stats,
+                adaptive_outcome,
+            )
+            .into())
         }
     }
 
@@ -327,13 +402,20 @@ impl CleanStaleArtifactsCommand {
         tree: &mut ArtifactTree,
         sqlite_db: &mut MaterializerStateSqliteDb,
         io: &Arc<T>,
-        materializer_stats: &DeferredMaterializerStats,
+        materializer_stats: &Arc<DeferredMaterializerStats>,
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
         rematerialization_ttl: Option<SignedDuration>,
         cleaning_version: Version,
+        mut stats: CleanStaleStats,
     ) -> Result<PendingCleanResult, CleanFailure> {
         let start_time = Instant::now();
+        let mut adaptive_outcome = if self.adaptive_low_disk.is_some() {
+            AdaptiveOutcome::Unspecified
+        } else {
+            AdaptiveOutcome::Disabled
+        };
+        let mut record_unmaterialization_ineligibility = false;
 
         let mut artifact_dirs = Vec::new();
         let mut scan_error: Option<PendingCleanFailure> = None;
@@ -362,18 +444,19 @@ impl CleanStaleArtifactsCommand {
         if artifact_dirs.is_empty() {
             return match scan_error {
                 Some(error) => {
-                    let stats = CleanStaleStats {
-                        scan_duration_s: (Instant::now() - start_time).as_secs(),
-                        ..Default::default()
-                    };
-                    Err(error.with_stats(stats))
+                    stats.scan_duration_s = (Instant::now() - start_time).as_secs();
+                    Err(error.with_stats(stats, adaptive_outcome))
                 }
-                None => Ok(CleanStaleResultKind::SkippedNoGenDir.into()),
+                None => Ok(CleanResult::new(
+                    CleanStaleResultKind::SkippedNoGenDir,
+                    stats,
+                    adaptive_outcome,
+                )
+                .into()),
             };
         }
 
         let mut found_paths = Vec::new();
-        let mut skipped_unreadable_count = 0u64;
         if self.tracked_only {
             find_stale_tracked_only(tree, self.keep_since_time, &mut found_paths)
         } else {
@@ -391,6 +474,7 @@ impl CleanStaleArtifactsCommand {
                         tracing::warn!(
                             "Skipping clean-stale artifact directory after tree lookup failed: {error:#}"
                         );
+                        stats.scan_failed_directory_count += 1;
                         if scan_error.is_none() {
                             scan_error = Some(PendingCleanFailure {
                                 phase: CleanFailurePhase::Scan,
@@ -416,7 +500,7 @@ impl CleanStaleArtifactsCommand {
                     keep_since_time: self.keep_since_time,
                     rematerialization_deadline: rematerialization_deadline(rematerialization_ttl),
                     found_paths: &mut found_paths,
-                    skipped_unreadable_count: &mut skipped_unreadable_count,
+                    stats: &mut stats,
                     liveliness_observer: liveliness_observer.clone(),
                 }
                 .visit_recursively(dir_path.clone(), dir_subtree);
@@ -428,6 +512,7 @@ impl CleanStaleArtifactsCommand {
                     tracing::warn!(
                         "Skipping the rest of a clean-stale artifact directory: {error:#}"
                     );
+                    stats.scan_failed_directory_count += 1;
                     if scan_error.is_none() {
                         scan_error = Some(PendingCleanFailure {
                             phase: CleanFailurePhase::Scan,
@@ -438,28 +523,37 @@ impl CleanStaleArtifactsCommand {
             }
         };
 
-        if let Some(params) = self.adaptive_low_disk.as_ref()
-            && let Some(root_abs_path) = self.root_abs_path.as_ref()
-        {
-            match disk_space_stats(&**root_abs_path) {
-                Ok(disk_stats) => apply_adaptive_low_disk(
-                    &mut found_paths,
-                    disk_stats.free_space,
-                    disk_stats.total_space,
-                    params.threshold_percent,
-                    params.min_access_time,
-                    params.delete_intermediate_within_min_ttl,
-                    params.unmaterialize_active && rematerialization_ttl.is_some(),
-                ),
-                Err(e) => {
-                    let _unused = soft_error!("disk_space_stats", e);
-                }
-            }
+        if let Some(params) = self.adaptive_low_disk.as_ref() {
+            adaptive_outcome = match self.root_abs_path.as_ref() {
+                Some(root_abs_path) => match disk_space_stats(&**root_abs_path) {
+                    Ok(disk_stats) => {
+                        let adaptive = apply_adaptive_low_disk(
+                            &mut found_paths,
+                            disk_stats.free_space,
+                            disk_stats.total_space,
+                            params.threshold_percent,
+                            params.min_access_time,
+                            params.delete_intermediate_within_min_ttl,
+                            params.unmaterialize_active && rematerialization_ttl.is_some(),
+                        );
+                        stats.adaptive_free_bytes_before = adaptive.free_bytes_before;
+                        stats.adaptive_total_bytes = adaptive.total_bytes;
+                        stats.adaptive_bytes_needed = adaptive.bytes_needed;
+                        stats.adaptive_shortfall_bytes = adaptive.shortfall_bytes;
+                        record_unmaterialization_ineligibility = adaptive.reached_unmaterialization;
+                        adaptive.outcome
+                    }
+                    Err(e) => {
+                        let _unused = soft_error!("disk_space_stats", e);
+                        AdaptiveOutcome::DiskStatFailure
+                    }
+                },
+                None => AdaptiveOutcome::RootUnavailable,
+            };
         }
 
-        let mut stats = stats_for_paths(&found_paths);
+        stats.record_paths(&found_paths, record_unmaterialization_ineligibility);
         stats.scan_duration_s = (Instant::now() - start_time).as_secs();
-        stats.skipped_unreadable_count = skipped_unreadable_count;
 
         // Log limited number of untracked artifacts to avoid logging spikes if schema changes.
         for (path, file_type) in found_paths
@@ -477,10 +571,11 @@ impl CleanStaleArtifactsCommand {
         }
 
         if !liveliness_observer.is_alive_sync() {
-            return Ok(PendingCleanResult::Finished(CleanResult {
-                kind: CleanStaleResultKind::Interrupted,
+            return Ok(PendingCleanResult::Finished(CleanResult::new(
+                CleanStaleResultKind::Interrupted,
                 stats,
-            }));
+                adaptive_outcome,
+            )));
         }
 
         // If no stale or retained artifact founds, the db should be empty.
@@ -491,7 +586,12 @@ impl CleanStaleArtifactsCommand {
                 .materializer_state_table()
                 .read_materializer_state(io.digest_config())
                 .map_err(|error| {
-                    CleanFailure::new(CleanFailurePhase::StateValidation, stats, error)
+                    CleanFailure::new(
+                        CleanFailurePhase::StateValidation,
+                        stats,
+                        adaptive_outcome,
+                        error,
+                    )
                 })?;
 
             // Entries in the db should have been found in buck-out, return error and skip cleaning untracked artifacts.
@@ -509,6 +609,7 @@ impl CleanStaleArtifactsCommand {
                 return Err(CleanFailure::new(
                     CleanFailurePhase::StateValidation,
                     stats,
+                    adaptive_outcome,
                     error,
                 ));
             }
@@ -516,11 +617,12 @@ impl CleanStaleArtifactsCommand {
 
         if self.dry_run {
             match scan_error {
-                Some(error) => Err(error.with_stats(stats)),
-                None => Ok(PendingCleanResult::Finished(CleanResult {
-                    kind: CleanStaleResultKind::SkippedDryRun,
+                Some(error) => Err(error.with_stats(stats, adaptive_outcome)),
+                None => Ok(PendingCleanResult::Finished(CleanResult::new(
+                    CleanStaleResultKind::SkippedDryRun,
                     stats,
-                })),
+                    adaptive_outcome,
+                ))),
             }
         } else {
             Ok(PendingCleanResult::Pending(create_clean_fut(
@@ -535,6 +637,7 @@ impl CleanStaleArtifactsCommand {
                 rematerialization_ttl,
                 cleaning_version,
                 scan_error,
+                adaptive_outcome,
             )?))
         }
     }
@@ -548,36 +651,160 @@ pub(crate) struct CleanStaleError {
     stats: buck2_data::CleanStaleStats,
 }
 
-fn stats_for_paths(paths: &Vec<FoundPath>) -> buck2_data::CleanStaleStats {
-    let mut stats = buck2_data::CleanStaleStats::default();
-    for path in paths {
-        match path {
-            FoundPath::Untracked(_, _, size) => {
-                stats.untracked_artifact_count += 1;
-                stats.untracked_bytes += *size;
-            }
-            FoundPath::Tracked {
-                size,
-                state: TrackedState::Stale,
-                ..
-            } => {
-                stats.stale_artifact_count += 1;
-                stats.stale_bytes += *size;
-            }
-            FoundPath::Tracked {
-                size,
-                state:
-                    TrackedState::Retained { .. }
-                    | TrackedState::ActiveRetained { .. }
-                    | TrackedState::Unmaterialize,
-                ..
-            } => {
-                stats.retained_artifact_count += 1;
-                stats.retained_bytes += *size;
+fn initial_stats(sizes: MaterializerSizeStats) -> CleanStaleStats {
+    CleanStaleStats {
+        materialized_final_output_bytes_before: sizes.final_output,
+        materialized_final_output_bytes_after: sizes.final_output,
+        materialized_intermediate_only_bytes_before: sizes.intermediate_only,
+        materialized_intermediate_only_bytes_after: sizes.intermediate_only,
+        ..Default::default()
+    }
+}
+
+trait CleanStaleStatsExt {
+    fn record_materialized_sizes_after(&mut self, sizes: MaterializerSizeStats);
+
+    fn record_paths(&mut self, paths: &[FoundPath], record_unmaterialization_ineligibility: bool);
+
+    fn record_unmaterialization_result(&mut self, result: &UnmaterializeArtifactsResult) -> u64;
+
+    fn record_unmaterialization_ineligibility_reason(
+        &mut self,
+        reason: UnmaterializationIneligibilityReason,
+        size: u64,
+    );
+
+    fn record_scan_unreadable(&mut self);
+}
+
+impl CleanStaleStatsExt for CleanStaleStats {
+    fn record_materialized_sizes_after(&mut self, sizes: MaterializerSizeStats) {
+        self.materialized_final_output_bytes_after = sizes.final_output;
+        self.materialized_intermediate_only_bytes_after = sizes.intermediate_only;
+    }
+
+    fn record_paths(&mut self, paths: &[FoundPath], record_unmaterialization_ineligibility: bool) {
+        for path in paths {
+            match path {
+                FoundPath::Untracked(_, _, size) => {
+                    self.untracked_artifact_count += 1;
+                    self.untracked_bytes += *size;
+                }
+                FoundPath::Tracked {
+                    size,
+                    state: TrackedState::Stale(StaleOrigin::Ttl),
+                    ..
+                } => {
+                    self.stale_artifact_count += 1;
+                    self.stale_bytes += *size;
+                    self.ttl_stale_artifact_count += 1;
+                    self.ttl_stale_bytes += *size;
+                }
+                FoundPath::Tracked {
+                    size,
+                    state: TrackedState::Stale(StaleOrigin::Adaptive),
+                    ..
+                } => {
+                    self.stale_artifact_count += 1;
+                    self.stale_bytes += *size;
+                    self.adaptive_stale_artifact_count += 1;
+                    self.adaptive_stale_bytes += *size;
+                }
+                FoundPath::Tracked {
+                    size,
+                    state: TrackedState::Retained { .. },
+                    ..
+                } => {
+                    self.retained_artifact_count += 1;
+                    self.retained_bytes += *size;
+                    self.retained_inactive_artifact_count += 1;
+                    self.retained_inactive_bytes += *size;
+                }
+                FoundPath::Tracked {
+                    size,
+                    state:
+                        TrackedState::ActiveRetained {
+                            unmaterialization_eligibility,
+                            ..
+                        },
+                    ..
+                } => {
+                    self.retained_artifact_count += 1;
+                    self.retained_bytes += *size;
+                    self.retained_active_artifact_count += 1;
+                    self.retained_active_bytes += *size;
+                    if record_unmaterialization_ineligibility
+                        && let UnmaterializationEligibility::Ineligible(reason) =
+                            unmaterialization_eligibility
+                    {
+                        self.adaptive_unmaterialization_statically_ineligible_artifact_count += 1;
+                        self.adaptive_unmaterialization_statically_ineligible_bytes += *size;
+                        self.record_unmaterialization_ineligibility_reason(*reason, *size);
+                    }
+                }
+                FoundPath::Tracked {
+                    size,
+                    state: TrackedState::Unmaterialize,
+                    ..
+                } => {
+                    self.retained_artifact_count += 1;
+                    self.retained_bytes += *size;
+                    self.adaptive_unmaterialization_selected_artifact_count += 1;
+                    self.adaptive_unmaterialization_selected_bytes += *size;
+                }
             }
         }
     }
-    stats
+
+    fn record_unmaterialization_result(&mut self, result: &UnmaterializeArtifactsResult) -> u64 {
+        let unmaterialized_bytes = result
+            .unmaterialized
+            .iter()
+            .map(|(_, size)| *size)
+            .sum::<u64>();
+        for artifact in &result.ineligible {
+            self.unmaterialization_ineligible_artifact_count += 1;
+            self.unmaterialization_ineligible_bytes += artifact.size;
+            self.record_unmaterialization_ineligibility_reason(artifact.reason, artifact.size);
+        }
+        unmaterialized_bytes
+    }
+
+    fn record_unmaterialization_ineligibility_reason(
+        &mut self,
+        reason: UnmaterializationIneligibilityReason,
+        size: u64,
+    ) {
+        let (count, bytes) = match reason {
+            UnmaterializationIneligibilityReason::FinalOutput => (
+                &mut self.unmaterialization_ineligible_final_output_artifact_count,
+                &mut self.unmaterialization_ineligible_final_output_bytes,
+            ),
+            UnmaterializationIneligibilityReason::NoRematerializationMethod => (
+                &mut self.unmaterialization_ineligible_no_rematerialization_method_artifact_count,
+                &mut self.unmaterialization_ineligible_no_rematerialization_method_bytes,
+            ),
+            UnmaterializationIneligibilityReason::RemoteTtlTooShort => (
+                &mut self.unmaterialization_ineligible_remote_ttl_too_short_artifact_count,
+                &mut self.unmaterialization_ineligible_remote_ttl_too_short_bytes,
+            ),
+            UnmaterializationIneligibilityReason::Processing => (
+                &mut self.unmaterialization_ineligible_processing_artifact_count,
+                &mut self.unmaterialization_ineligible_processing_bytes,
+            ),
+            UnmaterializationIneligibilityReason::StateChanged => (
+                &mut self.unmaterialization_ineligible_state_changed_artifact_count,
+                &mut self.unmaterialization_ineligible_state_changed_bytes,
+            ),
+        };
+        *count += 1;
+        *bytes += size;
+    }
+
+    fn record_scan_unreadable(&mut self) {
+        self.scan_unreadable_count += 1;
+        self.skipped_unreadable_count += 1;
+    }
 }
 
 fn create_clean_fut<T: IoHandler>(
@@ -586,12 +813,13 @@ fn create_clean_fut<T: IoHandler>(
     tree: &mut ArtifactTree,
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<T>,
-    materializer_stats: &DeferredMaterializerStats,
+    materializer_stats: &Arc<DeferredMaterializerStats>,
     cancellations: &'static CancellationContext,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
     rematerialization_ttl: Option<SignedDuration>,
     cleaning_version: Version,
     scan_error: Option<PendingCleanFailure>,
+    mut adaptive_outcome: AdaptiveOutcome,
 ) -> Result<BoxFuture<'static, CleanOutcome>, CleanFailure> {
     let io = io.dupe();
 
@@ -600,7 +828,7 @@ fn create_clean_fut<T: IoHandler>(
         .filter_map(|x| match x {
             FoundPath::Tracked {
                 path,
-                state: TrackedState::Stale,
+                state: TrackedState::Stale(_),
                 ..
             } => Some(path.clone()),
             _ => None,
@@ -613,7 +841,16 @@ fn create_clean_fut<T: IoHandler>(
             Some(sqlite_db),
             materializer_stats,
         )
-        .map_err(|error| CleanFailure::new(CleanFailurePhase::Invalidation, stats, error))?;
+        .map_err(|error| {
+            let mut failure_stats = stats;
+            failure_stats.record_materialized_sizes_after(materializer_stats.sizes());
+            CleanFailure::new(
+                CleanFailurePhase::Invalidation,
+                failure_stats,
+                adaptive_outcome,
+                error,
+            )
+        })?;
     let mut existing_materialization_futs = vec![];
     for data in tree.iter_without_paths() {
         if let Some(active) = data.processing.active_ref()
@@ -651,13 +888,32 @@ fn create_clean_fut<T: IoHandler>(
             sqlite_db,
             materializer_stats,
         )
-        .map_err(|error| CleanFailure::new(CleanFailurePhase::Unmaterialization, stats, error))?;
-    stats.unmaterialization_ineligible_artifact_count += unmaterialization.ineligible.len() as u64;
-    stats.unmaterialization_ineligible_bytes += unmaterialization
-        .ineligible
-        .iter()
-        .map(|artifact| artifact.size)
-        .sum::<u64>();
+        .map_err(|error| {
+            let mut failure_stats = stats;
+            failure_stats.record_materialized_sizes_after(materializer_stats.sizes());
+            CleanFailure::new(
+                CleanFailurePhase::Unmaterialization,
+                failure_stats,
+                adaptive_outcome,
+                error,
+            )
+        })?;
+    let unmaterialized_bytes = stats.record_unmaterialization_result(&unmaterialization);
+    if matches!(
+        adaptive_outcome,
+        AdaptiveOutcome::SatisfiedByUnmaterialization | AdaptiveOutcome::InsufficientCandidates
+    ) {
+        stats.adaptive_shortfall_bytes = stats.adaptive_bytes_needed.saturating_sub(
+            stats
+                .adaptive_stale_bytes
+                .saturating_add(unmaterialized_bytes),
+        );
+        adaptive_outcome = if stats.adaptive_shortfall_bytes == 0 {
+            AdaptiveOutcome::SatisfiedByUnmaterialization
+        } else {
+            AdaptiveOutcome::InsufficientCandidates
+        };
+    }
 
     let mut paths_to_clean: Vec<CleanupPath> = found_paths
         .into_iter()
@@ -670,7 +926,7 @@ fn create_clean_fut<T: IoHandler>(
             FoundPath::Tracked {
                 path,
                 size,
-                state: TrackedState::Stale,
+                state: TrackedState::Stale(_),
             } => Some(CleanupPath {
                 path,
                 size,
@@ -702,7 +958,7 @@ fn create_clean_fut<T: IoHandler>(
                     clean_artifact(path_to_clean, size, cancellations, &io, liveliness_observer)
                         .await
                 }
-                Err(error) => CleanPathOutcome::Failed(error),
+                Err(error) => CleanPathOutcome::Failed { size, error },
             }
         }
         .boxed()
@@ -713,7 +969,7 @@ fn create_clean_fut<T: IoHandler>(
                 let clean_fut = clean_fut.clone();
                 async move {
                     match clean_fut.await {
-                        CleanPathOutcome::Failed(error) => Err(error),
+                        CleanPathOutcome::Failed { error, .. } => Err(error),
                         _ => Ok(()),
                     }
                 }
@@ -722,13 +978,21 @@ fn create_clean_fut<T: IoHandler>(
             };
             tree.attach_unmaterialization_future(&path, cleaning_fut, cleaning_version)
                 .map_err(|error| {
-                    CleanFailure::new(CleanFailurePhase::Unmaterialization, stats, error)
+                    let mut failure_stats = stats;
+                    failure_stats.record_materialized_sizes_after(materializer_stats.sizes());
+                    CleanFailure::new(
+                        CleanFailurePhase::Unmaterialization,
+                        failure_stats,
+                        adaptive_outcome,
+                        error,
+                    )
                 })?;
         }
 
         clean_futs.push((clean_fut, origin));
     }
 
+    let materializer_stats = materializer_stats.dupe();
     let fut = async move {
         let start_time = Instant::now();
         let results = buck2_util::future::join_all(
@@ -739,6 +1003,7 @@ fn create_clean_fut<T: IoHandler>(
                 .into_iter(),
         )
         .await;
+        stats.record_materialized_sizes_after(materializer_stats.sizes());
 
         let mut first_error = scan_error;
         for (cleaned, origin) in results {
@@ -746,14 +1011,33 @@ fn create_clean_fut<T: IoHandler>(
                 CleanPathOutcome::Cleaned(size) => {
                     stats.cleaned_artifact_count += 1;
                     stats.cleaned_bytes += size;
-                    if origin == CleanupOrigin::Unmaterialized {
-                        stats.unmaterialized_only_artifact_count += 1;
-                        stats.unmaterialized_only_bytes += size;
+                    match origin {
+                        CleanupOrigin::Untracked => {
+                            stats.cleaned_untracked_artifact_count += 1;
+                            stats.cleaned_untracked_bytes += size;
+                        }
+                        CleanupOrigin::Stale => {
+                            stats.cleaned_stale_artifact_count += 1;
+                            stats.cleaned_stale_bytes += size;
+                        }
+                        CleanupOrigin::Unmaterialized => {
+                            stats.unmaterialized_only_artifact_count += 1;
+                            stats.unmaterialized_only_bytes += size;
+                        }
                     }
                 }
-                CleanPathOutcome::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
-                CleanPathOutcome::Interrupted => {}
-                CleanPathOutcome::Failed(error) => {
+                CleanPathOutcome::SkippedPermissionDenied(size) => {
+                    stats.skipped_unreadable_count += 1;
+                    stats.delete_permission_denied_artifact_count += 1;
+                    stats.delete_permission_denied_bytes += size;
+                }
+                CleanPathOutcome::Interrupted(size) => {
+                    stats.delete_interrupted_artifact_count += 1;
+                    stats.delete_interrupted_bytes += size;
+                }
+                CleanPathOutcome::Failed { size, error } => {
+                    stats.delete_failed_artifact_count += 1;
+                    stats.delete_failed_bytes += size;
                     if first_error.is_none() {
                         first_error = Some(PendingCleanFailure {
                             phase: CleanFailurePhase::Clean,
@@ -770,8 +1054,8 @@ fn create_clean_fut<T: IoHandler>(
             CleanStaleResultKind::Finished
         };
         match first_error {
-            Some(error) => Err(error.with_stats(stats)),
-            None => Ok(CleanResult { kind, stats }),
+            Some(error) => Err(error.with_stats(stats, adaptive_outcome)),
+            None => Ok(CleanResult::new(kind, stats, adaptive_outcome)),
         }
     };
     Ok(fut.boxed())
@@ -798,9 +1082,12 @@ fn rematerialization_deadline(ttl: Option<SignedDuration>) -> Timestamp {
 #[derive(Clone)]
 enum CleanPathOutcome {
     Cleaned(u64),
-    Interrupted,
-    SkippedPermissionDenied,
-    Failed(buck2_error::Error),
+    Interrupted(u64),
+    SkippedPermissionDenied(u64),
+    Failed {
+        size: u64,
+        error: buck2_error::Error,
+    },
 }
 
 async fn clean_artifact<T: IoHandler>(
@@ -824,7 +1111,7 @@ async fn clean_artifact<T: IoHandler>(
         Ok(()) => CleanPathOutcome::Cleaned(size),
         Err(e) => {
             if e.has_tag(ErrorTag::CleanInterrupt) {
-                CleanPathOutcome::Interrupted
+                CleanPathOutcome::Interrupted(size)
             } else if e.has_tag(ErrorTag::IoPermissionDenied) {
                 // A skipped path may still hold bytes for an entry the tree/db
                 // already recorded as cleaned or unmaterialized (both are
@@ -833,10 +1120,10 @@ async fn clean_artifact<T: IoHandler>(
                 // destination first, so a later rematerialization surfaces the
                 // permission error at the point of use.
                 tracing::warn!("Skipping undeletable path in clean --stale: {e:#}");
-                CleanPathOutcome::SkippedPermissionDenied
+                CleanPathOutcome::SkippedPermissionDenied(size)
             } else {
                 tracing::warn!(path = %path_for_error, "Failed to delete path in clean --stale: {e:#}");
-                CleanPathOutcome::Failed(e)
+                CleanPathOutcome::Failed { size, error: e }
             }
         }
     }
@@ -869,36 +1156,18 @@ impl IoRequest for CleanInvalidatedPathRequest {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct CleanScratchExtensionCommand {
-    pub dispatcher: EventDispatcher,
     #[derivative(Debug = "ignore")]
     pub sender: Sender<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for CleanScratchExtensionCommand {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
-        let start_time = Instant::now();
-        let trace_id = self.dispatcher.trace_id().clone();
-        let daemon_id = self.dispatcher.daemon_id().clone();
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
         *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
         let io = processor.io.dupe();
         let cancellations = processor.cancellations;
-        let dispatcher = self.dispatcher;
-        let fut = async move {
-            let result = scratch_sweep(&io, cancellations, liveliness_observer).await;
-            let event_result = result.clone().map_err(|error| {
-                CleanFailure::new(CleanFailurePhase::Clean, CleanStaleStats::default(), error)
-            });
-            let result_event: buck2_data::CleanStaleResult = create_result(
-                event_result,
-                Some(trace_id),
-                &daemon_id,
-                (Instant::now() - start_time).as_secs(),
-            );
-            dispatcher.instant_event(result_event);
-            result
-        }
-        .boxed();
+        let fut =
+            async move { scratch_sweep(&io, cancellations, liveliness_observer).await }.boxed();
         let _ignored = self.sender.send(fut);
     }
 }
@@ -922,23 +1191,24 @@ async fn scratch_sweep<T: IoHandler>(
             Err(e) if e.has_tag(ErrorTag::IoNotFound) => continue,
             Err(e) if e.has_tag(ErrorTag::IoPermissionDenied) => {
                 tracing::warn!("Skipping unreadable scratch root in scratch sweep: {e:#}");
-                stats.skipped_unreadable_count += 1;
+                stats.record_scan_unreadable();
                 continue;
             }
             Err(e) => return Err(e),
         };
         for child in read_dir {
             if !liveliness_observer.is_alive_sync() {
-                return Ok(CleanResult {
-                    kind: CleanStaleResultKind::Interrupted,
+                return Ok(CleanResult::new(
+                    CleanStaleResultKind::Interrupted,
                     stats,
-                });
+                    AdaptiveOutcome::Disabled,
+                ));
             }
             let child = match child {
                 Ok(child) => child,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     tracing::warn!("Skipping unreadable entry in scratch sweep: {e:#}");
-                    stats.skipped_unreadable_count += 1;
+                    stats.record_scan_unreadable();
                     continue;
                 }
                 Err(e) => return Err(e.into()),
@@ -949,12 +1219,12 @@ async fn scratch_sweep<T: IoHandler>(
                     "Skipping scratch entry with an invalid file name: `{}`",
                     child.path().display()
                 );
-                stats.skipped_unreadable_count += 1;
+                stats.scan_invalid_filename_count += 1;
                 continue;
             };
             // Sizes are for reporting only; `get_size` skips (and counts) what
             // it cannot read rather than failing.
-            let size = get_size(&child.path(), &mut stats.skipped_unreadable_count)?;
+            let size = get_size(&child.path(), &mut stats)?;
             stats.untracked_artifact_count += 1;
             stats.untracked_bytes += size;
             found.push((dir_path.join(file_name), size));
@@ -969,31 +1239,39 @@ async fn scratch_sweep<T: IoHandler>(
             CleanPathOutcome::Cleaned(size) => {
                 stats.cleaned_artifact_count += 1;
                 stats.cleaned_bytes += size;
+                stats.cleaned_untracked_artifact_count += 1;
+                stats.cleaned_untracked_bytes += size;
             }
-            CleanPathOutcome::SkippedPermissionDenied => stats.skipped_unreadable_count += 1,
-            CleanPathOutcome::Interrupted => {
+            CleanPathOutcome::SkippedPermissionDenied(size) => {
+                stats.skipped_unreadable_count += 1;
+                stats.delete_permission_denied_artifact_count += 1;
+                stats.delete_permission_denied_bytes += size;
+            }
+            CleanPathOutcome::Interrupted(size) => {
+                stats.delete_interrupted_artifact_count += 1;
+                stats.delete_interrupted_bytes += size;
                 kind = CleanStaleResultKind::Interrupted;
                 break;
             }
-            CleanPathOutcome::Failed(error) => return Err(error),
+            CleanPathOutcome::Failed { error, .. } => return Err(error),
         }
     }
     stats.clean_duration_s = (Instant::now() - clean_start).as_secs();
-    Ok(CleanResult { kind, stats })
+    Ok(CleanResult::new(kind, stats, AdaptiveOutcome::Disabled))
 }
 
 /// Get file size or directory size, without following symlinks.
 /// Entries that cannot be read or statted due to insufficient permissions are
-/// skipped (and counted in `skipped_unreadable`) rather than treated as
+/// skipped (and counted in `stats`) rather than treated as
 /// errors, so the result may undercount.
-pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error::Result<u64> {
+pub fn get_size(path: &AbsNormPath, stats: &mut CleanStaleStats) -> buck2_error::Result<u64> {
     let mut result = 0;
     if path.is_dir() {
         let read_dir = match fs_util::read_dir(path) {
             Ok(read_dir) => read_dir,
             Err(e) if e.io_error_kind() == Some(ErrorKind::PermissionDenied) => {
                 tracing::warn!("Skipping unreadable directory when computing size: {e:#?}");
-                *skipped_unreadable += 1;
+                stats.record_scan_unreadable();
                 return Ok(0);
             }
             Err(e) => return Err(e.categorize_tagged(ErrorTag::CleanStale)),
@@ -1003,19 +1281,19 @@ pub fn get_size(path: &AbsNormPath, skipped_unreadable: &mut u64) -> buck2_error
                 Ok(entry) => entry,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     tracing::warn!("Skipping unreadable entry when computing size: {e:#}");
-                    *skipped_unreadable += 1;
+                    stats.record_scan_unreadable();
                     continue;
                 }
                 Err(e) => return Err(e.into()),
             };
-            result += get_size(&entry.path(), skipped_unreadable)?;
+            result += get_size(&entry.path(), stats)?;
         }
     } else {
         result = match path.symlink_metadata() {
             Ok(metadata) => metadata.len(),
             Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                 tracing::warn!("Skipping unstatable entry when computing size: {e:#}");
-                *skipped_unreadable += 1;
+                stats.record_scan_unreadable();
                 0
             }
             Err(e) => return Err(e.into()),
@@ -1029,7 +1307,7 @@ struct StaleFinder<'a, T: IoHandler> {
     keep_since_time: Timestamp,
     rematerialization_deadline: Timestamp,
     found_paths: &'a mut Vec<FoundPath>,
-    skipped_unreadable_count: &'a mut u64,
+    stats: &'a mut CleanStaleStats,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
 
@@ -1053,7 +1331,7 @@ enum FoundPath {
 #[derive(Clone, Copy)]
 enum TrackedState {
     /// Will be invalidated in the materializer.
-    Stale,
+    Stale(StaleOrigin),
     /// Materialized, not-stale, and not active. Eligible to be promoted
     /// to `Stale` by `apply_adaptive_low_disk`.
     Retained {
@@ -1069,6 +1347,12 @@ enum TrackedState {
     },
     /// Will be returned to the declared state and deleted on disk.
     Unmaterialize,
+}
+
+#[derive(Clone, Copy)]
+enum StaleOrigin {
+    Ttl,
+    Adaptive,
 }
 
 impl<T: IoHandler> StaleFinder<'_, T> {
@@ -1113,7 +1397,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 // untouched means a later scan (after permissions are repaired)
                 // sees them again with metadata intact.
                 tracing::warn!("Skipping unreadable directory in clean --stale scan: {e:#}");
-                *self.skipped_unreadable_count += 1;
+                self.stats.record_scan_unreadable();
                 return Ok(());
             }
             Err(e) => return Err(e),
@@ -1124,7 +1408,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 Ok(child) => child,
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     tracing::warn!("Skipping unreadable entry in clean --stale scan: {e:#}");
-                    *self.skipped_unreadable_count += 1;
+                    self.stats.record_scan_unreadable();
                     continue;
                 }
                 Err(e) => return Err(e.into()),
@@ -1138,6 +1422,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 None => {
                     // If the file name is invalid, then it can't be tracked by the materializer.
                     // We should ideally delete this, but currently we don't support doing that.
+                    self.stats.scan_invalid_filename_count += 1;
                     continue;
                 }
             };
@@ -1151,7 +1436,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 Ok(file_type) => FileType::from(file_type),
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     tracing::warn!("Skipping unstatable entry in clean --stale scan: {e:#}");
-                    *self.skipped_unreadable_count += 1;
+                    self.stats.record_scan_unreadable();
                     continue;
                 }
                 Err(e) => return Err(e.into()),
@@ -1165,7 +1450,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     self.found_paths.push(FoundPath::Untracked(
                         path,
                         file_type,
-                        get_size(&child.path(), self.skipped_unreadable_count)?,
+                        get_size(&child.path(), self.stats)?,
                     ));
                     continue;
                 }
@@ -1190,7 +1475,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     self.found_paths.push(FoundPath::Tracked {
                         path,
                         size: artifact_metadata_size(metadata),
-                        state: TrackedState::Stale,
+                        state: TrackedState::Stale(StaleOrigin::Ttl),
                     });
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
@@ -1256,6 +1541,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     // What we have on disk does not match what we have in the materializer (which is
                     // not clean stale's problem to fix).
                     tracing::trace!(path = %path, file_type = ?file_type, "skipping");
+                    self.stats.scan_tree_state_mismatch_count += 1;
                 }
             }
         }
@@ -1282,7 +1568,7 @@ fn find_stale_tracked_only(
                 found_paths.push(FoundPath::Tracked {
                     path,
                     size: 0,
-                    state: TrackedState::Stale,
+                    state: TrackedState::Stale(StaleOrigin::Ttl),
                 });
             } else if *active {
                 tracing::trace!(path = %path, "retaining artifact (active)");
@@ -1312,7 +1598,16 @@ fn find_stale_tracked_only(
     }
 }
 
-/// Promote retained, non-active artifacts to stale, oldest-access-first, until
+struct AdaptiveCleanupResult {
+    outcome: AdaptiveOutcome,
+    free_bytes_before: u64,
+    total_bytes: u64,
+    bytes_needed: u64,
+    shortfall_bytes: u64,
+    reached_unmaterialization: bool,
+}
+
+/// Promotes retained, non-active artifacts to stale, oldest-access-first, until
 /// projected free disk space rises above `threshold_percent` of `total_space`,
 /// or every promotable artifact has been promoted. Artifacts last accessed at
 /// or after `min_access_time` are excluded unless they are intermediate-only
@@ -1325,19 +1620,40 @@ fn apply_adaptive_low_disk(
     min_access_time: Timestamp,
     delete_intermediate_within_min_ttl: bool,
     unmaterialize_active: bool,
-) {
+) -> AdaptiveCleanupResult {
     if total_space == 0 {
-        return;
+        return AdaptiveCleanupResult {
+            outcome: AdaptiveOutcome::InvalidDiskStats,
+            free_bytes_before: free_space,
+            total_bytes: total_space,
+            bytes_needed: 0,
+            shortfall_bytes: 0,
+            reached_unmaterialization: false,
+        };
     }
     let free_pct = free_space as f64 / total_space as f64 * 100.0;
     if free_pct > threshold_percent {
-        return;
+        return AdaptiveCleanupResult {
+            outcome: AdaptiveOutcome::AboveThreshold,
+            free_bytes_before: free_space,
+            total_bytes: total_space,
+            bytes_needed: 0,
+            shortfall_bytes: 0,
+            reached_unmaterialization: false,
+        };
     }
 
     let target_free = (threshold_percent / 100.0 * total_space as f64).ceil() as u64;
     let bytes_needed = target_free.saturating_sub(free_space);
     if bytes_needed == 0 {
-        return;
+        return AdaptiveCleanupResult {
+            outcome: AdaptiveOutcome::NoBytesNeeded,
+            free_bytes_before: free_space,
+            total_bytes: total_space,
+            bytes_needed,
+            shortfall_bytes: 0,
+            reached_unmaterialization: false,
+        };
     }
 
     let mut promotable: Vec<(usize, Timestamp, u64)> = found_paths
@@ -1369,13 +1685,24 @@ fn apply_adaptive_low_disk(
             break;
         }
         if let FoundPath::Tracked { state, .. } = &mut found_paths[i] {
-            *state = TrackedState::Stale;
+            *state = TrackedState::Stale(StaleOrigin::Adaptive);
         }
         accumulated = accumulated.saturating_add(size);
     }
 
     if accumulated >= bytes_needed || !unmaterialize_active {
-        return;
+        return AdaptiveCleanupResult {
+            outcome: if accumulated >= bytes_needed {
+                AdaptiveOutcome::SatisfiedByStaleDeletion
+            } else {
+                AdaptiveOutcome::InsufficientCandidates
+            },
+            free_bytes_before: free_space,
+            total_bytes: total_space,
+            bytes_needed,
+            shortfall_bytes: bytes_needed.saturating_sub(accumulated),
+            reached_unmaterialization: false,
+        };
     }
 
     let mut active: Vec<(usize, Timestamp, u64)> = found_paths
@@ -1404,6 +1731,19 @@ fn apply_adaptive_low_disk(
             *state = TrackedState::Unmaterialize;
         }
         accumulated = accumulated.saturating_add(size);
+    }
+
+    AdaptiveCleanupResult {
+        outcome: if accumulated >= bytes_needed {
+            AdaptiveOutcome::SatisfiedByUnmaterialization
+        } else {
+            AdaptiveOutcome::InsufficientCandidates
+        },
+        free_bytes_before: free_space,
+        total_bytes: total_space,
+        bytes_needed,
+        shortfall_bytes: bytes_needed.saturating_sub(accumulated),
+        reached_unmaterialization: true,
     }
 }
 
@@ -1642,12 +1982,18 @@ impl CleanStaleConfig {
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_data::CleanStaleStats;
+    use buck2_data::clean_stale_result::AdaptiveOutcome;
     use jiff::Timestamp;
 
     use crate::materializers::deferred::artifact_tree::ArtifactClassification;
     use crate::materializers::deferred::artifact_tree::UnmaterializationEligibility;
     use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
+    use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibleArtifact;
+    use crate::materializers::deferred::artifact_tree::UnmaterializeArtifactsResult;
+    use crate::materializers::deferred::clean_stale::CleanStaleStatsExt;
     use crate::materializers::deferred::clean_stale::FoundPath;
+    use crate::materializers::deferred::clean_stale::StaleOrigin;
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
     use crate::materializers::deferred::clean_stale::duration_from_config_hours;
@@ -1709,19 +2055,25 @@ mod tests {
         classification: ArtifactClassification,
         rematerializable: bool,
     ) -> FoundPath {
+        let unmaterialization_eligibility = if classification == ArtifactClassification::FinalOutput
+        {
+            UnmaterializationEligibility::Ineligible(
+                UnmaterializationIneligibilityReason::FinalOutput,
+            )
+        } else if rematerializable {
+            UnmaterializationEligibility::Eligible
+        } else {
+            UnmaterializationEligibility::Ineligible(
+                UnmaterializationIneligibilityReason::NoRematerializationMethod,
+            )
+        };
         FoundPath::Tracked {
             path: ProjectRelativePathBuf::unchecked_new(name.to_owned()),
             size,
             state: TrackedState::ActiveRetained {
                 last_access_time: t(last_access_secs),
                 classification,
-                unmaterialization_eligibility: if rematerializable {
-                    UnmaterializationEligibility::Eligible
-                } else {
-                    UnmaterializationEligibility::Ineligible(
-                        UnmaterializationIneligibilityReason::NoRematerializationMethod,
-                    )
-                },
+                unmaterialization_eligibility,
             },
         }
     }
@@ -1731,7 +2083,7 @@ mod tests {
             p,
             FoundPath::Tracked {
                 size,
-                state: TrackedState::Stale,
+                state: TrackedState::Stale(_),
                 ..
             } if *size == expected_size
         )
@@ -1768,7 +2120,8 @@ mod tests {
     fn threshold_already_met_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
         // 60% free, threshold 50% -> already above, do nothing.
-        apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 60, 100, 50.0, no_min_ttl(), false, false);
+        assert_eq!(result.outcome, AdaptiveOutcome::AboveThreshold);
         assert!(
             is_retained(&paths[0]),
             "free disk (60%) already exceeds threshold (50%); nothing should be promoted",
@@ -1783,7 +2136,11 @@ mod tests {
             retained("oldest", 100, 100),
             retained("old", 200, 350),
         ];
-        apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false, false);
+        let result =
+            apply_adaptive_low_disk(&mut paths, 100, 1000, 50.0, no_min_ttl(), false, false);
+        assert_eq!(result.outcome, AdaptiveOutcome::SatisfiedByStaleDeletion);
+        assert_eq!(result.bytes_needed, 400);
+        assert_eq!(result.shortfall_bytes, 0);
         // Oldest (t=100, size=100) + next (t=200, size=350) = 450 >= 400 bytes_needed.
         // Newest (t=300) is left alone — promotion stops as soon as the running total crosses bytes_needed.
         assert!(
@@ -1808,7 +2165,10 @@ mod tests {
             retained("b", 200, 20),
             active_retained(9999),
         ];
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
+        let result =
+            apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, false);
+        assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
+        assert_eq!(result.shortfall_bytes, 970);
         assert!(
             is_stale(&paths[0], 10),
             "non-active retained `a` should be promoted"
@@ -1836,7 +2196,7 @@ mod tests {
             FoundPath::Tracked {
                 path: ProjectRelativePathBuf::unchecked_new("already_stale".to_owned()),
                 size: 7,
-                state: TrackedState::Stale,
+                state: TrackedState::Stale(StaleOrigin::Ttl),
             },
             retained("r", 100, 100),
             active_retained(50),
@@ -1863,7 +2223,8 @@ mod tests {
     #[test]
     fn zero_total_is_noop() {
         let mut paths = vec![retained("a", 100, 50)];
-        apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false, false);
+        let result = apply_adaptive_low_disk(&mut paths, 0, 0, 100.0, no_min_ttl(), false, false);
+        assert_eq!(result.outcome, AdaptiveOutcome::InvalidDiskStats);
         assert!(
             is_retained(&paths[0]),
             "total_space=0 must short-circuit to a no-op (avoids divide-by-zero)",
@@ -1969,8 +2330,13 @@ mod tests {
             ),
         ];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 10.0, no_min_ttl(), false, true);
+        let result = apply_adaptive_low_disk(&mut paths, 0, 1000, 10.0, no_min_ttl(), false, true);
 
+        assert_eq!(
+            result.outcome,
+            AdaptiveOutcome::SatisfiedByUnmaterialization
+        );
+        assert!(result.reached_unmaterialization);
         assert!(is_stale(&paths[0], 10));
         assert!(matches!(
             &paths[2],
@@ -1980,6 +2346,23 @@ mod tests {
             }
         ));
         assert!(is_active_retained(&paths[1]));
+
+        let mut stats = CleanStaleStats::default();
+        stats.record_paths(&paths, result.reached_unmaterialization);
+        assert_eq!(
+            (
+                stats.retained_artifact_count,
+                stats.retained_bytes,
+                stats.retained_inactive_artifact_count,
+                stats.retained_inactive_bytes,
+                stats.retained_active_artifact_count,
+                stats.retained_active_bytes,
+                stats.adaptive_unmaterialization_selected_artifact_count,
+                stats.adaptive_unmaterialization_selected_bytes,
+            ),
+            (2, 600, 0, 0, 1, 500, 1, 100),
+            "retained paths should partition into inactive, active, and selected artifacts",
+        );
     }
 
     #[test]
@@ -1992,8 +2375,63 @@ mod tests {
             true,
         )];
 
-        apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, true);
+        let result = apply_adaptive_low_disk(&mut paths, 0, 1000, 100.0, no_min_ttl(), false, true);
 
         assert!(is_active_retained(&paths[0]));
+        assert_eq!(result.outcome, AdaptiveOutcome::InsufficientCandidates);
+        let mut stats = CleanStaleStats::default();
+        stats.record_paths(&paths, result.reached_unmaterialization);
+        assert_eq!(stats.retained_artifact_count, 1);
+        assert_eq!(stats.retained_active_artifact_count, 1);
+        assert_eq!(
+            (
+                stats.adaptive_unmaterialization_statically_ineligible_artifact_count,
+                stats.adaptive_unmaterialization_statically_ineligible_bytes,
+            ),
+            (1, 100),
+        );
+        assert_eq!(stats.unmaterialization_ineligible_artifact_count, 0);
+        assert_eq!(stats.unmaterialization_ineligible_bytes, 0);
+        assert_eq!(
+            stats.unmaterialization_ineligible_final_output_artifact_count,
+            1
+        );
+        assert_eq!(stats.unmaterialization_ineligible_final_output_bytes, 100);
+    }
+
+    #[test]
+    fn selected_unmaterializations_include_runtime_ineligible_artifacts() {
+        let result = UnmaterializeArtifactsResult {
+            unmaterialized: vec![(
+                ProjectRelativePathBuf::unchecked_new("selected".to_owned()),
+                10,
+            )],
+            ineligible: vec![UnmaterializationIneligibleArtifact {
+                reason: UnmaterializationIneligibilityReason::StateChanged,
+                size: 20,
+            }],
+        };
+        let mut stats = CleanStaleStats {
+            adaptive_unmaterialization_selected_artifact_count: 2,
+            adaptive_unmaterialization_selected_bytes: 30,
+            ..Default::default()
+        };
+
+        stats.record_unmaterialization_result(&result);
+
+        assert_eq!(
+            (
+                stats.adaptive_unmaterialization_selected_artifact_count,
+                stats.adaptive_unmaterialization_selected_bytes,
+                stats.unmaterialization_ineligible_artifact_count,
+                stats.unmaterialization_ineligible_bytes,
+                stats.adaptive_unmaterialization_statically_ineligible_artifact_count,
+                stats.adaptive_unmaterialization_statically_ineligible_bytes,
+                stats.unmaterialization_ineligible_state_changed_artifact_count,
+                stats.unmaterialization_ineligible_state_changed_bytes,
+            ),
+            (2, 30, 1, 20, 0, 0, 1, 20),
+            "runtime outcomes must not change adaptive selection counters",
+        );
     }
 }

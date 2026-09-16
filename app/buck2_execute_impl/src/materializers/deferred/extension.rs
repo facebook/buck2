@@ -20,6 +20,8 @@ use allocative::FlameGraphBuilder;
 use allocative::Visitor;
 use allocative::ident_key;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_data::clean_stale_result::PolicyMode;
+use buck2_data::clean_stale_result::Trigger;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
@@ -460,6 +462,12 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
                     dispatcher,
                     adaptive_low_disk,
                     root_abs_path: AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned())),
+                    trigger: Trigger::ManualExplicit,
+                    policy_mode: if adaptive_low_disk_threshold.is_some() {
+                        PolicyMode::ExplicitAdaptive
+                    } else {
+                        PolicyMode::ExplicitTtl
+                    },
                 })
             }
         };
@@ -477,11 +485,10 @@ impl<T: IoHandler> DeferredMaterializerAccessor<T> {
     pub(super) async fn clean_scratch_impl(
         &self,
     ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
-        let dispatcher = get_dispatcher();
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(Box::new(
-                CleanScratchExtensionCommand { dispatcher, sender },
+                CleanScratchExtensionCommand { sender },
             )))?;
         recv.await?.await.map(|res| res.into())
     }

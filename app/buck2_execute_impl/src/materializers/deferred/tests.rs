@@ -117,6 +117,10 @@ fn test_remove_path() {
 
 #[cfg(test)]
 mod state_machine {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    use std::ffi::OsString;
+    #[cfg(all(unix, not(target_os = "macos")))]
+    use std::os::unix::ffi::OsStringExt;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::path::Path;
@@ -130,6 +134,7 @@ mod state_machine {
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
     use buck2_events::daemon_id::DaemonId;
+    use buck2_events::dispatch::with_dispatcher_async;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::ActionSharedDirectory;
@@ -153,6 +158,7 @@ mod state_machine {
     use super::*;
     use crate::materializers::deferred::artifact_tree::Processing;
     use crate::materializers::deferred::artifact_tree::UnmaterializationIneligibilityReason;
+    use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
     use crate::materializers::deferred::clean_stale::CleanStaleSchedule;
     use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
@@ -508,6 +514,15 @@ mod state_machine {
         ChannelEventSource,
     ) {
         let (db, sqlite_state) = make_db(io.fs());
+        let stats = Arc::new(DeferredMaterializerStats::default());
+        if let Some(sqlite_state) = &sqlite_state {
+            for entry in sqlite_state {
+                stats.add_materialized(
+                    entry.classification,
+                    artifact_metadata_size(&entry.metadata),
+                );
+            }
+        }
         let tree = ArtifactTree::initialize(sqlite_state);
 
         let (daemon_dispatcher_events, daemon_dispatcher_sink) =
@@ -525,7 +540,7 @@ mod state_machine {
                 command_sender.dupe(),
                 tree,
                 CancellationContext::testing(),
-                Arc::new(DeferredMaterializerStats::default()),
+                stats,
                 Default::default(),
                 true,
                 daemon_dispatcher,
@@ -597,6 +612,34 @@ mod state_machine {
             },
             daemon_dispatcher_events,
         )
+    }
+
+    fn receive_clean_result(events: &mut ChannelEventSource) -> buck2_data::CleanStaleResult {
+        loop {
+            let event = events.receive().expect("clean-stale event should be sent");
+            if let buck2_data::buck_event::Data::Instant(instant) = event
+                .unpack_buck()
+                .expect("event should be a Buck event")
+                .data()
+                && let Some(buck2_data::instant_event::Data::CleanStaleResult(result)) =
+                    instant.data.as_ref()
+            {
+                return result.clone();
+            }
+        }
+    }
+
+    async fn clean_stale_with_events(
+        dm: &DeferredMaterializerAccessor<StubIoHandler>,
+        args: CleanStaleArtifactsArgs,
+    ) -> (
+        buck2_error::Result<buck2_cli_proto::CleanStaleResponse>,
+        ChannelEventSource,
+    ) {
+        let (events, sink) = buck2_events::create_source_sink_pair();
+        let dispatcher = EventDispatcher::new(TraceId::null(), DaemonId::new(), sink);
+        let result = with_dispatcher_async(dispatcher, dm.clean_stale_artifacts(args)).await;
+        (result, events)
     }
 
     #[tokio::test]
@@ -1450,6 +1493,104 @@ mod state_machine {
             // Create new materializer from db state so that artifacts are not active
             let (dm, _) = make_materializer(io, None).await;
 
+            let (res, mut events) = clean_stale_with_events(
+                &dm,
+                CleanStaleArtifactsArgs {
+                    policy: CleanStaleArtifactsPolicy::Explicit {
+                        keep_since_time: jiff::Timestamp::MAX,
+                        adaptive_low_disk_threshold: None,
+                        adaptive_min_ttl: None,
+                        adaptive_unmaterialize_active: false,
+                    },
+                    dry_run: false,
+                    tracked_only: false,
+                },
+            )
+            .await;
+            let res = res?;
+
+            let stats = res
+                .stats
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}", res.message.unwrap()));
+            let &buck2_data::CleanStaleStats {
+                stale_artifact_count,
+                stale_bytes,
+                cleaned_artifact_count,
+                cleaned_bytes,
+                ..
+            } = stats;
+            assert_eq!(
+                (
+                    stale_artifact_count,
+                    stale_bytes,
+                    cleaned_artifact_count,
+                    cleaned_bytes
+                ),
+                (1, 8, 1, 8)
+            );
+            assert_eq!(stats.ttl_stale_artifact_count, 1);
+            assert_eq!(stats.ttl_stale_bytes, 8);
+            assert_eq!(stats.adaptive_stale_artifact_count, 0);
+            assert_eq!(stats.adaptive_stale_bytes, 0);
+            assert_eq!(stats.cleaned_stale_artifact_count, 1);
+            assert_eq!(stats.cleaned_stale_bytes, 8);
+            assert_eq!(
+                stats.materialized_final_output_bytes_before
+                    + stats.materialized_intermediate_only_bytes_before,
+                8
+            );
+            assert_eq!(
+                stats.materialized_final_output_bytes_after
+                    + stats.materialized_intermediate_only_bytes_after,
+                0
+            );
+
+            let event = receive_clean_result(&mut events);
+            assert_eq!(
+                event.trigger,
+                buck2_data::clean_stale_result::Trigger::ManualExplicit as i32
+            );
+            assert_eq!(
+                event.policy_mode,
+                buck2_data::clean_stale_result::PolicyMode::ExplicitTtl as i32
+            );
+            assert_eq!(
+                event.failure_phase,
+                buck2_data::clean_stale_result::FailurePhase::None as i32
+            );
+            assert_eq!(
+                event.adaptive_outcome,
+                buck2_data::clean_stale_result::AdaptiveOutcome::Disabled as i32
+            );
+            assert!(!event.tracked_only);
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_records_sizes_after_cleanup_finishes() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
+            let project_root = temp_root();
+            let io = Arc::new(StubIoHandler::new(project_root.clone()));
+            let (dm, _) = make_materializer(io, None).await;
+            materialize_write(&path, b"contents", &dm).await?;
+            dm.abort();
+
+            let clean_barriers = Arc::new((Barrier::new(2), Barrier::new(2)));
+            let io = Arc::new(
+                StubIoHandler::new(project_root).with_clean_barriers(clean_barriers.dupe()),
+            );
+            let (dm, _) = make_materializer(io, None).await;
+            let materializer_stats = dm.stats.dupe();
+            let stats_update = thread::spawn(move || {
+                clean_barriers.0.wait();
+                materializer_stats.add_materialized(ArtifactClassification::IntermediateOnly, 4);
+                clean_barriers.1.wait();
+            });
+
             let res = dm
                 .clean_stale_artifacts(CleanStaleArtifactsArgs {
                     policy: CleanStaleArtifactsPolicy::Explicit {
@@ -1462,25 +1603,17 @@ mod state_machine {
                     tracked_only: false,
                 })
                 .await?;
+            stats_update
+                .join()
+                .expect("materializer stats update should finish");
 
-            let &buck2_data::CleanStaleStats {
-                stale_artifact_count,
-                stale_bytes,
-                cleaned_artifact_count,
-                cleaned_bytes,
-                ..
-            } = res
-                .stats
-                .as_ref()
-                .unwrap_or_else(|| panic!("{}", res.message.unwrap()));
+            let stats = res.stats.expect("clean-stale should return stats");
             assert_eq!(
                 (
-                    stale_artifact_count,
-                    stale_bytes,
-                    cleaned_artifact_count,
-                    cleaned_bytes
+                    stats.materialized_intermediate_only_bytes_before,
+                    stats.materialized_intermediate_only_bytes_after,
                 ),
-                (1, 8, 1, 8)
+                (8, 4),
             );
             Ok(())
         })
@@ -1500,8 +1633,9 @@ mod state_machine {
             let (dm, _) = make_materializer(io.dupe(), None).await;
             io.set_fail_read_dirs(vec![failed_dir]);
 
-            let result = dm
-                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+            let (result, mut events) = clean_stale_with_events(
+                &dm,
+                CleanStaleArtifactsArgs {
                     policy: CleanStaleArtifactsPolicy::Explicit {
                         keep_since_time: jiff::Timestamp::MAX,
                         adaptive_low_disk_threshold: None,
@@ -1510,8 +1644,9 @@ mod state_machine {
                     },
                     dry_run: false,
                     tracked_only: false,
-                })
-                .await;
+                },
+            )
+            .await;
 
             let Err(error) = result else {
                 panic!("clean-stale should report the injected scan error");
@@ -1524,6 +1659,14 @@ mod state_machine {
                 !fs_util::try_exists(&cleanable_dir)?,
                 "clean-stale should scan and delete artifacts from later directories"
             );
+            let event = receive_clean_result(&mut events);
+            assert_eq!(
+                event.failure_phase,
+                buck2_data::clean_stale_result::FailurePhase::Scan as i32
+            );
+            let stats = event.stats.expect("failed event should preserve stats");
+            assert_eq!(stats.scan_failed_directory_count, 1);
+            assert_eq!(stats.cleaned_untracked_artifact_count, 1);
             Ok(())
         })
         .await
@@ -1542,8 +1685,9 @@ mod state_machine {
             let (dm, _) = make_materializer(io.dupe(), None).await;
             io.set_fail_next_invalidated_cleans(1);
 
-            let result = dm
-                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+            let (result, mut events) = clean_stale_with_events(
+                &dm,
+                CleanStaleArtifactsArgs {
                     policy: CleanStaleArtifactsPolicy::Explicit {
                         keep_since_time: jiff::Timestamp::MAX,
                         adaptive_low_disk_threshold: None,
@@ -1552,8 +1696,9 @@ mod state_machine {
                     },
                     dry_run: false,
                     tracked_only: false,
-                })
-                .await;
+                },
+            )
+            .await;
 
             let Err(error) = result else {
                 panic!("clean-stale should report the injected deletion error");
@@ -1572,6 +1717,14 @@ mod state_machine {
                 fs_util::try_exists(&second_dir)?,
                 "exactly one path should remain after one injected deletion failure"
             );
+            let event = receive_clean_result(&mut events);
+            assert_eq!(
+                event.failure_phase,
+                buck2_data::clean_stale_result::FailurePhase::Clean as i32
+            );
+            let stats = event.stats.expect("failed event should preserve stats");
+            assert_eq!(stats.cleaned_untracked_artifact_count, 1);
+            assert_eq!(stats.delete_failed_artifact_count, 1);
             Ok(())
         })
         .await
@@ -1632,6 +1785,8 @@ mod state_machine {
                 cleaned_artifact_count,
                 untracked_artifact_count,
                 skipped_unreadable_count,
+                scan_unreadable_count,
+                delete_permission_denied_artifact_count,
                 ..
             } = res
                 .stats
@@ -1642,9 +1797,11 @@ mod state_machine {
                     stale_artifact_count,
                     cleaned_artifact_count,
                     untracked_artifact_count,
-                    skipped_unreadable_count
+                    skipped_unreadable_count,
+                    scan_unreadable_count,
+                    delete_permission_denied_artifact_count,
                 ),
-                (1, 1, 2, 4),
+                (1, 1, 2, 4, 2, 2),
                 "clean should finish despite the unreadable entries: the stale artifact is \
                  cleaned; neither untracked root can be fully deleted, so both are skipped \
                  rather than failing the clean — four skips total: the scan reading the \
@@ -1684,7 +1841,20 @@ mod state_machine {
             fs_util::write(&listable_file, b"x")?;
             fs_util::set_permissions(&listable, std::fs::Permissions::from_mode(0o444))?;
 
-            let res = dm.clean_scratch().await;
+            #[cfg(not(target_os = "macos"))]
+            let invalid_name = {
+                // macOS filesystems reject invalid UTF-8 file names.
+                let scratch_root = project_root.resolve(make_path("buck-out/v2/tmp"));
+                let invalid_name = scratch_root
+                    .as_abs_path()
+                    .join(OsString::from_vec(vec![0xff]));
+                fs_util::create_dir(&invalid_name)?;
+                invalid_name
+            };
+
+            let (mut events, sink) = buck2_events::create_source_sink_pair();
+            let dispatcher = EventDispatcher::new(TraceId::null(), DaemonId::new(), sink);
+            let res = with_dispatcher_async(dispatcher, dm.clean_scratch()).await;
 
             // Restore permissions so the temp dir can be deleted.
             fs_util::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o755))?;
@@ -1696,6 +1866,7 @@ mod state_machine {
                 cleaned_artifact_count,
                 cleaned_bytes,
                 skipped_unreadable_count,
+                scan_invalid_filename_count,
                 ..
             } = res
                 .stats
@@ -1704,17 +1875,24 @@ mod state_machine {
             assert!(!fs_util::try_exists(&dead)?);
             assert!(fs_util::try_exists(&unreadable_file)?);
             assert!(fs_util::try_exists(&listable_file)?);
+            #[cfg(not(target_os = "macos"))]
+            assert!(fs_util::try_exists(&invalid_name)?);
+            let expected_invalid_filename_count = if cfg!(target_os = "macos") { 0 } else { 1 };
             assert_eq!(
                 (
                     untracked_artifact_count,
                     cleaned_artifact_count,
                     cleaned_bytes,
-                    skipped_unreadable_count
+                    skipped_unreadable_count,
+                    scan_invalid_filename_count,
                 ),
-                (3, 1, 4, 4),
-                "the sweep deletes all dead scratch and skips what it cannot read or \
-                 delete — four skips total: sizing the unreadable dir, sizing the file \
-                 in the non-traversable dir, and the two failed deletions"
+                (3, 1, 4, 4, expected_invalid_filename_count,),
+                "the sweep deletes dead scratch and records permission-denied and invalid-name \
+                 operations separately"
+            );
+            assert!(
+                events.try_receive().is_none(),
+                "scratch sweeps should not emit clean-stale telemetry",
             );
             Ok(())
         })
@@ -1850,19 +2028,6 @@ mod state_machine {
                 make_materializer(io.dupe(), Some(clean_stale_config)).await;
             materialize_write(&path, b"contents", &dm).await?;
 
-            let receive_clean_result = |events: &mut ChannelEventSource| {
-                let event = events.receive().unwrap();
-                match event.unpack_buck().unwrap().data() {
-                    buck2_data::buck_event::Data::Instant(instant) => match instant.data.as_ref() {
-                        Some(buck2_data::instant_event::Data::CleanStaleResult(res)) => {
-                            Some(res.clone())
-                        }
-                        _ => None,
-                    },
-                    _ => None,
-                }
-                .unwrap()
-            };
             // The first clean stale request is scheduled at roughly the same time as materialize_write so we may receive an initial clean event
             // before anything is materialized, if so ignore events until an artifact is found (retained != 0).
             // It should only be necessary to wait for a single clean (1 second) but wait for up to 5 just in case.
@@ -1881,6 +2046,14 @@ mod state_machine {
                 }
             }
             let res = receive_clean_result(&mut daemon_dispatcher_events);
+            assert_eq!(
+                res.trigger,
+                buck2_data::clean_stale_result::Trigger::Scheduled as i32
+            );
+            assert_eq!(
+                res.policy_mode,
+                buck2_data::clean_stale_result::PolicyMode::ConfiguredTtl as i32
+            );
             let buck2_data::CleanStaleStats {
                 retained_artifact_count,
                 ..
