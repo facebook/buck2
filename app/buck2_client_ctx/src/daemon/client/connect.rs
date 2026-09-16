@@ -81,6 +81,16 @@ mod linux_unsandbox;
 #[cfg(all(fbcode_build, target_os = "linux"))]
 use self::linux_unsandbox::get_unix_daemon_and_args;
 
+#[cfg(fbcode_build)]
+const HTTP_PROXY_ENV_VARS: [&str; 6] = [
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "NO_PROXY",
+    "no_proxy",
+];
+
 /// The client side matcher for DaemonConstraints.
 #[derive(Clone, Debug)]
 pub struct DaemonConstraintsRequest {
@@ -390,7 +400,7 @@ impl<'a> BuckdLifecycle<'a> {
 
         let mut daemon_env_vars = Vec::new();
 
-        daemon_env_vars.push((OsStr::new("RUST_BACKTRACE"), OsStr::new("1")));
+        daemon_env_vars.push((OsStr::new("RUST_BACKTRACE"), OsString::from("1")));
 
         // TODO(nga): We create too many backtraces during `attrs.source()` coercion. Can be
         //   reproduced with this command:
@@ -404,13 +414,27 @@ impl<'a> BuckdLifecycle<'a> {
         //   behavior.
         daemon_env_vars.push((
             OsStr::new("RUST_LIB_BACKTRACE"),
-            OsStr::new(buck2_env!("BUCK2_LIB_BACKTRACE")?.unwrap_or("0")),
+            OsString::from(buck2_env!("BUCK2_LIB_BACKTRACE")?.unwrap_or("0")),
         ));
 
         if env::var_os("FORCE_WANT_RESTART").is_some() {
             // Disable restarter for the actual daemon command, even if it was forced, otherwise we
             // restart the daemon when it exits.
-            daemon_env_vars.push((OsStr::new("FORCE_WANT_RESTART"), OsStr::new("false")));
+            daemon_env_vars.push((OsStr::new("FORCE_WANT_RESTART"), OsString::from("false")));
+        }
+
+        #[cfg(fbcode_build)]
+        if !constraints
+            .daemon_startup_config
+            .http
+            .proxy_env_allowlist
+            .is_empty()
+        {
+            daemon_env_vars.extend(
+                HTTP_PROXY_ENV_VARS
+                    .into_iter()
+                    .filter_map(|name| env::var_os(name).map(|value| (OsStr::new(name), value))),
+            );
         }
 
         if cfg!(unix) {
@@ -436,7 +460,7 @@ impl<'a> BuckdLifecycle<'a> {
     fn start_server_windows(
         &self,
         mut args: Vec<&str>,
-        daemon_env_vars: &[(&OsStr, &OsStr)],
+        daemon_env_vars: &[(&OsStr, OsString)],
         daemon_startup_config: &DaemonStartupConfig,
     ) -> buck2_error::Result<()> {
         let daemon_startup_config = daemon_startup_config.serialize()?;
@@ -446,7 +470,10 @@ impl<'a> BuckdLifecycle<'a> {
             &get_daemon_exe()?,
             args.into_iter()
                 .chain(std::iter::once(daemon_startup_config.as_str())),
-            daemon_env_vars,
+            &daemon_env_vars
+                .iter()
+                .map(|(key, value)| (*key, value.as_os_str()))
+                .collect::<Vec<_>>(),
         )
     }
 
@@ -454,7 +481,7 @@ impl<'a> BuckdLifecycle<'a> {
         &self,
         executable: OsString,
         args: Vec<Cow<'_, str>>,
-        daemon_env_vars: &[(&OsStr, &OsStr)],
+        daemon_env_vars: &[(&OsStr, OsString)],
         daemon_startup_config: &DaemonStartupConfig,
         daemon_id: &DaemonId,
     ) -> buck2_error::Result<()> {

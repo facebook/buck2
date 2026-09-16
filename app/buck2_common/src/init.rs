@@ -17,6 +17,8 @@ use buck2_error::BuckErrorContext;
 #[cfg(unix)]
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+#[cfg(fbcode_build)]
+use buck2_http::ProxyHostAllowlist;
 use dice::PagableStorageBackend;
 use dupe::Dupe;
 use serde::Deserialize;
@@ -60,6 +62,8 @@ impl Timeout {
     Eq
 )]
 pub struct HttpConfig {
+    #[cfg(fbcode_build)]
+    pub proxy_env_allowlist: ProxyHostAllowlist,
     connect_timeout_ms: Option<u64>,
     read_timeout_ms: Option<u64>,
     write_timeout_ms: Option<u64>,
@@ -98,6 +102,14 @@ impl HttpConfig {
         })?;
 
         Ok(Self {
+            #[cfg(fbcode_build)]
+            proxy_env_allowlist: config
+                .parse_list::<String>(BuckconfigKeyRef {
+                    section: "http",
+                    property: "proxy_env_allowlist",
+                })?
+                .unwrap_or_default()
+                .try_into()?,
             connect_timeout_ms,
             read_timeout_ms,
             write_timeout_ms,

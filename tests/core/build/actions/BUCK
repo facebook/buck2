@@ -13,6 +13,16 @@ buck2_core_tests(
                 "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
             },
         },
+        "test_http_proxy_env": {
+            "deps": [
+                "fbsource//third-party/pypi/aiohttp:aiohttp",
+            ],
+            "env": {
+                "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
+            },
+            "require_nano_prelude": False,
+            "skip_for_os": ["windows"],
+        },
         "test_run_action_timeout": {
             "compatible_with": [
                 "ovr_config//os:linux",

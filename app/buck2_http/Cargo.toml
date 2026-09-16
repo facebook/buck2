@@ -24,6 +24,7 @@ hyper-util.workspace = true
 ipnetwork.workspace = true
 pin-project.workspace = true
 rustls.workspace = true
+serde.workspace = true
 tokio.workspace = true
 tokio-rustls.workspace = true
 tokio-util.workspace = true

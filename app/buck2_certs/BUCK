@@ -5,6 +5,9 @@ oncall("build_infra")
 rust_library(
     name = "buck2_certs",
     srcs = glob(["src/**/*.rs"]),
+    test_deps = [
+        # @oss-disable[end= ]: "fbsource//third-party/rust:rcgen",
+    ],
     test_env = {"TEST_CERT_LOCATIONS": "$(source test/testdata)"},
     deps = [
         "fbsource//third-party/rust:rustls",

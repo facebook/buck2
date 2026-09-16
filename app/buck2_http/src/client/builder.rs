@@ -13,10 +13,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_certs::certs::find_internal_cert;
+#[cfg(fbcode_build)]
+use buck2_certs::certs::set_internal_and_system_roots;
 use buck2_certs::certs::supports_vpnless;
 use buck2_certs::certs::tls_config_with_single_cert;
 use buck2_certs::certs::tls_config_with_system_roots;
 use buck2_error::BuckErrorOptionContext;
+#[cfg(fbcode_build)]
+use http::uri::Scheme;
 use hyper::Uri;
 use hyper_http_proxy::Proxy;
 use hyper_http_proxy::ProxyConnector;
@@ -113,6 +117,28 @@ impl HttpClientBuilder {
     pub fn with_tls_config(&mut self, tls_config: ClientConfig) -> &mut Self {
         self.tls_config = tls_config;
         self
+    }
+
+    /// Configure environment proxies only for allowed destination hosts, trusting
+    /// internal and native system roots when an environment proxy is added.
+    #[cfg(fbcode_build)]
+    pub async fn with_internal_proxy_from_env(
+        &mut self,
+        allowlist: &proxy::ProxyHostAllowlist,
+    ) -> buck2_error::Result<&mut Self> {
+        if allowlist.is_empty() {
+            return Ok(self);
+        }
+        let previous_proxy_count = self.proxies.len();
+        for (name, scheme) in [("HTTPS_PROXY", Scheme::HTTPS), ("HTTP_PROXY", Scheme::HTTP)] {
+            if let Some(proxy) = proxy::proxy_from_env(name, scheme, Some(allowlist.clone()))? {
+                self.with_proxy(proxy);
+            }
+        }
+        if self.proxies.len() > previous_proxy_count {
+            set_internal_and_system_roots(&mut self.tls_config).await?;
+        }
+        Ok(self)
     }
 
     pub async fn with_client_auth_cert<P: AsRef<Path>>(
