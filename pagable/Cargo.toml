@@ -17,7 +17,6 @@ bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_
 dashmap.workspace = true
 dupe.workspace = true
 either.workspace = true
-erased-serde.workspace = true
 fancy-regex.workspace = true
 indexmap.workspace = true
 inventory.workspace = true

@@ -133,6 +133,25 @@ pub trait PagableSerialize {
     /// Serialize this value using the provided serializer.
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()>;
 
+    /// Write a slice of `Self` as a `Vec<Self>`, length prefix included.
+    ///
+    /// The counterpart to [`PagableDeserialize::pagable_deserialize_vec`], and
+    /// subject to the same rule: an override must produce the bytes the default
+    /// would have.
+    fn pagable_serialize_vec(
+        values: &[Self],
+        serializer: &mut dyn PagableSerializer,
+    ) -> crate::Result<()>
+    where
+        Self: Sized,
+    {
+        <usize as serde::Serialize>::serialize(&values.len(), serializer.serde())?;
+        for value in values {
+            value.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+
     /// Serialize this value as the payload of an Arc node.
     ///
     /// Page-out calls this hook after [`PagableSerializer::serialize_arc`] records
@@ -173,6 +192,22 @@ pub trait PagableDeserialize<'de>: Sized {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self>;
+
+    /// Read a `Vec<Self>`, length prefix included.
+    ///
+    /// A specialization hook, since Rust has none: `u8` overrides it to take
+    /// the run as one slice rather than a dispatch per byte. An override must
+    /// read exactly what the default writes.
+    fn pagable_deserialize_vec<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Vec<Self>> {
+        let len = <usize as serde::Deserialize>::deserialize(deserializer.serde())?;
+        let mut values = Vec::with_capacity(len);
+        for _ in 0..len {
+            values.push(Self::pagable_deserialize(deserializer)?);
+        }
+        Ok(values)
+    }
 }
 
 /// Trait for types that can be deserialized from any lifetime.
@@ -261,13 +296,14 @@ static_assertions::assert_obj_safe!(PagableSerializer);
 
 /// Trait for deserializers that support pagable deserialization.
 ///
-/// This trait is object-safe, using type-erased return types to enable dynamic dispatch:
-/// - `serde()` returns `Box<dyn erased_serde::Deserializer>` instead of `impl Deserializer`
+/// Object-safe; `serde()` exposes the concrete `postcard` deserializer.
 pub trait PagableDeserializer<'de> {
-    /// Get a type-erased serde deserializer.
+    /// Get the underlying serde deserializer.
     ///
-    /// Returns a boxed `erased_serde::Deserializer` that can deserialize any serde-compatible type.
-    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_>;
+    /// Concrete rather than type-erased, mirroring [`PagableSerializer::serde`]:
+    /// erasing it cost a boxed trait object per read, and what page-in reads is
+    /// overwhelmingly scalars.
+    fn serde(&mut self) -> &mut postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>>;
 
     /// Current cursor position (byte position + arc index).
     fn position(&self) -> PagableCursor;
@@ -325,7 +361,7 @@ pub trait PagableDeserializer<'de> {
 static_assertions::assert_obj_safe!(PagableDeserializer<'_>);
 
 impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mut D {
-    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
+    fn serde(&mut self) -> &mut postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>> {
         <D as PagableDeserializer<'de>>::serde(self)
     }
 

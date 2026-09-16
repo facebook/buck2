@@ -203,8 +203,8 @@ impl<'de> TestingDeserializer<'de> {
 }
 
 impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
-    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
-        Box::new(<dyn erased_serde::Deserializer>::erase(&mut self.serde))
+    fn serde(&mut self) -> &mut postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>> {
+        &mut self.serde
     }
 
     fn position(&self) -> PagableCursor {

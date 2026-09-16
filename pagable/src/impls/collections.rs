@@ -226,11 +226,7 @@ impl<'de, V: std::hash::Hash + Eq + PagableDeserialize<'de>> PagableDeserialize<
 
 impl<T: PagableSerialize> PagableSerialize for Vec<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
-        usize::serialize(&self.len(), serializer.serde())?;
-        for v in self {
-            v.pagable_serialize(serializer)?;
-        }
-        Ok(())
+        T::pagable_serialize_vec(self, serializer)
     }
 }
 
@@ -238,12 +234,7 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Vec<T> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        let items = usize::deserialize(deserializer.serde())?;
-        let mut v = Vec::with_capacity(items);
-        for _ in 0..items {
-            v.push(T::pagable_deserialize(deserializer)?);
-        }
-        Ok(v)
+        T::pagable_deserialize_vec(deserializer)
     }
 }
 
@@ -352,6 +343,78 @@ mod tests {
     use crate::testing::TestingSerializer;
     use crate::traits::PagableDeserialize;
     use crate::traits::PagableSerialize;
+
+    /// Keeps the default sequence hooks, so a `Vec<PlainByte>` encodes the way a
+    /// `Vec<u8>` would have before `u8` overrode them.
+    #[derive(Debug, PartialEq)]
+    struct PlainByte(u8);
+
+    impl PagableSerialize for PlainByte {
+        fn pagable_serialize(
+            &self,
+            serializer: &mut dyn crate::PagableSerializer,
+        ) -> crate::Result<()> {
+            self.0.pagable_serialize(serializer)
+        }
+    }
+
+    impl<'de> PagableDeserialize<'de> for PlainByte {
+        fn pagable_deserialize<D: crate::PagableDeserializer<'de> + ?Sized>(
+            deserializer: &mut D,
+        ) -> crate::Result<Self> {
+            Ok(PlainByte(u8::pagable_deserialize(deserializer)?))
+        }
+    }
+
+    /// `u8` takes a `Vec` as one slice, only sound while that encodes exactly
+    /// what the default would. A round trip cannot catch a divergence - both
+    /// sides move together - it would misparse across binary versions instead.
+    #[test]
+    fn test_vec_u8_encodes_as_the_default_would() -> crate::Result<()> {
+        // 128 is where postcard's varint length grows a second byte, so the
+        // prefix is exercised in both widths.
+        for len in [0usize, 1, 127, 128, 300] {
+            let bytes: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();
+            let plain: Vec<PlainByte> = bytes.iter().copied().map(PlainByte).collect();
+
+            let mut serializer = TestingSerializer::new();
+            bytes.pagable_serialize(&mut serializer)?;
+            let as_bytes = serializer.finish();
+
+            let mut serializer = TestingSerializer::new();
+            plain.pagable_serialize(&mut serializer)?;
+            let as_elements = serializer.finish();
+
+            assert_eq!(
+                as_bytes, as_elements,
+                "Vec<u8> of {len} bytes did not encode the way the default path does"
+            );
+
+            let mut deserializer = TestingDeserializer::new(&as_bytes);
+            let restored: Vec<u8> = Vec::pagable_deserialize(&mut deserializer)?;
+            assert_eq!(
+                bytes, restored,
+                "Vec<u8> of {len} bytes lost its round trip"
+            );
+
+            let mut deserializer = TestingDeserializer::new(&as_elements);
+            let restored: Vec<u8> = Vec::pagable_deserialize(&mut deserializer)?;
+            assert_eq!(
+                bytes, restored,
+                "Vec<u8> of {len} bytes could not read what the default path wrote"
+            );
+
+            // The other direction: a reader without the `u8` override, on bytes
+            // written with it.
+            let mut deserializer = TestingDeserializer::new(&as_bytes);
+            let restored: Vec<PlainByte> = Vec::pagable_deserialize(&mut deserializer)?;
+            assert_eq!(
+                plain, restored,
+                "Vec<u8> of {len} bytes could not be read by the default path"
+            );
+        }
+        Ok(())
+    }
 
     #[test]
     fn test_hashmap_roundtrip() -> crate::Result<()> {

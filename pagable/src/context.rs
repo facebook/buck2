@@ -126,8 +126,8 @@ impl<'de, 's> PagableDeserializerImpl<'de, 's> {
 }
 
 impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
-    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
-        Box::new(<dyn erased_serde::Deserializer>::erase(&mut self.inner))
+    fn serde(&mut self) -> &mut postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>> {
+        &mut self.inner
     }
 
     fn deserialize_arc(

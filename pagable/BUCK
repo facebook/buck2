@@ -47,7 +47,6 @@ rust_library(
         "fbsource//third-party/rust:bytemuck",
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:either",
-        "fbsource//third-party/rust:erased-serde",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:inventory",
