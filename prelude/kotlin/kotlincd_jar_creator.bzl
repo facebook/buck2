@@ -9,7 +9,6 @@
 load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
-    "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
     "JavaCompilingDepsTSet",  # @unused Used as a type
     "JavaLibraryInfo",
@@ -34,6 +33,7 @@ load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "BuildMode",
     "OutputPaths",
+    "SourceOnlyAbiCompilingDepsTSet",  # @unused Used as a type
     "TargetType",
     "base_qualified_name",
     "declare_prefixed_output",
@@ -138,11 +138,11 @@ def create_jar_artifact_kotlincd(
     # library builds. The applicability plugin needs to know which deps will be
     # available during source-only-abi generation (only deps with
     # required_for_source_only_abi=True or in source_only_abi_deps).
-    source_only_abi_applicability_classpath = []
+    source_only_abi_applicability_classpath = cmd_args()
     so_abi_deps = None
     if actual_abi_generation_mode == AbiGenerationMode("source_only"):
-        so_abi_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
-        source_only_abi_applicability_classpath = [dep.abi for dep in so_abi_deps]
+        so_abi_deps = get_source_only_abi_compiling_deps(actions, compiling_deps_tset, source_only_abi_deps)
+        source_only_abi_applicability_classpath = cmd_args(so_abi_deps.project_as_args("jars"))
 
     track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
@@ -226,7 +226,7 @@ def create_jar_artifact_kotlincd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
-        source_only_abi_compiling_deps = [],
+        source_only_abi_compiling_deps = None,
         track_class_usage = track_class_usage,
     )
     proto, used_jars_json = define_kotlincd_action(
@@ -273,7 +273,7 @@ def create_jar_artifact_kotlincd(
             should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
-            source_only_abi_applicability_classpath = [],
+            source_only_abi_applicability_classpath = cmd_args(),
         )
 
         # kotlincd does not support source abi
@@ -355,7 +355,7 @@ def _encode_kotlin_extra_params(
     incremental_state_dir: Artifact | None,
     language_version: str,
     kotlin_classes: Artifact,
-    source_only_abi_applicability_classpath: list[Artifact] = [],
+    source_only_abi_applicability_classpath: cmd_args = cmd_args(),
 ):
     kosabiPluginOptionsMap = {}
     is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")
@@ -496,13 +496,11 @@ def _define_kotlincd_action(
     classpath_jars_tag: ArtifactTag,
     abi_dir: Artifact | None,
     target_type: TargetType,
-    source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
+    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None = None,
     is_creating_subtarget: bool = False,
     incremental_state_dir: Artifact | None = None,
     should_action_run_incrementally: bool = False,
 ):
-    _unused = source_only_abi_compiling_deps
-
     compiler = kotlin_toolchain.kotlincd[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
         qualified_name,
@@ -565,9 +563,9 @@ def _define_kotlincd_action(
         abi_to_abi_dir_map = None
         if kotlin_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
-                abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
-                abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
-                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = [dep.abi_as_dir for dep in abi_as_dir_deps])))
+                expect(source_only_abi_compiling_deps != None)
+                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("abi_to_abi_dir")
+                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
                 args.add(incremental_metadata_ignored_inputs_tag.tag_artifacts(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map))))

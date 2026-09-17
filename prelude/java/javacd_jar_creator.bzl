@@ -9,7 +9,6 @@
 load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
-    "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
     "JavaCompilingDepsTSet",  # @unused Used as a type
     "generate_java_classpath_snapshot",
@@ -39,6 +38,7 @@ load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "BuildMode",
     "OutputPaths",
+    "SourceOnlyAbiCompilingDepsTSet",  # @unused Used as a type
     "TargetType",
     "base_qualified_name",
     "declare_prefixed_output",
@@ -144,7 +144,7 @@ def create_jar_artifact_javacd(
         target_type = TargetType("library"),
         output_paths = output_paths,
         classpath_jars_tag = library_classpath_jars_tag,
-        source_only_abi_compiling_deps = [],
+        source_only_abi_compiling_deps = None,
         track_class_usage = track_class_usage,
     )
     used_jars_json = define_javacd_action(
@@ -157,7 +157,7 @@ def create_jar_artifact_javacd(
         abi_dir = class_abi_output_dir if should_create_class_abi else None,
         target_type = TargetType("library"),
         is_creating_subtarget = is_creating_subtarget,
-        source_only_abi_compiling_deps = [],
+        source_only_abi_compiling_deps = None,
     )
     jar_postprocessor = ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None
     final_jar_output = prepare_final_jar(
@@ -286,7 +286,7 @@ def _define_javacd_action(
     abi_dir: Artifact | None,
     target_type: TargetType,
     is_creating_subtarget: bool = False,
-    source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
+    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None = None,
 ):
     expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
     compiler = java_toolchain.javacd
@@ -329,9 +329,9 @@ def _define_javacd_action(
         abi_to_abi_dir_map = None
         if java_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
-                abi_as_dir_deps = [dep for dep in source_only_abi_compiling_deps if dep.abi_as_dir]
-                abi_to_abi_dir_map = [cmd_args(dep.abi, dep.abi_as_dir, delimiter = " ") for dep in abi_as_dir_deps]
-                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = [dep.abi_as_dir for dep in abi_as_dir_deps])))
+                expect(source_only_abi_compiling_deps != None)
+                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("abi_to_abi_dir")
+                args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
                 args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
