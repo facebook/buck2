@@ -24,9 +24,7 @@ from .apple_platform import ApplePlatform
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-def _find_executable_for_signed_path(
-    path: Path, platform: ApplePlatform
-) -> Optional[Path]:
+def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Path:
     extension = path.suffix
     if extension not in [".app", ".appex", ".framework"]:
         return path
@@ -34,20 +32,13 @@ def _find_executable_for_signed_path(
     contents_subdir = "Contents/MacOS" if platform.is_desktop() else ""
     contents_dir = path / contents_subdir
 
-    # Read binary name from Info.plist. Some synthetic/test bundles omit an
-    # executable; those cannot be proven pre-signed and must fall back to the
-    # normal signing path.
+    # Read binary name from Info.plist
     info_plist_path = path / (
         "Contents/Info.plist" if platform.is_desktop() else "Info.plist"
     )
-    try:
-        with open(info_plist_path, "rb") as file:
-            plist = plistlib.load(file)
-    except (OSError, plistlib.InvalidFileException):
-        return None
-    executable_name = plist.get("CFBundleExecutable")
-    if not isinstance(executable_name, str):
-        return None
+    with open(info_plist_path, "rb") as file:
+        plist = plistlib.load(file)
+    executable_name = plist["CFBundleExecutable"]
 
     return contents_dir / executable_name
 
@@ -124,11 +115,6 @@ def _read_signature_info_macos(
     if check_entitlements:
         # Adhoc entitlements do not require postprocessing, so we just need to check existence
         binary_path = _find_executable_for_signed_path(path, platform)
-        if binary_path is None:
-            _LOGGER.info(
-                f"  Could not find an executable for `{path}`, not skipping adhoc signing"
-            )
-            return None
         otool_arg: List[Union[str, Path]] = [
             "/usr/bin/otool",
             "-s",
@@ -160,11 +146,6 @@ def _read_signature_info(
         return _read_signature_info_macos(path, platform, check_entitlements)
     # @oss-disable[end= ]: elif sys.platform == "linux":
         # @oss-disable[end= ]: binary = _find_executable_for_signed_path(path, platform)
-        # @oss-disable[end= ]: if binary is None:
-            # @oss-disable[end= ]: _LOGGER.info(
-                # @oss-disable[end= ]: f"  Could not find an executable for `{path}`, not skipping adhoc signing"
-            # @oss-disable[end= ]: )
-            # @oss-disable[end= ]: return None
         # @oss-disable[end= ]: return read_signature_info(binary, check_entitlements)
     return None
 
