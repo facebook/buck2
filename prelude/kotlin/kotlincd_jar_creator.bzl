@@ -139,6 +139,7 @@ def create_jar_artifact_kotlincd(
     # available during source-only-abi generation (only deps with
     # required_for_source_only_abi=True or in source_only_abi_deps).
     source_only_abi_applicability_classpath = []
+    so_abi_deps = None
     if actual_abi_generation_mode == AbiGenerationMode("source_only"):
         so_abi_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
         source_only_abi_applicability_classpath = [dep.abi for dep in so_abi_deps]
@@ -294,6 +295,7 @@ def create_jar_artifact_kotlincd(
             define_action = define_kotlincd_action,
             uses_content_based_paths = uses_content_based_paths,
             kotlin_extra_params_builder = kotlin_extra_params_builder,
+            source_only_abi_compiling_deps = so_abi_deps,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(
             actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier

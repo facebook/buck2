@@ -569,6 +569,7 @@ def generate_abi_jars(
     define_action: typing.Callable,
     uses_content_based_paths: bool,
     kotlin_extra_params_builder: typing.Callable | None = None,
+    source_only_abi_compiling_deps: list[JavaClasspathEntry] | None = None,
 ) -> tuple:
     class_abi = None
     source_abi = None
@@ -632,7 +633,8 @@ def generate_abi_jars(
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_content_based_paths)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_content_based_paths, dir = True)
-            source_only_abi_compiling_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
+            if source_only_abi_compiling_deps == None:
+                source_only_abi_compiling_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
 
             if kotlin_extra_params_builder:
                 source_only_abi_kotlin_classes = declare_prefixed_output(
