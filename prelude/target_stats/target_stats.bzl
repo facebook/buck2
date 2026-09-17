@@ -8,6 +8,7 @@
 
 # Shared implementation for the target_stats integration.
 
+load("@prelude//:paths.bzl", "paths")
 load(":target_stats_tools.bzl", "TargetStatsToolsInfo")
 load(
     ":target_stats_types.bzl",
@@ -121,6 +122,13 @@ def target_stats_providers_and_subtargets(
 
     file_stats_by_path = {}
     for name, src in srcs.items():
+        # A header map key need not be normalized, and it becomes an output
+        # path. third-party/libvpx maps each generated header under both "name"
+        # and "./name", so the same file arrives twice and normalizes to one
+        # name; measure it once rather than declaring the output twice.
+        name = paths.normalize(name)
+        if name in file_stats_by_path:
+            continue
         file_stats_by_path[name] = _file_stats_action(ctx, tools, src, name)
 
     target_data = _extract_target_data_action(ctx, tools, file_stats_by_path)
