@@ -14,7 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -66,7 +66,7 @@ impl<'v> StarlarkTaggedValue<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub StarlarkTaggedValue);
+starlark_complex_value!(pub StarlarkTaggedValue);
 
 starlark::methods_static!(TAGGED_VALUE_METHODS = tagged_value_methods);
 

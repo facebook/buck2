@@ -17,7 +17,7 @@
 
 pub(crate) mod array;
 pub(crate) mod complex;
-pub(crate) mod complex_branded;
+pub(crate) mod complex_no_freeze;
 pub(crate) mod list;
 pub(crate) mod simple;
 pub(crate) mod static_;

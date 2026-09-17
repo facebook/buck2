@@ -14,7 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
@@ -40,7 +40,7 @@ pub struct StarlarkResolvedDynamicValue<'v> {
     pub(crate) value: FrozenValueTyped<'v, ProviderCollection<'v>>,
 }
 
-starlark_complex_value_branded!(pub StarlarkResolvedDynamicValue);
+starlark_complex_value!(pub StarlarkResolvedDynamicValue);
 
 starlark::methods_static!(RESOLVED_DYNAMIC_VALUE_METHODS = resolved_dynamic_value_methods);
 

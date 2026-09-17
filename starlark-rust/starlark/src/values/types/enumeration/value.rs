@@ -31,7 +31,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
@@ -87,7 +87,7 @@ impl<'v> Display for EnumValue<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub EnumValue);
+starlark_complex_value!(pub EnumValue);
 
 impl<'v> EnumValue<'v> {
     /// The result of calling `type()` on an enum value.

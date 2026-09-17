@@ -287,7 +287,7 @@ mod tests {
 
     use crate as starlark;
     use crate::any::ProvidesStaticType;
-    use crate::starlark_complex_value_branded;
+    use crate::starlark_complex_value;
     use crate::values::OwnedFrozen;
     use crate::values::StarlarkValue;
     use crate::values::Value;
@@ -334,7 +334,7 @@ mod tests {
     )]
     struct MyComplex<'v>(Value<'v>);
 
-    starlark_complex_value_branded!(MyComplex);
+    starlark_complex_value!(MyComplex);
 
     #[starlark_value(type = "MyComplex")]
     impl<'v> StarlarkValue<'v> for MyComplex<'v> {}

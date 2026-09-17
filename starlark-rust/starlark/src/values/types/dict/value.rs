@@ -134,7 +134,7 @@ static_starlark_value!(
 
 impl<'v> AllocValue<'v> for Dict<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex_branded(DictGen(RefCell::new(self)))
+        heap.alloc_complex(DictGen(RefCell::new(self)))
     }
 }
 

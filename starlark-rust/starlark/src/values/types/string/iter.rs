@@ -27,7 +27,7 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
@@ -53,13 +53,13 @@ struct StringIterable<'v> {
     produce_char: bool, // if not char, then int
 }
 
-starlark_complex_value_branded!(StringIterable);
+starlark_complex_value!(StringIterable);
 
 pub(crate) fn iterate_chars<'v>(
     string: StringValue<'v>,
     heap: Heap<'v>,
 ) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
-    ValueOfUnchecked::new(heap.alloc_complex_branded(StringIterable {
+    ValueOfUnchecked::new(heap.alloc_complex(StringIterable {
         string,
         produce_char: true,
     }))
@@ -69,7 +69,7 @@ pub(crate) fn iterate_codepoints<'v>(
     string: StringValue<'v>,
     heap: Heap<'v>,
 ) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
-    ValueOfUnchecked::new(heap.alloc_complex_branded(StringIterable {
+    ValueOfUnchecked::new(heap.alloc_complex(StringIterable {
         string,
         produce_char: false,
     }))

@@ -21,7 +21,7 @@ use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
@@ -127,7 +127,7 @@ impl<'v> Serialize for StarlarkResult<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub(crate) StarlarkResult);
+starlark_complex_value!(pub(crate) StarlarkResult);
 
 impl<'v> Display for StarlarkResult<'v> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

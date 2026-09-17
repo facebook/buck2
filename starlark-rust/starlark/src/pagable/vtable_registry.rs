@@ -238,7 +238,7 @@ mod tests {
     use super::*;
     // Alias crate as starlark so proc macro generated paths work
     use crate as starlark;
-    use crate::starlark_complex_value_branded;
+    use crate::starlark_complex_value;
     use crate::starlark_simple_value;
     use crate::values::ProvidesStaticType;
     use crate::values::StarlarkValue;
@@ -278,7 +278,7 @@ mod tests {
         _value: Value<'v>,
     }
 
-    starlark_complex_value_branded!(TestComplex);
+    starlark_complex_value!(TestComplex);
 
     #[starlark_value(type = "TestComplex")]
     impl<'v> StarlarkValue<'v> for TestComplex<'v> {}

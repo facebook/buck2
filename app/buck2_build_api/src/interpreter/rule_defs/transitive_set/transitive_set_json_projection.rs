@@ -122,7 +122,7 @@ impl<'v> TransitiveSetJsonProjection<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub TransitiveSetJsonProjection);
+starlark_complex_value!(pub TransitiveSetJsonProjection);
 
 starlark::methods_static!(
     TRANSITIVE_SET_JSON_PROJECTION_METHODS = transitive_set_json_projection_methods

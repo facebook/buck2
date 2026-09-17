@@ -477,7 +477,7 @@ impl ProviderCodegen {
         };
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
-                starlark::starlark_complex_value_branded!(#vis #name);
+                starlark::starlark_complex_value!(#vis #name);
             },
             syn::parse_quote_spanned! { self.span=>
                 starlark::methods_static!(#methods_static_name = #provider_methods_func_name);

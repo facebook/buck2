@@ -206,7 +206,7 @@ impl<'v> TransitiveSetArgsProjection<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub TransitiveSetArgsProjection);
+starlark_complex_value!(pub TransitiveSetArgsProjection);
 
 starlark::methods_static!(
     TRANSITIVE_SET_ARGS_PROJECTION_METHODS = transitive_set_args_projection_methods

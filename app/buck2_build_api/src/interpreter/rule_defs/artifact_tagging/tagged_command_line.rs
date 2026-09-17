@@ -14,7 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -57,7 +57,7 @@ impl<'v> StarlarkTaggedCommandLine<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub StarlarkTaggedCommandLine);
+starlark_complex_value!(pub StarlarkTaggedCommandLine);
 
 starlark::methods_static!(TAGGED_COMMAND_LINE_METHODS = tagged_command_line_methods);
 

@@ -36,7 +36,7 @@ use crate::any::ProvidesStaticType;
 use crate::docs::DocItem;
 use crate::docs::DocMember;
 use crate::docs::DocProperty;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::typing::TyStruct;
 use crate::util::arc_str::ArcStr;
@@ -99,7 +99,7 @@ pub(crate) struct Struct<'v> {
     pub(crate) fields: SmallMap<StringValue<'v>, Value<'v>>,
 }
 
-starlark_complex_value_branded!(pub(crate) Struct);
+starlark_complex_value!(pub(crate) Struct);
 
 impl<'v> Display for Struct<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

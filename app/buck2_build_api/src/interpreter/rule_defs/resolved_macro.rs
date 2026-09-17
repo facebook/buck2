@@ -24,7 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
@@ -198,7 +198,7 @@ pub struct ResolvedStringWithMacros<'v> {
     configured_macros: Option<ConfiguredStringWithMacros>,
 }
 
-starlark_complex_value_branded!(pub ResolvedStringWithMacros);
+starlark_complex_value!(pub ResolvedStringWithMacros);
 
 impl<'v> Display for ResolvedStringWithMacros<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

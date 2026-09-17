@@ -35,7 +35,7 @@ use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
 use crate::private::Private;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
@@ -393,7 +393,7 @@ pub(crate) struct BoundMethod<'v> {
     pub(crate) this: Value<'v>,
 }
 
-starlark_complex_value_branded!(pub(crate) BoundMethod);
+starlark_complex_value!(pub(crate) BoundMethod);
 
 impl<'v> BoundMethod<'v> {
     /// Create a new [`BoundMethod`]. Given the expression `object.function`,

@@ -24,7 +24,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -88,7 +88,7 @@ impl<'v> Serialize for StarlarkSelector<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub StarlarkSelector);
+starlark_complex_value!(pub StarlarkSelector);
 
 impl<'v> StarlarkSelector<'v> {
     pub fn new(d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>) -> Self {

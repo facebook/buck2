@@ -60,7 +60,7 @@ impl<'v> Freeze<'v> for TestComplexValue<'v> {
 
 impl<'v> AllocValue<'v> for TestComplexValue<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex_branded(self)
+        heap.alloc_complex(self)
     }
 }
 

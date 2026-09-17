@@ -31,7 +31,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::docs::DocItem;
 use crate::docs::DocModule;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 use crate::values::Heap;
@@ -74,7 +74,7 @@ impl<'v> Namespace<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub Namespace);
+starlark_complex_value!(pub Namespace);
 
 impl<'v> Display for Namespace<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

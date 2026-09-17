@@ -374,7 +374,7 @@ impl<'v> TransitiveSet<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub TransitiveSet);
+starlark_complex_value!(pub TransitiveSet);
 
 starlark::methods_static!(TRANSITIVE_SET_METHODS = transitive_set_methods);
 

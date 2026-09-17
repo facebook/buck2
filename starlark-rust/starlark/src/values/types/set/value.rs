@@ -129,7 +129,7 @@ crate::register_ty_starlark_value!(SetGen<SetData<'_>>);
 
 impl<'v> AllocValue<'v> for SetData<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex_branded(SetGen(RefCell::new(self)))
+        heap.alloc_complex(SetGen(RefCell::new(self)))
     }
 }
 

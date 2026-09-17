@@ -77,7 +77,7 @@ impl<'v> UnboundValue<'v> {
     #[inline]
     pub(crate) fn bind(self, this: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
-            UnboundValue::Method(m) => Ok(heap.alloc_complex_branded(BoundMethod::new(this, m))),
+            UnboundValue::Method(m) => Ok(heap.alloc_complex(BoundMethod::new(this, m))),
             UnboundValue::Attr(a) => a.invoke(this, heap),
         }
     }

@@ -66,7 +66,7 @@ pub struct UserProvider<'v> {
     attributes: Box<[Value<'v>]>,
 }
 
-starlark_complex_value_branded!(pub UserProvider);
+starlark_complex_value!(pub UserProvider);
 
 impl<'v> UserProvider<'v> {
     pub(crate) fn callable_data(&self) -> &'v UserProviderCallableData<'v> {

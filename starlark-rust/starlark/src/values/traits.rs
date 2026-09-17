@@ -67,10 +67,10 @@ use crate::values::function::FUNCTION_TYPE;
 /// (e.g. using [`RefCell`](std::cell::RefCell)), or contain references to other values.
 ///
 /// A `ComplexValue` is allocated with
-/// [`alloc_complex_branded`](crate::values::Heap::alloc_complex_branded). Types whose only
+/// [`alloc_complex`](crate::values::Heap::alloc_complex). Types whose only
 /// lifetime parameter is the heap brand can derive
 /// [`Freeze`](crate::values::Freeze) and let
-/// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!) write the
+/// [`starlark_complex_value!`](crate::starlark_complex_value!) write the
 /// boilerplate; the blanket [`FreezeDynamic`](crate::values::FreezeDynamic) implementation
 /// carries them through the same freeze protocol.
 ///
@@ -134,8 +134,8 @@ impl<'v, V> ComplexValue<'v> for V where V: StarlarkValue<'v> + Trace<'v> + Free
 /// A type that contains nested Starlark [`Value`]s, or that is not [`Send`] and [`Sync`] because
 /// it has interior mutability such as a [`RefCell`](std::cell::RefCell), additionally needs
 /// [`Trace`](crate::values::Trace) and [`Freeze`](crate::values::Freeze), and is
-/// allocated with [`alloc_complex_branded`](Heap::alloc_complex_branded) — see
-/// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!), which writes the
+/// allocated with [`alloc_complex`](Heap::alloc_complex) — see
+/// [`starlark_complex_value!`](crate::starlark_complex_value!), which writes the
 /// boilerplate for the common shape.
 ///
 /// There are only two required members of [`StarlarkValue`], namely
@@ -187,7 +187,7 @@ impl<'v, V> ComplexValue<'v> for V where V: StarlarkValue<'v> + Trace<'v> + Free
 /// * A *complex* value holds [`Value`]s of an unfrozen heap, or interior mutability. It
 ///   implements [`Trace`](crate::values::Trace), so the garbage collector can find what it
 ///   points at, and [`Freeze`](crate::values::Freeze), whose output is the simple
-///   value that stands in for it on the frozen heap ([`Heap::alloc_complex_branded`]).
+///   value that stands in for it on the frozen heap ([`Heap::alloc_complex`]).
 ///   [`Heap::alloc_complex_no_freeze`] is for a type that must be traced but has no frozen form;
 ///   freezing a module that still holds one is an error.
 ///

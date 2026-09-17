@@ -93,7 +93,7 @@ pub struct TransitiveSetTraversal<'v> {
     pub ordering: TransitiveSetOrdering,
 }
 
-starlark_complex_value_branded!(pub TransitiveSetTraversal);
+starlark_complex_value!(pub TransitiveSetTraversal);
 
 #[starlark_value(type = "TransitiveSetIterator")]
 impl<'v> StarlarkValue<'v> for TransitiveSetTraversal<'v> {
@@ -125,7 +125,7 @@ pub struct TransitiveSetProjectionTraversal<'v> {
     pub ordering: TransitiveSetOrdering,
 }
 
-starlark_complex_value_branded!(pub TransitiveSetProjectionTraversal);
+starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
 #[starlark_value(type = "TransitiveSetArgsProjectionIterator")]
 impl<'v> StarlarkValue<'v> for TransitiveSetProjectionTraversal<'v> {

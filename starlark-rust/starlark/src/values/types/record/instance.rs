@@ -30,7 +30,7 @@ use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::values::Freeze;
 use crate::values::Heap;
@@ -79,7 +79,7 @@ impl<'v> Display for Record<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub Record);
+starlark_complex_value!(pub Record);
 
 impl<'v> Record<'v> {
     /// `type(x)` for records.

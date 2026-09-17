@@ -11,7 +11,7 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -44,7 +44,7 @@ impl<'v> StarlarkSelectIncompatible<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub StarlarkSelectIncompatible);
+starlark_complex_value!(pub StarlarkSelectIncompatible);
 
 #[starlark_value(type = "SelectIncompatible")]
 impl<'v> StarlarkValue<'v> for StarlarkSelectIncompatible<'v> {}

@@ -13,7 +13,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -47,7 +47,7 @@ pub struct StarlarkAssembledDirEntry<'v> {
     pub(crate) artifact: Value<'v>,
 }
 
-starlark_complex_value_branded!(pub StarlarkAssembledDirEntry);
+starlark_complex_value!(pub StarlarkAssembledDirEntry);
 
 #[starlark_value(type = "AssembledDirEntry")]
 impl<'v> StarlarkValue<'v> for StarlarkAssembledDirEntry<'v> {}

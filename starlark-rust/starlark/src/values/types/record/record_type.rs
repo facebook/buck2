@@ -170,7 +170,7 @@ pub(super) type AnyRecordType<'v> = Either<&'v RecordType<'v>, &'v FrozenRecordT
 
 impl<'v> AllocValue<'v> for RecordType<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex_branded(self)
+        heap.alloc_complex(self)
     }
 }
 
@@ -324,7 +324,7 @@ impl<'v, V: RecordVariant> StarlarkValue<'v> for RecordTypeGen<'v, V> {
                 };
                 values.push(value);
             }
-            Ok(eval.heap().alloc_complex_branded(Record {
+            Ok(eval.heap().alloc_complex(Record {
                 typ: this,
                 values: values.into_boxed_slice(),
             }))

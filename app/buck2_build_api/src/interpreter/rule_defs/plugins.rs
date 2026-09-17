@@ -85,7 +85,7 @@ pub struct AnalysisPlugins<'v> {
     plugins: SmallMap<PluginKindWrapper, Value<'v>>,
 }
 
-starlark_complex_value_branded!(pub AnalysisPlugins);
+starlark_complex_value!(pub AnalysisPlugins);
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

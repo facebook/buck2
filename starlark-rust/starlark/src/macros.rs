@@ -27,7 +27,7 @@
 ///
 /// Hand-expand it when a piece needs customizing.
 #[macro_export]
-macro_rules! starlark_complex_value_branded {
+macro_rules! starlark_complex_value {
     ($v:vis $x:ident) => {
         $crate::__macro_refs::item! {
             /// Type of frozen value.
@@ -44,7 +44,7 @@ macro_rules! starlark_complex_value_branded {
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
                 #[inline]
                 fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
-                    heap.alloc_complex_branded(self)
+                    heap.alloc_complex(self)
                 }
             }
 

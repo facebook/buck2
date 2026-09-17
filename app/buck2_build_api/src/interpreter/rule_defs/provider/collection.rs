@@ -173,7 +173,7 @@ static_starlark_value!(EMPTY_PROVIDER_COLLECTION: FrozenProviderCollection = Fro
 /// Type of a frozen provider collection.
 pub type FrozenProviderCollection = ProviderCollection<'static>;
 
-// These are the hand-written equivalents of `starlark_complex_value_branded!`,
+// These are the hand-written equivalents of `starlark_complex_value!`,
 // which we can't use because empty collections should be allocated as the
 // statically interned empty collection.
 impl<'v> AllocValue<'v> for ProviderCollection<'v> {
@@ -181,7 +181,7 @@ impl<'v> AllocValue<'v> for ProviderCollection<'v> {
         if self.providers.is_empty() {
             EMPTY_PROVIDER_COLLECTION.at().to_value()
         } else {
-            heap.alloc_complex_branded(self)
+            heap.alloc_complex(self)
         }
     }
 }

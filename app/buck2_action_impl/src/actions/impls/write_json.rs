@@ -50,7 +50,7 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -314,7 +314,7 @@ impl<'v> fmt::Display for StarlarkWriteJsonCommandLineArg<'v> {
     }
 }
 
-starlark_complex_value_branded!(pub(crate) StarlarkWriteJsonCommandLineArg);
+starlark_complex_value!(pub(crate) StarlarkWriteJsonCommandLineArg);
 
 #[starlark_value(type = "WriteJsonCliArgs")]
 impl<'v> StarlarkValue<'v> for StarlarkWriteJsonCommandLineArg<'v> {

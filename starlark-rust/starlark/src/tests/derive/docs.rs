@@ -34,7 +34,7 @@ use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -95,7 +95,7 @@ impl<'v> Serialize for ComplexTestExample<'v> {
     }
 }
 
-starlark_complex_value_branded!(ComplexTestExample);
+starlark_complex_value!(ComplexTestExample);
 
 starlark::methods_static!(COMPLEX_TEST_EXAMPLE_METHODS = object_docs_1);
 

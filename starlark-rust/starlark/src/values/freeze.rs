@@ -31,7 +31,7 @@
 //! * Built-in AValue layouts, such as lists and tuples, can implement their
 //!   complete `heap_freeze` operation directly when their trailing storage needs
 //!   specialized handling.
-//! * A value allocated with [`Heap::alloc_complex_branded`](crate::values::Heap::alloc_complex_branded)
+//! * A value allocated with [`Heap::alloc_complex`](crate::values::Heap::alloc_complex)
 //!   implements [`FreezeDynamic`]. Most such values implement [`Freeze`]; the
 //!   blanket [`FreezeDynamic`] implementation selects one statically known frozen Rust
 //!   type. A `Freeze` implementation can reuse an existing frozen [`Value`] from

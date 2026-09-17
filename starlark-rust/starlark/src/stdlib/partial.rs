@@ -40,7 +40,7 @@ use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
-use crate::starlark_complex_value_branded;
+use crate::starlark_complex_value;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -136,7 +136,7 @@ impl<'v> Display for Partial<'v> {
     }
 }
 
-starlark_complex_value_branded!(Partial);
+starlark_complex_value!(Partial);
 
 impl<'v> Freeze<'v> for Partial<'v> {
     type Frozen<'fv> = Partial<'fv>;

@@ -23,7 +23,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -69,7 +69,7 @@ pub struct Dependency<'v> {
     execution_platform: ValueOfUnchecked<'v, NoneOr<StarlarkExecutionPlatformResolution>>,
 }
 
-starlark_complex_value_branded!(pub Dependency);
+starlark_complex_value!(pub Dependency);
 
 impl<'v> Display for Dependency<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

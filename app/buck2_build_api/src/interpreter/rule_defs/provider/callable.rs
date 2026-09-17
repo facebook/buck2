@@ -332,7 +332,7 @@ pub(crate) struct UserProviderField<'v> {
     pub(crate) default: Option<Value<'v>>,
 }
 
-starlark_complex_value_branded!(pub(crate) UserProviderField);
+starlark_complex_value!(pub(crate) UserProviderField);
 
 impl<'v> Display for UserProviderField<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -449,7 +449,7 @@ impl<'v> ProviderCallableLike for UserProviderCallable<'v> {
 
 impl<'v> AllocValue<'v> for UserProviderCallable<'v> {
     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
-        heap.alloc_complex_branded(self)
+        heap.alloc_complex(self)
     }
 }
 

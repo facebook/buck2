@@ -104,7 +104,7 @@ pub struct StarlarkValidationSpec<'v> {
     optional: bool,
 }
 
-starlark_complex_value_branded!(pub(crate) StarlarkValidationSpec);
+starlark_complex_value!(pub(crate) StarlarkValidationSpec);
 
 impl<'v> StarlarkValidationSpec<'v> {
     pub fn name(&self) -> &'v str {

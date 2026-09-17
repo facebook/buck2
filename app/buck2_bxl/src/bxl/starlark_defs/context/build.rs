@@ -29,7 +29,7 @@ use futures::FutureExt;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::eval::Evaluator;
-use starlark::starlark_complex_value_branded;
+use starlark::starlark_complex_value;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -62,7 +62,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 )]
 pub(crate) struct StarlarkProvidersArtifactIterable<'v>(pub(crate) Value<'v>);
 
-starlark_complex_value_branded!(pub(crate) StarlarkProvidersArtifactIterable);
+starlark_complex_value!(pub(crate) StarlarkProvidersArtifactIterable);
 
 impl<'v> StarlarkProvidersArtifactIterable<'v> {
     fn iter(&self) -> impl Iterator<Item = &'v Artifact> + use<'v> {
@@ -117,7 +117,7 @@ impl<'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterable<'v> {
 )]
 pub(crate) struct StarlarkFailedArtifactIterable<'v>(pub(crate) Value<'v>);
 
-starlark_complex_value_branded!(pub(crate) StarlarkFailedArtifactIterable);
+starlark_complex_value!(pub(crate) StarlarkFailedArtifactIterable);
 
 impl<'v> StarlarkFailedArtifactIterable<'v> {
     fn iter(&self) -> impl Iterator<Item = &'v buck2_error::Error> + use<'v> {

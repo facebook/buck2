@@ -361,7 +361,7 @@ mod tests {
         Module::with_temp_heap(|module| {
             let reentrant = module
                 .heap()
-                .alloc_complex_branded(ReentrantTupleFreeze(RefCell::new(None)));
+                .alloc_complex(ReentrantTupleFreeze(RefCell::new(None)));
             let tuple = module.heap().alloc_tuple(&[reentrant]);
             reentrant
                 .downcast_ref::<ReentrantTupleFreeze>()
@@ -380,7 +380,7 @@ mod tests {
         Module::with_temp_heap(|module| {
             let reentrant = module
                 .heap()
-                .alloc_complex_branded(ReentrantListFreeze(RefCell::new(None)));
+                .alloc_complex(ReentrantListFreeze(RefCell::new(None)));
             let list = module.heap().alloc_list(&[reentrant]);
             reentrant
                 .downcast_ref::<ReentrantListFreeze>()
