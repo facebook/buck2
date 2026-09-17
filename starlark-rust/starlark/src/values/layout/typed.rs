@@ -57,7 +57,6 @@ use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::ValueOfUnchecked;
 use crate::values::alloc_value::AllocStringValue;
 use crate::values::layout::avalue::AValue;

@@ -175,7 +175,6 @@ mod tests {
     use crate::values::StarlarkValue;
     use crate::values::UnpackValue;
     use crate::values::Value;
-    use crate::values::ValueLike;
     use crate::values::none::NoneType;
 
     #[test]

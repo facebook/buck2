@@ -59,7 +59,6 @@ use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::dict::value::ValueStr;
 use crate::values::enumeration::matcher::EnumTypeMatcher;

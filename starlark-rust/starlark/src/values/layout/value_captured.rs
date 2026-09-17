@@ -36,7 +36,6 @@ use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 
 #[derive(Debug, Trace, ProvidesStaticType, Display, NoSerialize, Allocative)]
 #[display("{:?}", self)] // This type should never be user visible

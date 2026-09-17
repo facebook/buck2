@@ -26,7 +26,6 @@ use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::dict::Dict;
 
 /// Try parse `"aaa{}bbb"` and return `("aaa", "bbb")`.

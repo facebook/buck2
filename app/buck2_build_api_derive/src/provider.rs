@@ -611,8 +611,7 @@ impl ProviderCodegen {
                         args: &starlark::eval::Arguments<'v, '_>,
                         eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
                     ) -> starlark::Result<starlark::values::Value<'v>> {
-                        starlark::values::ValueLike::invoke(
-                            #callable_globals_static_name.function(), args, eval)
+                        #callable_globals_static_name.function().invoke(args, eval)
                     }
 
                     fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {

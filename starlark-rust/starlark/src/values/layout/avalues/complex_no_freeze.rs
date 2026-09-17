@@ -111,7 +111,6 @@ mod tests {
     use crate::values::InitializedFreezeSlot;
     use crate::values::StarlarkValue;
     use crate::values::Trace;
-    use crate::values::ValueLike;
 
     #[derive(
         Debug,

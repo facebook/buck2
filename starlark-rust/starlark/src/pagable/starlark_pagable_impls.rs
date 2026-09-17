@@ -273,7 +273,7 @@ where
     }
 }
 
-/// `Value` has no `Hash` impl; `get_hashed()` from `ValueLike` hashes it, and the value is
+/// `Value` has no `Hash` impl; `Value::get_hashed` hashes it, and the value is
 /// initialized by `deserialize_value` before it gets here.
 impl<'v> SmallMapKeyDeserialize<'v> for crate::values::Value<'v> {
     fn starlark_deserialize_hashed(

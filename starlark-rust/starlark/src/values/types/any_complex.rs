@@ -40,7 +40,6 @@ use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::layout::avalue::AValueSimpleBound;
 
 /// Allocate arbitrary value on the starlark heap without implementing full [`StarlarkValue`].

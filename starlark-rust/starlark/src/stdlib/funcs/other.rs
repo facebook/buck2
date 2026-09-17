@@ -30,7 +30,6 @@ use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::list::AllocList;
 use crate::values::tuple::UnpackTuple;
 use crate::values::typing::StarlarkIter;

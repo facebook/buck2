@@ -21,7 +21,6 @@ use crate::assert::Assert;
 use crate::eval::bc::opcode::BcOpcode;
 use crate::eval::compiler::def::Def;
 use crate::tests::bc::golden::bc_golden_test;
-use crate::values::ValueLike;
 
 #[test]
 fn test_def_const_inlined() {

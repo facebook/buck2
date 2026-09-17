@@ -31,7 +31,6 @@ use starlark::values::Heap;
 use starlark::values::StringValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::UnpackTuple;

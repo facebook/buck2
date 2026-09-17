@@ -18,7 +18,6 @@ use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
 use starlark::typing::Ty;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::AttrTypeExt;

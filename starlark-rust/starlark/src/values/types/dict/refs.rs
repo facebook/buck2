@@ -28,7 +28,6 @@ use crate::typing::Ty;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::dict::Dict;
 use crate::values::dict::value::DictGen;
 use crate::values::type_repr::StarlarkTypeRepr;

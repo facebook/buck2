@@ -63,7 +63,6 @@ use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
-use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::ValueError;
 use crate::values::ValueIdentity;
@@ -714,7 +713,8 @@ impl<'v> Value<'v> {
     }
 
     /// Invoke self with given arguments.
-    pub(crate) fn invoke(
+    /// Call this value as a function with given arguments.
+    pub fn invoke(
         self,
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -917,10 +917,22 @@ impl<'v> Value<'v> {
         Ok(StarlarkIterator::new(iter, heap))
     }
 
+    /// The value itself. Exists so that `.to_value()` reads the same on a `Value` as on its
+    /// typed wrappers such as [`ValueTyped`](crate::values::ValueTyped).
+    #[inline]
+    pub fn to_value(self) -> Value<'v> {
+        self
+    }
+
     /// Get the [`Hashed`] version of this [`Value`].
     #[inline]
     pub fn get_hashed(self) -> crate::Result<Hashed<Self>> {
-        ValueLike::get_hashed(self)
+        let hash = if let Some(s) = self.unpack_starlark_str() {
+            s.get_hash()
+        } else {
+            self.get_hash()?
+        };
+        Ok(Hashed::new_unchecked(hash, self))
     }
 
     /// Are two values equal. If the values are of different types it will
@@ -944,9 +956,80 @@ impl<'v> Value<'v> {
     }
 
     /// How are two values comparable. For values of different types will return [`Err`].
-    #[inline]
     pub fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
-        ValueLike::compare(self, other)
+        let _guard = stack_guard::stack_guard()?;
+        self.get_ref().compare(other)
+    }
+
+    /// Hash the value.
+    pub fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
+        self.get_ref().write_hash(hasher)
+    }
+
+    /// `repr(x)`.
+    pub fn collect_repr(self, collector: &mut String) {
+        match repr_stack_push(self) {
+            Ok(_guard) => {
+                self.get_ref().collect_repr(collector);
+            }
+            Err(..) => {
+                self.get_ref().collect_repr_cycle(collector);
+            }
+        }
+    }
+
+    /// `str(x)`.
+    pub fn collect_str(self, collector: &mut String) {
+        // Fast path: strings don't need cycle detection or vtable dispatch.
+        if let Some(s) = self.unpack_starlark_str() {
+            collector.push_str(s.as_str());
+            return;
+        }
+        match repr_stack_push(self) {
+            Ok(_guard) => {
+                self.get_ref().collect_str(collector);
+            }
+            Err(..) => {
+                self.get_ref().collect_repr_cycle(collector);
+            }
+        }
+    }
+
+    /// Get a reference to underlying data or [`None`]
+    /// if contained object has different type than requested.
+    pub fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
+        if T::static_type_id() == StarlarkStr::static_type_id() {
+            if self.is_str() {
+                // SAFETY: we just checked this is string, and requested type is string.
+                Some(unsafe { self.downcast_ref_unchecked() })
+            } else {
+                None
+            }
+        } else if PointerI32::type_is_pointer_i32::<T>() {
+            if self.unpack_inline_int().is_some() {
+                // SAFETY: we just checked this is int, and requested type is int.
+                Some(unsafe { self.downcast_ref_unchecked() })
+            } else {
+                None
+            }
+        } else {
+            match self.0.unpack_ptr()?.state() {
+                AValueHeapEntryState::Value(header) => header.unpack().downcast_ref::<T>(),
+                AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
+            }
+        }
+    }
+
+    /// Get a reference to underlying data or [`Err`]
+    /// if contained object has different type than requested.
+    pub fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> crate::Result<&'v T> {
+        match self.downcast_ref() {
+            Some(v) => Ok(v),
+            None => Err(crate::Error::new_value(ValueValueError::WrongType(
+                T::TYPE,
+                self.to_string_for_type_error(),
+            ))),
+        }
     }
 
     /// Describe the value, in order to get its metadata in a way that could be used
@@ -1116,68 +1199,6 @@ impl<'v> StarlarkTypeRepr for Value<'v> {
     }
 }
 
-/// The subset of [`Value`]'s API that container implementations are written against.
-///
-/// [`Value`] is its only implementation; see the documentation of the same-named methods there.
-pub trait ValueLike<'v>: Copy + Trace<'v> + ProvidesStaticType<'v> + 'v {
-    /// Produce a [`Value`] regardless of the type you are starting with.
-    fn to_value(self) -> Value<'v>;
-
-    /// Call this value as a function with given arguments.
-    fn invoke(
-        self,
-        args: &Arguments<'v, '_>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> crate::Result<Value<'v>> {
-        self.to_value().invoke(args, eval)
-    }
-
-    /// Hash the value.
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()>;
-
-    /// Get hash value.
-    fn get_hashed(self) -> crate::Result<Hashed<Self>> {
-        let hash = if let Some(s) = self.to_value().unpack_starlark_str() {
-            s.get_hash()
-        } else {
-            self.to_value().get_hash()?
-        };
-        Ok(Hashed::new_unchecked(hash, self))
-    }
-
-    /// `repr(x)`.
-    fn collect_repr(self, collector: &mut String);
-
-    /// `str(x)`.
-    fn collect_str(self, collector: &mut String) {
-        self.collect_repr(collector);
-    }
-
-    /// `x == other`.
-    ///
-    /// This operation can only return error on stack overflow.
-    fn equals(self, other: Value<'v>) -> crate::Result<bool>;
-
-    /// `x <=> other`.
-    fn compare(self, other: Value<'v>) -> crate::Result<Ordering>;
-
-    /// Get a reference to underlying data or [`None`]
-    /// if contained object has different type than requested.
-    fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T>;
-
-    /// Get a reference to underlying data or [`Err`]
-    /// if contained object has different type than requested.
-    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> crate::Result<&'v T> {
-        match self.downcast_ref() {
-            Some(v) => Ok(v),
-            None => Err(crate::Error::new_value(ValueValueError::WrongType(
-                T::TYPE,
-                self.to_value().to_string_for_type_error(),
-            ))),
-        }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 enum ToJsonError {
     #[error("Cycle detected when serializing value of type `{0}` to JSON")]
@@ -1186,77 +1207,6 @@ enum ToJsonError {
         "Value of type `{0}` is nested too deeply to serialize to JSON without running out of stack"
     )]
     TooDeep(&'static str),
-}
-
-impl<'v> ValueLike<'v> for Value<'v> {
-    #[inline]
-    fn to_value(self) -> Value<'v> {
-        self
-    }
-
-    fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
-        if T::static_type_id() == StarlarkStr::static_type_id() {
-            if self.is_str() {
-                // SAFETY: we just checked this is string, and requested type is string.
-                Some(unsafe { self.downcast_ref_unchecked() })
-            } else {
-                None
-            }
-        } else if PointerI32::type_is_pointer_i32::<T>() {
-            if self.unpack_inline_int().is_some() {
-                // SAFETY: we just checked this is int, and requested type is int.
-                Some(unsafe { self.downcast_ref_unchecked() })
-            } else {
-                None
-            }
-        } else {
-            match self.0.unpack_ptr()?.state() {
-                AValueHeapEntryState::Value(header) => header.unpack().downcast_ref::<T>(),
-                AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
-            }
-        }
-    }
-
-    fn collect_repr(self, collector: &mut String) {
-        match repr_stack_push(self) {
-            Ok(_guard) => {
-                self.get_ref().collect_repr(collector);
-            }
-            Err(..) => {
-                self.get_ref().collect_repr_cycle(collector);
-            }
-        }
-    }
-
-    fn collect_str(self, collector: &mut String) {
-        // Fast path: strings don't need cycle detection or vtable dispatch.
-        if let Some(s) = self.unpack_starlark_str() {
-            collector.push_str(s.as_str());
-            return;
-        }
-        match repr_stack_push(self) {
-            Ok(_guard) => {
-                self.get_ref().collect_str(collector);
-            }
-            Err(..) => {
-                self.get_ref().collect_repr_cycle(collector);
-            }
-        }
-    }
-
-    fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
-        self.get_ref().write_hash(hasher)
-    }
-
-    #[inline]
-    fn equals(self, other: Value<'v>) -> crate::Result<bool> {
-        self.equals(other)
-    }
-
-    fn compare(self, other: Value<'v>) -> crate::Result<Ordering> {
-        let _guard = stack_guard::stack_guard()?;
-        self.get_ref().compare(other)
-    }
 }
 
 #[cfg(test)]
@@ -1268,7 +1218,6 @@ mod tests {
     use crate::typing::Ty;
     use crate::values::Heap;
     use crate::values::Value;
-    use crate::values::ValueLike;
     use crate::values::int::pointer_i32::PointerI32;
     use crate::values::list::AllocList;
     use crate::values::none::NoneType;

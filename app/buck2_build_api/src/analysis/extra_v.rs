@@ -23,7 +23,6 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozen;
 use starlark::values::Trace;
-use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 

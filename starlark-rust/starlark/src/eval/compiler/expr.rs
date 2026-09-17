@@ -69,7 +69,6 @@ use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::bool::StarlarkBool;
 use crate::values::function::BoundMethod;

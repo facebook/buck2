@@ -57,7 +57,6 @@ use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
 

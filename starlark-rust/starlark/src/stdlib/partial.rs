@@ -48,7 +48,6 @@ use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::dict::DictRef;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::types::tuple::value::Tuple;

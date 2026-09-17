@@ -42,7 +42,6 @@ use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::bigint::StarlarkBigInt;
 use crate::values::types::int::inline_int::InlineInt;

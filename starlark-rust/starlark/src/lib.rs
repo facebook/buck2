@@ -123,7 +123,6 @@
 //! use starlark::syntax::AstModule;
 //! use starlark::syntax::Dialect;
 //! use starlark::values::Value;
-//! use starlark::values::ValueLike;
 //! use starlark::values::none::NoneType;
 //!
 //! let content = r#"
@@ -348,7 +347,6 @@
 //! use starlark::values::StarlarkValue;
 //! use starlark::values::Value;
 //! use starlark::values::ValueError;
-//! use starlark::values::ValueLike;
 //! use starlark_derive::starlark_value;
 //!
 //! // Define complex numbers

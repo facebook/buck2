@@ -20,7 +20,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::starlark_value;
 

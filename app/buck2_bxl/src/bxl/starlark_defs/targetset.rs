@@ -40,7 +40,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
@@ -225,7 +224,7 @@ where
     Self: HasTyVTable,
 {
     pub(crate) fn from_value<'v>(x: Value<'v>) -> Option<&'v Self> {
-        ValueLike::downcast_ref::<Self>(x)
+        x.downcast_ref::<Self>()
     }
 }
 

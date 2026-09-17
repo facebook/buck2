@@ -244,7 +244,6 @@ mod tests {
     use crate::values::Trace;
     use crate::values::UnpackValue;
     use crate::values::Value;
-    use crate::values::ValueLike;
     use crate::values::dict::AllocDict;
     use crate::values::freeze_error::FreezeResult;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;

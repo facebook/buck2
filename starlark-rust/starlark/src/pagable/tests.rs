@@ -56,7 +56,6 @@ use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::any::StarlarkAny;
 use crate::values::any::StarlarkAnyRegistered;
@@ -1245,8 +1244,6 @@ fn test_small_map_string_key_round_trip() -> crate::Result<()> {
 fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
     use starlark_map::small_map::SmallMap;
 
-    use crate::values::ValueLike;
-
     // Backward reference: SmallMapFvData (drop bump) has value keys
     // pointing to frozen strings (undrop bump) and values pointing to HeapData
     // (also drop bump). HeapData is allocated BEFORE SmallMapFvData, so during
@@ -1321,8 +1318,6 @@ fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
 #[test]
 fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     use starlark_map::small_map::SmallMap;
-
-    use crate::values::ValueLike;
 
     // Forward reference test: SmallMap is in drop bump (deserialized first),
     // its keys point to frozen strings in undrop bump (deserialized later).

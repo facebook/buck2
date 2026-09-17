@@ -37,7 +37,6 @@ use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::enumeration::enum_type::AnyEnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
 

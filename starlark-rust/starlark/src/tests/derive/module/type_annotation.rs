@@ -26,7 +26,6 @@ use crate as starlark;
 use crate::assert::Assert;
 use crate::environment::GlobalsBuilder;
 use crate::values::StarlarkValue;
-use crate::values::ValueLike;
 use crate::values::function::NativeFunction;
 
 #[derive(

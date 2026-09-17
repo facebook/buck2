@@ -54,7 +54,6 @@ use starlark::values::ThinBoxSliceValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;

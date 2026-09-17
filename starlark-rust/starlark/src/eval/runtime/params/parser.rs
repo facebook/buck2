@@ -96,7 +96,6 @@ mod tests {
     use crate::eval::runtime::params::spec::ParametersSpec;
     use crate::typing::Ty;
     use crate::values::Value;
-    use crate::values::ValueLike;
 
     #[test]
     fn test_documentation() -> anyhow::Result<()> {

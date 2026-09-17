@@ -25,7 +25,6 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def_inline::InlineDefBody;
 use crate::values::Value;
-use crate::values::ValueLike;
 
 #[starlark_module]
 fn globals(builder: &mut GlobalsBuilder) {

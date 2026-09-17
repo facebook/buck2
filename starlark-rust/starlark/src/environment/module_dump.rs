@@ -20,7 +20,6 @@ use std::fmt::Write;
 use crate::environment::FrozenModule;
 use crate::eval::compiler::def::Def;
 use crate::values::OwnedFrozenRef;
-use crate::values::ValueLike;
 
 impl FrozenModule {
     /// Print a lot of module internals for debugging.

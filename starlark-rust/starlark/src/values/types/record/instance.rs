@@ -39,7 +39,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::ValueTyped;
 use crate::values::comparison::equals_slice;
 use crate::values::record::field::Field;

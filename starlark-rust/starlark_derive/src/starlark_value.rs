@@ -207,7 +207,7 @@ impl ImplStarlarkValue {
                 type Error = std::convert::Infallible;
 
                 fn unpack_value_impl(value: starlark::values::Value<#lt>) -> Result<Option<&#lt #self_ty>, Self::Error> {
-                    std::result::Result::Ok(starlark::values::ValueLike::downcast_ref(value))
+                    std::result::Result::Ok(value.downcast_ref())
                 }
             }
         })

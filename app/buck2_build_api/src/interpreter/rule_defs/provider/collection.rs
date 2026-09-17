@@ -55,7 +55,6 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::list::ListRef;
@@ -199,7 +198,7 @@ impl<'fv> AllocFrozenValue<'fv> for ProviderCollection<'fv> {
 impl<'v> ProviderCollection<'v> {
     #[inline]
     pub fn from_value(x: Value<'v>) -> Option<&'v Self> {
-        ValueLike::downcast_ref::<ProviderCollection<'v>>(x)
+        x.downcast_ref::<ProviderCollection<'v>>()
     }
 }
 
@@ -677,7 +676,6 @@ pub mod tester {
     use dupe::Dupe;
     use starlark::environment::GlobalsBuilder;
     use starlark::values::Value;
-    use starlark::values::ValueLike;
 
     use crate::interpreter::rule_defs::provider::ProviderCollection;
 

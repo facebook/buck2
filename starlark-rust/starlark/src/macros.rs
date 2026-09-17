@@ -59,7 +59,7 @@ macro_rules! starlark_complex_value {
                 /// Downcast the value.
                 #[inline]
                 pub fn from_value(x: $crate::values::Value<'v>) -> Option<&'v Self> {
-                    $crate::values::ValueLike::downcast_ref::< $x<'v> >(x)
+                    x.downcast_ref::< $x<'v> >()
                 }
             }
 
@@ -162,7 +162,7 @@ macro_rules! starlark_simple_value {
                 /// Downcast a value to self type.
                 #[inline]
                 pub fn from_value<'v>(x: $crate::values::Value<'v>) -> Option<&'v Self> {
-                    $crate::values::ValueLike::downcast_ref::< $x >(x)
+                    x.downcast_ref::< $x >()
                 }
             }
 

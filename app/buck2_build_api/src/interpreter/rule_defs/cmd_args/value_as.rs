@@ -19,7 +19,6 @@ use dupe::Dupe;
 use starlark::typing::Ty;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;

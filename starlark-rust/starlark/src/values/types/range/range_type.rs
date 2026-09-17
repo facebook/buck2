@@ -33,7 +33,6 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::index::convert_index;
 use crate::values::index::convert_slice_indices;
 

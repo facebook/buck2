@@ -32,7 +32,6 @@ use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 
 #[derive(
     Debug,

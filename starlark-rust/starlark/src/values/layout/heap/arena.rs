@@ -50,7 +50,6 @@ use starlark_map::small_map::SmallMap;
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;

@@ -22,7 +22,6 @@ use crate::environment::GlobalsBuilder;
 use crate::eval::Evaluator;
 use crate::values::StringValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::string::StarlarkStr;
 use crate::values::types::bytes::value::StarlarkBytes;
 

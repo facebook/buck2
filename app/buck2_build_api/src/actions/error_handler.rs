@@ -38,7 +38,6 @@ use starlark::values::starlark_value;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
-use crate::starlark::values::ValueLike;
 
 pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError>;
 

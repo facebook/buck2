@@ -38,7 +38,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue as _;
 use starlark::values::Value;
 use starlark::values::ValueError;
-use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 use starlark_map::small_map::SmallMap;

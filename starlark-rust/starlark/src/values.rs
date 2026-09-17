@@ -110,7 +110,6 @@ pub use crate::values::layout::typed::FrozenValueTyped;
 pub use crate::values::layout::typed::ValueTyped;
 pub use crate::values::layout::typed::string::StringValue;
 pub use crate::values::layout::value::Value;
-pub use crate::values::layout::value::ValueLike;
 pub use crate::values::thin_box_slice_value::packed_impl::ThinBoxSliceValue;
 pub use crate::values::trace::Trace;
 pub use crate::values::traits::ComplexValue;

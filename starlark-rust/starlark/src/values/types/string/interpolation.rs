@@ -29,7 +29,6 @@ use crate::values::StringValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::float::StarlarkFloat;
 use crate::values::float::float;
 use crate::values::string::dot_format::format_one;

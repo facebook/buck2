@@ -44,7 +44,6 @@ use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::num::typecheck::NumTy;
 use crate::values::types::num::typecheck::typecheck_num_bin_op;

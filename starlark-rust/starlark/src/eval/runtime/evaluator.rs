@@ -78,7 +78,6 @@ use crate::values::HeapEdge;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::function::NativeFunction;
 use crate::values::layout::value_captured::FrozenValueCaptured;
 use crate::values::layout::value_captured::ValueCaptured;

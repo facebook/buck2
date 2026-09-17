@@ -60,7 +60,6 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::record::Record;
 use crate::values::record::field::Field;

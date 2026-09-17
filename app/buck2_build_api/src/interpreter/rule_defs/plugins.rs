@@ -26,7 +26,6 @@ use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;

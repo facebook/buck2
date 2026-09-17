@@ -16,7 +16,6 @@ use buck2_hash::BuckMutMap;
 use buck2_hash::BuckMutSet;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
-use starlark::values::ValueLike;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::transitive_set::Node;

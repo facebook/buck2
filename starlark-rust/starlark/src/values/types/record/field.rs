@@ -34,7 +34,6 @@ use crate::typing::Ty;
 use crate::values::Freeze;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::ValueLike;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 /// The result of `field()`.
