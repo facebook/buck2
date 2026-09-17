@@ -108,6 +108,7 @@ members = [
   "app/buck2_node_tests",
   "app/buck2_offline_archive",
   "app/buck2_profile",
+  "app/buck2_proto_serde",
   "app/buck2_protoc_dev",
   "app/buck2_query",
   "app/buck2_query_derive",
@@ -271,6 +272,7 @@ buck2_miniperf_proto = { path = "app/buck2_miniperf_proto" }
 buck2_node = { path = "app/buck2_node" }
 buck2_offline_archive = { path = "app/buck2_offline_archive" }
 buck2_profile = { path = "app/buck2_profile" }
+buck2_proto_serde = { path = "app/buck2_proto_serde" }
 buck2_protoc_dev = { path = "app/buck2_protoc_dev" }
 buck2_query = { path = "app/buck2_query" }
 buck2_query_derive = { path = "app/buck2_query_derive" }

@@ -134,51 +134,51 @@ fn main() -> io::Result<()> {
         .type_attribute(".", "#[derive(::allocative::Allocative)]")
         .field_attribute(
             "timestamp",
-            "#[serde(with = \"crate::serialize_timestamp\")]",
+            "#[serde(with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
             "start_time",
-            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
             "event_time",
-            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
             "time_event_generated",
-            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
             "time_collected",
-            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_timestamp\")]",
         )
         .field_attribute(
             "suspend_duration",
-            "#[serde(default, with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(default, with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "duration",
-            "#[serde(rename = \"duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "command_duration",
-            "#[serde(rename = \"command_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"command_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "client_walltime",
-            "#[serde(rename = \"client_walltime_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"client_walltime_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "critical_path_duration",
-            "#[serde(rename = \"critical_path_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"critical_path_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "critical_path_page_in",
-            "#[serde(rename = \"critical_path_page_in_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"critical_path_page_in_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "ActionExecutionEnd.wall_time",
-            "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"wall_time_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "ActionKey.id",
@@ -196,39 +196,39 @@ fn main() -> io::Result<()> {
         )
         .field_attribute(
             "RemoteCommand.queue_time",
-            "#[serde(rename = \"queue_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"queue_time_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "concurrent_command_blocking_duration",
-            "#[serde(rename = \"concurrent_command_blocking_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"concurrent_command_blocking_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "bxl_ensure_artifacts_duration",
-            "#[serde(rename = \"bxl_ensure_artifacts_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"bxl_ensure_artifacts_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "install_duration",
-            "#[serde(rename = \"install_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"install_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "CriticalPathEntry2.user_duration",
-            "#[serde(rename = \"user_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"user_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "CriticalPathEntry2.total_duration",
-            "#[serde(rename = \"total_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"total_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "CriticalPathEntry2.potential_improvement_duration",
-            "#[serde(rename = \"potential_improvement_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"potential_improvement_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "CriticalPathEntry2.queue_duration",
-            "#[serde(rename = \"queue_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"queue_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "CriticalPathEntry2.non_critical_path_duration",
-            "#[serde(rename = \"non_critical_path_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"non_critical_path_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .type_attribute(
             "buck.data.CriticalPathEntry2.entry",
@@ -272,23 +272,23 @@ fn main() -> io::Result<()> {
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.wall_time",
-            "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"wall_time_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.execution_time",
-            "#[serde(rename = \"execution_time_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"execution_time_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.input_materialization_duration",
-            "#[serde(rename = \"input_materialization_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"input_materialization_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.hashing_duration",
-            "#[serde(rename = \"hashing_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"hashing_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .field_attribute(
             "buck.data.CommandExecutionMetadata.queue_duration",
-            "#[serde(rename = \"queue_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+            "#[serde(rename = \"queue_duration_us\", with = \"::buck2_proto_serde::serialize_duration_as_micros\")]",
         )
         .boxed("RecordEvent.data.invocation_record")
         .boxed("SpanEndEvent.data.action_execution")
