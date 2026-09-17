@@ -9,11 +9,7 @@
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load(
-    "@prelude//cxx:cxx_executable.bzl",
-    "CxxExecutableOutput",  # @unused Used as a type
-    "cxx_executable",
-)
+load("@prelude//cxx:cxx_executable.bzl", "CxxExecutableOutput", "cxx_executable")
 load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
 load(
@@ -71,12 +67,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
-load(
-    "@prelude//python:python.bzl",
-    "PythonLibraryInfo",
-    "PythonLibraryManifestsTSet",
-    "python_attr_preload_deps",
-)
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
@@ -268,15 +259,8 @@ def _cxx_exe_allow_cache_upload(ctx) -> bool:
     return hasattr(ctx.attrs, "exe_allow_cache_upload") and bool(ctx.attrs.exe_allow_cache_upload)
 
 def _compute_cxx_executable_info(
-    ctx,
-    extension_info_reduced,
-    static_extension_info_out,
-    inherited_preprocessor_info,
-    python_toolchain,
-    package_style,
-    allow_cache_upload,
-    generated_build_info_invalidation_inputs,
-) -> (CxxExecutableOutput, Artifact | None):
+    ctx, extension_info_reduced, static_extension_info_out, inherited_preprocessor_info, python_toolchain, package_style, allow_cache_upload
+) -> CxxExecutableOutput:
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
         CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = ["-DOSS_PYTHON=1"] if ctx.attrs.use_oss_python else []),
@@ -342,7 +326,6 @@ def _compute_cxx_executable_info(
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = cxx_executable_srcs,
         extra_binary_link_flags = extra_binary_link_flags,
-        generated_build_info_invalidation_inputs = generated_build_info_invalidation_inputs,
         extra_link_flags = python_toolchain.linker_flags,
         extra_preprocessors = [],
         extra_preprocessors_info = inherited_preprocessor_info,
@@ -378,8 +361,7 @@ def _compute_cxx_executable_info(
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
 
-    executable_info = cxx_executable(ctx, impl_params)
-    return (executable_info, executable_info.build_info_manifest_entries)
+    return cxx_executable(ctx, impl_params)
 
 def process_native_linking(
     ctx, deps, python_toolchain, python_internal_tools: PythonInternalToolsInfo, package_style, allow_cache_upload
@@ -392,16 +374,11 @@ def process_native_linking(
     [CxxLinkerMapData, None],
     [CxxGcSectionsData, None],
     list[typing.Any],
-    Artifact | None,
 ):
     extra = {}
     extra_artifacts = {}
 
     extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
-    manifest_sets = [dep[PythonLibraryInfo].manifests for dep in deps if PythonLibraryInfo in dep]
-    generated_build_info_invalidation_inputs = (
-        [ctx.actions.tset(PythonLibraryManifestsTSet, children = manifest_sets).project_as_args("extension_artifacts")] if manifest_sets else []
-    )
 
     executable_deps = ctx.attrs.executable_deps
 
@@ -425,7 +402,7 @@ def process_native_linking(
 
     extra["static_extension_info"] = [DefaultInfo(default_output = static_extension_info_out)]
 
-    executable_info, build_info_manifest_entries = _compute_cxx_executable_info(
+    executable_info = _compute_cxx_executable_info(
         ctx,
         extension_info_reduced,
         static_extension_info_out,
@@ -433,11 +410,8 @@ def process_native_linking(
         python_toolchain,
         package_style,
         allow_cache_upload,
-        generated_build_info_invalidation_inputs,
     )
     extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
-    if "generated_build_info" in executable_info.sub_targets:
-        extra["generated_build_info"] = executable_info.sub_targets["generated_build_info"]
 
     # Add sub-targets for libs.
     for shlib in executable_info.shared_libs:
@@ -513,5 +487,4 @@ def process_native_linking(
         executable_info.linker_map_data,
         executable_info.gc_sections_data,
         executable_info.runtime_files,
-        build_info_manifest_entries,
     )

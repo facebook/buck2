@@ -11,14 +11,12 @@ load(
     "LINK_GROUP_MAP_ATTR",
 )
 load("@prelude//cxx:transformation_spec.bzl", "TransformationResultProvider")
-load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 
 LinkProviders = provider(
     fields = {
-        "build_info_manifest_entries": provider_field(typing.Any, default = None),
         "extensions": provider_field(typing.Any, default = None),
         "extra": provider_field(typing.Any, default = None),
         "extra_artifacts": provider_field(typing.Any, default = None),
@@ -62,9 +60,6 @@ cxx_implicit_attrs = {
     "preload_deps": attrs.list(attrs.dep(), default = []),
     "preprocessor_flags": attrs.any(default = []),
     "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
-    "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-    "_generated_build_info_spec": BUILD_INFO_ATTR,
-    "_late_build_info_stamping": attrs.any(default = None),
 }
 
 python_implicit_attrs = {
@@ -76,19 +71,16 @@ def _process_native_linking_rule_impl(ctx):
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
     raw_deps = ctx.attrs.deps
-    shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, runtime_files, build_info_manifest_entries = (
-        process_native_linking(
-            ctx,
-            raw_deps,
-            python_toolchain,
-            python_internal_tools,
-            ctx.attrs.package_style,
-            ctx.attrs.allow_cache_upload,
-        )
+    shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, runtime_files = process_native_linking(
+        ctx,
+        raw_deps,
+        python_toolchain,
+        python_internal_tools,
+        ctx.attrs.package_style,
+        ctx.attrs.allow_cache_upload,
     )
     return [
         LinkProviders(
-            build_info_manifest_entries = build_info_manifest_entries,
             shared_libraries = shared_libs,
             link_args = link_args,
             extensions = extensions,
