@@ -67,6 +67,8 @@ class Ksp2Step(
     private val ksp2Mode: Ksp2Mode,
 ) : IsolatedStep {
 
+  private val noOpDetector = Ksp2NoOpDetector()
+
   @Throws(IOException::class, InterruptedException::class)
   override fun executeIsolatedStep(context: IsolatedExecutionContext): StepExecutionResult {
     CapturingPrintStream().use { stderr ->
@@ -87,6 +89,15 @@ class Ksp2Step(
                   this@Ksp2Step::class.java.simpleName,
                   "Ksp2 step duration: $durationMs ms",
               )
+              // Only on success: an aborted run leaves processors that never ran reading zero,
+              // which is indistinguishable from a genuine no-op.
+              val counts = noOpDetector.countsByProcessor
+              if (exitCode == KotlinSymbolProcessing.ExitCode.OK && counts.isNotEmpty()) {
+                addExtras(
+                    PROCESSOR_OUTPUT_EXTRAS_KEY,
+                    counts.entries.joinToString(",") { "${it.key}=${it.value}" },
+                )
+              }
             },
         )
         return when (exitCode) {
@@ -220,7 +231,8 @@ class Ksp2Step(
             .trimMargin(),
     )
     // Run!
-    val kotlinSymbolProcessing = KotlinSymbolProcessing(kspConfig, processorProviders, logger)
+    val kotlinSymbolProcessing =
+        KotlinSymbolProcessing(kspConfig, noOpDetector.wrap(processorProviders), logger)
     return kotlinSymbolProcessing.execute()
   }
 
@@ -281,6 +293,8 @@ class Ksp2Step(
 
   companion object {
     private val LOG: Logger = Logger.get(Ksp2Step::class.java)
+
+    private const val PROCESSOR_OUTPUT_EXTRAS_KEY = "ksp2_processor_generated_files"
 
     private val jdkHomeCache = java.util.concurrent.ConcurrentHashMap<String, File>()
     private val JAVA_HOME_REGEX = Regex("""java\.home\s*=\s*(.+)""")
