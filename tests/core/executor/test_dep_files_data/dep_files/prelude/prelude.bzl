@@ -345,3 +345,47 @@ dir_output_dep_file = rule(
         "used_input_contents": attrs.string(),
     },
 )
+
+PathArgsInfo = provider(fields = {"args": provider_field(typing.Any)})
+
+def _path_args_impl(ctx):
+    out = ctx.actions.write(
+        "args",
+        [ctx.attrs.src],
+        with_inputs = True,
+        has_content_based_path = False,
+    )
+    return [
+        DefaultInfo(default_output = out),
+        PathArgsInfo(args = cmd_args(out, hidden = ctx.attrs.src)),
+    ]
+
+path_args = rule(
+    impl = _path_args_impl,
+    attrs = {"src": attrs.source()},
+)
+
+def _consume_path_args_impl(ctx):
+    out = ctx.actions.declare_output("consumed", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args([
+            "sh",
+            "-c",
+            'cat "$3" >/dev/null; cp "$(cat "$1")" "$2"',
+            "--",
+            ctx.attrs.args[PathArgsInfo].args,
+            out.as_output(),
+            ctx.attrs.trigger,
+        ]),
+        category = "consume_path_args",
+        local_only = True,
+    )
+    return [DefaultInfo(default_output = out)]
+
+consume_path_args = rule(
+    impl = _consume_path_args_impl,
+    attrs = {
+        "args": attrs.dep(providers = [PathArgsInfo]),
+        "trigger": attrs.source(),
+    },
+)

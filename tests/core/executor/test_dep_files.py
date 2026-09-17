@@ -455,6 +455,74 @@ async def test_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
     await check_no_cache_query(buck)
 
 
+async def _prepare_dangling_persisted_dep_file_input(
+    buck: Buck,
+) -> tuple[str, list[str]]:
+    target = "root//app:consume_persisted_dep_file_output"
+    args = [
+        target,
+        "--local-only",
+        "--no-remote-cache",
+    ]
+    first = await buck.build(*args)
+    output = first.get_build_report().output_for_target(target)
+    assert output.read_text() == "output"
+
+    await buck.kill()
+    # Reload both actions from the persisted cache without final-output materialization. This leaves
+    # the producer's backing output eligible for stale cleanup after `declare_match` accepts it.
+    await buck.build(*args, "--materializations=none")
+    kinds = await _execution_kinds(buck)
+    assert kinds.count(ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE) == 2, kinds
+
+    entries = (await buck.audit("deferred-materializer", "list")).stdout.splitlines()
+    producer_entries = [
+        entry
+        for entry in entries
+        if "__simple_dep_file__" in entry
+        and entry.split("\t", 1)[0].endswith("/output_artifacts/out")
+    ]
+    assert len(producer_entries) == 1, producer_entries
+    producer_output = buck.cwd / producer_entries[0].split("\t", 1)[0]
+    assert producer_output.exists(), producer_output
+
+    clean = await buck.clean("--stale=0s")
+    assert not producer_output.exists(), clean.stderr
+    # Invalidate only the consumer. Its retained args file still names the cleaned producer output.
+    touch(buck, "app/other.h")
+
+    return target, args
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={
+        "buck2": {
+            "defer_write_actions": "true",
+            "restarter": "false",
+            "sqlite_dep_file_state": "true",
+        }
+    },
+)
+async def test_persisted_dep_file_hit_then_clean_stale_leaves_dangling_hidden_input(
+    buck: Buck,
+) -> None:
+    target, args = await _prepare_dangling_persisted_dep_file_input(buck)
+
+    await expect_failure(
+        buck.build(*args),
+        stderr_regex="No such file or directory",
+    )
+
+    await buck.kill()
+    recovered = await buck.build(*args)
+    assert (
+        recovered.get_build_report().output_for_target(target).read_text() == "output"
+    )
+
+
 @buck_test(
     setup_eden=False,
     data_dir="dep_files",

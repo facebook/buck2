@@ -53,3 +53,14 @@ dir_output_dep_file(
     used_input_contents = read_config("test", "used_input_contents", "default"),
     unused_input_contents = read_config("test", "unused_input_contents", "default"),
 )
+
+path_args(
+    name = "persisted_dep_file_output_args",
+    src = ":simple_dep_file",
+)
+
+consume_path_args(
+    name = "consume_persisted_dep_file_output",
+    args = ":persisted_dep_file_output_args",
+    trigger = "other.h",
+)
