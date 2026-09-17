@@ -36,18 +36,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
-        "--manifest-entries-overlay",
-        help="Path to JSON entries to merge into the base manifest entries.",
-        type=Path,
-        default=None,
-    )
-    parser.add_argument(
         "--output",
         type=Path,
         help="Output path for the generated module.",
         required=True,
     )
-    parser.add_argument("--output-json", type=Path, default=None)
     return parser.parse_args()
 
 
@@ -55,25 +48,6 @@ def path_to_module(path: str) -> str | None:
     for suffix in (".py", ".so", ".pyd"):
         if path.endswith(suffix):
             return path[: -len(suffix)].replace("/", ".").replace("\\", ".")
-
-
-def merge_entries(entries: dict[str, object], overlay: dict[str, object]) -> None:
-    for key, value in overlay.items():
-        existing = entries.get(key)
-        if isinstance(existing, dict) and isinstance(value, dict):
-            existing.update(value)
-        else:
-            entries[key] = value
-
-
-def load_entries(path: Path | None) -> dict[str, object]:
-    if path is None:
-        return {}
-    with open(path) as f:
-        entries = json.load(f)
-    if not isinstance(entries, dict):
-        raise ValueError(f"Manifest entries in {path} aren't a dictionary")
-    return entries
 
 
 def main() -> None:
@@ -105,13 +79,16 @@ def main() -> None:
                         elif parent_module != module:
                             break
 
-    entries = load_entries(args.manifest_entries)
-    if args.manifest_entries_overlay:
-        merge_entries(entries, load_entries(args.manifest_entries_overlay))
+    entries = {}
+    if args.manifest_entries:
+        with open(args.manifest_entries) as f:
+            entries = json.load(f)
+    if not isinstance(entries, dict):
+        raise ValueError(
+            f"Manifest entries in {args.manifest_entries} aren't a dictionary"
+        )
     if "modules" in entries:
         raise ValueError("'modules' can't be a key in manifest entries")
-    if args.output_json:
-        args.output_json.write_text(json.dumps(entries, sort_keys=True) + "\n")
     sorted_modules = sorted(modules.items())
     entries["modules"] = [m[0] for m in sorted_modules]
     entries["origins"] = tuple(m[1] for m in sorted_modules)
