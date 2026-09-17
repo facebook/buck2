@@ -200,7 +200,7 @@ def _k2():
 def _incremental():
     return {
         "incremental": attrs.bool(
-            default = True,
+            default = False,
             doc = """
                 Enables Kotlin incremental compilation.
             """,
