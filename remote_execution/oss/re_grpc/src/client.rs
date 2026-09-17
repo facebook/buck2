@@ -612,6 +612,39 @@ fn is_retryable(err: &anyhow::Error) -> bool {
     false
 }
 
+/// Finds the first `tonic::Status` in an error chain.
+///
+/// Handles the two nestings a `Status` can take: a direct chain link, and
+/// `io::Error::other(status)`. In the latter case the `io::Error`'s `source()`
+/// forwards to the wrapped error's own source rather than to the `Status`, so
+/// the `Status` never appears as a link and has to be read out via `get_ref()`.
+fn first_tonic_status(err: &anyhow::Error) -> Option<&tonic::Status> {
+    for cause in err.chain() {
+        if let Some(status) = cause.downcast_ref::<tonic::Status>() {
+            return Some(status);
+        }
+        if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
+            if let Some(status) = io_err
+                .get_ref()
+                .and_then(|inner| inner.downcast_ref::<tonic::Status>())
+            {
+                return Some(status);
+            }
+        }
+    }
+    None
+}
+
+/// Recovers the gRPC status code from an error chain as a [`TCode`].
+///
+/// CAS-path calls attach `anyhow` context to a raw `tonic::Status` rather than
+/// building an [`REClientError`], so the status code is only reachable by
+/// walking the chain. [`TCode`] uses the canonical gRPC numbering, so the code
+/// is preserved exactly.
+pub fn tcode_from_error_chain(err: &anyhow::Error) -> Option<TCode> {
+    first_tonic_status(err).map(|status| TCode(status.code() as i32))
+}
+
 /// Retry a fallible async operation on transient connection errors.
 ///
 /// On retryable failure, the closure is called again from scratch — acquiring
@@ -1881,6 +1914,26 @@ mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
+
+    #[test]
+    fn test_tcode_from_error_chain_direct() {
+        let err = anyhow::Error::new(tonic::Status::unauthenticated("no creds"))
+            .context("Failed to request what blobs are not present on remote");
+        assert_eq!(tcode_from_error_chain(&err), Some(TCode::UNAUTHENTICATED));
+    }
+
+    #[test]
+    fn test_tcode_from_error_chain_io_wrapped() {
+        let io = std::io::Error::other(tonic::Status::unauthenticated("no creds"));
+        let err = anyhow::Error::new(io).context("stream error");
+        assert_eq!(tcode_from_error_chain(&err), Some(TCode::UNAUTHENTICATED));
+    }
+
+    #[test]
+    fn test_tcode_from_error_chain_absent() {
+        let err = anyhow::anyhow!("plain error with no grpc status");
+        assert_eq!(tcode_from_error_chain(&err), None);
+    }
 
     #[tokio::test]
     async fn test_download_named() -> anyhow::Result<()> {
