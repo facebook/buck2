@@ -27,14 +27,8 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
-load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
-
-def _target_stats_data(ctx: AnalysisContext, deps: list[Dependency]) -> (list[Provider], dict[str, list[Provider]]):
-    if not TARGET_STATS_ENABLED:
-        return [], {}
-    return target_stats_aggregate_providers_and_subtargets(ctx, deps = deps)
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -115,9 +109,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     # ctx.attrs.deps is split-transitioned here (one Dependency per ABI).
-    target_stats_providers, target_stats_subtargets = _target_stats_data(
+    target_stats_providers, target_stats_subtargets = target_stats_aggregate_providers_and_subtargets(
         ctx,
-        android_binary_info.deps_by_platform[android_binary_info.primary_platform],
+        deps = android_binary_info.deps_by_platform[android_binary_info.primary_platform],
     )
     sub_targets.update(target_stats_subtargets)
 

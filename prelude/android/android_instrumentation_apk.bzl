@@ -19,6 +19,7 @@ load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
+load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten")
 
@@ -176,9 +177,12 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
     )
     sub_targets["transitive_class_to_src_map"] = [DefaultInfo(default_output = transitive_class_to_src_map)]
 
+    target_stats_providers, target_stats_subtargets = target_stats_aggregate_providers_and_subtargets(ctx, deps = deps)
+    sub_targets.update(target_stats_subtargets)
+
     return [
         AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
         AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk, is_self_instrumenting = is_self_instrumenting),
         DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         class_to_srcs,
-    ]
+    ] + target_stats_providers

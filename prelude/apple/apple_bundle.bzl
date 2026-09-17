@@ -54,7 +54,6 @@ load(
     "make_link_command_debug_output_json_info",
 )
 load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
-load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
@@ -519,7 +518,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     mod_dep_graph_subtargets, mod_dep_graph_info = _modularization_dep_graph_data(ctx, deps_with_binary)
     sub_targets.update(mod_dep_graph_subtargets)
 
-    target_stats_providers, target_stats_subtargets = _target_stats_data(ctx, deps_with_binary)
+    target_stats_providers, target_stats_subtargets = target_stats_aggregate_providers_and_subtargets(ctx, deps = deps_with_binary)
     sub_targets.update(target_stats_subtargets)
 
     bundle_and_dsym_info_json = {
@@ -659,11 +658,6 @@ def _index_store_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) 
 def _modularization_dep_graph_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) -> (dict[str, list[Provider]], ModularizationDependencyGraphInfo):
     subtargets, info = create_modularization_dep_graph_subtargets_and_provider(ctx, None, deps_with_binary)
     return subtargets, info
-
-def _target_stats_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) -> (list[Provider], dict[str, list[Provider]]):
-    if not TARGET_STATS_ENABLED:
-        return [], {}
-    return target_stats_aggregate_providers_and_subtargets(ctx, deps = deps_with_binary)
 
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.

@@ -23,6 +23,7 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CP
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//target_stats:target_stats.bzl", "target_stats_aggregate_providers_and_subtargets")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:utils.bzl", "flatten")
 
@@ -196,4 +197,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
-    return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets() | sub_targets)]
+    target_stats_providers, target_stats_subtargets = target_stats_aggregate_providers_and_subtargets(ctx, deps = deps)
+    sub_targets.update(target_stats_subtargets)
+
+    return [DefaultInfo(default_outputs = [aar], sub_targets = enhancement_ctx.get_sub_targets() | sub_targets)] + target_stats_providers

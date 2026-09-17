@@ -8,6 +8,7 @@
 
 # Shared implementation for the target_stats integration.
 
+load(":target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//:paths.bzl", "paths")
 load(":target_stats_tools.bzl", "TargetStatsToolsInfo")
 load(
@@ -98,7 +99,13 @@ def target_stats_aggregate_providers_and_subtargets(
     *,
     deps: list[Dependency],
 ) -> (list[Provider], dict[str, list[Provider]]):
-    """target_stats for a rule that contributes no sources of its own."""
+    """target_stats for a rule that contributes no sources of its own.
+
+    A no-op when target_stats is disabled, so aggregating rules can call it
+    unconditionally.
+    """
+    if not TARGET_STATS_ENABLED:
+        return [], {}
     children = [dep[TargetStatsInfo].tset for dep in deps if dep.get(TargetStatsInfo) != None]
     tset = ctx.actions.tset(TargetStatsInfoTSet, children = children)
     info = TargetStatsInfo(label = str(ctx.label.raw_target()), tset = tset)
