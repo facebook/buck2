@@ -56,7 +56,15 @@ with open(sys.argv[1], "w") as f:
     script = artifact_tag.tag_artifacts(ctx.actions.write("script.py", script, is_executable = True, has_content_based_path = False))
 
     ctx.actions.run(
-        cmd_args(["fbpython", script, out.as_output()], hidden = [artifact_tag.tag_artifacts(input_not_in_metadata), input_in_metadata]),
+        cmd_args(
+            ["fbpython", script, out.as_output()],
+            hidden = [
+                artifact_tag.tag_artifacts(input_not_in_metadata),
+                artifact_tag.tag_artifacts(input_in_metadata),
+                input_in_metadata,
+                artifact_tag.tag_artifacts(input_in_metadata),
+            ],
+        ),
         category = "incremental",
         no_outputs_cleanup = True,
         local_only = True,
