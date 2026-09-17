@@ -147,6 +147,28 @@ static SHUTDOWN_WATCHDOG_GRACE: Duration = Duration::from_secs(1);
 
 static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
 
+#[derive(Clone, Copy)]
+struct DaemonInactivityConfig {
+    timeout: Duration,
+}
+
+impl DaemonInactivityConfig {
+    fn try_new(daemon_idle_timeout_s: Option<u64>) -> buck2_error::Result<Self> {
+        let mut timeout = daemon_idle_timeout_s
+            .map(Duration::from_secs)
+            .unwrap_or(DEFAULT_INACTIVITY_TIMEOUT);
+        if buck2_env!(
+            "BUCK2_TESTING_INACTIVITY_TIMEOUT",
+            bool,
+            applicability = testing
+        )? {
+            timeout = Duration::from_secs(1);
+        }
+
+        Ok(Self { timeout })
+    }
+}
+
 #[derive(Allocative)]
 struct DaemonShutdown {
     /// This channel is used to trigger a graceful shutdown of the grpc server. After
@@ -323,7 +345,8 @@ impl BuckdServer {
         let cert_state = CertState::new().await;
         certs_validation_background_job(cert_state.dupe()).await;
 
-        let daemon_idle_timeout_s = init_ctx.daemon_startup_config.daemon_idle_timeout_s;
+        let inactivity_config =
+            DaemonInactivityConfig::try_new(init_ctx.daemon_startup_config.daemon_idle_timeout_s)?;
 
         let daemon_state = Arc::new(
             DaemonState::new(
@@ -366,9 +389,9 @@ impl BuckdServer {
         let (shutdown, shutdown_deadline) = server_shutdown_signal(
             command_receiver,
             shutdown_receiver,
-            daemon_idle_timeout_s,
+            inactivity_config,
             in_process,
-        )?;
+        );
         let server = buck2_grpc::server_builder()
             .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
                 auth_token,
@@ -1782,27 +1805,16 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
 fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<tokio::time::Instant>,
-    daemon_idle_timeout_s: Option<u64>,
+    inactivity_config: DaemonInactivityConfig,
     in_process: bool,
-) -> buck2_error::Result<(
+) -> (
     impl Future<Output = ()>,
     oneshot::Receiver<tokio::time::Instant>,
-)> {
-    let mut duration = daemon_idle_timeout_s
-        .map(Duration::from_secs)
-        .unwrap_or(DEFAULT_INACTIVITY_TIMEOUT);
-    if buck2_env!(
-        "BUCK2_TESTING_INACTIVITY_TIMEOUT",
-        bool,
-        applicability = testing
-    )? {
-        duration = Duration::from_secs(1);
-    }
-
+) {
     let (shutdown_deadline_sender, shutdown_deadline_receiver) = oneshot::channel();
 
     let shutdown = async move {
-        let timeout = inactivity_timeout(command_receiver, duration);
+        let timeout = inactivity_timeout(command_receiver, inactivity_config);
         let shutdown = shutdown_receiver.next();
 
         futures::pin_mut!(shutdown);
@@ -1820,7 +1832,7 @@ fn server_shutdown_signal(
         let _ = shutdown_deadline_sender.send(shutdown_deadline);
     };
 
-    Ok((shutdown, shutdown_deadline_receiver))
+    (shutdown, shutdown_deadline_receiver)
 }
 
 /// Guarantee that a daemon which has announced its shutdown actually exits.
@@ -1866,9 +1878,18 @@ fn spawn_shutdown_watchdog(in_process: bool, deadline: tokio::time::Instant) {
     .expect("Failed to spawn shutdown watchdog thread");
 }
 
-async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
-    // this restarts the timer everytime there is a new command
-    while (timeout(duration, command_receiver.next()).await).is_ok() {}
+async fn inactivity_timeout(
+    mut command_receiver: UnboundedReceiver<()>,
+    inactivity_config: DaemonInactivityConfig,
+) {
+    let duration = loop {
+        let duration = inactivity_config.timeout;
+        match timeout(duration, command_receiver.next()).await {
+            Ok(Some(())) => {}        // A command arrived; restart the timer.
+            Ok(None) => return,       // Channel closed; exit without logging.
+            Err(_) => break duration, // Timeout expired; break with the duration that fired.
+        }
+    };
 
     tracing::warn!(
         "inactivity timeout elapsed ({:?}), shutting down server",
@@ -2035,9 +2056,11 @@ mod tests {
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
+        let inactivity_config = DaemonInactivityConfig::try_new(Some(2))
+            .expect("test inactivity config should be valid");
 
         let (shutdown_future, shutdown_deadline) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, Some(2), IN_PROCESS).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(1), &mut shutdown_future).await;
@@ -2057,9 +2080,11 @@ mod tests {
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
+        let inactivity_config =
+            DaemonInactivityConfig::try_new(None).expect("test inactivity config should be valid");
 
         let (shutdown_future, _) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, None, IN_PROCESS).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(3600), &mut shutdown_future).await;
@@ -2072,9 +2097,11 @@ mod tests {
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
+        let inactivity_config = DaemonInactivityConfig::try_new(Some(3))
+            .expect("test inactivity config should be valid");
 
         let (shutdown_future, _) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, Some(3), IN_PROCESS).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
 
         tokio::time::advance(Duration::from_secs(2)).await;
@@ -2096,8 +2123,10 @@ mod tests {
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (shutdown_tx, shutdown_rx) = mpsc::unbounded();
+        let inactivity_config =
+            DaemonInactivityConfig::try_new(None).expect("test inactivity config should be valid");
         let (shutdown_future, shutdown_deadline) =
-            server_shutdown_signal(cmd_rx, shutdown_rx, None, IN_PROCESS).unwrap();
+            server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         let expected_deadline = tokio::time::Instant::now() + Duration::from_secs(7);
 
         shutdown_tx.unbounded_send(expected_deadline).unwrap();
