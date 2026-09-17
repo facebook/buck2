@@ -21,7 +21,7 @@ NAMED_CONSTRAINT_SETTINGS = {
     "ovr_config//cpu/constraints:cpu": None,
     "ovr_config//runtime/constraints:runtime": None,
     "ovr_config//runtime/constraints:runtime_version": None,
-    "ovr_config//os/sdk/apple/constraints:_": None,
+    "ovr_config//os/sdk/apple/constraints:_": (lambda label: str(label.sub_target[0])),
     "ovr_config//os/sdk/android/ndk/constraints:version": None,
     "ovr_config//os/version/android/constraints:api-level": (lambda label: "api" + str(label.name).split("-")[-1]),
     "ovr_config//toolchain/clang/constraints:clang-toolchain-version": (lambda label: "clang" + str(label.name)),
