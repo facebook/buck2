@@ -22,6 +22,7 @@ use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::dep_file_state::DepFileDbSize;
+use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::fs_util::DiskSpaceStats;
 use buck2_fs::fs_util::disk_space_stats;
@@ -136,7 +137,7 @@ impl DepFileDbSizeSampler {
     /// Starts sampling on `rt`, which must outlive the daemon's commands. Each reading is handed
     /// to that runtime's blocking pool, and the lock is taken only to store the result, so no lock
     /// is ever held across the read.
-    pub fn start(rt: &tokio::runtime::Handle) -> Arc<Self> {
+    pub fn start(store: Arc<dyn DepFileStore>, rt: &tokio::runtime::Handle) -> Arc<Self> {
         let this = Arc::new(Self {
             latest: Mutex::new(None),
             sampler: OnceLock::new(),
@@ -148,17 +149,15 @@ impl DepFileDbSizeSampler {
             let rt = rt.clone();
             async move {
                 loop {
-                    if let Ok(store) = DEP_FILE_STORE.get() {
-                        let store = store.dupe();
-                        let measured = rt.spawn_blocking(move || store.db_size()).await;
-                        // A panicking measurement leaves the previous reading in place rather than
-                        // reporting nothing, since the reading itself was not disproved.
-                        if let Ok(measured) = measured {
-                            let Some(this) = this.upgrade() else {
-                                return;
-                            };
-                            *this.latest.lock().unwrap_or_else(PoisonError::into_inner) = measured;
-                        }
+                    let store = store.dupe();
+                    let measured = rt.spawn_blocking(move || store.db_size()).await;
+                    // A panicking measurement leaves the previous reading in place rather than
+                    // reporting nothing, since the reading itself was not disproved.
+                    if let Ok(measured) = measured {
+                        let Some(this) = this.upgrade() else {
+                            return;
+                        };
+                        *this.latest.lock().unwrap_or_else(PoisonError::into_inner) = measured;
                     }
                     // Pausing after the reading rather than ticking to a schedule: a slow reading
                     // is followed by the same pause as any other, so a slow database is sampled
@@ -227,7 +226,12 @@ impl SnapshotCollector {
     /// Copies the latest database size from the daemon's sampler. No I/O: snapshots feed
     /// superconsole, and sizing the database can block for as long as a cold disk takes.
     fn add_dep_file_db_size(&self, snapshot: &mut buck2_data::Snapshot) {
-        let Some(size) = self.daemon.dep_file_db_size.latest() else {
+        let Some(size) = self
+            .daemon
+            .dep_file_db_size
+            .as_ref()
+            .and_then(|sampler| sampler.latest())
+        else {
             return;
         };
         snapshot.dep_file_db_entries = Some(size.entries);
@@ -980,13 +984,38 @@ mod compute_runtime_counter_deltas_tests {
 mod dep_file_db_size_sampler_tests {
     use std::sync::Arc;
 
+    use buck2_execute::dep_file_state::DepFileStore;
+    use buck2_execute::dep_file_state::StoredDepFileDigests;
+    use buck2_execute::dep_file_state::StoredDepFileState;
+
     use super::DepFileDbSizeSampler;
+
+    struct NoopDepFileStore;
+
+    impl DepFileStore for NoopDepFileStore {
+        fn insert(&self, _logical_key: Vec<u8>, _config_key: Vec<u8>, _state: StoredDepFileState) {}
+
+        fn delete(&self, _logical_key: Vec<u8>, _config_key: Vec<u8>) {}
+
+        fn get_digests(&self, _logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
+            Vec::new()
+        }
+
+        fn get_entry(&self, _id: i64) -> Option<StoredDepFileState> {
+            None
+        }
+
+        fn clear(&self) {}
+    }
 
     /// The sampling task must not hold a strong reference back to the sampler. If it does, the
     /// strong count never reaches zero, `Drop` never runs, and the task is never aborted.
     #[tokio::test]
     async fn task_does_not_keep_the_sampler_alive() {
-        let sampler = DepFileDbSizeSampler::start(&tokio::runtime::Handle::current());
+        let sampler = DepFileDbSizeSampler::start(
+            Arc::new(NoopDepFileStore),
+            &tokio::runtime::Handle::current(),
+        );
         assert_eq!(1, Arc::strong_count(&sampler));
     }
 }

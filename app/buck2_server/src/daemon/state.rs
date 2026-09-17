@@ -307,7 +307,7 @@ pub struct DaemonStateData {
     /// Keeps the dep-file cache database's size up to date without any command's snapshot having
     /// to read the database. One per daemon, so the cost does not scale with concurrent commands.
     #[allocative(skip)]
-    pub dep_file_db_size: Arc<DepFileDbSizeSampler>,
+    pub dep_file_db_size: Option<Arc<DepFileDbSizeSampler>>,
 
     /// Idle page-out config: the resource-pressure thresholds, `Some` iff
     /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
@@ -911,7 +911,10 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                dep_file_db_size: DepFileDbSizeSampler::start(&dep_file_db_size_rt),
+                dep_file_db_size: DEP_FILE_STORE
+                    .get()
+                    .ok()
+                    .map(|store| DepFileDbSizeSampler::start(store.dupe(), &dep_file_db_size_rt)),
                 // `Some` (with thresholds) iff idle page-out is enabled for this
                 // daemon's isolation dir; `None` otherwise.
                 page_out_on_idle,
