@@ -1961,8 +1961,8 @@ where
     {
         // SAFETY: See the comment on the type
         let v = f(unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) })?;
-        // SAFETY: `f` is generic over the brand, so up to unbranded (frozen) values it can only
-        // return values derived from its input, which our heap keeps alive
+        // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
+        // it can only return values derived from its input, which our heap keeps alive
         Some(unsafe { OwnedFrozenRef::unchecked_new(self.owner(), v) })
     }
 
@@ -2308,8 +2308,8 @@ where
         let owner = self.owner();
         // SAFETY: The heap ref keeps the value alive for `'f`
         let v = f(unsafe { transmute!(T, T::Reinfect<'f>, self.v) })?;
-        // SAFETY: `f` is generic over the brand, so up to unbranded (frozen) values it can only
-        // return values derived from its input, which our heap keeps alive
+        // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
+        // it can only return values derived from its input, which our heap keeps alive
         Ok(unsafe { OwnedFrozenRef::unchecked_new(owner, v) })
     }
 }

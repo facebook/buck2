@@ -18,9 +18,8 @@ mod provider;
 /// Implements `StarlarkValue` and `ProviderLike` for the provider type and
 /// adds a `ProviderCallable` that's used in starlark as the constructor.
 ///
-/// The struct must have the branded shape: one lifetime parameter and
-/// `ValueOfUnchecked<'v, _>`/`ValueTyped<'v, _>`-style fields, with
-/// `#[derive(Freeze)]`. The frozen form is the `'static` alias.
+/// The struct must have one lifetime parameter, `ValueOfUnchecked<'v, _>`/`ValueTyped<'v, _>`-style
+/// fields and `#[derive(Freeze)]`; its frozen form is the `'static` alias.
 ///
 /// # Arguments
 ///

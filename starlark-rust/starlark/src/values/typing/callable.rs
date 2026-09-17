@@ -237,8 +237,9 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
 
 fn _assert_sync_send() {
     fn _assert<T: Sync + Send>() {}
-    // A `Value<'v>` is neither `Sync` nor `Send`, but the marker at the `'static` brand, which
-    // type-repr parameters inside frozen carriers use, has to be both.
+    // Type-repr parameters inside a `Freeze` carrier are written at `'static`, since the
+    // carrier's `Frozen<'fv>` passes them through unchanged; frozen values are `Send + Sync`,
+    // so the marker has to be both at that brand.
     _assert::<StarlarkCallable<'static, (Value,), Value>>();
 }
 

@@ -520,8 +520,8 @@ impl ImplStarlarkValue {
     /// | lifetimes only + `frozen_vtable`     | `Foo<'static>`             | `Foo<'_>`                                              |
     /// | otherwise (const or type params)     | none: the caller registers each instantiation manually |
     ///
-    /// The lifetimes-only row is the shape of both halves of a frozen/unfrozen pair and of
-    /// branded types that are their own frozen form; only the flag tells them apart.
+    /// The lifetimes-only row is the shape both of a type that freezes to a different type
+    /// and of one that is its own frozen form; only the flag tells them apart.
     /// For the first two rows, `skip_vtable` drops all registrations and
     /// `ty_vtable_no_freeze` the AValue one.
     ///

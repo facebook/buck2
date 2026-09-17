@@ -70,7 +70,7 @@ impl<'v> Display for Field<'v> {
 starlark_complex_value!(pub Field);
 
 impl<'v> Field<'v> {
-    /// Creates a new `FieldGen`.
+    /// Creates a new `Field`.
     pub fn new(typ: TypeCompiled<'v>, default: Option<Value<'v>>) -> Self {
         Self { typ, default }
     }

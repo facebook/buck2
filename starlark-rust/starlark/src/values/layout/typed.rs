@@ -493,8 +493,7 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for Froze
     }
 }
 
-/// Only frozen heaps are serialized; branded frozen types store their contents
-/// as `ValueTyped<'fv, T>`.
+/// Only frozen heaps are serialized; frozen types store their contents as `ValueTyped<'fv, T>`.
 impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for ValueTyped<'v, T> {
     fn starlark_serialize(
         &self,

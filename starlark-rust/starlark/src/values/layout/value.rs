@@ -1176,7 +1176,7 @@ impl<'v> Serialize for Value<'v> {
 }
 
 /// Only frozen heaps are serialized, so a `Value` reached during serialization is always frozen
-/// (the context checks); branded frozen types store their contents as `Value<'fv>`.
+/// (the context checks); frozen types store their contents as `Value<'fv>`.
 impl<'v> StarlarkSerialize for Value<'v> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         ctx.serialize_value(*self)

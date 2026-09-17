@@ -99,8 +99,7 @@ pub trait ProviderLike<'v>: Debug {
 
 /// Implemented by the frozen form of builtin providers.
 ///
-/// `Self` is the brand-erased frozen type; `Self::Reinfect` recovers the branded form. For
-/// legacy (`Gen`-based) providers the two coincide: `Reinfect<'v> = Self` at every brand.
+/// `Self` is the brand-erased frozen type; `Self::Reinfect` recovers the branded form.
 pub trait FrozenBuiltinProviderLike:
     ProviderLike<'static> + StarlarkValue<'static> + IsStaticType + Send + Sync
 {
