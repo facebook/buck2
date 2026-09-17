@@ -52,8 +52,13 @@ impl Input<'_> {
     /// The brand is the type's lifetime parameter. A type without one holds no values, so it
     /// implements the trait at every brand, which the impl names `'v`. A type with several is
     /// rejected: the derive cannot tell which one is the heap's.
+    ///
+    /// Type parameters are frozen through their own `Freeze` impl, so they are bound by it and
+    /// mapped through `Frozen<'fv>`. Under `frozen_only` nothing is frozen: type parameters keep
+    /// their declared bounds and pass through unchanged.
     fn format_impl_generics(
         &self,
+        frozen_only: bool,
     ) -> syn::Result<(syn::Lifetime, TokenStream, TokenStream, TokenStream)> {
         let trait_ = freeze_trait();
         let span = self.input.span();
@@ -80,17 +85,28 @@ impl Input<'_> {
                 GenericParam::Type(t) => {
                     let name = &t.ident;
                     let bounds = t.bounds.iter();
-                    impl_params.push(quote_spanned! {
-                        span=>
-                        #name: #(#bounds +)* #trait_<#brand>
-                    });
+                    if frozen_only {
+                        impl_params.push(quote_spanned! {
+                            span=>
+                            #name: #(#bounds +)*
+                        });
+                        output_params.push(quote_spanned! {
+                            span=>
+                            #name
+                        });
+                    } else {
+                        impl_params.push(quote_spanned! {
+                            span=>
+                            #name: #(#bounds +)* #trait_<#brand>
+                        });
+                        output_params.push(quote_spanned! {
+                            span=>
+                            <#name as #trait_<#brand>>::Frozen<'fv>
+                        });
+                    }
                     input_params.push(quote_spanned! {
                         span=>
                         #name
-                    });
-                    output_params.push(quote_spanned! {
-                        span=>
-                        <#name as #trait_<#brand>>::Frozen<'fv>
                     });
                 }
                 GenericParam::Lifetime(lt) => {
@@ -135,7 +151,8 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         ));
     }
 
-    let (brand, impl_params, input_params, output_params) = input.format_impl_generics()?;
+    let (brand, impl_params, input_params, output_params) =
+        input.format_impl_generics(frozen_only.is_some())?;
 
     let bounds_body = match bounds {
         Some(bounds) => quote_spanned! { span=> where #bounds },

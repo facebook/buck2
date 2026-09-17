@@ -34,9 +34,37 @@ enum FrozenOnlyEnum<'v> {
     B,
 }
 
+/// A type that is never frozen has no `Freeze` impl.
+#[allow(dead_code)]
+struct NotFreezable(u32);
+
+/// `frozen_only` asks nothing of the fields: none of them is frozen.
+#[derive(Freeze)]
+#[freeze(frozen_only)]
+#[allow(dead_code)]
+struct FrozenOnlyFields<'v> {
+    value: Value<'v>,
+    plain: NotFreezable,
+}
+
+/// Nor of the type parameters, which pass through unchanged.
+#[derive(Freeze)]
+#[freeze(frozen_only)]
+#[allow(dead_code)]
+struct FrozenOnlyGeneric<'v, T> {
+    value: Value<'v>,
+    extra: T,
+}
+
 /// `Frozen<'fv>` is the type at `'fv`, which is what a handle field's freeze goes through.
 #[test]
 fn test_frozen_is_the_type_at_the_brand() {
+    fn rebrand_generic<'a, 'b>(
+        x: <FrozenOnlyGeneric<'a, NotFreezable> as Freeze<'a>>::Frozen<'b>,
+    ) -> FrozenOnlyGeneric<'b, NotFreezable> {
+        x
+    }
+    let _ = rebrand_generic;
     fn rebrand<'a, 'b>(x: <FrozenOnly<'a> as Freeze<'a>>::Frozen<'b>) -> FrozenOnly<'b> {
         x
     }
