@@ -50,7 +50,9 @@ def generate_android_manifest(
     if not manifests:
         manifests = []
     elif isinstance(manifests, TransitiveSet):
-        manifests = manifests.project_as_args("artifacts", ordering = "topological")
+        # Manifests are usually resolved only at the binary level, so resolving
+        # projection nodes throughout the dependency graph is wasteful.
+        manifests = [entry.manifest for entry in manifests.traverse(ordering = "topological")]
 
     library_manifest_paths_file = argfile(actions = ctx.actions, name = "{}/library_manifest_paths_file".format(module_name), args = manifests)
 
