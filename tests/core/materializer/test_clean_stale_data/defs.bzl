@@ -34,6 +34,23 @@ copy = rule(
     },
 )
 
+def _slow_write_impl(ctx):
+    out = ctx.actions.declare_output("slow_action_output", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args([
+            "sh",
+            "-c",
+            'echo started > "$1" && sleep 30 && grep -q started "$1" && echo finished > "$1"',
+            "--",
+            out.as_output(),
+        ]),
+        category = "slow_write",
+        local_only = True,
+    )
+    return [DefaultInfo(default_output = out)]
+
+slow_write = rule(impl = _slow_write_impl, attrs = {})
+
 def _copy_to_dir_impl(ctx):
     out = ctx.actions.declare_output("action_output", dir = True, has_content_based_path = False)
     ctx.actions.run(

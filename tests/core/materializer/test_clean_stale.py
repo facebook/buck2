@@ -16,6 +16,7 @@ import time
 from datetime import datetime, timedelta, UTC
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
 from buck2.tests.e2e_util.helper.utils import expect_exec_count, replace_in_file
@@ -325,6 +326,24 @@ clean_stale_period_hours = 0.0001
     time.sleep(3)
     # Original output should be cleaned.
     assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_scheduled_does_not_run_during_command(buck: Buck) -> None:
+    configure_clean_stale(
+        buck,
+        """
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 0
+clean_stale_start_offset_hours = 0.0001
+clean_stale_period_hours = 0.0001
+        """,
+    )
+
+    await expect_failure(
+        buck.build("root//:slow_write", "--no-remote-cache"),
+        stderr_regex="slow_action_output: No such file or directory",
+    )
 
 
 @buck_test(skip_for_os=["windows"])

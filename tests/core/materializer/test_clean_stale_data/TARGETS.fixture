@@ -1,7 +1,8 @@
-load(":defs.bzl", "consume", "copy", "copy_to_dir", "download", "symlink_files", "write_json", "write_string")
+load(":defs.bzl", "consume", "copy", "copy_to_dir", "download", "slow_write", "symlink_files", "write_json", "write_string")
 
 copy(name = "copy", src = "src")
 copy(name = "copy_2", src = "src")
+slow_write(name = "slow_write")
 
 copy_to_dir(name = "copy_dir", src = "src")
 
