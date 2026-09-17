@@ -146,15 +146,27 @@ static DEFAULT_KILL_TIMEOUT: Duration = Duration::from_millis(500);
 static SHUTDOWN_WATCHDOG_GRACE: Duration = Duration::from_secs(1);
 
 static DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(4 * 86400);
+static CLEAN_STALE_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(60 * 60);
+
+#[derive(Clone)]
+struct DaemonInactivityConfig {
+    initial_timeout: Duration,
+    standard_timeout: Duration,
+    use_standard_timeout: Arc<AtomicBool>,
+}
 
 #[derive(Clone, Copy)]
-struct DaemonInactivityConfig {
-    timeout: Duration,
+enum DaemonActivity {
+    CleanStale,
+    Other,
 }
 
 impl DaemonInactivityConfig {
-    fn try_new(daemon_idle_timeout_s: Option<u64>) -> buck2_error::Result<Self> {
-        let mut timeout = daemon_idle_timeout_s
+    fn try_new(
+        daemon_idle_timeout_s: Option<u64>,
+        started_for_clean_stale: bool,
+    ) -> buck2_error::Result<Self> {
+        let mut standard_timeout = daemon_idle_timeout_s
             .map(Duration::from_secs)
             .unwrap_or(DEFAULT_INACTIVITY_TIMEOUT);
         if buck2_env!(
@@ -162,10 +174,32 @@ impl DaemonInactivityConfig {
             bool,
             applicability = testing
         )? {
-            timeout = Duration::from_secs(1);
+            standard_timeout = Duration::from_secs(1);
         }
 
-        Ok(Self { timeout })
+        Ok(Self {
+            initial_timeout: if started_for_clean_stale {
+                CLEAN_STALE_INACTIVITY_TIMEOUT.min(standard_timeout)
+            } else {
+                standard_timeout
+            },
+            standard_timeout,
+            use_standard_timeout: Arc::new(AtomicBool::new(!started_for_clean_stale)),
+        })
+    }
+
+    fn note_activity(&self, activity: DaemonActivity) {
+        if let DaemonActivity::Other = activity {
+            self.use_standard_timeout.store(true, Ordering::Release);
+        }
+    }
+
+    fn current_timeout(&self) -> Duration {
+        if self.use_standard_timeout.load(Ordering::Acquire) {
+            self.standard_timeout
+        } else {
+            self.initial_timeout
+        }
     }
 }
 
@@ -206,6 +240,7 @@ pub struct BuckdServerInitPreferences {
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
     pub daemon_originating_cgroup: Option<String>,
+    pub started_for_clean_stale: bool,
 }
 
 impl BuckdServerInitPreferences {
@@ -269,6 +304,8 @@ pub(crate) struct BuckdServerData {
     daemon_state: Arc<DaemonState>,
     #[allocative(skip)]
     cert_state: CertState,
+    #[allocative(skip)]
+    inactivity_config: DaemonInactivityConfig,
     #[allocative(skip)]
     command_channel: UnboundedSender<()>,
     #[allocative(skip)]
@@ -345,8 +382,10 @@ impl BuckdServer {
         let cert_state = CertState::new().await;
         certs_validation_background_job(cert_state.dupe()).await;
 
-        let inactivity_config =
-            DaemonInactivityConfig::try_new(init_ctx.daemon_startup_config.daemon_idle_timeout_s)?;
+        let inactivity_config = DaemonInactivityConfig::try_new(
+            init_ctx.daemon_startup_config.daemon_idle_timeout_s,
+            init_ctx.started_for_clean_stale,
+        )?;
 
         let daemon_state = Arc::new(
             DaemonState::new(
@@ -381,6 +420,7 @@ impl BuckdServer {
             daemon_shutdown: DaemonShutdown { shutdown_channel },
             daemon_state,
             cert_state,
+            inactivity_config: inactivity_config.clone(),
             command_channel,
             log_reload_handle,
             rt,
@@ -719,8 +759,7 @@ impl BuckdServer {
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
-        // send signal to register new command time
-        _ = self.0.command_channel.unbounded_send(());
+        self.note_command_activity(opts.daemon_activity());
 
         match self.run_streaming_fallible(req, opts, func).await {
             Ok(resp) => Ok(resp),
@@ -759,6 +798,11 @@ impl BuckdServer {
         } else {
             Ok(())
         }
+    }
+
+    fn note_command_activity(&self, activity: DaemonActivity) {
+        self.0.inactivity_config.note_activity(activity);
+        let _ = self.0.command_channel.unbounded_send(());
     }
 }
 
@@ -1539,6 +1583,7 @@ impl DaemonApi for BuckdServer {
         req: Request<AllocativeRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.check_if_accepting_requests()?;
+        self.note_command_activity(DaemonActivity::Other);
 
         let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
@@ -1668,7 +1713,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
-            DefaultCommandOptions,
+            CleanStaleCommandOptions,
             |context, partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>, req| {
                 clean_stale_command(context, partial_result_dispatcher, req).boxed()
             },
@@ -1785,6 +1830,10 @@ trait OneshotCommandOptions: Send + Sync + 'static {
 
 /// Options to configure the execution of a streaming command (i.e. what happens in `run_streaming()`).
 trait StreamingCommandOptions<Req>: OneshotCommandOptions {
+    fn daemon_activity(&self) -> DaemonActivity {
+        DaemonActivity::Other
+    }
+
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
@@ -1883,7 +1932,7 @@ async fn inactivity_timeout(
     inactivity_config: DaemonInactivityConfig,
 ) {
     let duration = loop {
-        let duration = inactivity_config.timeout;
+        let duration = inactivity_config.current_timeout();
         match timeout(duration, command_receiver.next()).await {
             Ok(Some(())) => {}        // A command arrived; restart the timer.
             Ok(None) => return,       // Channel closed; exit without logging.
@@ -2012,6 +2061,16 @@ impl OneshotCommandOptions for DefaultCommandOptions {}
 
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
 
+struct CleanStaleCommandOptions;
+
+impl OneshotCommandOptions for CleanStaleCommandOptions {}
+
+impl<Req> StreamingCommandOptions<Req> for CleanStaleCommandOptions {
+    fn daemon_activity(&self) -> DaemonActivity {
+        DaemonActivity::CleanStale
+    }
+}
+
 /// Options for `debug hydration`. Its subcommands manage the idle page-out
 /// directly (see `hydration_command`), so starting one must not cancel it.
 struct HydrationCommandOptions;
@@ -2056,9 +2115,8 @@ mod tests {
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
-        let inactivity_config = DaemonInactivityConfig::try_new(Some(2))
+        let inactivity_config = DaemonInactivityConfig::try_new(Some(2), false)
             .expect("test inactivity config should be valid");
-
         let (shutdown_future, shutdown_deadline) =
             server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
@@ -2080,9 +2138,8 @@ mod tests {
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
-        let inactivity_config =
-            DaemonInactivityConfig::try_new(None).expect("test inactivity config should be valid");
-
+        let inactivity_config = DaemonInactivityConfig::try_new(None, false)
+            .expect("test inactivity config should be valid");
         let (shutdown_future, _) =
             server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
@@ -2097,9 +2154,8 @@ mod tests {
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
-        let inactivity_config = DaemonInactivityConfig::try_new(Some(3))
+        let inactivity_config = DaemonInactivityConfig::try_new(Some(3), false)
             .expect("test inactivity config should be valid");
-
         let (shutdown_future, _) =
             server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         futures::pin_mut!(shutdown_future);
@@ -2117,14 +2173,66 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_clean_stale_daemon_timeout_promotion_is_permanent() {
+        let inactivity_config = DaemonInactivityConfig::try_new(None, true)
+            .expect("test inactivity config should be valid");
+
+        assert_eq!(
+            CLEAN_STALE_INACTIVITY_TIMEOUT,
+            inactivity_config.current_timeout()
+        );
+        inactivity_config.note_activity(DaemonActivity::CleanStale);
+        assert_eq!(
+            CLEAN_STALE_INACTIVITY_TIMEOUT,
+            inactivity_config.current_timeout()
+        );
+        inactivity_config.note_activity(DaemonActivity::Other);
+        assert_eq!(
+            DEFAULT_INACTIVITY_TIMEOUT,
+            inactivity_config.current_timeout()
+        );
+        inactivity_config.note_activity(DaemonActivity::CleanStale);
+        assert_eq!(
+            DEFAULT_INACTIVITY_TIMEOUT,
+            inactivity_config.current_timeout()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_clean_stale_daemon_promotion_resets_to_standard_timeout() {
+        tokio::time::pause();
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
+        let inactivity_config = DaemonInactivityConfig::try_new(None, true)
+            .expect("test inactivity config should be valid");
+        let (shutdown_future, _) =
+            server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config.clone(), IN_PROCESS);
+        futures::pin_mut!(shutdown_future);
+
+        let result = tokio::time::timeout(
+            CLEAN_STALE_INACTIVITY_TIMEOUT - Duration::from_secs(1),
+            &mut shutdown_future,
+        )
+        .await;
+        assert!(result.is_err(), "should not shut down before short timeout");
+
+        inactivity_config.note_activity(DaemonActivity::Other);
+        cmd_tx.unbounded_send(()).unwrap();
+
+        let result = tokio::time::timeout(Duration::from_secs(2), &mut shutdown_future).await;
+        assert!(result.is_err(), "promotion should install standard timeout");
+    }
+
     #[tokio::test]
     async fn test_server_shutdown_preserves_deadline() {
         tokio::time::pause();
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
         let (shutdown_tx, shutdown_rx) = mpsc::unbounded();
-        let inactivity_config =
-            DaemonInactivityConfig::try_new(None).expect("test inactivity config should be valid");
+        let inactivity_config = DaemonInactivityConfig::try_new(None, false)
+            .expect("test inactivity config should be valid");
         let (shutdown_future, shutdown_deadline) =
             server_shutdown_signal(cmd_rx, shutdown_rx, inactivity_config, IN_PROCESS);
         let expected_deadline = tokio::time::Instant::now() + Duration::from_secs(7);

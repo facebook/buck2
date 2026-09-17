@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::daemon::client::connect::DaemonStartupMode;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -118,6 +119,10 @@ fn format_result_stats(stats: buck2_data::CleanStaleStats) -> String {
 #[async_trait(?Send)]
 impl StreamingCommand for CleanStaleCommand {
     const COMMAND_NAME: &'static str = "clean-stale";
+
+    fn daemon_startup_mode() -> DaemonStartupMode {
+        DaemonStartupMode::CleanStale
+    }
 
     async fn exec_impl(
         self,

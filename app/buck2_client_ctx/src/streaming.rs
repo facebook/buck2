@@ -32,6 +32,7 @@ use crate::daemon::client::BuckdClientConnector;
 use crate::daemon::client::connect::BuckdConnectDaemonOptions;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
+use crate::daemon::client::connect::DaemonStartupMode;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::connect::connect_buckd;
 use crate::events_ctx::EventsCtx;
@@ -182,6 +183,10 @@ pub trait StreamingCommand: Sized + Send + Sync {
         DesiredTraceIoState::Existing
     }
 
+    fn daemon_startup_mode() -> DaemonStartupMode {
+        DaemonStartupMode::Standard
+    }
+
     fn console_opts(&self) -> &CommonConsoleOptions;
 
     fn event_log_opts(&self) -> &CommonEventLogOptions;
@@ -237,6 +242,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 ctx.restarter.apply_to_constraints(&mut req);
                 BuckdConnectOptions::Options(BuckdConnectDaemonOptions {
                     constraints: req,
+                    daemon_startup_mode: T::daemon_startup_mode(),
                     #[cfg(all(fbcode_build, target_os = "linux"))]
                     allow_daemon_start_unsandboxed_via_wrapper: ctx
                         .immediate_config

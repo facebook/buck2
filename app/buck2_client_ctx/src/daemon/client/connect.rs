@@ -233,6 +233,12 @@ pub enum DesiredTraceIoState {
     Existing,
 }
 
+#[derive(Debug, Clone, Copy, Dupe)]
+pub enum DaemonStartupMode {
+    Standard,
+    CleanStale,
+}
+
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub enum BuckdConnectOptions {
@@ -243,6 +249,7 @@ pub enum BuckdConnectOptions {
 #[derive(Debug, Clone)]
 pub struct BuckdConnectDaemonOptions {
     pub(crate) constraints: DaemonConstraintsRequest,
+    pub(crate) daemon_startup_mode: DaemonStartupMode,
     /// Start the daemon by asking the installed Buck wrapper to re-exec it
     /// outside of the AI sandbox.
     ///
@@ -388,6 +395,10 @@ impl<'a> BuckdLifecycle<'a> {
 
         args.push("--daemon-id");
         args.push(&daemon_id_s);
+
+        if matches!(options.daemon_startup_mode, DaemonStartupMode::CleanStale) {
+            args.push("--started-for-clean-stale");
+        }
 
         if constraints.is_trace_io_requested() {
             args.push("--enable-trace-io");
