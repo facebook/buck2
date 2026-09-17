@@ -12,23 +12,27 @@ def _go_toolchain_impl(ctx):
     # Note: It makes sense to make GoDirstrInfo an attribute of GoToolchainInfo.
     # That's a breaking change, so we'll need to notify oss users.
     go_distr = ctx.attrs.go_distr[GoDistrInfo]
+
+    # `buck2 run` executes the `go` subtarget on the invoking machine, so it is
+    # only offered where the target-configured pair exists; the exec-configured
+    # pair is built for wherever build actions run.
+    sub_targets = {}
+    if ctx.attrs.run_go_distr != None:
+        run_go_distr = ctx.attrs.run_go_distr[GoDistrInfo]
+        sub_targets["go"] = [
+            RunInfo(
+                cmd_args(
+                    ctx.attrs.run_go_wrapper[RunInfo],
+                    ["--go", run_go_distr.bin_go],
+                    ["--goroot", run_go_distr.go_root],
+                    ["--default-goarch", ctx.attrs.env_go_arch],
+                    ["--default-goos", ctx.attrs.env_go_os],
+                    "--",
+                )
+            ),
+        ]
     return [
-        DefaultInfo(
-            sub_targets = {
-                "go": [
-                    RunInfo(
-                        cmd_args(
-                            ctx.attrs.go_wrapper[RunInfo],
-                            ["--go", go_distr.bin_go],
-                            ["--goroot", go_distr.go_root],
-                            ["--default-goarch", ctx.attrs.env_go_arch],
-                            ["--default-goos", ctx.attrs.env_go_os],
-                            "--",
-                        )
-                    ),
-                ]
-            },
-        ),
+        DefaultInfo(sub_targets = sub_targets),
         GoToolchainInfo(
             allow_cache_upload = ctx.attrs.allow_cache_upload,
             assembler = go_distr.tool_asm,
@@ -60,7 +64,7 @@ def _go_toolchain_impl(ctx):
         ),
     ]
 
-go_toolchain = rule(
+_go_toolchain = rule(
     impl = _go_toolchain_impl,
     is_toolchain_rule = True,
     attrs = {
@@ -79,13 +83,37 @@ go_toolchain = rule(
         "fuzz": attrs.bool(default = False),
         "gen_embedcfg": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:gen_embedcfg"),
         "go_distr": attrs.exec_dep(providers = [GoDistrInfo]),
-        "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper"),
+        "go_wrapper": attrs.exec_dep(providers = [RunInfo]),
         "linker_flags": attrs.list(attrs.arg(), default = []),
         "pkg_analyzer": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:pkg_analyzer"),
         "race": attrs.bool(default = False),
+        # Target-configured duals of `go_distr` and `go_wrapper` for the `go`
+        # subtarget, which `buck2 run` executes on the invoking machine rather
+        # than on the execution platform.
+        "run_go_distr": attrs.option(attrs.dep(providers = [GoDistrInfo])),
+        "run_go_wrapper": attrs.option(attrs.dep(providers = [RunInfo])),
         "tool_pack": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:tool_pack"),
     },
 )
+
+def go_toolchain(go_distr, go_wrapper = "prelude//go/tools:go_wrapper", run_go = True, **kwargs):
+    """
+    Go toolchain backed by a `go_distr`.
+
+    Build actions use `go_distr` and `go_wrapper` configured for the execution
+    platform. The `go` subtarget (`buck2 run <toolchain>[go] -- ...`) runs on
+    the invoking machine, so it uses them configured for the target platform.
+    `run_go` (a bool or a `select` of bools) opts target platforms out of the
+    subtarget, for a `go_distr` that is not compatible with every target
+    platform the toolchain supports.
+    """
+    _go_toolchain(
+        go_distr = go_distr,
+        go_wrapper = go_wrapper,
+        run_go_distr = select_map(run_go, lambda enabled: go_distr if enabled else None),
+        run_go_wrapper = select_map(run_go, lambda enabled: go_wrapper if enabled else None),
+        **kwargs,
+    )
 
 def _go_distr_impl(ctx):
     go_root = ctx.attrs.go_root
