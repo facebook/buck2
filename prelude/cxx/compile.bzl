@@ -687,9 +687,9 @@ def _compile_single_cxx(
 
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
 
-    # Distributed NVCC compilation doesn't support dep files because we'll
-    # dryrun cmd and the dep files won't be materialized.
-    # TODO (T219249723): investigate if dep files are needed for dist nvcc.
+    # CUDA compilation attaches dep files itself (see cuda_mono_compile and
+    # cuda_distributed_compile), because the flags have to land on the real
+    # compile sub-command rather than on the nvcc driver command we dryrun here.
     if src_compile_cmd.src.extension == ".cu":
         headers_dep_files = None
 

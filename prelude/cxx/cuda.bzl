@@ -300,10 +300,12 @@ def _nvcc_dynamic_compile(
     )
     subcmd_env = _create_nvcc_subcmd_env(env_artifact)
 
+    category_counts = {}
     for cmd_node in plan:
         subcmd = cmd_args()
         exe = cmd_node["cmd"].pop(0)
-        if "g++" in exe or "clang++" in exe:
+        is_host_compiler = "g++" in exe or "clang++" in exe
+        if is_host_compiler:
             # Add the original command as a hidden dependency, so that
             # we have access to the host compiler and header files.
             subcmd.add(cmd_args(hidden = original_cmd))
@@ -348,12 +350,36 @@ def _nvcc_dynamic_compile(
         # Add the cuda toolchain deps so that we can find the Nvidia tools
         # and CUDA header files.
         subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
+
+        # `original_cmd` pins the target's whole declared header closure into every
+        # host compiler sub-action. Without dep files none of it is prunable, so any
+        # header change anywhere in the closure re-runs all of these sub-actions even
+        # when their output is byte-identical. Let the host compiler report the
+        # headers it actually read so buck can prune the rest from the action key.
+        action_dep_files = {}
+        headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+        if is_host_compiler and headers_dep_files:
+            # Categories can repeat within a plan, so disambiguate with a
+            # per-category ordinal.
+            ordinal = category_counts.get(cmd_node["category"], 0)
+            category_counts[cmd_node["category"]] = ordinal + 1
+            subcmd = add_headers_dep_files(
+                actions,
+                subcmd,
+                headers_dep_files,
+                src_compile_cmd.src,
+                "{}/{}/{}".format(cuda_compile_info.filename, cmd_node["category"], ordinal),
+                action_dep_files,
+            )
+
         actions.run(
             subcmd,
             category = cmd_node["category"],
             env = subcmd_env,
             identifier = cuda_compile_info.identifier,
+            dep_files = action_dep_files,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            allow_dep_file_cache_upload = False,
             prefer_remote = True if "preproc" in cmd_node["category"] else False,
         )
 
