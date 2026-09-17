@@ -21,7 +21,6 @@ CLIPPY_ALLOW = [
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
     "clippy::doc_overindented_list_items",  # FIXME new in Rust 1.86
     "clippy::enum_variant_names",  # Sometimes you do want the same prefixes
-    "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
     "clippy::implicit_hasher",  # Makes code more complex for little benefit
     "clippy::len_without_is_empty",  # len() == 0 is perfectly clear
     "clippy::literal_string_with_formatting_args",  # FIXME new in Rust 1.85, fixed in Rust 1.87 (clippy PR 13953)
