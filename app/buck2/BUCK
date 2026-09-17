@@ -105,7 +105,6 @@ buck_rust_binary(
         "DEFAULT": {},
         "ovr_config//os:linux": {
             # @oss-disable[end= ]: "buck2_miniperf": "//buck2/app/buck2_miniperf:embedded_section",
-            "buck2_miniperf": "//app/buck2_miniperf:embedded_section", # @oss-enable
         },
     }),
     env = {
