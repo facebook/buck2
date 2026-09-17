@@ -56,10 +56,6 @@ impl SettingKeyMetadata {
     }
 }
 
-#[cfg_attr(
-    not(fbcode_build),
-    expect(dead_code, reason = "Settings rollouts are internal-only")
-)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SectionMetadata {
     pub(crate) section_name: &'static str,

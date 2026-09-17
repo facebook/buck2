@@ -1123,6 +1123,10 @@ impl DaemonState {
                 quiet:false
             )?;
         }
+        #[cfg(not(fbcode_build))]
+        {
+            let _repo = repo;
+        }
 
         Ok(())
     }
