@@ -44,7 +44,7 @@ use crate::collections::aligned_padded_str::AlignedPaddedStr;
 use crate::environment::Methods;
 use crate::private::Private;
 use crate::typing::Ty;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -81,7 +81,7 @@ pub struct StarlarkStr {
     str: StarlarkStrN<0>,
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkStr {
+impl<'v> Freeze<'v> for StarlarkStr {
     type Frozen<'fv> = StarlarkStr;
 
     fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

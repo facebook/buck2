@@ -23,7 +23,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -57,12 +57,12 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_external_runner_test_info)]
+#[freeze(validator = validate_external_runner_test_info)]
 #[repr(C)]
 pub struct ExternalRunnerTestInfo<'v> {
     /// A Starlark value representing the type of this test.

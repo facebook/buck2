@@ -42,7 +42,7 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -88,7 +88,7 @@ enum CommandExecutorConfigErrors {
 #[derive(
     Debug,
     Display,
-    FreezeBranded,
+    Freeze,
     NoSerialize,
     ProvidesStaticType,
     Allocative,
@@ -96,7 +96,7 @@ enum CommandExecutorConfigErrors {
 )]
 #[display("{:?}", _0)]
 pub struct StarlarkCommandExecutorConfig(
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     pub Arc<CommandExecutorConfig>,
 );

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Value;
@@ -25,7 +25,7 @@ struct Test<V> {
     field: V,
 }
 
-impl<'v> FreezeBranded<'v> for Test<Value<'v>> {
+impl<'v> Freeze<'v> for Test<Value<'v>> {
     type Frozen<'fv> = Test<Value<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

@@ -28,7 +28,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -71,12 +71,12 @@ use crate::interpreter::rule_defs::required_test_local_resource::StarlarkRequire
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_internal_runner_test_info)]
+#[freeze(validator = validate_internal_runner_test_info)]
 #[repr(C)]
 pub struct InternalRunnerTestInfo<'v> {
     /// A Starlark value representing the type of this test.

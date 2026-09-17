@@ -47,13 +47,13 @@ use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
-use crate::values::FreezeBrandedPlan;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
+use crate::values::StaticFreezePlan;
 use crate::values::StringValue;
 use crate::values::Trace;
 use crate::values::Value;
@@ -306,24 +306,24 @@ impl<'v> Dict<'v> {
 /// A free function: naming the static's rebrand inside the early-bound
 /// `prepare_freeze` trait method trips a spurious rustc bound failure; the
 /// identical expression resolves here.
-fn empty_dict_plan<'v, 'fv>() -> FreezeBrandedPlan<'v, 'fv, DictGen<RefCell<Dict<'v>>>> {
-    FreezeBrandedPlan::direct(VALUE_EMPTY_FROZEN_DICT.at())
+fn empty_dict_plan<'v, 'fv>() -> StaticFreezePlan<'v, 'fv, DictGen<RefCell<Dict<'v>>>> {
+    StaticFreezePlan::direct(VALUE_EMPTY_FROZEN_DICT.at())
 }
 
-impl<'v> FreezeBranded<'v> for DictGen<RefCell<Dict<'v>>> {
+impl<'v> Freeze<'v> for DictGen<RefCell<Dict<'v>>> {
     type Frozen<'fv> = DictGen<Dict<'fv>>;
 
     fn prepare_freeze<'fv>(
         &self,
         _freezer: &Freezer<'v, 'fv>,
-    ) -> FreezeResult<FreezeBrandedPlan<'v, 'fv, Self>>
+    ) -> FreezeResult<StaticFreezePlan<'v, 'fv, Self>>
     where
         Self::Frozen<'fv>: StarlarkValue<'fv>,
     {
         if self.0.content().is_empty() {
             Ok(empty_dict_plan())
         } else {
-            Ok(FreezeBrandedPlan::allocate())
+            Ok(StaticFreezePlan::allocate())
         }
     }
 

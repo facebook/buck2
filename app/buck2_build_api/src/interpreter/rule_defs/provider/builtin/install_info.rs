@@ -17,7 +17,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -49,14 +49,14 @@ enum InstallInfoProviderErrors {
 #[derive(
     Clone,
     Debug,
-    FreezeBranded,
+    Freeze,
     Trace,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
 #[repr(C)]
-#[freeze_branded(validator = validate_install_info)]
+#[freeze(validator = validate_install_info)]
 pub struct InstallInfo<'v> {
     // Label for the installer
     installer: ValueTyped<'v, StarlarkConfiguredProvidersLabel>,

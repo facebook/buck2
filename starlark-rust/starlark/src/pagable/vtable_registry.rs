@@ -229,7 +229,7 @@ pub(crate) fn registered_type_ids() -> Vec<DeserTypeId> {
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
-    use starlark_derive::FreezeBranded;
+    use starlark_derive::Freeze;
     use starlark_derive::NoSerialize;
     use starlark_derive::StarlarkPagable;
     use starlark_derive::Trace;
@@ -270,7 +270,7 @@ mod tests {
         Allocative,
         Clone,
         Trace,
-        FreezeBranded,
+        Freeze,
         StarlarkPagable
     )]
     #[display("TestComplex")]

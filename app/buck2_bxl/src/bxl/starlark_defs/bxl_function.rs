@@ -28,7 +28,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -172,7 +172,7 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for BxlFunction<'v> {
+impl<'v> Freeze<'v> for BxlFunction<'v> {
     type Frozen<'fv> = FrozenBxlFunction<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let frozen_impl = self.implementation.freeze(freezer)?;

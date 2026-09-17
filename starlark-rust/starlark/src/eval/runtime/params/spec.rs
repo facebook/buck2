@@ -51,7 +51,7 @@ use crate::hint::unlikely;
 use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -196,7 +196,7 @@ pub struct ParametersSpec<V> {
     defaults: Box<[V]>,
 }
 
-impl<'v> FreezeBranded<'v> for ParametersSpec<Value<'v>> {
+impl<'v> Freeze<'v> for ParametersSpec<Value<'v>> {
     type Frozen<'fv> = ParametersSpec<Value<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

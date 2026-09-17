@@ -23,7 +23,7 @@ use dupe::Dupe;
 use starlark::StarlarkPagable;
 use starlark::collections::SmallSet;
 use starlark::typing::Ty;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Trace;
@@ -47,7 +47,7 @@ use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
     Debug,
     derive_more::Display,
     Trace,
-    FreezeBranded,
+    Freeze,
     Allocative,
     StarlarkPagable
 )]
@@ -98,19 +98,17 @@ pub(crate) enum DynamicAttrValue<'v> {
 // This isn't *super* sensitive, but it's not nothing either
 size_assert::words_of_type!(DynamicAttrValue<'static>, 4);
 
-impl<'v> FreezeBranded<'v> for DynamicAttrValue<'v> {
+impl<'v> Freeze<'v> for DynamicAttrValue<'v> {
     type Frozen<'fv> = DynamicAttrValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         match self {
             DynamicAttrValue::Output(o) => Ok(DynamicAttrValue::Output(ValueOfUnchecked::new(
-                FreezeBranded::freeze(o.get(), freezer)?,
+                Freeze::freeze(o.get(), freezer)?,
             ))),
             DynamicAttrValue::ArtifactValue(a) => Ok(DynamicAttrValue::ArtifactValue(a)),
             DynamicAttrValue::DynamicValue(d) => Ok(DynamicAttrValue::DynamicValue(d)),
-            DynamicAttrValue::Value(v) => {
-                Ok(DynamicAttrValue::Value(FreezeBranded::freeze(v, freezer)?))
-            }
+            DynamicAttrValue::Value(v) => Ok(DynamicAttrValue::Value(Freeze::freeze(v, freezer)?)),
             DynamicAttrValue::List(l) => Ok(DynamicAttrValue::List(l.freeze(freezer)?)),
             DynamicAttrValue::Dict(d) => Ok(DynamicAttrValue::Dict(d.freeze(freezer)?)),
             DynamicAttrValue::Tuple(t) => Ok(DynamicAttrValue::Tuple(t.freeze(freezer)?)),
@@ -119,7 +117,7 @@ impl<'v> FreezeBranded<'v> for DynamicAttrValue<'v> {
     }
 }
 
-#[derive(Debug, Trace, Allocative, StarlarkPagable, FreezeBranded)]
+#[derive(Debug, Trace, Allocative, StarlarkPagable, Freeze)]
 pub struct DynamicAttrValues<'v> {
     /// Indexed by attrs definitions in `DynamicActionCallable`.
     pub(crate) values: Box<[DynamicAttrValue<'v>]>,

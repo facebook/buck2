@@ -33,7 +33,7 @@ use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
 use starlark::typing::TyUserParams;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -70,7 +70,7 @@ enum TransitiveSetDefinitionError {
     Dupe,
     Copy,
     Trace,
-    FreezeBranded,
+    Freeze,
     PartialEq,
     Allocative,
     Pagable,
@@ -97,9 +97,9 @@ impl TransitiveSetProjectionKind {
     }
 }
 
-#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, Freeze, Allocative, StarlarkPagable)]
 pub struct TransitiveSetProjectionSpec<'v> {
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     pub kind: TransitiveSetProjectionKind,
     pub projection:
         ValueOfUnchecked<'v, StarlarkCallable<'static, (Value<'static>,), Value<'static>>>,
@@ -134,7 +134,7 @@ pub struct TransitiveSetDefinition<'v> {
     operations: TransitiveSetOperations<'v>,
 }
 
-#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, Freeze, Allocative, StarlarkPagable)]
 pub struct TransitiveSetOperations<'v> {
     /// Callables that will project the values contained in transitive sets of this type to
     /// cmd_args or json. This can be used to include a transitive set into a command or json file.
@@ -367,7 +367,7 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for TransitiveSetDefinition<'v> {
+impl<'v> Freeze<'v> for TransitiveSetDefinition<'v> {
     type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -396,7 +396,7 @@ impl<'v> FreezeBranded<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for FrozenTransitiveSetDefinition<'v> {
+impl<'v> Freeze<'v> for FrozenTransitiveSetDefinition<'v> {
     type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

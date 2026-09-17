@@ -26,7 +26,7 @@ use starlark_derive::StarlarkPagableViaPagable;
 use starlark_syntax::slice_vec_ext::VecExt;
 
 use crate as starlark;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::ProvidesStaticType;
@@ -58,7 +58,7 @@ pub(crate) struct MutableSlots<'v>(RefCell<Vec<Option<Value<'v>>>>);
 
 // Indexed slots of a frozen module, at the brand of the heap that holds them. May contain
 // unassigned values as `None`.
-#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
+#[derive(Debug, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
 pub(crate) struct FrozenSlots<'v>(Vec<Option<Value<'v>>>);
 
 impl<'v> MutableSlots<'v> {

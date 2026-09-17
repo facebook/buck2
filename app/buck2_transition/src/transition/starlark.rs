@@ -45,7 +45,7 @@ use starlark::typing::Ty;
 use starlark::util::ArcStr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -191,7 +191,7 @@ impl<'v> AllocValue<'v> for Transition<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for Transition<'v> {
+impl<'v> Freeze<'v> for Transition<'v> {
     type Frozen<'fv> = FrozenTransition<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenTransition<'fv>> {

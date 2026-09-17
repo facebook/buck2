@@ -26,7 +26,7 @@ use pagable::pagable_typetag;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeErrorContext;
 use starlark::values::FreezeResult;
@@ -141,7 +141,7 @@ impl<'v> StarlarkPackageValue<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkPackageValue<'v> {
+impl<'v> Freeze<'v> for StarlarkPackageValue<'v> {
     type Frozen<'fv> = StarlarkPackageValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<StarlarkPackageValue<'fv>> {

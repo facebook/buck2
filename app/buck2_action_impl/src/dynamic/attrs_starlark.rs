@@ -13,7 +13,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -34,7 +34,7 @@ use crate::dynamic::attrs::DynamicAttrType;
     derive_more::Display,
     ProvidesStaticType,
     Trace,
-    FreezeBranded,
+    Freeze,
     Allocative,
     NoSerialize,
     StarlarkPagable

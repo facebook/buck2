@@ -53,7 +53,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -294,7 +294,7 @@ impl Action for WriteJsonAction {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

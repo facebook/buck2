@@ -280,7 +280,7 @@ where
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
-    use starlark_derive::FreezeBranded;
+    use starlark_derive::Freeze;
     use starlark_derive::NoSerialize;
     use starlark_derive::Trace;
     use starlark_derive::starlark_value;
@@ -326,7 +326,7 @@ mod tests {
         Debug,
         Display,
         Trace,
-        FreezeBranded,
+        Freeze,
         ProvidesStaticType,
         NoSerialize,
         Allocative,

@@ -31,7 +31,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLike;
@@ -43,7 +43,7 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
     Debug,
     Dupe,
     Trace,
-    FreezeBranded,
+    Freeze,
     NoSerialize,
     ProvidesStaticType,
     Allocative,

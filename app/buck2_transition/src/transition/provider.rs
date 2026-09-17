@@ -19,7 +19,7 @@ use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::util::ArcStr;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -64,7 +64,7 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

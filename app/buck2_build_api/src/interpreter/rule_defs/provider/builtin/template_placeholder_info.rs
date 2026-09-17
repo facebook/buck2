@@ -16,7 +16,7 @@ use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -81,7 +81,7 @@ enum TemplatePlaceholderInfoError {
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

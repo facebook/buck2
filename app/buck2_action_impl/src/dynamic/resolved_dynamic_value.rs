@@ -16,7 +16,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -33,7 +33,7 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     StarlarkPagable,
     Trace,
-    FreezeBranded
+    Freeze
 )]
 #[display("ResolvedDynamicValue<{}>", self.value)]
 pub struct StarlarkResolvedDynamicValue<'v> {

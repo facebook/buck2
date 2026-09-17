@@ -32,7 +32,7 @@ use crate::any::ProvidesStaticType;
 use crate::pagable::vtable_register::VtableRegistered;
 use crate::typing::starlark_value::TyStarlarkValueVTable;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -55,7 +55,7 @@ pub struct StarlarkAnyComplex<T> {
     pub value: T,
 }
 
-impl<'v, T: FreezeBranded<'v>> FreezeBranded<'v> for StarlarkAnyComplex<T> {
+impl<'v, T: Freeze<'v>> Freeze<'v> for StarlarkAnyComplex<T> {
     type Frozen<'fv> = StarlarkAnyComplex<T::Frozen<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -85,7 +85,7 @@ where
     }
 }
 
-// Proper `Debug` is hard to require from users because of `FreezeBranded` and
+// Proper `Debug` is hard to require from users because of `Freeze` and
 // `ProvidesStaticType`.
 impl<T> Debug for StarlarkAnyComplex<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -205,7 +205,7 @@ macro_rules! register_starlark_any_complex {
 impl<'v, T> AllocValue<'v> for StarlarkAnyComplex<T>
 where
     Self: StarlarkValue<'v> + HeapSendable<'v>,
-    T: Trace<'v> + ProvidesStaticType<'v> + FreezeBranded<'v>,
+    T: Trace<'v> + ProvidesStaticType<'v> + Freeze<'v>,
     for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>: AValueSimpleBound<'fv>,
     for<'fv> StarlarkAnyComplex<T::Frozen<'fv>>:
         ProvidesStaticType<'fv, StaticType = StarlarkAnyComplex<T::Frozen<'static>>>,
@@ -240,7 +240,7 @@ mod tests {
     use crate as starlark;
     use crate::const_frozen_string;
     use crate::environment::Module;
-    use crate::values::FreezeBranded;
+    use crate::values::Freeze;
     use crate::values::FreezeResult;
     use crate::values::Freezer;
     use crate::values::StringValue;
@@ -256,7 +256,7 @@ mod tests {
         other: Value<'v>,
     }
 
-    impl<'v> FreezeBranded<'v> for UnfrozenData<'v> {
+    impl<'v> Freeze<'v> for UnfrozenData<'v> {
         type Frozen<'fv> = FrozenData<'fv>;
 
         fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenData<'fv>> {

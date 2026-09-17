@@ -25,7 +25,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::typing::Ty;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -56,7 +56,7 @@ enum DependencyError {
 #[derive(
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     NoSerialize,
     Allocative,

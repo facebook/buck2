@@ -21,7 +21,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_derive::starlark_value;
 use starlark_map::Hashed;
@@ -41,7 +41,7 @@ use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::types::namespace::typing::TyNamespace;
 
-#[derive(Clone, Copy, Debug, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Clone, Copy, Debug, Trace, Freeze, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub(crate) struct MaybeDocHiddenValue<'v> {
     pub(crate) value: Value<'v>,
@@ -53,7 +53,7 @@ pub(crate) struct MaybeDocHiddenValue<'v> {
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

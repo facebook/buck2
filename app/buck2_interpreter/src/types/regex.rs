@@ -21,7 +21,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::UnpackValue;
@@ -34,7 +34,7 @@ use starlark::values::starlark_value;
 #[derive(
     ProvidesStaticType,
     Debug,
-    FreezeBranded,
+    Freeze,
     NoSerialize,
     Allocative,
     starlark::StarlarkPagable
@@ -44,13 +44,13 @@ pub enum StarlarkBuckRegex {
     //   And this is important because regex can have a lot of cache.
     Regular(
         #[allocative(skip)]
-        #[freeze_branded(identity)]
+        #[freeze(identity)]
         #[starlark_pagable(pagable)]
         regex::Regex,
     ),
     Fancy(
         #[allocative(skip)]
-        #[freeze_branded(identity)]
+        #[freeze(identity)]
         #[starlark_pagable(pagable)]
         fancy_regex::Regex,
     ),

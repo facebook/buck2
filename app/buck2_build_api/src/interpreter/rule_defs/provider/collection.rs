@@ -39,7 +39,7 @@ use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
@@ -444,7 +444,7 @@ unsafe impl<'v> Trace<'v> for ProviderCollection<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for ProviderCollection<'v> {
+impl<'v> Freeze<'v> for ProviderCollection<'v> {
     type Frozen<'fv> = ProviderCollection<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // N.B. collect::<Result<_>> sets the lower bound to zero,

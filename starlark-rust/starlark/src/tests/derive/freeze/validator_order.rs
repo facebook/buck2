@@ -16,7 +16,7 @@
  */
 
 use crate as starlark;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -25,7 +25,7 @@ struct FreezeSentinel {
     frozen: bool,
 }
 
-impl<'v> FreezeBranded<'v> for FreezeSentinel {
+impl<'v> Freeze<'v> for FreezeSentinel {
     type Frozen<'fv> = Self;
 
     fn freeze<'fv>(self, _: &Freezer<'v, 'fv>) -> FreezeResult<Self> {
@@ -34,8 +34,8 @@ impl<'v> FreezeBranded<'v> for FreezeSentinel {
     }
 }
 
-#[derive(FreezeBranded)]
-#[freeze_branded(validator = check_froze_before_validating)]
+#[derive(Freeze)]
+#[freeze(validator = check_froze_before_validating)]
 struct Test {
     sentinel: FreezeSentinel,
 }

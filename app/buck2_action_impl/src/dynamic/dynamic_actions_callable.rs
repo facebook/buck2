@@ -30,7 +30,7 @@ use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::util::ArcStr;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -212,7 +212,7 @@ impl<'v> AllocValue<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for DynamicActionsCallable<'v> {
+impl<'v> Freeze<'v> for DynamicActionsCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -245,7 +245,7 @@ impl<'v> FreezeBranded<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
+impl<'v> Freeze<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

@@ -19,7 +19,7 @@
 
 use allocative::Allocative;
 use derive_more::Display;
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -40,7 +40,7 @@ use crate::values::typing::iter::StarlarkIter;
     Debug,
     Trace,
     Display,
-    FreezeBranded,
+    Freeze,
     NoSerialize,
     ProvidesStaticType,
     Allocative,

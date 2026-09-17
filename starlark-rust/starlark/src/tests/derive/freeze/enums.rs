@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 
 use crate as starlark;
 
 #[allow(dead_code)] // If it compiles, it works.
-#[derive(FreezeBranded)]
+#[derive(Freeze)]
 enum TestFreezeEnum<V> {
     A,
     B(),

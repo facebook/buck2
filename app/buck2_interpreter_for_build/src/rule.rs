@@ -50,7 +50,7 @@ use starlark::starlark_module;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -412,7 +412,7 @@ impl<'v> FrozenRuleImpl<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for RuleImpl<'v> {
+impl<'v> Freeze<'v> for RuleImpl<'v> {
     type Frozen<'fv> = FrozenRuleImpl<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -423,7 +423,7 @@ impl<'v> FreezeBranded<'v> for RuleImpl<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkRuleCallable<'v> {
+impl<'v> Freeze<'v> for StarlarkRuleCallable<'v> {
     type Frozen<'fv> = FrozenStarlarkRuleCallable<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let frozen_impl = self.implementation.freeze(freezer)?;

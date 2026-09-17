@@ -17,27 +17,27 @@
 
 #![allow(dead_code)]
 
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 
 use crate as starlark;
 use crate::values::Freezer;
 
 struct NonFreeze(u32);
 
-#[derive(FreezeBranded)]
+#[derive(Freeze)]
 struct TestStruct {
     s: String,
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     s2: NonFreeze,
 }
 
-#[derive(FreezeBranded)]
-struct TestUnitStruct(String, #[freeze_branded(identity)] NonFreeze);
+#[derive(Freeze)]
+struct TestUnitStruct(String, #[freeze(identity)] NonFreeze);
 
-#[derive(FreezeBranded)]
+#[derive(Freeze)]
 enum TestEnum {
     A(String),
-    B(#[freeze_branded(identity)] NonFreeze),
+    B(#[freeze(identity)] NonFreeze),
 }
 
 #[test]

@@ -17,7 +17,7 @@ use buck2_hash::BuckIndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -45,13 +45,13 @@ use crate::starlark::values::UnpackValue;
 #[derive(
     Clone,
     Debug,
-    FreezeBranded,
+    Freeze,
     Trace,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_local_resource_info)]
+#[freeze(validator = validate_local_resource_info)]
 #[repr(C)]
 pub struct LocalResourceInfo<'v> {
     /// Command to run to initialize a local resource.

@@ -15,7 +15,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::data::ConfigurationData;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
@@ -31,7 +31,7 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

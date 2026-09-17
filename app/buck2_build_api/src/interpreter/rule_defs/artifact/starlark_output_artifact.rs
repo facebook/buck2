@@ -29,7 +29,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
@@ -80,12 +80,12 @@ pub struct FrozenStarlarkOutputArtifact<'v> {
     artifact: ValueTyped<'v, StarlarkArtifact>,
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkOutputArtifact<'v> {
+impl<'v> Freeze<'v> for StarlarkOutputArtifact<'v> {
     type Frozen<'fv> = FrozenStarlarkOutputArtifact<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(FrozenStarlarkOutputArtifact {
-            artifact: FreezeBranded::freeze(self.declared_artifact, freezer)?,
+            artifact: Freeze::freeze(self.declared_artifact, freezer)?,
         })
     }
 }

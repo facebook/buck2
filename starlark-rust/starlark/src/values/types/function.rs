@@ -41,7 +41,7 @@ use crate::typing::TyBasic;
 use crate::typing::arc_ty::ArcTy;
 use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -294,7 +294,7 @@ impl<'fv> AllocFrozenValue<'fv> for NativeMethod<'fv> {
 
 // Only ever allocated in the frozen heaps of methods tables, so never actually frozen; the impl
 // is what lets a `ValueTyped` of it be a field of a freezable type.
-impl<'v> FreezeBranded<'v> for NativeMethod<'v> {
+impl<'v> Freeze<'v> for NativeMethod<'v> {
     type Frozen<'fv> = NativeMethod<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -380,7 +380,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute<'v> {
     Debug,
     Trace,
     Display,
-    FreezeBranded,
+    Freeze,
     NoSerialize,
     ProvidesStaticType,
     Allocative,

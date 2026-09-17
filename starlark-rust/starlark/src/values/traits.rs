@@ -69,7 +69,7 @@ use crate::values::function::FUNCTION_TYPE;
 /// A `ComplexValue` is allocated with
 /// [`alloc_complex_branded`](crate::values::Heap::alloc_complex_branded). Types whose only
 /// lifetime parameter is the heap brand can derive
-/// [`FreezeBranded`](crate::values::FreezeBranded) and let
+/// [`Freeze`](crate::values::Freeze) and let
 /// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!) write the
 /// boilerplate; the blanket [`FreezeDynamic`](crate::values::FreezeDynamic) implementation
 /// carries them through the same freeze protocol.
@@ -81,12 +81,12 @@ use crate::values::function::FUNCTION_TYPE;
 /// frozen heap's. If we are defining the type containing a single value,
 /// let's call it `One`, we define it once over its brand and freeze
 /// `One<'v>` into `One<'fv>` with
-/// [`FreezeBranded`](crate::values::FreezeBranded):
+/// [`Freeze`](crate::values::Freeze):
 ///
 /// ```
 /// use allocative::Allocative;
 /// use derive_more::Display;
-/// use starlark::values::FreezeBranded;
+/// use starlark::values::Freeze;
 /// use starlark::values::FreezeResult;
 /// use starlark::values::Freezer;
 /// use starlark::values::NoSerialize;
@@ -111,7 +111,7 @@ use crate::values::function::FUNCTION_TYPE;
 /// #[starlark_value(type = "one")]
 /// impl<'v> StarlarkValue<'v> for One<'v> {}
 ///
-/// impl<'v> FreezeBranded<'v> for One<'v> {
+/// impl<'v> Freeze<'v> for One<'v> {
 ///     type Frozen<'fv> = One<'fv>;
 ///     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
 ///         Ok(One(freezer.freeze(self.0)?))
@@ -133,7 +133,7 @@ impl<'v, V> ComplexValue<'v> for V where V: StarlarkValue<'v> + Trace<'v> + Free
 ///
 /// A type that contains nested Starlark [`Value`]s, or that is not [`Send`] and [`Sync`] because
 /// it has interior mutability such as a [`RefCell`](std::cell::RefCell), additionally needs
-/// [`Trace`](crate::values::Trace) and [`FreezeBranded`](crate::values::FreezeBranded), and is
+/// [`Trace`](crate::values::Trace) and [`Freeze`](crate::values::Freeze), and is
 /// allocated with [`alloc_complex_branded`](Heap::alloc_complex_branded) — see
 /// [`starlark_complex_value_branded!`](crate::starlark_complex_value_branded!), which writes the
 /// boilerplate for the common shape.
@@ -186,7 +186,7 @@ impl<'v, V> ComplexValue<'v> for V where V: StarlarkValue<'v> + Trace<'v> + Free
 ///   simple value to the frozen heap as it is.
 /// * A *complex* value holds [`Value`]s of an unfrozen heap, or interior mutability. It
 ///   implements [`Trace`](crate::values::Trace), so the garbage collector can find what it
-///   points at, and [`FreezeBranded`](crate::values::FreezeBranded), whose output is the simple
+///   points at, and [`Freeze`](crate::values::Freeze), whose output is the simple
 ///   value that stands in for it on the frozen heap ([`Heap::alloc_complex_branded`]).
 ///   [`Heap::alloc_complex_no_freeze`] is for a type that must be traced but has no frozen form;
 ///   freezing a module that still holds one is an error.

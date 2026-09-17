@@ -15,7 +15,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_hash::BuckMutSet;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -84,12 +84,12 @@ enum ValidationInfoError {
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_validation_info)]
+#[freeze(validator = validate_validation_info)]
 #[repr(transparent)]
 pub struct ValidationInfo<'v> {
     /// Non-empty list of `ValidationSpec` values, each representing a single

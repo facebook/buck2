@@ -27,7 +27,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -50,7 +50,7 @@ pub(crate) struct TestComplexValue<'v>(pub(crate) Value<'v>);
 #[starlark_value(type = "TestComplexValue", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for TestComplexValue<'v> {}
 
-impl<'v> FreezeBranded<'v> for TestComplexValue<'v> {
+impl<'v> Freeze<'v> for TestComplexValue<'v> {
     type Frozen<'fv> = TestComplexValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

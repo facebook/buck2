@@ -18,7 +18,7 @@ use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozen;
@@ -51,7 +51,7 @@ pub struct FrozenAnalysisExtraValue<'fv> {
 
 starlark::register_starlark_any_complex!(AnalysisExtraValue<'_>, frozen FrozenAnalysisExtraValue<'_>);
 
-impl<'v> FreezeBranded<'v> for AnalysisExtraValue<'v> {
+impl<'v> Freeze<'v> for AnalysisExtraValue<'v> {
     type Frozen<'fv> = FrozenAnalysisExtraValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -59,7 +59,7 @@ impl<'v> FreezeBranded<'v> for AnalysisExtraValue<'v> {
             analysis_value_storage,
         } = self;
         Ok(FrozenAnalysisExtraValue {
-            analysis_value_storage: FreezeBranded::freeze(analysis_value_storage, freezer)?,
+            analysis_value_storage: Freeze::freeze(analysis_value_storage, freezer)?,
         })
     }
 }

@@ -13,7 +13,7 @@ use buck2_error::BuckErrorOptionContext;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -34,7 +34,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
     Dupe,
     Copy,
     Trace,
-    FreezeBranded,
+    Freeze,
     PartialEq,
     Allocative,
     StarlarkPagable
@@ -79,7 +79,7 @@ impl TransitiveSetOrdering {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     NoSerialize,
@@ -110,7 +110,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetTraversal<'v> {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     NoSerialize,

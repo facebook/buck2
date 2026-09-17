@@ -23,7 +23,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -131,7 +131,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
     type Canonical = FrozenStarlarkPluginKind;
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkPluginKind {
+impl<'v> Freeze<'v> for StarlarkPluginKind {
     type Frozen<'fv> = FrozenStarlarkPluginKind;
     fn freeze<'fv>(self, _: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         self.expect_bound()

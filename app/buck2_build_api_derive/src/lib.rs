@@ -20,7 +20,7 @@ mod provider;
 ///
 /// The struct must have the branded shape: one lifetime parameter and
 /// `ValueOfUnchecked<'v, _>`/`ValueTyped<'v, _>`-style fields, with
-/// `#[derive(FreezeBranded)]`. The frozen form is the `'static` alias.
+/// `#[derive(Freeze)]`. The frozen form is the `'static` alias.
 ///
 /// # Arguments
 ///
@@ -43,8 +43,8 @@ mod provider;
 /// In rust, a utility is added for getting the provider from a provider collection like
 /// Foo::from_providers(collection).
 ///
-/// To run validation at freeze time, put `#[freeze_branded(validator = my_validate)]`
-/// on the struct; that is an option of the `FreezeBranded` derive, not of this
+/// To run validation at freeze time, put `#[freeze(validator = my_validate)]`
+/// on the struct; that is an option of the `Freeze` derive, not of this
 /// attribute.
 ///
 /// # Examples
@@ -53,7 +53,7 @@ mod provider;
 ///
 /// ```ignore
 /// #[internal_provider(my_provider_creator)]
-/// #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+/// #[derive(Clone, Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
 /// #[repr(C)]
 /// struct MyProvider<'v> {
 ///     field1: ValueOfUnchecked<'v, String>,
@@ -66,7 +66,7 @@ mod provider;
 ///
 /// ```ignore
 /// #[internal_provider(my_provider_creator, methods = my_custom_methods)]
-/// #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+/// #[derive(Clone, Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
 /// #[repr(C)]
 /// struct MyProvider<'v> {
 ///     field1: ValueOfUnchecked<'v, String>,

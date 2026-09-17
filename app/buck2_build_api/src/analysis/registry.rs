@@ -50,7 +50,7 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValueTyped;
@@ -476,7 +476,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for AnalysisValueStorage<'v> {
+impl<'v> Freeze<'v> for AnalysisValueStorage<'v> {
     type Frozen<'fv> = FrozenAnalysisValueStorage<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -495,8 +495,8 @@ impl<'v> FreezeBranded<'v> for AnalysisValueStorage<'v> {
             frozen_action_data.insert(
                 k,
                 (
-                    FreezeBranded::freeze(data, freezer)?,
-                    FreezeBranded::freeze(error_handler, freezer)?,
+                    Freeze::freeze(data, freezer)?,
+                    Freeze::freeze(error_handler, freezer)?,
                 ),
             );
         }

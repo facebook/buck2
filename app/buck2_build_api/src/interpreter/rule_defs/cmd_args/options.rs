@@ -34,7 +34,7 @@ use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::StarlarkPagable;
@@ -58,7 +58,7 @@ use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
     Copy,
     Dupe,
     Trace,
-    FreezeBranded,
+    Freeze,
     Serialize,
     Allocative,
     Pagable,
@@ -371,7 +371,7 @@ impl<'v> Serialize for FrozenCommandLineOptions<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for CommandLineOptions<'v> {
+impl<'v> Freeze<'v> for CommandLineOptions<'v> {
     type Frozen<'fv> = FrozenCommandLineOptions<'fv>;
 
     fn freeze<'fv>(
@@ -400,11 +400,11 @@ impl<'v> FreezeBranded<'v> for CommandLineOptions<'v> {
             ));
         }
         if let Some(absolute_prefix) = absolute_prefix {
-            let absolute_prefix = FreezeBranded::freeze(absolute_prefix, freezer)?;
+            let absolute_prefix = Freeze::freeze(absolute_prefix, freezer)?;
             options.push(FrozenCommandLineOption::AbsolutePrefix(absolute_prefix));
         }
         if let Some(absolute_suffix) = absolute_suffix {
-            let absolute_suffix = FreezeBranded::freeze(absolute_suffix, freezer)?;
+            let absolute_suffix = Freeze::freeze(absolute_suffix, freezer)?;
             options.push(FrozenCommandLineOption::AbsoluteSuffix(absolute_suffix));
         }
         if parent != 0 {
@@ -414,15 +414,15 @@ impl<'v> FreezeBranded<'v> for CommandLineOptions<'v> {
             options.push(FrozenCommandLineOption::IgnoreArtifacts);
         }
         if let Some(delimiter) = delimiter {
-            let delimiter = FreezeBranded::freeze(delimiter, freezer)?;
+            let delimiter = Freeze::freeze(delimiter, freezer)?;
             options.push(FrozenCommandLineOption::Delimiter(delimiter));
         }
         if let Some(format) = format {
-            let format = FreezeBranded::freeze(format, freezer)?;
+            let format = Freeze::freeze(format, freezer)?;
             options.push(FrozenCommandLineOption::Format(format));
         }
         if let Some(prepend) = prepend {
-            let prepend = FreezeBranded::freeze(prepend, freezer)?;
+            let prepend = Freeze::freeze(prepend, freezer)?;
             options.push(FrozenCommandLineOption::Prepend(prepend));
         }
         if let Some(quote) = quote {
@@ -430,8 +430,7 @@ impl<'v> FreezeBranded<'v> for CommandLineOptions<'v> {
         }
         if let Some(replacements) = replacements {
             if !replacements.is_empty() {
-                let replacements =
-                    MiniBoxSlice::from_iter(FreezeBranded::freeze(*replacements, freezer)?);
+                let replacements = MiniBoxSlice::from_iter(Freeze::freeze(*replacements, freezer)?);
                 options.push(FrozenCommandLineOption::Replacements(replacements));
             }
         }

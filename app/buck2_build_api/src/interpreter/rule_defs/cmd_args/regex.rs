@@ -15,7 +15,7 @@ use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -32,7 +32,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
     Dupe,
     Copy,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

@@ -25,7 +25,7 @@ use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::ProvidesStaticType;
@@ -156,7 +156,7 @@ impl<'v> FrozenNames<'v> {
 }
 
 // Only re-types the names at another frozen heap's brand, see `FrozenModuleData`.
-impl<'v> FreezeBranded<'v> for FrozenNames<'v> {
+impl<'v> Freeze<'v> for FrozenNames<'v> {
     type Frozen<'fv> = FrozenNames<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<FrozenNames<'fv>> {

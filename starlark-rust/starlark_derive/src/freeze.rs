@@ -46,7 +46,7 @@ impl Input<'_> {
         }
     }
 
-    /// The generics of the impl: the brand `'v` of `FreezeBranded<'v>`, the parameters of
+    /// The generics of the impl: the brand `'v` of `Freeze<'v>`, the parameters of
     /// `impl<..>`, of the type, and of `Frozen<'fv>`.
     ///
     /// The brand is the type's lifetime parameter. A type without one holds no values, so it
@@ -55,7 +55,7 @@ impl Input<'_> {
     fn format_impl_generics(
         &self,
     ) -> syn::Result<(syn::Lifetime, TokenStream, TokenStream, TokenStream)> {
-        let trait_ = freeze_branded();
+        let trait_ = freeze_trait();
         let span = self.input.span();
         let mut lifetimes = self.input.generics.lifetimes();
         let brand = match (lifetimes.next(), lifetimes.next()) {
@@ -64,8 +64,8 @@ impl Input<'_> {
             (Some(_), Some(second)) => {
                 return Err(syn::Error::new_spanned(
                     second,
-                    "`#[derive(FreezeBranded)]` cannot tell which lifetime parameter is the \
-                     heap's brand; implement `FreezeBranded` by hand",
+                    "`#[derive(Freeze)]` cannot tell which lifetime parameter is the \
+                     heap's brand; implement `Freeze` by hand",
                 ));
             }
         };
@@ -175,7 +175,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         }
     };
 
-    let trait_ = freeze_branded();
+    let trait_ = freeze_trait();
 
     let r#gen = syn::parse_quote_spanned! {
         span=>
@@ -196,13 +196,13 @@ syn::custom_keyword!(frozen_only);
 
 #[derive(Default)]
 struct FreezeDeriveOptions {
-    /// `#[freeze_branded(validator = function)]`.
+    /// `#[freeze(validator = function)]`.
     validator: Option<Ident>,
-    /// `#[freeze_branded(bounds = ...)]`.
+    /// `#[freeze(bounds = ...)]`.
     bounds: Option<Punctuated<WherePredicate, Token![,]>>,
-    /// `#[freeze_branded(identity)]`.
+    /// `#[freeze(identity)]`.
     identity: Option<identity>,
-    /// `#[freeze_branded(frozen_only)]`.
+    /// `#[freeze(frozen_only)]`.
     frozen_only: Option<frozen_only>,
 }
 
@@ -214,11 +214,7 @@ fn reject_field_options(input: &DeriveInput) -> syn::Result<()> {
         syn::Data::Union(u) => u.fields.named.iter().collect(),
     };
     for field in fields {
-        if let Some(attr) = field
-            .attrs
-            .iter()
-            .find(|a| a.path().is_ident("freeze_branded"))
-        {
+        if let Some(attr) = field.attrs.iter().find(|a| a.path().is_ident("freeze")) {
             return Err(syn::Error::new_spanned(
                 attr,
                 "field options have no effect under `frozen_only`, which freezes no field",
@@ -228,7 +224,7 @@ fn reject_field_options(input: &DeriveInput) -> syn::Result<()> {
     Ok(())
 }
 
-/// Parse a `#[freeze_branded(...)]` annotation.
+/// Parse a `#[freeze(...)]` annotation.
 fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
     syn::custom_keyword!(validator);
     syn::custom_keyword!(bounds);
@@ -236,7 +232,7 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
     let mut opts = FreezeDeriveOptions::default();
 
     for attr in attrs.iter() {
-        if !attr.path().is_ident("freeze_branded") {
+        if !attr.path().is_ident("freeze") {
             continue;
         }
 
@@ -291,7 +287,7 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
 }
 
 fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
-    let trait_ = freeze_branded();
+    let trait_ = freeze_trait();
     let derive_input = DeriveInputUtil::new(derive_input)?;
     derive_input.match_self(|struct_or_enum_variant, fields| {
         let fields: Vec<syn::Expr> = fields
@@ -339,8 +335,8 @@ fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
     })
 }
 
-fn freeze_branded() -> TokenStream {
-    quote! { starlark::values::FreezeBranded }
+fn freeze_trait() -> TokenStream {
+    quote! { starlark::values::Freeze }
 }
 
 pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

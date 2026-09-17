@@ -236,7 +236,7 @@ mod tests {
     use crate as starlark;
     use crate::any::ProvidesStaticType;
     use crate::environment::Module;
-    use crate::values::FreezeBranded;
+    use crate::values::Freeze;
     use crate::values::Freezer;
     use crate::values::NoSerialize;
     use crate::values::StarlarkPagable;
@@ -279,7 +279,7 @@ mod tests {
         type Canonical = ReentrantTupleFreeze<'v>;
     }
 
-    impl<'v> FreezeBranded<'v> for ReentrantTupleFreeze<'v> {
+    impl<'v> Freeze<'v> for ReentrantTupleFreeze<'v> {
         type Frozen<'fv> = FrozenReentrantTupleFreeze;
 
         fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -322,7 +322,7 @@ mod tests {
         type Canonical = ReentrantListFreeze<'v>;
     }
 
-    impl<'v> FreezeBranded<'v> for ReentrantListFreeze<'v> {
+    impl<'v> Freeze<'v> for ReentrantListFreeze<'v> {
         type Frozen<'fv> = FrozenReentrantListFreeze;
 
         fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

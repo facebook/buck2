@@ -29,7 +29,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -287,7 +287,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkDeclaredArtifact<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkDeclaredArtifact<'v> {
+impl<'v> Freeze<'v> for StarlarkDeclaredArtifact<'v> {
     type Frozen<'fv> = StarlarkArtifact;
 
     fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<StarlarkArtifact> {

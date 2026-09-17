@@ -17,7 +17,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -39,7 +39,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     Allocative,

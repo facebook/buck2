@@ -24,7 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FrozenHeap;
 use starlark::values::Heap;
@@ -130,13 +130,13 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 #[derive(
     Clone,
     Debug,
-    FreezeBranded,
+    Freeze,
     Trace,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_default_info)]
+#[freeze(validator = validate_default_info)]
 #[repr(C)]
 pub struct DefaultInfo<'v> {
     /// A mapping of names to `ProviderCollection`s. The keys are used when resolving the

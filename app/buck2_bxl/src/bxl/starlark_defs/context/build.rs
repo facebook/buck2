@@ -30,7 +30,7 @@ use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value_branded;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -53,7 +53,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     NoSerialize,
@@ -108,7 +108,7 @@ impl<'v> StarlarkValue<'v> for StarlarkProvidersArtifactIterable<'v> {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     NoSerialize,

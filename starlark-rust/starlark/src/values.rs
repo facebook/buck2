@@ -40,7 +40,7 @@
 //! The runtime mirrors the two phases. While a module runs, its values are allocated on the
 //! module's [`Heap`], where they may be mutable and are garbage collected. Freezing the module
 //! ([`Module::freeze_named`](crate::environment::Module::freeze_named)) copies every value
-//! reachable from the module's variables onto the module's frozen heap through [`FreezeBranded`];
+//! reachable from the module's variables onto the module's frozen heap through [`Freeze`];
 //! the copies are immutable, and a value reachable from several places is copied once, see
 //! [`Freezer`]. The sealed frozen heap ([`OwnedFrozen`]) is `Send + Sync` and is shared by
 //! reference.
@@ -57,7 +57,7 @@
 
 pub use starlark_derive::AllocFrozenValue;
 pub use starlark_derive::AllocValue;
-pub use starlark_derive::FreezeBranded;
+pub use starlark_derive::Freeze;
 pub use starlark_derive::NoSerialize;
 pub use starlark_derive::StarlarkPagable;
 pub use starlark_derive::StarlarkPagablePanic;
@@ -73,13 +73,13 @@ pub use crate::values::alloc_value::AllocFrozenValue;
 pub use crate::values::alloc_value::AllocValue;
 pub use crate::values::demand::Demand;
 pub use crate::values::error::ValueError;
+pub use crate::values::freeze::Freeze;
 pub use crate::values::freeze::FreezeDynamic;
 pub use crate::values::freeze::FreezePlan;
 pub use crate::values::freeze::FreezeSlot;
 pub use crate::values::freeze::FreezeTarget;
 pub use crate::values::freeze::InitializedFreezeSlot;
-pub use crate::values::freeze_branded::FreezeBranded;
-pub use crate::values::freeze_branded::FreezeBrandedPlan;
+pub use crate::values::freeze::StaticFreezePlan;
 pub use crate::values::freeze_error::FreezeError;
 pub use crate::values::freeze_error::FreezeErrorContext;
 pub use crate::values::freeze_error::FreezeResult;
@@ -148,7 +148,6 @@ mod comparison;
 pub(crate) mod demand;
 pub(crate) mod error;
 mod freeze;
-mod freeze_branded;
 mod freeze_error;
 mod index;
 pub(crate) mod iter;

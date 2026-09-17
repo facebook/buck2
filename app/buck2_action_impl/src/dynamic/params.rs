@@ -17,7 +17,7 @@ use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use starlark::StarlarkPagable;
 use starlark::any::ProvidesStaticType;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Trace;
@@ -81,7 +81,7 @@ impl<'fv> FrozenDynamicLambdaParams<'fv> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for DynamicLambdaParams<'v> {
+impl<'v> Freeze<'v> for DynamicLambdaParams<'v> {
     type Frozen<'fv> = FrozenDynamicLambdaParams<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

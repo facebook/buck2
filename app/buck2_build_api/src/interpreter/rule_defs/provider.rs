@@ -21,7 +21,7 @@
 //! For an internal provider like:
 //! ```skip
 //! #[internal_provider(create_my_prov)]
-//! #[derive(Clone, Debug, Trace, FreezeBranded, ProvidesStaticType, Allocative, StarlarkPagable)]
+//! #[derive(Clone, Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
 //! #[repr(C)]
 //! pub struct MyProvider<'v> {
 //!    field1: ValueOfUnchecked<'v, String>,

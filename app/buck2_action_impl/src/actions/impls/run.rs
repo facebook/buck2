@@ -109,7 +109,7 @@ use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::collections::SmallSet;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
@@ -359,7 +359,7 @@ impl<'v> AllocValue<'v> for StarlarkRunActionValues<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkRunActionValues<'v> {
+impl<'v> Freeze<'v> for StarlarkRunActionValues<'v> {
     type Frozen<'fv> = FrozenStarlarkRunActionValues<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -375,11 +375,11 @@ impl<'v> FreezeBranded<'v> for StarlarkRunActionValues<'v> {
         } = self;
 
         Ok(FrozenStarlarkRunActionValues {
-            exe: FreezeBranded::freeze(exe, freezer)?,
-            args: FreezeBranded::freeze(args, freezer)?,
-            env: FreezeBranded::freeze(env, freezer)?,
-            worker: FreezeBranded::freeze(worker, freezer)?,
-            remote_worker: FreezeBranded::freeze(remote_worker, freezer)?,
+            exe: Freeze::freeze(exe, freezer)?,
+            args: Freeze::freeze(args, freezer)?,
+            env: Freeze::freeze(env, freezer)?,
+            worker: Freeze::freeze(worker, freezer)?,
+            remote_worker: Freeze::freeze(remote_worker, freezer)?,
             category: category.freeze(freezer)?,
             identifier: identifier.map(|i| i.freeze(freezer)).transpose()?,
             // N.B. collect::<Result<_>> sets the lower bound to zero,
@@ -387,7 +387,7 @@ impl<'v> FreezeBranded<'v> for StarlarkRunActionValues<'v> {
             outputs_for_error_handler: {
                 let mut frozen_outputs = Vec::with_capacity(outputs_for_error_handler.len());
                 for output in outputs_for_error_handler {
-                    frozen_outputs.push(FreezeBranded::freeze(output, freezer)?);
+                    frozen_outputs.push(Freeze::freeze(output, freezer)?);
                 }
                 frozen_outputs
             },

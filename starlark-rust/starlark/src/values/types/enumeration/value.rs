@@ -21,7 +21,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use derivative::Derivative;
 use dupe::Dupe;
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -46,7 +46,7 @@ use crate::values::types::type_instance_id::TypeInstanceId;
     Clone,
     Derivative,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

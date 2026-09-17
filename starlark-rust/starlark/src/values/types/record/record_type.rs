@@ -52,7 +52,7 @@ use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserParams;
 use crate::util::ArcStr;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -211,7 +211,7 @@ impl<'v> RecordType<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for RecordType<'v> {
+impl<'v> Freeze<'v> for RecordType<'v> {
     type Frozen<'fv> = FrozenRecordType<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

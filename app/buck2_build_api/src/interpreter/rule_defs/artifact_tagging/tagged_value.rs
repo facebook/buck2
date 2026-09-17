@@ -16,7 +16,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -32,7 +32,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     Display,
     ProvidesStaticType,
     Allocative,
@@ -42,7 +42,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 #[display("TaggedValue({}, tagged {})", inner, tag)]
 pub struct StarlarkTaggedValue<'v> {
     inner: Value<'v>,
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     tag: ArtifactTag,
     inputs_only: bool,

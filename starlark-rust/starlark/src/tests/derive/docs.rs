@@ -19,7 +19,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use serde::Serialize;
 use serde::Serializer;
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
@@ -78,7 +78,7 @@ impl<'v> StarlarkValue<'v> for TestExample {
     Debug,
     Display,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

@@ -48,7 +48,7 @@ use starlark::typing::TyStarlarkValue;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -245,8 +245,8 @@ fn create_callable_function_signature<'v>(
 ///
 /// One copy per provider type, shared by the callable and every instance: allocated in the
 /// module's frozen heap as a `StarlarkAnyComplex` (see [`UserProviderCallableDataValue`]).
-#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
-#[freeze_branded(frozen_only)]
+#[derive(Debug, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
+#[freeze(frozen_only)]
 pub(crate) struct UserProviderCallableData<'v> {
     #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
@@ -292,7 +292,7 @@ impl<'v> UserProviderCallableNamed<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for UserProviderCallableNamed<'v> {
+impl<'v> Freeze<'v> for UserProviderCallableNamed<'v> {
     type Frozen<'fv> = UserProviderCallableNamed<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -316,7 +316,7 @@ impl<'v> FreezeBranded<'v> for UserProviderCallableNamed<'v> {
 #[derive(
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     Allocative,
     ProvidesStaticType,
     NoSerialize,
@@ -453,7 +453,7 @@ impl<'v> AllocValue<'v> for UserProviderCallable<'v> {
     }
 }
 
-impl<'v> FreezeBranded<'v> for UserProviderCallable<'v> {
+impl<'v> Freeze<'v> for UserProviderCallable<'v> {
     type Frozen<'fv> = FrozenUserProviderCallable<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let callable = self.callable.into_inner();

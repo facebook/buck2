@@ -29,7 +29,7 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::StarlarkValue;
@@ -116,7 +116,7 @@ pub(crate) trait AnyArrayRegistered: Debug + 'static {
 
 // Only ever allocated in frozen heaps (see `AValueAnyArray`), whose contents are not frozen
 // again; the impl is what lets a `ValueTyped<'v, AnyArray<T>>` be a field of a frozen type.
-impl<'v, T: Debug + 'static> FreezeBranded<'v> for AnyArray<T> {
+impl<'v, T: Debug + 'static> Freeze<'v> for AnyArray<T> {
     type Frozen<'fv> = Self;
 
     fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

@@ -16,18 +16,18 @@
  */
 
 use crate as starlark;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::Value;
 
-#[derive(FreezeBranded)]
-#[freeze_branded(frozen_only)]
+#[derive(Freeze)]
+#[freeze(frozen_only)]
 #[allow(dead_code)]
 struct FrozenOnly<'v> {
     value: Value<'v>,
 }
 
-#[derive(FreezeBranded)]
-#[freeze_branded(frozen_only)]
+#[derive(Freeze)]
+#[freeze(frozen_only)]
 #[allow(dead_code)]
 enum FrozenOnlyEnum<'v> {
     A(Value<'v>),
@@ -37,11 +37,11 @@ enum FrozenOnlyEnum<'v> {
 /// `Frozen<'fv>` is the type at `'fv`, which is what a handle field's freeze goes through.
 #[test]
 fn test_frozen_is_the_type_at_the_brand() {
-    fn rebrand<'a, 'b>(x: <FrozenOnly<'a> as FreezeBranded<'a>>::Frozen<'b>) -> FrozenOnly<'b> {
+    fn rebrand<'a, 'b>(x: <FrozenOnly<'a> as Freeze<'a>>::Frozen<'b>) -> FrozenOnly<'b> {
         x
     }
     fn rebrand_enum<'a, 'b>(
-        x: <FrozenOnlyEnum<'a> as FreezeBranded<'a>>::Frozen<'b>,
+        x: <FrozenOnlyEnum<'a> as Freeze<'a>>::Frozen<'b>,
     ) -> FrozenOnlyEnum<'b> {
         x
     }

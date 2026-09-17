@@ -33,10 +33,10 @@ use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::Value;
 
 /// Copies values from the heap of `'v` onto the frozen heap of `'fv`; the argument of
-/// [`FreezeBranded::freeze`](crate::values::FreezeBranded::freeze).
+/// [`Freeze::freeze`](crate::values::Freeze::freeze).
 ///
 /// [`freeze`](Freezer::freeze) copies an unfrozen value onto the freezer's heap through the
-/// value's `FreezeBranded` impl and overwrites the original with a forwarding pointer to the
+/// value's `Freeze` impl and overwrites the original with a forwarding pointer to the
 /// copy, so a value reachable from several places is copied once and keeps its identity. The
 /// originals are unusable from then on, which is why freezing consumes the
 /// [`Module`](crate::environment::Module).

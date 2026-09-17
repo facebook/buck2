@@ -18,7 +18,7 @@ use dupe::Dupe;
 use starlark::pagable::SmallMapKeyDeserialize;
 use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
@@ -31,7 +31,7 @@ use starlark::values::starlark_value;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
-/// Wrapper around `PluginKind` to impl `Trace` and `FreezeBranded`
+/// Wrapper around `PluginKind` to impl `Trace` and `Freeze`
 #[derive(
     Clone,
     Dupe,
@@ -43,13 +43,13 @@ use starlark_map::small_map::SmallMap;
     Ord,
     PartialOrd,
     Allocative,
-    FreezeBranded,
+    Freeze,
     Trace,
     StarlarkPagable
 )]
 #[repr(transparent)]
 struct PluginKindWrapper(
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     PluginKind,
 );
@@ -72,7 +72,7 @@ impl Borrow<PluginKind> for PluginKindWrapper {
 #[derive(
     Debug,
     Display,
-    FreezeBranded,
+    Freeze,
     Trace,
     ProvidesStaticType,
     NoSerialize,

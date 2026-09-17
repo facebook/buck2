@@ -41,14 +41,14 @@ use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
-use starlark::values::FreezeBrandedPlan;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
+use starlark::values::StaticFreezePlan;
 use starlark::values::StringValue;
 use starlark::values::ThinBoxSliceValue;
 use starlark::values::Trace;
@@ -636,17 +636,17 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs<'v> {
 /// A free function: naming the static's rebrand inside the early-bound
 /// `prepare_freeze` trait method trips a spurious rustc bound failure; the
 /// identical expression resolves here.
-fn empty_cmd_args_plan<'v, 'fv>() -> FreezeBrandedPlan<'v, 'fv, StarlarkCmdArgs<'v>> {
-    FreezeBrandedPlan::direct(EMPTY_FROZEN_CMD_ARGS.at())
+fn empty_cmd_args_plan<'v, 'fv>() -> StaticFreezePlan<'v, 'fv, StarlarkCmdArgs<'v>> {
+    StaticFreezePlan::direct(EMPTY_FROZEN_CMD_ARGS.at())
 }
 
-impl<'v> FreezeBranded<'v> for StarlarkCmdArgs<'v> {
+impl<'v> Freeze<'v> for StarlarkCmdArgs<'v> {
     type Frozen<'fv> = FrozenStarlarkCmdArgs<'fv>;
 
     fn prepare_freeze<'fv>(
         &self,
         _freezer: &Freezer<'v, 'fv>,
-    ) -> FreezeResult<FreezeBrandedPlan<'v, 'fv, Self>>
+    ) -> FreezeResult<StaticFreezePlan<'v, 'fv, Self>>
     where
         Self::Frozen<'fv>: StarlarkValue<'fv>,
     {
@@ -658,7 +658,7 @@ impl<'v> FreezeBranded<'v> for StarlarkCmdArgs<'v> {
         if items.is_empty() && hidden.is_empty() && options.is_none() {
             Ok(empty_cmd_args_plan())
         } else {
-            Ok(FreezeBrandedPlan::allocate())
+            Ok(StaticFreezePlan::allocate())
         }
     }
 
@@ -681,7 +681,7 @@ impl<'v> FreezeBranded<'v> for StarlarkCmdArgs<'v> {
         let items = freeze_elements(items, freezer)?;
         let hidden = freeze_elements(hidden, freezer)?;
         let options = options
-            .try_map(|options| FreezeBranded::freeze(*options, freezer))?
+            .try_map(|options| Freeze::freeze(*options, freezer))?
             .unwrap_or_default();
 
         Ok(FrozenStarlarkCmdArgs {

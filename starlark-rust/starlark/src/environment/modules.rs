@@ -52,7 +52,7 @@ use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::register_starlark_any_complex;
 use crate::singleton_heap_name;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
@@ -132,8 +132,8 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
 }
 
 /// The contents of a [`FrozenModule`], at the brand of the heap they live in.
-#[derive(Debug, Allocative, ProvidesStaticType, FreezeBranded, StarlarkPagable)]
-#[freeze_branded(frozen_only)]
+#[derive(Debug, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
+#[freeze(frozen_only)]
 pub(crate) struct FrozenModuleData<'v> {
     pub(crate) names: FrozenNames<'v>,
     pub(crate) slots: FrozenSlots<'v>,

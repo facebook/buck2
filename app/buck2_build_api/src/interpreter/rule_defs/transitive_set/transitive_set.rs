@@ -36,7 +36,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::type_matcher;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -103,7 +103,7 @@ impl TypeMatcher for TransitiveSetMatcher {
     Clone,
     Copy,
     Trace,
-    FreezeBranded,
+    Freeze,
     Allocative,
     PartialEq,
     Eq,
@@ -148,7 +148,7 @@ impl ProjectionBitSet {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
@@ -157,7 +157,7 @@ impl ProjectionBitSet {
 pub struct TransitiveSet<'v> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
     #[starlark_pagable(pagable)]
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.
@@ -178,7 +178,7 @@ pub struct TransitiveSet<'v> {
     pub children: Box<[Value<'v>]>,
 }
 
-#[derive(Debug, Clone, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Debug, Clone, Trace, Freeze, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct Node<'v> {
     /// The value

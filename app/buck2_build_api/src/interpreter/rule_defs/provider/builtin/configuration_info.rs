@@ -26,7 +26,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -55,14 +55,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Fro
     configuration_info_creator,
     methods = configuration_info_methods,
 )]
-#[derive(
-    Debug,
-    Trace,
-    FreezeBranded,
-    ProvidesStaticType,
-    Allocative,
-    StarlarkPagable
-)]
+#[derive(Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct ConfigurationInfo<'v> {
     constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,

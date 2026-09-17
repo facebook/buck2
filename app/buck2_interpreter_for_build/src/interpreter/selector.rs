@@ -26,7 +26,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -43,14 +43,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 /// Representation of `select()` in Starlark.
-#[derive(
-    Debug,
-    ProvidesStaticType,
-    Trace,
-    FreezeBranded,
-    Allocative,
-    StarlarkPagable
-)]
+#[derive(Debug, ProvidesStaticType, Trace, Freeze, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub enum StarlarkSelector<'v> {
     /// Simplest form, backed by dictionary representation

@@ -32,7 +32,7 @@ use crate::collections::SmallMap;
 use crate::collections::StarlarkHasher;
 use crate::starlark_complex_value_branded;
 use crate::typing::Ty;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::Heap;
 use crate::values::StarlarkPagable;
 use crate::values::StarlarkValue;
@@ -61,7 +61,7 @@ enum RecordError {
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

@@ -191,7 +191,7 @@
 //! its brand.
 //!
 //! The `Freezer<'v, 'fv>` carries the edge, and `Freezer::freeze` takes a `Value<'v>`: a
-//! `FreezeBranded<'v>` impl can only hand it values at the brand the edge is for, so a value
+//! `Freeze<'v>` impl can only hand it values at the brand the edge is for, so a value
 //! lent by an unrelated owner does not compile (the higher-ranked brand rules it out, as above).
 //!
 //! ### What is trusted rather than proven

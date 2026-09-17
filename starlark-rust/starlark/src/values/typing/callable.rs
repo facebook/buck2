@@ -43,7 +43,7 @@ use crate::typing::TyBasic;
 use crate::typing::callable::TyCallable;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -242,13 +242,13 @@ fn _assert_sync_send() {
     _assert::<StarlarkCallable<'static, (Value,), Value>>();
 }
 
-impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> FreezeBranded<'v>
+impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Freeze<'v>
     for StarlarkCallable<'v, P, R>
 {
     type Frozen<'fv> = StarlarkCallable<'fv, P, R>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(StarlarkCallable::unchecked_new(FreezeBranded::freeze(
+        Ok(StarlarkCallable::unchecked_new(Freeze::freeze(
             self.0, freezer,
         )?))
     }

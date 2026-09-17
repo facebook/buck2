@@ -24,7 +24,7 @@ use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -97,14 +97,14 @@ fn error_methods(builder: &mut MethodsBuilder) {
 #[derive(
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     starlark::StarlarkPagablePanic // badbadbad!!! todo!("bxl")
 )]
 pub(crate) enum StarlarkResult<'v> {
     Ok(Value<'v>),
-    Err(#[freeze_branded(identity)] buck2_error::Error),
+    Err(#[freeze(identity)] buck2_error::Error),
 }
 
 impl<'v> Serialize for StarlarkResult<'v> {

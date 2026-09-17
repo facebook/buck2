@@ -23,7 +23,7 @@ use crate::any::ProvidesStaticType;
 use crate::errors::Frame;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::register_starlark_any_complex;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FrozenHeap;
 use crate::values::Value;
 use crate::values::ValueTyped;
@@ -36,10 +36,10 @@ use crate::values::any_complex::StarlarkAnyComplex;
     PartialEq,
     Allocative,
     ProvidesStaticType,
-    FreezeBranded,
+    Freeze,
     starlark_derive::StarlarkPagable
 )]
-#[freeze_branded(frozen_only)]
+#[freeze(frozen_only)]
 pub(crate) struct InlinedFrame<'f> {
     pub(crate) span: FrameSpan<'f>,
     pub(crate) fun: Value<'f>,

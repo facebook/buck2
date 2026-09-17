@@ -51,7 +51,7 @@ use crate::typing::user::TyUserIndex;
 use crate::typing::user::TyUserParams;
 use crate::values::AllocValue;
 use crate::values::Demand;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -141,7 +141,7 @@ pub(super) type EnumType<'v> = EnumTypeGen<'v, EnumVariantUnfrozen>;
 
 pub(crate) type FrozenEnumType<'v> = EnumTypeGen<'v, EnumVariantFrozen>;
 
-impl<'v> FreezeBranded<'v> for EnumType<'v> {
+impl<'v> Freeze<'v> for EnumType<'v> {
     type Frozen<'fv> = FrozenEnumType<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

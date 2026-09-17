@@ -19,7 +19,7 @@ use buck2_util::late_binding::LateBinding;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeErrorContext;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -98,7 +98,7 @@ impl<'v> StarlarkValue<'v> for FrozenPackageFileExtra<'v> {
     type Canonical = PackageFileExtra<'v>;
 }
 
-impl<'v> FreezeBranded<'v> for PackageFileExtra<'v> {
+impl<'v> Freeze<'v> for PackageFileExtra<'v> {
     type Frozen<'fv> = FrozenPackageFileExtra<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -106,14 +106,13 @@ impl<'v> FreezeBranded<'v> for PackageFileExtra<'v> {
             cfg_constructor,
             package_values,
         } = self;
-        let cfg_constructor = FreezeBranded::freeze(cfg_constructor, freezer)?;
+        let cfg_constructor = Freeze::freeze(cfg_constructor, freezer)?;
         let package_values = package_values.into_inner();
         // N.B. collect::<Result<_>> sets the lower bound to zero,
         // which can cause over-allocations in frozen containers.
         let mut frozen_package_values = SmallMap::with_capacity(package_values.len());
         for (k, v) in package_values.into_iter_hashed() {
-            let v = FreezeBranded::freeze(v, freezer)
-                .freeze_error_context(&format!("freezing `{k}`"))?;
+            let v = Freeze::freeze(v, freezer).freeze_error_context(&format!("freezing `{k}`"))?;
             frozen_package_values.insert_hashed(k, v);
         }
         Ok(FrozenPackageFileExtra {

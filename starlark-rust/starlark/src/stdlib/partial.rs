@@ -41,7 +41,7 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::starlark_complex_value_branded;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::StarlarkValue;
@@ -138,7 +138,7 @@ impl<'v> Display for Partial<'v> {
 
 starlark_complex_value_branded!(Partial);
 
-impl<'v> FreezeBranded<'v> for Partial<'v> {
+impl<'v> Freeze<'v> for Partial<'v> {
     type Frozen<'fv> = Partial<'fv>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(Partial {

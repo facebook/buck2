@@ -45,7 +45,7 @@ use crate::coerce::CoerceKey;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -400,13 +400,13 @@ impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
     }
 }
 
-impl<'v, T> FreezeBranded<'v> for ValueTyped<'v, T>
+impl<'v, T> Freeze<'v> for ValueTyped<'v, T>
 where
     T: StarlarkValue<'v>,
-    T: FreezeBranded<'v>,
-    for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
+    T: Freeze<'v>,
+    for<'fv> <T as Freeze<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
 {
-    type Frozen<'fv> = ValueTyped<'fv, <T as FreezeBranded<'v>>::Frozen<'fv>>;
+    type Frozen<'fv> = ValueTyped<'fv, <T as Freeze<'v>>::Frozen<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(ValueTyped::new_err(self.0.freeze(freezer)?)
@@ -414,13 +414,13 @@ where
     }
 }
 
-impl<'v, T> FreezeBranded<'v> for FrozenValueTyped<'v, T>
+impl<'v, T> Freeze<'v> for FrozenValueTyped<'v, T>
 where
     T: StarlarkValue<'v>,
-    T: FreezeBranded<'v>,
-    for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
+    T: Freeze<'v>,
+    for<'fv> <T as Freeze<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
 {
-    type Frozen<'fv> = FrozenValueTyped<'fv, <T as FreezeBranded<'v>>::Frozen<'fv>>;
+    type Frozen<'fv> = FrozenValueTyped<'fv, <T as Freeze<'v>>::Frozen<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         // The value is already frozen, so the freezer only re-brands it (the target heap takes
@@ -576,13 +576,13 @@ unsafe impl<'v, T: StarlarkValue<'v>> Trace<'v> for AtomicValueTypedOption<'v, T
     }
 }
 
-impl<'v, T> FreezeBranded<'v> for AtomicValueTypedOption<'v, T>
+impl<'v, T> Freeze<'v> for AtomicValueTypedOption<'v, T>
 where
     T: StarlarkValue<'v>,
-    T: FreezeBranded<'v>,
-    for<'fv> <T as FreezeBranded<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
+    T: Freeze<'v>,
+    for<'fv> <T as Freeze<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
 {
-    type Frozen<'fv> = AtomicValueTypedOption<'fv, <T as FreezeBranded<'v>>::Frozen<'fv>>;
+    type Frozen<'fv> = AtomicValueTypedOption<'fv, <T as Freeze<'v>>::Frozen<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         Ok(AtomicValueTypedOption::new(

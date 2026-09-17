@@ -12,7 +12,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::starlark_complex_value_branded;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -28,7 +28,7 @@ use starlark::values::starlark_value;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    FreezeBranded,
+    Freeze,
     Trace,
     StarlarkPagable
 )]

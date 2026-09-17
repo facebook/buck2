@@ -24,7 +24,7 @@ use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -50,12 +50,12 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_worker_info)]
+#[freeze(validator = validate_worker_info)]
 #[repr(C)]
 pub struct WorkerInfo<'v> {
     // Command to spawn a new worker

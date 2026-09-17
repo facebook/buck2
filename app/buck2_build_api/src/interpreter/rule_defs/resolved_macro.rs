@@ -26,7 +26,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_complex_value_branded;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -52,13 +52,13 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 // TODO(cjhopman): Consider making DefaultOutputs implement CommandLineArgLike
 // itself, and then a resolved macro is just a CommandLineArgLike.
 
-#[derive(Debug, PartialEq, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Debug, PartialEq, Trace, Freeze, Allocative, StarlarkPagable)]
 pub enum ResolvedMacro<'v> {
     // `default_outputs()` hands out `StarlarkArtifact`s, which requires the frozen form.
     Location(FrozenValueTyped<'v, DefaultInfo<'v>>),
     Source(
         #[trace(static)]
-        #[freeze_branded(identity)]
+        #[freeze(identity)]
         #[starlark_pagable(pagable)]
         Artifact,
     ),
@@ -67,7 +67,7 @@ pub enum ResolvedMacro<'v> {
     /// Holds a resolved query placeholder
     Query(
         #[trace(static)]
-        #[freeze_branded(identity)]
+        #[freeze(identity)]
         ResolvedQueryMacro,
     ),
 }
@@ -155,11 +155,11 @@ impl<'v> ResolvedMacro<'v> {
     }
 }
 
-#[derive(Debug, PartialEq, Trace, FreezeBranded, Allocative, StarlarkPagable)]
+#[derive(Debug, PartialEq, Trace, Freeze, Allocative, StarlarkPagable)]
 pub enum ResolvedStringWithMacrosPart<'v> {
     String(
         #[trace(static)]
-        #[freeze_branded(identity)]
+        #[freeze(identity)]
         #[starlark_pagable(pagable)]
         ArcStr,
     ),
@@ -184,7 +184,7 @@ impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
     Debug,
     PartialEq,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     NoSerialize,
     Allocative,
@@ -193,7 +193,7 @@ impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
 pub struct ResolvedStringWithMacros<'v> {
     parts: Vec<ResolvedStringWithMacrosPart<'v>>,
     #[trace(static)]
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     configured_macros: Option<ConfiguredStringWithMacros>,
 }

@@ -32,7 +32,7 @@ use crate as starlark;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -131,7 +131,7 @@ unsafe impl<'v, T: StarlarkTypeRepr> Trace<'v> for ValueOfUnchecked<'v, T> {
     }
 }
 
-impl<'v, T: StarlarkTypeRepr> FreezeBranded<'v> for ValueOfUnchecked<'v, T> {
+impl<'v, T: StarlarkTypeRepr> Freeze<'v> for ValueOfUnchecked<'v, T> {
     type Frozen<'fv> = ValueOfUnchecked<'fv, T>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {

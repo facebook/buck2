@@ -16,7 +16,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -62,10 +62,10 @@ enum ValidationSpecError {
     NoSerialize,
     ProvidesStaticType,
     Allocative,
-    FreezeBranded,
+    Freeze,
     StarlarkPagable
 )]
-#[freeze_branded(validator = validate_validation_spec)]
+#[freeze(validator = validate_validation_spec)]
 pub struct StarlarkValidationSpec<'v> {
     /// Name identifying this validation. Must be non-empty and unique within
     /// the enclosing `ValidationInfo`. Surfaces in CLI output and is the

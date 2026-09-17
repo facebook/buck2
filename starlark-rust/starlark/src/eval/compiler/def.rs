@@ -93,7 +93,7 @@ use crate::typing::Ty;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::util::arc_str::ArcStr;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -165,7 +165,7 @@ impl<'v> StmtCompiledCell<'v> {
 
 // Only `post_freeze` fills the cell, after the def has been frozen, so the cell of a def being
 // frozen is empty; a frozen def is never frozen again, only re-typed at another brand.
-impl<'v> FreezeBranded<'v> for StmtCompiledCell<'v> {
+impl<'v> Freeze<'v> for StmtCompiledCell<'v> {
     type Frozen<'fv> = StmtCompiledCell<'fv>;
 
     fn freeze<'fv>(self, _freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -431,15 +431,9 @@ pub(crate) struct CopySlotFromParent {
 
 /// Static info for `def`, `lambda` or module: a compiler product in the module's frozen heap, at
 /// its brand, allocated as a `StarlarkAnyComplex` (see [`DefInfoValue`]).
-#[derive(
-    Derivative,
-    Allocative,
-    ProvidesStaticType,
-    FreezeBranded,
-    StarlarkPagable
-)]
+#[derive(Derivative, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
 #[derivative(Debug)]
-#[freeze_branded(frozen_only)]
+#[freeze(frozen_only)]
 pub(crate) struct DefInfo<'f> {
     pub(crate) name: StringValue<'f>,
     /// Span of function signature.
@@ -657,7 +651,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
     ProvidesStaticType,
     Trace,
     Allocative,
-    FreezeBranded,
+    Freeze,
     starlark_derive::StarlarkPagable
 )]
 #[derivative(Debug)]

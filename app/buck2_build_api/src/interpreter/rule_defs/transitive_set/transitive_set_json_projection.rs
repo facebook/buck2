@@ -21,7 +21,7 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -50,7 +50,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable
@@ -65,7 +65,7 @@ pub struct TransitiveSetJsonProjection<'v> {
     pub projection: usize,
 
     /// The ordering to use when traversing the projection.
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     pub ordering: TransitiveSetOrdering,
 }
 

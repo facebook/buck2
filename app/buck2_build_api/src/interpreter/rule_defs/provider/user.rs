@@ -27,7 +27,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersParser;
 use starlark::typing::Ty;
 use starlark::values::Demand;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -56,7 +56,7 @@ enum UserProviderError {
     Debug,
     Clone,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

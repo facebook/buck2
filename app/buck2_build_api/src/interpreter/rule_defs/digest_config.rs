@@ -17,7 +17,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::values::AllocValue;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -33,7 +33,7 @@ use starlark::values::starlark_value;
     Debug,
     Clone,
     Dupe,
-    FreezeBranded,
+    Freeze,
     Display,
     Trace,
     ProvidesStaticType,
@@ -43,7 +43,7 @@ use starlark::values::starlark_value;
 )]
 #[display("{}", self.digest_config)]
 pub struct StarlarkDigestConfig {
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     pub digest_config: DigestConfig,
 }

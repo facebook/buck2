@@ -35,7 +35,7 @@ use crate::environment::Methods;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocValue;
-use crate::values::FreezeBranded;
+use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
@@ -142,7 +142,7 @@ impl<'v> StarlarkTypeRepr for SetData<'v> {
 }
 
 // TODO Add optimizations not to allocate empty set.
-impl<'v> FreezeBranded<'v> for MutableSet<'v> {
+impl<'v> Freeze<'v> for MutableSet<'v> {
     type Frozen<'fv> = SetGen<SetData<'fv>>;
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
         let values = self.0.into_inner().content;

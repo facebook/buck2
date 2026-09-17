@@ -17,7 +17,7 @@ use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozen;
@@ -53,7 +53,7 @@ pub(crate) struct FrozenInterpreterExtraValue<'v> {
 
 starlark::register_starlark_any_complex!(InterpreterExtraValue<'_>, frozen FrozenInterpreterExtraValue<'_>);
 
-impl<'v> FreezeBranded<'v> for InterpreterExtraValue<'v> {
+impl<'v> Freeze<'v> for InterpreterExtraValue<'v> {
     type Frozen<'fv> = FrozenInterpreterExtraValue<'fv>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
@@ -62,7 +62,7 @@ impl<'v> FreezeBranded<'v> for InterpreterExtraValue<'v> {
             buckconfigs: _,
         } = self;
         Ok(FrozenInterpreterExtraValue {
-            package_extra: FreezeBranded::freeze(package_extra, freezer)?,
+            package_extra: Freeze::freeze(package_extra, freezer)?,
         })
     }
 }

@@ -18,7 +18,7 @@
 /// Reduce boilerplate when defining a Starlark value that contains other values.
 ///
 /// The type is written once, as `X<'v>`, and freezes to `X<'fv>` — see
-/// [`FreezeBranded`](crate::values::FreezeBranded). The macro defines a `FrozenX` alias for
+/// [`Freeze`](crate::values::Freeze). The macro defines a `FrozenX` alias for
 /// `X<'static>` and instances of [`AllocValue`](crate::values::AllocValue),
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue),
 /// [`StarlarkTypeRepr`](crate::values::type_repr::StarlarkTypeRepr) and

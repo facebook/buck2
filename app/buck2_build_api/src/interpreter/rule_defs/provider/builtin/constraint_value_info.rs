@@ -21,7 +21,7 @@ use buck2_interpreter::types::target_label::LabelArg;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
@@ -37,7 +37,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::C
     Clone,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

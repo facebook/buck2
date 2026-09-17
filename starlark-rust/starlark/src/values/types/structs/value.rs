@@ -24,7 +24,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
-use starlark_derive::FreezeBranded;
+use starlark_derive::Freeze;
 use starlark_derive::Trace;
 use starlark_derive::starlark_value;
 use starlark_map::Hashed;
@@ -88,7 +88,7 @@ impl<'v> Struct<'v> {
     Default,
     Debug,
     Trace,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Allocative,
     StarlarkPagable

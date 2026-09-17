@@ -30,7 +30,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -58,7 +58,7 @@ use crate::types::package_path::StarlarkPackagePath;
     PartialEq,
     Eq,
     From,
-    FreezeBranded,
+    Freeze,
     ProvidesStaticType,
     Serialize,
     Allocative,
@@ -66,7 +66,7 @@ use crate::types::package_path::StarlarkPackagePath;
 )]
 #[serde(transparent)]
 pub struct StarlarkTargetLabel {
-    #[freeze_branded(identity)]
+    #[freeze(identity)]
     #[starlark_pagable(pagable)]
     label: TargetLabel,
 }

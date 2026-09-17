@@ -24,7 +24,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
-use starlark::values::FreezeBranded;
+use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozen;
 use starlark::values::StarlarkPagable;
@@ -57,7 +57,7 @@ enum RegisterCfgConstructorError {
     ProvidesStaticType,
     Allocative,
     StarlarkPagable,
-    FreezeBranded
+    Freeze
 )]
 #[display("{:?}", self)]
 struct StarlarkCfgConstructor<'v> {
