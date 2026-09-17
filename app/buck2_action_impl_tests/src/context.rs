@@ -61,7 +61,7 @@ fn run_ctx_test(
         let frozen_func_mod = func_mod
             .freeze_named(Buck2TestHeapName::frozen_heap_name())
             .map_err(from_freeze_error)?;
-        let test_function = frozen_func_mod.get_owned("test").unwrap();
+        let test_function = frozen_func_mod.get("test").unwrap();
 
         let modules = hashmap!["func_mod" => &frozen_func_mod];
 

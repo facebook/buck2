@@ -381,7 +381,7 @@ pub fn get_rule_callable<'v>(
     name: &str,
 ) -> buck2_error::Result<Value<'v>> {
     let rule_callable = module
-        .get_any_visibility_owned(name)
+        .get_any_visibility(name)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .with_buck_error_context(|| format!("Couldn't find rule `{name}`"))?
         .0;

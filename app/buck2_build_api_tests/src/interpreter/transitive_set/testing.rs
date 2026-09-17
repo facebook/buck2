@@ -82,7 +82,7 @@ pub(crate) fn new_transitive_set(
             .freeze_error_context("Freeze failed")
             .map_err(from_freeze_error)?;
 
-        let make = frozen.get_owned("make").expect("`make` was not found");
+        let make = frozen.get("make").expect("`make` was not found");
 
         Module::with_temp_heap(|env2| {
             let ret = Evaluator::new(&env2).eval_function(
@@ -98,7 +98,7 @@ pub(crate) fn new_transitive_set(
                 .map_err(from_freeze_error)?;
 
             frozen
-                .extra_value_owned()
+                .extra_value()
                 .internal_error("Frozen value must be in extra value")?
                 .downcast_starlark::<TransitiveSet<'static>>()
                 .map_err(buck2_error::Error::from)
@@ -136,8 +136,8 @@ fn test_child_definition_from_other_incarnation_is_accepted() -> buck2_error::Re
     let first = freeze_defs_module(defs)?;
     let second = freeze_defs_module(defs)?;
 
-    let first_foo_set = first.get_owned("FooSet").expect("`FooSet` was not found");
-    let second_foo_set = second.get_owned("FooSet").expect("`FooSet` was not found");
+    let first_foo_set = first.get("FooSet").expect("`FooSet` was not found");
+    let second_foo_set = second.get("FooSet").expect("`FooSet` was not found");
 
     Module::with_temp_heap(|env| {
         let globals = GlobalsBuilder::standard()

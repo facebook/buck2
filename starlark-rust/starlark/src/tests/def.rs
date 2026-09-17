@@ -206,8 +206,8 @@ def function(x):
 value = {"test": "hello"}
 "#,
     );
-    let f = m.get_owned("function").unwrap();
-    let x = m.get_owned("value").unwrap();
+    let f = m.get("function").unwrap();
+    let x = m.get("value").unwrap();
     Module::with_temp_heap(|module| {
         let f = f.add_to_heap(module.heap());
         let x = x.add_to_heap(module.heap());

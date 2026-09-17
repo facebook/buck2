@@ -328,7 +328,7 @@ mod tests {
         Module::with_temp_heap(|module| {
             let heap = module.heap();
             let typ = frozen_module
-                .get_option_owned("IpAddress")
+                .get_option("IpAddress")
                 .expect("symbol lookup does not fail")
                 .expect("`IpAddress` was exported")
                 .add_to_heap(heap);

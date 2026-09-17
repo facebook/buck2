@@ -108,7 +108,7 @@ impl FetchTransition for DiceComputations<'_> {
                 let transition = module
                     .env()
                     // This is a hashmap lookup, so we are not caching the result in DICE.
-                    .get_any_visibility_owned(name)
+                    .get_any_visibility(name)
                     .map_err(|_| {
                         buck2_error::Error::from(FetchTransitionError::NotFound(id.clone()))
                     })?

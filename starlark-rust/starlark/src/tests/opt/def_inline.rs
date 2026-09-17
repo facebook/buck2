@@ -92,7 +92,7 @@ fn test_dict_inlined_call_stack() {
 
     // Check `f` is inlined into `g` and `h`.
     for (m, f) in [(m_g, "g"), (m_h, "h")] {
-        let owned = m.get_owned(f).unwrap();
+        let owned = m.get(f).unwrap();
         let f = owned.as_ref().value().downcast_ref::<Def>().unwrap();
         assert_eq!(
             BcOpcode::ListNew,

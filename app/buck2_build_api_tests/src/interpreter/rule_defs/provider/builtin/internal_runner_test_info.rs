@@ -33,7 +33,7 @@ fn freeze_provider(starlark_code: &str) -> buck2_error::Result<OwnedInternalRunn
     )?;
     loaded
         .env()
-        .get_owned("exported_info")
+        .get("exported_info")
         .expect("`exported_info` not found")
         .downcast_starlark::<FrozenInternalRunnerTestInfo>()
         .map_err(buck2_error::Error::from)

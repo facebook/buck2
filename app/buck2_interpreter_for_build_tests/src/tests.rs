@@ -101,7 +101,7 @@ async fn test_eval_import() {
     assert_eq!(
         "hello world!",
         env.env()
-            .get_owned("message")
+            .get("message")
             .unwrap()
             .as_ref()
             .value()
@@ -146,7 +146,7 @@ async fn test_eval_import_with_load() {
     assert_eq!(
         "hello world!",
         env.env()
-            .get_owned("message")
+            .get("message")
             .unwrap()
             .as_ref()
             .value()

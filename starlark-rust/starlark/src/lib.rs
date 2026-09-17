@@ -277,7 +277,7 @@
 //!
 //! let ab = get_module("ab.star")?;
 //! assert_eq!(
-//!     ab.get_owned("ab").unwrap().as_ref().value().unpack_i32(),
+//!     ab.get("ab").unwrap().as_ref().value().unpack_i32(),
 //!     Some(42)
 //! );
 //! # Ok(())

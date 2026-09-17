@@ -87,7 +87,7 @@ impl FrozenInterpreterExtraValue<'_> {
         module: &FrozenModule,
     ) -> buck2_error::Result<OwnedFrozenInterpreterExtraValue> {
         module
-            .extra_value_owned()
+            .extra_value()
             .internal_error("Extra value is missing")?
             .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenInterpreterExtraValue>>, _>(
                 |v| ValueTyped::new(v),

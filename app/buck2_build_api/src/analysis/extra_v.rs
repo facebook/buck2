@@ -102,7 +102,7 @@ pub type OwnedFrozenAnalysisValueStorage =
 impl FrozenAnalysisExtraValue<'_> {
     pub fn get(module: &FrozenModule) -> buck2_error::Result<OwnedFrozenAnalysisExtraValue> {
         module
-            .extra_value_owned()
+            .extra_value()
             .internal_error("extra_value not set")?
             .maybe_map::<ValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisExtraValue>>, _>(
                 |v| ValueTyped::new(v),

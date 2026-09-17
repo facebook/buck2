@@ -306,7 +306,7 @@ mod tests {
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
         let loaded = loader.load(&path)?;
 
-        let v = loaded.get_owned("name").unwrap();
+        let v = loaded.get("name").unwrap();
         assert_eq!(v.as_ref().value().unpack_str(), Some(id.as_str()));
 
         Ok(())
@@ -322,7 +322,7 @@ mod tests {
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
         let found = loader.find_module(borrow)?;
 
-        let v = found.get_owned("name").unwrap();
+        let v = found.get("name").unwrap();
         assert_eq!(
             v.as_ref().value().unpack_str(),
             Some(borrow.to_string().as_str())

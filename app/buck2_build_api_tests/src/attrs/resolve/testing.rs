@@ -136,8 +136,8 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 provider_env.freeze_named(Buck2TestHeapName::frozen_heap_name())
             })
             .expect("provider should freeze successfully");
-            let foo_info = frozen_provider_env.get_owned("FooInfo").unwrap();
-            let bar_info = frozen_provider_env.get_owned("BarInfo").unwrap();
+            let foo_info = frozen_provider_env.get("FooInfo").unwrap();
+            let bar_info = frozen_provider_env.get("BarInfo").unwrap();
 
             let frozen = Module::with_temp_heap(|env| {
                 env.set("FooInfo", foo_info.as_ref().add_to_heap(env.heap()));
@@ -152,12 +152,9 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                     .unwrap()
                     .configure(ConfigurationData::testing_new());
                 let val = FrozenProviderCollectionValue::try_from_value(
-                    frozen
-                        .get_owned("ret")
-                        .unwrap()
-                        .map::<Value<'static>, _>(|x| {
-                            DictRef::from_value(x).unwrap().get_str(var_name).unwrap()
-                        }),
+                    frozen.get("ret").unwrap().map::<Value<'static>, _>(|x| {
+                        DictRef::from_value(x).unwrap().get_str(var_name).unwrap()
+                    }),
                 )
                 .unwrap();
                 (configured_label, val)

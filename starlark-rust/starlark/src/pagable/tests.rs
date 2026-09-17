@@ -391,18 +391,13 @@ a.append(a)
     let mut de = handle.root_deserializer(top_key, &top_data);
     let restored = FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
 
-    let x = restored
-        .get_owned("x")?
-        .as_ref()
-        .value()
-        .unpack_i32()
-        .unwrap();
+    let x = restored.get("x")?.as_ref().value().unpack_i32().unwrap();
     assert_eq!(x, 3);
 
-    let y = restored.get_owned("y")?;
+    let y = restored.get("y")?;
     assert_eq!(y.as_ref().value().unpack_str().unwrap(), "hello world");
 
-    let a = restored.get_owned("a")?;
+    let a = restored.get("a")?;
     assert_eq!(a.as_ref().value().length().unwrap(), 2);
 
     Ok(())
@@ -3807,8 +3802,8 @@ b.append(a)
     })
     .unwrap();
 
-    let ofv_a = frozen_module.get_owned("a").unwrap();
-    let ofv_b = frozen_module.get_owned("b").unwrap();
+    let ofv_a = frozen_module.get("a").unwrap();
+    let ofv_b = frozen_module.get("b").unwrap();
 
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
@@ -4082,12 +4077,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let deser_us = deser_start.elapsed().as_micros();
 
         // Access one value to confirm correctness
-        let v0 = restored
-            .get_owned("v0")?
-            .as_ref()
-            .value()
-            .unpack_i32()
-            .unwrap();
+        let v0 = restored.get("v0")?.as_ref().value().unpack_i32().unwrap();
         assert_eq!(v0, 1);
 
         BenchResult {
@@ -4444,7 +4434,7 @@ def many_locals():
         // Each restored function comes to the call module's brand through the module edge,
         // which makes `restored`'s heap a reference of the call module's frozen heap.
         let get_fn = |name: &str| {
-            let f = restored.get_owned(name)?;
+            let f = restored.get(name)?;
             crate::Result::Ok(
                 call_module.frozen_heap(|fh, edge| edge.rebrand(f.as_ref().add_to_frozen_heap(fh))),
             )

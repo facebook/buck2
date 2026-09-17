@@ -1368,14 +1368,14 @@ mod tests {
     #[test]
     fn test_function_name_def() {
         let module = assert::pass_module("def my_func(x, y): return x + y");
-        let f = module.get_owned("my_func").unwrap();
+        let f = module.get("my_func").unwrap();
         assert_eq!(Some("my_func"), f.as_ref().value().function_name());
     }
 
     #[test]
     fn test_function_name_lambda() {
         let module = assert::pass_module("f = lambda x: x");
-        let f = module.get_owned("f").unwrap();
+        let f = module.get("f").unwrap();
         assert_eq!(Some("lambda"), f.as_ref().value().function_name());
     }
 

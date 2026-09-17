@@ -31,7 +31,7 @@ fn test_function_bytecode(program: &str) -> String {
     a.dialect(&Dialect::AllOptionsInternal);
     let def = a
         .module("instrs.star", program)
-        .get_owned("test")
+        .get("test")
         .unwrap()
         .downcast_starlark::<Def>()
         .unwrap();

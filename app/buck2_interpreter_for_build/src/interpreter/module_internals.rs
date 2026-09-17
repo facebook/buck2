@@ -108,7 +108,7 @@ impl PackageImplicits {
 
     fn lookup(&self, name: &str) -> Option<OwnedFrozen<Value<'static>>> {
         self.env
-            .get_option_owned(self.import_spec.lookup_alias(name))
+            .get_option(self.import_spec.lookup_alias(name))
             .ok()
             .flatten()
     }

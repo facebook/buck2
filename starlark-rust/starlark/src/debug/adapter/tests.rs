@@ -185,7 +185,7 @@ mod t {
             Ok(env
                 .freeze_named(StarlarkTestHeapName::frozen_heap_name())
                 .expect("error freezing module")
-                .get_owned("_")
+                .get("_")
                 .unwrap())
         })
     }

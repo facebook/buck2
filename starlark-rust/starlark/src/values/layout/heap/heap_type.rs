@@ -1901,7 +1901,7 @@ where
     /// use starlark::values::Value;
     ///
     /// fn copy<'v>(from: &FrozenModule, to: &Module<'v>) {
-    ///     let x: OwnedFrozen<Value<'static>> = from.get_owned("value").unwrap();
+    ///     let x: OwnedFrozen<Value<'static>> = from.get("value").unwrap();
     ///     let v: Value<'v> = x.add_to_heap(to.heap());
     ///     to.set("value", v);
     /// }

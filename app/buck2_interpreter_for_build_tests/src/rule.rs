@@ -411,7 +411,7 @@ fn returns_documentation() -> buck2_error::Result<()> {
     )?;
     let docs = res
         .env()
-        .get_owned("foo_binary")
+        .get("foo_binary")
         .expect("foo_binary to exist")
         .as_ref()
         .value()

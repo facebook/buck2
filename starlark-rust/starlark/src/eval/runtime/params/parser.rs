@@ -157,7 +157,7 @@ mod tests {
             let a = Assert::new();
             let f = a
                 .pass_module(&format!("def f({sig}): pass"))
-                .get_owned("f")
+                .get("f")
                 .unwrap();
             assert_eq!(
                 sig,
@@ -188,7 +188,7 @@ mod tests {
         fn test(sig: &str, pos: usize, names: &[&str], expected: bool) {
             let a = Assert::new();
             let module = a.pass_module(&format!("def f({sig}): pass"));
-            let f = module.get_owned("f").unwrap();
+            let f = module.get("f").unwrap();
             let f = f.as_ref().value().downcast_ref::<Def>().unwrap();
             let parameters_spec = &f.parameters;
             assert_eq!(expected, parameters_spec.can_fill_with_args(pos, names));

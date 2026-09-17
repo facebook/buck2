@@ -294,7 +294,7 @@ mod tests {
 
             let module = module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
 
-            module.extra_value_owned().unwrap().by_ref(|data| {
+            module.extra_value().unwrap().by_ref(|data| {
                 assert_eq!(
                     const_frozen_string!("aaa").at(),
                     StarlarkAnyComplex::<FrozenData>::get_err(*data)

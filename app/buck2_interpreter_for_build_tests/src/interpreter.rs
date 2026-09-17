@@ -51,7 +51,7 @@ fn test_eval_import() {
         1,
         loaded
             .env()
-            .get_owned("one")
+            .get("one")
             .unwrap()
             .as_ref()
             .value()
@@ -63,7 +63,7 @@ fn test_eval_import() {
         "world",
         loaded
             .env()
-            .get_owned("hello")
+            .get("hello")
             .unwrap()
             .as_ref()
             .value()
@@ -107,7 +107,7 @@ fn test_load() {
         "hello world!",
         parse_result
             .env()
-            .get_owned("message")
+            .get("message")
             .unwrap()
             .as_ref()
             .value()

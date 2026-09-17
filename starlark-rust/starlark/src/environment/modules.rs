@@ -84,7 +84,7 @@ enum ModuleError {
 ///
 /// This type is an owned carrier: an [`OwnedFrozen`] of the module's data (its names and slots,
 /// `FrozenModuleData`) allocated on the module's sealed frozen heap. Every accessor is a
-/// projection of that owner. [`get_owned`](FrozenModule::get_owned) hands a value out as an
+/// projection of that owner. [`get`](FrozenModule::get) hands a value out as an
 /// `OwnedFrozen`, [`get_option_ref`](FrozenModule::get_option_ref) as an [`OwnedFrozenRef`], and
 /// [`frozen_heap`](FrozenModule::frozen_heap) is the bare heap. The type is `Clone` and
 /// `Send + Sync`, so one frozen module is shared by every module that loads it.
@@ -256,7 +256,7 @@ impl FrozenModule {
     // TODO(nga): separate private visibility into private (`_foo`) and imported (`load('foo')`).
     //   Users might want to access private variables, but not imported.
     #[doc(hidden)]
-    pub fn get_any_visibility_owned(
+    pub fn get_any_visibility(
         &self,
         name: &str,
     ) -> anyhow::Result<(OwnedFrozen<Value<'static>>, Visibility)> {
@@ -269,14 +269,11 @@ impl FrozenModule {
     /// # Returns
     /// * `None` if symbol is not found
     /// * error if symbol is private
-    pub fn get_option_owned(
-        &self,
-        name: &str,
-    ) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
+    pub fn get_option(&self, name: &str) -> anyhow::Result<Option<OwnedFrozen<Value<'static>>>> {
         Ok(self.exported_slot(name)?.map(|slot| self.slot_owned(slot)))
     }
 
-    /// Like [`get_option_owned`](FrozenModule::get_option_owned), but borrowing this module
+    /// Like [`get_option`](FrozenModule::get_option), but borrowing this module
     /// instead of sharing ownership of its heap.
     pub fn get_option_ref(
         &self,
@@ -287,7 +284,7 @@ impl FrozenModule {
 
     /// Get the value of the exported variable `name`, kept alive by this module's heap.
     /// Returns an error if the variable isn't defined in the module or it is private.
-    pub fn get_owned(&self, name: &str) -> anyhow::Result<OwnedFrozen<Value<'static>>> {
+    pub fn get(&self, name: &str) -> anyhow::Result<OwnedFrozen<Value<'static>>> {
         match self.lookup_err(name)? {
             (_, Visibility::Private) => {
                 Err(EnvironmentError::ModuleSymbolIsNotExported(name.to_owned()).into())
@@ -335,7 +332,7 @@ impl FrozenModule {
     }
 
     /// `extra_value` field from `Module`, frozen, kept alive by this module's heap.
-    pub fn extra_value_owned(&self) -> Option<OwnedFrozen<Value<'static>>> {
+    pub fn extra_value(&self) -> Option<OwnedFrozen<Value<'static>>> {
         self.data
             .dupe()
             .maybe_map::<Value<'static>, _>(|data| data.value.extra_value)
@@ -787,11 +784,11 @@ x = f(1)
         let module = FrozenModule::from_globals(&globals).unwrap();
         assert_eq!(
             "function",
-            module.get_owned("foo").unwrap().as_ref().value().get_type()
+            module.get("foo").unwrap().as_ref().value().get_type()
         );
         assert_eq!(
             0,
-            ListRef::from_value(module.get_owned("BAR").unwrap().as_ref().value())
+            ListRef::from_value(module.get("BAR").unwrap().as_ref().value())
                 .unwrap()
                 .len()
         );
