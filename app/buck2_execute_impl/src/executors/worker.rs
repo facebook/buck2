@@ -21,7 +21,6 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::dispatch::with_dispatcher_async;
 use buck2_execute::execute::kind::CommandExecutionKind;
 use buck2_execute::execute::manager::CommandExecutionManagerExt;
 use buck2_execute::execute::manager::CommandExecutionManagerWithClaim;
@@ -158,6 +157,8 @@ fn spawn_via_forkserver(
     dispatcher: EventDispatcher,
 ) -> JoinHandle<buck2_error::Result<GatherOutputStatus>> {
     use std::os::unix::ffi::OsStrExt;
+
+    use buck2_events::dispatch::with_dispatcher_async;
 
     use crate::executors::local::apply_local_execution_environment;
 
