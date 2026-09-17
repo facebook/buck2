@@ -12,9 +12,13 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::package::PackageLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
@@ -298,9 +302,15 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
                 .internal_error("Missing `handle`")?
                 .try_into()
                 .buck_error_context("Invalid `handle`")?,
-            cell,
-            package,
-            target,
+            label: ProvidersLabel::parse_in_package(
+                PackageLabel::new(
+                    // The orchestrator supplies a canonical cell name, not an alias.
+                    CellName::unchecked_new(&cell)?,
+                    CellRelativePath::new(ForwardRelativePath::new(&package)?),
+                )?,
+                &target,
+            )
+            .buck_error_context("Invalid test target label")?,
             configuration,
             package_project_relative_path: ForwardRelativePathBuf::try_from(
                 package_project_relative_path,
@@ -321,9 +331,9 @@ impl TryInto<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
                     .try_into()
                     .buck_error_context("Invalid `handle`")?,
             ),
-            cell: self.cell,
-            package: self.package,
-            target: self.target,
+            cell: self.label.target().pkg().cell_name().to_string(),
+            package: self.label.target().pkg().cell_relative_path().to_string(),
+            target: format!("{}{}", self.label.target().name(), self.label.name()),
             configuration: self.configuration,
             package_project_relative_path: self.package_project_relative_path.as_str().to_owned(),
             test_config_unification_rollout: self.test_config_unification_rollout,
@@ -1201,13 +1211,65 @@ mod tests {
     }
 
     #[test]
+    fn configured_target_labels_roundtrip() {
+        for (package, target) in [
+            ("", "root_test"),
+            ("buck2/tests/e2e", "library_test"),
+            ("buck2/tests/e2e", "library_test[debug][cases]"),
+        ] {
+            let proto = buck2_test_proto::ConfiguredTarget {
+                handle: Some(buck2_test_proto::ConfiguredTargetHandle { id: 1 }),
+                cell: "toolchains".to_owned(),
+                package: package.to_owned(),
+                target: target.to_owned(),
+                configuration: "cfg".to_owned(),
+                package_project_relative_path: package.to_owned(),
+                ..Default::default()
+            };
+            let parsed = ConfiguredTarget::try_from(proto.clone()).unwrap();
+            assert_eq!(
+                parsed.unconfigured_label(),
+                format!("toolchains//{package}:{target}")
+            );
+            let roundtrip: buck2_test_proto::ConfiguredTarget = parsed.try_into().unwrap();
+            assert_eq!(roundtrip, proto);
+        }
+    }
+
+    #[test]
+    fn configured_target_rejects_invalid_labels() {
+        for (cell, package, target) in [
+            ("", "pkg", "test"),
+            ("root", "../pkg", "test"),
+            ("root", "pkg", ""),
+            ("root", "pkg", "test[unterminated"),
+            ("root", "pkg", "test[]"),
+            ("root", "pkg", "test[debug]trailing"),
+        ] {
+            let proto = buck2_test_proto::ConfiguredTarget {
+                handle: Some(buck2_test_proto::ConfiguredTargetHandle { id: 1 }),
+                cell: cell.to_owned(),
+                package: package.to_owned(),
+                target: target.to_owned(),
+                ..Default::default()
+            };
+            assert!(
+                ConfiguredTarget::try_from(proto).is_err(),
+                "{cell}//{package}:{target}"
+            );
+        }
+    }
+
+    #[test]
     fn external_runner_spec_roundtrip() {
         let test_spec = ExternalRunnerSpec {
             target: ConfiguredTarget {
                 handle: ConfiguredTargetHandle(1),
-                cell: "qux".into(),
-                package: "foo".into(),
-                target: "bar".into(),
+                label: ProvidersLabel::parse_in_package(
+                    PackageLabel::testing_new("qux", "foo"),
+                    "bar",
+                )
+                .unwrap(),
                 configuration: "xxx".into(),
                 package_project_relative_path: ForwardRelativePathBuf::unchecked_new(
                     "qux/foo".to_owned(),
