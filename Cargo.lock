@@ -2005,7 +2005,7 @@ dependencies = [
  "derive_more 2.1.1",
  "dice_error",
  "dupe",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "hex",
  "http",
  "hyper",
@@ -2056,7 +2056,7 @@ name = "buck2_errorformat"
 version = "0.1.0"
 dependencies = [
  "buck2_error",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "nom 8.0.0",
  "tracing",
 ]
@@ -2582,7 +2582,7 @@ dependencies = [
  "dice_futures",
  "dupe",
  "either",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "futures 0.3.34",
  "gazebo",
  "itertools 0.15.0",
@@ -2626,7 +2626,7 @@ dependencies = [
  "dice_futures",
  "dupe",
  "either",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "futures 0.3.34",
  "gazebo",
  "glob",
@@ -2834,7 +2834,7 @@ dependencies = [
  "display_container",
  "dupe",
  "enum-iterator",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "futures 0.3.34",
  "gazebo",
  "indexmap",
@@ -3531,9 +3531,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.6.9"
+version = "4.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3be2ad0423bdbbb0e25bc89add796f3559706d4a95e1bc98e4d9662a957b6a19"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
 dependencies = [
  "clap",
  "clap_lex",
@@ -4610,9 +4610,9 @@ dependencies = [
 
 [[package]]
 name = "fancy-regex"
-version = "0.19.0"
+version = "0.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "476de73bddf2ef8490aa4ee8f1cf40b430bf1d56c48c22080e5186952cd580e6"
+checksum = "d301f5bf187b3c295fce6468d3875037a0bccc5f6b151c63cac2f85babf21912"
 dependencies = [
  "bit-set 0.8.0",
  "regex-automata",
@@ -5465,9 +5465,9 @@ checksum = "decf2a22ec8fa68f1a0c1129a3f8583f8f8bc24e8b9ccbe98ead99f62a4dc3a8"
 
 [[package]]
 name = "icu_provider"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92a7ed671a6aad807a8651a2e1782a6598fda9ce5185dd8158549e95a91c6428"
+checksum = "d27bbb9d3abbefac45d55f647c9de1d44aafcd1186eb91879afef17c396c3e73"
 dependencies = [
  "displaydoc",
  "icu_locale_core",
@@ -6651,7 +6651,7 @@ dependencies = [
  "dashmap 6.2.1",
  "dupe",
  "either",
- "fancy-regex 0.19.0",
+ "fancy-regex 0.19.2",
  "indexmap",
  "inventory",
  "num-bigint 0.5.1",
@@ -10709,9 +10709,9 @@ dependencies = [
 
 [[package]]
 name = "zerovec-derive"
-version = "0.11.5"
+version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f212a141d820099d57ffafb9569be9617a6f27d3dc881fbee8fb56642f917a9"
+checksum = "34df6fc39dbd26ddc9c10e6a2984476e13acce22e64e4487636ef494369225da"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10732,9 +10732,9 @@ dependencies = [
 
 [[package]]
 name = "zlib-rs"
-version = "0.6.7"
+version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34b31d188d9d685a4f9c7b46d6e36631b07058d2cfe190267adce54dc230bf12"
+checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
 
 [[package]]
 name = "zmij"
