@@ -79,7 +79,7 @@ use crate::eval::runtime::arguments::ArgumentsImpl;
 use crate::eval::runtime::arguments::ResolvedArgName;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::eval::runtime::params::spec::ParametersSpec;
 use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
@@ -437,7 +437,7 @@ pub(crate) struct CopySlotFromParent {
 pub(crate) struct DefInfo<'f> {
     pub(crate) name: StringValue<'f>,
     /// Span of function signature.
-    pub(crate) signature_span: FrozenFileSpan<'f>,
+    pub(crate) signature_span: HeapFileSpan<'f>,
     /// Indices of parameters, which are captured in nested defs.
     ///
     /// A heap array rather than a box: every [`Def`] copies the handle, see
@@ -494,7 +494,7 @@ impl<'f> DefInfo<'f> {
     ) -> DefInfo<'f> {
         DefInfo {
             name: const_frozen_string!("<module>").at(),
-            signature_span: FrozenFileSpan::default(),
+            signature_span: HeapFileSpan::default(),
             parameter_captures: VALUE_EMPTY_PARAMETER_CAPTURES.at(),
             parameter_types: Box::default(),
             ty: Ty::any(),
@@ -535,7 +535,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         IrSpanned<'fm, ParameterCompiled<'fm, IrSpanned<'fm, ExprCompiled<'fm>>>>,
         CompilerInternalError,
     > {
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, x.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, x.span));
         let parameter_name = self.parameter_name(x.ident);
         Ok(IrSpanned {
             span,
@@ -560,7 +560,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
     pub fn function(
         &mut self,
         name: &str,
-        signature_span: FrozenFileSpan<'fm>,
+        signature_span: HeapFileSpan<'fm>,
         scope_id: ScopeId,
         params: &[CstParameter<'fm>],
         return_type: Option<&CstTypeExpr<'fm>>,

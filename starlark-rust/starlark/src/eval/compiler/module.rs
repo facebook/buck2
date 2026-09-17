@@ -34,7 +34,7 @@ use crate::eval::compiler::scope::Slot;
 use crate::eval::compiler::scope::payload::CstPayload;
 use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::typing::Ty;
 use crate::typing::TypingOracleCtx;
 use crate::typing::bindings::BindingsCollect;
@@ -59,7 +59,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
     fn eval_load(&mut self, load: Spanned<&LoadP<CstPayload<'fm>>>) -> Result<(), EvalException> {
         let name = &load.node.module.node;
 
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, load.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, load.span));
         let span = self.edge.rebrand(span);
 
         let loadenv = match self.eval.loader.as_ref() {
@@ -81,7 +81,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
                 Slot::Local(..) => unreachable!("symbol need to be resolved to module"),
                 Slot::Module(slot) => slot,
             };
-            let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, load_arg.span()));
+            let span = FrameSpan::new(HeapFileSpan::new(self.codemap, load_arg.span()));
             let value = expr_throw(
                 self.eval
                     .module_env

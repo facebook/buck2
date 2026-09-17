@@ -171,7 +171,7 @@ mod tests {
 
     use crate::codemap::CodeMap;
     use crate::eval::runtime::frame_span::FrameSpan;
-    use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+    use crate::eval::runtime::heap_file_span::HeapFileSpan;
     use crate::eval::runtime::inlined_frame::InlinedFrameAlloc;
     use crate::eval::runtime::inlined_frame::InlinedFrames;
     use crate::values::FrozenHeap;
@@ -201,7 +201,7 @@ mod tests {
                 let codemap = CodeMap::new(format!("{text}.bzl"), text.to_owned());
                 let codemap = heap.alloc_simple_typed(StarlarkAny::new(codemap));
                 FrameSpan {
-                    span: FrozenFileSpan::new(codemap, codemap.full_span()),
+                    span: HeapFileSpan::new(codemap, codemap.full_span()),
                     inlined_frames: InlinedFrames::default(),
                 }
             }

@@ -49,44 +49,41 @@ crate::static_starlark_any!(VALUE_EMPTY_CODEMAP: CodeMap = NativeCodeMap::to_cod
     ProvidesStaticType,
     starlark_derive::StarlarkPagable
 )]
-pub(crate) struct FrozenFileSpan<'f> {
+pub(crate) struct HeapFileSpan<'f> {
     file: ValueTyped<'f, StarlarkAny<CodeMap>>,
     #[allocative(skip)]
     #[starlark_pagable(pagable)]
     span: Span,
 }
 
-impl<'f> PartialEq for FrozenFileSpan<'f> {
+impl<'f> PartialEq for HeapFileSpan<'f> {
     fn eq(&self, other: &Self) -> bool {
         // `CodeMap` compares by identity.
         self.file.as_ref().0 == other.file.as_ref().0 && self.span == other.span
     }
 }
 
-impl<'f> Display for FrozenFileSpan<'f> {
+impl<'f> Display for HeapFileSpan<'f> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.to_file_span(), f)
     }
 }
 
-impl<'f> Default for FrozenFileSpan<'f> {
-    fn default() -> FrozenFileSpan<'f> {
-        FrozenFileSpan::new_unchecked(VALUE_EMPTY_CODEMAP.at(), Span::default())
+impl<'f> Default for HeapFileSpan<'f> {
+    fn default() -> HeapFileSpan<'f> {
+        HeapFileSpan::new_unchecked(VALUE_EMPTY_CODEMAP.at(), Span::default())
     }
 }
 
-impl<'f> FrozenFileSpan<'f> {
+impl<'f> HeapFileSpan<'f> {
     pub(crate) const fn new_unchecked(
         file: ValueTyped<'f, StarlarkAny<CodeMap>>,
         span: Span,
-    ) -> FrozenFileSpan<'f> {
-        FrozenFileSpan { file, span }
+    ) -> HeapFileSpan<'f> {
+        HeapFileSpan { file, span }
     }
 
-    pub(crate) fn new(
-        file: ValueTyped<'f, StarlarkAny<CodeMap>>,
-        span: Span,
-    ) -> FrozenFileSpan<'f> {
+    pub(crate) fn new(file: ValueTyped<'f, StarlarkAny<CodeMap>>, span: Span) -> HeapFileSpan<'f> {
         // Spans outside their file have been observed in production, and
         // resolving one degrades to a clamped snippet rather than panicking.
         // Debug builds fail fast here; release builds report through the
@@ -122,8 +119,8 @@ impl<'f> FrozenFileSpan<'f> {
         self.span
     }
 
-    pub(crate) fn end_span(&self) -> FrozenFileSpan<'f> {
-        FrozenFileSpan {
+    pub(crate) fn end_span(&self) -> HeapFileSpan<'f> {
+        HeapFileSpan {
             file: self.file,
             span: self.span.end_span(),
         }
@@ -143,9 +140,9 @@ impl<'f> FrozenFileSpan<'f> {
         }
     }
 
-    pub(crate) fn merge(&self, other: &FrozenFileSpan<'f>) -> FrozenFileSpan<'f> {
+    pub(crate) fn merge(&self, other: &HeapFileSpan<'f>) -> HeapFileSpan<'f> {
         if self.file.as_ref().0 == other.file.as_ref().0 {
-            FrozenFileSpan {
+            HeapFileSpan {
                 file: self.file,
                 span: self.span.merge(other.span),
             }

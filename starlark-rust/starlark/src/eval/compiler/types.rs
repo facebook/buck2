@@ -33,7 +33,7 @@ use crate::eval::compiler::scope::payload::CstStmt;
 use crate::eval::compiler::scope::payload::CstTypeExpr;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::typing::Ty;
 use crate::values::Value;
 use crate::values::types::ellipsis::Ellipsis;
@@ -63,7 +63,7 @@ impl<'v, 'fm> Compiler<'v, '_, '_, '_, 'fm> {
             return None;
         }
         let expr = expr?;
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, expr.span));
         let Some(ty) = &expr.payload.compiler_ty else {
             // This is unreachable. But unfortunately we do not return error here.
             // Still make an error in panic to produce nice panic message.

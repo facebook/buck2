@@ -23,7 +23,7 @@ use dupe::Dupe;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::register_starlark_any_complex;
 use crate::values::Freeze;
@@ -49,7 +49,7 @@ use crate::values::HeapEdge;
 )]
 #[freeze(frozen_only)]
 pub(crate) struct FrameSpan<'f> {
-    pub(crate) span: FrozenFileSpan<'f>,
+    pub(crate) span: HeapFileSpan<'f>,
     /// Parent frames.
     pub(crate) inlined_frames: InlinedFrames<'f>,
 }
@@ -57,7 +57,7 @@ pub(crate) struct FrameSpan<'f> {
 register_starlark_any_complex!(frozen FrameSpan<'_>);
 
 impl<'f> FrameSpan<'f> {
-    pub(crate) const fn new(span: FrozenFileSpan<'f>) -> FrameSpan<'f> {
+    pub(crate) const fn new(span: HeapFileSpan<'f>) -> FrameSpan<'f> {
         FrameSpan {
             span,
             inlined_frames: InlinedFrames { frames: None },

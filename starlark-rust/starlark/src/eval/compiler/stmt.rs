@@ -60,7 +60,7 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::evaluator::Evaluator;
 use crate::eval::runtime::evaluator::GC_THRESHOLD;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
@@ -428,7 +428,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         &mut self,
         expr: &CstAssignTarget<'fm>,
     ) -> Result<IrSpanned<'fm, AssignCompiledValue<'fm>>, CompilerInternalError> {
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, expr.span));
         let assign = match &expr.node {
             AssignTargetP::Dot(e, s) => {
                 let e = self.expr(e)?;
@@ -477,8 +477,8 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         rhs: IrSpanned<'fm, ExprCompiled<'fm>>,
         op: AssignOp,
     ) -> Result<StmtsCompiled<'fm>, CompilerInternalError> {
-        let span_stmt = FrameSpan::new(FrozenFileSpan::new(self.codemap, span_stmt));
-        let span_lhs = FrameSpan::new(FrozenFileSpan::new(self.codemap, lhs.span));
+        let span_stmt = FrameSpan::new(HeapFileSpan::new(self.codemap, span_stmt));
+        let span_lhs = FrameSpan::new(HeapFileSpan::new(self.codemap, lhs.span));
         match &lhs.node {
             AssignTargetP::Dot(e, s) => {
                 let e = self.expr(e)?;
@@ -677,7 +677,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         stmt: &CstStmt<'fm>,
         allow_gc: bool,
     ) -> Result<StmtsCompiled<'fm>, CompilerInternalError> {
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, stmt.span));
         let is_statements = matches!(&stmt.node, StmtP::Statements(_));
         let res = self.stmt_direct(stmt, allow_gc)?;
         // No point inserting a GC point around statements, since they will contain inner statements we can do
@@ -762,11 +762,11 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
         stmt: &CstStmt<'fm>,
         allow_gc: bool,
     ) -> Result<StmtsCompiled<'fm>, CompilerInternalError> {
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, stmt.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, stmt.span));
         match &stmt.node {
             StmtP::Def(def) => {
                 let signature_span = def.signature_span();
-                let signature_span = FrozenFileSpan::new(self.codemap, signature_span);
+                let signature_span = HeapFileSpan::new(self.codemap, signature_span);
                 let DefP {
                     name,
                     params,

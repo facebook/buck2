@@ -24,7 +24,7 @@ macro_rules! rust_loc {
         use crate::codemap::CodeMap;
         use crate::codemap::NativeCodeMap;
         use crate::eval::runtime::frame_span::FrameSpan;
-        use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+        use crate::eval::runtime::heap_file_span::HeapFileSpan;
 
         static NATIVE_CODEMAP: NativeCodeMap = NativeCodeMap::new(file!(), line!(), column!());
         pagable::static_value!(
@@ -32,12 +32,12 @@ macro_rules! rust_loc {
             starlark_syntax::codemap::NativeCodeMapStaticEntry
         );
         // @no_impl: StaticValueRegistered for StarlarkAny<CodeMap> is already
-        // implemented by the static_starlark_any! invocation in frozen_file_span.rs.
+        // implemented by the static_starlark_any! invocation in heap_file_span.rs.
         crate::static_starlark_any!(
             @no_impl CODEMAP: CodeMap = NativeCodeMap::to_codemap(NATIVE_CODEMAP_STATIC)
         );
         static FRAME_SPAN: LazyLock<FrameSpan<'static>> = LazyLock::new(|| {
-            FrameSpan::new(FrozenFileSpan::new_unchecked(
+            FrameSpan::new(HeapFileSpan::new_unchecked(
                 CODEMAP.at(),
                 NativeCodeMap::FULL_SPAN,
             ))

@@ -60,7 +60,7 @@ use crate::eval::compiler::scope::payload::CstExpr;
 use crate::eval::compiler::scope::payload::CstIdent;
 use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
-use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
+use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::values::FrozenHeap;
@@ -1283,12 +1283,12 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
         expr: &CstExpr<'fm>,
     ) -> Result<IrSpanned<'fm, ExprCompiled<'fm>>, CompilerInternalError> {
         // println!("compile {}", expr.node);
-        let span = FrameSpan::new(FrozenFileSpan::new(self.codemap, expr.span));
+        let span = FrameSpan::new(HeapFileSpan::new(self.codemap, expr.span));
         let expr = match &expr.node {
             ExprP::Identifier(ident) => self.expr_ident(ident),
             ExprP::Lambda(l) => {
                 let signature_span = l.signature_span();
-                let signature_span = FrozenFileSpan::new(self.codemap, signature_span);
+                let signature_span = HeapFileSpan::new(self.codemap, signature_span);
                 let LambdaP {
                     params,
                     body,
@@ -1490,7 +1490,7 @@ impl<'v, 'a, 'e, 'fm> Compiler<'v, 'a, 'e, '_, 'fm> {
                     span: fstring_span,
                 } = fstring;
 
-                let fstring_span = FrameSpan::new(FrozenFileSpan::new(self.codemap, *fstring_span));
+                let fstring_span = FrameSpan::new(HeapFileSpan::new(self.codemap, *fstring_span));
 
                 // Desugar f"foo{x}bar{y}" to "foo{}bar{}.format(x, y)"
                 let format = IrSpanned {
