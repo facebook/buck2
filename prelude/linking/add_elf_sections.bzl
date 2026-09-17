@@ -55,25 +55,6 @@ def add_elf_sections(ctx: AnalysisContext, obj: Artifact, sections: dict[str, Ar
 
     return output
 
-def extract_elf_section(ctx: AnalysisContext, obj: Artifact, name: str) -> Artifact:
-    _validate_section_name(name)
-    toolchain = get_cxx_toolchain_info(ctx)
-    output = ctx.actions.declare_output(
-        "{}-{}.section".format(obj.short_path, name),
-        has_content_based_path = False,
-    )
-    ctx.actions.run(
-        cmd_args(
-            toolchain.binary_utilities_info.objcopy,
-            "--dump-section",
-            cmd_args(output.as_output(), format = name + "={}"),
-            obj,
-        ),
-        category = "extract_elf_section",
-        identifier = obj.short_path,
-    )
-    return output
-
 def get_elf_sections(ctx: AnalysisContext) -> dict[str, Artifact]:
     """
     The rule's `elf_sections`, or empty for rules that do not have the attr.

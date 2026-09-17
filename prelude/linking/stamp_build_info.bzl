@@ -11,7 +11,7 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
-load("@prelude//linking:add_elf_sections.bzl", "add_elf_sections", "extract_elf_section")
+load("@prelude//linking:add_elf_sections.bzl", "add_elf_sections")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
@@ -23,15 +23,7 @@ load(
 PRE_STAMPED_SUFFIX = "-pre_stamped"
 
 def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
-    generated_build_info = getattr(ctx.attrs, "_generated_build_info_spec", {})
-    if generated_build_info.get("enabled", False):
-        return bool(generated_build_info.get("link_as_shared_library", False) and cxx_is_gnu(ctx))
-
-    if not hasattr(ctx.attrs, "_build_info") or not ctx.attrs._build_info or not cxx_is_gnu(ctx):
-        return False
-
-    late_build_info_stamping = getattr(ctx.attrs, "_late_build_info_stamping", None)
-    return late_build_info_stamping == None or late_build_info_stamping
+    return hasattr(ctx.attrs, "_build_info") and bool(ctx.attrs._build_info) and cxx_is_gnu(ctx)
 
 def _get_library_versions(links: list[LinkArgs] | None) -> str:
     if not links:
@@ -50,25 +42,17 @@ def _get_library_versions(links: list[LinkArgs] | None) -> str:
     return ";".join(versions)
 
 def stamp_build_info(
-    ctx: AnalysisContext,
-    obj: Artifact,
-    stamped_output: Artifact | None = None,
-    has_content_based_path: bool = False,
-    links: list[LinkArgs] | None = None,
-    section_source: Artifact | None = None,
+    ctx: AnalysisContext, obj: Artifact, stamped_output: Artifact | None = None, has_content_based_path: bool = False, links: list[LinkArgs] | None = None
 ) -> Artifact:
     """
     If necessary, add fb_build_info section to binary via late-stamping
     """
     if cxx_stamp_build_info(ctx):
-        if section_source:
-            build_info_json = extract_elf_section(ctx, section_source, "fb_build_info")
-        else:
-            build_info = dict(ctx.attrs._build_info)
-            library_versions = _get_library_versions(links)
-            if library_versions:
-                build_info["library_versions"] = library_versions
-            build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", build_info, has_content_based_path = has_content_based_path)
+        build_info = dict(ctx.attrs._build_info)
+        library_versions = _get_library_versions(links)
+        if library_versions:
+            build_info["library_versions"] = library_versions
+        build_info_json = ctx.actions.write_json(obj.short_path + "-build-info.json", build_info, has_content_based_path = has_content_based_path)
         stem, ext = paths.split_extension(obj.short_path)
         if not stamped_output:
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
