@@ -74,12 +74,12 @@ enum ConcurrencyHandlerError {
     #[error(
         "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
-    NestedInvocationWithSameStates(String, String),
+    NestedInvocationWithSameStates(ConcurrentTraces, String),
     #[error(
         "Recursive invocation of Buck, with a different state. Use `--isolation-dir` on the inner invocation to fix this. Trace Ids: {0}. Recursive invocation command: `{1}`"
     )]
     #[buck2(input)]
-    NestedInvocationWithDifferentStates(String, String),
+    NestedInvocationWithDifferentStates(ConcurrentTraces, String),
     #[error("`--exit-when=differentstate` was set")]
     #[buck2(tag = DaemonIsBusy)]
     ExitWhenDifferentState,
@@ -381,17 +381,6 @@ impl ExclusiveCommandLock {
 }
 
 impl ConcurrencyHandler {
-    /// Helper method to format active commands into a string
-    fn format_active_commands(data: &ConcurrencyHandlerData) -> String {
-        let active_commands: Vec<String> = data
-            .active_commands
-            .values()
-            .map(|d| TraceId::to_string(&d.trace_id))
-            .collect();
-
-        active_commands.join(", ")
-    }
-
     pub fn new(dice: Arc<Dice>) -> Arc<Self> {
         Arc::new(ConcurrencyHandler {
             data: Mutex::new(ConcurrencyHandlerData {
@@ -577,13 +566,10 @@ impl ConcurrencyHandler {
             // here rather than after the update. Refusing costs a lock acquisition instead of a
             // file-watcher sync and a DICE commit.
             if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
+                let running = ConcurrentTraces::running(&data.active_commands);
+                drop(data);
                 return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
-                    || {
-                        format!(
-                            "Buck daemon is busy processing another command: {}",
-                            Self::format_active_commands(&data)
-                        )
-                    },
+                    || format!("Buck daemon is busy processing another command: {running}"),
                 );
             }
 
@@ -656,12 +642,11 @@ impl ConcurrencyHandler {
                 && conflict_on_arrival.is_some_and(|version| !transaction.equivalent(&version));
 
             if refuse_on_different_state {
+                let running = ConcurrentTraces::running(&data.active_commands);
+                drop(data);
                 return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
                     .with_buck_error_context(|| {
-                        format!(
-                            "Buck daemon is busy processing another command: {}",
-                            Self::format_active_commands(&data)
-                        )
+                        format!("Buck daemon is busy processing another command: {running}")
                     });
             }
 
@@ -714,12 +699,13 @@ impl ConcurrencyHandler {
 
             match bypass_semaphore {
                 BypassSemaphore::Error => {
+                    let running =
+                        ConcurrentTraces::running_and(&data.active_commands, &command_data);
+                    let argv = command_data.format_argv();
+                    drop(data);
                     return Err(
-                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                            format_traces(&data.active_commands, &command_data),
-                            command_data.format_argv(),
-                        )
-                        .into(),
+                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(running, argv)
+                            .into(),
                     );
                 }
                 BypassSemaphore::Run(state) => {
@@ -735,11 +721,10 @@ impl ConcurrencyHandler {
                             None
                         };
                     if let Some(early_exit_error) = early_exit_error {
+                        let running = ConcurrentTraces::running(&data.active_commands);
+                        drop(data);
                         return Err(early_exit_error).with_buck_error_context(|| {
-                            format!(
-                                "Buck daemon is busy processing another command: {}",
-                                Self::format_active_commands(&data)
-                            )
+                            format!("Buck daemon is busy processing another command: {running}")
                         });
                     }
                     // We should probably show more than the first here, but for now
@@ -875,13 +860,11 @@ impl ConcurrencyHandler {
         active_commands: &SmallMap<CommandId, CommandData>,
         current_command: &CommandData,
     ) -> buck2_error::Result<()> {
-        let active_commands = format_traces(active_commands, current_command);
-
         if let RunState::NestedSameState = state {
             soft_error!(
                 "nested_invocation_same_dice_state",
                 ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                    active_commands,
+                    ConcurrentTraces::running_and(active_commands, current_command),
                     current_command.format_argv(),
                 )
                 .into(),
@@ -903,17 +886,44 @@ fn format_elapsed(elapsed: Duration) -> String {
     }
 }
 
-fn format_traces(
-    active_commands: &SmallMap<CommandId, CommandData>,
-    current: &CommandData,
-) -> String {
-    let trace_ids = active_commands
-        .values()
-        .chain(std::iter::once(current))
-        .map(|cmd| &cmd.trace_id)
-        .collect::<SmallSet<_>>();
+/// Trace IDs captured under the state lock and formatted after it is released.
+#[derive(Debug)]
+struct ConcurrentTraces(Vec<TraceId>);
 
-    trace_ids.iter().join(", ")
+impl ConcurrentTraces {
+    fn running_and(
+        active_commands: &SmallMap<CommandId, CommandData>,
+        current: &CommandData,
+    ) -> Self {
+        Self(
+            active_commands
+                .values()
+                .chain(std::iter::once(current))
+                .map(|cmd| cmd.trace_id.dupe())
+                .collect(),
+        )
+    }
+
+    fn running(active_commands: &SmallMap<CommandId, CommandData>) -> Self {
+        Self(
+            active_commands
+                .values()
+                .map(|cmd| cmd.trace_id.dupe())
+                .collect(),
+        )
+    }
+}
+
+impl fmt::Display for ConcurrentTraces {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // `TraceId` is not unique across concurrently live entries — a command with a null
+        // dispatcher reports `TraceId::null()` — so the same id can appear twice.
+        write!(
+            f,
+            "{}",
+            self.0.iter().collect::<SmallSet<_>>().iter().join(", ")
+        )
+    }
 }
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
@@ -1241,6 +1251,28 @@ mod tests {
         }
 
         assert_eq!(seen.len(), TASKS * PER_TASK);
+    }
+
+    /// Rendering moved out of the critical section into this `Display`, and nothing else covers
+    /// it: no test asserts on the text of the messages it feeds.
+    #[test]
+    fn concurrent_traces_names_each_command_once() {
+        let a = TraceId::new();
+        let b = TraceId::new();
+
+        assert_eq!(ConcurrentTraces(vec![]).to_string(), "");
+        assert_eq!(ConcurrentTraces(vec![a.dupe()]).to_string(), a.to_string());
+        assert_eq!(
+            ConcurrentTraces(vec![a.dupe(), b.dupe()]).to_string(),
+            format!("{a}, {b}")
+        );
+
+        // A command with a null dispatcher reports `TraceId::null()`, so the same id genuinely
+        // reaches this type twice. Naming it once is the point of the dedup.
+        assert_eq!(
+            ConcurrentTraces(vec![a.dupe(), b.dupe(), a.dupe()]).to_string(),
+            format!("{a}, {b}")
+        );
     }
 
     /// The `Debug` impl is hand-written, so it needs its own check — in particular that it elides
