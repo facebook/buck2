@@ -155,10 +155,9 @@ def build_android_library(
     r_dot_java: JavaClasspathEntry | None = None,
     extra_sub_targets = {},
     validation_deps_outputs: [list[Artifact], None] = None,
-    classpath_entries: JavaCompilingDepsTSet | None = None,
 ) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     custom_jdk_info = get_custom_jdk_info(ctx)
-    additional_classpath_entries_children = [classpath_entries] if classpath_entries else []
+    additional_classpath_entries_children = []
 
     dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     extra_sub_targets = dict(extra_sub_targets)
