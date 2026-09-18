@@ -44,7 +44,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 
-use crate::concurrency::CommandEventSink;
 use crate::concurrency::CommandEvents;
 use crate::concurrency::CommandTransactionObserver;
 use crate::concurrency::ConcurrencyHandler;
@@ -109,7 +108,7 @@ impl LockedPreviousCommandData {
 #[derive(Clone, Dupe)]
 pub struct DispatcherEvents(pub EventDispatcher);
 
-impl CommandEventSink for DispatcherEvents {
+impl CommandEvents for DispatcherEvents {
     fn instant(&self, data: buck2_data::instant_event::Data) {
         self.0.instant_event(data);
     }
@@ -121,19 +120,13 @@ impl CommandEventSink for DispatcherEvents {
     fn console_warning(&self, message: String) {
         self.0.console_warning(message);
     }
-}
 
-impl CommandEvents for DispatcherEvents {
     fn span<'a, R: Send + 'a>(
         &self,
         start: buck2_data::span_start_event::Data,
         fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
     ) -> BoxFuture<'a, R> {
         Box::pin(self.0.span_async(start, fut))
-    }
-
-    fn sink(&self) -> Arc<dyn CommandEventSink> {
-        Arc::new(self.dupe())
     }
 }
 

@@ -248,29 +248,20 @@ impl ConcurrencyHandlerData {
     }
 }
 
-/// Object-safe half of the event interface: what a *registered* command needs. Stored per command,
-/// so it must not be generic.
-pub trait CommandEventSink: Send + Sync + 'static {
+/// Event interface used while admitting a command.
+pub trait CommandEvents: Dupe + Send + Sync + 'static {
     fn instant(&self, data: buck2_data::instant_event::Data);
     fn trace_id(&self) -> &TraceId;
     /// Show a warning on the command's console.
     fn console_warning(&self, message: String);
-}
-
-/// Full event interface, including span wrapping. Not object-safe, because the span method is
-/// generic over the wrapped future's output, so callers take it as a type parameter.
-///
-/// `span` must preserve span-entering semantics: spans created inside `fut` parent to this span,
-/// and poll time accumulates into the end event. Delegating to an implementation built on
-/// `EventDispatcher::span_async` does this; starting a span, awaiting, then ending it does not.
-pub trait CommandEvents: CommandEventSink + Dupe {
+    /// `span` must preserve span-entering semantics: spans created inside `fut` parent to this span,
+    /// and poll time accumulates into the end event. Delegating to an implementation built on
+    /// `EventDispatcher::span_async` does this; starting a span, awaiting, then ending it does not.
     fn span<'a, R: Send + 'a>(
         &self,
         start: buck2_data::span_start_event::Data,
         fut: BoxFuture<'a, (R, buck2_data::span_end_event::Data)>,
     ) -> BoxFuture<'a, R>;
-
-    fn sink(&self) -> Arc<dyn CommandEventSink>;
 }
 
 #[async_trait]
@@ -1168,7 +1159,7 @@ mod tests {
         }
     }
 
-    impl CommandEventSink for TestEvents {
+    impl CommandEvents for TestEvents {
         fn instant(&self, data: buck2_data::instant_event::Data) {
             self.0.recorded.lock().push(RecordedEvent::Instant(data));
         }
@@ -1180,9 +1171,7 @@ mod tests {
         fn console_warning(&self, _message: String) {
             // User-facing chrome only; no test asserts on it.
         }
-    }
 
-    impl CommandEvents for TestEvents {
         /// Records only: no span parenting, poll timing, or `SpanCancelled` on drop.
         fn span<'a, R: Send + 'a>(
             &self,
@@ -1196,10 +1185,6 @@ mod tests {
                 this.0.recorded.lock().push(RecordedEvent::SpanEnd(end));
                 r
             })
-        }
-
-        fn sink(&self) -> Arc<dyn CommandEventSink> {
-            Arc::new(self.dupe())
         }
     }
 
