@@ -40,10 +40,7 @@ class GenericStubsGenerator : StubsGenerator {
           candidates.find { it.names.last() == genFullQualifier.first() }
               ?: when {
                 genFullQualifier.size > 1 -> FullTypeQualifier(genFullQualifier)
-                // A same-package type carries no import, so it is never in `candidates`, yet
-                // SamePackageClassStubsGenerator has already stubbed it under the module's package.
-                modulePkg.isNotEmpty() && genFullQualifier.first().first().isUpperCase() ->
-                    FullTypeQualifier(modulePkg + genFullQualifier)
+                modulePkg.isNotEmpty() -> FullTypeQualifier(modulePkg + genFullQualifier)
                 else -> continue
               }
       val name = imp.names
