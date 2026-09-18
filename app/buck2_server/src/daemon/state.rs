@@ -8,9 +8,11 @@
  * above-listed licenses.
  */
 
+use std::future::Future;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -93,6 +95,7 @@ use host_sharing::NamedSemaphores;
 use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
+use tokio::sync::OnceCell;
 use tracing::Instrument;
 
 use crate::active_commands::ActiveCommandDropGuard;
@@ -251,7 +254,7 @@ struct DaemonSharedServices<'a> {
 }
 
 impl RepoState {
-    async fn create_initial(init: RepoStateInit<'_>) -> buck2_error::Result<Arc<Self>> {
+    async fn create(init: RepoStateInit<'_>) -> buck2_error::Result<Arc<Self>> {
         let RepoStateInit {
             fb,
             paths,
@@ -690,45 +693,127 @@ impl RepoState {
 #[derive(Allocative)]
 struct TenantStateRegistry {
     initial_tenant: TenantKey,
-    tenants: StdBuckHashMap<TenantKey, TenantStateEntry>,
+    /// Stable handle for legacy single-repo callers. Registry entries are never replaced after
+    /// insertion, and the same allocation is accounted for through `tenants`.
+    #[allocative(skip)]
+    initial_state: Arc<RepoState>,
+    tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateEntry<RepoState>>>>,
 }
 
-#[derive(Allocative)]
-struct TenantStateEntry {
+struct TenantStateEntry<T: Allocative> {
     spec: TenantSpec,
-    state: Arc<RepoState>,
+    state: OnceCell<Arc<T>>,
 }
 
-impl TenantStateRegistry {
-    fn new(initial_tenant: Arc<RepoState>) -> Self {
-        let spec = TenantSpec::from_tenant_paths(&initial_tenant.paths);
-        let initial_key = spec.key().clone();
-        let tenants = StdBuckHashMap::from_iter([(
-            initial_key.clone(),
-            TenantStateEntry {
-                spec,
-                state: initial_tenant,
-            },
-        )]);
+impl<T: Allocative> Allocative for TenantStateEntry<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        visitor.visit_field(allocative::Key::new("spec"), &self.spec);
+        if let Some(state) = self.state.get() {
+            visitor.visit_field(allocative::Key::new("state"), state);
+        }
+        visitor.exit();
+    }
+}
 
+impl<T: Allocative> TenantStateEntry<T> {
+    fn new(spec: TenantSpec) -> Self {
         Self {
-            initial_tenant: initial_key,
-            tenants,
+            spec,
+            state: OnceCell::new(),
         }
     }
 
-    fn get(&self, key: &TenantKey) -> Option<&Arc<RepoState>> {
-        self.tenants.get(key).map(|entry| {
-            debug_assert_eq!(entry.spec.key(), key);
-            &entry.state
-        })
+    async fn get_or_try_init<F, Fut>(&self, init: F) -> buck2_error::Result<Arc<T>>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = buck2_error::Result<Arc<T>>>,
+    {
+        self.state.get_or_try_init(init).await.map(Arc::clone)
+    }
+
+    fn is_initialized(&self) -> bool {
+        self.state.get().is_some()
+    }
+}
+
+impl TenantStateRegistry {
+    async fn new(initial_tenant: Arc<RepoState>) -> buck2_error::Result<Self> {
+        let spec = TenantSpec::from_tenant_paths(&initial_tenant.paths);
+        let initial_key = spec.key().clone();
+        let registry = Self {
+            initial_tenant: initial_key,
+            initial_state: initial_tenant.dupe(),
+            tenants: StdMutex::new(StdBuckHashMap::default()),
+        };
+        registry
+            .get_or_create(spec, || async { Ok(initial_tenant) })
+            .await?;
+        Ok(registry)
+    }
+
+    async fn get_or_create<F, Fut>(
+        &self,
+        spec: TenantSpec,
+        create: F,
+    ) -> buck2_error::Result<Arc<RepoState>>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = buck2_error::Result<Arc<RepoState>>>,
+    {
+        let key = spec.key().clone();
+        let requested_spec = spec.clone();
+        let entry = {
+            let mut tenants = self
+                .tenants
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            tenants
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(TenantStateEntry::new(spec)))
+                .clone()
+        };
+        if entry.spec != requested_spec {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Tenant key `{:?}` was requested with conflicting specifications",
+                key
+            ));
+        }
+
+        entry
+            .get_or_try_init(|| async {
+                let state = create().await?;
+                let actual_key = TenantKey::from_tenant_paths(&state.paths);
+                if actual_key != key {
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Constructed tenant key `{:?}` did not match requested key `{:?}`",
+                        actual_key,
+                        key
+                    ));
+                }
+                Ok(state)
+            })
+            .await
     }
 
     fn sole_repo(&self) -> &Arc<RepoState> {
-        match self.tenants.len() {
-            1 => self
+        let tenants = self
+            .tenants
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        debug_assert!(
+            tenants
                 .get(&self.initial_tenant)
-                .expect("initial tenant should be present while it is the sole tenant"),
+                .is_some_and(|entry| entry.is_initialized())
+        );
+        let tenant_count = tenants
+            .values()
+            .filter(|entry| entry.is_initialized())
+            .count();
+        match tenant_count {
+            1 => &self.initial_state,
             tenant_count => panic!(
                 "sole_repo called with {} tenants in the registry",
                 tenant_count
@@ -966,7 +1051,7 @@ impl DaemonState {
             )
             .await?;
 
-            let repo = RepoState::create_initial(RepoStateInit {
+            let repo = RepoState::create(RepoStateInit {
                 fb,
                 paths,
                 init_ctx: &init_ctx,
@@ -990,8 +1075,9 @@ impl DaemonState {
                 .map(|h| PageOutThresholds {
                     min_free_disk_gb: h.page_out_min_free_disk_gb,
                 });
+            let tenants = TenantStateRegistry::new(repo).await?;
             Ok(Arc::new(DaemonStateData {
-                tenants: TenantStateRegistry::new(repo),
+                tenants,
                 blocking_executor_factory,
                 forkserver,
                 scribe_sink,
@@ -1274,11 +1360,73 @@ async fn http_client_from_startup_config(
 #[cfg(test)]
 mod tests {
 
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
     use buck2_common::legacy_configs::configs::testing::parse;
     use buck2_common::settings::BuckSettings;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::file_name::FileNameBuf;
     use indoc::indoc;
 
     use super::*;
+
+    fn tenant_spec() -> TenantSpec {
+        let project_root = if cfg!(windows) {
+            "C:\\project"
+        } else {
+            "/project"
+        };
+        TenantSpec::from_tenant_paths(&TenantPaths::new(
+            ProjectRoot::new_unchecked(
+                AbsNormPathBuf::try_from(project_root.to_owned())
+                    .expect("test project root should be absolute and normalized"),
+            ),
+            FileNameBuf::try_from("v2".to_owned()).expect("test isolation should be a file name"),
+        ))
+    }
+
+    #[tokio::test]
+    async fn tenant_entry_initializes_once() -> buck2_error::Result<()> {
+        let entry = TenantStateEntry::<usize>::new(tenant_spec());
+        let init_count = AtomicUsize::new(0);
+        let first = entry.get_or_try_init(|| async {
+            init_count.fetch_add(1, Ordering::Relaxed);
+            tokio::task::yield_now().await;
+            Ok(Arc::new(1))
+        });
+        let second = entry.get_or_try_init(|| async {
+            init_count.fetch_add(1, Ordering::Relaxed);
+            Ok(Arc::new(2))
+        });
+
+        let (first, second) = tokio::join!(first, second);
+        let first = first?;
+        let second = second?;
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(init_count.load(Ordering::Relaxed), 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn tenant_entry_retries_failed_initialization() -> buck2_error::Result<()> {
+        let entry = TenantStateEntry::<usize>::new(tenant_spec());
+        let first = entry
+            .get_or_try_init(|| async {
+                Err(buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "injected initialization failure"
+                ))
+            })
+            .await;
+        assert!(first.is_err());
+        assert!(!entry.is_initialized());
+
+        let state = entry.get_or_try_init(|| async { Ok(Arc::new(1)) }).await?;
+        assert_eq!(*state, 1);
+        assert!(entry.is_initialized());
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_from_startup_config_defaults_internal() -> buck2_error::Result<()> {
