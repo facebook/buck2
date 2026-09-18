@@ -362,6 +362,8 @@ enum ExclusiveCommandLockGuard<'a> {
     /// The waiter is first so that it drops first: the name leaves the queue before the write
     /// lock is released, so `owning_command` never names a command that has already finished.
     Exclusive(ExclusiveWaiter, tokio::sync::RwLockWriteGuard<'a, ()>),
+    /// A nested invocation, which does not take the gate at all. See `enter`.
+    Bypassed,
 }
 
 impl ExclusiveCommandLock {
@@ -478,6 +480,11 @@ impl ConcurrencyHandler {
                             self.dice.wait_for_idle().await;
 
                             guard
+                        } else if is_nested_invocation {
+                            // A writer-preferring lock can deadlock a nested invocation behind a
+                            // writer waiting for its parent. Once a writer holds the gate, no parent
+                            // remains from which a nested invocation can originate.
+                            ExclusiveCommandLockGuard::Bypassed
                         } else {
                             self.exclusive_command_lock.shared_lock().await
                         };
@@ -1632,6 +1639,7 @@ mod tests {
         preemptible: PreemptibleWhen,
         exit_when: ExitWhen,
         is_nested_invocation: bool,
+        exclusive_cmd: Option<String>,
     }
 
     impl TestCommand {
@@ -1641,6 +1649,7 @@ mod tests {
                 preemptible: PreemptibleWhen::Never,
                 exit_when: ExitWhen::ExitNever,
                 is_nested_invocation: false,
+                exclusive_cmd: None,
             }
         }
 
@@ -1651,6 +1660,16 @@ mod tests {
 
         fn preemptible(mut self, preemptible: PreemptibleWhen) -> Self {
             self.preemptible = preemptible;
+            self
+        }
+
+        fn nested_invocation(mut self, is_nested_invocation: bool) -> Self {
+            self.is_nested_invocation = is_nested_invocation;
+            self
+        }
+
+        fn exclusive_cmd(mut self, cmd_name: &str) -> Self {
+            self.exclusive_cmd = Some(cmd_name.to_owned());
             self
         }
 
@@ -1686,7 +1705,7 @@ mod tests {
                     exec,
                     self.is_nested_invocation,
                     Vec::new(),
-                    None,
+                    self.exclusive_cmd,
                     CancellationContext::testing(),
                     self.preemptible,
                     observer,
@@ -2622,6 +2641,79 @@ mod tests {
         TestCommand::new()
             .run(&concurrency, &NoChanges, |_, _timing| async move {})
             .await?;
+
+        Ok(())
+    }
+
+    /// A queued exclusive command must not deadlock a nested invocation with its parent.
+    #[tokio::test]
+    async fn a_queued_exclusive_command_does_not_block_nested_invocations()
+    -> buck2_error::Result<()> {
+        // Matches the existing nested-invocation test's OSS exclusion.
+        if is_open_source() {
+            return Ok(());
+        }
+
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let parent_running = Arc::new(Barrier::new(2));
+
+        let parent = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = parent_running.dupe();
+            let block = block.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        barrier.wait().await;
+                        let _g = block.read().await;
+                    })
+                    .await
+            }
+        });
+
+        parent_running.wait().await;
+
+        let exclusive = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            async move {
+                TestCommand::new()
+                    .exclusive_cmd("clean")
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {})
+                    .await
+            }
+        });
+
+        // Wait until the writer starts turning away new readers.
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while concurrency
+                .exclusive_command_lock
+                .owning_command()
+                .is_none()
+            {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the exclusive command never queued");
+
+        // Bound the child because the regression is a deadlock.
+        tokio::time::timeout(
+            Duration::from_secs(20),
+            TestCommand::new().nested_invocation(true).run(
+                &concurrency,
+                &NoChanges,
+                |_, _timing| async move {},
+            ),
+        )
+        .await
+        .expect("a nested invocation was blocked behind the queued exclusive command")?;
+
+        drop(blocked);
+        parent.await??;
+        exclusive.await??;
 
         Ok(())
     }
