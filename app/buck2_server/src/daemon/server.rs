@@ -1206,6 +1206,14 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<FlushDepFilesRequest>,
     ) -> Result<Response<CommandResult>, Status> {
+        let persisted_dep_file_store = self
+            .0
+            .daemon_state
+            .data()
+            .sole_repo()
+            .persisted_dep_file_cache
+            .as_ref()
+            .map(|cache| cache.store.dupe());
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let FlushDepFilesRequest {
                 retain_locally_produced_dep_files,
@@ -1213,10 +1221,17 @@ impl DaemonApi for BuckdServer {
             if retain_locally_produced_dep_files {
                 buck2_file_watcher::dep_files::flush_non_local_dep_files();
             } else {
-                // Only this branch reaches the persisted cache, and dropping it waits for the
-                // dep-file db writer thread to drain, so it goes to the blocking pool rather than
+                // The action-layer hook clears the daemon-global live cache. The persisted cache
+                // is repo-scoped, so clear the selected repo's store explicitly. Clearing it waits
+                // for the writer thread to drain, so this goes to the blocking pool rather than
                 // parking a runtime worker.
-                let _ignored = spawn_blocking(buck2_file_watcher::dep_files::flush_dep_files).await;
+                let _ignored = spawn_blocking(move || {
+                    buck2_file_watcher::dep_files::flush_dep_files();
+                    if let Some(store) = persisted_dep_file_store {
+                        store.clear();
+                    }
+                })
+                .await;
             }
             Ok(GenericResponse {})
         })

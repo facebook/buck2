@@ -74,7 +74,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::metadata;
 use buck2_events::schedule_type::SandcastleScheduleType;
-use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::SetDepFileStore;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -506,7 +506,13 @@ impl<'a> ServerCommandContext<'a> {
         // immediately afterwards still sees the entries this command produced. This has to precede
         // every fallible step below, each of which can return early with `?`. It runs on the
         // blocking pool because `flush` blocks until the writer thread drains.
-        if let Ok(store) = DEP_FILE_STORE.get() {
+        if let Some(store) = self
+            .base_context
+            .repo
+            .persisted_dep_file_cache
+            .as_ref()
+            .map(|cache| &cache.store)
+        {
             let store = store.dupe();
             let queued = store.queue_size();
             let flush_started = Instant::now();
@@ -1022,6 +1028,14 @@ impl DiceCommandUpdater<'_, '_> {
         data.set_blocking_executor(self.cmd_ctx.base_context.repo.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
         data.set_materializer(self.cmd_ctx.base_context.repo.materializer.dupe());
+        data.set_dep_file_store(
+            self.cmd_ctx
+                .base_context
+                .repo
+                .persisted_dep_file_cache
+                .as_ref()
+                .map(|cache| cache.store.dupe()),
+        );
         data.init_materialization_queue_tracker();
         data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);

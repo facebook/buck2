@@ -32,6 +32,8 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::dep_file_state::DepFileStore;
+use buck2_execute::dep_file_state::HasDepFileStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
@@ -329,6 +331,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
         let events = self.per_transaction_data().get_dispatcher();
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let dep_file_store = self.per_transaction_data().get_dep_file_store();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
@@ -350,6 +353,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            dep_file_store,
             io_provider,
             http_client,
             mergebase,
@@ -367,6 +371,7 @@ pub struct BuckActionExecutor<'d> {
     re_client: &'d UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: &'d RunActionKnobs,
+    dep_file_store: Option<&'d dyn DepFileStore>,
     io_provider: &'d dyn IoProvider,
     http_client: &'d HttpClient,
     mergebase: &'d Mergebase,
@@ -383,6 +388,7 @@ impl<'d> BuckActionExecutor<'d> {
         re_client: &'d UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: &'d RunActionKnobs,
+        dep_file_store: Option<&'d dyn DepFileStore>,
         io_provider: &'d dyn IoProvider,
         http_client: &'d HttpClient,
         mergebase: &'d Mergebase,
@@ -397,6 +403,7 @@ impl<'d> BuckActionExecutor<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            dep_file_store,
             io_provider,
             http_client,
             mergebase,
@@ -489,6 +496,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn run_action_knobs(&self) -> &RunActionKnobs {
         &self.executor.run_action_knobs
+    }
+
+    fn dep_file_store(&self) -> Option<&dyn DepFileStore> {
+        self.executor.dep_file_store
     }
 
     fn cancellation_context(&self) -> &CancellationContext {

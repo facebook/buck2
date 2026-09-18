@@ -243,9 +243,9 @@ fn report_read_failure(e: buck2_error::Error) {
     );
 }
 
-/// Write-through [`DepFileStore`] over a [`DepFileStateSqliteDb`]. Installed into `buck2_action_impl`
-/// via `DEP_FILE_STORE` once the daemon opens the db. Every db error is downgraded to a quiet soft
-/// error so a database hiccup never fails a build (the in-memory cache remains authoritative).
+/// Write-through [`DepFileStore`] over a [`DepFileStateSqliteDb`]. Owned by the repo state once the
+/// daemon opens the db. Every db error is downgraded to a quiet soft error so a database hiccup
+/// never fails a build (the in-memory cache remains authoritative).
 ///
 /// Writes are queued and applied on a dedicated thread rather than inline: they are issued once per
 /// locally-executed action, and running them on the action's own thread would make every write

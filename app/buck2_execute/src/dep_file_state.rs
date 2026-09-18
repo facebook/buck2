@@ -12,8 +12,8 @@
 //!
 //! The in-memory cache (`DEP_FILES`) lives in `buck2_action_impl`; the SQLite database lives in
 //! `buck2_execute_impl`; and the daemon assembles them in `buck2_server`. None of those three
-//! crates depend on each other, so the shared types and the late-bound handles that bridge them
-//! live here in `buck2_execute`, which they all depend on.
+//! crates depend on each other, so the shared types live here in `buck2_execute`, which they all
+//! depend on.
 
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ use allocative::Allocative;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_util::late_binding::LateBinding;
+use dice::UserComputationData;
 
 use crate::artifact_value::ArtifactValue;
 
@@ -213,7 +213,67 @@ pub trait DepFileStore: Send + Sync + 'static {
     fn flush(&self) {}
 }
 
-/// The persisted dep-file store, installed by `buck2_server` at daemon startup. Absent (`get()`
-/// returns `Err`) when persistence is disabled or in tests, in which case the cache stays purely
-/// in-memory.
-pub static DEP_FILE_STORE: LateBinding<Arc<dyn DepFileStore>> = LateBinding::new("DEP_FILE_STORE");
+struct DepFileStoreHolder(Option<Arc<dyn DepFileStore>>);
+
+pub trait SetDepFileStore {
+    fn set_dep_file_store(&mut self, store: Option<Arc<dyn DepFileStore>>);
+}
+
+pub trait HasDepFileStore {
+    fn get_dep_file_store(&self) -> Option<&dyn DepFileStore>;
+}
+
+impl SetDepFileStore for UserComputationData {
+    fn set_dep_file_store(&mut self, store: Option<Arc<dyn DepFileStore>>) {
+        self.data.set(DepFileStoreHolder(store));
+    }
+}
+
+impl HasDepFileStore for UserComputationData {
+    fn get_dep_file_store(&self) -> Option<&dyn DepFileStore> {
+        self.data
+            .get::<DepFileStoreHolder>()
+            .ok()
+            .and_then(|holder| holder.0.as_deref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestDepFileStore(u64);
+
+    impl DepFileStore for TestDepFileStore {
+        fn insert(&self, _logical_key: Vec<u8>, _config_key: Vec<u8>, _state: StoredDepFileState) {}
+
+        fn delete(&self, _logical_key: Vec<u8>, _config_key: Vec<u8>) {}
+
+        fn get_digests(&self, _logical_key: &[u8]) -> Vec<StoredDepFileDigests> {
+            Vec::new()
+        }
+
+        fn get_entry(&self, _id: i64) -> Option<StoredDepFileState> {
+            None
+        }
+
+        fn clear(&self) {}
+
+        fn queue_size(&self) -> u64 {
+            self.0
+        }
+    }
+
+    #[test]
+    fn dep_file_store_is_attached_to_user_computation_data() {
+        let mut data = UserComputationData::default();
+        assert!(data.get_dep_file_store().is_none());
+
+        data.set_dep_file_store(Some(Arc::new(TestDepFileStore(7))));
+
+        assert_eq!(
+            Some(7),
+            data.get_dep_file_store().map(|store| store.queue_size())
+        );
+    }
+}

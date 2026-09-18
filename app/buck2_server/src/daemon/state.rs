@@ -52,7 +52,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
 use buck2_events::source::ChannelEventSource;
-use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BlockingExecutorFactory;
@@ -122,6 +122,15 @@ pub struct DaemonState {
     working_directory: WorkingDirectory,
 }
 
+#[derive(Allocative)]
+pub(crate) struct PersistedDepFileCache {
+    #[allocative(skip)]
+    pub(crate) store: Arc<dyn DepFileStore>,
+
+    #[allocative(skip)]
+    pub(crate) db_size: Arc<DepFileDbSizeSampler>,
+}
+
 /// State scoped to one tenant.
 ///
 /// A tenant is the state that historically belonged to one `(project root, isolation)` daemon.
@@ -180,6 +189,9 @@ pub struct RepoState {
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
 
+    /// Persisted local dep-file cache and its size sampler for this repo, if enabled.
+    pub(crate) persisted_dep_file_cache: Option<PersistedDepFileCache>,
+
     /// If enabled, paranoid RE downloads.
     pub paranoid: Option<ParanoidDownloader>,
 
@@ -221,6 +233,7 @@ struct RepoStateInit<'a> {
     legacy_cells: &'a BuckConfigBasedCells,
     root_config: &'a LegacyBuckConfig,
     final_artifact_materialization: FinalArtifactMaterialization,
+    runtime: &'a Handle,
     shared: DaemonSharedServices<'a>,
 }
 
@@ -241,6 +254,7 @@ impl RepoState {
             legacy_cells,
             root_config,
             final_artifact_materialization,
+            runtime,
             shared,
         } = init;
         let fs = paths.project_root().clone();
@@ -427,12 +441,17 @@ impl RepoState {
             )
             .await?;
 
-        // `create_initial` runs once; later tenant construction needs a repo-scoped store.
-        if let Some(dep_file_db) = dep_file_db {
-            // The cache is opt-in and best-effort, so a store that cannot be built leaves the
-            // daemon running without persistence rather than failing startup.
+        // The cache is opt-in and best-effort, so a store that cannot be built leaves the
+        // repo running without persistence rather than failing startup.
+        let persisted_dep_file_cache = dep_file_db.and_then(|dep_file_db| {
             match PersistedDepFileStore::try_new(dep_file_db, digest_config) {
-                Ok(store) => DEP_FILE_STORE.init(Arc::new(store)),
+                Ok(store) => {
+                    let store = Arc::new(store) as Arc<dyn DepFileStore>;
+                    Some(PersistedDepFileCache {
+                        db_size: DepFileDbSizeSampler::start(store.dupe(), runtime),
+                        store,
+                    })
+                }
                 Err(e) => {
                     let _unused = soft_error!(
                         "dep_file_store_init",
@@ -444,10 +463,10 @@ impl RepoState {
                         ),
                         quiet: true
                     );
+                    None
                 }
             }
-        }
-
+        });
         let incremental_db_state = Arc::new(incremental_db_state);
         let materializer_state_identity = materializer_db.as_ref().map(|d| d.identity().clone());
 
@@ -593,6 +612,7 @@ impl RepoState {
             materializer_state_identity,
             previous_command_data: LockedPreviousCommandData::new(),
             incremental_db_state,
+            persisted_dep_file_cache,
             paranoid,
             re_client_manager,
             blocking_executor,
@@ -745,11 +765,6 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
-    /// Keeps the dep-file cache database's size up to date without any command's snapshot having
-    /// to read the database. One per daemon, so the cost does not scale with concurrent commands.
-    #[allocative(skip)]
-    pub dep_file_db_size: Option<Arc<DepFileDbSizeSampler>>,
-
     /// Idle page-out config: the resource-pressure thresholds, `Some` iff
     /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
     /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
@@ -861,8 +876,8 @@ impl DaemonState {
         }
 
         let daemon_state_data_rt = rt.clone();
-        // Owned, because the sampler outlives the borrow of `rt` in this function.
-        let dep_file_db_size_rt = rt.clone();
+        // Owned, because repo construction happens in the spawned initialization future.
+        let repo_state_rt = rt.clone();
         let init_fut = async move {
             let invocation_paths = paths;
             let paths = invocation_paths.tenant_paths();
@@ -949,6 +964,7 @@ impl DaemonState {
                 legacy_cells: &legacy_cells,
                 root_config,
                 final_artifact_materialization,
+                runtime: &repo_state_rt,
                 shared: DaemonSharedServices {
                     blocking_executor_factory: &blocking_executor_factory,
                     scribe_sink: scribe_sink.as_ref(),
@@ -977,10 +993,6 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                dep_file_db_size: DEP_FILE_STORE
-                    .get()
-                    .ok()
-                    .map(|store| DepFileDbSizeSampler::start(store.dupe(), &dep_file_db_size_rt)),
                 // `Some` (with thresholds) iff idle page-out is enabled for this
                 // daemon's isolation dir; `None` otherwise.
                 page_out_on_idle,

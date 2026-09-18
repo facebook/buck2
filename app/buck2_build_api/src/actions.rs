@@ -45,6 +45,7 @@ use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::blocking::BlockingExecutor;
@@ -324,6 +325,9 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Obtain per-command knobs for RunAction.
     fn run_action_knobs(&self) -> &RunActionKnobs;
+
+    /// The current repo's persisted dep-file cache, if enabled.
+    fn dep_file_store(&self) -> Option<&dyn DepFileStore>;
 
     fn cancellation_context(&self) -> &CancellationContext;
 

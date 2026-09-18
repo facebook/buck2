@@ -56,7 +56,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::dep_file_state::StoredDepFileDigests;
 use buck2_execute::dep_file_state::StoredDepFileIdentity;
 use buck2_execute::dep_file_state::StoredDepFileState;
@@ -297,9 +297,6 @@ fn keep_directories() -> buck2_error::Result<bool> {
 fn flush_dep_files() {
     tracing::info!("Flushing all {} dep files", DEP_FILES.len());
     DEP_FILES.clear();
-    if let Ok(store) = DEP_FILE_STORE.get() {
-        store.clear();
-    }
 }
 
 /// Flush all dep files that were not produced locally.
@@ -329,10 +326,10 @@ pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
 }
 
 /// Remove a single configuration's entry from the cache (both in-memory and persisted).
-fn remove_dep_file_entry(key: &RunActionKey) {
+fn remove_dep_file_entry(key: &RunActionKey, store: Option<&dyn DepFileStore>) {
     let logical = key.to_logical();
     DEP_FILES.remove(&logical, key.configuration());
-    if let Ok(store) = DEP_FILE_STORE.get()
+    if let Some(store) = store
         && let Some(logical_key) = encode_logical_key(&logical)
     {
         store.delete(logical_key, encode_config_key(key.configuration()));
@@ -1222,6 +1219,7 @@ pub(crate) async fn match_if_identical_action(
     if let Some(previous_state) = get_dep_files(key) {
         let actions_match = check_action(
             Some(key),
+            ctx.dep_file_store(),
             DepFileCandidate::Live(&previous_state),
             input_directory_digest,
             local_worker_digest,
@@ -1290,7 +1288,7 @@ pub(crate) async fn match_if_identical_action(
     // Promotion does not write to the store, so a row's `last_write_time` tracks when the action
     // last *executed*, not when it was last served. An action that keeps hitting this path without
     // re-executing is therefore pruned once it passes `sqlite_dep_file_state_ttl_days`.
-    if let Ok(store) = DEP_FILE_STORE.get()
+    if let Some(store) = ctx.dep_file_store()
         && let Some(logical_key) = encode_logical_key(&logical)
     {
         // Two phases: reject on the scalar row alone, and only fetch a candidate's outputs and
@@ -1405,6 +1403,7 @@ async fn probe_cross_config_candidate(
 ) -> buck2_error::Result<CrossConfigProbe> {
     if check_action(
         None,
+        ctx.dep_file_store(),
         candidate,
         input_directory_digest,
         local_worker_digest,
@@ -1668,7 +1667,7 @@ pub(crate) async fn match_or_clear_dep_file(
     // A `Match` whose outputs are gone falls through to here and is cleared like a `Miss`.
     if filtered_match != DepFileFilteredMatch::CannotEvaluate {
         tracing::trace!("Dep files are a miss, removing the key from cache");
-        remove_dep_file_entry(key);
+        remove_dep_file_entry(key, ctx.dep_file_store());
     }
 
     Ok(None)
@@ -1773,6 +1772,7 @@ async fn outputs_are_still_present_in_materializer(
 /// another configuration's or a reloaded candidate, where eviction would be meaningless.
 fn check_action(
     evict_key: Option<&RunActionKey>,
+    dep_file_store: Option<&dyn DepFileStore>,
     candidate: DepFileCandidate<'_>,
     input_directory_digest: &FileDigest,
     local_worker_digest: &Option<TrackedFileDigest>,
@@ -1782,7 +1782,7 @@ fn check_action(
 ) -> buck2_error::Result<InitialDepFileLookupResult> {
     let evict = || {
         if let Some(key) = evict_key {
-            remove_dep_file_entry(key);
+            remove_dep_file_entry(key, dep_file_store);
         }
     };
 
@@ -1839,6 +1839,7 @@ async fn dep_files_match(
 ) -> buck2_error::Result<DepFileFilteredMatch> {
     let initial_check = check_action(
         Some(key),
+        ctx.dep_file_store(),
         DepFileCandidate::Live(previous_state),
         input_directory_digest,
         local_worker_digest,
@@ -2090,7 +2091,7 @@ pub(crate) async fn populate_dep_files(
     let cfg = dep_files_key.configuration();
     let mut queued_write = false;
     if was_produced_locally
-        && let Ok(store) = DEP_FILE_STORE.get()
+        && let Some(store) = ctx.dep_file_store()
         && let Some(logical_key) = encode_logical_key(&logical)
     {
         // Persisting is best-effort, per the `DepFileStore` contract: a failure to serialize costs a

@@ -20,7 +20,6 @@ use std::time::Instant;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
-use buck2_execute::dep_file_state::DEP_FILE_STORE;
 use buck2_execute::dep_file_state::DepFileDbSize;
 use buck2_execute::dep_file_state::DepFileStore;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -223,14 +222,14 @@ impl SnapshotCollector {
         snapshot
     }
 
-    /// Copies the latest database size from the daemon's sampler. No I/O: snapshots feed
+    /// Copies the latest database size from the repo's sampler. No I/O: snapshots feed
     /// superconsole, and sizing the database can block for as long as a cold disk takes.
     fn add_dep_file_db_size(&self, snapshot: &mut buck2_data::Snapshot) {
         let Some(size) = self
-            .daemon
-            .dep_file_db_size
+            .repo
+            .persisted_dep_file_cache
             .as_ref()
-            .and_then(|sampler| sampler.latest())
+            .and_then(|cache| cache.db_size.latest())
         else {
             return;
         };
@@ -241,7 +240,12 @@ impl SnapshotCollector {
     fn add_daemon_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         snapshot.blocking_executor_io_queue_size =
             self.daemon.blocking_executor_factory.queue_size() as u64;
-        if let Ok(store) = DEP_FILE_STORE.get() {
+        if let Some(store) = self
+            .repo
+            .persisted_dep_file_cache
+            .as_ref()
+            .map(|cache| &cache.store)
+        {
             snapshot.dep_file_db_queue_size = store.queue_size();
             let writes = store.write_stats();
             snapshot.dep_file_db_writes_applied = writes.applied;
