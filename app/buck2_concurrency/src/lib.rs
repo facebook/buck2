@@ -550,200 +550,250 @@ impl ConcurrencyHandler {
         let mut data = self.data.lock().await;
 
         let (transaction, tainted) = loop {
-            match &data.dice_status {
-                DiceStatus::Cleanup { future, epoch } => {
-                    tracing::debug!("ActiveDice is in cleanup");
-                    let future = future.clone();
-                    let epoch = *epoch;
+            if let DiceStatus::Cleanup { future, epoch } = &data.dice_status {
+                tracing::debug!("ActiveDice is in cleanup");
+                let future = future.clone();
+                let epoch = *epoch;
 
-                    // block while dice cleans up
-                    drop(data);
-                    events
+                // block while dice cleans up
+                drop(data);
+                events
+                    .span(
+                        buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
+                        Box::pin(
+                            async move { (future.await, buck2_data::DiceCleanupEnd {}.into()) },
+                        ),
+                    )
+                    .await;
+                data = self.data.lock().await;
+
+                data.transition_to_idle(epoch);
+                continue;
+            }
+
+            tracing::debug!("ActiveDice is available");
+
+            // `--exit-when=different-state` cannot be answered until the update has run, because
+            // it depends on whether this command's state differs — which is *defined* as whether
+            // injecting it altered the graph. Answering it against the state as it is afterwards
+            // would make the flag timing-dependent, since the conflicting commands may finish
+            // while this one syncs. So the inputs are captured at the top of each attempt, before
+            // the update, and the question is settled against them.
+            //
+            // `None` when there is nothing to conflict with: either no active DICE version, or no
+            // other command running, in which case the flag has nothing to fire on.
+            let conflict_on_arrival = match &data.dice_status {
+                DiceStatus::Available {
+                    active: Some(active),
+                } if !data.active_commands.is_empty() => Some(active.version),
+                _ => None,
+            };
+
+            // Sampled before the update, and while the lock is still held, because committing a
+            // transaction makes DICE non-idle: read afterwards this would be `false` almost always,
+            // and every command would report itself as tainted.
+            let dice_was_idle = self.dice.is_idle().await;
+
+            // we rerun the updates in case that files on disk have changed between commands.
+            // this might cause some churn, but concurrent commands don't happen much and
+            // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
+            //
+            // This runs under `update_permit` and *not* the state lock, so other commands can
+            // reach a decision while this one is talking to the file watcher.
+            drop(data);
+            let transaction = async {
+                let _update_permit = self
+                    .update_permit
+                    .acquire()
+                    .await
+                    .expect("`update_permit` is never closed");
+
+                let updater = self.dice.updater();
+
+                let (transaction, user_data) = updates.update(updater, early_timings).await?;
+
+                let transaction = events
+                    .span(
+                        buck2_data::DiceStateUpdateStart {}.into(),
+                        Box::pin(async {
+                            (
+                                async {
+                                    let transaction = transaction.commit_with_data(user_data).await;
+                                    buck2_error::Ok(transaction)
+                                }
+                                .await,
+                                buck2_data::DiceStateUpdateEnd {}.into(),
+                            )
+                        }),
+                    )
+                    .await?;
+                buck2_error::Ok(transaction)
+            }
+            .await?;
+            data = self.data.lock().await;
+
+            // Settled against the arrival snapshot, not the fresh read, so that the answer does
+            // not depend on how long the update took. `!is_nested_invocation` because a nested
+            // invocation with a differing state is reported as
+            // `NestedInvocationWithDifferentStates` below rather than reaching the blocking path
+            // this flag short-circuits.
+            let refuse_on_different_state = matches!(exit_when, ExitWhen::ExitDifferentState)
+                && !is_nested_invocation
+                && conflict_on_arrival.is_some_and(|version| !transaction.equivalent(&version));
+
+            if refuse_on_different_state {
+                return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
+                    .with_buck_error_context(|| {
+                        format!(
+                            "Buck daemon is busy processing another command: {}",
+                            Self::format_active_commands(&data)
+                        )
+                    });
+            }
+
+            // The status can have moved while the update ran, so the decision is taken against a
+            // fresh read rather than the one that selected this branch.
+            let is_same_state = match &data.dice_status {
+                DiceStatus::Cleanup { .. } => {
+                    // Dropping the transaction releases its `ActiveTransactionGuard`. The retry
+                    // awaits the cleanup future, which cannot complete while that guard is alive,
+                    // so this drop is required for progress and not just tidiness.
+                    drop(transaction);
+                    continue;
+                }
+                DiceStatus::Available {
+                    active: Some(active),
+                } => Some(transaction.equivalent(&active.version)),
+                DiceStatus::Available { active: None } => None,
+            };
+
+            let Some(is_same_state) = is_same_state else {
+                tracing::debug!("ActiveDice has no active_transaction");
+                events.instant(NoActiveDiceState {}.into());
+                data.dice_status = DiceStatus::active(transaction.equality_token());
+                break (transaction, !dice_was_idle);
+            };
+
+            // If the --exit-when=notidle option is set for the current command and there is
+            // another command running already, exit immediately with a "daemon is busy" error.
+            if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
+                return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
+                    || {
+                        format!(
+                            "Buck daemon is busy processing another command: {}",
+                            Self::format_active_commands(&data)
+                        )
+                    },
+                );
+            }
+
+            // If we have a different state, attempt to transition to cleanup. This will
+            // succeed only if the current state is not in use.
+            if !is_same_state {
+                // If the active commands are preemptible, preempt them.
+                self.cancel_preemptible_commands(&mut data, is_same_state);
+
+                // transition to cleanup == "wait until all other blocking commands finish"
+                if data.transition_to_cleanup(&self.dice) {
+                    continue;
+                }
+            }
+
+            tracing::debug!("ActiveDice has an active_transaction");
+
+            events.instant(
+                DiceEqualityCheck {
+                    is_equal: is_same_state,
+                }
+                .into(),
+            );
+
+            let bypass_semaphore =
+                self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
+
+            match bypass_semaphore {
+                BypassSemaphore::Error => {
+                    return Err(
+                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                            format_traces(&data.active_commands, &command_data),
+                            command_data.format_argv(),
+                        )
+                        .into(),
+                    );
+                }
+                BypassSemaphore::Run(state) => {
+                    self.emit_logs(state, &data.active_commands, &command_data)?;
+                    self.cancel_preemptible_commands(&mut data, is_same_state);
+                    break (transaction, false);
+                }
+                BypassSemaphore::Block => {
+                    let early_exit_error: Option<ConcurrencyHandlerError> =
+                        if matches!(exit_when, ExitWhen::ExitDifferentState) {
+                            Some(ConcurrencyHandlerError::ExitWhenDifferentState)
+                        } else {
+                            None
+                        };
+                    if let Some(early_exit_error) = early_exit_error {
+                        return Err(early_exit_error).with_buck_error_context(|| {
+                            format!(
+                                "Buck daemon is busy processing another command: {}",
+                                Self::format_active_commands(&data)
+                            )
+                        });
+                    }
+                    // We should probably show more than the first here, but for now
+                    // this is what we have.
+                    //
+                    // Note: unwrap here relies on the fact that transition_to_cleanup
+                    // would have transitioned if we had no active commands.
+
+                    let active_command = data.active_commands.first().unwrap().1;
+                    let trace_id = active_command.trace_id.dupe();
+                    let argv = active_command.format_argv();
+
+                    data = events
                         .span(
-                            buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
-                            Box::pin(async move {
-                                (future.await, buck2_data::DiceCleanupEnd {}.into())
+                            DiceBlockConcurrentCommandStart {
+                                current_active_trace_id: trace_id.to_string(),
+                                cmd_args: argv.clone(),
+                            }
+                            .into(),
+                            Box::pin(async {
+                                // This wait can last arbitrarily long (and forever if
+                                // the blocking command is wedged, e.g. on stale Eden
+                                // handles), so periodically tell the user what they
+                                // are actually waiting on.
+                                let wait = self.cond.wait((data, &self.data));
+                                pin_mut!(wait);
+                                let mut waited = Duration::ZERO;
+                                let mut next_warning = Self::BLOCKED_COMMAND_FIRST_WARNING;
+                                let data = loop {
+                                    match timeout(next_warning, &mut wait).await {
+                                        Ok(data) => break data,
+                                        Err(_elapsed) => {
+                                            waited += next_warning;
+                                            next_warning =
+                                                Self::BLOCKED_COMMAND_WARNING_INTERVAL;
+                                            events.console_warning(format!(
+                                                "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
+                                                 If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
+                                                format_elapsed(waited),
+                                                argv,
+                                                trace_id,
+                                            ));
+                                        }
+                                    }
+                                };
+                                (
+                                    data,
+                                    DiceBlockConcurrentCommandEnd {
+                                        ending_active_trace_id: trace_id.to_string(),
+                                    }
+                                    .into(),
+                                )
                             }),
                         )
                         .await;
-                    data = self.data.lock().await;
-
-                    data.transition_to_idle(epoch);
-                }
-                DiceStatus::Available { active } => {
-                    tracing::debug!("ActiveDice is available");
-
-                    let dice_was_idle = self.dice.is_idle().await;
-
-                    // we rerun the updates in case that files on disk have changed between commands.
-                    // this might cause some churn, but concurrent commands don't happen much and
-                    // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
-
-                    let transaction = async {
-                        let _update_permit = self
-                            .update_permit
-                            .acquire()
-                            .await
-                            .expect("`update_permit` is never closed");
-
-                        let updater = self.dice.updater();
-
-                        let (transaction, user_data) =
-                            updates.update(updater, early_timings).await?;
-
-                        let transaction = events
-                            .span(
-                                buck2_data::DiceStateUpdateStart {}.into(),
-                                Box::pin(async {
-                                    (
-                                        async {
-                                            let transaction =
-                                                transaction.commit_with_data(user_data).await;
-                                            buck2_error::Ok(transaction)
-                                        }
-                                        .await,
-                                        buck2_data::DiceStateUpdateEnd {}.into(),
-                                    )
-                                }),
-                            )
-                            .await?;
-                        buck2_error::Ok(transaction)
-                    }
-                    .await?;
-
-                    if let Some(active) = active {
-                        // If the --exit-when=notidle option is set for the current command and there is
-                        // another command running already, exit immediately with a "daemon is busy" error.
-                        if matches!(exit_when, ExitWhen::ExitNotIdle)
-                            && !data.active_commands.is_empty()
-                        {
-                            return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
-                                .with_buck_error_context(|| {
-                                    format!(
-                                        "Buck daemon is busy processing another command: {}",
-                                        Self::format_active_commands(&data)
-                                    )
-                                });
-                        }
-
-                        let is_same_state = transaction.equivalent(&active.version);
-
-                        // If we have a different state, attempt to transition to cleanup. This will
-                        // succeed only if the current state is not in use.
-                        if !is_same_state {
-                            // If the active commands are preemptible, preempt them.
-                            self.cancel_preemptible_commands(&mut data, is_same_state);
-
-                            // transition to cleanup == "wait until all other blocking commands finish"
-                            if data.transition_to_cleanup(&self.dice) {
-                                continue;
-                            }
-                        }
-
-                        tracing::debug!("ActiveDice has an active_transaction");
-
-                        events.instant(
-                            DiceEqualityCheck {
-                                is_equal: is_same_state,
-                            }
-                            .into(),
-                        );
-
-                        let bypass_semaphore =
-                            self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
-
-                        match bypass_semaphore {
-                            BypassSemaphore::Error => {
-                                return Err(
-                                    ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
-                                        format_traces(&data.active_commands, &command_data),
-                                        command_data.format_argv(),
-                                    )
-                                    .into(),
-                                );
-                            }
-                            BypassSemaphore::Run(state) => {
-                                self.emit_logs(state, &data.active_commands, &command_data)?;
-                                self.cancel_preemptible_commands(&mut data, is_same_state);
-                                break (transaction, false);
-                            }
-                            BypassSemaphore::Block => {
-                                let early_exit_error: Option<ConcurrencyHandlerError> =
-                                    if matches!(exit_when, ExitWhen::ExitDifferentState) {
-                                        Some(ConcurrencyHandlerError::ExitWhenDifferentState)
-                                    } else {
-                                        None
-                                    };
-                                if let Some(early_exit_error) = early_exit_error {
-                                    return Err(early_exit_error).with_buck_error_context(|| {
-                                        format!(
-                                            "Buck daemon is busy processing another command: {}",
-                                            Self::format_active_commands(&data)
-                                        )
-                                    });
-                                }
-                                // We should probably show more than the first here, but for now
-                                // this is what we have.
-                                //
-                                // Note: unwrap here relies on the fact that transition_to_cleanup
-                                // would have transitioned if we had no active commands.
-
-                                let active_command = data.active_commands.first().unwrap().1;
-                                let trace_id = active_command.trace_id.dupe();
-                                let argv = active_command.format_argv();
-
-                                data = events
-                                    .span(
-                                        DiceBlockConcurrentCommandStart {
-                                            current_active_trace_id: trace_id.to_string(),
-                                            cmd_args: argv.clone(),
-                                        }
-                                        .into(),
-                                        Box::pin(async {
-                                            // This wait can last arbitrarily long (and forever if
-                                            // the blocking command is wedged, e.g. on stale Eden
-                                            // handles), so periodically tell the user what they
-                                            // are actually waiting on.
-                                            let wait = self.cond.wait((data, &self.data));
-                                            pin_mut!(wait);
-                                            let mut waited = Duration::ZERO;
-                                            let mut next_warning =
-                                                Self::BLOCKED_COMMAND_FIRST_WARNING;
-                                            let data = loop {
-                                                match timeout(next_warning, &mut wait).await {
-                                                    Ok(data) => break data,
-                                                    Err(_elapsed) => {
-                                                        waited += next_warning;
-                                                        next_warning =
-                                                            Self::BLOCKED_COMMAND_WARNING_INTERVAL;
-                                                        events.console_warning(format!(
-                                                            "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
-                                                             If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
-                                                            format_elapsed(waited),
-                                                            argv,
-                                                            trace_id,
-                                                        ));
-                                                    }
-                                                }
-                                            };
-                                            (
-                                                data,
-                                                DiceBlockConcurrentCommandEnd {
-                                                    ending_active_trace_id: trace_id.to_string(),
-                                                }
-                                                .into(),
-                                            )
-                                        }),
-                                    )
-                                    .await;
-                            }
-                        }
-                    } else {
-                        tracing::debug!("ActiveDice has no active_transaction");
-                        events.instant(NoActiveDiceState {}.into());
-                        data.dice_status = DiceStatus::active(transaction.equality_token());
-                        break (transaction, !dice_was_idle);
-                    }
                 }
             }
         };
@@ -2808,9 +2858,16 @@ mod tests {
         }
 
         // Now the first updater is blocked within its update function. Poll the
-        // second one many times so that it makes as much progress as it can
+        // second one many times so that it makes as much progress as it can.
+        //
+        // The `yield_now` is load-bearing. `poll!` drives this future and nothing else, but
+        // reaching the update means first awaiting DICE, which only answers when the runtime gets
+        // to run its own tasks. Without a yield the second command stalls before it ever reaches
+        // the permit, and the assertion below holds for a reason that has nothing to do with
+        // synchronization — it passes just as happily with two permits.
         for _ in 0..100 {
             assert_matches!(poll!(&mut fut2), Poll::Pending);
+            tokio::task::yield_now().await;
         }
         // But it should not have entered its update yet
         assert!(
