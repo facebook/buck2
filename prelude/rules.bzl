@@ -55,9 +55,8 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
 
     cfg = rule_spec.cfg
 
-    extra_args = dict(kwargs)
     if cfg != None:
-        extra_args["cfg"] = cfg
+        kwargs["cfg"] = cfg
 
     if rule_spec.docs:
         doc = rule_spec.docs
@@ -73,7 +72,7 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
         if rule_spec.further:
             doc += "\n{}Additional notes:\n{}".format(" " * 8, rule_spec.further)
 
-        extra_args["doc"] = doc
+        kwargs["doc"] = doc
 
     impl = rule_spec.impl
     extra_impl = getattr(extra_implemented_rules, name, None)
@@ -86,9 +85,9 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     if impl_override != None:
         impl = impl_override
     if rule_spec.uses_plugins != None:
-        extra_args["uses_plugins"] = rule_spec.uses_plugins
+        kwargs["uses_plugins"] = rule_spec.uses_plugins
     if rule_spec.supports_incoming_transition != None:
-        extra_args["supports_incoming_transition"] = rule_spec.supports_incoming_transition
+        kwargs["supports_incoming_transition"] = rule_spec.supports_incoming_transition
 
     is_toolchain_rule = rule_spec.is_toolchain_rule
     is_toolchain_rule_via_rule_name = name in toolchain_rule_names
@@ -97,9 +96,9 @@ def _mk_rule(rule_spec: typing.Any, extra_attrs: dict[str, typing.Any] = dict(),
     elif is_toolchain_rule_via_rule_name:
         fail("Cannot set `is_toolchain_rule` on `prelude_rule` and also via `toolchain_rule_names`")
 
-    extra_args.setdefault("is_configuration_rule", name in _config_implemented_rules)
-    extra_args.setdefault("is_toolchain_rule", is_toolchain_rule)
-    return rule(impl = impl, attrs = attributes, **extra_args)
+    kwargs.setdefault("is_configuration_rule", name in _config_implemented_rules)
+    kwargs.setdefault("is_toolchain_rule", is_toolchain_rule)
+    return rule(impl = impl, attrs = attributes, **kwargs)
 
 def _categorized_decls():
     grouped_decls = {}
