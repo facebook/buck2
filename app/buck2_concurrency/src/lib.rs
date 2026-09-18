@@ -156,7 +156,7 @@ struct CommandId(usize);
 #[derive(Allocative)]
 struct CommandData {
     trace_id: TraceId,
-    argv: Vec<String>,
+    display_command: String,
     #[allocative(skip)]
     events: Arc<dyn CommandEventSink>,
     preemption_setting: PreemptibleWhen,
@@ -165,15 +165,6 @@ struct CommandData {
 }
 
 impl CommandData {
-    fn format_argv(&self) -> String {
-        let mut iter = self.argv.iter();
-        // Skip the "/path/to/buck2" part so we can just emit "buck2" for the start of the cmd
-        iter.next();
-
-        let cmd = format!("buck2 {}", iter.join(" "));
-        truncate(&cmd, 500)
-    }
-
     fn notify_tainted(&self) {
         self.events.instant(
             buck2_data::TagEvent {
@@ -575,9 +566,10 @@ impl ConcurrencyHandler {
 
         let (preempt_sender, preempt_receiver) = oneshot::channel::<()>();
 
+        let display_command = format_command(&sanitized_argv);
         let command_data = CommandData {
             trace_id: trace.dupe(),
-            argv: sanitized_argv,
+            display_command,
             events: events.sink(),
             preemption_setting: preemptible,
             preempt: Some(preempt_sender),
@@ -753,11 +745,14 @@ impl ConcurrencyHandler {
                 BypassSemaphore::Error => {
                     let running =
                         ConcurrentTraces::running_and(&data.active_commands, &command_data);
-                    let argv = command_data.format_argv();
+                    let display_command = command_data.display_command.clone();
                     drop(data);
                     return Err(
-                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(running, argv)
-                            .into(),
+                        ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
+                            running,
+                            display_command,
+                        )
+                        .into(),
                     );
                 }
                 BypassSemaphore::Run(state) => {
@@ -794,13 +789,13 @@ impl ConcurrencyHandler {
 
                     let active_command = data.active_commands.first().unwrap().1;
                     let trace_id = active_command.trace_id.dupe();
-                    let argv = active_command.format_argv();
+                    let display_command = active_command.display_command.clone();
 
                     data = events
                         .span(
                             DiceBlockConcurrentCommandStart {
                                 current_active_trace_id: trace_id.to_string(),
-                                cmd_args: argv.clone(),
+                                cmd_args: display_command.clone(),
                             }
                             .into(),
                             Box::pin(async {
@@ -823,7 +818,7 @@ impl ConcurrencyHandler {
                                                 "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
                                                  If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
                                                 format_elapsed(waited),
-                                                argv,
+                                                display_command,
                                                 trace_id,
                                             ));
                                         }
@@ -934,11 +929,19 @@ impl ConcurrencyHandler {
         match state {
             RunState::NestedSameState => Some((
                 ConcurrentTraces::running_and(active_commands, current_command),
-                current_command.format_argv(),
+                current_command.display_command.clone(),
             )),
             RunState::ParallelSameState => None,
         }
     }
+}
+
+fn format_command(argv: &[String]) -> String {
+    let mut iter = argv.iter();
+    // Skip the executable path so the displayed command consistently starts with `buck2`.
+    iter.next();
+
+    truncate(&format!("buck2 {}", iter.join(" ")), 500)
 }
 
 /// Formats an elapsed wait in whole minutes, or seconds while under a minute, so the
@@ -1547,7 +1550,7 @@ mod tests {
         fn command_with(preempt: Option<oneshot::Sender<()>>) -> CommandData {
             CommandData {
                 trace_id: TraceId::new(),
-                argv: Vec::new(),
+                display_command: "buck2".to_owned(),
                 events: Arc::new(TestEvents::new()),
                 preemption_setting: PreemptibleWhen::Never,
                 preempt,
@@ -1779,7 +1782,7 @@ mod tests {
         fn a_command() -> CommandData {
             CommandData {
                 trace_id: TraceId::new(),
-                argv: Vec::new(),
+                display_command: "buck2".to_owned(),
                 events: Arc::new(TestEvents::new()),
                 preemption_setting: PreemptibleWhen::Never,
                 preempt: None,
@@ -1842,7 +1845,7 @@ mod tests {
             let (tx, _rx) = oneshot::channel();
             CommandData {
                 trace_id: TraceId::new(),
-                argv: Vec::new(),
+                display_command: "buck2".to_owned(),
                 events: Arc::new(TestEvents::new()),
                 preemption_setting: setting,
                 preempt: Some(tx),
