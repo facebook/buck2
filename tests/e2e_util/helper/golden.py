@@ -252,6 +252,8 @@ def sanitize_daemon_stderr(s: str) -> str:
     s = re.sub(r"timed out after [\d.]+s", "timed out after <DURATION>", s)
     # Strip lines with env override logging (these vary by environment)
     s = re.sub(r"^.*Env override found.*\n", "", s, flags=re.MULTILINE)
+    # BPFJailer is only used on hosts where the jail is available.
+    s = re.sub(r"^.*Exited BPFJailer jail.*\n", "", s, flags=re.MULTILINE)
     # Strip trailing whitespace on each line
     s = re.sub(r" +$", "", s, flags=re.MULTILINE)
     return sanitize_stderr(s)
