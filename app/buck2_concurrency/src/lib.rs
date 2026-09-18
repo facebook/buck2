@@ -937,12 +937,15 @@ impl OnExecExit {
         data: CommandData,
         mut guard: MutexGuard<'_, ConcurrencyHandlerData>,
     ) -> buck2_error::Result<Self> {
-        let prev = guard.active_commands.insert(command, data);
-        if prev.is_some() {
+        // Checked before inserting. Inserting first would evict the command already registered
+        // under this id — including its preempt channel, the daemon's only way to interrupt it —
+        // and the error would then be reported against state that had already been destroyed.
+        if guard.active_commands.contains_key(&command) {
             return Err(internal_error!(
                 "command id `{command}` is already registered"
             ));
         }
+        guard.active_commands.insert(command, data);
         Ok(OnExecExit(Some((handler, command))))
     }
 }
@@ -1251,6 +1254,54 @@ mod tests {
         }
 
         assert_eq!(seen.len(), TASKS * PER_TASK);
+    }
+
+    /// The duplicate-id path is argued unreachable while `CommandId` is monotonic, so this pins
+    /// what happens if that argument ever stops holding: a refusal that leaves the existing
+    /// registration intact, rather than one that reports an error about state it just destroyed.
+    #[tokio::test]
+    async fn duplicate_registration_refuses_without_evicting_the_first() -> buck2_error::Result<()>
+    {
+        fn command_with(preempt: Option<oneshot::Sender<()>>) -> CommandData {
+            CommandData {
+                trace_id: TraceId::new(),
+                argv: Vec::new(),
+                events: Arc::new(TestEvents::new()),
+                preemption_setting: PreemptibleWhen::Never,
+                preempt,
+            }
+        }
+
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let command_id = concurrency.allocate_command_id();
+
+        let (preempt_sender, _preempt_receiver) = oneshot::channel::<()>();
+        let _first = OnExecExit::new(
+            concurrency.dupe(),
+            command_id,
+            command_with(Some(preempt_sender)),
+            concurrency.data.lock().await,
+        )?;
+
+        let duplicate = OnExecExit::new(
+            concurrency.dupe(),
+            command_id,
+            command_with(None),
+            concurrency.data.lock().await,
+        );
+        assert!(duplicate.is_err(), "a repeated id should be refused");
+
+        let data = concurrency.data.lock().await;
+        let registered = data
+            .active_commands
+            .get(&command_id)
+            .expect("the first command was evicted by the refused one");
+        assert!(
+            registered.preempt.is_some(),
+            "the first command's preempt channel was replaced"
+        );
+
+        Ok(())
     }
 
     /// Rendering moved out of the critical section into this `Display`, and nothing else covers
