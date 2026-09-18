@@ -548,7 +548,7 @@ impl ConcurrencyHandler {
 
         let mut data = self.data.lock().await;
 
-        let (transaction, tainted, nested_warning) = loop {
+        let (transaction, tainted, nested_warning, no_active_dice_state) = loop {
             if let DiceStatus::Cleanup { future, epoch } = &data.dice_status {
                 tracing::debug!("ActiveDice is in cleanup");
                 let future = future.clone();
@@ -680,9 +680,8 @@ impl ConcurrencyHandler {
 
             let Some(is_same_state) = is_same_state else {
                 tracing::debug!("ActiveDice has no active_transaction");
-                events.instant(NoActiveDiceState {}.into());
                 data.dice_status = DiceStatus::active(transaction.equality_token());
-                break (transaction, !dice_was_idle, None);
+                break (transaction, !dice_was_idle, None, true);
             };
 
             // If we have a different state, attempt to transition to cleanup. This will
@@ -730,7 +729,7 @@ impl ConcurrencyHandler {
                         &command_data,
                     );
                     self.cancel_preemptible_commands(&mut data, is_same_state);
-                    break (transaction, false, nested_warning);
+                    break (transaction, false, nested_warning, false);
                 }
                 BypassSemaphore::Block => {
                     let early_exit_error: Option<ConcurrencyHandlerError> =
@@ -828,6 +827,10 @@ impl ConcurrencyHandler {
         // Registration consumes the guard and releases the state lock. Its drop path also handles
         // observer failures.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
+
+        if no_active_dice_state {
+            events.instant(NoActiveDiceState {}.into());
+        }
 
         if previously_tainted {
             events.instant(
