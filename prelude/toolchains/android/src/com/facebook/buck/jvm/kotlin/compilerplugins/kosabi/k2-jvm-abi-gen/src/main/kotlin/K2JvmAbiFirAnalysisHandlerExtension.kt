@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
 import org.jetbrains.kotlin.cli.jvm.compiler.report
+import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.com.intellij.openapi.diagnostic.Logger
 import org.jetbrains.kotlin.com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
@@ -579,31 +580,37 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // Phase 4: Code generation
     val result = generateCodeFromIrCompat(irInput, compilerEnvironment)
 
-    // Phase 5: Validation. Runs before the write below so that the stage which judges the ABI
-    // can eventually refuse it; validating afterwards can only ever describe a jar that already
-    // exists.
+    // Write bytecode from generationState.factory to disk.
+    // Apply bytecode post-processing (strip @Throws annotations and private metadata)
+    // in-memory before writing to avoid a separate read-back pass.
+    val outputFiles =
+        result.classFileFactoryCompat.asList().map { outputFile ->
+          val originalBytes = outputFile.asByteArray()
+          val bytes =
+              if (outputFile.relativePath.endsWith(".class")) {
+                pipeline.bytecodeSanitizer.transform(originalBytes)
+              } else {
+                originalBytes
+              }
+          AbiValidationOutputFile(outputFile.relativePath, bytes)
+        }
+    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
+    if (outputDir != null) {
+      outputFiles.forEach { outputFile ->
+        val file = File(outputDir, outputFile.relativePath)
+        file.parentFile?.mkdirs()
+        file.writeBytes(outputFile.bytes)
+      }
+    }
+
+    // Phase 5: Validation. Needs the written output files and the classpath, so it runs after
+    // code generation rather than before it.
     pipeline.validator.validate(
         irInput.irModuleFragment,
         messageCollector,
         AbiRepairPolicy.parse(configuration.get(K2JvmAbiConfigurationKeys.ABI_VALIDATION_MODE)),
+        AbiValidationInputs(outputFiles, configuration.jvmClasspathRoots),
     )
-
-    // Write bytecode from generationState.factory to disk.
-    // Apply bytecode post-processing (strip @Throws annotations and private metadata)
-    // in-memory before writing to avoid a separate read-back pass.
-    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
-    if (outputDir != null) {
-      val outputFiles = result.classFileFactoryCompat.asList()
-      outputFiles.forEach { outputFile ->
-        val file = File(outputDir, outputFile.relativePath)
-        file.parentFile?.mkdirs()
-        var bytes = outputFile.asByteArray()
-        if (file.extension == "class") {
-          bytes = pipeline.bytecodeSanitizer.transform(bytes)
-        }
-        file.writeBytes(bytes)
-      }
-    }
 
     // Generate .kotlin_module file
     generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)

@@ -18,6 +18,7 @@
 package com.facebook
 
 import java.io.File
+import java.util.jar.JarFile
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -75,6 +76,21 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.org.objectweb.asm.AnnotationVisitor
+import org.jetbrains.org.objectweb.asm.ClassReader
+import org.jetbrains.org.objectweb.asm.ClassVisitor
+import org.jetbrains.org.objectweb.asm.ConstantDynamic
+import org.jetbrains.org.objectweb.asm.FieldVisitor
+import org.jetbrains.org.objectweb.asm.Handle
+import org.jetbrains.org.objectweb.asm.Label
+import org.jetbrains.org.objectweb.asm.MethodVisitor
+import org.jetbrains.org.objectweb.asm.ModuleVisitor
+import org.jetbrains.org.objectweb.asm.Opcodes
+import org.jetbrains.org.objectweb.asm.RecordComponentVisitor
+import org.jetbrains.org.objectweb.asm.Type
+import org.jetbrains.org.objectweb.asm.TypePath
+import org.jetbrains.org.objectweb.asm.signature.SignatureReader
+import org.jetbrains.org.objectweb.asm.signature.SignatureVisitor
 
 fun errorTypedApiPositions(
     isProperty: Boolean,
@@ -1217,6 +1233,25 @@ internal class BytecodeSanitizerStage : AbiGenStage {
   }
 }
 
+internal data class AbiValidationInputs(
+    val outputFiles: List<AbiValidationOutputFile>,
+    val classpathRoots: List<File>,
+)
+
+internal class AbiValidationOutputFile(
+    val relativePath: String,
+    val bytes: ByteArray,
+)
+
+private data class EmittedTypeReference(
+    val owner: String,
+    val site: String,
+    val internalName: String,
+    val eligibleForStubOnlyDetection: Boolean,
+)
+
+private const val NON_EXISTENT_CLASS_INTERNAL_NAME = "error/NonExistentClass"
+
 /**
  * Validation stage.
  *
@@ -1227,6 +1262,11 @@ internal class BytecodeSanitizerStage : AbiGenStage {
  * constant holding a placeholder instead of its real value, or a `const val` emitted with no
  * `ConstantValue` attribute at all. Both produce well-formed bytecode, so nothing downstream of
  * here can detect them; the only evidence is what the earlier stages recorded in [AbiGenRepairLog].
+ *
+ * Assertion 6 extends that to fabricated stub-only types. If stubgen fabricates a class to keep the
+ * producer compiling, but no emitted class and no non-stub classpath root actually ships that type,
+ * then any surviving descriptor that mentions it is a broken ABI even though the descriptor itself
+ * is well-formed. Same-package phantom classes are the motivating case.
  *
  * Rollout: [AbiRepairPolicy.OFF] is the default, so this stage emits nothing unless a target asks
  * for it via `abiValidationMode`. Warnings are not a softer setting here - fbsource builds Kotlin
@@ -1246,6 +1286,7 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
       moduleFragment: IrModuleFragment,
       messageCollector: MessageCollector,
       policy: AbiRepairPolicy,
+      inputs: AbiValidationInputs,
   ) {
     if (policy == AbiRepairPolicy.OFF) return
 
@@ -1256,6 +1297,19 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
     val severity =
         if (policy == AbiRepairPolicy.ERROR) CompilerMessageSeverity.ERROR
         else CompilerMessageSeverity.WARNING
+
+    // The final class bytes are authoritative: source-stage repair bookkeeping and stub classpath
+    // candidates can both miss a literal error type that survives a transform or hides in metadata.
+    val emittedTypeReferences = collectEmittedTypeReferences(inputs.outputFiles)
+    for (reference in emittedTypeReferences) {
+      if (reference.internalName != NON_EXISTENT_CLASS_INTERNAL_NAME) continue
+      messageCollector.report(
+          CompilerMessageSeverity.ERROR,
+          "Kosabi ABI validation: `${reference.owner}` emits `${reference.site}` referencing " +
+              "literal `$NON_EXISTENT_CLASS_INTERNAL_NAME`. The final ABI bytecode contains an " +
+              "unresolved type and no consumer can link against it.",
+      )
+    }
 
     // Assertion 1: every synthesised constant has a type consistent with a real declaration.
     // Constants that reached ASSUMED_STRING have a fabricated type, not merely a fabricated value.
@@ -1352,7 +1406,863 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
               "target `required_for_source_only_abi = True`.",
       )
     }
+
+    // Assertion 6: no descriptor in the emitted ABI may mention a stub-only class that is absent
+    // from both the emitted jar and the non-stub classpath. That pattern means stubgen preserved
+    // compilation by fabricating a class, but source-only ABI is about to publish a phantom type.
+    for (leak in
+        findStubOnlyDescriptorLeaks(
+            inputs,
+            emittedTypeReferences,
+            messageCollector,
+            severity,
+        )) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: `${leak.owner}` emits `${leak.site}` with stub-only type " +
+              "`${leak.internalName.replace('/', '.')}`. Kosabi generated a stub for that class, " +
+              "but neither this ABI jar nor any non-stub classpath root provides it. This usually " +
+              "means stubgen fabricated a same-package phantom from an unresolved simple name. " +
+              "Add the real provider to THIS target's `source_only_abi_deps`, or fix the unresolved " +
+              "type so source-only ABI does not publish a phantom descriptor.",
+      )
+    }
   }
+
+  private fun findStubOnlyDescriptorLeaks(
+      inputs: AbiValidationInputs,
+      emittedTypeReferences: Set<EmittedTypeReference>,
+      messageCollector: MessageCollector,
+      severity: CompilerMessageSeverity,
+  ): List<EmittedTypeReference> {
+    val (stubRoots, realRoots) = inputs.classpathRoots.partition { it.isStubClasspathRoot() }
+    if (stubRoots.isEmpty()) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: same-package phantom detection could not complete because no " +
+              "stub classpath root (stubgen_stubs.jar / stubs.jar) was found.",
+      )
+      return emptyList()
+    }
+    val stubDeclaredClasses =
+        collectClassesFromClasspath(stubRoots, messageCollector, severity) ?: return emptyList()
+    if (stubDeclaredClasses.isEmpty()) return emptyList()
+
+    val emittedClasses =
+        inputs.outputFiles
+            .asSequence()
+            .filter { it.relativePath.endsWith(".class") }
+            .map { classNameFromRelativePath(it.relativePath) }
+            .toSet()
+
+    // Subtract the emitted classes first: a stub-declared class that this jar ships itself is never
+    // a phantom, and that subtraction needs no classpath I/O. Only if candidates survive do we pay
+    // to enumerate the (potentially large) non-stub classpath, keeping the added compile cost
+    // proportional to the number of stub-declared candidates rather than the whole classpath.
+    val stubOnlyCandidates = stubDeclaredClasses.filterTo(linkedSetOf()) { it !in emittedClasses }
+    if (stubOnlyCandidates.isEmpty()) return emptyList()
+
+    // Materialize the non-stub classpath once so each jar is opened at most one time; the phantom
+    // check below is then an O(1) set lookup per candidate rather than a jar reopen per candidate.
+    val realClasspathClasses =
+        collectClassesFromClasspath(realRoots, messageCollector, severity) ?: return emptyList()
+
+    val phantomClasses = stubOnlyCandidates.filterTo(linkedSetOf()) { it !in realClasspathClasses }
+    if (phantomClasses.isEmpty()) return emptyList()
+
+    // The shared walk also covers code/debug-only references for the literal NEC invariant.
+    // Preserve
+    // the existing phantom check's ABI-surface scope so implementation details cannot become new
+    // policy failures.
+    return emittedTypeReferences.filter { reference ->
+      reference.eligibleForStubOnlyDetection &&
+          reference.internalName.replace('/', '.') in phantomClasses
+    }
+  }
+
+  private fun collectEmittedTypeReferences(
+      outputFiles: List<AbiValidationOutputFile>,
+  ): Set<EmittedTypeReference> {
+    val references = linkedSetOf<EmittedTypeReference>()
+    outputFiles
+        .asSequence()
+        .filter { it.relativePath.endsWith(".class") }
+        .forEach { outputFile ->
+          val owner = classNameFromRelativePath(outputFile.relativePath)
+          ClassReader(outputFile.bytes)
+              .accept(
+                  object : ClassVisitor(Opcodes.ASM9) {
+                    override fun visit(
+                        version: Int,
+                        access: Int,
+                        name: String?,
+                        signature: String?,
+                        superName: String?,
+                        interfaces: Array<out String>?,
+                    ) {
+                      collectInternalName(
+                          references,
+                          owner,
+                          "class identity",
+                          name,
+                          eligibleForStubOnlyDetection = false,
+                      )
+                      collectInternalName(references, owner, "supertype", superName)
+                      interfaces.orEmpty().forEach { iface ->
+                        collectInternalName(references, owner, "interface", iface)
+                      }
+                      collectSignature(references, owner, "class signature", signature)
+                    }
+
+                    override fun visitModule(
+                        name: String?,
+                        access: Int,
+                        version: String?,
+                    ): ModuleVisitor =
+                        object : ModuleVisitor(Opcodes.ASM9) {
+                          override fun visitMainClass(mainClass: String?) {
+                            collectInternalName(
+                                references,
+                                owner,
+                                "module main class",
+                                mainClass,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+
+                          override fun visitUse(service: String?) {
+                            collectInternalName(
+                                references,
+                                owner,
+                                "module service",
+                                service,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+
+                          override fun visitProvide(
+                              service: String?,
+                              providers: Array<out String>?,
+                          ) {
+                            collectInternalName(
+                                references,
+                                owner,
+                                "module service",
+                                service,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                            providers.orEmpty().forEach { provider ->
+                              collectInternalName(
+                                  references,
+                                  owner,
+                                  "module service provider",
+                                  provider,
+                                  eligibleForStubOnlyDetection = false,
+                              )
+                            }
+                          }
+                        }
+
+                    override fun visitOuterClass(
+                        outerClassOwner: String?,
+                        name: String?,
+                        descriptor: String?,
+                    ) {
+                      collectInternalName(references, owner, "outer class", outerClassOwner)
+                      if (descriptor != null) {
+                        collectDescriptor(references, owner, "outer method", descriptor)
+                      }
+                    }
+
+                    override fun visitInnerClass(
+                        name: String?,
+                        outerName: String?,
+                        innerName: String?,
+                        access: Int,
+                    ) {
+                      collectInternalName(references, owner, "inner class", name)
+                      collectInternalName(references, owner, "inner class outer", outerName)
+                    }
+
+                    override fun visitNestHost(nestHost: String?) {
+                      collectInternalName(references, owner, "nest host", nestHost)
+                    }
+
+                    override fun visitNestMember(nestMember: String?) {
+                      collectInternalName(references, owner, "nest member", nestMember)
+                    }
+
+                    override fun visitPermittedSubclass(permittedSubclass: String?) {
+                      collectInternalName(
+                          references,
+                          owner,
+                          "permitted subclass",
+                          permittedSubclass,
+                      )
+                    }
+
+                    override fun visitRecordComponent(
+                        name: String,
+                        descriptor: String,
+                        signature: String?,
+                    ): RecordComponentVisitor {
+                      val site = "record component `$name`"
+                      collectDescriptor(references, owner, site, descriptor)
+                      collectTypeSignature(references, owner, "$site signature", signature)
+                      return object : RecordComponentVisitor(Opcodes.ASM9) {
+                        override fun visitAnnotation(
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site annotation",
+                            descriptor,
+                        )
+
+                        override fun visitTypeAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site type annotation",
+                            descriptor,
+                        )
+                      }
+                    }
+
+                    override fun visitAnnotation(
+                        descriptor: String,
+                        visible: Boolean,
+                    ): AnnotationVisitor =
+                        annotationVisitor(references, owner, "class annotation", descriptor)
+
+                    override fun visitTypeAnnotation(
+                        typeRef: Int,
+                        typePath: TypePath?,
+                        descriptor: String,
+                        visible: Boolean,
+                    ): AnnotationVisitor =
+                        annotationVisitor(references, owner, "class type annotation", descriptor)
+
+                    override fun visitField(
+                        access: Int,
+                        name: String,
+                        descriptor: String,
+                        signature: String?,
+                        value: Any?,
+                    ): FieldVisitor {
+                      val site = "field `$name`"
+                      collectDescriptor(references, owner, site, descriptor)
+                      collectTypeSignature(references, owner, "$site signature", signature)
+                      collectConstantValue(references, owner, "$site value", value)
+                      return object : FieldVisitor(Opcodes.ASM9) {
+                        override fun visitAnnotation(
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site annotation",
+                            descriptor,
+                        )
+
+                        override fun visitTypeAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site type annotation",
+                            descriptor,
+                        )
+                      }
+                    }
+
+                    override fun visitMethod(
+                        access: Int,
+                        name: String,
+                        descriptor: String,
+                        signature: String?,
+                        exceptions: Array<out String>?,
+                    ): MethodVisitor {
+                      val site = "method `$name$descriptor`"
+                      collectDescriptor(references, owner, site, descriptor)
+                      collectSignature(references, owner, "$site signature", signature)
+                      exceptions.orEmpty().forEach { exceptionInternalName ->
+                        collectInternalName(
+                            references,
+                            owner,
+                            "$site throws",
+                            exceptionInternalName,
+                        )
+                      }
+                      return object : MethodVisitor(Opcodes.ASM9) {
+                        override fun visitAnnotationDefault(): AnnotationVisitor =
+                            annotationValueVisitor(references, owner, "$site annotation default")
+
+                        override fun visitAnnotation(
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site annotation",
+                            descriptor,
+                        )
+
+                        override fun visitParameterAnnotation(
+                            parameter: Int,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site parameter annotation",
+                            descriptor,
+                        )
+
+                        override fun visitTypeAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site type annotation",
+                            descriptor,
+                        )
+
+                        override fun visitInsnAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site instruction type annotation",
+                            descriptor,
+                            eligibleForStubOnlyDetection = false,
+                        )
+
+                        override fun visitTryCatchAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site try/catch type annotation",
+                            descriptor,
+                            eligibleForStubOnlyDetection = false,
+                        )
+
+                        override fun visitLocalVariableAnnotation(
+                            typeRef: Int,
+                            typePath: TypePath?,
+                            start: Array<out Label>?,
+                            end: Array<out Label>?,
+                            index: IntArray?,
+                            descriptor: String,
+                            visible: Boolean,
+                        ): AnnotationVisitor = annotationVisitor(
+                            references,
+                            owner,
+                            "$site local variable type annotation",
+                            descriptor,
+                            eligibleForStubOnlyDetection = false,
+                        )
+
+                        override fun visitTypeInsn(opcode: Int, type: String?) {
+                          collectInternalName(
+                              references,
+                              owner,
+                              "$site instruction",
+                              type,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                        }
+
+                        override fun visitFieldInsn(
+                            opcode: Int,
+                            instructionOwner: String?,
+                            name: String?,
+                            descriptor: String?,
+                        ) {
+                          collectInternalName(
+                              references,
+                              owner,
+                              "$site field instruction owner",
+                              instructionOwner,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                          if (descriptor != null) {
+                            collectDescriptor(
+                                references,
+                                owner,
+                                "$site field instruction",
+                                descriptor,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                        }
+
+                        override fun visitMethodInsn(
+                            opcode: Int,
+                            instructionOwner: String?,
+                            name: String?,
+                            descriptor: String?,
+                            isInterface: Boolean,
+                        ) {
+                          collectInternalName(
+                              references,
+                              owner,
+                              "$site method instruction owner",
+                              instructionOwner,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                          if (descriptor != null) {
+                            collectDescriptor(
+                                references,
+                                owner,
+                                "$site method instruction",
+                                descriptor,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                        }
+
+                        override fun visitInvokeDynamicInsn(
+                            name: String?,
+                            descriptor: String?,
+                            bootstrapMethodHandle: Handle?,
+                            vararg bootstrapMethodArguments: Any?,
+                        ) {
+                          if (descriptor != null) {
+                            collectDescriptor(
+                                references,
+                                owner,
+                                "$site invokedynamic",
+                                descriptor,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                          collectConstantValue(
+                              references,
+                              owner,
+                              "$site invokedynamic bootstrap",
+                              bootstrapMethodHandle,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                          bootstrapMethodArguments.forEach { argument ->
+                            collectConstantValue(
+                                references,
+                                owner,
+                                "$site invokedynamic bootstrap argument",
+                                argument,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                        }
+
+                        override fun visitLdcInsn(value: Any?) {
+                          collectConstantValue(
+                              references,
+                              owner,
+                              "$site constant",
+                              value,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                        }
+
+                        override fun visitMultiANewArrayInsn(
+                            descriptor: String?,
+                            numDimensions: Int,
+                        ) {
+                          if (descriptor != null) {
+                            collectDescriptor(
+                                references,
+                                owner,
+                                "$site multi-dimensional array",
+                                descriptor,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                        }
+
+                        override fun visitTryCatchBlock(
+                            start: Label?,
+                            end: Label?,
+                            handler: Label?,
+                            type: String?,
+                        ) {
+                          collectInternalName(
+                              references,
+                              owner,
+                              "$site catch type",
+                              type,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                        }
+
+                        override fun visitLocalVariable(
+                            name: String?,
+                            descriptor: String?,
+                            signature: String?,
+                            start: Label?,
+                            end: Label?,
+                            index: Int,
+                        ) {
+                          if (descriptor != null) {
+                            collectDescriptor(
+                                references,
+                                owner,
+                                "$site local variable",
+                                descriptor,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                          collectTypeSignature(
+                              references,
+                              owner,
+                              "$site local variable signature",
+                              signature,
+                              eligibleForStubOnlyDetection = false,
+                          )
+                        }
+
+                        override fun visitFrame(
+                            type: Int,
+                            numLocal: Int,
+                            local: Array<out Any>?,
+                            numStack: Int,
+                            stack: Array<out Any>?,
+                        ) {
+                          local.orEmpty().filterIsInstance<String>().forEach { internalName ->
+                            collectInternalName(
+                                references,
+                                owner,
+                                "$site stack map frame",
+                                internalName,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                          stack.orEmpty().filterIsInstance<String>().forEach { internalName ->
+                            collectInternalName(
+                                references,
+                                owner,
+                                "$site stack map frame",
+                                internalName,
+                                eligibleForStubOnlyDetection = false,
+                            )
+                          }
+                        }
+                      }
+                    }
+                  },
+                  0,
+              )
+        }
+    return references
+  }
+
+  private fun collectDescriptor(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      descriptor: String,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    collectType(
+        references,
+        owner,
+        site,
+        Type.getType(descriptor),
+        eligibleForStubOnlyDetection,
+    )
+  }
+
+  private fun collectType(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      type: Type,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    when (type.sort) {
+      Type.ARRAY ->
+          collectType(references, owner, site, type.elementType, eligibleForStubOnlyDetection)
+      Type.OBJECT ->
+          collectInternalName(
+              references,
+              owner,
+              site,
+              type.internalName,
+              eligibleForStubOnlyDetection,
+          )
+      Type.METHOD -> {
+        type.argumentTypes.forEach { argumentType ->
+          collectType(references, owner, site, argumentType, eligibleForStubOnlyDetection)
+        }
+        collectType(references, owner, site, type.returnType, eligibleForStubOnlyDetection)
+      }
+    }
+  }
+
+  private fun collectInternalName(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      internalName: String?,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    if (internalName == null) return
+    if (internalName.startsWith("[")) {
+      collectDescriptor(references, owner, site, internalName, eligibleForStubOnlyDetection)
+    } else {
+      references.add(
+          EmittedTypeReference(owner, site, internalName, eligibleForStubOnlyDetection),
+      )
+    }
+  }
+
+  private fun collectConstantValue(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      value: Any?,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    when (value) {
+      is Type -> collectType(references, owner, site, value, eligibleForStubOnlyDetection)
+      is Handle -> {
+        collectInternalName(
+            references,
+            owner,
+            "$site owner",
+            value.owner,
+            eligibleForStubOnlyDetection,
+        )
+        collectDescriptor(
+            references,
+            owner,
+            site,
+            value.desc,
+            eligibleForStubOnlyDetection,
+        )
+      }
+      is ConstantDynamic -> {
+        collectDescriptor(
+            references,
+            owner,
+            site,
+            value.descriptor,
+            eligibleForStubOnlyDetection,
+        )
+        collectConstantValue(
+            references,
+            owner,
+            "$site bootstrap",
+            value.bootstrapMethod,
+            eligibleForStubOnlyDetection,
+        )
+        for (index in 0 until value.bootstrapMethodArgumentCount) {
+          collectConstantValue(
+              references,
+              owner,
+              "$site bootstrap argument",
+              value.getBootstrapMethodArgument(index),
+              eligibleForStubOnlyDetection,
+          )
+        }
+      }
+    }
+  }
+
+  private fun annotationVisitor(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      descriptor: String,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ): AnnotationVisitor {
+    collectDescriptor(references, owner, site, descriptor, eligibleForStubOnlyDetection)
+    return annotationValueVisitor(references, owner, site, eligibleForStubOnlyDetection)
+  }
+
+  private fun annotationValueVisitor(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ): AnnotationVisitor =
+      object : AnnotationVisitor(Opcodes.ASM9) {
+        override fun visit(name: String?, value: Any?) {
+          collectConstantValue(references, owner, site, value, eligibleForStubOnlyDetection)
+        }
+
+        override fun visitEnum(name: String?, descriptor: String, value: String?) {
+          collectDescriptor(references, owner, site, descriptor, eligibleForStubOnlyDetection)
+        }
+
+        override fun visitAnnotation(
+            name: String?,
+            descriptor: String,
+        ): AnnotationVisitor = annotationVisitor(
+            references,
+            owner,
+            site,
+            descriptor,
+            eligibleForStubOnlyDetection,
+        )
+
+        override fun visitArray(name: String?): AnnotationVisitor =
+            annotationValueVisitor(references, owner, site, eligibleForStubOnlyDetection)
+      }
+
+  private fun collectSignature(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      signature: String?,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    if (signature == null) return
+    SignatureReader(signature)
+        .accept(signatureVisitor(references, owner, site, eligibleForStubOnlyDetection))
+  }
+
+  private fun collectTypeSignature(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      signature: String?,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ) {
+    if (signature == null) return
+    SignatureReader(signature)
+        .acceptType(signatureVisitor(references, owner, site, eligibleForStubOnlyDetection))
+  }
+
+  private fun signatureVisitor(
+      references: MutableSet<EmittedTypeReference>,
+      owner: String,
+      site: String,
+      eligibleForStubOnlyDetection: Boolean = true,
+  ): SignatureVisitor =
+      object : SignatureVisitor(Opcodes.ASM9) {
+        private var currentClassInternalName: String? = null
+
+        override fun visitClassType(name: String?) {
+          currentClassInternalName = name
+          collectInternalName(references, owner, site, name, eligibleForStubOnlyDetection)
+        }
+
+        override fun visitInnerClassType(name: String?) {
+          val enclosing = currentClassInternalName
+          val nestedName =
+              when {
+                name == null -> null
+                enclosing == null -> name
+                else -> enclosing + "$" + name
+              }
+          currentClassInternalName = nestedName
+          collectInternalName(
+              references,
+              owner,
+              site,
+              nestedName,
+              eligibleForStubOnlyDetection,
+          )
+        }
+
+        override fun visitClassBound(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitInterfaceBound(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitSuperclass(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitInterface(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitParameterType(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitReturnType(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitExceptionType(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitArrayType(): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+
+        override fun visitTypeArgument(wildcard: Char): SignatureVisitor =
+            signatureVisitor(references, owner, site, eligibleForStubOnlyDetection)
+      }
+
+  private fun classNameFromRelativePath(relativePath: String): String {
+    return relativePath.removeSuffix(".class").replace('/', '.')
+  }
+
+  private fun collectClassesFromClasspath(
+      classpathRoots: List<File>,
+      messageCollector: MessageCollector,
+      severity: CompilerMessageSeverity,
+  ): Set<String>? {
+    val classes = linkedSetOf<String>()
+    for (root in classpathRoots) {
+      try {
+        when {
+          root.isDirectory -> {
+            root
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "class" }
+                .forEach { classFile ->
+                  val relativePath = classFile.relativeTo(root).invariantSeparatorsPath
+                  classes.add(classNameFromRelativePath(relativePath))
+                }
+          }
+          root.isFile && root.extension == "jar" -> {
+            JarFile(root).use { jarFile ->
+              jarFile
+                  .entries()
+                  .asSequence()
+                  .filter { entry -> !entry.isDirectory && entry.name.endsWith(".class") }
+                  .forEach { entry -> classes.add(classNameFromRelativePath(entry.name)) }
+            }
+          }
+        }
+      } catch (failure: Exception) {
+        messageCollector.report(
+            severity,
+            "Kosabi ABI validation: same-package phantom detection could not complete because " +
+                "classpath root `$root` could not be read: $failure",
+        )
+        return null
+      }
+    }
+    return classes
+  }
+
+  // KosabiStubgenStepsBuilder emits the stub classpath as `__%s_stubgen_stubs.jar`, or as the
+  // corresponding `__%s_stubgen_stubs` directory before packaging. `stubs.jar` stays an equality
+  // check: as a suffix it would also swallow `core-lambda-stubs.jar` and treat the Android lambda
+  // stubs as fabricated classes.
+  private fun File.isStubClasspathRoot(): Boolean =
+      (isDirectory && name.endsWith("stubgen_stubs")) ||
+          (isFile && (name.endsWith("stubgen_stubs.jar") || name == "stubs.jar"))
 }
 
 /**
