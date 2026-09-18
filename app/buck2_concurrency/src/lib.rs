@@ -157,31 +157,9 @@ struct CommandId(usize);
 struct CommandData {
     trace_id: TraceId,
     display_command: String,
-    #[allocative(skip)]
-    events: Arc<dyn CommandEventSink>,
     preemption_setting: PreemptibleWhen,
     #[allocative(skip)]
     preempt: Option<oneshot::Sender<()>>,
-}
-
-impl CommandData {
-    fn notify_tainted(&self) {
-        self.events.instant(
-            buck2_data::TagEvent {
-                tags: vec!["concurrency-tainted".to_owned()],
-            }
-            .into(),
-        );
-    }
-
-    fn notify_previously_tainted(&self) {
-        self.events.instant(
-            buck2_data::TagEvent {
-                tags: vec!["concurrency-previously-tainted".to_owned()],
-            }
-            .into(),
-        );
-    }
 }
 
 #[derive(Allocative)]
@@ -570,7 +548,6 @@ impl ConcurrencyHandler {
         let command_data = CommandData {
             trace_id: trace.dupe(),
             display_command,
-            events: events.sink(),
             preemption_setting: preemptible,
             preempt: Some(preempt_sender),
         };
@@ -840,9 +817,7 @@ impl ConcurrencyHandler {
 
         tracing::info!("Acquired access to DICE");
 
-        if data.previously_tainted {
-            command_data.notify_previously_tainted();
-        }
+        let previously_tainted = data.previously_tainted;
 
         if tainted {
             // Only the current command is notified, because there is never another one to tell.
@@ -855,7 +830,6 @@ impl ConcurrencyHandler {
                 data.has_no_active_commands(),
                 "taint implies no registered commands; see transition_to_cleanup's guard"
             );
-            command_data.notify_tainted();
             data.previously_tainted = true;
         }
 
@@ -863,6 +837,24 @@ impl ConcurrencyHandler {
         // Registration consumes the guard and releases the state lock. Its drop path also handles
         // observer failures.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
+
+        if previously_tainted {
+            events.instant(
+                buck2_data::TagEvent {
+                    tags: vec!["concurrency-previously-tainted".to_owned()],
+                }
+                .into(),
+            );
+        }
+
+        if tainted {
+            events.instant(
+                buck2_data::TagEvent {
+                    tags: vec!["concurrency-tainted".to_owned()],
+                }
+                .into(),
+            );
+        }
 
         // `soft_error!` may perform a synchronous Scribe write, so report after registration has
         // released the state lock. The guard cleans up if the warning is escalated.
@@ -1551,7 +1543,6 @@ mod tests {
             CommandData {
                 trace_id: TraceId::new(),
                 display_command: "buck2".to_owned(),
-                events: Arc::new(TestEvents::new()),
                 preemption_setting: PreemptibleWhen::Never,
                 preempt,
             }
@@ -1783,7 +1774,6 @@ mod tests {
             CommandData {
                 trace_id: TraceId::new(),
                 display_command: "buck2".to_owned(),
-                events: Arc::new(TestEvents::new()),
                 preemption_setting: PreemptibleWhen::Never,
                 preempt: None,
             }
@@ -1846,7 +1836,6 @@ mod tests {
             CommandData {
                 trace_id: TraceId::new(),
                 display_command: "buck2".to_owned(),
-                events: Arc::new(TestEvents::new()),
                 preemption_setting: setting,
                 preempt: Some(tx),
             }
