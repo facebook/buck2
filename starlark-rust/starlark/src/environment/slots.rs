@@ -78,6 +78,10 @@ impl<'v> MutableSlots<'v> {
         self.0.borrow_mut()[slot.0 as usize] = Some(value);
     }
 
+    pub fn unset_slot(&self, slot: ModuleSlotId) {
+        self.0.borrow_mut()[slot.0 as usize] = None;
+    }
+
     pub fn ensure_slot(&self, slot: ModuleSlotId) {
         // To ensure that `slot` exists, we need at least `slot + 1` slots.
         self.ensure_slots(slot.0 + 1);
