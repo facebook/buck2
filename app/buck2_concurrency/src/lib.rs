@@ -126,8 +126,7 @@ pub struct ConcurrencyHandler {
     next_command_id: AtomicUsize,
     /// Commands waiting for admission. The separate mutex allows synchronous `Drop` cleanup.
     queued_commands: Arc<parking_lot::Mutex<SmallMap<CommandId, TraceId>>>,
-    /// Serializes updates independently of the state lock. It becomes authoritative when the next
-    /// diff moves updates outside that lock.
+    /// Serializes updates independently of the state lock.
     #[allocative(skip)]
     update_permit: Semaphore,
 }
@@ -494,10 +493,8 @@ impl ConcurrencyHandler {
         }
     }
 
-    // this is normally super unsafe, but because we are using an async condvar that takes care
-    // of unlocking this mutex, this mutex is actually essentially never held across awaits.
-    // The async condvar will handle properly allowing under threads to proceed, avoiding
-    // starvation.
+    // The async condvar releases the state mutex while commands wait. `Dice::is_idle` below is the
+    // remaining await that holds it.
     /// How long a command may block before its user is first told what it is queued
     /// behind. Short, so that a wedged blocking command is identifiable quickly.
     const BLOCKED_COMMAND_FIRST_WARNING: Duration = Duration::from_secs(60);
