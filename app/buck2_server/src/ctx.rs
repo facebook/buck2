@@ -356,7 +356,7 @@ impl<'a> ServerCommandContext<'a> {
 
         let paging_manager = PagingManager::new(
             base_context.repo.dupe(),
-            base_context.daemon.page_out_on_idle,
+            base_context.repo.page_out_on_idle,
             base_context.daemon.allow_multiple_idle_page_outs,
             total_disk_space_bytes,
         );
@@ -1069,7 +1069,7 @@ impl DiceCommandUpdater<'_, '_> {
             "peak-load-metrics:v2".to_owned(),
             format!(
                 "page-out-on-idle:{}",
-                self.cmd_ctx.base_context.daemon.page_out_on_idle.is_some()
+                self.cmd_ctx.base_context.repo.page_out_on_idle.is_some()
             ),
         ];
         tags.extend(CleanStaleConfig::adaptive_telemetry_tags(Some(

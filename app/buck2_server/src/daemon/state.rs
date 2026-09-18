@@ -233,6 +233,10 @@ pub struct RepoState {
     /// scratch dirs (`buck-out/<iso>/tmp*`) once the daemon is idle
     /// (`buck2.clean_scratch_on_idle`). The sweep runs through this repo's `materializer`.
     pub(crate) clean_scratch_on_idle: bool,
+
+    /// Resource-pressure thresholds for automatic idle page-out, selected for this tenant's
+    /// isolation. `None` disables automatic idle page-out for this tenant.
+    pub(crate) page_out_on_idle: Option<PageOutThresholds>,
 }
 
 struct RepoStateInit<'a> {
@@ -616,6 +620,13 @@ impl RepoState {
             .resource_control
             .enable_suspension;
 
+        let page_out_on_idle = init_ctx
+            .daemon_startup_config
+            .idle_page_out_config_for_isolation_dir(paths.isolation())
+            .map(|hydration| PageOutThresholds {
+                min_free_disk_gb: hydration.page_out_min_free_disk_gb,
+            });
+
         let tags = vec![
             format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
             // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
@@ -673,6 +684,7 @@ impl RepoState {
                 })?
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll(),
+            page_out_on_idle,
         });
 
         #[cfg(fbcode_build)]
@@ -893,12 +905,6 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
-    /// Idle page-out config: the resource-pressure thresholds, `Some` iff
-    /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
-    /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
-    /// whether to schedule a background page-out; `None` disables it.
-    pub(crate) page_out_on_idle: Option<PageOutThresholds>,
-
     /// Running more than one automatic idle page-out during this daemon's lifetime.
     pub(crate) allow_multiple_idle_page_outs: bool,
 }
@@ -1107,13 +1113,6 @@ impl DaemonState {
                 )
                 .await?;
 
-            let page_out_on_idle = repo_state_factory
-                .init_ctx
-                .daemon_startup_config
-                .idle_page_out_config_for_isolation_dir(repo.paths.isolation())
-                .map(|h| PageOutThresholds {
-                    min_free_disk_gb: h.page_out_min_free_disk_gb,
-                });
             let allow_multiple_idle_page_outs = repo_state_factory
                 .init_ctx
                 .daemon_startup_config
@@ -1133,9 +1132,6 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
-                // `Some` (with thresholds) iff idle page-out is enabled for this
-                // daemon's isolation dir; `None` otherwise.
-                page_out_on_idle,
                 allow_multiple_idle_page_outs,
             }))
         };

@@ -66,8 +66,8 @@ use crate::jemalloc_stats::get_allocator_stats;
 /// cumulative page-in and DataKey I/O counters at construction (command start) and
 /// produces the per-command delta on demand (command end).
 ///
-/// Daemon-wide page-out settings are copied into each instance so the manager does not need to
-/// retain `DaemonStateData`.
+/// Page-out settings are copied into each instance so the manager does not need to retain the
+/// command context.
 pub(crate) struct PagingManager {
     repo: Arc<RepoState>,
     /// Resource-pressure thresholds for automatic idle page-out, `Some` iff enabled.
