@@ -31,6 +31,7 @@ tokio-stream.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+buck2_action_impl.workspace = true
 buck2_certs.workspace = true
 fbinit.workspace = true
 

@@ -23,7 +23,7 @@ pub fn init_late_bindings() {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         actions::impls::run::audit_dep_files::init_audit_dep_files();
-        actions::impls::run::dep_files::init_flush_dep_files();
+        actions::impls::run::dep_files::init_dep_file_cache();
         context::init_analysis_action_methods_actions();
         dynamic::calculation::init_dynamic_lambda_calculation();
         dynamic::storage::init_dynamic_lambda_params_storages();

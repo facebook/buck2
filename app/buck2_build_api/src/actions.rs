@@ -59,6 +59,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
@@ -328,6 +329,9 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// The current repo's persisted dep-file cache, if enabled.
     fn dep_file_store(&self) -> Option<&dyn DepFileStore>;
+
+    /// The current repo's live dep-file cache.
+    fn dep_file_cache(&self) -> &dyn DepFileCache;
 
     fn cancellation_context(&self) -> &CancellationContext;
 

@@ -760,6 +760,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
         buck2_certs::certs::maybe_setup_cryptography();
+        buck2_action_impl::init_late_bindings();
 
         let fbinit = unsafe { fbinit::perform_init() };
 

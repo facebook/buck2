@@ -86,6 +86,7 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
+use buck2_file_watcher::dep_files::SetDepFileCache;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::async_fs_util::spawn_blocking;
 use buck2_fs::error::IoResultExt;
@@ -1028,6 +1029,7 @@ impl DiceCommandUpdater<'_, '_> {
         data.set_blocking_executor(self.cmd_ctx.base_context.repo.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
         data.set_materializer(self.cmd_ctx.base_context.repo.materializer.dupe());
+        data.set_dep_file_cache(self.cmd_ctx.base_context.repo.dep_file_cache.dupe());
         data.set_dep_file_store(
             self.cmd_ctx
                 .base_context

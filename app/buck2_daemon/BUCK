@@ -17,6 +17,7 @@ rust_library(
     },
     rustc_flags = ["--cfg=buck2_memfrag"] if _memfrag else [],
     test_deps = [
+        "//buck2/app/buck2_action_impl:buck2_action_impl",
         "//buck2/app/buck2_certs:buck2_certs",
         "//common/rust/shed/fbinit:fbinit",
     ],

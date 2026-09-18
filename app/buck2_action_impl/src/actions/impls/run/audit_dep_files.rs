@@ -23,6 +23,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::buck2_error;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_file_watcher::dep_files::HasDepFileCache;
 use dice::DiceTransaction;
 
 use crate::actions::impls::run::RunActionKey;
@@ -49,7 +50,7 @@ async fn audit_dep_files(
         identifier.map(Arc::from),
     );
 
-    let state = get_dep_files(&key)
+    let state = get_dep_files(ctx.per_transaction_data().get_dep_file_cache(), &key)
         .with_internal_error(|| format!("Failed to find dep files for key `{key}`"))?;
 
     let declared_dep_files = match state.declared_dep_files() {

@@ -27,6 +27,7 @@ use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
 
+use crate::dep_files::DepFileCache;
 #[cfg(fbcode_build)]
 use crate::edenfs::interface::EdenFsFileWatcher;
 use crate::fs_hash_crawler::FsHashCrawler;
@@ -72,6 +73,7 @@ impl dyn FileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
         if !project_root.root().as_path().exists() {
             return Err(buck2_error!(
@@ -109,6 +111,7 @@ impl dyn FileWatcher {
                 root_config,
                 cells.clone(),
                 ignore_specs.clone(),
+                dep_file_cache.clone(),
             ) {
                 Ok(edenfs) => return Ok(Arc::new(edenfs)),
                 Err(e) if e.has_tag(ErrorTag::IoNotConnected) => {
@@ -126,8 +129,14 @@ impl dyn FileWatcher {
 
         match watcher_conf {
             "watchman" => Ok(Arc::new(
-                WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
-                    .buck_error_context("Creating watchman file watcher")?,
+                WatchmanFileWatcher::new(
+                    project_root.root(),
+                    root_config,
+                    cells,
+                    ignore_specs,
+                    dep_file_cache,
+                )
+                .buck_error_context("Creating watchman file watcher")?,
             )),
             "notify" => Ok(Arc::new(
                 NotifyFileWatcher::new(project_root, cells, ignore_specs)

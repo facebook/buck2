@@ -28,7 +28,6 @@ buck2_hash.workspace = true
 buck2_http.workspace = true
 buck2_interpreter.workspace = true
 buck2_util.workspace = true
-ctor.workspace = true
 derive_more.workspace = true
 dice.workspace = true
 dice_futures.workspace = true

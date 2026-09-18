@@ -94,6 +94,8 @@ use buck2_execute::execute::testing_dry_run::DryRunExecutor;
 use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute_impl::materializers::deferred::NoDiskDeferredMaterializer;
+use buck2_file_watcher::dep_files::SetDepFileCache;
+use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::StdBuckHashMap;
@@ -243,6 +245,7 @@ async fn make_default_dice_state(
     )?));
     extra.set_re_client(UnconfiguredRemoteExecutionClient::testing_new_dummy());
     extra.set_http_client(HttpClientBuilder::https_with_system_roots().await?.build());
+    extra.set_dep_file_cache(create_dep_file_cache());
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());
     extra.data.set(RunActionKnobs::default());

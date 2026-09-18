@@ -787,7 +787,6 @@ dependencies = [
  "buck2_http",
  "buck2_interpreter",
  "buck2_util",
- "ctor",
  "derive_more 2.1.1",
  "dice",
  "dice_futures",
@@ -1877,6 +1876,7 @@ dependencies = [
 name = "buck2_daemon"
 version = "0.1.0"
 dependencies = [
+ "buck2_action_impl",
  "buck2_certs",
  "buck2_cli_proto",
  "buck2_client_ctx",

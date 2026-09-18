@@ -48,6 +48,7 @@ use tokio::sync::RwLock;
 use tracing::debug;
 use tracing::info;
 
+use crate::dep_files::DepFileCache;
 use crate::edenfs::sapling::MergebaseDetails;
 use crate::edenfs::sapling::SaplingGetStatusResult;
 use crate::edenfs::sapling::SaplingStatus;
@@ -102,6 +103,7 @@ pub(crate) struct EdenFsFileWatcher {
     mergebase_with: Option<String>,
     dice_clear_on_mergebase_change: bool,
     eden_version: RwLock<Option<String>>,
+    dep_file_cache: Arc<dyn DepFileCache>,
 }
 
 impl EdenFsFileWatcher {
@@ -111,6 +113,7 @@ impl EdenFsFileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let manager = EdenConnectionManager::new(
             fb,
@@ -154,6 +157,7 @@ impl EdenFsFileWatcher {
             mergebase_with,
             dice_clear_on_mergebase_change,
             eden_version: RwLock::new(None),
+            dep_file_cache,
         })
     }
 
@@ -727,7 +731,7 @@ impl EdenFsFileWatcher {
         //
 
         // Invalidate everything - including the dep files - and recompute everything.
-        crate::dep_files::flush_non_local_dep_files();
+        self.dep_file_cache.clear_non_local();
 
         // Dropping the entire DICE map can be somewhat computationally expensive as there
         // are a lot of destructors to run. On the other hand, we don't have to wait for

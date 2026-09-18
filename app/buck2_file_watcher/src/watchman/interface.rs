@@ -32,6 +32,7 @@ use watchman_client::expr::Expr;
 use watchman_client::prelude::Connector;
 use watchman_client::prelude::FileType;
 
+use crate::dep_files::DepFileCache;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
@@ -53,6 +54,7 @@ struct WatchmanQueryProcessor {
     last_mergebase: Option<String>,
     last_mergebase_global_rev: Option<u64>,
     last_mergebase_timestamp: Option<u64>,
+    dep_file_cache: Arc<dyn DepFileCache>,
 }
 
 /// Used in process_one_change
@@ -295,7 +297,7 @@ impl SyncableQueryProcessor for WatchmanQueryProcessor {
         // We do retain dep files that were produced locally, since we don't need to fetch them as
         // they are already on disk.
         if clear_dep_files {
-            crate::dep_files::flush_non_local_dep_files();
+            self.dep_file_cache.clear_non_local();
         }
 
         self.last_mergebase = mergebase.clone();
@@ -357,6 +359,7 @@ impl WatchmanFileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        dep_file_cache: Arc<dyn DepFileCache>,
     ) -> buck2_error::Result<Self> {
         let watchman_merge_base = root_config
             .get(BuckconfigKeyRef {
@@ -409,6 +412,7 @@ impl WatchmanFileWatcher {
                 last_mergebase: None,
                 last_mergebase_global_rev: None,
                 last_mergebase_timestamp: None,
+                dep_file_cache,
             }),
             watchman_merge_base,
             empty_on_fresh_instance,

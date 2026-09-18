@@ -64,6 +64,8 @@ use buck2_execute::output_size::OutputSize;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+use buck2_file_watcher::dep_files::DepFileCache;
+use buck2_file_watcher::dep_files::HasDepFileCache;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_hash::BuckIndexMap;
@@ -331,6 +333,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
         let events = self.per_transaction_data().get_dispatcher();
         let re_client = self.per_transaction_data().get_re_client();
         let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
+        let dep_file_cache = self.per_transaction_data().get_dep_file_cache();
         let dep_file_store = self.per_transaction_data().get_dep_file_store();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
@@ -353,6 +356,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            dep_file_cache,
             dep_file_store,
             io_provider,
             http_client,
@@ -371,6 +375,7 @@ pub struct BuckActionExecutor<'d> {
     re_client: &'d UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: &'d RunActionKnobs,
+    dep_file_cache: &'d dyn DepFileCache,
     dep_file_store: Option<&'d dyn DepFileStore>,
     io_provider: &'d dyn IoProvider,
     http_client: &'d HttpClient,
@@ -388,6 +393,7 @@ impl<'d> BuckActionExecutor<'d> {
         re_client: &'d UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: &'d RunActionKnobs,
+        dep_file_cache: &'d dyn DepFileCache,
         dep_file_store: Option<&'d dyn DepFileStore>,
         io_provider: &'d dyn IoProvider,
         http_client: &'d HttpClient,
@@ -403,6 +409,7 @@ impl<'d> BuckActionExecutor<'d> {
             re_client,
             digest_config,
             run_action_knobs,
+            dep_file_cache,
             dep_file_store,
             io_provider,
             http_client,
@@ -500,6 +507,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn dep_file_store(&self) -> Option<&dyn DepFileStore> {
         self.executor.dep_file_store
+    }
+
+    fn dep_file_cache(&self) -> &dyn DepFileCache {
+        self.executor.dep_file_cache
     }
 
     fn cancellation_context(&self) -> &CancellationContext {

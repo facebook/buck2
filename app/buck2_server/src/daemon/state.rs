@@ -70,6 +70,8 @@ use buck2_execute_impl::sqlite::dep_file_state_db::PersistedDepFileStore;
 use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
+use buck2_file_watcher::dep_files::DepFileCache;
+use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
 use buck2_hash::StdBuckHashMap;
@@ -191,6 +193,9 @@ pub struct RepoState {
 
     /// Persisted local dep-file cache and its size sampler for this repo, if enabled.
     pub(crate) persisted_dep_file_cache: Option<PersistedDepFileCache>,
+
+    /// Live local dep-file cache for this repo.
+    pub dep_file_cache: Arc<dyn DepFileCache>,
 
     /// If enabled, paranoid RE downloads.
     pub paranoid: Option<ParanoidDownloader>,
@@ -517,6 +522,8 @@ impl RepoState {
             )
             .await?;
 
+        let dep_file_cache = create_dep_file_cache();
+
         tracing::info!("Creating file watcher...");
         let file_watcher = <dyn FileWatcher>::new(
             fb,
@@ -524,6 +531,7 @@ impl RepoState {
             root_config,
             cells.dupe(),
             ignore_specs,
+            dep_file_cache.dupe(),
         )
         .with_buck_error_context(|| {
             format!(
@@ -613,6 +621,7 @@ impl RepoState {
             previous_command_data: LockedPreviousCommandData::new(),
             incremental_db_state,
             persisted_dep_file_cache,
+            dep_file_cache,
             paranoid,
             re_client_manager,
             blocking_executor,

@@ -11,7 +11,6 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -82,8 +81,8 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
-use buck2_file_watcher::dep_files::FLUSH_NON_LOCAL_DEP_FILES;
+use buck2_file_watcher::dep_files::CREATE_DEP_FILE_CACHE;
+use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_fs::fs_util;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -211,10 +210,11 @@ impl ConfigActionSlot {
     }
 }
 
-/// Backing store for the process-global dep-file cache: a concurrent map from `(logical action,
-/// configuration) -> dep-file state`. A logical action maps to a per-configuration slot, stored inline
-/// for the common single-configuration case and promoting to a map on a second configuration;
-/// DashMap's sharded locking synchronizes access. `cfg` is `None` for anon-target and BXL actions.
+/// Backing store for one repo's dep-file cache: a concurrent map from `(logical action,
+/// configuration) -> dep-file state`. A logical action maps to a per-configuration slot, stored
+/// inline for the common single-configuration case and promoting to a map on a second
+/// configuration; DashMap's sharded locking synchronizes access. `cfg` is `None` for anon-target
+/// and BXL actions.
 #[derive(Default, Allocative)]
 struct ShardedDepFiles {
     map: BuckDashMap<LogicalActionKey, ConfigActionSlot>,
@@ -283,8 +283,35 @@ impl ShardedDepFiles {
     }
 }
 
-#[allocative::root]
-static DEP_FILES: LazyLock<ShardedDepFiles> = LazyLock::new(ShardedDepFiles::default);
+impl DepFileCache for ShardedDepFiles {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn clear(&self) {
+        tracing::info!("Flushing all {} dep files", self.len());
+        ShardedDepFiles::clear(self);
+    }
+
+    fn clear_non_local(&self) {
+        tracing::info!(
+            "Flushing non-local dep files, current size is: {}",
+            self.len()
+        );
+        self.retain(|state| state.was_produced_locally);
+        tracing::info!(
+            "Number of remaining local dep file slots is: {}",
+            self.len()
+        );
+    }
+}
+
+fn dep_files(cache: &dyn DepFileCache) -> &ShardedDepFiles {
+    cache
+        .as_any()
+        .downcast_ref()
+        .expect("DepFileCache should have been created by buck2_action_impl")
+}
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
@@ -292,43 +319,29 @@ fn keep_directories() -> buck2_error::Result<bool> {
     buck2_env!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
 }
 
-/// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep
-/// file was produced and the user wants unblocking, this will provide it.
-fn flush_dep_files() {
-    tracing::info!("Flushing all {} dep files", DEP_FILES.len());
-    DEP_FILES.clear();
+fn new_dep_file_cache() -> Arc<dyn DepFileCache> {
+    Arc::new(ShardedDepFiles::default())
 }
 
-/// Flush all dep files that were not produced locally.
-/// In general we may want to retain dep files that were produced locally for longer, since (a) they are
-/// already on disk and we don't need to download them, and (b) since they were produced locally they are
-/// not cached elsewhere so there is more value in retaining them.
-fn flush_non_local_dep_files() {
-    tracing::info!(
-        "Flushing non-local dep files, current size is: {}",
-        DEP_FILES.len()
-    );
-    // Keep only locally-produced states.
-    DEP_FILES.retain(|state| state.was_produced_locally);
-    tracing::info!(
-        "Number of remaining local dep file slots is: {}",
-        DEP_FILES.len()
-    );
+pub(crate) fn init_dep_file_cache() {
+    CREATE_DEP_FILE_CACHE.init(new_dep_file_cache);
 }
 
-pub(crate) fn init_flush_dep_files() {
-    FLUSH_DEP_FILES.init(flush_dep_files);
-    FLUSH_NON_LOCAL_DEP_FILES.init(flush_non_local_dep_files);
-}
-
-pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
-    DEP_FILES.get(&key.to_logical(), key.configuration())
+pub(crate) fn get_dep_files(
+    cache: &dyn DepFileCache,
+    key: &RunActionKey,
+) -> Option<Arc<DepFileState>> {
+    dep_files(cache).get(&key.to_logical(), key.configuration())
 }
 
 /// Remove a single configuration's entry from the cache (both in-memory and persisted).
-fn remove_dep_file_entry(key: &RunActionKey, store: Option<&dyn DepFileStore>) {
+fn remove_dep_file_entry(
+    cache: &dyn DepFileCache,
+    key: &RunActionKey,
+    store: Option<&dyn DepFileStore>,
+) {
     let logical = key.to_logical();
-    DEP_FILES.remove(&logical, key.configuration());
+    dep_files(cache).remove(&logical, key.configuration());
     if let Some(store) = store
         && let Some(logical_key) = encode_logical_key(&logical)
     {
@@ -1216,9 +1229,10 @@ pub(crate) async fn match_if_identical_action(
     stats.outcome = buck2_data::DepFileLookupOutcome::Miss as i32;
 
     // First, this configuration's own cached action.
-    if let Some(previous_state) = get_dep_files(key) {
+    if let Some(previous_state) = get_dep_files(ctx.dep_file_cache(), key) {
         let actions_match = check_action(
             Some(key),
+            ctx.dep_file_cache(),
             ctx.dep_file_store(),
             DepFileCandidate::Live(&previous_state),
             input_directory_digest,
@@ -1259,7 +1273,7 @@ pub(crate) async fn match_if_identical_action(
     // would not help). `states_for_logical` clones the candidates out, so we hold no shard guard
     // across the async work.
     let logical = key.to_logical();
-    for candidate in DEP_FILES.states_for_logical(&logical) {
+    for candidate in dep_files(ctx.dep_file_cache()).states_for_logical(&logical) {
         match probe_cross_config_candidate(
             ctx,
             declared_outputs,
@@ -1363,7 +1377,13 @@ pub(crate) async fn match_if_identical_action(
             {
                 CrossConfigProbe::NotHit => {}
                 CrossConfigProbe::Hit(outputs) => {
-                    promote_reloaded_entry(&logical, key.configuration(), loaded, outputs.dupe());
+                    promote_reloaded_entry(
+                        ctx.dep_file_cache(),
+                        &logical,
+                        key.configuration(),
+                        loaded,
+                        outputs.dupe(),
+                    );
                     tracing::trace!("Persisted local action cache hit");
                     store.note_persisted_hit();
                     stats.hit_persisted();
@@ -1403,6 +1423,7 @@ async fn probe_cross_config_candidate(
 ) -> buck2_error::Result<CrossConfigProbe> {
     if check_action(
         None,
+        ctx.dep_file_cache(),
         ctx.dep_file_store(),
         candidate,
         input_directory_digest,
@@ -1429,6 +1450,7 @@ async fn probe_cross_config_candidate(
 /// `match_or_clear_dep_file` recognizes such an entry and leaves it (and its persisted row) intact
 /// instead of clearing it, so the action just re-executes and re-populates a live entry.
 fn promote_reloaded_entry(
+    cache: &dyn DepFileCache,
     logical: &LogicalActionKey,
     cfg: Option<Configuration>,
     loaded: LoadedEntry,
@@ -1444,7 +1466,7 @@ fn promote_reloaded_entry(
     // The insert is unconditional: DICE evaluates an action key once and shares the result, so no
     // concurrent execution of this `(logical, cfg)` can have filled the slot with a `Live` entry
     // whose signature machinery this would discard.
-    DEP_FILES.insert(logical.dupe(), cfg, Arc::new(promoted));
+    dep_files(cache).insert(logical.dupe(), cfg, Arc::new(promoted));
 }
 
 /// Reuse a cached entry's outputs for `declared_outputs` if they are still present in the
@@ -1633,7 +1655,7 @@ pub(crate) async fn match_or_clear_dep_file(
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
 ) -> buck2_error::Result<Option<ActionOutputs>> {
-    let previous_state = match get_dep_files(key) {
+    let previous_state = match get_dep_files(ctx.dep_file_cache(), key) {
         Some(d) => d.dupe(),
         None => return Ok(None),
     };
@@ -1667,7 +1689,7 @@ pub(crate) async fn match_or_clear_dep_file(
     // A `Match` whose outputs are gone falls through to here and is cleared like a `Miss`.
     if filtered_match != DepFileFilteredMatch::CannotEvaluate {
         tracing::trace!("Dep files are a miss, removing the key from cache");
-        remove_dep_file_entry(key, ctx.dep_file_store());
+        remove_dep_file_entry(ctx.dep_file_cache(), key, ctx.dep_file_store());
     }
 
     Ok(None)
@@ -1772,6 +1794,7 @@ async fn outputs_are_still_present_in_materializer(
 /// another configuration's or a reloaded candidate, where eviction would be meaningless.
 fn check_action(
     evict_key: Option<&RunActionKey>,
+    dep_file_cache: &dyn DepFileCache,
     dep_file_store: Option<&dyn DepFileStore>,
     candidate: DepFileCandidate<'_>,
     input_directory_digest: &FileDigest,
@@ -1782,7 +1805,7 @@ fn check_action(
 ) -> buck2_error::Result<InitialDepFileLookupResult> {
     let evict = || {
         if let Some(key) = evict_key {
-            remove_dep_file_entry(key, dep_file_store);
+            remove_dep_file_entry(dep_file_cache, key, dep_file_store);
         }
     };
 
@@ -1839,6 +1862,7 @@ async fn dep_files_match(
 ) -> buck2_error::Result<DepFileFilteredMatch> {
     let initial_check = check_action(
         Some(key),
+        ctx.dep_file_cache(),
         ctx.dep_file_store(),
         DepFileCandidate::Live(previous_state),
         input_directory_digest,
@@ -2083,7 +2107,7 @@ pub(crate) async fn populate_dep_files(
 
     // Persist the entry (best-effort) before installing it in memory. We only persist
     // locally-produced entries: those are the ones worth reloading (their outputs are already on
-    // disk), and it keeps the on-disk cache consistent with `flush_non_local_dep_files`, which
+    // disk), and it keeps the on-disk cache consistent with `DepFileCache::clear_non_local`, which
     // evicts non-local entries from memory. `encode_logical_key` returns `None` for anon-target/BXL
     // actions, which are not persisted, and `to_stored` returns `None` for an entry that is not safe
     // to persist (an output's symlink destinations are *not* covered by "already on disk").
@@ -2112,7 +2136,7 @@ pub(crate) async fn populate_dep_files(
     // action's digests and the materializer before serving it. Rows this version writes are
     // deps-free, but nothing in the schema enforces that, so the re-validation is what makes
     // leaving the row safe.
-    DEP_FILES.insert(logical.dupe(), cfg, Arc::new(state));
+    dep_files(ctx.dep_file_cache()).insert(logical.dupe(), cfg, Arc::new(state));
     Ok(queued_write)
 }
 
@@ -2744,12 +2768,12 @@ impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest>
 
 #[cfg(test)]
 mod tests {
-
     use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineFingerprinter;
     use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_common::file_ops::metadata::Symlink;
+    use buck2_core::category::Category;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -2759,6 +2783,28 @@ mod tests {
     use buck2_hash::BuckIndexMap;
 
     use super::*;
+
+    #[test]
+    fn dep_file_caches_are_independent() {
+        let first = new_dep_file_cache();
+        let second = new_dep_file_cache();
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+        let key = LogicalActionKey::Configured {
+            target: target.unconfigured().dupe(),
+            category: Category::new("test".to_owned()).expect("test category should be valid"),
+            identifier: None,
+        };
+        let state = Arc::new(dep_file_state_with(
+            ActionOutputs::new(BuckIndexMap::new()),
+            DigestConfig::testing_default(),
+        ));
+
+        dep_files(first.as_ref()).insert(key.dupe(), None, state);
+
+        assert!(dep_files(first.as_ref()).get(&key, None).is_some());
+        assert!(dep_files(second.as_ref()).get(&key, None).is_none());
+    }
 
     #[test]
     fn test_dep_files_visitor_output_collection() {
