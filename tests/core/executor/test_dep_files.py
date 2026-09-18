@@ -20,6 +20,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 from buck2.tests.e2e_util.helper.utils import (
     expect_exec_count,
     filter_events,
@@ -455,7 +456,7 @@ async def test_dep_file_hit_persisted_across_restart(buck: Buck) -> None:
     await check_no_cache_query(buck)
 
 
-async def _prepare_dangling_persisted_dep_file_input(
+async def _prepare_persisted_dep_file_input_after_clean(
     buck: Buck,
 ) -> tuple[str, list[str]]:
     target = "root//app:consume_persisted_dep_file_output"
@@ -469,26 +470,27 @@ async def _prepare_dangling_persisted_dep_file_input(
     assert output.read_text() == "output"
 
     await buck.kill()
-    # Reload both actions from the persisted cache without final-output materialization. This leaves
-    # the producer's backing output eligible for stale cleanup after `declare_match` accepts it.
+    # Reload both actions from the persisted cache without final-output materialization. The
+    # producer is accepted by `declare_match` and must be protected from stale cleanup.
     await buck.build(*args, "--materializations=none")
     kinds = await _execution_kinds(buck)
     assert kinds.count(ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE) == 2, kinds
 
     entries = (await buck.audit("deferred-materializer", "list")).stdout.splitlines()
-    producer_entries = [
+    args_entries = [
         entry
         for entry in entries
-        if "__simple_dep_file__" in entry
-        and entry.split("\t", 1)[0].endswith("/output_artifacts/out")
+        if entry.split("\t", 1)[0].endswith("/__persisted_dep_file_output_args__/args")
     ]
-    assert len(producer_entries) == 1, producer_entries
-    producer_output = buck.cwd / producer_entries[0].split("\t", 1)[0]
+    assert len(args_entries) == 1, args_entries
+    args_file = buck.cwd / args_entries[0].split("\t", 1)[0]
+    producer_output = buck.cwd / args_file.read_text().strip()
+    assert "/output_artifacts/" not in producer_output.as_posix(), producer_output
     assert producer_output.exists(), producer_output
 
     clean = await buck.clean("--stale=0s")
-    assert not producer_output.exists(), clean.stderr
-    # Invalidate only the consumer. Its retained args file still names the cleaned producer output.
+    assert producer_output.exists(), clean.stderr
+    # Invalidate only the consumer. Its retained args file still names the producer output.
     touch(buck, "app/other.h")
 
     return target, args
@@ -506,21 +508,17 @@ async def _prepare_dangling_persisted_dep_file_input(
         }
     },
 )
-async def test_persisted_dep_file_hit_then_clean_stale_leaves_dangling_hidden_input(
+async def test_persisted_dep_file_hit_survives_clean_stale(
     buck: Buck,
 ) -> None:
-    target, args = await _prepare_dangling_persisted_dep_file_input(buck)
+    target, args = await _prepare_persisted_dep_file_input_after_clean(buck)
 
-    await expect_failure(
-        buck.build(*args),
-        stderr_regex="No such file or directory",
+    result = await buck.build(*args)
+    golden(
+        output=sanitize_stderr(result.stderr),
+        rel_path="dep_files/golden/persisted_dep_file_hit_survives_clean_stale.stderr",
     )
-
-    await buck.kill()
-    recovered = await buck.build(*args)
-    assert (
-        recovered.get_build_report().output_for_target(target).read_text() == "output"
-    )
+    assert result.get_build_report().output_for_target(target).read_text() == "output"
 
 
 @buck_test(

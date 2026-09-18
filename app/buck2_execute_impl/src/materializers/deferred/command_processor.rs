@@ -1179,6 +1179,23 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // that hasn't had its deps populated yet (since the materializer state does not know about
         // deps).
         if is_match {
+            if let ArtifactMaterializationStage::Materialized {
+                last_access_time,
+                active,
+                ..
+            } = &mut data.stage
+            {
+                *active = true;
+                *last_access_time = Timestamp::now();
+                if let Some(sqlite_db) = &mut self.sqlite_db {
+                    if let Err(e) = sqlite_db
+                        .materializer_state_table()
+                        .update_access_times(vec![&path])
+                    {
+                        let _unused = soft_error!("match_artifact_update_time", e, quiet: true);
+                    }
+                }
+            }
             if let Some(deps) = value.deps() {
                 data.deps = Some(deps.dupe())
             }
