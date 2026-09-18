@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -325,58 +326,73 @@ pub trait CommandTransactionObserver: Send + Sync {
     ) -> buck2_error::Result<()>;
 }
 
+/// Exclusive commands that hold the lock or are queued for it, oldest first.
+///
+/// Entries are keyed by ticket rather than positional, because a command can leave the queue in
+/// an order other than it joined: cancellation removes an entry that never reached the front.
+type ExclusiveWaiters = Arc<parking_lot::Mutex<VecDeque<(u64, String)>>>;
+
 #[derive(Allocative)]
 struct ExclusiveCommandLock {
     lock: tokio::sync::RwLock<()>,
-    owning_command: Arc<parking_lot::Mutex<VecDeque<String>>>,
+    waiters: ExclusiveWaiters,
+    next_ticket: AtomicU64,
 }
 
-#[allow(dead_code)] // fields never read
+/// Removes its entry from the queue on drop, whether the command acquired the lock or was
+/// cancelled while waiting for it.
+struct ExclusiveWaiter {
+    waiters: ExclusiveWaiters,
+    ticket: u64,
+}
+
+impl Drop for ExclusiveWaiter {
+    fn drop(&mut self) {
+        self.waiters
+            .lock()
+            .retain(|(ticket, _)| *ticket != self.ticket);
+    }
+}
+
+#[allow(dead_code)] // lock guards are held, not read
 enum ExclusiveCommandLockGuard<'a> {
     Shared(tokio::sync::RwLockReadGuard<'a, ()>),
-    Exclusive(
-        tokio::sync::RwLockWriteGuard<'a, ()>,
-        Arc<parking_lot::Mutex<VecDeque<String>>>,
-    ),
-}
-
-impl Drop for ExclusiveCommandLockGuard<'_> {
-    fn drop(&mut self) {
-        if let ExclusiveCommandLockGuard::Exclusive(_, owner) = self {
-            let mut own = owner.lock();
-            own.pop_front();
-        }
-    }
+    /// The waiter is first so that it drops first: the name leaves the queue before the write
+    /// lock is released, so `owning_command` never names a command that has already finished.
+    Exclusive(ExclusiveWaiter, tokio::sync::RwLockWriteGuard<'a, ()>),
 }
 
 impl ExclusiveCommandLock {
     pub fn new() -> Self {
         ExclusiveCommandLock {
             lock: tokio::sync::RwLock::new(()),
-            owning_command: Arc::new(parking_lot::Mutex::new(VecDeque::new())),
+            waiters: Arc::new(parking_lot::Mutex::new(VecDeque::new())),
+            next_ticket: AtomicU64::new(0),
         }
     }
 
     pub async fn exclusive_lock<'a>(&'a self, cmd_name: String) -> ExclusiveCommandLockGuard<'a> {
-        {
-            let mut owning_command = self.owning_command.lock();
-            owning_command.push_back(cmd_name);
-            drop(owning_command);
-        }
-        ExclusiveCommandLockGuard::Exclusive(self.lock.write().await, self.owning_command.dupe())
+        // Joined before awaiting the lock, so a command that is queued but not yet holding can
+        // still be named as the thing others are waiting on. `waiter` owns the removal, so
+        // dropping this future before the lock is granted takes the entry with it.
+        let waiter = ExclusiveWaiter {
+            waiters: self.waiters.dupe(),
+            ticket: self.next_ticket.fetch_add(1, Ordering::Relaxed),
+        };
+        self.waiters.lock().push_back((waiter.ticket, cmd_name));
+
+        let guard = self.lock.write().await;
+        ExclusiveCommandLockGuard::Exclusive(waiter, guard)
     }
 
     pub async fn shared_lock<'a>(&'a self) -> ExclusiveCommandLockGuard<'a> {
         ExclusiveCommandLockGuard::Shared(self.lock.read().await)
     }
 
+    /// The exclusive command holding the lock, or the oldest one queued for it. `None` when no
+    /// exclusive command is in play.
     pub fn owning_command(&self) -> Option<String> {
-        // owning command is not unset when exclusive lock is dropped, just ignored
-        if self.lock.try_read().is_ok() {
-            None
-        } else {
-            self.owning_command.lock().front().cloned()
-        }
+        self.waiters.lock().front().map(|(_, name)| name.clone())
     }
 }
 
@@ -1254,6 +1270,43 @@ mod tests {
         }
 
         assert_eq!(seen.len(), TASKS * PER_TASK);
+    }
+
+    /// A command cancelled while queued for the exclusive lock never acquires it, so it never
+    /// produces a guard whose drop could remove it.
+    #[tokio::test]
+    async fn a_cancelled_exclusive_command_stops_being_named() {
+        let lock = ExclusiveCommandLock::new();
+
+        let held = lock.exclusive_lock("first".to_owned()).await;
+        assert_eq!(lock.owning_command().as_deref(), Some("first"));
+
+        {
+            let mut queued = Box::pin(lock.exclusive_lock("second".to_owned()));
+            assert!(poll!(&mut queued).is_pending(), "`first` still holds it");
+            assert_eq!(
+                lock.owning_command().as_deref(),
+                Some("first"),
+                "a queued command must not displace the holder"
+            );
+            // Dropping `queued` cancels `second` before it ever acquires.
+        }
+
+        drop(held);
+
+        // Asserted via a third command rather than by expecting `None` here: the previous
+        // implementation would also report `None` at this point, because it inferred emptiness
+        // from `try_read()` succeeding rather than from the queue. Taking the lock again is what
+        // exposes the abandoned entry.
+        let third = lock.exclusive_lock("third".to_owned()).await;
+        assert_eq!(
+            lock.owning_command().as_deref(),
+            Some("third"),
+            "a cancelled command was still being reported as the owner"
+        );
+
+        drop(third);
+        assert_eq!(lock.owning_command(), None);
     }
 
     /// The duplicate-id path is argued unreachable while `CommandId` is monotonic, so this pins
