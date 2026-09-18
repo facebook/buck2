@@ -8,8 +8,8 @@
 
 # Shared implementation for the target_stats integration.
 
-load(":target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//:paths.bzl", "paths")
+load(":target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load(":target_stats_tools.bzl", "TargetStatsToolsInfo")
 load(
     ":target_stats_types.bzl",
