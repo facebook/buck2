@@ -243,7 +243,37 @@ pub struct BuckdServerInitPreferences {
     pub started_for_clean_stale: bool,
 }
 
+#[derive(Allocative)]
+pub(crate) struct RepoStateInitPreferences {
+    pub(crate) detect_cycles: Option<DetectCycles>,
+    pub(crate) enable_trace_io: bool,
+    pub(crate) reject_materializer_state: Option<SqliteIdentity>,
+    pub(crate) daemon_startup_config: DaemonStartupConfig,
+}
+
 impl BuckdServerInitPreferences {
+    pub(crate) fn split(self) -> (RepoStateInitPreferences, Option<String>) {
+        let Self {
+            detect_cycles,
+            enable_trace_io,
+            reject_materializer_state,
+            daemon_startup_config,
+            daemon_originating_cgroup,
+            ..
+        } = self;
+        (
+            RepoStateInitPreferences {
+                detect_cycles,
+                enable_trace_io,
+                reject_materializer_state,
+                daemon_startup_config,
+            },
+            daemon_originating_cgroup,
+        )
+    }
+}
+
+impl RepoStateInitPreferences {
     pub async fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,

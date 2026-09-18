@@ -110,6 +110,7 @@ use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
+use crate::daemon::server::RepoStateInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
 use crate::paging::PageOutThresholds;
 use crate::snapshot::DepFileDbSizeSampler;
@@ -237,7 +238,7 @@ pub struct RepoState {
 struct RepoStateInit<'a> {
     fb: FacebookInit,
     paths: TenantPaths,
-    init_ctx: &'a BuckdServerInitPreferences,
+    init_ctx: &'a RepoStateInitPreferences,
     legacy_cells: &'a BuckConfigBasedCells,
     root_config: &'a LegacyBuckConfig,
     final_artifact_materialization: FinalArtifactMaterialization,
@@ -251,6 +252,39 @@ struct DaemonSharedServices<'a> {
     http_client: &'a HttpClient,
     memory_tracker: Option<&'a MemoryTrackerHandle>,
     daemon_id: &'a DaemonId,
+}
+
+#[derive(Allocative)]
+struct RepoStateFactory {
+    #[allocative(skip)]
+    fb: FacebookInit,
+    init_ctx: RepoStateInitPreferences,
+    #[allocative(skip)]
+    final_artifact_materialization: FinalArtifactMaterialization,
+    #[allocative(skip)]
+    runtime: Handle,
+}
+
+impl RepoStateFactory {
+    async fn create_with_loaded_config(
+        &self,
+        paths: TenantPaths,
+        legacy_cells: &BuckConfigBasedCells,
+        root_config: &LegacyBuckConfig,
+        shared: DaemonSharedServices<'_>,
+    ) -> buck2_error::Result<Arc<RepoState>> {
+        RepoState::create(RepoStateInit {
+            fb: self.fb,
+            paths,
+            init_ctx: &self.init_ctx,
+            legacy_cells,
+            root_config,
+            final_artifact_materialization: self.final_artifact_materialization,
+            runtime: &self.runtime,
+            shared,
+        })
+        .await
+    }
 }
 
 impl RepoState {
@@ -1051,30 +1085,41 @@ impl DaemonState {
             )
             .await?;
 
-            let repo = RepoState::create(RepoStateInit {
+            let (init_ctx, daemon_originating_cgroup) = init_ctx.split();
+            let repo_state_factory = RepoStateFactory {
                 fb,
-                paths,
-                init_ctx: &init_ctx,
-                legacy_cells: &legacy_cells,
-                root_config,
+                init_ctx,
                 final_artifact_materialization,
-                runtime: &repo_state_rt,
-                shared: DaemonSharedServices {
-                    blocking_executor_factory: &blocking_executor_factory,
-                    scribe_sink: scribe_sink.as_ref(),
-                    http_client: &http_client,
-                    memory_tracker: memory_tracker.as_ref(),
-                    daemon_id: &daemon_id,
-                },
-            })
-            .await?;
+                runtime: repo_state_rt,
+            };
+            let repo = repo_state_factory
+                .create_with_loaded_config(
+                    paths,
+                    &legacy_cells,
+                    root_config,
+                    DaemonSharedServices {
+                        blocking_executor_factory: &blocking_executor_factory,
+                        scribe_sink: scribe_sink.as_ref(),
+                        http_client: &http_client,
+                        memory_tracker: memory_tracker.as_ref(),
+                        daemon_id: &daemon_id,
+                    },
+                )
+                .await?;
 
-            let page_out_on_idle = init_ctx
+            let page_out_on_idle = repo_state_factory
+                .init_ctx
                 .daemon_startup_config
                 .idle_page_out_config_for_isolation_dir(repo.paths.isolation())
                 .map(|h| PageOutThresholds {
                     min_free_disk_gb: h.page_out_min_free_disk_gb,
                 });
+            let allow_multiple_idle_page_outs = repo_state_factory
+                .init_ctx
+                .daemon_startup_config
+                .hydration
+                .as_ref()
+                .is_some_and(|h| h.allow_multiple_idle_page_outs);
             let tenants = TenantStateRegistry::new(repo).await?;
             Ok(Arc::new(DaemonStateData {
                 tenants,
@@ -1086,16 +1131,12 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 memory_tracker,
                 daemon_id: daemon_id.dupe(),
-                daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
+                daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
                 // `Some` (with thresholds) iff idle page-out is enabled for this
                 // daemon's isolation dir; `None` otherwise.
                 page_out_on_idle,
-                allow_multiple_idle_page_outs: init_ctx
-                    .daemon_startup_config
-                    .hydration
-                    .as_ref()
-                    .is_some_and(|h| h.allow_multiple_idle_page_outs),
+                allow_multiple_idle_page_outs,
             }))
         };
         let daemon_listener_span = tracing::Span::current();
