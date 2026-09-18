@@ -57,7 +57,9 @@ enum MacroError {
     ExpectedSinglePathArgument(Vec<String>),
     #[error("Incorrect number of args to macro `{0}` (had {1} args)")]
     InvalidNumberOfArgs(String, usize),
-    #[error("Unrecognized macro `{0}` (with {1} args)")]
+    #[error(
+        "Unrecognized macro `{0}` (with {1} args). If this is shell command substitution rather than a buck macro, escape it as `\\$({0} ...)`"
+    )]
     UnrecognizedMacro(String, usize),
 }
 
