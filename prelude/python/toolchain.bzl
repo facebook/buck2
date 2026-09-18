@@ -81,8 +81,9 @@ PythonToolchainInfo = provider(
         # must write a Pyre-compatible JSON object containing an `errors` list.
         # Each error must include `code`; `name` and `severity` are optional.
         # Errors that fail validation must also include `path`, `line`, `column`,
-        # and `description`. Diagnostics with code 0, name `unused-ignore`, or
-        # severity `info`, `ignore`, or `warn` do not fail validation.
+        # and `description`. Diagnostics with code 0, name `unused-ignore` or
+        # `unused-type-ignore`, or severity `info`, `ignore`, or `warn` do not
+        # fail validation.
         #
         # The checker must exit successfully whenever it writes valid result
         # JSON, including when that result contains type errors. A nonzero exit

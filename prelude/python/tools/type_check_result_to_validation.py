@@ -44,7 +44,7 @@ def convert_type_check_result(input_path: Path, output_path: Path) -> None:
                 continue
             if (
                 error["code"] == 0
-                or error.get("name") == "unused-ignore"
+                or error.get("name") in ("unused-ignore", "unused-type-ignore")
                 or error.get("severity") in ("info", "ignore", "warn")
             ):
                 continue
