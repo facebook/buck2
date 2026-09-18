@@ -23,6 +23,7 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process_stats::process_stats;
 
 use crate::daemon::server::BuckdServerData;
+use crate::daemon::state::RepoState;
 use crate::jemalloc_stats::get_allocator_stats;
 
 /// In `FlameGraph` nodes do not have names, only child keys.
@@ -107,14 +108,11 @@ fn combined_warnings(
 
 pub(crate) async fn spawn_allocative(
     buckd_server_data: Arc<BuckdServerData>,
+    repo: Arc<RepoState>,
     path: AbsPathBuf,
     dispatcher: EventDispatcher,
 ) -> buck2_error::Result<()> {
-    let materializer = buckd_server_data
-        .daemon_state_data()
-        .sole_repo()
-        .materializer
-        .clone();
+    let materializer = repo.materializer.clone();
     dispatcher.console_message("Visiting deferred materializer...".to_owned());
     let deferred_materializer_profile = materializer.allocative().await?;
 

@@ -18,6 +18,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_build_api::spawner::BuckSpawner;
+use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
@@ -76,6 +77,8 @@ use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_file_watcher::dep_files::create_dep_file_cache;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
@@ -270,6 +273,28 @@ struct RepoStateFactory {
 }
 
 impl RepoStateFactory {
+    async fn create(
+        &self,
+        paths: TenantPaths,
+        shared: DaemonSharedServices<'_>,
+    ) -> buck2_error::Result<Arc<RepoState>> {
+        let buck_out_path = paths.buck_out_path();
+        tokio::fs::create_dir_all(&buck_out_path)
+            .await
+            .tag(ErrorTag::InvalidBuckOut)
+            .buck_error_context("Error creating buck_out_path")?;
+
+        let fs = paths.project_root().clone();
+        let legacy_cells = BuckConfigBasedCells::parse_with_config_args(&fs, &[]).await?;
+        let cells = &legacy_cells.cell_resolver;
+        let root_config = &legacy_cells
+            .parse_single_cell(cells.root_cell(), &fs)
+            .await?;
+
+        self.create_with_loaded_config(paths, &legacy_cells, root_config, shared)
+            .await
+    }
+
     async fn create_with_loaded_config(
         &self,
         paths: TenantPaths,
@@ -705,6 +730,15 @@ impl RepoState {
         Ok(repo)
     }
 
+    pub async fn spawn_dice_dump(
+        &self,
+        path: &Path,
+        format: DiceDumpFormat,
+    ) -> buck2_error::Result<()> {
+        crate::daemon::dice_dump::dice_dump_spawn(self.dice_manager.unsafe_dice(), path, format)
+            .await
+    }
+
     fn create_materializer(
         fs: ProjectRoot,
         digest_config: DigestConfig,
@@ -734,8 +768,8 @@ impl RepoState {
 
 /// Tenant states known to this daemon.
 ///
-/// The registry initially contains the tenant that started the daemon. Commands continue to use
-/// that sole tenant until lifecycle and client-addressing support are added.
+/// The registry initially contains the tenant that started the daemon. Clients without an explicit
+/// tenant identity continue to use that initial tenant for protocol compatibility.
 #[derive(Allocative)]
 struct TenantStateRegistry {
     initial_tenant: TenantKey,
@@ -844,7 +878,11 @@ impl TenantStateRegistry {
             .await
     }
 
-    fn sole_repo(&self) -> &Arc<RepoState> {
+    fn initial_repo(&self) -> Arc<RepoState> {
+        self.initial_state.dupe()
+    }
+
+    fn legacy_repo(&self) -> Option<Arc<RepoState>> {
         let tenants = self
             .tenants
             .lock()
@@ -854,18 +892,29 @@ impl TenantStateRegistry {
                 .get(&self.initial_tenant)
                 .is_some_and(|entry| entry.is_initialized())
         );
-        let tenant_count = tenants
+        let initialized_tenant_count = tenants
             .values()
             .filter(|entry| entry.is_initialized())
             .count();
-        match tenant_count {
-            1 => &self.initial_state,
-            tenant_count => panic!(
-                "sole_repo called with {} tenants in the registry",
-                tenant_count
-            ),
-        }
+        (initialized_tenant_count == 1).then(|| self.initial_state.dupe())
     }
+}
+
+fn tenant_paths_from_client_context(
+    client_context: &ClientContext,
+) -> buck2_error::Result<Option<TenantPaths>> {
+    let Some(identity) = &client_context.tenant_identity else {
+        return Ok(None);
+    };
+
+    let project_root = AbsNormPathBuf::try_from(identity.project_root.clone())
+        .buck_error_context("Invalid tenant project root in client context")?;
+    let isolation = FileNameBuf::try_from(identity.isolation.clone())
+        .buck_error_context("Invalid tenant isolation in client context")?;
+    Ok(Some(TenantPaths::new(
+        ProjectRoot::new_unchecked(project_root),
+        isolation,
+    )))
 }
 
 /// DaemonStateData is the main shared data across all commands and repos. It's lazily initialized
@@ -873,6 +922,7 @@ impl TenantStateRegistry {
 #[derive(Allocative)]
 pub struct DaemonStateData {
     tenants: TenantStateRegistry,
+    repo_state_factory: RepoStateFactory,
 
     /// Daemon-wide scheduling resources for repo-scoped blocking executors.
     pub blocking_executor_factory: Arc<BlockingExecutorFactory>,
@@ -910,35 +960,65 @@ pub struct DaemonStateData {
 }
 
 impl DaemonStateData {
-    /// The repo this daemon serves, on the assumption that there is exactly one.
-    ///
-    /// Command-scoped code should not call this — it should read `BaseServerCommandContext::repo`,
-    /// which is resolved once per command. Every remaining caller is daemon-scoped and will need a
-    /// way to say *which* repo before the daemon can serve more than one, so this is deliberately
-    /// easy to find.
-    pub fn sole_repo(&self) -> &Arc<RepoState> {
-        self.tenants.sole_repo()
+    fn repo_shared_services(&self) -> DaemonSharedServices<'_> {
+        DaemonSharedServices {
+            blocking_executor_factory: &self.blocking_executor_factory,
+            scribe_sink: self.scribe_sink.as_ref(),
+            http_client: &self.http_client,
+            memory_tracker: self.memory_tracker.as_ref(),
+            daemon_id: &self.daemon_id,
+        }
+    }
+
+    /// Select or initialize the repository addressed by a client command.
+    pub async fn repo_for_client_context(
+        &self,
+        client_context: &ClientContext,
+    ) -> buck2_error::Result<Arc<RepoState>> {
+        let Some(paths) = tenant_paths_from_client_context(client_context)? else {
+            return self.repo_for_legacy_client();
+        };
+        let spec = TenantSpec::from_tenant_paths(&paths);
+
+        self.tenants
+            .get_or_create(spec, || {
+                self.repo_state_factory
+                    .create(paths, self.repo_shared_services())
+            })
+            .await
+    }
+
+    /// Select a repository for an RPC added before requests carried a client context.
+    pub async fn repo_for_optional_client_context(
+        &self,
+        client_context: Option<&ClientContext>,
+    ) -> buck2_error::Result<Arc<RepoState>> {
+        match client_context {
+            Some(client_context) => self.repo_for_client_context(client_context).await,
+            None => self.repo_for_legacy_client(),
+        }
+    }
+
+    fn repo_for_legacy_client(&self) -> buck2_error::Result<Arc<RepoState>> {
+        self.tenants.legacy_repo().ok_or_else(|| {
+            buck2_error!(
+                ErrorTag::Input,
+                "Client did not provide a tenant identity after the daemon began serving multiple tenants"
+            )
+        })
+    }
+
+    /// The initial repo for daemon-scoped operations whose protocol has no tenant identity.
+    pub fn initial_repo(&self) -> Arc<RepoState> {
+        self.tenants.initial_repo()
     }
 
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump(
-            self.sole_repo().dice_manager.unsafe_dice(),
+            self.initial_repo().dice_manager.unsafe_dice(),
             path,
             format,
         )
-    }
-
-    pub async fn spawn_dice_dump(
-        &self,
-        path: &Path,
-        format: DiceDumpFormat,
-    ) -> buck2_error::Result<()> {
-        crate::daemon::dice_dump::dice_dump_spawn(
-            self.sole_repo().dice_manager.unsafe_dice(),
-            path,
-            format,
-        )
-        .await
     }
 }
 
@@ -1122,6 +1202,7 @@ impl DaemonState {
             let tenants = TenantStateRegistry::new(repo).await?;
             Ok(Arc::new(DaemonStateData {
                 tenants,
+                repo_state_factory,
                 blocking_executor_factory,
                 forkserver,
                 scribe_sink,
@@ -1396,10 +1477,10 @@ async fn http_client_from_startup_config(
 
 #[cfg(test)]
 mod tests {
-
     use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
 
+    use buck2_cli_proto::TenantIdentity;
     use buck2_common::legacy_configs::configs::testing::parse;
     use buck2_common::settings::BuckSettings;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -1463,6 +1544,65 @@ mod tests {
         assert_eq!(*state, 1);
         assert!(entry.is_initialized());
         Ok(())
+    }
+
+    #[test]
+    fn tenant_paths_from_client_identity() -> buck2_error::Result<()> {
+        let project_root = if cfg!(windows) {
+            "C:\\project"
+        } else {
+            "/project"
+        };
+        let client_context = ClientContext {
+            tenant_identity: Some(TenantIdentity {
+                project_root: project_root.to_owned(),
+                isolation: "v2".to_owned(),
+            }),
+            ..Default::default()
+        };
+
+        let paths = tenant_paths_from_client_context(&client_context)?
+            .expect("the client supplied a tenant identity");
+        assert_eq!(paths.project_root().to_string(), project_root);
+        assert_eq!(paths.isolation().as_str(), "v2");
+        Ok(())
+    }
+
+    #[test]
+    fn missing_client_identity_uses_compatibility_fallback() -> buck2_error::Result<()> {
+        assert!(tenant_paths_from_client_context(&ClientContext::default())?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_client_project_root_is_rejected() {
+        let client_context = ClientContext {
+            tenant_identity: Some(TenantIdentity {
+                project_root: "relative".to_owned(),
+                isolation: "v2".to_owned(),
+            }),
+            ..Default::default()
+        };
+
+        assert!(tenant_paths_from_client_context(&client_context).is_err());
+    }
+
+    #[test]
+    fn invalid_client_isolation_is_rejected() {
+        let project_root = if cfg!(windows) {
+            "C:\\project"
+        } else {
+            "/project"
+        };
+        let client_context = ClientContext {
+            tenant_identity: Some(TenantIdentity {
+                project_root: project_root.to_owned(),
+                isolation: "nested/isolation".to_owned(),
+            }),
+            ..Default::default()
+        };
+
+        assert!(tenant_paths_from_client_context(&client_context).is_err());
     }
 
     #[tokio::test]

@@ -12,6 +12,7 @@ use std::future::Future;
 use std::time::SystemTime;
 
 use buck2_cli_proto::ClientContext;
+use buck2_cli_proto::TenantIdentity;
 use buck2_cli_proto::client_context::ExitWhen as GrpcExitWhen;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
@@ -254,6 +255,11 @@ impl<'a> ClientCommandContext<'a> {
         #[buck2(tag = Input)]
         struct CurrentDirIsNotUtf8;
 
+        let tenant_identity = self.maybe_paths()?.map(|paths| TenantIdentity {
+            project_root: paths.project_root().root().to_string(),
+            isolation: paths.isolation.to_string(),
+        });
+
         Ok(ClientContext {
             working_dir: self
                 .working_dir
@@ -295,6 +301,7 @@ impl<'a> ClientCommandContext<'a> {
                     value: e.value.clone(),
                 })
                 .collect(),
+            tenant_identity,
         })
     }
 

@@ -120,7 +120,6 @@ use crate::daemon::crash::crash;
 use crate::daemon::multi_event_stream::MultiEventStream;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
-use crate::daemon::state::DaemonStateData;
 use crate::file_status::file_status_command;
 use crate::hydration::hydration_command;
 use crate::lsp::run_lsp_server_command;
@@ -351,12 +350,6 @@ pub(crate) struct BuckdServerData {
 #[derive(Allocative)]
 pub struct BuckdServer(Arc<BuckdServerData>);
 
-impl BuckdServerData {
-    pub(crate) fn daemon_state_data(&self) -> Arc<DaemonStateData> {
-        self.daemon_state.data()
-    }
-}
-
 impl BuckdServer {
     #[tracing::instrument(name = "daemon_listener", skip_all)]
     pub async fn run(
@@ -432,7 +425,7 @@ impl BuckdServer {
         );
         let dice = daemon_state
             .data()
-            .sole_repo()
+            .initial_repo()
             .dice_manager
             .unsafe_dice()
             .dupe();
@@ -608,7 +601,7 @@ impl BuckdServer {
         }
 
         let data = daemon_state.data();
-        let repo = data.sole_repo().dupe();
+        let repo = data.repo_for_client_context(client_ctx).await?;
 
         // The total disk space on `buck-out`, effectively fixed for the daemon's life.
         // Captured here alongside `SystemInfo` and handed to this command's
@@ -718,9 +711,13 @@ impl BuckdServer {
 
                         let client_ctx = req.client_context()?;
 
+                        let instrumentation = opts.starlark_profiler_instrumentation_override(
+                            &req,
+                            base_context.repo.paths.project_root(),
+                        )?;
                         let profiling_manager = StarlarkProfilingManager::new(
                             client_ctx.profile_pattern_opts.as_ref(),
-                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            instrumentation,
                             &base_context.events,
                         )?;
 
@@ -1059,6 +1056,7 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
+        _project_root: &ProjectRoot,
     ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
         match self.profile_mode {
             None => Ok(StarlarkProfilerConfiguration::None),
@@ -1138,26 +1136,20 @@ impl DaemonApi for BuckdServer {
         let rt = self.0.rt.clone();
 
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
+            let repo = daemon_state.data().initial_repo();
             let snapshot = if req.snapshot {
                 Some(
-                    snapshot::SnapshotCollector::new(
-                        daemon_state.data(),
-                        daemon_state.data.sole_repo().dupe(),
-                        rt.clone(),
-                    )
-                    .create_snapshot()
-                    .await,
+                    snapshot::SnapshotCollector::new(daemon_state.data(), repo.dupe(), rt.clone())
+                        .create_snapshot()
+                        .await,
                 )
             } else {
                 None
             };
 
             let extra_constraints = buck2_cli_proto::ExtraDaemonConstraints {
-                trace_io_enabled: TracingIoProvider::from_io(&*daemon_state.data().sole_repo().io)
-                    .is_some(),
-                materializer_state_identity: daemon_state
-                    .data()
-                    .sole_repo()
+                trace_io_enabled: TracingIoProvider::from_io(&*repo.io).is_some(),
+                materializer_state_identity: repo
                     .materializer_state_identity
                     .as_ref()
                     .map(|i| i.to_string()),
@@ -1167,11 +1159,9 @@ impl DaemonApi for BuckdServer {
             daemon_constraints.extra = Some(extra_constraints);
 
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
-            let valid_buck_out_mount = daemon_state
-                .validate_buck_out_mount(daemon_state.data().sole_repo())
-                .is_ok();
+            let valid_buck_out_mount = daemon_state.validate_buck_out_mount(&repo).is_ok();
 
-            let io_provider = daemon_state.data().sole_repo().io.name().to_owned();
+            let io_provider = repo.io.name().to_owned();
 
             let uptime = Instant::now() - self.0.start_instant;
 
@@ -1183,13 +1173,8 @@ impl DaemonApi for BuckdServer {
                 uptime: Some(uptime.try_into()?),
                 snapshot,
                 daemon_constraints: Some(daemon_constraints),
-                project_root: daemon_state
-                    .data
-                    .sole_repo()
-                    .paths
-                    .project_root()
-                    .to_string(),
-                isolation_dir: daemon_state.data.sole_repo().paths.isolation().to_string(),
+                project_root: repo.paths.project_root().to_string(),
+                isolation_dir: repo.paths.isolation().to_string(),
                 forkserver_pid: match &daemon_state.data.forkserver {
                     #[cfg(unix)]
                     ForkserverAccess::Client(f) => Some(f.pid()),
@@ -1236,10 +1221,14 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<FlushDepFilesRequest>,
     ) -> Result<Response<CommandResult>, Status> {
-        let repo = self.0.daemon_state.data().sole_repo().dupe();
+        let data = self.0.daemon_state.data();
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
+            let repo = data
+                .repo_for_optional_client_context(req.context.as_ref())
+                .await?;
             let FlushDepFilesRequest {
                 retain_locally_produced_dep_files,
+                context: _,
             } = req;
             if retain_locally_produced_dep_files {
                 repo.dep_file_cache.clear_non_local();
@@ -1595,17 +1584,20 @@ impl DaemonApi for BuckdServer {
         self.check_if_accepting_requests()?;
 
         let inner = req.into_inner();
-        let path = inner.destination_path;
         let res: buck2_error::Result<_> = try {
+            let repo = self
+                .0
+                .daemon_state
+                .data()
+                .repo_for_optional_client_context(inner.context.as_ref())
+                .await?;
+            let path = inner.destination_path;
             let path = Path::new(&path);
             let format_proto =
                 buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::try_from(inner.format)
                     .buck_error_context("Invalid DICE dump format")?;
 
-            self.0
-                .daemon_state
-                .data()
-                .spawn_dice_dump(path, format_proto)
+            repo.spawn_dice_dump(path, format_proto)
                 .await
                 .with_buck_error_context(|| {
                     format!("Failed to perform dice dump to {}", path.display())
@@ -1639,10 +1631,16 @@ impl DaemonApi for BuckdServer {
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
             let dispatcher = dispatcher.with_soft_error_context(soft_error_context);
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
-            (event_source, dispatcher, active_command)
+            let repo = self
+                .0
+                .daemon_state
+                .data()
+                .repo_for_client_context(client_ctx)
+                .await?;
+            (event_source, dispatcher, active_command, repo)
         };
 
-        let (event_source, dispatcher, active_command) = match res {
+        let (event_source, dispatcher, active_command, repo) = match res {
             Ok(v) => v,
             Err(e) => return Ok(error_to_response_stream(e)),
         };
@@ -1665,6 +1663,7 @@ impl DaemonApi for BuckdServer {
                     let result = try {
                         spawn_allocative(
                             this,
+                            repo,
                             AbsPathBuf::try_from(req.output_path)?,
                             dispatcher.dupe(),
                         )
@@ -1686,9 +1685,7 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<ProfileRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
-        struct ProfileCommandOptions {
-            project_root: ProjectRoot,
-        }
+        struct ProfileCommandOptions;
 
         impl OneshotCommandOptions for ProfileCommandOptions {}
 
@@ -1696,23 +1693,15 @@ impl DaemonApi for BuckdServer {
             fn starlark_profiler_instrumentation_override(
                 &self,
                 req: &ProfileRequest,
+                project_root: &ProjectRoot,
             ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
-                starlark_profiler_configuration_from_request(req, &self.project_root)
+                starlark_profiler_configuration_from_request(req, project_root)
             }
         }
 
         self.run_streaming(
             req,
-            ProfileCommandOptions {
-                project_root: self
-                    .0
-                    .daemon_state
-                    .data
-                    .sole_repo()
-                    .paths
-                    .project_root()
-                    .dupe(),
-            },
+            ProfileCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
                     match req.profile_opts.as_ref().expect("Missing profile opts") {
@@ -1878,6 +1867,7 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
+        _project_root: &ProjectRoot,
     ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
         Ok(StarlarkProfilerConfiguration::None)
     }

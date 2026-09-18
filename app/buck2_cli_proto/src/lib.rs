@@ -318,6 +318,8 @@ define_request!(KillRequest);
 define_request!(StatusRequest);
 define_request!(PingRequest);
 define_request!(HydrationRequest, has(context));
+define_request!(UnstableDiceDumpRequest, has(context));
+define_request!(FlushDepFilesRequest, has(context));
 
 define_request!(BuildRequest, has(context, build_options));
 define_request!(BxlRequest, has(context, build_options));

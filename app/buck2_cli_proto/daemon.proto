@@ -119,6 +119,13 @@ message RepresentativeConfigFlag {
   }
 }
 
+message TenantIdentity {
+  // Absolute normalized path to the repository root.
+  string project_root = 1;
+  // Name of the isolation directory within the repository.
+  string isolation = 2;
+}
+
 message ClientContext {
   reserved 5, 21;
   // `AbsNormPath`.
@@ -194,6 +201,9 @@ message ClientContext {
 
   // Agent context key=value pairs passed via --agent-context.
   repeated buck.data.AgentContextEntry agent_context = 27;
+
+  // Stable address of the repository state selected by this client.
+  optional TenantIdentity tenant_identity = 28;
 }
 
 message TargetsRequest {
@@ -853,6 +863,7 @@ message UnstableDiceDumpRequest {
   string destination_path = 1;
   // Which format the dumpfile should be in.
   DiceDumpFormat format = 2;
+  ClientContext context = 3;
 }
 
 message UnstableDiceDumpResponse {}
@@ -978,6 +989,7 @@ message FileStatusRequest {
 
 message FlushDepFilesRequest {
   bool retain_locally_produced_dep_files = 1;
+  ClientContext context = 2;
 }
 
 enum HydrationSubcommand {

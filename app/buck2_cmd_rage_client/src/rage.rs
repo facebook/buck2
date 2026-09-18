@@ -167,6 +167,7 @@ impl RageCommand {
             crate::dice::upload_dice_dump(
                 buckd.clone().await?,
                 dice_dump_dir,
+                &client_ctx,
                 &manifold,
                 &manifold_id,
             )

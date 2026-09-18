@@ -10,6 +10,7 @@
 
 use std::path::Path;
 
+use buck2_cli_proto::ClientContext;
 use buck2_cli_proto::UnstableDiceDumpRequest;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -29,6 +30,7 @@ use crate::manifold::manifold_leads;
 pub async fn upload_dice_dump(
     buckd: BootstrapBuckdClient,
     buck_out_dice: AbsNormPathBuf,
+    client_ctx: &ClientContext,
     manifold: &ManifoldClient,
     manifold_id: &String,
 ) -> buck2_error::Result<String> {
@@ -43,6 +45,7 @@ pub async fn upload_dice_dump(
         .upload(
             buckd,
             &mut events_ctx,
+            client_ctx,
             manifold,
             manifold_bucket,
             &manifold_filename,
@@ -71,6 +74,7 @@ impl DiceDump {
         &self,
         mut buckd: BuckdClientConnector,
         events_ctx: &mut EventsCtx,
+        client_ctx: &ClientContext,
         manifold: &ManifoldClient,
         manifold_bucket: Bucket,
         manifold_filename: &str,
@@ -88,6 +92,7 @@ impl DiceDump {
                 UnstableDiceDumpRequest {
                     destination_path: self.dump_folder.to_str().unwrap().to_owned(),
                     format: DiceDumpFormat::Tsv.into(),
+                    context: Some(client_ctx.clone()),
                 },
                 events_ctx,
             )
