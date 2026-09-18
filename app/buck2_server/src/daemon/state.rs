@@ -160,6 +160,10 @@ pub struct RepoState {
     /// it needs to be downloaded again).
     pub use_network_action_output_cache: bool,
 
+    /// Whether a command selecting this repo should ask the client to restart the daemon after an
+    /// error.
+    pub restart_daemon_on_error: bool,
+
     /// What buck2 state to store on disk, ex. materializer state on sqlite
     pub disk_state_options: DiskStateOptions,
 
@@ -577,6 +581,13 @@ impl RepoState {
             io,
             materializer,
             use_network_action_output_cache,
+            restart_daemon_on_error: root_config
+                .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "restarter",
+                })?
+                .unwrap_or_else(RolloutPercentage::never)
+                .roll(),
             disk_state_options,
             create_unhashed_outputs_lock: Arc::new(Mutex::new(())),
             materializer_state_identity,
@@ -712,10 +723,6 @@ pub struct DaemonStateData {
     pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
 
     pub start_time: Instant,
-
-    /// Whether to enable the restarter. This controls whether the client will attempt to restart
-    /// the daemon when we hit an error.
-    pub enable_restarter: bool,
 
     /// Http client used for materializer and RunAction implementations.
     pub http_client: HttpClient,
@@ -935,14 +942,6 @@ impl DaemonState {
             )
             .await?;
 
-            let enable_restarter = root_config
-                .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "restarter",
-                })?
-                .unwrap_or_else(RolloutPercentage::never)
-                .roll();
-
             let repo = RepoState::create_initial(RepoStateInit {
                 fb,
                 paths,
@@ -972,7 +971,6 @@ impl DaemonState {
                 forkserver,
                 scribe_sink,
                 start_time: std::time::Instant::now(),
-                enable_restarter,
                 http_client,
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 memory_tracker,
@@ -1040,7 +1038,7 @@ impl DaemonState {
         let data = self.data();
 
         dispatcher.instant_event(buck2_data::RestartConfiguration {
-            enable_restarter: data.enable_restarter,
+            enable_restarter: repo.restart_daemon_on_error,
         });
 
         tag_result!(
