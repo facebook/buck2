@@ -16,7 +16,6 @@ import time
 from datetime import datetime, timedelta, UTC
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_hashes
 from buck2.tests.e2e_util.helper.utils import expect_exec_count, replace_in_file
@@ -340,10 +339,9 @@ clean_stale_period_hours = 0.0001
         """,
     )
 
-    await expect_failure(
-        buck.build("root//:slow_write", "--no-remote-cache"),
-        stderr_regex="slow_action_output: No such file or directory",
-    )
+    result = await buck.build("root//:slow_write", "--no-remote-cache")
+    output = result.get_build_report().output_for_target("root//:slow_write")
+    assert output.read_text().strip() == "finished"
 
 
 @buck_test(skip_for_os=["windows"])

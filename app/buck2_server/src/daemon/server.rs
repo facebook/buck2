@@ -676,6 +676,11 @@ impl BuckdServer {
             daemon_shutdown_channel,
             move |req, cancellations| {
                 async move {
+                    let _background_cleanup_guard = if opts.prevents_background_cleanup() {
+                        Some(repo.materializer.prevent_background_cleanup().await)
+                    } else {
+                        None
+                    };
                     let result: buck2_error::Result<Res> = try {
                         let base_context = daemon_state
                             .prepare_command(repo, dispatch.dupe(), guard)
@@ -1728,7 +1733,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<Self::LspStream>, Status> {
         self.run_bidirectional(
             req,
-            DefaultCommandOptions,
+            LspCommandOptions,
             |ctx,
              partial_result_dispatcher,
              _client_ctx,
@@ -1764,7 +1769,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<Self::DapStream>, Status> {
         self.run_bidirectional(
             req,
-            DefaultCommandOptions,
+            DapCommandOptions,
             |ctx,
              partial_result_dispatcher,
              _client_ctx,
@@ -1847,6 +1852,12 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     /// read-only / non-graph commands (see `NonPagingCommandOptions`,
     /// `HydrationCommandOptions`), which neither cancel nor trigger.
     fn triggers_idle_page_out(&self) -> bool {
+        true
+    }
+
+    /// Whether background materializer cleanup must stop while this command runs,
+    /// so that it cannot delete materialized outputs from under it.
+    fn prevents_background_cleanup(&self) -> bool {
         true
     }
 }
@@ -2085,13 +2096,42 @@ impl<Req> StreamingCommandOptions<Req> for HydrationCommandOptions {
 
 /// Options for commands that reach the daemon but do no DICE graph work —
 /// `debug trace-io`, `debug file-status`, and `subscribe`. They don't contend
-/// with a background idle page-out, so starting one leaves it running.
+/// with a background idle page-out or need materialized outputs, so starting one
+/// leaves background cleanup running.
 struct NonPagingCommandOptions;
 
 impl OneshotCommandOptions for NonPagingCommandOptions {}
 
 impl<Req> StreamingCommandOptions<Req> for NonPagingCommandOptions {
     fn triggers_idle_page_out(&self) -> bool {
+        false
+    }
+
+    fn prevents_background_cleanup(&self) -> bool {
+        false
+    }
+}
+
+/// Options for `lsp`. Its stream stays open for as long as the IDE client lives, so
+/// holding off background cleanup would suppress scheduled clean-stale for a whole
+/// IDE session rather than for the duration of a build.
+struct LspCommandOptions;
+
+impl OneshotCommandOptions for LspCommandOptions {}
+
+impl<Req> StreamingCommandOptions<Req> for LspCommandOptions {
+    fn prevents_background_cleanup(&self) -> bool {
+        false
+    }
+}
+
+/// Options for `dap`, long lived in the same way as `lsp` (see `LspCommandOptions`).
+struct DapCommandOptions;
+
+impl OneshotCommandOptions for DapCommandOptions {}
+
+impl<Req> StreamingCommandOptions<Req> for DapCommandOptions {
+    fn prevents_background_cleanup(&self) -> bool {
         false
     }
 }
