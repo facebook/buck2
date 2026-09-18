@@ -139,6 +139,8 @@ impl CommandEvents for DispatcherEvents {
 
 /// Emits the buckconfig-derived telemetry for a command: the comparison against the previous
 /// command's config, the experiment tags, and the config values themselves.
+/// Concurrent equivalent-state commands update previous-command telemetry in observer completion
+/// order, so the stored UUID is a comparison anchor rather than a strict admission predecessor.
 struct BuckconfigTelemetry<'a> {
     events: EventDispatcher,
     project_root: &'a ProjectRoot,

@@ -314,12 +314,12 @@ pub trait DiceUpdater: Send + Sync {
 }
 
 /// Per-command work that needs the committed `DiceTransaction` but is not part of deciding whether
-/// the command may run. Returning `Err` fails the command.
+/// the command may run.
 ///
-/// This is invoked while the concurrency lock is held, immediately after the transaction is
-/// committed and before the command is registered as active. Implementations that compare against
-/// state shared between commands rely on that ordering, so moving the call is a behavioural change,
-/// not a refactor.
+/// The command is registered before this is invoked, and the concurrency lock is not held. Calls
+/// for DICE-equivalent transactions may overlap and have no ordering guarantee, so implementations
+/// must synchronize their own shared state. A different-state transaction is not admitted until
+/// registered commands finish. Returning `Err` deregisters the command and wakes waiters.
 #[async_trait]
 pub trait CommandTransactionObserver: Send + Sync {
     async fn on_transaction_committed(
@@ -853,14 +853,15 @@ impl ConcurrencyHandler {
             data.previously_tainted = true;
         }
 
+        drop(queued);
+        // Registration consumes the guard and releases the state lock. Its drop path also handles
+        // observer failures.
+        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
+
+        // The observer may perform blocking config parsing, so run it after releasing the lock.
         transaction_observer
             .on_transaction_committed(&transaction)
             .await?;
-
-        drop(queued);
-        // create the on exit drop handler, which will take care of notifying tasks.
-        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
-        // This adds the task to the list of all tasks (see ::new impl)
 
         Ok((drop_guard, transaction, preempt_receiver))
     }
@@ -1238,6 +1239,28 @@ mod tests {
             _transaction: &DiceTransaction,
         ) -> buck2_error::Result<()> {
             Err(internal_error!("observer failed"))
+        }
+    }
+
+    /// Signals entry into `on_transaction_committed`, then blocks until released.
+    struct BlockingObserver {
+        entered: Arc<Barrier>,
+        release: Arc<Barrier>,
+        fail: bool,
+    }
+
+    #[async_trait]
+    impl CommandTransactionObserver for BlockingObserver {
+        async fn on_transaction_committed(
+            &self,
+            _transaction: &DiceTransaction,
+        ) -> buck2_error::Result<()> {
+            self.entered.wait().await;
+            self.release.wait().await;
+            if self.fail {
+                return Err(internal_error!("observer failed"));
+            }
+            Ok(())
         }
     }
 
@@ -2603,10 +2626,160 @@ mod tests {
         Ok(())
     }
 
-    /// A failing `CommandTransactionObserver` fails after the transaction is committed and
-    /// `dice_status` has been set, but before the command registers. That leaves an active DICE
-    /// version with no active commands — a state the handler must recover from, since nothing
-    /// notifies waiters on this path.
+    /// A slow observer runs after registration without holding the state lock.
+    #[tokio::test]
+    async fn a_slow_observer_runs_after_registration_without_the_state_lock()
+    -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        let observer = Arc::new(BlockingObserver {
+            entered: entered.dupe(),
+            release: release.dupe(),
+            fail: false,
+        });
+        let exec_ran = Arc::new(AtomicBool::new(false));
+
+        let command = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let observer = observer.dupe();
+            let exec_ran = exec_ran.dupe();
+            async move {
+                TestCommand::new()
+                    .run_with_observer(
+                        &concurrency,
+                        &NoChanges,
+                        observer.as_ref(),
+                        move |_, _timing| async move {
+                            exec_ran.store(true, Ordering::SeqCst);
+                        },
+                    )
+                    .await
+            }
+        });
+
+        tokio::time::timeout(Duration::from_secs(10), entered.wait())
+            .await
+            .buck_error_context("the observer was never reached")?;
+
+        let data = concurrency
+            .data
+            .try_lock()
+            .expect("the observer is running with the state lock held");
+        assert_eq!(
+            data.active_commands.len(),
+            1,
+            "the command must register before its observer runs"
+        );
+        assert!(
+            !exec_ran.load(Ordering::SeqCst),
+            "command execution started before its observer completed"
+        );
+        drop(data);
+
+        release.wait().await;
+        let joined = tokio::time::timeout(Duration::from_secs(10), command)
+            .await
+            .buck_error_context("the command did not finish")?;
+        joined??;
+        assert!(exec_ran.load(Ordering::SeqCst));
+
+        Ok(())
+    }
+
+    /// Observer failure must wake a command waiting for a different state.
+    #[tokio::test]
+    async fn a_failing_observer_wakes_a_different_state_waiter() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        let observer = Arc::new(BlockingObserver {
+            entered: entered.dupe(),
+            release: release.dupe(),
+            fail: true,
+        });
+        let failed_exec_ran = Arc::new(AtomicBool::new(false));
+
+        let first = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let observer = observer.dupe();
+            let failed_exec_ran = failed_exec_ran.dupe();
+            async move {
+                TestCommand::new()
+                    .run_with_observer(
+                        &concurrency,
+                        &NoChanges,
+                        observer.as_ref(),
+                        move |_, _timing| async move {
+                            failed_exec_ran.store(true, Ordering::SeqCst);
+                        },
+                    )
+                    .await
+            }
+        });
+
+        tokio::time::timeout(Duration::from_secs(10), entered.wait())
+            .await
+            .buck_error_context("the observer was never reached")?;
+
+        let waiter_events = TestEvents::new();
+        let waiter_ran = Arc::new(AtomicBool::new(false));
+        let waiter = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let waiter_events = waiter_events.dupe();
+            let waiter_ran = waiter_ran.dupe();
+            async move {
+                TestCommand::new()
+                    .dispatcher(waiter_events)
+                    .run(&concurrency, &CtxDifferent, move |_, _timing| async move {
+                        waiter_ran.store(true, Ordering::SeqCst);
+                    })
+                    .await
+            }
+        });
+
+        waiter_events
+            .wait_for(|event| {
+                matches!(
+                    event,
+                    RecordedEvent::SpanStart(
+                        buck2_data::span_start_event::Data::DiceBlockConcurrentCommand(..)
+                    )
+                )
+            })
+            .await?;
+        assert!(
+            !waiter_ran.load(Ordering::SeqCst),
+            "the different-state command ran while the observer was active"
+        );
+
+        release.wait().await;
+
+        let joined = tokio::time::timeout(Duration::from_secs(10), first)
+            .await
+            .buck_error_context("the failing command did not finish")?;
+        let failed = joined?;
+        assert!(failed.is_err(), "the observer failure was not returned");
+        assert!(
+            !failed_exec_ran.load(Ordering::SeqCst),
+            "command execution ran after its observer failed"
+        );
+
+        let joined = tokio::time::timeout(Duration::from_secs(10), waiter)
+            .await
+            .buck_error_context("the different-state waiter was not woken")?;
+        joined??;
+        assert!(waiter_ran.load(Ordering::SeqCst));
+
+        wait_for_commands_to_be_reaped(&concurrency).await?;
+        assert!(concurrency.data.lock().await.has_no_active_commands());
+
+        Ok(())
+    }
+
+    /// A failing observer must deregister its already-registered command.
     #[tokio::test]
     async fn a_failing_observer_leaves_the_handler_usable() -> buck2_error::Result<()> {
         let concurrency = ConcurrencyHandler::new(make_default_dice());
@@ -2624,11 +2797,13 @@ mod tests {
             "the command should surface the observer failure"
         );
 
+        // Asynchronous, because the failed command did register and is removed by its guard.
+        wait_for_commands_to_be_reaped(&concurrency).await?;
         {
             let data = concurrency.data.lock().await;
             assert!(
                 data.has_no_active_commands(),
-                "a command that failed before registering must not be left active"
+                "a command that failed after registering must still be reaped"
             );
         }
 
