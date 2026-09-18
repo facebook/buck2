@@ -260,6 +260,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             linked_object = rust_link_shared(
                 ctx,
                 compile_ctx,
+                # Unlike `cxx_library`, `link_style` is not consulted here: the deps of a Rust DSO
+                # always use the shared link strategy.
                 dep_link_style = LinkStrategy("shared"),
                 static_lib = link_infos[LibOutputStyle("pic_archive")].default,
             )
