@@ -76,6 +76,28 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtFile
 
+fun errorTypedApiPositions(
+    isProperty: Boolean,
+    returnTypeHasError: Boolean,
+    propertyTypeHasError: Boolean,
+    receiverHasError: Boolean,
+    contextParameterErrors: List<Boolean>,
+    valueParameterErrors: List<Boolean>,
+): List<String> = buildList {
+  if (isProperty) {
+    if (propertyTypeHasError) add("property type")
+  } else if (returnTypeHasError) {
+    add("return type")
+  }
+  if (receiverHasError) add("receiver")
+  contextParameterErrors.forEachIndexed { index, hasError ->
+    if (hasError) add("context parameter $index")
+  }
+  valueParameterErrors.forEachIndexed { index, hasError ->
+    if (hasError) add("parameter $index")
+  }
+}
+
 /**
  * FIR metadata sanitization stage.
  *
@@ -136,20 +158,19 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
 
           override fun visitSimpleFunction(declaration: IrSimpleFunction) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
-            replaceErrorReturnTypeWithAny(declaration, session)
-            replaceErrorValueParameterTypesWithAny(declaration, session)
+            degradeErrorTypedMetadataSource(declaration, session)
             super.visitSimpleFunction(declaration)
           }
 
           override fun visitProperty(declaration: IrProperty) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
-            replaceErrorReturnTypeWithAny(declaration, session)
+            degradeErrorTypedMetadataSource(declaration, session)
             super.visitProperty(declaration)
           }
 
           override fun visitConstructor(declaration: IrConstructor) {
             stripThrowsAndErrorAnnotationsFromDeclaration(declaration)
-            replaceErrorValueParameterTypesWithAny(declaration, session)
+            degradeErrorTypedMetadataSource(declaration, session)
             super.visitConstructor(declaration)
           }
 
@@ -192,11 +213,14 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             // make the ABI lie to anyone. This covers the common
             // `private object Utils { fun get() = Dep.somethingUnresolvable() }` shape, where the
             // member's own visibility is public but the enclosing object is private.
-            val classIsNonApi = isClassPrivate(firClass.symbol)
+            val classIsNonApi = isClassEffectivelyPrivate(declaration)
 
             firClass.symbol.declarationSymbols.forEach { symbol ->
               val decl = (symbol as? FirCallableSymbol<*>)?.fir ?: return@forEach
-              if (!classIsNonApi && !isNonApiVisibility(decl)) return@forEach
+              if (!classIsNonApi && !isNonApiVisibility(decl)) {
+                recordErrorTypedApiMember(firClass.symbol.classId.asString(), decl)
+                return@forEach
+              }
               // The metadata serializer collects functions/constructors from the class member
               // SCOPE, which references these same symbols' FIR. An error type in any position the
               // serializer reads — the return type, a value parameter (e.g. a parameter typed by a
@@ -208,16 +232,21 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             }
 
             // Belt-and-suspenders: also cover anything present only in firClass.declarations.
+            // Mirror the symbol loop's asymmetry - degrade non-API members, record API ones - so an
+            // error-typed API member reachable only via this path is not silently missed by
+            // Assertion 5. recordErrorTypedApiMember de-duplicates, so members served from both
+            // paths are recorded once.
             firClass.declarations.forEach { decl ->
-              if (decl is FirCallableDeclaration && (classIsNonApi || isNonApiVisibility(decl))) {
-                degradeErrorTypedPositions(decl, session)
+              if (decl !is FirCallableDeclaration) return@forEach
+              if (!classIsNonApi && !isNonApiVisibility(decl)) {
+                recordErrorTypedApiMember(firClass.symbol.classId.asString(), decl)
+                return@forEach
               }
+              degradeErrorTypedPositions(decl, session)
             }
           }
 
-          // Same degradation as stripErrorTypedPrivateMembersFromDeclaration, for non-API members
-          // the class-scoped pass does not reach: top-level (file-facade) and companion members.
-          private fun replaceErrorReturnTypeWithAny(
+          private fun degradeErrorTypedMetadataSource(
               declaration: IrDeclarationBase,
               session: FirSession,
           ) {
@@ -225,29 +254,7 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
             val fir = firMetadataSource.fir as? FirCallableDeclaration ?: return
             if (!isNonApiVisibility(fir)) return
-            if (!hasErrorReturnType(fir)) return
-            runCatching { fir.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
-          }
-
-          // For a non-API function/constructor with a value parameter whose type resolved to an
-          // error type in source-only ABI, replace that parameter type with `Any?` so
-          // FirElementSerializer can serialize it instead of crashing in valueParameterProto with
-          // "Cannot serialize error type". In source-only ABI a parameter typed by a symbol absent
-          // from a stubbed dependency (e.g. a nested enum like `CdsNavigationBar.Action`) resolves
-          // to an error type. Mirrors replaceErrorReturnTypeWithAny for parameters.
-          private fun replaceErrorValueParameterTypesWithAny(
-              declaration: IrDeclarationBase,
-              session: FirSession,
-          ) {
-            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
-            val firMetadataSource = metadataSourceOwner.metadata as? FirMetadataSource ?: return
-            val fir = firMetadataSource.fir as? FirFunction ?: return
-            if (!isNonApiVisibility(fir)) return
-            fir.valueParameters.forEach { param ->
-              if (hasErrorReturnType(param)) {
-                runCatching { param.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
-              }
-            }
+            degradeErrorTypedPositions(fir, session)
           }
 
           // The file facade's @Metadata is serialized by FirElementSerializer.packagePartProto,
@@ -258,8 +265,11 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
           private fun degradeErrorTypedFileMemberTypes(declaration: IrFile) {
             val firFile = (declaration.metadata as? FirMetadataSource)?.fir as? FirFile ?: return
             firFile.declarations.forEach { decl ->
-              if (decl is FirCallableDeclaration && isNonApiVisibility(decl)) {
+              if (decl !is FirCallableDeclaration) return@forEach
+              if (isNonApiVisibility(decl)) {
                 degradeErrorTypedPositions(decl, session)
+              } else {
+                recordErrorTypedApiMember(decl.symbol.callableId.packageName.asString(), decl)
               }
             }
           }
@@ -273,26 +283,49 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
               decl: FirCallableDeclaration,
               session: FirSession,
           ) {
+            decl.receiverParameter?.let { receiver ->
+              if (
+                  runCatching { receiver.typeRef.coneType.containsErrorType() }.getOrDefault(true)
+              ) {
+                runCatching { receiver.replaceTypeRef(session.builtinTypes.nullableAnyType) }
+                    .onFailure { failure ->
+                      repairLog.recordFailedRepair(
+                          decl.symbol.callableId.toString(),
+                          "could not degrade unresolved receiver: " +
+                              "${failure.javaClass.simpleName}: ${failure.message}",
+                      )
+                    }
+              }
+            }
+            decl.contextParameters.forEachIndexed { index, parameter ->
+              if (hasErrorReturnType(parameter)) {
+                runCatching {
+                  parameter.replaceReturnTypeRef(session.builtinTypes.nullableAnyType)
+                }
+                    .onFailure { failure ->
+                      repairLog.recordFailedRepair(
+                          decl.symbol.callableId.toString(),
+                          "could not degrade unresolved context parameter $index: " +
+                              "${failure.javaClass.simpleName}: ${failure.message}",
+                      )
+                    }
+              }
+            }
+
             if (decl is FirProperty) {
-              // The property type, its getter return type, its setter's value parameter and its
-              // backing field all describe the SAME type, so they are degraded together: degrading
-              // them independently could leave metadata claiming `returnType = Foo` alongside
-              // `setterValueParameter = Any?`, a signature the bytecode does not have. The setter's
-              // own return type is Unit and is deliberately left alone. Of these, only the property
-              // type and the setter value parameter are known to be serialized today; the getter
-              // and backing field are included defensively.
-              val sameTypePositions =
+              // The property declaration, getter return and setter value parameter describe the
+              // same JVM property type and must be degraded together. A delegated property's
+              // backing field has the delegate type instead, so handle it independently.
+              val accessorTypePositions =
                   buildList<FirCallableDeclaration> {
                     add(decl)
                     decl.getter?.let { add(it) }
                     decl.setter?.let { addAll(it.valueParameters) }
-                    decl.backingField?.let { add(it) }
                   }
-              if (sameTypePositions.any { hasErrorReturnType(it) }) {
-                sameTypePositions.forEach {
-                  runCatching { it.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
-                }
+              if (accessorTypePositions.any { hasErrorReturnType(it) }) {
+                accessorTypePositions.forEach { replaceReturnTypeWithAny(it, session) }
               }
+              decl.backingField?.let { degradeReturnTypeIfError(it, session) }
               return
             }
             // A function's return type and each of its value parameters are independent, so they
@@ -308,7 +341,21 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
               session: FirSession,
           ) {
             if (!hasErrorReturnType(decl)) return
+            replaceReturnTypeWithAny(decl, session)
+          }
+
+          private fun replaceReturnTypeWithAny(
+              decl: FirCallableDeclaration,
+              session: FirSession,
+          ) {
             runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+                .onFailure { failure ->
+                  repairLog.recordFailedRepair(
+                      decl.symbol.callableId.toString(),
+                      "could not degrade unresolved type: " +
+                          "${failure.javaClass.simpleName}: ${failure.message}",
+                  )
+                }
           }
 
           // --- @Throws stripping helpers ---
@@ -705,6 +752,22 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             }
           }
 
+          private fun isClassEffectivelyPrivate(irClass: IrClass): Boolean {
+            var current: IrClass? = irClass
+            while (current != null) {
+              if (
+                  current.visibility ==
+                      org.jetbrains.kotlin.descriptors.DescriptorVisibilities.PRIVATE ||
+                      current.visibility ==
+                          org.jetbrains.kotlin.descriptors.DescriptorVisibilities.LOCAL
+              ) {
+                return true
+              }
+              current = current.parent as? IrClass
+            }
+            return false
+          }
+
           private fun isClassPrivate(classSymbol: FirClassSymbol<*>): Boolean {
             val visibility = classSymbol.resolvedStatus.visibility
             return visibility == Visibilities.Private || visibility == Visibilities.Local
@@ -795,6 +858,49 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
   }
 
   // --- FIR tree sanitizing visitor for cleanupFirTree ---
+
+  // An API member with an unresolved type reaches the descriptor as `error/NonExistentClass`,
+  // which no consumer can link against. Degrading it would only move the lie from the descriptor
+  // into the metadata, so it is recorded for ValidationStage to report instead.
+  @OptIn(SymbolInternals::class)
+  private fun recordErrorTypedApiMember(owner: String, decl: FirCallableDeclaration) {
+    val member = runCatching {
+      decl.symbol.callableId.callableName.asString()
+    }
+        .getOrDefault("<unknown>")
+
+    val isProperty = decl is FirProperty
+    val propertyTypeHasError =
+        if (decl is FirProperty) {
+          // A property's declaration, getter return type and setter value parameter describe the
+          // same JVM type. The backing field is deliberately excluded: for a delegated property
+          // it has the delegate type and is stripped before consumer ABI emission.
+          buildList<FirCallableDeclaration> {
+                add(decl)
+                decl.getter?.let { add(it) }
+                decl.setter?.let { addAll(it.valueParameters) }
+              }
+              .any { hasErrorReturnType(it) }
+        } else {
+          false
+        }
+    val positions = errorTypedApiPositions(
+        isProperty = isProperty,
+        returnTypeHasError = !isProperty && hasErrorReturnType(decl),
+        propertyTypeHasError = propertyTypeHasError,
+        receiverHasError =
+            decl.receiverParameter?.let { receiver ->
+              runCatching { receiver.typeRef.coneType.containsErrorType() }.getOrDefault(true)
+            } ?: false,
+        contextParameterErrors = decl.contextParameters.map(::hasErrorReturnType),
+        valueParameterErrors =
+            if (decl is FirFunction) decl.valueParameters.map(::hasErrorReturnType)
+            else emptyList(),
+    )
+    positions.forEach { where ->
+      repairLog.recordErrorTypedApiMember(decl, owner, member, where)
+    }
+  }
 
   // A type ref left in an unresolved/inconsistent state after failed inference can throw on
   // coneType access; treat that as an error too.
@@ -900,6 +1006,13 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
             decl is FirCallableDeclaration && isNonApiVisibility(decl) && hasErrorReturnType(decl)
         ) {
           runCatching { decl.replaceReturnTypeRef(session.builtinTypes.nullableAnyType) }
+              .onFailure { failure ->
+                repairLog.recordFailedRepair(
+                    decl.symbol.callableId.toString(),
+                    "could not degrade unresolved pre-IR return type: " +
+                        "${failure.javaClass.simpleName}: ${failure.message}",
+                )
+              }
         }
       }
     }
@@ -1223,6 +1336,20 @@ internal class ValidationStage(private val repairLog: AbiGenRepairLog) : AbiGenS
       messageCollector.report(
           severity,
           "Kosabi ABI validation: dangling private supertype survived stripping: $leaked",
+      )
+    }
+
+    // Assertion 5: no consumer-visible member reached the descriptor with an unresolved type. A
+    // non-API member in that state is degraded to `Any?`; an API member cannot be, so it ships as
+    // `Lerror/NonExistentClass;` and no consumer can link against it.
+    for (m in repairLog.errorTypedApiMembers) {
+      messageCollector.report(
+          severity,
+          "Kosabi ABI validation: `${m.owner}.${m.member}` has an unresolved ${m.where}, so its " +
+              "descriptor was emitted with `error/NonExistentClass` and no consumer can link " +
+              "against it. The referenced type is not on the source-only ABI classpath. Add the " +
+              "target that provides it to this target's `source_only_abi_deps`, or declare that " +
+              "target `required_for_source_only_abi = True`.",
       )
     }
   }

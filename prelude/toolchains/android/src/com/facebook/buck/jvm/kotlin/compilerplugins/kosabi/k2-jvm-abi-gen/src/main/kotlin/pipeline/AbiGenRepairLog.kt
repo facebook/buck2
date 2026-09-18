@@ -12,6 +12,8 @@
 
 package com.facebook
 
+import java.util.IdentityHashMap
+
 /**
  * How the ABI generator reacts when it has to emit content it knows is not faithful to the real
  * declaration.
@@ -87,6 +89,16 @@ data class DiscardedInitializer(
 )
 
 /**
+ * A consumer-visible member whose signature did not resolve, so the emitted descriptor carries
+ * `error/NonExistentClass` in the slot named by [where].
+ *
+ * A non-API member in this state is degraded to `Any?`; an API member cannot be, because the
+ * descriptor IS the ABI. The only honest outcomes are to fail or to ship a stub no consumer can
+ * link against.
+ */
+data class ErrorTypedApiMember(val owner: String, val member: String, val where: String)
+
+/**
  * Record of every place the ABI generator knowingly emitted something other than what the source
  * says, plus every place a best-effort repair failed outright.
  *
@@ -108,6 +120,24 @@ class AbiGenRepairLog {
    * whatever state the failure left it in. Previously these were swallowed by empty catch blocks.
    */
   val failedRepairs: MutableList<DiscardedInitializer> = mutableListOf()
+
+  private val errorTypedApiPositionsByDeclaration: IdentityHashMap<Any, MutableSet<String>> =
+      IdentityHashMap()
+
+  val errorTypedApiMembers: MutableList<ErrorTypedApiMember> = mutableListOf()
+
+  fun recordErrorTypedApiMember(
+      declarationIdentity: Any,
+      owner: String,
+      member: String,
+      where: String,
+  ) {
+    val positions =
+        errorTypedApiPositionsByDeclaration.getOrPut(declarationIdentity) { mutableSetOf() }
+    if (positions.add(where)) {
+      errorTypedApiMembers.add(ErrorTypedApiMember(owner, member, where))
+    }
+  }
 
   fun recordFabricatedConstant(constant: FabricatedConstant) {
     fabricatedConstants.add(constant)
@@ -136,6 +166,13 @@ class AbiGenRepairLog {
     failedRepairs.add(DiscardedInitializer(owner, detail))
   }
 
+  /**
+   * Count of repairs the generator actually performed. [errorTypedApiMembers] and [failedRepairs]
+   * are deliberately excluded: neither is a repair. An error-typed API member is left untouched by
+   * design (degrading it would move the lie from the descriptor into the metadata), and a failed
+   * repair is one that threw. Both are unresolved defects that [ValidationStage] reports on their
+   * own; do not fold them in here.
+   */
   val totalRepairs: Int
     get() =
         fabricatedConstants.size +
@@ -159,5 +196,6 @@ class AbiGenRepairLog {
           " cleared_property_initializers=${clearedPropertyInitializers.size}" +
           " replaced_field_initializers=${replacedFieldInitializers.size}" +
           " stripped_supertypes=${strippedSupertypes.size}" +
+          " error_typed_api_members=${errorTypedApiMembers.size}" +
           " failed_repairs=${failedRepairs.size}"
 }
