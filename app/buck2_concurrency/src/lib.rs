@@ -124,6 +124,8 @@ pub struct ConcurrencyHandler {
     /// Source of `CommandId`s. Deliberately outside `data` so that a command has an identity
     /// before it competes for the lock.
     next_command_id: AtomicUsize,
+    /// Commands waiting for admission. The separate mutex allows synchronous `Drop` cleanup.
+    queued_commands: Arc<parking_lot::Mutex<SmallMap<CommandId, TraceId>>>,
     /// Serializes updates independently of the state lock. It becomes authoritative when the next
     /// diff moves updates outside that lock.
     #[allocative(skip)]
@@ -409,6 +411,7 @@ impl ConcurrencyHandler {
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
             next_command_id: AtomicUsize::new(0),
+            queued_commands: Arc::new(parking_lot::Mutex::new(SmallMap::new())),
             update_permit: Semaphore::new(1),
         })
     }
@@ -416,6 +419,27 @@ impl ConcurrencyHandler {
     /// Allocates the next `CommandId`. Returns a distinct value to every caller.
     fn allocate_command_id(&self) -> CommandId {
         CommandId(self.next_command_id.fetch_add(1, Ordering::Relaxed))
+    }
+
+    /// Records a command as queued until the returned token is dropped.
+    fn mark_queued(&self, command: CommandId, trace_id: TraceId) -> QueuedCommand {
+        self.queued_commands.lock().insert(command, trace_id);
+        QueuedCommand {
+            queued: self.queued_commands.dupe(),
+            command,
+        }
+    }
+
+    /// Queued commands other than the command receiving the message.
+    fn queued_traces(&self, asking: CommandId) -> QueuedTraces {
+        QueuedTraces(ConcurrentTraces(
+            self.queued_commands
+                .lock()
+                .iter()
+                .filter(|(queued, _)| **queued != asking)
+                .map(|(_, trace)| trace.dupe())
+                .collect(),
+        ))
     }
 
     /// Enters a critical section that requires concurrent command synchronization,
@@ -552,6 +576,9 @@ impl ConcurrencyHandler {
             preempt: Some(preempt_sender),
         };
 
+        // Keep the command visible across cleanup and update retries, not only condvar waits.
+        let queued = self.mark_queued(command_id, command_data.trace_id.dupe());
+
         let mut data = self.data.lock().await;
 
         let (transaction, tainted) = loop {
@@ -584,8 +611,9 @@ impl ConcurrencyHandler {
             if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
                 let running = ConcurrentTraces::running(&data.active_commands);
                 drop(data);
+                let queued = self.queued_traces(command_id);
                 return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
-                    || format!("Buck daemon is busy processing another command: {running}"),
+                    || format!("Buck daemon is busy processing another command: {running}{queued}"),
                 );
             }
 
@@ -660,9 +688,10 @@ impl ConcurrencyHandler {
             if refuse_on_different_state {
                 let running = ConcurrentTraces::running(&data.active_commands);
                 drop(data);
+                let queued = self.queued_traces(command_id);
                 return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
                     .with_buck_error_context(|| {
-                        format!("Buck daemon is busy processing another command: {running}")
+                        format!("Buck daemon is busy processing another command: {running}{queued}")
                     });
             }
 
@@ -739,8 +768,11 @@ impl ConcurrencyHandler {
                     if let Some(early_exit_error) = early_exit_error {
                         let running = ConcurrentTraces::running(&data.active_commands);
                         drop(data);
+                        let queued = self.queued_traces(command_id);
                         return Err(early_exit_error).with_buck_error_context(|| {
-                            format!("Buck daemon is busy processing another command: {running}")
+                            format!(
+                                "Buck daemon is busy processing another command: {running}{queued}"
+                            )
                         });
                     }
                     // We should probably show more than the first here, but for now
@@ -825,6 +857,7 @@ impl ConcurrencyHandler {
             .on_transaction_committed(&transaction)
             .await?;
 
+        drop(queued);
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
         // This adds the task to the list of all tasks (see ::new impl)
@@ -927,6 +960,30 @@ impl ConcurrentTraces {
                 .map(|cmd| cmd.trace_id.dupe())
                 .collect(),
         )
+    }
+}
+
+/// Deregisters a queued command, whether it was admitted or gave up waiting.
+struct QueuedCommand {
+    queued: Arc<parking_lot::Mutex<SmallMap<CommandId, TraceId>>>,
+    command: CommandId,
+}
+
+impl Drop for QueuedCommand {
+    fn drop(&mut self) {
+        self.queued.lock().shift_remove(&self.command);
+    }
+}
+
+/// A trailing clause that renders nothing when the queue is empty.
+struct QueuedTraces(ConcurrentTraces);
+
+impl fmt::Display for QueuedTraces {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.0.is_empty() {
+            return Ok(());
+        }
+        write!(f, ". Queued behind: {}", self.0)
     }
 }
 
@@ -1270,6 +1327,140 @@ mod tests {
         }
 
         assert_eq!(seen.len(), TASKS * PER_TASK);
+    }
+
+    #[tokio::test]
+    async fn a_queued_command_is_named_only_while_it_waits() {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let asking = concurrency.allocate_command_id();
+        assert_eq!(concurrency.queued_traces(asking).to_string(), "");
+
+        let trace = TraceId::new();
+        let command_id = concurrency.allocate_command_id();
+        {
+            let _queued = concurrency.mark_queued(command_id, trace.dupe());
+            assert_eq!(
+                concurrency.queued_traces(asking).to_string(),
+                format!(". Queued behind: {trace}")
+            );
+
+            // The command being told is queued too, and must not be named to itself.
+            assert_eq!(concurrency.queued_traces(command_id).to_string(), "");
+        }
+
+        // Dropping the token is the only deregistration, so it has to cover both leaving the
+        // blocking path normally and being cancelled inside it.
+        assert_eq!(concurrency.queued_traces(asking).to_string(), "");
+    }
+
+    /// Blocked commands are not in `active_commands` — nothing registers until after the wait —
+    /// so before the queued registry a "daemon is busy" message could not mention them at all.
+    #[tokio::test]
+    async fn a_blocked_command_is_named_as_queued() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let barrier = Arc::new(Barrier::new(2));
+
+        let running_trace = TraceId::new();
+        let queued_trace = TraceId::new();
+
+        let running = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let barrier = barrier.dupe();
+            let block = block.dupe();
+            let trace = running_trace.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        TestEvents::with_trace(trace),
+                        &NoChanges,
+                        |_, _timing| async move {
+                            barrier.wait().await;
+                            let _g = block.read().await;
+                        },
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        &NoTelemetry,
+                        ExitWhen::ExitNever,
+                        EarlyCommandTimingBuilder::new(Instant::now()),
+                    )
+                    .await
+            }
+        });
+
+        barrier.wait().await;
+
+        // A differing state, so this one blocks rather than joining.
+        let queued = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let trace = queued_trace.dupe();
+            async move {
+                concurrency
+                    .enter(
+                        TestEvents::with_trace(trace),
+                        &CtxDifferent,
+                        |_, _timing| async move {},
+                        false,
+                        Vec::new(),
+                        None,
+                        CancellationContext::testing(),
+                        PreemptibleWhen::Never,
+                        &NoTelemetry,
+                        ExitWhen::ExitNever,
+                        EarlyCommandTimingBuilder::new(Instant::now()),
+                    )
+                    .await
+            }
+        });
+
+        // Waiting for it to reach the blocking path, rather than merely to be spawned. `probe` is
+        // never registered, so nothing is filtered out of the view it gets.
+        let probe = concurrency.allocate_command_id();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while concurrency.queued_traces(probe).to_string().is_empty() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the second command never blocked");
+
+        let refused = concurrency
+            .enter(
+                TestEvents::new(),
+                &NoChanges,
+                |_, _timing| async move {},
+                false,
+                Vec::new(),
+                None,
+                CancellationContext::testing(),
+                PreemptibleWhen::Never,
+                &NoTelemetry,
+                ExitWhen::ExitNotIdle,
+                EarlyCommandTimingBuilder::new(Instant::now()),
+            )
+            .await
+            .expect_err("the daemon is not idle");
+
+        let message = format!("{refused:?}");
+        assert!(
+            message.contains(&running_trace.to_string()),
+            "the running command should be named: {message}"
+        );
+        assert!(
+            message.contains(&queued_trace.to_string()),
+            "the queued command should be named: {message}"
+        );
+
+        drop(blocked);
+        running.await??;
+        queued.await??;
+
+        Ok(())
     }
 
     /// A command cancelled while queued for the exclusive lock never acquires it, so it never
