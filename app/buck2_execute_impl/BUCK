@@ -102,5 +102,9 @@ rust_library(
             "//buck2/app/buck2_forkserver:buck2_forkserver",
             "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
         ],
+        "ovr_config//os:freebsd": [
+            "//buck2/app/buck2_forkserver:buck2_forkserver",
+            "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
+        ],
     }),
 )

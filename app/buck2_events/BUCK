@@ -60,6 +60,9 @@ rust_library(
         "ovr_config//os:macos": [
             "fbsource//third-party/rust:sys-info",
         ],
+        "ovr_config//os:freebsd": [
+            "fbsource//third-party/rust:sys-info",
+        ],
         "ovr_config//os:windows": [
             "fbsource//third-party/rust:winver",
         ],

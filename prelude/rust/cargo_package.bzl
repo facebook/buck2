@@ -55,6 +55,10 @@ def get_reindeer_platform_names() -> set[str]:
 
 DEFAULT_REINDEER_PLATFORMS = select({
     "DEFAULT": None,
+    "prelude//os:freebsd": select({
+        "DEFAULT": None,
+        "prelude//cpu:x86_64": "freebsd-x86_64",
+    }),
     "prelude//os:linux": select({
         "DEFAULT": None,
         "prelude//cpu:arm64": "linux-arm64",

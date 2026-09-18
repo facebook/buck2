@@ -41,6 +41,9 @@ sys-info.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 sys-info.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+sys-info.workspace = true
+
 [target.'cfg(target_os = "windows")'.dependencies]
 winver.workspace = true
 

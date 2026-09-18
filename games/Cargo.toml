@@ -71,5 +71,8 @@ termios.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 termios.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+termios.workspace = true
+
 [lints]
 workspace = true

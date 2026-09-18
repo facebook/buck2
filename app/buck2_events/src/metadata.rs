@@ -146,6 +146,8 @@ fn os_type() -> String {
         "darwin".to_owned()
     } else if cfg!(target_os = "windows") {
         "windows".to_owned()
+    } else if cfg!(target_os = "freebsd") {
+        "freebsd".to_owned()
     } else {
         "unknown".to_owned()
     }
@@ -156,7 +158,7 @@ fn os_version() -> Option<String> {
     winver::WindowsVersion::detect().map(|v| v.to_string())
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "freebsd"))]
 fn os_version() -> Option<String> {
     sys_info::os_release().ok()
 }
@@ -258,6 +260,18 @@ pub fn system_fingerprint() -> Option<String> {
     #[cfg(not(fbcode_build))]
     {
         None
+    }
+}
+
+#[cfg(all(test, target_os = "freebsd"))]
+mod freebsd_tests {
+    use super::*;
+
+    #[test]
+    fn system_info_reports_freebsd_release() {
+        let info = system_info();
+        assert_eq!(info.os, "freebsd");
+        assert!(info.os_version.is_some_and(|version| !version.is_empty()));
     }
 }
 

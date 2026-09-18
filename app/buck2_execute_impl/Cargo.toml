@@ -66,5 +66,9 @@ buck2_forkserver_proto.workspace = true
 buck2_forkserver.workspace = true
 buck2_forkserver_proto.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+buck2_forkserver.workspace = true
+buck2_forkserver_proto.workspace = true
+
 [lints]
 workspace = true

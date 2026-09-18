@@ -20,5 +20,8 @@ tempfile.workspace = true
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 tempfile.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dev-dependencies]
+tempfile.workspace = true
+
 [lints]
 workspace = true

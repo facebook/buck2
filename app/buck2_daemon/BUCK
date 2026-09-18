@@ -64,5 +64,8 @@ rust_library(
             "fbsource//third-party/rust:nix",
             # @oss-disable[end= ]: "//buck2/facebook/mem_frag:mem_frag",
         ],
+        "ovr_config//os:freebsd": [
+            "fbsource//third-party/rust:nix",
+        ],
     }),
 )

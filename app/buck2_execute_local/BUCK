@@ -40,6 +40,9 @@ rust_library(
         "ovr_config//os:macos": [
             "fbsource//third-party/rust:nix",
         ],
+        "ovr_config//os:freebsd": [
+            "fbsource//third-party/rust:nix",
+        ],
         "ovr_config//os:windows": [
             "fbsource//third-party/rust:windows-sys",
             "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",

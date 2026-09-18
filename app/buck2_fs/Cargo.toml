@@ -39,6 +39,10 @@ nix.workspace = true
 libc.workspace = true
 nix.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+libc.workspace = true
+nix.workspace = true
+
 [target.'cfg(target_os = "windows")'.dependencies]
 common-path.workspace = true
 windows-sys.workspace = true
