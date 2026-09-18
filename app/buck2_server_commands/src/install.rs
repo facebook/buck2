@@ -405,7 +405,7 @@ async fn collect_install_request_data(
 }
 
 /// Parses `--install-timeout <seconds>` from the installer run args.
-/// Returns the parsed value or the default (300s) if not found.
+/// Returns the parsed value or the default (600s) if not found.
 fn parse_install_timeout(installer_run_args: &[String]) -> u64 {
     let mut iter = installer_run_args.iter();
     while let Some(arg) = iter.next() {
@@ -417,7 +417,7 @@ fn parse_install_timeout(installer_run_args: &[String]) -> u64 {
             }
         }
     }
-    300
+    600
 }
 
 fn get_random_tcp_port() -> buck2_error::Result<u16> {
@@ -1118,7 +1118,7 @@ mod tests {
     #[test]
     fn test_parse_install_timeout_default() {
         let args: Vec<String> = vec![];
-        assert_eq!(parse_install_timeout(&args), 300);
+        assert_eq!(parse_install_timeout(&args), 600);
     }
 
     #[test]
@@ -1137,12 +1137,12 @@ mod tests {
     #[test]
     fn test_parse_install_timeout_missing_value() {
         let args: Vec<String> = vec!["--install-timeout".to_owned()];
-        assert_eq!(parse_install_timeout(&args), 300);
+        assert_eq!(parse_install_timeout(&args), 600);
     }
 
     #[test]
     fn test_parse_install_timeout_invalid_value() {
         let args: Vec<String> = vec!["--install-timeout".to_owned(), "not_a_number".to_owned()];
-        assert_eq!(parse_install_timeout(&args), 300);
+        assert_eq!(parse_install_timeout(&args), 600);
     }
 }
