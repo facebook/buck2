@@ -1,4 +1,5 @@
 load("@prelude//:none.bzl", "none_rule")
+load("@prelude//transitions:constraint_override_registry.bzl", "constraint_override_refs", "constraint_override_registry")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 load(":native.bzl", prelude = "native")
 
@@ -58,5 +59,11 @@ prelude.filegroup(
 
 none_rule(
     name = "none",
+    visibility = ["PUBLIC"],
+)
+
+constraint_override_registry(
+    name = "constraint_override_registry",
+    refs = constraint_override_refs(),
     visibility = ["PUBLIC"],
 )

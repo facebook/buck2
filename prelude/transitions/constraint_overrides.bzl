@@ -25,19 +25,12 @@ load("@prelude//cfg/modifier:name.bzl", "cfg_name")
 #       applying the configuration transition. The use of read_config avoids hard-coding these
 #       repo-specific configuration rules into the prelude.
 load("@prelude//python:transitions.bzl", "python_transitions")
+load("@prelude//transitions:constraint_override_registry.bzl", "ConstraintOverrideRegistryInfo", "constraint_override_refs")
 
 _config = struct(
-    platforms = read_root_config("buck2", "platforms", ""),
-    constraints = read_root_config("buck2", "constraints", ""),
     passthrough_constraints = read_root_config("buck2", "passthrough_constraints", ""),
     split = lambda values: [value.strip() for value in values.split(",") if value.strip()],
 )
-
-def _platforms() -> list[str]:
-    return _config.split(_config.platforms)
-
-def _constraints() -> list[str]:
-    return _config.split(_config.constraints)
 
 def _passthrough_constraints() -> list[str]:
     return _config.split(_config.passthrough_constraints)
@@ -185,6 +178,8 @@ def _apply(old_platform: PlatformInfo, *, platform: PlatformInfo | None = None, 
     return new_platform
 
 def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
+    if hasattr(refs, "_constraint_override_registry"):
+        refs = refs._constraint_override_registry[ConstraintOverrideRegistryInfo].refs
     args = _resolve(refs, attrs)
     if args["platform"] == None and not args["constraints"]:
         return platform
@@ -197,8 +192,11 @@ def _python_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> Platfor
     # @oss-disable[end= ]: platform = python_transitions.transition_opt_by_default_impl(platform, refs, attrs)
     return _impl(platform, refs, attrs)
 
-_refs = {override: override for override in _platforms() + _constraints()}
-_python_refs = {k: v for k, v in _refs.items()}
+_refs = constraint_override_refs()
+# Registry dependencies enforce visibility, unlike direct transition refs.
+_registry = read_root_config("buck2", "constraint_override_registry", "")
+_transition_refs = {"_constraint_override_registry": _registry} if _registry else _refs
+_python_refs = {k: v for k, v in _transition_refs.items()}
 # @oss-disable[end= ]: _python_refs.update(python_transitions.refs())
 
 _attributes = {
@@ -211,7 +209,7 @@ _python_attributes = {k: v for k, v in _attributes.items()}
 
 _transition = transition(
     impl = _impl,
-    refs = _refs,
+    refs = _transition_refs,
     attrs = _attributes.keys(),
 )
 
