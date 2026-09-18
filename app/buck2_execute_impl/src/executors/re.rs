@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
+use buck2_core::execution_types::revision::LazyVcsRevision;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -55,6 +56,7 @@ use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use itertools::Either;
 use remote_execution as RE;
 use remote_execution::TCode;
 use remote_execution::TCodeReasonGroup;
@@ -77,6 +79,7 @@ pub enum RemoteExecutorError {
 pub struct ReExecutor {
     pub artifact_fs: ArtifactFs,
     pub project_fs: ProjectRoot,
+    pub revision: Arc<LazyVcsRevision>,
     pub materializer: Arc<dyn Materializer>,
     pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
@@ -439,6 +442,30 @@ impl PreparedCommandExecutor for ReExecutor {
             .chain(re_gang_workers.iter())
             .cloned()
             .collect();
+        let remote_execution_dependencies = self
+            .dependencies
+            .iter()
+            .chain(remote_execution_dependencies.iter());
+        // Avoid starting a VCS subprocess unless interpolation requires it. `re_execute` borrows
+        // its dependencies, so keep any interpolated clones alive until that call completes.
+        let resolved_remote_execution_dependencies = if remote_execution_dependencies
+            .clone()
+            .any(RemoteExecutorDependency::requires_revision)
+        {
+            let revision = self.revision.get().await;
+            Some(
+                remote_execution_dependencies
+                    .clone()
+                    .map(|dependency| dependency.with_revision(revision))
+                    .collect::<Vec<_>>(),
+            )
+        } else {
+            None
+        };
+        let remote_execution_dependencies = match &resolved_remote_execution_dependencies {
+            Some(dependencies) => Either::Left(dependencies.iter()),
+            None => Either::Right(remote_execution_dependencies),
+        };
 
         let (manager, response) = self
             .re_execute(
@@ -448,9 +475,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 &action_and_blobs.action,
                 *digest_config,
                 platform,
-                self.dependencies
-                    .iter()
-                    .chain(remote_execution_dependencies.iter()),
+                remote_execution_dependencies,
                 &re_gang_workers,
                 command.request.meta_internal_extra_params(),
                 worker_tool_action_digest,

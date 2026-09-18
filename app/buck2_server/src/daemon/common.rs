@@ -31,6 +31,7 @@ use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::execution_types::revision::LazyVcsRevision;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_events::daemon_id::DaemonId;
@@ -84,6 +85,7 @@ pub struct CommandExecutorFactory {
     skip_cache_read: bool,
     skip_cache_write: bool,
     project_root: ProjectRoot,
+    revision: Arc<LazyVcsRevision>,
     worker_pool: Arc<WorkerPool>,
     paranoid: Option<ParanoidDownloader>,
     materialize_failed_inputs: bool,
@@ -125,6 +127,7 @@ impl CommandExecutorFactory {
         daemon_id: DaemonId,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
+        let revision = Arc::new(LazyVcsRevision::new(project_root.root().to_owned()));
 
         Self {
             re_connection,
@@ -139,6 +142,7 @@ impl CommandExecutorFactory {
             skip_cache_read,
             skip_cache_write,
             project_root,
+            revision,
             worker_pool,
             paranoid,
             materialize_failed_inputs,
@@ -235,6 +239,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             ReExecutor {
                 artifact_fs: artifact_fs.dupe(),
                 project_fs: self.project_root.clone(),
+                revision: self.revision.dupe(),
                 materializer: self.materializer.dupe(),
                 incremental_db_state: self.incremental_db_state.dupe(),
                 re_client: self.get_prepared_re_client(*re_use_case),

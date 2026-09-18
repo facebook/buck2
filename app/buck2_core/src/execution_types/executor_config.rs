@@ -94,6 +94,7 @@ pub struct RemoteExecutorDependency {
     pub smc_tier: String,
     /// The id of the dependency to acquire
     pub id: String,
+    interpolate_revision: bool,
 }
 
 /// Describes a worker in a gang for Remote Execution.
@@ -214,24 +215,8 @@ impl ReGang {
     }
 }
 
-#[cfg(not(test))]
-fn revision() -> Option<String> {
-    crate::execution_types::revision::REVISION.get()
-}
-
-#[cfg(test)]
-fn revision() -> Option<String> {
-    crate::execution_types::mock_revision::MOCK_REVISION.with(|r| r.borrow().clone())
-}
-
-fn interpolate_dependency_id(
-    id: &str,
-    username: Option<&str>,
-    revision: Option<&str>,
-    hostname: Option<&str>,
-) -> String {
+fn interpolate_dependency_id(id: &str, username: Option<&str>, hostname: Option<&str>) -> String {
     id.replace("$(username)", username.unwrap_or_default())
-        .replace("$(revision)", revision.unwrap_or_default())
         .replace("$(hostname)", hostname.unwrap_or_default())
 }
 
@@ -262,24 +247,16 @@ impl RemoteExecutorDependency {
             .ok_or(RemoteExecutorDependencyErrors::MissingField("id"))?;
         let interpolate = dep_map.get("enable_interpolation").unwrap_or(&"false");
 
-        let id = if *interpolate == "true" {
-            let username = username();
-            let revision = if id.contains("$(revision)") {
-                revision()
-            } else {
-                None
-            };
+        let interpolate = *interpolate == "true";
+        let interpolate_revision = interpolate && id.contains("$(revision)");
+        let id = if interpolate {
+            let username = id.contains("$(username)").then(username).flatten();
             let hostname = if id.contains("$(hostname)") {
                 current_hostname()
             } else {
                 None
             };
-            interpolate_dependency_id(
-                id,
-                username.as_deref(),
-                revision.as_deref(),
-                hostname.as_deref(),
-            )
+            interpolate_dependency_id(id, username.as_deref(), hostname.as_deref())
         } else {
             id.to_string()
         };
@@ -293,7 +270,23 @@ impl RemoteExecutorDependency {
         Ok(RemoteExecutorDependency {
             smc_tier: smc_tier.to_string(),
             id,
+            interpolate_revision,
         })
+    }
+
+    pub fn requires_revision(&self) -> bool {
+        self.interpolate_revision
+    }
+
+    /// Resolve a deferred revision placeholder using the repository selected for execution.
+    pub fn with_revision(&self, revision: Option<&str>) -> Self {
+        let mut dependency = self.clone();
+        if self.interpolate_revision {
+            dependency.id = dependency
+                .id
+                .replace("$(revision)", revision.unwrap_or_default());
+        }
+        dependency
     }
 }
 
@@ -625,7 +618,6 @@ impl MetaInternalExtraParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution_types::mock_revision::with_test_revision;
 
     #[test]
     fn test_re_gang_worker_parse_success() {
@@ -647,53 +639,48 @@ mod tests {
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_clean() {
-        with_test_revision(
-            Some("abc123def456abc123def456abc123def456abcd".to_owned()),
-            || {
-                let mut dep_map = SmallMap::new();
-                dep_map.insert("smc_tier", "my.tier");
-                dep_map.insert("id", "Sandbox:host:$(revision)");
-                dep_map.insert("enable_interpolation", "true");
+        let mut dep_map = SmallMap::new();
+        dep_map.insert("smc_tier", "my.tier");
+        dep_map.insert("id", "Sandbox:host:$(revision)");
+        dep_map.insert("enable_interpolation", "true");
 
-                let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
-                assert_eq!(
-                    dep.id,
-                    "Sandbox:host:abc123def456abc123def456abc123def456abcd"
-                );
-            },
+        let dep = RemoteExecutorDependency::parse(dep_map)
+            .unwrap()
+            .with_revision(Some("abc123def456abc123def456abc123def456abcd"));
+        assert_eq!(
+            dep.id,
+            "Sandbox:host:abc123def456abc123def456abc123def456abcd"
         );
+        assert!(dep.requires_revision());
     }
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_dirty() {
-        with_test_revision(
-            Some("abc123def456abc123def456abc123def456abcd+".to_owned()),
-            || {
-                let mut dep_map = SmallMap::new();
-                dep_map.insert("smc_tier", "my.tier");
-                dep_map.insert("id", "Sandbox:host:$(revision)");
-                dep_map.insert("enable_interpolation", "true");
+        let mut dep_map = SmallMap::new();
+        dep_map.insert("smc_tier", "my.tier");
+        dep_map.insert("id", "Sandbox:host:$(revision)");
+        dep_map.insert("enable_interpolation", "true");
 
-                let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
-                assert_eq!(
-                    dep.id,
-                    "Sandbox:host:abc123def456abc123def456abc123def456abcd+"
-                );
-            },
+        let dep = RemoteExecutorDependency::parse(dep_map)
+            .unwrap()
+            .with_revision(Some("abc123def456abc123def456abc123def456abcd+"));
+        assert_eq!(
+            dep.id,
+            "Sandbox:host:abc123def456abc123def456abc123def456abcd+"
         );
     }
 
     #[test]
     fn test_dependency_parse_with_revision_interpolation_missing() {
-        with_test_revision(None, || {
-            let mut dep_map = SmallMap::new();
-            dep_map.insert("smc_tier", "my.tier");
-            dep_map.insert("id", "Sandbox:host:$(revision)");
-            dep_map.insert("enable_interpolation", "true");
+        let mut dep_map = SmallMap::new();
+        dep_map.insert("smc_tier", "my.tier");
+        dep_map.insert("id", "Sandbox:host:$(revision)");
+        dep_map.insert("enable_interpolation", "true");
 
-            let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
-            assert_eq!(dep.id, "Sandbox:host:");
-        });
+        let dep = RemoteExecutorDependency::parse(dep_map)
+            .unwrap()
+            .with_revision(None);
+        assert_eq!(dep.id, "Sandbox:host:");
     }
 
     #[test]
@@ -702,10 +689,9 @@ mod tests {
             interpolate_dependency_id(
                 "Sandbox:$(username):$(hostname):$(revision)",
                 Some("alice"),
-                Some("abc123"),
                 Some("devvm123.example.com"),
             ),
-            "Sandbox:alice:devvm123.example.com:abc123",
+            "Sandbox:alice:devvm123.example.com:$(revision)",
         );
     }
 
@@ -721,6 +707,19 @@ mod tests {
             dep.id, "Limit:foo",
             "id without placeholders should be unchanged"
         );
+        assert!(!dep.requires_revision());
+    }
+
+    #[test]
+    fn test_dependency_parse_without_interpolation_preserves_revision_placeholder() {
+        let mut dep_map = SmallMap::new();
+        dep_map.insert("smc_tier", "my.tier");
+        dep_map.insert("id", "Sandbox:host:$(revision)");
+
+        let dep = RemoteExecutorDependency::parse(dep_map)
+            .unwrap()
+            .with_revision(Some("abc123"));
+        assert_eq!(dep.id, "Sandbox:host:$(revision)");
     }
 
     #[test]
