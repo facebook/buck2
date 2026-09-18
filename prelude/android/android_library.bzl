@@ -21,12 +21,9 @@ load("@prelude//graphql:graphql.bzl", "graphql_providers")
 load("@prelude//java:java_library.bzl", "build_java_library")
 load(
     "@prelude//java:java_providers.bzl",
-    "JavaClasspathEntry",  # @unused Used as type
-    "JavaCompilingDepsTSet",
     "JavaLibraryInfo",
     "JavaProviders",  # @unused Used as type
     "create_native_providers",
-    "single_library_compiling_deps",
     "to_list",
 )
 load(
@@ -152,30 +149,21 @@ def optional_abi_jar_snapshots(ctx: AnalysisContext) -> list[Artifact]:
 
 def build_android_library(
     ctx: AnalysisContext,
-    r_dot_java: JavaClasspathEntry | None = None,
+    r_dot_java: JavaLibraryInfo | None = None,
     extra_sub_targets = {},
     validation_deps_outputs: [list[Artifact], None] = None,
 ) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     custom_jdk_info = get_custom_jdk_info(ctx)
-    additional_classpath_entries_children = []
-
-    dummy_r_dot_java, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
+    dummy_r_dot_java_info, android_library_intellij_info = _get_dummy_r_dot_java(ctx)
     extra_sub_targets = dict(extra_sub_targets)
 
     if r_dot_java:
-        additional_classpath_entries_children.append(single_library_compiling_deps(ctx.actions, r_dot_java))
-    elif dummy_r_dot_java:
-        additional_classpath_entries_children.append(single_library_compiling_deps(ctx.actions, dummy_r_dot_java))
-        extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java.full_library)]
-
-    additional_classpath_entries = (
-        ctx.actions.tset(
-            JavaCompilingDepsTSet,
-            children = additional_classpath_entries_children,
-        )
-        if additional_classpath_entries_children
-        else None
-    )
+        additional_classpath_entries = r_dot_java.compiling_deps
+    elif dummy_r_dot_java_info:
+        additional_classpath_entries = dummy_r_dot_java_info.compiling_deps
+        extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java_info.library_output.full_library)]
+    else:
+        additional_classpath_entries = None
 
     source_level, _ = get_java_version_attributes(ctx)
     extra_arguments = get_string_concat_inline_javac_args(source_level)
@@ -206,7 +194,7 @@ def build_android_library(
             extra_arguments = extra_arguments,
         ), android_library_intellij_info
 
-def _get_dummy_r_dot_java(ctx: AnalysisContext) -> (JavaClasspathEntry | None, [AndroidLibraryIntellijInfo, None]):
+def _get_dummy_r_dot_java(ctx: AnalysisContext) -> (JavaLibraryInfo | None, [AndroidLibraryIntellijInfo, None]):
     android_resources = dedupe([
         resource
         for resource in filter(
@@ -226,7 +214,7 @@ def _get_dummy_r_dot_java(ctx: AnalysisContext) -> (JavaClasspathEntry | None, [
 
     dummy_r_dot_java = dummy_r_dot_java_info.library_output
     return (
-        dummy_r_dot_java,
+        dummy_r_dot_java_info,
         AndroidLibraryIntellijInfo(
             dummy_r_dot_java = dummy_r_dot_java.abi,
             android_resource_deps = android_resources,
