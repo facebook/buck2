@@ -71,15 +71,26 @@ def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo)
     )
 
 def _generated_build_info_config(ctx: AnalysisContext):
-    spec = getattr(ctx.attrs, "_generated_build_info_spec", None)
-    if not spec:
+    spec = dict(getattr(ctx.attrs, "_generated_build_info_spec", {}))
+    configured_enabled = getattr(ctx.attrs, "_generated_build_info_enabled", None)
+    if configured_enabled != None:
+        if not configured_enabled:
+            return None
+        if not spec:
+            fail("generated build-info spec is missing")
+
+        mode = ctx.attrs._generated_build_info_mode
+        spec["allow_cache_upload"] = mode != "full"
+        spec["build_info"] = mode
+        spec["enabled"] = True
+        spec["final_linker_flags"] = ["--build-info={}".format(mode)]
+        spec["local_only"] = mode == "full"
+    elif not spec or not spec.get("enabled", False):
         return None
 
     missing_fields = [field for field in _REQUIRED_GENERATED_BUILD_INFO_FIELDS if field not in spec]
     if missing_fields:
         fail("generated build-info spec is missing required fields: {}".format(", ".join(missing_fields)))
-    if not spec["enabled"]:
-        return None
 
     tool = getattr(ctx.attrs, "_gen_build_info", None)
     if tool == None:
@@ -90,6 +101,7 @@ def _generate_build_info_data(
     ctx: AnalysisContext,
     spec,
     tool: RunInfo,
+    generator_args: list[typing.Any] = [],
     invalidation_inputs: list[typing.Any] = [],
 ) -> GeneratedBuildInfoData:
     output_dir = "__generated_build_info__"
@@ -104,6 +116,7 @@ def _generate_build_info_data(
         json = ctx.actions.declare_output(output_dir, "build_info.json")
         command = cmd_args(
             tool,
+            generator_args,
             "--spec-json",
             generator_spec,
             "--output-json",
@@ -126,20 +139,24 @@ def generate_build_info_data(
     if config == None:
         return None
     spec, tool = config
-    return _generate_build_info_data(ctx, spec, tool, invalidation_inputs)
+    return _generate_build_info_data(ctx, spec, tool, invalidation_inputs = invalidation_inputs)
 
 # Expected `_generated_build_info_spec` shape:
 # {
-#     "<generator-owned-field>": <JSON-compatible value>,
+#     "<action-owned-field>": <JSON-compatible value>,
 # }
-# Generator-owned fields remain at the top level so configured selectors are
-# resolved before the specification is serialized.
-def generate_build_info(ctx: AnalysisContext, invalidation_inputs: list[typing.Any] = []) -> GeneratedBuildInfo | None:
+# Generator arguments are supplied separately so callers can reuse existing
+# configurable argument lists without expanding them into this dictionary.
+def generate_build_info(
+    ctx: AnalysisContext,
+    invalidation_inputs: list[typing.Any] = [],
+    generator_args: list[typing.Any] = [],
+) -> GeneratedBuildInfo | None:
     config = _generated_build_info_config(ctx)
     if config == None:
         return None
     spec, tool = config
-    data = _generate_build_info_data(ctx, spec, tool, invalidation_inputs)
+    data = _generate_build_info_data(ctx, spec, tool, generator_args, invalidation_inputs)
 
     output_dir = "__generated_build_info__"
     source = ctx.actions.declare_output(output_dir, "build_info.c")

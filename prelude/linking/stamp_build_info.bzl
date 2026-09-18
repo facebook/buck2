@@ -23,6 +23,8 @@ load(
 PRE_STAMPED_SUFFIX = "-pre_stamped"
 
 def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
+    if getattr(ctx.attrs, "_generated_build_info_enabled", False):
+        return False
     return hasattr(ctx.attrs, "_build_info") and bool(ctx.attrs._build_info) and cxx_is_gnu(ctx)
 
 def _get_library_versions(links: list[LinkArgs] | None) -> str:

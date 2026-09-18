@@ -708,6 +708,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     linker_info = toolchain_info.linker_info
     generated_build_info_external_debug_info = []
     generated_build_info_objects = []
+    binary_linker_flags = ctx.attrs.binary_linker_flags
+    generated_build_info_args = []
+    if getattr(ctx.attrs, "_generated_build_info_enabled", False):
+        generated_build_info_args = [flag for flag in binary_linker_flags if _is_build_info_linker_flag(flag)]
+        binary_linker_flags = [flag for flag in binary_linker_flags if not _is_build_info_linker_flag(flag)]
     generated_build_info_invalidation_inputs = (
         [out.object for out in cxx_outs]
         + [unpack_link_args(dep_links)]
@@ -716,6 +721,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
     generated_build_info = generate_build_info(
         ctx,
+        generator_args = generated_build_info_args,
         invalidation_inputs = generated_build_info_invalidation_inputs,
     )
     if generated_build_info:
@@ -776,6 +782,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         shared_libs if impl_params.exe_shared_libs_link_tree else [],
         impl_params.executable_name,
         linker_info.binary_extension,
+        binary_linker_flags,
         link_options(
             links = links,
             link_weight = linker_info.link_weight,
@@ -1148,7 +1155,12 @@ def _get_shared_library_symlink_deps(
     return shlib_deps
 
 def _link_into_executable(
-    ctx: AnalysisContext, shared_libs: list[SharedLibrary], executable_name: [str, None], binary_extension: str, opts: LinkOptions
+    ctx: AnalysisContext,
+    shared_libs: list[SharedLibrary],
+    executable_name: [str, None],
+    binary_extension: str,
+    binary_linker_flags: list[typing.Any],
+    opts: LinkOptions,
 ) -> _CxxLinkExecutableResult:
     if executable_name and binary_extension and executable_name.endswith(binary_extension):
         # don't append .exe if it already is .exe
@@ -1170,14 +1182,14 @@ def _link_into_executable(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("executable"),
-        # ctx.attrs.binary_linker_flags should come after default link flags so it can be used to override default settings
+        # Binary linker flags should come after default link flags so they can override default settings.
         opts = merge_link_options(
             opts,
             binary_links = [
                 LinkArgs(
                     infos = [
                         LinkInfo(
-                            pre_flags = ctx.attrs.binary_linker_flags,
+                            pre_flags = binary_linker_flags,
                         ),
                     ]
                 ),
@@ -1219,3 +1231,6 @@ def get_cxx_post_link_suffix(ctx: AnalysisContext, has_hip_device_debug: bool = 
 
 def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
     return ctx.label.name + get_cxx_post_link_suffix(ctx, has_hip_device_debug)
+
+def _is_build_info_linker_flag(flag) -> bool:
+    return flag.startswith("--build-info")
