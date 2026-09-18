@@ -333,18 +333,19 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
     if len(swift_sources) == 0:
         return []
 
+    mockingbird_module_name = get_module_name(ctx)
     deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in cxx_attr_deps(ctx)])
     exported_deps_mockingbird_infos = filter(None, [dep.get(MockingbirdLibraryInfo) for dep in cxx_attr_exported_deps(ctx)])
 
     children = []
-    dep_names = []
-    exported_dep_names = []
+    dep_module_names = []
+    exported_dep_module_names = []
     for info in deps_mockingbird_infos:
-        dep_names.append(info.name)
+        dep_module_names.append(info.name)
         children.append(info.tset)
 
     for info in exported_deps_mockingbird_infos:
-        exported_dep_names.append(info.name)
+        exported_dep_module_names.append(info.name)
         children.append(info.tset)
 
     mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs_" + ctx.attrs.name, dir = True, has_content_based_path = False)
@@ -355,10 +356,10 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
     )
 
     mockingbird_record = MockingbirdLibraryRecord(
-        name = ctx.attrs.name,
+        name = mockingbird_module_name,
         srcs = [src.file for src in swift_sources],
-        dep_names = dep_names,
-        exported_dep_names = exported_dep_names,
+        dep_names = dep_module_names,
+        exported_dep_names = exported_dep_module_names,
         type = MockingbirdTargetType("library"),
         src_dir = mockingbird_srcs_folder,
     )
@@ -367,7 +368,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
 
     return [
         MockingbirdLibraryInfo(
-            name = ctx.attrs.name,
+            name = mockingbird_module_name,
             tset = mockingbird_tset,
         )
     ]
