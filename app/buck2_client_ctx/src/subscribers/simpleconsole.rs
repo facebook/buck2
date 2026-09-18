@@ -12,8 +12,6 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Write as _;
 use std::sync::Arc;
-use std::sync::LazyLock;
-use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -58,9 +56,6 @@ use crate::ticker::Tick;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-static ELAPSED_HEALTH_CHECK_MAP: LazyLock<Mutex<BuckMutMap<HealthCheckType, (Instant, u64)>>> =
-    LazyLock::new(|| Mutex::new(BuckMutMap::default()));
-
 fn now_display() -> impl Display {
     // Millisecond precision with a numeric offset, like the rfc3339 formatting this had
     // historically.
@@ -100,57 +95,56 @@ macro_rules! echo {
     };
 }
 
-// Report only if at least double time has passed since reporting interval
-fn echo_system_warning_exponential(
-    warning: &HealthCheckType,
-    msg: &str,
-) -> buck2_error::Result<()> {
-    if let Some((last_reported, every_x)) =
-        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(warning)
-    {
-        let now = Instant::now();
-        let elapsed = now.duration_since(*last_reported);
-        let new_every_double: u64 = 2 * *every_x;
-        if elapsed > Duration::from_secs(new_every_double) {
-            echo!("{}", msg)?;
-            *every_x = new_every_double;
-            *last_reported = now;
-        }
-    }
-    Ok(())
-}
-
 #[derive(Copy, Clone, Dupe, Debug, PartialEq)]
 enum TtyMode {
     Enabled,
     Disabled,
 }
 
-fn init_remaining_system_warning_count() {
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::MemoryPressure, (Instant::now(), 1));
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::LowDiskSpace, (Instant::now(), 1));
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::SlowDownloadSpeed, (Instant::now(), 1));
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::VpnEnabled, (Instant::now(), 1));
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::StableRevision, (Instant::now(), 1));
-    ELAPSED_HEALTH_CHECK_MAP
-        .lock()
-        .unwrap()
-        .insert(HealthCheckType::SlowBuild, (Instant::now(), 1));
+struct HealthWarningBackoff {
+    elapsed: BuckMutMap<HealthCheckType, (Instant, u64)>,
+}
+
+impl HealthWarningBackoff {
+    fn new(now: Instant) -> Self {
+        let elapsed = [
+            HealthCheckType::MemoryPressure,
+            HealthCheckType::LowDiskSpace,
+            HealthCheckType::SlowDownloadSpeed,
+            HealthCheckType::VpnEnabled,
+            HealthCheckType::StableRevision,
+            HealthCheckType::SlowBuild,
+        ]
+        .into_iter()
+        .map(|warning| (warning, (now, 1)))
+        .collect();
+        Self { elapsed }
+    }
+
+    // Report only if at least double the previous reporting interval has passed.
+    fn should_display(&mut self, warning: &HealthCheckType, now: Instant) -> bool {
+        let Some((last_reported, every_x)) = self.elapsed.get_mut(warning) else {
+            return false;
+        };
+        let new_every_double = 2 * *every_x;
+        if now.duration_since(*last_reported) <= Duration::from_secs(new_every_double) {
+            return false;
+        }
+        *every_x = new_every_double;
+        *last_reported = now;
+        true
+    }
+}
+
+fn echo_system_warning_exponential(
+    backoff: &mut HealthWarningBackoff,
+    warning: &HealthCheckType,
+    message: &str,
+) -> buck2_error::Result<()> {
+    if backoff.should_display(warning, Instant::now()) {
+        echo!("{}", message)?;
+    }
+    Ok(())
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -164,6 +158,7 @@ pub struct SimpleConsole<E> {
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
     health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    health_warning_backoff: HealthWarningBackoff,
     pub(crate) output_limit: ConsoleOutputLimit,
 }
 
@@ -177,16 +172,17 @@ where
         expect_spans: bool,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> Self {
-        init_remaining_system_warning_count();
+        let now = Instant::now();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
             expect_spans,
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
-            last_print_time: Instant::now(),
+            last_print_time: now,
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
+            health_warning_backoff: HealthWarningBackoff::new(now),
             output_limit: ConsoleOutputLimit::new(),
         }
     }
@@ -197,16 +193,17 @@ where
         expect_spans: bool,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> Self {
-        init_remaining_system_warning_count();
+        let now = Instant::now();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
             expect_spans,
             observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
-            last_print_time: Instant::now(),
+            last_print_time: now,
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
+            health_warning_backoff: HealthWarningBackoff::new(now),
             output_limit: ConsoleOutputLimit::new(),
         }
     }
@@ -637,9 +634,13 @@ where
         None
     }
 
-    fn echo_health_check_warning(&self, report: &DisplayReport) -> buck2_error::Result<()> {
+    fn echo_health_check_warning(&mut self, report: &DisplayReport) -> buck2_error::Result<()> {
         if let Some(warning) = &report.health_issue {
-            echo_system_warning_exponential(&report.health_check_type, &warning.to_string())?;
+            echo_system_warning_exponential(
+                &mut self.health_warning_backoff,
+                &report.health_check_type,
+                &warning.to_string(),
+            )?;
         }
         Ok(())
     }
@@ -706,7 +707,7 @@ where
                 self.echo_health_check_warning(&report)?;
             }
 
-            let mut roots = self.observer().spans().iter_roots();
+            let mut roots = self.observer.spans().iter_roots();
             let sample_event = roots.next();
             match sample_event {
                 Some(sample_event) => {
@@ -735,12 +736,13 @@ where
                         remaining
                     )?;
 
-                    let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
-                    let sysinfo = self.observer().system_info();
+                    let last_snapshot = self.observer.two_snapshots().last.as_ref().map(|s| &s.1);
+                    let sysinfo = self.observer.system_info();
                     if let Some(memory_pressure) =
                         check_memory_pressure_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
+                            &mut self.health_warning_backoff,
                             &HealthCheckType::MemoryPressure,
                             &system_memory_exceeded_msg(&memory_pressure),
                         )?;
@@ -749,6 +751,7 @@ where
                         check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
+                            &mut self.health_warning_backoff,
                             &HealthCheckType::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
                         )?;
@@ -797,5 +800,23 @@ impl WhatRanOutputWriter for PrintDebugCommandToStderr {
             }
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn health_warning_backoff_is_exponential_and_instance_local() {
+        let start = Instant::now();
+        let warning = HealthCheckType::MemoryPressure;
+        let mut first = HealthWarningBackoff::new(start);
+        let mut second = HealthWarningBackoff::new(start);
+
+        assert!(!first.should_display(&warning, start + Duration::from_secs(2)));
+        assert!(first.should_display(&warning, start + Duration::from_secs(3)));
+        assert!(!first.should_display(&warning, start + Duration::from_secs(7)));
+        assert!(second.should_display(&warning, start + Duration::from_secs(3)));
     }
 }
