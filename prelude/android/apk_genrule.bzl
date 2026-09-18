@@ -19,6 +19,7 @@ load("@prelude//utils:expect.bzl", "expect")
 # Forward whichever happen to be present so they stay reachable through the
 # apk_genrule wrapper.
 _OPTIONAL_NATIVE_LIB_SUBTARGETS = [
+    "gatorade_phase_evidence",
     "native_merge_debug",
     "relinked_libs",
     "relinked_libs_manifest",
