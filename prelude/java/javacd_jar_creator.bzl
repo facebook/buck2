@@ -286,7 +286,7 @@ def _define_javacd_action(
     abi_dir: Artifact | None,
     target_type: TargetType,
     is_creating_subtarget: bool = False,
-    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None = None,
+    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None = None,
 ):
     expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
     compiler = java_toolchain.javacd
@@ -330,7 +330,7 @@ def _define_javacd_action(
         if java_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
                 expect(source_only_abi_compiling_deps != None)
-                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("abi_to_abi_dir")
+                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("source_only_abi_to_abi_dir")
                 args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")

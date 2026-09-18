@@ -142,7 +142,7 @@ def create_jar_artifact_kotlincd(
     so_abi_deps = None
     if actual_abi_generation_mode == AbiGenerationMode("source_only"):
         so_abi_deps = get_source_only_abi_compiling_deps(actions, compiling_deps_tset, source_only_abi_deps)
-        source_only_abi_applicability_classpath = cmd_args(so_abi_deps.project_as_args("jars"))
+        source_only_abi_applicability_classpath = cmd_args(so_abi_deps.project_as_args("source_only_abi_jars"))
 
     track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
@@ -496,7 +496,7 @@ def _define_kotlincd_action(
     classpath_jars_tag: ArtifactTag,
     abi_dir: Artifact | None,
     target_type: TargetType,
-    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None = None,
+    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None = None,
     is_creating_subtarget: bool = False,
     incremental_state_dir: Artifact | None = None,
     should_action_run_incrementally: bool = False,
@@ -564,7 +564,7 @@ def _define_kotlincd_action(
         if kotlin_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
                 expect(source_only_abi_compiling_deps != None)
-                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("abi_to_abi_dir")
+                abi_to_abi_dir_map = source_only_abi_compiling_deps.project_as_args("source_only_abi_to_abi_dir")
                 args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")

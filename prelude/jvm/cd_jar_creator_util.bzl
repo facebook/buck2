@@ -175,8 +175,8 @@ def _source_only_abi_to_abi_dir(entries: list[JavaClasspathEntry]):
 
 SourceOnlyAbiCompilingDepsTSet = transitive_set(
     args_projections = {
-        "abi_to_abi_dir": _source_only_abi_to_abi_dir,
-        "jars": _source_only_abi_jars,
+        "source_only_abi_jars": _source_only_abi_jars,
+        "source_only_abi_to_abi_dir": _source_only_abi_to_abi_dir,
     },
 )
 
@@ -184,7 +184,9 @@ def get_source_only_abi_compiling_deps(
     actions: AnalysisActions,
     compiling_deps_tset: [JavaCompilingDepsTSet, None],
     source_only_abi_deps: list[Dependency],
-) -> SourceOnlyAbiCompilingDepsTSet:
+) -> JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet:
+    if not source_only_abi_deps and compiling_deps_tset != None:
+        return compiling_deps_tset
     source_only_abi_compiling_deps = []
     if compiling_deps_tset:
         source_only_abi_deps_filter = {}
@@ -269,7 +271,7 @@ def encode_base_jar_command(
     plugin_params: [PluginParams, None],
     manifest_file: Artifact | None,
     extra_arguments: cmd_args,
-    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None,
+    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None,
     track_class_usage: bool,
     provide_classpath_snapshot: bool = False,
 ) -> struct:
@@ -278,7 +280,7 @@ def encode_base_jar_command(
     if target_type == TargetType("source_only_abi"):
         expect(source_only_abi_compiling_deps != None)
         # A list-valued JSON projection would introduce an extra array level.
-        compiling_classpath = classpath_jars_tag.tag_artifacts(cmd_args(source_only_abi_compiling_deps.project_as_args("jars")))
+        compiling_classpath = classpath_jars_tag.tag_artifacts(cmd_args(source_only_abi_compiling_deps.project_as_args("source_only_abi_jars")))
         compiling_classpath_snapshot = []
     else:
         expect(source_only_abi_compiling_deps == None)
@@ -531,7 +533,7 @@ def encode_command(
     target_type: TargetType,
     output_paths: OutputPaths,
     classpath_jars_tag: ArtifactTag,
-    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None,
+    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None,
     track_class_usage: bool,
 ) -> struct:
     base_jar_command = encode_base_jar_command(
@@ -588,7 +590,7 @@ def generate_abi_jars(
     define_action: typing.Callable,
     uses_content_based_paths: bool,
     kotlin_extra_params_builder: typing.Callable | None = None,
-    source_only_abi_compiling_deps: SourceOnlyAbiCompilingDepsTSet | None = None,
+    source_only_abi_compiling_deps: JavaCompilingDepsTSet | SourceOnlyAbiCompilingDepsTSet | None = None,
 ) -> tuple:
     class_abi = None
     source_abi = None
