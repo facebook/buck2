@@ -588,7 +588,7 @@ impl ConcurrencyHandler {
 
         let mut data = self.data.lock().await;
 
-        let (transaction, tainted) = loop {
+        let (transaction, tainted, nested_warning) = loop {
             if let DiceStatus::Cleanup { future, epoch } = &data.dice_status {
                 tracing::debug!("ActiveDice is in cleanup");
                 let future = future.clone();
@@ -722,7 +722,7 @@ impl ConcurrencyHandler {
                 tracing::debug!("ActiveDice has no active_transaction");
                 events.instant(NoActiveDiceState {}.into());
                 data.dice_status = DiceStatus::active(transaction.equality_token());
-                break (transaction, !dice_was_idle);
+                break (transaction, !dice_was_idle, None);
             };
 
             // If we have a different state, attempt to transition to cleanup. This will
@@ -761,9 +761,13 @@ impl ConcurrencyHandler {
                     );
                 }
                 BypassSemaphore::Run(state) => {
-                    self.emit_logs(state, &data.active_commands, &command_data)?;
+                    let nested_warning = Self::nested_same_state_warning(
+                        state,
+                        &data.active_commands,
+                        &command_data,
+                    );
                     self.cancel_preemptible_commands(&mut data, is_same_state);
-                    break (transaction, false);
+                    break (transaction, false, nested_warning);
                 }
                 BypassSemaphore::Block => {
                     let early_exit_error: Option<ConcurrencyHandlerError> =
@@ -865,6 +869,16 @@ impl ConcurrencyHandler {
         // observer failures.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
 
+        // `soft_error!` may perform a synchronous Scribe write, so report after registration has
+        // released the state lock. The guard cleans up if the warning is escalated.
+        if let Some((running, argv)) = nested_warning {
+            soft_error!(
+                "nested_invocation_same_dice_state",
+                ConcurrencyHandlerError::NestedInvocationWithSameStates(running, argv).into(),
+                error_on_oss: true
+            )?;
+        }
+
         // The observer may perform blocking config parsing, so run it after releasing the lock.
         transaction_observer
             .on_transaction_committed(&transaction)
@@ -911,25 +925,19 @@ impl ConcurrencyHandler {
         }
     }
 
-    fn emit_logs(
-        &self,
+    /// Captures a recursive same-state warning for reporting after the lock is released.
+    fn nested_same_state_warning(
         state: RunState,
         active_commands: &SmallMap<CommandId, CommandData>,
         current_command: &CommandData,
-    ) -> buck2_error::Result<()> {
-        if let RunState::NestedSameState = state {
-            soft_error!(
-                "nested_invocation_same_dice_state",
-                ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                    ConcurrentTraces::running_and(active_commands, current_command),
-                    current_command.format_argv(),
-                )
-                .into(),
-                error_on_oss: true
-            )?;
+    ) -> Option<(ConcurrentTraces, String)> {
+        match state {
+            RunState::NestedSameState => Some((
+                ConcurrentTraces::running_and(active_commands, current_command),
+                current_command.format_argv(),
+            )),
+            RunState::ParallelSameState => None,
         }
-
-        Ok(())
     }
 }
 
@@ -1866,6 +1874,40 @@ mod tests {
             assert_matches!(
                 c.determine_bypass_semaphore(false, false),
                 BypassSemaphore::Block
+            );
+        }
+
+        /// Pins which run state produces a warning and which commands it names.
+        #[tokio::test]
+        async fn nested_same_state_warning_mapping() {
+            let parent = a_command();
+            let parent_trace = parent.trace_id.dupe();
+            let mut active = SmallMap::new();
+            active.insert(CommandId(0), parent);
+
+            let current = a_command();
+            let current_trace = current.trace_id.dupe();
+
+            assert_matches!(
+                ConcurrencyHandler::nested_same_state_warning(
+                    RunState::ParallelSameState,
+                    &active,
+                    &current,
+                ),
+                None
+            );
+
+            let (named, _argv) = ConcurrencyHandler::nested_same_state_warning(
+                RunState::NestedSameState,
+                &active,
+                &current,
+            )
+            .expect("a nested same-state invocation is reported");
+
+            // The warning names both the parent and recursive command.
+            assert_eq!(
+                named.to_string(),
+                format!("{parent_trace}, {current_trace}")
             );
         }
 
