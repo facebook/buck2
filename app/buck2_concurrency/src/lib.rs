@@ -63,6 +63,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
+use tokio::sync::Semaphore;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::time::timeout;
@@ -122,6 +123,10 @@ pub struct ConcurrencyHandler {
     /// Source of `CommandId`s. Deliberately outside `data` so that a command has an identity
     /// before it competes for the lock.
     next_command_id: AtomicUsize,
+    /// Serializes updates independently of the state lock. It becomes authoritative when the next
+    /// diff moves updates outside that lock.
+    #[allocative(skip)]
+    update_permit: Semaphore,
 }
 
 #[derive(Allocative)]
@@ -399,6 +404,7 @@ impl ConcurrencyHandler {
             dice,
             exclusive_command_lock: ExclusiveCommandLock::new(),
             next_command_id: AtomicUsize::new(0),
+            update_permit: Semaphore::new(1),
         })
     }
 
@@ -574,6 +580,12 @@ impl ConcurrencyHandler {
                     // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
 
                     let transaction = async {
+                        let _update_permit = self
+                            .update_permit
+                            .acquire()
+                            .await
+                            .expect("`update_permit` is never closed");
+
                         let updater = self.dice.updater();
 
                         let (transaction, user_data) =
