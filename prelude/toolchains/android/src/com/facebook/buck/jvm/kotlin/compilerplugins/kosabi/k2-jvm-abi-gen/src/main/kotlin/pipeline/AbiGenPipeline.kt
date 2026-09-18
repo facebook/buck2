@@ -285,7 +285,10 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
               if (isNonApiVisibility(decl)) {
                 degradeErrorTypedPositions(decl, session)
               } else {
-                recordErrorTypedApiMember(decl.symbol.callableId.packageName.asString(), decl)
+                recordErrorTypedApiMember(
+                    decl.symbol.callableId?.packageName?.asString() ?: "<unknown>",
+                    decl,
+                )
               }
             }
           }
@@ -880,10 +883,11 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
   // into the metadata, so it is recorded for ValidationStage to report instead.
   @OptIn(SymbolInternals::class)
   private fun recordErrorTypedApiMember(owner: String, decl: FirCallableDeclaration) {
-    val member = runCatching {
-      decl.symbol.callableId.callableName.asString()
-    }
-        .getOrDefault("<unknown>")
+    val member =
+        runCatching {
+          decl.symbol.callableId?.callableName?.asString()
+        }
+            .getOrNull() ?: "<unknown>"
 
     val isProperty = decl is FirProperty
     val propertyTypeHasError =
