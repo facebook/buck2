@@ -1073,7 +1073,6 @@ fn create_clean_fut<T: IoHandler>(
             let wait_for_existing_futs = wait_for_existing_futs.clone();
             let path = upload.path.clone();
             let size = upload.size;
-            // TODO(scottcao): Use a dedicated RE use case for clean-stale uploads.
             let info = Arc::new(CasDownloadInfo::new_uploaded(upload_config.re_use_case));
             let clean_fut = async move {
                 if let Err(error) = wait_for_existing_futs.await {
@@ -2159,18 +2158,7 @@ impl CleanStaleConfig {
                 property: "clean_stale_unmaterialize_upload_max_bytes",
             })?
             .unwrap_or(1024 * 1024 * 1024);
-        let re_use_case = root_config
-            .parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
-                section: "buck2_re_client",
-                property: "override_use_case",
-            })?
-            .or(
-                root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
-                    section: "build",
-                    property: "default_remote_execution_use_case",
-                })?,
-            )
-            .unwrap_or_else(RemoteExecutorUseCase::buck2_default);
+        let re_use_case = RemoteExecutorUseCase::new("buck2-local-unmaterialization".to_owned());
         let unmaterialize_upload =
             unmaterialize_upload_enabled.then_some(UnmaterializationUploadConfig {
                 re_use_case,
