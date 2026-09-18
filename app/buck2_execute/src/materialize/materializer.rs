@@ -141,6 +141,18 @@ pub enum MaterializationPurpose {
     IntermediateOnly,
 }
 
+pub struct MaterializerBackgroundCleanupGuard {
+    _guard: Box<dyn Send + Sync>,
+}
+
+impl MaterializerBackgroundCleanupGuard {
+    pub fn new(guard: impl Send + Sync + 'static) -> Self {
+        Self {
+            _guard: Box::new(guard),
+        }
+    }
+}
+
 /// A trait providing methods to asynchronously materialize artifacts.
 ///
 /// # Invariants
@@ -168,6 +180,11 @@ pub enum MaterializationPurpose {
 ///    declared.
 #[async_trait]
 pub trait Materializer: Allocative + Send + Sync + 'static {
+    /// Prevent background cleanup until the returned guard is dropped.
+    async fn prevent_background_cleanup(&self) -> MaterializerBackgroundCleanupGuard {
+        MaterializerBackgroundCleanupGuard::new(())
+    }
+
     /// Declare that a set of artifacts exist on disk already.
     async fn declare_existing(
         &self,

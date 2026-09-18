@@ -63,6 +63,7 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::MaterializerBackgroundCleanupGuard;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -76,8 +77,10 @@ use futures::TryStreamExt;
 use futures::stream::BoxStream;
 use jiff::SignedDuration;
 use jiff::Timestamp;
+use parking_lot::Mutex;
 use parking_lot::RwLock;
 use tokio::runtime::Handle;
+use tokio::sync::Notify;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
@@ -137,6 +140,72 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     materializer_state_info: buck2_data::MaterializerStateInfo,
 
     stats: Arc<DeferredMaterializerStats>,
+
+    #[allocative(skip)]
+    background_cleanup_gate: Arc<BackgroundCleanupGate>,
+}
+
+#[derive(Default)]
+pub(super) struct BackgroundCleanupGate {
+    state: Mutex<BackgroundCleanupGateState>,
+    cleanup_finished: Notify,
+}
+
+#[derive(Default)]
+struct BackgroundCleanupGateState {
+    prevention_guards: usize,
+    cleanup_running: bool,
+}
+
+struct BackgroundCleanupPreventionGuard {
+    gate: Arc<BackgroundCleanupGate>,
+}
+
+impl BackgroundCleanupPreventionGuard {
+    async fn wait_for_cleanup(&self) {
+        loop {
+            let notified = self.gate.cleanup_finished.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if !self.gate.state.lock().cleanup_running {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+
+impl Drop for BackgroundCleanupPreventionGuard {
+    fn drop(&mut self) {
+        self.gate.state.lock().prevention_guards -= 1;
+    }
+}
+
+pub(super) struct BackgroundCleanupRunGuard {
+    gate: Arc<BackgroundCleanupGate>,
+}
+
+impl Drop for BackgroundCleanupRunGuard {
+    fn drop(&mut self) {
+        self.gate.state.lock().cleanup_running = false;
+        self.gate.cleanup_finished.notify_waiters();
+    }
+}
+
+impl BackgroundCleanupGate {
+    fn register_prevention(self: &Arc<Self>) -> BackgroundCleanupPreventionGuard {
+        self.state.lock().prevention_guards += 1;
+        BackgroundCleanupPreventionGuard { gate: self.dupe() }
+    }
+
+    pub(super) fn try_start_cleanup(self: &Arc<Self>) -> Option<BackgroundCleanupRunGuard> {
+        let mut state = self.state.lock();
+        if state.prevention_guards != 0 || state.cleanup_running {
+            return None;
+        }
+        state.cleanup_running = true;
+        Some(BackgroundCleanupRunGuard { gate: self.dupe() })
+    }
 }
 
 pub type DeferredMaterializer = DeferredMaterializerAccessor<DefaultIoHandler>;
@@ -277,18 +346,20 @@ pub struct MaterializerSender<T: 'static> {
 }
 
 impl<T> MaterializerSender<T> {
+    fn interrupt_clean(&self) {
+        let read = self.clean_guard.read();
+        if read.is_some() {
+            drop(read);
+            *self.clean_guard.write() = None;
+        }
+    }
+
     #[allow(clippy::result_large_err)]
     fn send(
         &self,
         command: MaterializerCommand<T>,
     ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
-        {
-            let read = self.clean_guard.read();
-            if read.is_some() {
-                drop(read);
-                *self.clean_guard.write() = None;
-            }
-        }
+        self.interrupt_clean();
         let res = self.high_priority.send(command);
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
@@ -350,6 +421,13 @@ impl From<MaterializeEntryError> for SharedMaterializingError {
 
 #[async_trait]
 impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T> {
+    async fn prevent_background_cleanup(&self) -> MaterializerBackgroundCleanupGuard {
+        let guard = self.background_cleanup_gate.register_prevention();
+        self.command_sender.interrupt_clean();
+        guard.wait_for_cleanup().await;
+        MaterializerBackgroundCleanupGuard::new(guard)
+    }
+
     async fn declare_existing(
         &self,
         artifacts: Vec<DeclareArtifactPayload>,
@@ -745,11 +823,13 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
 
         let tree = ArtifactTree::initialize(sqlite_state);
 
+        let background_cleanup_gate = Arc::new(BackgroundCleanupGate::default());
         let command_processor = {
             let command_sender = command_sender.dupe();
             let rt = Handle::current();
             let stats = stats.dupe();
             let io = io.dupe();
+            let background_cleanup_gate = background_cleanup_gate.dupe();
             move |cancellations| {
                 DeferredMaterializerCommandProcessor::new(
                     io,
@@ -765,6 +845,7 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
                     daemon_dispatcher,
                     configs.clean_stale_config.clone(),
                     rematerialization_ttl,
+                    background_cleanup_gate,
                 )
             }
         };
@@ -795,6 +876,7 @@ impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
             io,
             materializer_state_info,
             stats,
+            background_cleanup_gate,
         })
     }
 }

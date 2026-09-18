@@ -47,6 +47,54 @@ fn test_rematerialization_ttl_tracks_refresh_frequency() {
     assert_eq!(disabled.rematerialization_ttl(), None);
 }
 
+#[tokio::test]
+async fn test_background_cleanup_gate() {
+    let gate = Arc::new(BackgroundCleanupGate::default());
+    let command_guard = gate.register_prevention();
+    assert!(gate.try_start_cleanup().is_none());
+    drop(command_guard);
+
+    let clean_guard = gate.try_start_cleanup().unwrap();
+    let waiter = tokio::spawn({
+        let gate = gate.dupe();
+        async move {
+            let command_guard = gate.register_prevention();
+            command_guard.wait_for_cleanup().await;
+            command_guard
+        }
+    });
+    tokio::task::yield_now().await;
+    assert!(!waiter.is_finished());
+
+    drop(clean_guard);
+    let command_guard = tokio::time::timeout(std::time::Duration::from_secs(1), waiter)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(gate.try_start_cleanup().is_none());
+    drop(command_guard);
+    assert!(gate.try_start_cleanup().is_some());
+}
+
+#[tokio::test]
+async fn test_background_cleanup_wait_is_cancel_safe() {
+    let gate = Arc::new(BackgroundCleanupGate::default());
+    let clean_guard = gate.try_start_cleanup().unwrap();
+    let waiter = tokio::spawn({
+        let gate = gate.dupe();
+        async move {
+            let command_guard = gate.register_prevention();
+            command_guard.wait_for_cleanup().await;
+        }
+    });
+    tokio::task::yield_now().await;
+    waiter.abort();
+    assert!(waiter.await.unwrap_err().is_cancelled());
+
+    drop(clean_guard);
+    assert!(gate.try_start_cleanup().is_some());
+}
+
 #[test]
 fn test_find_artifacts() -> buck2_error::Result<()> {
     let artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned());
@@ -538,6 +586,7 @@ mod state_machine {
         Arc<MaterializerSender<StubIoHandler>>,
         MaterializerReceiver<StubIoHandler>,
         ChannelEventSource,
+        Arc<BackgroundCleanupGate>,
     ) {
         let (db, sqlite_state) = make_db(io.fs());
         let stats = Arc::new(DeferredMaterializerStats::default());
@@ -557,6 +606,7 @@ mod state_machine {
             EventDispatcher::new(TraceId::null(), DaemonId::new(), daemon_dispatcher_sink);
 
         let (command_sender, command_receiver) = channel();
+        let background_cleanup_gate = Arc::new(BackgroundCleanupGate::default());
         (
             DeferredMaterializerCommandProcessor::new(
                 io,
@@ -572,10 +622,12 @@ mod state_machine {
                 daemon_dispatcher,
                 CleanStaleConfig::default(),
                 None,
+                background_cleanup_gate.dupe(),
             ),
             command_sender,
             command_receiver,
             daemon_dispatcher_events,
+            background_cleanup_gate,
         )
     }
 
@@ -585,7 +637,7 @@ mod state_machine {
         DeferredMaterializerCommandProcessor<StubIoHandler>,
         MaterializerReceiver<StubIoHandler>,
     ) {
-        let (dm, _, receiver, _) = make_processor_for_io(Arc::new(
+        let (dm, _, receiver, _, _) = make_processor_for_io(Arc::new(
             StubIoHandler::new(temp_root()).with_materialization_config(materialization_config),
         ));
         (dm, receiver)
@@ -598,8 +650,13 @@ mod state_machine {
         DeferredMaterializerAccessor<StubIoHandler>,
         ChannelEventSource,
     ) {
-        let (mut processor, command_sender, command_receiver, daemon_dispatcher_events) =
-            make_processor_for_io(io.dupe());
+        let (
+            mut processor,
+            command_sender,
+            command_receiver,
+            daemon_dispatcher_events,
+            background_cleanup_gate,
+        ) = make_processor_for_io(io.dupe());
         processor.clean_stale_config = clean_stale_config.unwrap_or_default();
         let stats = processor.stats.dupe();
 
@@ -635,6 +692,7 @@ mod state_machine {
                     num_entries_from_sqlite: 0,
                 },
                 stats,
+                background_cleanup_gate,
             },
             daemon_dispatcher_events,
         )

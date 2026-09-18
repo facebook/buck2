@@ -67,6 +67,7 @@ use tokio::time::Interval;
 use tracing::instrument;
 
 use crate::materializers::deferred::AccessTimesUpdates;
+use crate::materializers::deferred::BackgroundCleanupGate;
 use crate::materializers::deferred::DeferredMaterializerStats;
 use crate::materializers::deferred::MaterializeEntryError;
 use crate::materializers::deferred::MaterializerReceiver;
@@ -131,6 +132,7 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// Minimum remaining CAS TTL required before local contents may be discarded.
     /// `None` when periodic TTL refresh cannot preserve a remotely-backed artifact.
     pub(super) rematerialization_ttl: Option<SignedDuration>,
+    background_cleanup_gate: Arc<BackgroundCleanupGate>,
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
@@ -432,6 +434,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         daemon_dispatcher: EventDispatcher,
         clean_stale_config: CleanStaleConfig,
         rematerialization_ttl: Option<SignedDuration>,
+        background_cleanup_gate: Arc<BackgroundCleanupGate>,
     ) -> Self {
         let ttl_refresh_history = Vec::new();
         let ttl_refresh_instance = None;
@@ -455,6 +458,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             root_abs_path,
             clean_stale_config,
             rematerialization_ttl,
+            background_cleanup_gate,
         }
     }
 
@@ -654,6 +658,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     };
                 }
                 Op::CleanStaleRequest => {
+                    let Some(clean_guard) = self.background_cleanup_gate.try_start_cleanup() else {
+                        continue;
+                    };
                     let dispatcher = self.daemon_dispatcher.dupe();
                     let daemon_id = dispatcher.daemon_id().dupe();
                     let cmd = self.configured_clean_stale_command(
@@ -662,7 +669,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         false,
                         Trigger::Scheduled,
                     );
-                    stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None, daemon_id));
+                    let clean = cmd.create_clean_fut(&mut self, None, daemon_id);
+                    stream.clean_stale_fut = Some(
+                        async move {
+                            let _clean_guard = clean_guard;
+                            clean.await
+                        }
+                        .boxed(),
+                    );
                 }
             }
         }
