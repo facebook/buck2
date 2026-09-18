@@ -573,6 +573,20 @@ impl ConcurrencyHandler {
 
             tracing::debug!("ActiveDice is available");
 
+            // `--exit-when=notidle` asks only whether anything else is running, so it is answered
+            // here rather than after the update. Refusing costs a lock acquisition instead of a
+            // file-watcher sync and a DICE commit.
+            if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
+                return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
+                    || {
+                        format!(
+                            "Buck daemon is busy processing another command: {}",
+                            Self::format_active_commands(&data)
+                        )
+                    },
+                );
+            }
+
             // `--exit-when=different-state` cannot be answered until the update has run, because
             // it depends on whether this command's state differs — which is *defined* as whether
             // injecting it altered the graph. Answering it against the state as it is afterwards
@@ -673,19 +687,6 @@ impl ConcurrencyHandler {
                 data.dice_status = DiceStatus::active(transaction.equality_token());
                 break (transaction, !dice_was_idle);
             };
-
-            // If the --exit-when=notidle option is set for the current command and there is
-            // another command running already, exit immediately with a "daemon is busy" error.
-            if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
-                return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
-                    || {
-                        format!(
-                            "Buck daemon is busy processing another command: {}",
-                            Self::format_active_commands(&data)
-                        )
-                    },
-                );
-            }
 
             // If we have a different state, attempt to transition to cleanup. This will
             // succeed only if the current state is not in use.
@@ -2950,7 +2951,12 @@ mod tests {
         }));
 
         // Second command should fail immediately
-        let fut2_result = fut2.await?;
+        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
+        // than refusing, so an unbounded await turns a regression into a 10 minute harness
+        // timeout instead of a fast failure.
+        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
+            .await
+            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
         let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
@@ -3032,7 +3038,12 @@ mod tests {
         }));
 
         // Second command should fail immediately
-        let fut2_result = fut2.await?;
+        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
+        // than refusing, so an unbounded await turns a regression into a 10 minute harness
+        // timeout instead of a fast failure.
+        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
+            .await
+            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
         let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
@@ -3137,7 +3148,12 @@ mod tests {
         }));
 
         // Both second and third commands should fail
-        let fut2_result = fut2.await?;
+        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
+        // than refusing, so an unbounded await turns a regression into a 10 minute harness
+        // timeout instead of a fast failure.
+        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
+            .await
+            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
         let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
@@ -3228,7 +3244,12 @@ mod tests {
         }));
 
         // Second command should fail immediately, even though first is preemptible
-        let fut2_result = fut2.await?;
+        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
+        // than refusing, so an unbounded await turns a regression into a 10 minute harness
+        // timeout instead of a fast failure.
+        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
+            .await
+            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
         let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
@@ -3416,7 +3437,12 @@ mod tests {
         }));
 
         // Both second and third commands should fail
-        let fut2_result = fut2.await?;
+        // Bounded: without the `--exit-when=notidle` gate this command blocks forever rather
+        // than refusing, so an unbounded await turns a regression into a 10 minute harness
+        // timeout instead of a fast failure.
+        let fut2_result = tokio::time::timeout(Duration::from_secs(10), fut2)
+            .await
+            .expect("`--exit-when=notidle` should refuse immediately, not block")?;
         let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
