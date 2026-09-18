@@ -8,8 +8,11 @@
  * above-listed licenses.
  */
 
+use std::iter;
+
 use buck2_core::soft_error;
 use buck2_data::VersionControlRevision;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::async_fs_util;
@@ -18,7 +21,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::properly_reaped_child::reap_on_drop_command;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
-use tokio::sync::OnceCell;
 use tokio_stream::StreamExt;
 
 /// Spawn tasks to collect version control information
@@ -88,15 +90,10 @@ async fn create_revision_data(
 ) -> buck2_data::VersionControlRevision {
     let mut revision = buck2_data::VersionControlRevision::default();
     match repo_type(repo_root).await {
-        Ok(repo_vcs) => match repo_vcs {
-            RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
-            RepoVcs::Git => create_git_data(&mut revision, revision_type, repo_root).await,
-            RepoVcs::Unknown => {
-                revision.command_error = Some("Unknown repository type".to_owned());
-            }
-        },
-        Err(e) => {
-            revision.command_error = Some(format!("Failed to get repository type: {e:#}"));
+        RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
+        RepoVcs::Git => create_git_data(&mut revision, revision_type, repo_root).await,
+        RepoVcs::Unknown => {
+            revision.command_error = Some("Unknown repository type".to_owned());
         }
     }
     revision
@@ -109,7 +106,7 @@ async fn create_hg_data(
 ) {
     match revision_type {
         RevisionDataType::CurrentRevision => get_hg_revision(revision, repo_root).await,
-        RevisionDataType::Status => get_hg_status(revision).await,
+        RevisionDataType::Status => get_hg_status(revision, repo_root).await,
     }
 }
 
@@ -137,47 +134,79 @@ async fn get_hg_revision(
     revision.hg_revision = Some(curr_revision);
 }
 
-async fn get_hg_status(revision: &mut buck2_data::VersionControlRevision) {
+async fn get_hg_status(
+    revision: &mut buck2_data::VersionControlRevision,
+    repo_root: &AbsNormPathBuf,
+) {
     // `hg status` returns if there are any local changes
-    let status_output = match reap_on_drop_command("hg", &["status"], Some(&[("HGPLAIN", "1")])) {
+    match run_hg(repo_root, &["status"]).await {
+        Ok(stdout) => revision.has_local_changes = Some(!stdout.trim().is_empty()),
+        Err(e) => revision.command_error = Some(format!("{e:#}")),
+    };
+}
+
+fn display_command(program: &str, args: &[&str]) -> String {
+    shlex::try_join(iter::once(program).chain(args.iter().copied()))
+        .unwrap_or_else(|_| format!("{program} <argument contains NUL>"))
+}
+
+async fn run_hg(repo_root: &AbsNormPathBuf, args: &[&str]) -> buck2_error::Result<String> {
+    let Some(repo_root) = repo_root.as_path().to_str() else {
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::Input,
+            "Repository root is not valid utf8: {}",
+            repo_root.as_path().display()
+        ));
+    };
+
+    let mut full_args = vec!["--cwd", repo_root];
+    full_args.extend_from_slice(args);
+    let command = display_command("hg", &full_args);
+
+    let output = match reap_on_drop_command("hg", &full_args, Some(&[("HGPLAIN", "1")])) {
         Ok(command) => command.output().await,
         Err(e) => {
-            revision.command_error =
-                Some(format!("reap_on_drop_command for `hg status` failed: {e}"));
-            return;
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::Tier0,
+                "reap_on_drop_command for `{command}` failed: {e}"
+            ));
         }
     };
 
-    match status_output {
-        Ok(result) => {
-            if !result.status.success() {
-                let stderr = match std::str::from_utf8(&result.stderr) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        revision.command_error = Some(format!("hg status stderr is not utf8: {e}"));
-                        return;
-                    }
-                };
-                revision.command_error = Some(format!(
-                    "Command `hg status` failed with error code {}; stderr: {}",
-                    result.status, stderr
-                ));
-                return;
-            }
-
-            let stdout = match std::str::from_utf8(&result.stdout) {
-                Ok(s) => s.trim(),
-                Err(e) => {
-                    revision.command_error = Some(format!("hg status stdout is not utf8: {e}"));
-                    return;
-                }
-            };
-            revision.has_local_changes = Some(!stdout.is_empty());
-        }
+    let result = match output {
+        Ok(result) => result,
         Err(e) => {
-            revision.command_error = Some(format!("Command `hg status` failed with error: {e:?}"));
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::Tier0,
+                "Command `{command}` failed with error: {e:?}"
+            ));
         }
     };
+
+    if !result.status.success() {
+        let stderr = match std::str::from_utf8(&result.stderr) {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(buck2_error::buck2_error!(
+                    ErrorTag::Tier0,
+                    "`{command}` stderr is not utf8: {e}"
+                ));
+            }
+        };
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::Tier0,
+            "Command `{command}` failed with error code {}; stderr: {stderr}",
+            result.status
+        ));
+    }
+
+    match std::str::from_utf8(&result.stdout) {
+        Ok(s) => Ok(s.to_owned()),
+        Err(e) => Err(buck2_error::buck2_error!(
+            ErrorTag::Tier0,
+            "`{command}` stdout is not utf8: {e}"
+        )),
+    }
 }
 
 async fn create_git_data(
@@ -199,7 +228,7 @@ async fn get_git_revision(
     // packed refs, detached HEADs, etc. without us having to parse `.git`.
     match run_git(repo_root, &["rev-parse", "HEAD"]).await {
         Ok(stdout) => revision.git_revision = Some(stdout.trim().to_owned()),
-        Err(e) => revision.command_error = Some(e),
+        Err(e) => revision.command_error = Some(format!("{e:#}")),
     }
 }
 
@@ -212,15 +241,16 @@ async fn get_git_status(
     // changes (they show up as `??` lines), matching the behavior of `hg status`.
     match run_git(repo_root, &["status", "--porcelain"]).await {
         Ok(stdout) => revision.has_local_changes = Some(!stdout.trim().is_empty()),
-        Err(e) => revision.command_error = Some(e),
+        Err(e) => revision.command_error = Some(format!("{e:#}")),
     }
 }
 
 /// Run a `git` command rooted at `repo_root`, returning its stdout on success or
 /// an error message describing the failure.
-async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, String> {
+async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> buck2_error::Result<String> {
     let Some(repo_root) = repo_root.as_path().to_str() else {
-        return Err(format!(
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::Input,
             "Repository root is not valid utf8: {}",
             repo_root.as_path().display()
         ));
@@ -230,6 +260,7 @@ async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, St
     // daemon's current working directory.
     let mut full_args = vec!["-C", repo_root];
     full_args.extend_from_slice(args);
+    let command = display_command("git", &full_args);
 
     // `GIT_OPTIONAL_LOCKS=0` prevents git from taking the index lock or
     // refreshing the index on disk, so we don't contend with a concurrent user
@@ -238,9 +269,9 @@ async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, St
     {
         Ok(command) => command.output().await,
         Err(e) => {
-            return Err(format!(
-                "reap_on_drop_command for `git {}` failed: {e}",
-                args.join(" ")
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::Tier0,
+                "reap_on_drop_command for `{command}` failed: {e}"
             ));
         }
     };
@@ -248,9 +279,9 @@ async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, St
     let result = match output {
         Ok(result) => result,
         Err(e) => {
-            return Err(format!(
-                "Command `git {}` failed with error: {e:?}",
-                args.join(" ")
+            return Err(buck2_error::buck2_error!(
+                ErrorTag::Tier0,
+                "Command `{command}` failed with error: {e:?}"
             ));
         }
     };
@@ -258,50 +289,48 @@ async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, St
     if !result.status.success() {
         let stderr = match std::str::from_utf8(&result.stderr) {
             Ok(s) => s,
-            Err(e) => return Err(format!("git {} stderr is not utf8: {e}", args.join(" "))),
+            Err(e) => {
+                return Err(buck2_error::buck2_error!(
+                    ErrorTag::Tier0,
+                    "`{command}` stderr is not utf8: {e}"
+                ));
+            }
         };
-        return Err(format!(
-            "Command `git {}` failed with error code {}; stderr: {}",
-            args.join(" "),
-            result.status,
-            stderr
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::Tier0,
+            "Command `{command}` failed with error code {}; stderr: {stderr}",
+            result.status
         ));
     }
 
     match std::str::from_utf8(&result.stdout) {
         Ok(s) => Ok(s.to_owned()),
-        Err(e) => Err(format!("git {} stdout is not utf8: {e}", args.join(" "))),
+        Err(e) => Err(buck2_error::buck2_error!(
+            ErrorTag::Tier0,
+            "`{command}` stdout is not utf8: {e}"
+        )),
     }
 }
 
-async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static RepoVcs> {
-    static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
-    async fn repo_type_impl(repo_root: &AbsNormPathBuf) -> buck2_error::Result<RepoVcs> {
-        let (hg_metadata, git_metadata) = tokio::join!(
-            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".hg").unwrap())),
-            async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".git").unwrap()))
-        );
+async fn repo_type(repo_root: &AbsNormPathBuf) -> RepoVcs {
+    let (hg_metadata, git_metadata) = tokio::join!(
+        async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".hg").unwrap())),
+        async_fs_util::metadata(repo_root.join(ForwardRelativePath::new(".git").unwrap()))
+    );
 
-        let is_hg = hg_metadata.is_ok_and(|output| output.is_dir());
-        // `.git` can be a symlink or a file with contents like:
-        //
-        //     gitdir: /home/dog/buck2/.git/worktrees/buck3
-        let is_git = git_metadata.is_ok();
+    let is_hg = hg_metadata.is_ok_and(|output| output.is_dir());
+    // `.git` can be a symlink or a file with contents like:
+    //
+    //     gitdir: /home/dog/buck2/.git/worktrees/buck3
+    let is_git = git_metadata.is_ok();
 
-        if is_hg {
-            Ok(RepoVcs::Hg)
-        } else if is_git {
-            Ok(RepoVcs::Git)
-        } else {
-            Ok(RepoVcs::Unknown)
-        }
+    if is_hg {
+        RepoVcs::Hg
+    } else if is_git {
+        RepoVcs::Git
+    } else {
+        RepoVcs::Unknown
     }
-
-    REPO_TYPE
-        .get_or_init(|| repo_type_impl(repo_root))
-        .await
-        .as_ref()
-        .map_err(|e| e.clone())
 }
 
 #[cfg(test)]
@@ -313,7 +342,7 @@ mod tests {
     async fn git(repo_root: &AbsNormPathBuf, args: &[&str]) -> String {
         run_git(repo_root, args)
             .await
-            .unwrap_or_else(|e| panic!("`git {}` failed: {e}", args.join(" ")))
+            .unwrap_or_else(|e| panic!("git command failed: {e}"))
     }
 
     /// Initialize an empty git repo with a deterministic identity so that commits
@@ -375,6 +404,42 @@ mod tests {
 
         assert_eq!(revision.command_error, None);
         assert_eq!(revision.has_local_changes, Some(false));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_repo_type_is_scoped_to_repo_root() -> buck2_error::Result<()> {
+        let hg_dir = tempfile::tempdir()?;
+        std::fs::create_dir(hg_dir.path().join(".hg"))?;
+        let hg_root = temp_repo_root(&hg_dir)?;
+
+        let git_dir = tempfile::tempdir()?;
+        std::fs::create_dir(git_dir.path().join(".git"))?;
+        let git_root = temp_repo_root(&git_dir)?;
+
+        assert!(matches!(repo_type(&hg_root).await, RepoVcs::Hg));
+        assert!(matches!(repo_type(&git_root).await, RepoVcs::Git));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_hg_status_uses_repo_root() -> buck2_error::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let repo_root = temp_repo_root(&temp_dir)?;
+        run_hg(&repo_root, &["init"])
+            .await
+            .expect("initializing the test hg repository should succeed");
+
+        let mut revision = VersionControlRevision::default();
+        get_hg_status(&mut revision, &repo_root).await;
+        assert_eq!(revision.command_error, None);
+        assert_eq!(revision.has_local_changes, Some(false));
+
+        write_file(&repo_root, "untracked.txt", "changed");
+        let mut revision = VersionControlRevision::default();
+        get_hg_status(&mut revision, &repo_root).await;
+        assert_eq!(revision.command_error, None);
+        assert_eq!(revision.has_local_changes, Some(true));
         Ok(())
     }
 }
