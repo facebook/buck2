@@ -91,9 +91,13 @@ async fn create_unhashed_outputs_via_materializer_impl(
     let mut declarations = Vec::new();
 
     for (unhashed, hashed_set) in unhashed_to_hashed {
-        if let Ok((hashed, value)) = hashed_set.iter().exactly_one() {
+        if let Ok((hashed, _)) = hashed_set.iter().exactly_one() {
             let mut builder = ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
-            builder.add_symlinked(value, hashed.clone(), &unhashed)?;
+            builder.add_symlinked(
+                &ArtifactValue::dir(digest_config.empty_directory()),
+                hashed.clone(),
+                &unhashed,
+            )?;
             let symlink_value = builder.build(&unhashed)?;
             declarations.push((unhashed, symlink_value));
         } else {

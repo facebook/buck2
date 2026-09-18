@@ -144,3 +144,15 @@ async def test_conflict_with_content_based_paths(buck: Buck) -> None:
     #
     await buck.build("//conflict:shared_name")
     base_checks(should_symlink_exist=True)
+
+
+@buck_test()
+async def test_projected_symlink_output(buck: Buck) -> None:
+    result = await buck.build("//:projected_symlink_output")
+    output = result.get_build_report().output_for_target(
+        "root//:projected_symlink_output"
+    )
+
+    assert output.parent.is_symlink()
+    assert output.is_symlink()
+    assert output.resolve().is_file()

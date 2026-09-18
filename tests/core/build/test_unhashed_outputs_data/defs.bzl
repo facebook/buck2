@@ -18,6 +18,39 @@ projected_output = rule(
     attrs = {},
 )
 
+_PROJECTED_SYMLINK_DIR = """
+import os
+import sys
+
+root = sys.argv[1]
+os.makedirs(root, exist_ok=True)
+with open(os.path.join(root, "target"), "w") as f:
+    f.write("contents")
+os.symlink("target", os.path.join(root, "profile"))
+"""
+
+def _projected_symlink_output_impl(ctx):
+    out = ctx.actions.declare_output(
+        "out",
+        dir = True,
+        has_content_based_path = True,
+    )
+    ctx.actions.run(
+        cmd_args(
+            "fbpython",
+            "-c",
+            _PROJECTED_SYMLINK_DIR,
+            out.as_output(),
+        ),
+        category = "projected_symlink_output",
+    )
+    return [DefaultInfo(default_output = out.project("profile"))]
+
+projected_symlink_output = rule(
+    impl = _projected_symlink_output_impl,
+    attrs = {},
+)
+
 def _simple_build_impl(ctx):
     f = ctx.actions.write(ctx.attrs.filename, "", has_content_based_path = ctx.attrs.has_content_based_path)
     others = []
