@@ -118,14 +118,7 @@ kotlin_library = prelude_rule(
                 List of additional arguments to pass into the Kotlin compiler.
             """,
             ),
-            "friend_paths": attrs.list(
-                attrs.dep(),
-                default = [],
-                doc = """
-                List of source paths to pass into the Kotlin compiler as friend-paths, that is, modules
-                 you can have access to internal methods.
-            """,
-            ),
+            "friend_paths": jvm_common.friend_paths_attr(),
         }
         | jvm_common.annotation_processors()
         | jvm_common.remove_classes_arg()
@@ -269,7 +262,7 @@ kotlin_test = prelude_rule(
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "friend_paths": attrs.list(attrs.dep(), default = []),
+            "friend_paths": jvm_common.friend_paths_attr(),
             "java": attrs.option(attrs.dep(), default = None),
             "java_agents": attrs.list(attrs.source(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),

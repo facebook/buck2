@@ -435,7 +435,6 @@ android_aar = prelude_rule(
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "extra_relinker_outputs": attrs.list(attrs.string(), default = []),
-            "friend_paths": attrs.list(attrs.dep(), default = []),
             # @oss-disable[end= ]: "gatorade_extra_args": attrs.list(attrs.arg(), default = [], doc = "Extra Gatorade cross-library step arguments"),
             # @oss-disable[end= ]: "gatorade_phases": attrs.set(attrs.enum(GatoradePhase), default = []),
             "hardcode_permissions_for_deterministic_output": attrs.option(
@@ -1070,7 +1069,7 @@ android_library = prelude_rule(
         | {
             "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
             "capabilities_registrations": attrs.option(attrs.list(attrs.any()), default = None),
-            "friend_paths": attrs.list(attrs.dep(), default = []),
+            "friend_paths": jvm_common.friend_paths_attr(),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java_version": attrs.option(attrs.string(), default = None),
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
@@ -1751,7 +1750,7 @@ robolectric_test = prelude_rule(
                 List of additional arguments to pass into the Kotlin compiler.
             """,
             ),
-            "friend_paths": attrs.list(attrs.dep(), default = []),
+            "friend_paths": jvm_common.friend_paths_attr(),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
             "java_agents": attrs.list(attrs.source(), default = []),

@@ -56,7 +56,7 @@ load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
-load("@prelude//kotlin:kotlin_utils.bzl", "get_kotlinc_compatible_target")
+load("@prelude//kotlin:kotlin_utils.bzl", "get_friend_paths", "get_kotlinc_compatible_target")
 load("@prelude//kotlin:kotlincd_jar_creator.bzl", "create_jar_artifact_kotlincd")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
@@ -196,7 +196,7 @@ def _create_kotlin_sources(
         if jvm_target:
             compile_kotlin_cmd_args.append(["--kapt_jvm_target", jvm_target])
 
-    friend_paths = ctx.attrs.friend_paths
+    friend_paths = get_friend_paths(ctx)
     if friend_paths:
         concat_friends_paths = cmd_args(
             [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output], delimiter = ","
@@ -546,7 +546,7 @@ def build_kotlin_library(
                 "enable_depfiles": getattr(ctx.attrs, "enable_depfiles", True),
                 "enable_used_classes": ctx.attrs.enable_used_classes,
                 "extra_kotlinc_arguments": filter_out_language_version(ctx.attrs.extra_kotlinc_arguments or []),
-                "friend_paths": ctx.attrs.friend_paths,
+                "friend_paths": get_friend_paths(ctx),
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
