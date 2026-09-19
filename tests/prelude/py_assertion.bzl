@@ -35,23 +35,23 @@ _py_assertion = rule(
     },
 )
 
-def py_assertion(name: str, exec_compatible_with: list[str] = [], **kwargs):
-    exec_compatible_with = list(exec_compatible_with)
+# Pins execution to the host os/cpu. Exported so a test whose inputs are also
+# host-specific can pin the targets producing them the same way.
+HOST_EXEC_COMPATIBLE_WITH = [
+    select({
+        "ovr_config//os:linux": "ovr_config//os:linux",
+        "ovr_config//os:macos": "ovr_config//os:macos",
+        "ovr_config//os:windows": "ovr_config//os:windows",
+    }),
+    select({
+        "ovr_config//cpu:arm64": "ovr_config//cpu:arm64",
+        "ovr_config//cpu:x86_64": "ovr_config//cpu:x86_64",
+    }),
+]
 
+def py_assertion(name: str, exec_compatible_with: list[str] = [], **kwargs):
     # Don't allow cross-running these tests, since they often invoke executables built for the
     # target platform
-    exec_compatible_with.append(
-        select({
-            "ovr_config//os:linux": "ovr_config//os:linux",
-            "ovr_config//os:macos": "ovr_config//os:macos",
-            "ovr_config//os:windows": "ovr_config//os:windows",
-        })
-    )
-    exec_compatible_with.append(
-        select({
-            "ovr_config//cpu:arm64": "ovr_config//cpu:arm64",
-            "ovr_config//cpu:x86_64": "ovr_config//cpu:x86_64",
-        })
-    )
+    exec_compatible_with = list(exec_compatible_with) + HOST_EXEC_COMPATIBLE_WITH
 
     _py_assertion(name = name, exec_compatible_with = exec_compatible_with, **kwargs)
