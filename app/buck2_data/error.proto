@@ -176,6 +176,9 @@ enum ErrorTag {
   ACTION_COMMAND_FAILURE = 604;
   ACTION_COMMAND_INFRA_FAILURE = 605;
   ACTION_OOM = 606;
+  // dotslash itself failed while running a tool the action invokes, e.g. its
+  // artifact could not be fetched; the tool never ran.
+  DOTSLASH_ERROR = 607;
 
   // Errors during buck2 install.
   INSTALL = 200;
