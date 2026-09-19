@@ -138,7 +138,6 @@ def cfg_constructor_post_constraint_analysis(*, refs: dict[str, ProviderCollecti
         )
 
     constraint_setting_to_modifier_infos = {}
-    cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
     buckconfig_backed_modifiers = _get_buckconfig_backed_modifiers(params.extra_data, params.configuring_exec_dep)
 
     if buckconfig_backed_modifiers:
@@ -181,19 +180,11 @@ def cfg_constructor_post_constraint_analysis(*, refs: dict[str, ProviderCollecti
 
     for modifier in params.cli_modifiers:
         if modifier:
-            constraint_setting_label, _ = get_and_insert_modifier_info(
+            get_and_insert_modifier_info(
                 constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
                 refs = refs,
                 modifier = modifier,
                 location = ModifierCliLocation(),
             )
-
-            # Exclude CLI modifier allowlist validation when evaluating the exec configuration,
-            # because modifiers from CLI are not applied to exec dependencies.
-            # Instead, we treat the original platform constraints as "CLI modifiers" so they take precedence.
-            if params.configuring_exec_dep:
-                continue
-            if cli_modifier_validation:
-                cli_modifier_validation(constraint_setting_label, modifier)
 
     return resolve_configuration(constraint_setting_to_modifier_infos)

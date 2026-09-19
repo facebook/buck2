@@ -18,14 +18,7 @@ DATA_DIR = (
 TARGET = f"{DATA_DIR}:test_target"
 CONSTRAINT_A = f"{DATA_DIR}:A_1"
 CONSTRAINT_B = f"{DATA_DIR}:B_1"
-BUCK_TEST_MARKER = buck_test(
-    inplace=True,
-    extra_buck_config={
-        # CLI modifier validation is disabled for users and enabled for CI. To make sure this test case always has CLI modifier validation enabled,
-        # explicitly enable it here.
-        "buck2": {"skip_cli_modifier_validation_DO_NOT_SET_TO_TRUE_ON_CI": ""}
-    },
-)
+BUCK_TEST_MARKER = buck_test(inplace=True)
 
 
 @BUCK_TEST_MARKER
