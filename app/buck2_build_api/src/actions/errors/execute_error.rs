@@ -15,7 +15,7 @@ use crate::actions::execute::action_executor::ActionOutputs;
 
 /// This type intentionally does not implement `std::error::Error`. That's because it represents an
 /// "incomplete" error - it needs more information like the command results, action keys, etc.
-/// before it can be turned into a `buck2_build_api::actions::error::ActionError`.
+/// before it can be turned into a `buck2_build_api::actions::errors::action_error::ActionError`.
 #[derive(Debug)]
 pub enum ExecuteError {
     MissingOutputs {

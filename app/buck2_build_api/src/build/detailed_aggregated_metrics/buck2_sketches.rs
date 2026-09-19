@@ -509,9 +509,9 @@ mod tests {
     use crate::actions::ActionExecutionCtx;
     use crate::actions::RegisteredAction;
     use crate::actions::box_slice_set::BoxSliceSet;
+    use crate::actions::errors::execute_error::ExecuteError;
     use crate::actions::execute::action_executor::ActionExecutionMetadata;
     use crate::actions::execute::action_executor::ActionOutputs;
-    use crate::actions::execute::error::ExecuteError;
     use crate::actions::registry::RecordedActions;
     use crate::analysis::AnalysisResult;
     use crate::analysis::registry::RecordedAnalysisValues;

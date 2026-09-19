@@ -15,7 +15,7 @@ use buck2_error::source_location::SourceLocation;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_action_error;
 
-use crate::actions::execute::error::ExecuteError;
+use crate::actions::errors::execute_error::ExecuteError;
 
 #[derive(Debug)]
 pub struct ActionError {
