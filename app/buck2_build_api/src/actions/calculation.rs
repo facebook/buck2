@@ -67,7 +67,6 @@ use crate::actions::errors::error_handler::ActionErrorHandlerError;
 use crate::actions::errors::error_handler::ActionSubErrorResult;
 use crate::actions::errors::error_handler::StarlarkActionErrorContext;
 use crate::actions::errors::execute_error::ExecuteError;
-use crate::actions::errors::infra_error_handler::check_infra_error_patterns;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::BuckActionExecutor;
 use crate::actions::execute::action_executor::HasActionExecutor;
@@ -344,15 +343,12 @@ async fn build_action_inner(
                 outputs,
             );
 
-            let infra_error_tag = check_infra_error_patterns(last_command.as_ref());
-
             let e = ActionError::new(
                 e,
                 action_name.clone(),
                 action_key.clone(),
                 last_command.clone(),
                 error_diagnostics.clone(),
-                infra_error_tag,
             );
 
             error = Some(e.as_proto_field());

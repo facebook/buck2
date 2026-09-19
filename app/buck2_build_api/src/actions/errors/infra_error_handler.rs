@@ -8,29 +8,69 @@
  * above-listed licenses.
  */
 
+//! Reclassifies a failed action command as an infra error when its stderr shows the failure came
+//! from shared infrastructure: the kernel, the filesystem, RE, dotslash. A match adds
+//! `ActionCommandInfraFailure` and the specific tag instead of `ActionCommandFailure`.
+//!
+//! Only add patterns for shared infrastructure failures that are not practical to tag directly at
+//! their source, and only match stable text that infrastructure produces, never text a user's own
+//! tool or script could print. Anything a rule author can recognize belongs in the action's
+//! Starlark `error_handler` instead.
+
 use buck2_error::ErrorTag;
 
-pub(crate) fn check_infra_error_patterns(
+/// A fragment of infrastructure-produced stderr and the tag a failed command earns for it.
+struct InfraErrorPattern {
+    /// Matched case-insensitively as a substring of the command's stderr.
+    pattern: &'static str,
+    tag: ErrorTag,
+}
+
+impl InfraErrorPattern {
+    fn matches(&self, stderr_lower: &str) -> bool {
+        stderr_lower.contains(self.pattern)
+    }
+}
+
+const INFRA_PATTERNS: &[InfraErrorPattern] = &[
+    InfraErrorPattern {
+        pattern: "transport endpoint is not connected",
+        tag: ErrorTag::IoNotConnected,
+    },
+    InfraErrorPattern {
+        pattern: "out of memory",
+        tag: ErrorTag::ActionOom,
+    },
+    InfraErrorPattern {
+        pattern: "input/output error",
+        tag: ErrorTag::IoInputOutputError,
+    },
+];
+
+/// Tags for an action whose command exited non-zero. If the command's stderr matches an infra
+/// pattern this is `ActionCommandInfraFailure` plus the specific tag, which sets the error's tier;
+/// otherwise it is `ActionCommandFailure`, which marks the error as an input (user) error.
+pub(crate) fn command_failure_tags(
+    last_command: Option<&buck2_data::CommandExecution>,
+) -> Vec<ErrorTag> {
+    match check_infra_error_patterns(last_command) {
+        Some(infra_tag) => vec![ErrorTag::ActionCommandInfraFailure, infra_tag],
+        None => vec![ErrorTag::ActionCommandFailure],
+    }
+}
+
+fn check_infra_error_patterns(
     last_command: Option<&buck2_data::CommandExecution>,
 ) -> Option<ErrorTag> {
     let stderr = last_command
         .and_then(|c| c.details.as_ref())
         .map_or("", |d| d.cmd_stderr.as_str());
 
-    const INFRA_PATTERNS: &[(&str, ErrorTag)] = &[
-        (
-            "transport endpoint is not connected",
-            ErrorTag::IoNotConnected,
-        ),
-        ("out of memory", ErrorTag::ActionOom),
-        ("input/output error", ErrorTag::IoInputOutputError),
-    ];
-
     let stderr_lower = stderr.to_lowercase();
     INFRA_PATTERNS
         .iter()
-        .find(|(pattern, _)| stderr_lower.contains(pattern))
-        .map(|(_, tag)| *tag)
+        .find(|p| p.matches(&stderr_lower))
+        .map(|p| p.tag)
 }
 
 #[cfg(test)]
@@ -38,6 +78,21 @@ mod tests {
     use buck2_error::ErrorTag;
 
     use crate::actions::errors::infra_error_handler::check_infra_error_patterns;
+    use crate::actions::errors::infra_error_handler::command_failure_tags;
+
+    #[test]
+    fn test_command_failure_tags() {
+        assert_eq!(
+            command_failure_tags(Some(&command_with_stderr("fatal error: Out of memory"))),
+            vec![ErrorTag::ActionCommandInfraFailure, ErrorTag::ActionOom],
+        );
+        assert_eq!(
+            command_failure_tags(Some(&command_with_stderr(
+                "main.cpp:1:1: error: expected `;`"
+            ))),
+            vec![ErrorTag::ActionCommandFailure],
+        );
+    }
 
     fn command_with_stderr(stderr: &str) -> buck2_data::CommandExecution {
         buck2_data::CommandExecution {
