@@ -1709,6 +1709,7 @@ dependencies = [
  "bytes",
  "cmp_any",
  "compact_str",
+ "ctor",
  "derivative",
  "derive_more 2.1.1",
  "dice",

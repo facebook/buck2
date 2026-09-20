@@ -816,8 +816,10 @@ mod state_machine {
         .await
     }
 
-    fn cas_value(digest_config: DigestConfig, expiry: Timestamp) -> ArtifactValue {
-        let digest = TrackedFileDigest::from_content(b"x", digest_config.cas_digest_config());
+    /// Tracked file digests are interned by value, so two values built from the same content
+    /// share one expiration; callers that need distinct expirations pass distinct content.
+    fn cas_value(digest_config: DigestConfig, content: &[u8], expiry: Timestamp) -> ArtifactValue {
+        let digest = TrackedFileDigest::from_content(content, digest_config.cas_digest_config());
         digest.update_expires(expiry);
         ArtifactValue::file(FileMetadata {
             digest,
@@ -858,7 +860,11 @@ mod state_machine {
         let expiry = Timestamp::now()
             .checked_add(SignedDuration::from_hours(1))
             .expect("one hour should fit in a timestamp");
-        let value = cas_value(dm.io.digest_config(), expiry);
+        let value = cas_value(
+            dm.io.digest_config(),
+            b"cas_rematerialization_method_survives_redeclaration",
+            expiry,
+        );
 
         declare_and_materialize(&mut dm, &path, value.dupe(), cas_method());
         let data = dm
@@ -921,14 +927,14 @@ mod state_machine {
             declare_and_materialize(
                 &mut dm,
                 path,
-                cas_value(digest_config, expiry),
+                cas_value(digest_config, path.as_str().as_bytes(), expiry),
                 cas_method(),
             );
         }
         declare_and_materialize(
             &mut dm,
             &paths[4],
-            cas_value(digest_config, valid_expiry),
+            cas_value(digest_config, paths[4].as_str().as_bytes(), valid_expiry),
             Box::new(ArtifactMaterializationMethod::LocalCopy(
                 FileTree::new(),
                 Vec::new(),
@@ -1058,7 +1064,11 @@ mod state_machine {
         let expiry = now
             .checked_add(SignedDuration::from_hours(1))
             .expect("one hour should fit in a timestamp");
-        let value = cas_value(dm.io.digest_config(), expiry);
+        let value = cas_value(
+            dm.io.digest_config(),
+            b"unmaterialization_failure_keeps_artifact_materialized",
+            expiry,
+        );
 
         declare_and_materialize(&mut dm, &path, value, cas_method());
         let sizes_before = *dm.stats.sizes.read();
