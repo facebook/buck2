@@ -31,6 +31,7 @@ use buck2_error::BuckErrorOptionContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
+use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use futures::FutureExt;
@@ -216,6 +217,11 @@ impl ReConnectionManager {
                 is_paranoid_mode,
             },
         }
+    }
+
+    /// Whether there is a CAS to talk to at all; see `RemoteExecutionStaticMetadataImpl`.
+    pub fn cas_configured(&self) -> bool {
+        self.config.static_metadata.cas_configured()
     }
 
     /// Gets a new guard that holds a RE connection open

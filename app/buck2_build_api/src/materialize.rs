@@ -16,9 +16,6 @@ use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::Uploads;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
@@ -29,6 +26,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::re::invocation_re_settings::HasInvocationReSettings;
 use buck2_hash::BuckDashSet;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -195,20 +193,7 @@ async fn ensure_uploaded(
         }
         dir.fingerprint(digest_config.as_directory_serializer())
     };
-    let re_use_case = ctx
-        .get_legacy_root_config_on_dice()
-        .await
-        .and_then(|cfg| {
-            cfg.view(ctx).get(BuckconfigKeyRef {
-                section: "build",
-                property: "default_remote_execution_use_case",
-            })
-        })
-        .ok()
-        .flatten()
-        .map_or_else(RemoteExecutorUseCase::buck2_default, |v| {
-            RemoteExecutorUseCase::new((*v).to_owned())
-        });
+    let re_use_case = invocation_re_use_case(ctx);
     ctx.per_transaction_data()
         .get_re_client()
         .dupe()
@@ -228,6 +213,14 @@ async fn ensure_uploaded(
         .await?;
 
     Ok(())
+}
+
+/// The RE use case the invocation talks to the CAS as on its own behalf; see
+/// `InvocationReSettings`.
+pub fn invocation_re_use_case(ctx: &DiceComputations<'_>) -> RemoteExecutorUseCase {
+    ctx.per_transaction_data()
+        .get_invocation_re_settings()
+        .use_case
 }
 
 #[derive(Clone, Dupe, Copy)]

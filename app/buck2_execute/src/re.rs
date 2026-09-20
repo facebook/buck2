@@ -13,6 +13,7 @@ pub mod client;
 pub mod convert;
 pub mod digest_sampler;
 pub mod error;
+pub mod invocation_re_settings;
 pub mod manager;
 pub mod metadata;
 pub mod output_trees_download_config;

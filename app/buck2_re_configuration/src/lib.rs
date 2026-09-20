@@ -21,6 +21,9 @@ static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
     fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
+    /// Whether there is a CAS to talk to at all. Independent of any executor configuration: a
+    /// command that runs nothing remotely still has one, and asks it about blobs.
+    fn cas_configured(&self) -> bool;
     fn cas_semaphore_size(&self) -> usize;
     fn exec_semaphore_size(&self) -> usize;
     fn action_cache_semaphore_size(&self) -> usize;
@@ -359,6 +362,11 @@ mod fbcode {
             })
         }
 
+        fn cas_configured(&self) -> bool {
+            // `cas_address` only picks which CAS; internal builds always have one.
+            true
+        }
+
         fn cas_semaphore_size(&self) -> usize {
             self.cas_connection_count as usize * 30
         }
@@ -388,6 +396,10 @@ mod not_fbcode {
             Ok(Self(Buck2OssReConfiguration::from_legacy_config(
                 legacy_config,
             )?))
+        }
+
+        fn cas_configured(&self) -> bool {
+            self.0.cas_address.is_some()
         }
 
         fn cas_semaphore_size(&self) -> usize {

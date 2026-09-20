@@ -24,6 +24,7 @@ use buck2_common::io::IoProvider;
 use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::SchedulingMode;
@@ -62,6 +63,8 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_execute::re::invocation_re_settings::HasInvocationReSettings;
+use buck2_execute::re::invocation_re_settings::InvocationReSettings;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::dep_files::DepFileCache;
@@ -339,6 +342,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
         let invalidation_tracking_enabled = self.get_invalidation_tracking_config().enabled;
+        let invocation_re_settings = self.per_transaction_data().get_invocation_re_settings();
 
         Ok(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -363,6 +367,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             mergebase,
             invalidation_tracking_enabled,
             output_trees_download_config,
+            invocation_re_settings,
         ))
     }
 }
@@ -382,6 +387,7 @@ pub struct BuckActionExecutor<'d> {
     mergebase: &'d Mergebase,
     invalidation_tracking_enabled: bool,
     output_trees_download_config: OutputTreesDownloadConfig,
+    invocation_re_settings: InvocationReSettings,
 }
 
 impl<'d> BuckActionExecutor<'d> {
@@ -400,6 +406,7 @@ impl<'d> BuckActionExecutor<'d> {
         mergebase: &'d Mergebase,
         invalidation_tracking_enabled: bool,
         output_trees_download_config: OutputTreesDownloadConfig,
+        invocation_re_settings: InvocationReSettings,
     ) -> Self {
         BuckActionExecutor {
             command_executor,
@@ -416,6 +423,7 @@ impl<'d> BuckActionExecutor<'d> {
             mergebase,
             invalidation_tracking_enabled,
             output_trees_download_config,
+            invocation_re_settings,
         }
     }
 }
@@ -491,6 +499,14 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
 
     fn re_client(&self) -> UnconfiguredRemoteExecutionClient {
         self.executor.re_client.dupe()
+    }
+
+    fn invocation_re_use_case(&self) -> RemoteExecutorUseCase {
+        self.executor.invocation_re_settings.use_case
+    }
+
+    fn cas_configured(&self) -> bool {
+        self.executor.invocation_re_settings.cas_configured
     }
 
     fn re_platform(&self) -> &remote_execution::Platform {

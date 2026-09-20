@@ -64,6 +64,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -92,6 +93,8 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::testing_dry_run::DryRunEntry;
 use buck2_execute::execute::testing_dry_run::DryRunExecutor;
 use buck2_execute::materialize::materializer::SetMaterializer;
+use buck2_execute::re::invocation_re_settings::InvocationReSettings;
+use buck2_execute::re::invocation_re_settings::SetInvocationReSettings;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_execute_impl::materializers::deferred::NoDiskDeferredMaterializer;
 use buck2_file_watcher::dep_files::SetDepFileCache;
@@ -244,6 +247,10 @@ async fn make_default_dice_state(
         fs,
     )?));
     extra.set_re_client(UnconfiguredRemoteExecutionClient::testing_new_dummy());
+    extra.set_invocation_re_settings(InvocationReSettings {
+        use_case: RemoteExecutorUseCase::buck2_default(),
+        cas_configured: false,
+    });
     extra.set_http_client(HttpClientBuilder::https_with_system_roots().await?.build());
     extra.set_dep_file_cache(create_dep_file_cache());
     extra.set_mergebase(Default::default());

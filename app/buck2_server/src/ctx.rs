@@ -80,6 +80,10 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::client::RemoteExecutionClient;
+use buck2_execute::re::invocation_re_settings::InvocationReSettings;
+use buck2_execute::re::invocation_re_settings::RE_USE_CASE_OVERRIDE_KEY;
+use buck2_execute::re::invocation_re_settings::SetInvocationReSettings;
+use buck2_execute::re::invocation_re_settings::invocation_re_use_case;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
@@ -989,10 +993,20 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(CriticalPathBackendName::LongestPathGraph);
 
-        let override_use_case = root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
-            section: "buck2_re_client",
-            property: "override_use_case",
-        })?;
+        let override_use_case =
+            root_config.parse::<RemoteExecutorUseCase>(RE_USE_CASE_OVERRIDE_KEY)?;
+        // Computed from the root config here rather than read through dice by whoever needs it:
+        // the override key is one dice deliberately cannot see (`CONFIGS_INVISIBLE_TO_DICE`, so
+        // that changing it does not invalidate dice state), and this is where it is visible.
+        let invocation_re_settings = InvocationReSettings {
+            use_case: invocation_re_use_case(root_config)?,
+            cas_configured: self
+                .cmd_ctx
+                .base_context
+                .repo
+                .re_client_manager
+                .cas_configured(),
+        };
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         // This client is only used in places that do not use the RE use case specified in the executor config.
@@ -1041,6 +1055,7 @@ impl DiceCommandUpdater<'_, '_> {
         data.init_materialization_queue_tracker();
         data.set_build_signals(self.build_signals.build_signals.dupe());
         data.set_run_action_knobs(run_action_knobs);
+        data.set_invocation_re_settings(invocation_re_settings);
         data.set_create_unhashed_symlink_lock(
             self.cmd_ctx
                 .base_context

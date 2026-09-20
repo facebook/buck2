@@ -42,6 +42,7 @@ use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -318,6 +319,14 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
     fn re_client(&self) -> UnconfiguredRemoteExecutionClient;
+
+    /// The RE use case the invocation talks to the CAS as on its own behalf: materialize requests
+    /// and probes for content the action could skip producing. The action's RE request and the
+    /// uploads that feed it run under its executor configuration's use case instead.
+    fn invocation_re_use_case(&self) -> RemoteExecutorUseCase;
+
+    /// Whether there is a CAS to talk to at all, independent of how this action executes.
+    fn cas_configured(&self) -> bool;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 
