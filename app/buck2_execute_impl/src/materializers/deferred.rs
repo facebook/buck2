@@ -67,6 +67,7 @@ use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::MaterializerBackgroundCleanupGuard;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::ReadLease;
+use buck2_execute::materialize::materializer::WriteLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
@@ -629,20 +630,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(has_artifact)
     }
 
-    async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()> {
-        let (sender, recv) = oneshot::channel();
-
-        self.command_sender
-            .send(MaterializerCommand::InvalidateFilePaths(
-                paths,
-                sender,
-                get_dispatcher(),
-                current_span(),
-            ))?;
-
-        // Wait on future to finish before invalidation can continue.
-        let invalidate_fut = recv.await?;
-        invalidate_fut.await
+    async fn prepare_outputs(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<WriteLease> {
+        self.invalidate_many(paths).await?;
+        Ok(WriteLease::noop())
     }
 
     async fn materialize_many(
@@ -787,6 +780,26 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 }
 
 impl<T: IoHandler + Allocative> DeferredMaterializerAccessor<T> {
+    /// Stops tracking `paths`. Whatever is on disk there is left alone.
+    pub(crate) async fn invalidate_many(
+        &self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
+        let (sender, recv) = oneshot::channel();
+
+        self.command_sender
+            .send(MaterializerCommand::InvalidateFilePaths(
+                paths,
+                sender,
+                get_dispatcher(),
+                current_span(),
+            ))?;
+
+        // Wait on future to finish before invalidation can continue.
+        let invalidate_fut = recv.await?;
+        invalidate_fut.await
+    }
+
     /// Spawns two threads (`materialization_loop` and `command_loop`).
     /// Creates and returns a new `DeferredMaterializer` that aborts those
     /// threads when dropped.

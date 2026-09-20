@@ -2431,6 +2431,35 @@ mod state_machine {
     }
 
     #[tokio::test]
+    async fn prepare_outputs_untracks_without_touching_disk() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let digest_config = io.digest_config();
+            let (dm, _events) = make_materializer(io.dupe(), None).await;
+
+            let path = make_path("foo/output");
+            io.fs().write_file(&path, "previous", false)?;
+            dm.declare_existing(vec![DeclareArtifactPayload {
+                path: path.clone(),
+                artifact: file_value(digest_config, b"previous"),
+            }])
+            .await?;
+            assert!(dm.has_artifact_at(path.clone()).await?);
+
+            let _lease = dm.prepare_outputs(vec![path.clone()]).await?;
+            assert!(!dm.has_artifact_at(path.clone()).await?);
+            assert!(
+                io.fs().resolve(&path).exists(),
+                "deleting what is there is the caller's job"
+            );
+            assert_eq!(io.take_log(), vec![]);
+            dm.abort();
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
     async fn materialize_request_skips_unrequired_final_outputs_when_configured()
     -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {

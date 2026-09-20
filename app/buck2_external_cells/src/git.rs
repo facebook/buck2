@@ -180,6 +180,8 @@ async fn download_impl(
     cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     let io = ctx.get_blocking_executor();
+    // Held until the fetched checkout is reported below.
+    let _output_lease = materializer.prepare_outputs(vec![path.to_owned()]).await?;
     io.execute_io(
         Box::new(CleanOutputPaths {
             paths: vec![path.to_owned()],

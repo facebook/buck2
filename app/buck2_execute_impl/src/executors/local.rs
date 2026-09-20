@@ -308,7 +308,6 @@ impl LocalExecutor {
                     create_output_dirs(
                         &self.artifact_fs,
                         request,
-                        self.materializer.as_ref(),
                         &*self.blocking_executor,
                         cancellations,
                     ),
@@ -581,42 +580,53 @@ impl LocalExecutor {
                                 request,
                             )
                             .await?;
+                        }
 
+                        // The outputs' write lease is taken once, here, back to back with the
+                        // inputs' read lease, and held until the outputs have been reported.
+                        // Everything this run deletes or writes under its output paths happens
+                        // under it, including the per-attempt cleanup in `exec_once`, so a retry
+                        // never acquires again. A materializer that enforces leases can grant
+                        // both as one request (problem-path-locking.md).
+                        let outputs_lease = self
+                            .materializer
+                            .prepare_outputs(output_paths(&self.artifact_fs, request)?)
+                            .await?;
+
+                        if !request.outputs_cleanup {
                             // TODO(minglunli): There might be a dedup opportunity here to save some copying/materialization
                             // if the paths already exist on disk, should explore that
                             self.prepare_content_based_incremental_actions(request, cancellations)
                                 .await?;
-
-                            buck2_error::Ok(())
-                        } else {
-                            Ok(())
                         }
+
+                        buck2_error::Ok(outputs_lease)
                     },
                 )
                 .await;
 
                 let materialized_inputs = r1?;
-                r2?;
+                let outputs_lease = r2?;
 
-                buck2_error::Ok((materialized_inputs, Instant::now() - start))
+                buck2_error::Ok((materialized_inputs, outputs_lease, Instant::now() - start))
             },
         )
         .boxed()
         .await;
 
-        let (materialized_inputs, input_materialization_duration) = match executor_stage_result {
-            Ok((materialized_inputs, input_materialization_duration)) => {
-                (materialized_inputs, input_materialization_duration)
-            }
-            Err(e) => return manager.error("materialize_inputs_failed", e),
-        };
+        let (materialized_inputs, outputs_lease, input_materialization_duration) =
+            match executor_stage_result {
+                Ok(x) => x,
+                Err(e) => return manager.error("materialize_inputs_failed", e),
+            };
         // The command reads its inputs until its outputs have been hashed, which is the end of
-        // this function.
+        // this function; its hold on the outputs lasts as long.
         let MaterializedInputPaths {
             scratch: scratch_path,
             lease: _inputs_lease,
             ..
         } = materialized_inputs;
+        let _outputs_lease = outputs_lease;
 
         manager.start_waiting_category(WaitingCategory::Unknown);
 
@@ -1180,10 +1190,6 @@ impl LocalExecutor {
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
-        self.materializer
-            .invalidate_many(outputs_to_delete.clone())
-            .await?;
-
         // Need to clean the placeholder paths before execution as there could be stale outputs that can cause unexpected behavior
         self.blocking_executor
             .execute_io(
@@ -1588,13 +1594,32 @@ async fn materialize_build_outputs(
     Ok(paths)
 }
 
-/// Create any output dirs requested by the command. Note that this makes no effort to delete
-/// the output paths first. Eventually it should, but right now this happens earlier. This
-/// would be a separate refactor.
+/// The command's output paths as `create_output_dirs` prepares them, for the write lease that
+/// covers the run.
+pub fn output_paths(
+    artifact_fs: &ArtifactFs,
+    request: &CommandExecutionRequest,
+) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
+    request
+        .outputs()
+        .map(|output| {
+            Ok(output
+                .resolve(
+                    artifact_fs,
+                    Some(&ContentBasedPathHash::for_output_artifact()),
+                )?
+                .path
+                .to_owned())
+        })
+        .collect()
+}
+
+/// Clears the command's output paths when the command asks for it and creates the directories
+/// its outputs need. Runs once per attempt, under the write lease the caller holds over those
+/// paths (`Materializer::prepare_outputs`).
 pub async fn create_output_dirs(
     artifact_fs: &ArtifactFs,
     request: &CommandExecutionRequest,
-    materializer: &dyn Materializer,
     blocking_executor: &dyn BlockingExecutor,
     cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
@@ -1608,16 +1633,8 @@ pub async fn create_output_dirs(
         })
         .collect::<buck2_error::Result<Vec<_>>>()?;
 
-    // Invalidate all the output paths this action might provide. Note that this is a bit
-    // approximative: we might have previous instances of this action that declared
-    // different outputs with a different materialization method that will become invalid
-    // now. However, nothing should reference those stale outputs, so while this does not
-    // do a good job of cleaning up garbage, it prevents using invalid artifacts.
-    let output_paths = outputs.map(|output| output.path.to_owned());
-    materializer.invalidate_many(output_paths.clone()).await?;
-
     if request.outputs_cleanup {
-        // TODO(scottcao): Move this deletion logic into materializer itself.
+        let output_paths = outputs.map(|output| output.path.to_owned());
         blocking_executor
             .execute_io(
                 Box::new(CleanOutputPaths {

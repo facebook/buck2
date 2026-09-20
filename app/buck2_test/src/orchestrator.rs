@@ -125,6 +125,7 @@ use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
+use buck2_execute_impl::executors::local::output_paths;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -1126,10 +1127,13 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
         prep_scratch_path(&materialized_inputs.scratch, fs).await?;
 
+        // Like the inputs' lease above, this has no scope to cover here.
+        let _outputs_lease = materializer
+            .prepare_outputs(output_paths(fs, &execution_request)?)
+            .await?;
         create_output_dirs(
             fs,
             &execution_request,
-            materializer.dupe(),
             blocking_executor,
             self.cancellations,
         )
@@ -1148,10 +1152,15 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
             prep_scratch_path(&materialized_inputs.scratch, fs).await?;
 
+            let _outputs_lease = materializer
+                .prepare_outputs(output_paths(
+                    fs,
+                    &local_resource_setup_command.execution_request,
+                )?)
+                .await?;
             create_output_dirs(
                 fs,
                 &local_resource_setup_command.execution_request,
-                materializer.dupe(),
                 blocking_executor,
                 self.cancellations,
             )

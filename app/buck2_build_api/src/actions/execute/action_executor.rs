@@ -28,8 +28,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::SchedulingMode;
-use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -44,7 +42,6 @@ use buck2_execute::execute::cache_uploader::CacheUploadInfo;
 use buck2_execute::execute::cache_uploader::CacheUploadResults;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::claim::MutexClaimManager;
-use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::command_executor::CommandExecutor;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
@@ -432,7 +429,6 @@ struct BuckActionExecutionContext<'a, 'd> {
     executor: &'a BuckActionExecutor<'d>,
     action: &'a RegisteredAction,
     inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
-    outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
     cancellations: &'a CancellationContext,
 }
@@ -714,44 +710,6 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
             .await?)
     }
 
-    async fn cleanup_outputs(&self) -> buck2_error::Result<()> {
-        // Delete all outputs before we start, so things will be clean.
-        let output_paths = self
-            .outputs
-            .iter()
-            .map(|o| {
-                if o.get_path().is_content_based_path() {
-                    internal_error!("Cleanup outputs is not supported for content-based paths!");
-                }
-                self.fs().resolve_build(o.get_path(), None)
-            })
-            .collect::<buck2_error::Result<Vec<_>>>()?;
-
-        // Invalidate all the output paths this action might provide. Note that this is a bit
-        // approximative: we might have previous instances of this action that declared
-        // different outputs with a different materialization method that will become invalid
-        // now. However, nothing should reference those stale outputs, so while this does not
-        // do a good job of cleaning up garbage, it prevents using invalid artifacts.
-        self.executor
-            .materializer
-            .invalidate_many(output_paths.clone())
-            .await
-            .buck_error_context("Failed to invalidate output directory")?;
-
-        self.executor
-            .blocking_executor
-            .execute_io(
-                Box::new(CleanOutputPaths {
-                    paths: output_paths,
-                }),
-                self.cancellations,
-            )
-            .await
-            .buck_error_context("Failed to cleanup output directory")?;
-
-        Ok(())
-    }
-
     fn io_provider(&self) -> &dyn IoProvider {
         self.executor.io_provider
     }
@@ -785,7 +743,6 @@ impl<'d> BuckActionExecutor<'d> {
                 executor: self,
                 action,
                 inputs,
-                outputs: outputs.as_ref(),
                 command_reports: &mut command_reports,
                 cancellations,
             };
