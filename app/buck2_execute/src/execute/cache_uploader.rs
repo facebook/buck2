@@ -11,6 +11,7 @@
 use async_trait::async_trait;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::buck2_env;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
@@ -46,6 +47,7 @@ pub trait IntoRemoteDepFile: Send {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
+        re_use_case: RemoteExecutorUseCase,
         result: &CommandExecutionResult,
     ) -> buck2_error::Result<Option<RemoteDepFile>>;
 }

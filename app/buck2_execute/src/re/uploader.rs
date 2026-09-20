@@ -54,6 +54,7 @@ use remote_execution::NamedDigest;
 use remote_execution::TDigest;
 use remote_execution::UploadRequest;
 
+use crate::artifact_value::ArtifactValue;
 use crate::digest::CasDigestFromReExt;
 use crate::digest::CasDigestToReExt;
 use crate::digest_config::DigestConfig;
@@ -65,6 +66,7 @@ use crate::execute::blobs::ActionBlobs;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::MaterializationPurpose;
+use crate::materialize::materializer::MaterializeRequest;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
@@ -252,11 +254,12 @@ impl Uploader {
         let mut upload_files = Vec::new();
 
         // Track what files should be materialized before we upload.
-        let mut paths_to_materialize = Vec::new();
+        let mut artifacts_to_materialize = Vec::new();
 
         if !missing_digests.is_empty() {
             let mut upload_file_paths = Vec::new();
             let mut upload_file_digests = Vec::new();
+            let mut upload_file_metadata = Vec::new();
 
             {
                 let mut walk = input_dir.unordered_walk();
@@ -275,9 +278,10 @@ impl Uploader {
                         DirectoryEntry::Dir(d) => {
                             upload_blobs.push(directory_to_blob(d));
                         }
-                        DirectoryEntry::Leaf(ActionDirectoryMember::File(..)) => {
+                        DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                             upload_file_paths.push(dir_path.join(path.get()));
                             upload_file_digests.push(digest.to_re());
+                            upload_file_metadata.push(f.dupe());
                         }
                         DirectoryEntry::Leaf(..) => unreachable!(), // TODO: Better representation of this.
                     };
@@ -302,7 +306,11 @@ impl Uploader {
                 .get_materialized_file_paths(upload_file_paths)
                 .await?;
 
-            for (name, digest) in upload_file_paths.into_iter().zip(upload_file_digests) {
+            for ((name, digest), metadata) in upload_file_paths
+                .into_iter()
+                .zip(upload_file_digests)
+                .zip(upload_file_metadata)
+            {
                 match name {
                     Ok(name) => {
                         upload_files.push(NamedDigest {
@@ -374,7 +382,7 @@ impl Uploader {
                             digest,
                             ..Default::default()
                         });
-                        paths_to_materialize.push(path);
+                        artifacts_to_materialize.push((path, ArtifactValue::file(metadata)));
                     }
                     Err(
                         ref err @ ArtifactNotMaterializedReason::DeferredMaterializerCorruption {
@@ -387,15 +395,23 @@ impl Uploader {
             }
         }
 
-        if !paths_to_materialize.is_empty() {
-            materializer
-                .ensure_materialized(
-                    paths_to_materialize,
-                    MaterializationPurpose::IntermediateOnly,
-                )
+        // The upload reads these files; the lease covers it.
+        let _materialized_lease = if artifacts_to_materialize.is_empty() {
+            None
+        } else {
+            let response = materializer
+                .materialize(MaterializeRequest {
+                    artifacts: artifacts_to_materialize,
+                    purpose: MaterializationPurpose::IntermediateOnly,
+                    re_use_case: use_case,
+                })
                 .await
                 .buck_error_context("Error materializing paths for upload")?;
-        }
+            for result in response.results {
+                result.buck_error_context("Error materializing paths for upload")?;
+            }
+            Some(response.lease)
+        };
 
         // Compute stats of digests we're about to upload so we can report them
         // to the span end event of this stage of execution.

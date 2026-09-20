@@ -38,6 +38,7 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::configuration::pair::Configuration;
 use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -80,7 +81,10 @@ use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::MaterializationError;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_file_watcher::dep_files::CREATE_DEP_FILE_CACHE;
 use buck2_file_watcher::dep_files::DepFileCache;
 use buck2_fs::fs_util;
@@ -95,7 +99,6 @@ use buck2_hash::BuckMutSet;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use either::Either;
-use futures::StreamExt;
 use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
@@ -896,6 +899,7 @@ impl IntoRemoteDepFile for DepFileBundle {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
+        re_use_case: RemoteExecutorUseCase,
         result: &CommandExecutionResult,
     ) -> buck2_error::Result<Option<RemoteDepFile>> {
         let shared_declared_inputs = match &self.shared_declared_inputs {
@@ -922,6 +926,7 @@ impl IntoRemoteDepFile for DepFileBundle {
                     digest_config,
                     fs,
                     materializer,
+                    re_use_case,
                     shared_declared_inputs,
                     &self.declared_dep_files,
                     &action_outputs,
@@ -1049,6 +1054,7 @@ impl DepFileBundle {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
+        re_use_case: RemoteExecutorUseCase,
         found: &RemoteDepFile,
         result: &CommandExecutionResult,
     ) -> buck2_error::Result<bool> {
@@ -1109,6 +1115,7 @@ impl DepFileBundle {
             &action_outputs,
             fs,
             materializer,
+            re_use_case,
         )
         .await
         .buck_error_context("Error reading dep files")?;
@@ -1899,6 +1906,7 @@ async fn dep_files_match(
         previous_result,
         ctx.fs(),
         ctx.materializer(),
+        ctx.invocation_re_use_case(),
     )
     .await
     .buck_error_context(
@@ -1974,21 +1982,24 @@ pub(crate) async fn read_dep_files(
     result: &ActionOutputs,
     fs: &ArtifactFs,
     materializer: &dyn Materializer,
+    re_use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
     // NOTE: We only materialize if we haven't computed our signatures yet, since we know we
     // can't have computed our signatures without having read the dep file already. In an ideal
     // world this wouldn't be necessary, but in practice contention on the materializer makes
     // this slower.
-    if !has_signatures {
+    let _lease = if !has_signatures {
         match declared_dep_files
-            .materialize(fs, materializer, result)
+            .materialize(fs, materializer, result, re_use_case)
             .await
         {
-            Ok(()) => {}
+            Ok(lease) => Some(lease),
             Err(MaterializeDepFilesError::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
-        };
-    }
+        }
+    } else {
+        None
+    };
 
     let dep_files = declared_dep_files.read(fs, result).buck_error_context(
         "Error reading dep files, verify that the action produced valid output",
@@ -2020,13 +2031,21 @@ async fn eagerly_compute_fingerprints(
     digest_config: DigestConfig,
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
+    re_use_case: RemoteExecutorUseCase,
     shared_declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: &DeclaredDepFiles,
     result: &ActionOutputs,
 ) -> buck2_error::Result<StoredFingerprints> {
-    let dep_files = read_dep_files(false, declared_dep_files, result, artifact_fs, materializer)
-        .await?
-        .internal_error("Dep file not found")?;
+    let dep_files = read_dep_files(
+        false,
+        declared_dep_files,
+        result,
+        artifact_fs,
+        materializer,
+        re_use_case,
+    )
+    .await?
+    .internal_error("Dep file not found")?;
 
     let fingerprints = compute_fingerprints(
         shared_declared_inputs.clone().unshare(),
@@ -2082,6 +2101,7 @@ pub(crate) async fn populate_dep_files(
                         ctx.digest_config(),
                         ctx.fs(),
                         ctx.materializer(),
+                        ctx.invocation_re_use_case(),
                         &shared_declared_inputs,
                         &declared_dep_files,
                         &result,
@@ -2368,46 +2388,48 @@ impl DeclaredDepFiles {
     }
 
     /// Given an ActionOutputs, materialize this set of dep files, so that we may read them later.
+    /// The returned lease covers that read.
     async fn materialize(
         &self,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
         result: &ActionOutputs,
-    ) -> Result<(), MaterializeDepFilesError> {
-        let mut paths = Vec::with_capacity(self.tagged.len());
+        re_use_case: RemoteExecutorUseCase,
+    ) -> Result<ReadLease, MaterializeDepFilesError> {
+        let mut artifacts = Vec::with_capacity(self.tagged.len());
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let content_hash = if declared_dep_file
-                .output
-                .path_resolution_requires_artifact_value()
-            {
-                Some(
-                    result
-                        .get_from_artifact_path(&declared_dep_file.output.get_path())
-                        .expect("declared dep file must be one of the ActionOutputs!")
-                        .content_based_path_hash(),
-                )
+            let value = result
+                .get_from_artifact_path(&dep_file.get_path())
+                .internal_error("declared dep file must be one of the ActionOutputs")
+                .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
+            let content_hash = if dep_file.path_resolution_requires_artifact_value() {
+                Some(value.content_based_path_hash())
             } else {
                 None
             };
             let path = dep_file
                 .resolve_path(fs, content_hash.as_ref())
                 .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
-            paths.push(path);
+            artifacts.push((path, value.dupe()));
         }
 
-        if paths.is_empty() {
-            return Ok(());
+        if artifacts.is_empty() {
+            return Ok(ReadLease::noop());
         }
 
-        let mut has_not_found = false;
-        let mut stream = materializer
-            .materialize_many(paths)
+        let response = materializer
+            .materialize(MaterializeRequest {
+                artifacts,
+                purpose: MaterializationPurpose::IntermediateOnly,
+                re_use_case,
+            })
             .await
             .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
 
-        while let Some(dep_file) = stream.next().await {
+        let mut has_not_found = false;
+        for dep_file in response.results {
             match dep_file {
                 Ok(()) => {}
                 Err(MaterializationError::NotFound { .. }) => {
@@ -2424,7 +2446,7 @@ impl DeclaredDepFiles {
         if has_not_found {
             Err(MaterializeDepFilesError::NotFound)
         } else {
-            Ok(())
+            Ok(response.lease)
         }
     }
 

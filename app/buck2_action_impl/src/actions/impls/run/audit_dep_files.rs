@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
+use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_core::category::Category;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -65,12 +66,14 @@ async fn audit_dep_files(
 
     let artifact_fs = ctx.ctx().get_artifact_fs().await?;
     let result = state.result();
+    let re_use_case = invocation_re_use_case(&ctx.ctx());
     let dep_files = read_dep_files(
         state.has_signatures(),
         declared_dep_files,
         result,
         artifact_fs,
         ctx.per_transaction_data().get_materializer(),
+        re_use_case,
     )
     .await?
     .internal_error("Dep files have expired")?;
