@@ -2460,6 +2460,36 @@ mod state_machine {
     }
 
     #[tokio::test]
+    async fn publish_materializes_the_destination_eagerly() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let digest_config = io.digest_config();
+            let (dm, _events) = make_materializer(io.dupe(), None).await;
+
+            let src = make_path("foo/placeholder");
+            let dest = make_path("foo/content");
+            dm.publish(
+                src.clone(),
+                dest.clone(),
+                file_value(digest_config, b"published"),
+            )
+            .await?;
+
+            // `dest` is on disk before `publish` returns, and `src` stays tracked because it is
+            // what `dest` copies from.
+            assert_eq!(
+                io.take_log(),
+                vec![(Op::Clean, dest.clone()), (Op::Materialize, dest.clone())]
+            );
+            assert!(dm.has_artifact_at(src).await?);
+            assert!(dm.has_artifact_at(dest).await?);
+            dm.abort();
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
     async fn materialize_request_skips_unrequired_final_outputs_when_configured()
     -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {

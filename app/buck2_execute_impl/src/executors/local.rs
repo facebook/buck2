@@ -69,7 +69,6 @@ use buck2_execute::execute::request::NetworkAccess;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
-use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
@@ -952,8 +951,8 @@ impl LocalExecutor {
         }
 
         let mut to_declare = vec![];
+        let mut to_publish = vec![];
         let mut mapped_outputs = BuckIndexMap::with_capacity(entries.len());
-        let mut output_path_to_content_based_path_copies = vec![];
 
         for (output, output_path) in entries {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
@@ -961,13 +960,17 @@ impl LocalExecutor {
                 match output {
                     CommandExecutionOutput::BuildArtifact { .. } => {
                         if output.as_ref().has_content_based_path() {
-                            self.declare_content_based_output(
-                                &output,
-                                &output_path,
-                                &value,
-                                &mut to_declare,
-                                &mut output_path_to_content_based_path_copies,
-                            )?;
+                            // A content-based output is produced at a placeholder path, since
+                            // its real path is only known once the content is hashed, and is
+                            // published to that path now. The placeholder is scratch shared by
+                            // every configuration of this action; `HostSharingRequirements`
+                            // keeps their runs from overlapping there, and this run still holds
+                            // that permit.
+                            let content_path = output
+                                .as_ref()
+                                .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
+                                .into_path();
+                            to_publish.push((output_path, content_path, value.dupe()));
                         } else {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
@@ -987,25 +990,13 @@ impl LocalExecutor {
             }
         }
 
-        // The copies are made now rather than when something first asks for the content path:
-        // the placeholder they copy from is scratch that any configuration's next run of this
-        // action overwrites, and this run still holds the permit that keeps those runs out.
-        let content_paths = output_path_to_content_based_path_copies
-            .iter()
-            .map(|(p, _, _)| p.clone())
-            .collect();
         self.materializer.declare_existing(to_declare).await?;
-        buck2_util::future::try_join_all(output_path_to_content_based_path_copies.into_iter().map(
-            |(path, value, copied_artifacts)| {
-                self.materializer
-                    .declare_copy(path, value, copied_artifacts)
-            },
-        ))
+        buck2_util::future::try_join_all(
+            to_publish
+                .into_iter()
+                .map(|(src, dest, value)| self.materializer.publish(src, dest, value)),
+        )
         .await?;
-
-        self.materializer
-            .ensure_materialized(content_paths, MaterializationPurpose::IntermediateOnly)
-            .await?;
 
         Ok((
             mapped_outputs,
@@ -1014,41 +1005,6 @@ impl LocalExecutor {
                 hashed_artifacts_count: total_hashed_outputs,
             },
         ))
-    }
-
-    /// A content-based output is written at a placeholder path, since its real path is only
-    /// known once the content is hashed, and other actions can produce the same content path.
-    /// Only remote actions can do so concurrently with this local action: `NamedSemaphores` and
-    /// `HostSharingRequirements` keep local run actions sharing a placeholder from overlapping.
-    /// The placeholder is declared as existing and the content path as a copy of it; the
-    /// placeholder is not invalidated here, that is the job of whichever action uses it next.
-    fn declare_content_based_output(
-        &self,
-        output: &CommandExecutionOutput,
-        output_path: &ProjectRelativePathBuf,
-        value: &ArtifactValue,
-        to_declare: &mut Vec<DeclareArtifactPayload>,
-        copies: &mut Vec<(ProjectRelativePathBuf, ArtifactValue, Vec<CopiedArtifact>)>,
-    ) -> buck2_error::Result<()> {
-        let hashed_path = output
-            .as_ref()
-            .resolve(&self.artifact_fs, Some(&value.content_based_path_hash()))?
-            .into_path();
-        to_declare.push(DeclareArtifactPayload {
-            path: output_path.clone(),
-            artifact: value.dupe(),
-        });
-        copies.push((
-            hashed_path.clone(),
-            value.dupe(),
-            vec![CopiedArtifact {
-                src: output_path.clone(),
-                dest: hashed_path,
-                dest_entry: value.entry().dupe().map_dir(|d| d.as_immutable()),
-                executable_bit_override: None,
-            }],
-        ));
-        Ok(())
     }
 
     async fn acquire_worker_permit(
