@@ -14,7 +14,12 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import filter_events, replace_in_file
+from buck2.tests.e2e_util.helper.http_server import sha1_hex, StaticHttpServer
+from buck2.tests.e2e_util.helper.utils import (
+    filter_events,
+    random_string,
+    replace_in_file,
+)
 
 
 def watchman_dependency_linux_only() -> bool:
@@ -165,22 +170,30 @@ async def test_sqlite_materializer_state_matching_artifact_optimization(
 @buck_test(
     data_dir="deferred_materializer_matching_artifact_optimization",
 )
-@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
-async def test_download_file_sqlite_matching_artifact_optimization(
+async def test_download_file_not_repeated_after_restart(
     buck: Buck,
 ) -> None:
-    # sqlite materializer state is already enabled
-    target = "root//:download"
-    res = await buck.build(target)
-    # Check output is correctly materialized
-    assert res.get_build_report().output_for_target(target).exists()
+    # Fresh content, so the CAS cannot already have it and the download really happens.
+    content = random_string().encode()
+    async with StaticHttpServer({"/file": content}) as server:
+        target = "root//:download"
+        configs = [
+            "-c",
+            f"test.url={server.url('/file')}",
+            "-c",
+            f"test.sha1={sha1_hex(content)}",
+        ]
 
-    await buck.kill()
+        res = await buck.build(target, *configs)
+        output = res.get_build_report().output_for_target(target)
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 1
 
-    res = await buck.build(target)
-    # Check that materializer did not report any rematerialization
-    assert "already materialized, updating deps only" in res.stderr, res.stderr
-    assert "materialize artifact" not in res.stderr
+        # The sqlite materializer state tells the new daemon the file is already there.
+        await buck.kill()
+        await buck.build(target, *configs)
+        assert output.read_bytes() == content
+        assert server.count("GET", "/file") == 1
 
 
 @buck_test(

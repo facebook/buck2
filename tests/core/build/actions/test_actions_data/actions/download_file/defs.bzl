@@ -7,7 +7,13 @@
 # above-listed licenses.
 
 def _test_impl(ctx: AnalysisContext):
-    output = ctx.actions.download_file(ctx.label.name, ctx.attrs.url, sha1 = ctx.attrs.sha1, has_content_based_path = False)
+    output = ctx.actions.download_file(
+        ctx.label.name,
+        ctx.attrs.url,
+        sha1 = ctx.attrs.sha1,
+        size_bytes = ctx.attrs.size_bytes,
+        has_content_based_path = False,
+    )
     return [
         DefaultInfo(default_output = output),
     ]
@@ -16,6 +22,7 @@ test = rule(
     impl = _test_impl,
     attrs = {
         "sha1": attrs.string(),
+        "size_bytes": attrs.option(attrs.int(), default = None),
         "url": attrs.string(),
     },
 )

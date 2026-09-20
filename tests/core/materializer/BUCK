@@ -2,4 +2,16 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_core_tests")
 
 oncall("build_infra")
 
-buck2_core_tests()
+buck2_core_tests(
+    target_extra_attrs = {
+        "test_materializer": {
+            "deps": [
+                "fbcode//buck2/tests/e2e_util:http_server",
+            ],
+            "env": {
+                # `cpe::x2p` resolves `localhost` incorrectly, and the download test fails.
+                "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
+            },
+        },
+    },
+)

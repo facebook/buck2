@@ -58,6 +58,11 @@ async def audit_entry(buck: Buck, artifact_name: str) -> str:
 
 def golden_audit_entries(*, entries: list[str], rel_path: str) -> None:
     output = re.sub(r"ts=[^,)]*", "ts=<TIMESTAMP>", "\n".join(entries))
+    output = re.sub(
+        r"retrieved [0-9.]+ seconds ago with ttl = [0-9.]+ seconds",
+        "retrieved <AGE> ago with ttl = <TTL>",
+        output,
+    )
     golden(output=sanitize_hashes(output), rel_path=rel_path)
 
 
@@ -513,22 +518,19 @@ async def test_adaptive_unmaterializes_active_remote_intermediate(
     buck: Buck,
 ) -> None:
     configure_active_unmaterialization(buck, enabled=True)
-    result = await buck.build(
-        "root//:consume_remote", "--local-only", "--no-remote-cache"
-    )
+    result = await buck.build("root//:consume_remote", "--no-remote-cache")
     output = result.get_build_report().output_for_target("root//:consume_remote")
     assert output.exists()
-    audit_entries = [await audit_entry(buck, "__download_deferred__")]
 
+    # Whether an adaptive pass has already run by the time the build returns is a race, so the
+    # intermediate's state is only recorded once it has certainly had the chance to.
     await asyncio.sleep(30)
-    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
+    audit_entries = [await audit_entry(buck, "__remote_write__")]
 
-    remote = await buck.build("root//:download_deferred")
+    remote = await buck.build("root//:remote_write")
     await expect_exec_count(buck, 0)
-    assert (
-        remote.get_build_report().output_for_target("root//:download_deferred").exists()
-    )
-    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
+    assert remote.get_build_report().output_for_target("root//:remote_write").exists()
+    audit_entries.append(await audit_entry(buck, "__remote_write__"))
     golden_audit_entries(
         entries=audit_entries,
         rel_path="golden/test_adaptive_unmaterializes_active_remote_intermediate.golden.txt",
@@ -642,14 +644,12 @@ async def test_adaptive_unmaterializes_active_local_action_intermediate(
 @buck_test(skip_for_os=["windows"])
 async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -> None:
     configure_active_unmaterialization(buck, enabled=True)
-    result = await buck.build("root//:download_deferred")
-    assert (
-        result.get_build_report().output_for_target("root//:download_deferred").exists()
-    )
+    result = await buck.build("root//:remote_write")
+    assert result.get_build_report().output_for_target("root//:remote_write").exists()
 
     await asyncio.sleep(30)
     golden_audit_entries(
-        entries=[await audit_entry(buck, "__download_deferred__")],
+        entries=[await audit_entry(buck, "__remote_write__")],
         rel_path="golden/test_adaptive_does_not_unmaterialize_active_final_output.golden.txt",
     )
 
@@ -657,14 +657,12 @@ async def test_adaptive_does_not_unmaterialize_active_final_output(buck: Buck) -
 @buck_test(skip_for_os=["windows"])
 async def test_adaptive_does_not_unmaterialize_when_disabled(buck: Buck) -> None:
     configure_active_unmaterialization(buck, enabled=False)
-    result = await buck.build(
-        "root//:consume_remote", "--local-only", "--no-remote-cache"
-    )
+    result = await buck.build("root//:consume_remote", "--no-remote-cache")
     assert result.get_build_report().output_for_target("root//:consume_remote").exists()
-    audit_entries = [await audit_entry(buck, "__download_deferred__")]
+    audit_entries = [await audit_entry(buck, "__remote_write__")]
 
     await asyncio.sleep(30)
-    audit_entries.append(await audit_entry(buck, "__download_deferred__"))
+    audit_entries.append(await audit_entry(buck, "__remote_write__"))
     golden_audit_entries(
         entries=audit_entries,
         rel_path="golden/test_adaptive_does_not_unmaterialize_when_disabled.golden.txt",

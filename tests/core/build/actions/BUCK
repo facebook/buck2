@@ -6,6 +6,7 @@ buck2_core_tests(
     target_extra_attrs = {
         "test_actions": {
             "deps": [
+                "fbcode//buck2/tests/e2e_util:http_server",
                 "fbsource//third-party/pypi/aiohttp:aiohttp",
             ],
             "env": {
@@ -15,6 +16,7 @@ buck2_core_tests(
         },
         "test_http_proxy_env": {
             "deps": [
+                "fbcode//buck2/tests/e2e_util:http_server",
                 "fbsource//third-party/pypi/aiohttp:aiohttp",
             ],
             "env": {

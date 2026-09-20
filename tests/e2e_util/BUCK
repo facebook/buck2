@@ -23,6 +23,14 @@ python_library(
 )
 
 python_library(
+    name = "http_server",
+    srcs = ["helper/http_server.py"],
+    deps = [
+        "fbsource//third-party/pypi/aiohttp:aiohttp",
+    ],
+)
+
+python_library(
     name = "utilities",
     srcs = [
         "asserts.py",
