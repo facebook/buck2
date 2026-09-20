@@ -121,6 +121,7 @@ use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -489,7 +490,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
         let mut output_map = BuckMutMap::default();
-        let mut paths_to_materialize = vec![];
+        let mut outputs_to_materialize = vec![];
 
         let remote_storage_config_update_futures = FuturesUnordered::new();
 
@@ -524,7 +525,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                     remote_storage_config_update_futures.push(future);
                 }
                 _ => {
-                    paths_to_materialize.push(project_relative_path.clone());
+                    outputs_to_materialize.push((project_relative_path.clone(), artifact.dupe()));
                     let abs_path = fs.fs().resolve(&project_relative_path);
                     output_map.insert(output_name, Output::LocalPath(abs_path));
                 }
@@ -537,15 +538,24 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         // Request materialization in case this ran on RE. Eventually Tpx should be able to
         // understand remote outputs but currently we don't have this.
-        self.dice
+        let re_use_case = invocation_re_use_case(&self.dice.ctx());
+        let response = self
+            .dice
             .per_transaction_data()
             .get_materializer()
-            .ensure_materialized(
-                paths_to_materialize,
-                MaterializationPurpose::IntermediateOnly,
-            )
+            .materialize(MaterializeRequest {
+                artifacts: outputs_to_materialize,
+                purpose: MaterializationPurpose::IntermediateOnly,
+                re_use_case,
+            })
             .await
             .buck_error_context("Error materializing test outputs")?;
+        for result in response.results {
+            result.buck_error_context("Error materializing test outputs")?;
+        }
+        // The test runner reads these out of process after this returns; there is no scope
+        // here to hold the lease over.
+        drop(response.lease);
 
         Ok(ExecutionResult2 {
             status,

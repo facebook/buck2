@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
+use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
@@ -52,6 +53,8 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
+use buck2_execute::materialize::materializer::ReadLease;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckMutMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -380,20 +383,26 @@ pub(crate) async fn prepare_and_execute_lambda(
         },
         async move {
             waiting_data.start_waiting_category_now(WaitingCategory::MaterializingInputs);
-            let (input_artifacts_materialized, resolved_dynamic_values) = span_async_simple(
-                buck2_data::DeferredPreparationStageStart {
-                    stage: Some(buck2_data::MaterializedArtifacts {}.into()),
-                },
-                ctx.try_compute2(
-                    async |ctx| materialize_inputs(&ensured_artifacts, ctx).await,
-                    async |ctx| {
-                        resolve_dynamic_values(&lambda.value().static_fields.dynamic_values, ctx)
-                            .await
+            let ((input_artifacts_materialized, inputs_lease), resolved_dynamic_values) =
+                span_async_simple(
+                    buck2_data::DeferredPreparationStageStart {
+                        stage: Some(buck2_data::MaterializedArtifacts {}.into()),
                     },
-                ),
-                buck2_data::DeferredPreparationStageEnd {},
-            )
-            .await?;
+                    ctx.try_compute2(
+                        async |ctx| materialize_inputs(&ensured_artifacts, ctx).await,
+                        async |ctx| {
+                            resolve_dynamic_values(
+                                &lambda.value().static_fields.dynamic_values,
+                                ctx,
+                            )
+                            .await
+                        },
+                    ),
+                    buck2_data::DeferredPreparationStageEnd {},
+                )
+                .await?;
+            // The lambda reads the materialized inputs while it runs.
+            let _inputs_lease = inputs_lease;
             waiting_data.start_waiting_category_now(WaitingCategory::Unknown);
             let (time_span, spans, res) = cancellation
                 .with_structured_cancellation(|observer| {
@@ -449,14 +458,14 @@ pub struct InputArtifactsMaterialized(());
 async fn materialize_inputs(
     ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<InputArtifactsMaterialized> {
+) -> buck2_error::Result<(InputArtifactsMaterialized, ReadLease)> {
     if ensured_artifacts.is_empty() {
-        return Ok(InputArtifactsMaterialized(()));
+        return Ok((InputArtifactsMaterialized(()), ReadLease::noop()));
     }
 
     let artifact_fs = ctx.get_artifact_fs().await?;
 
-    let mut paths = Vec::with_capacity(ensured_artifacts.len());
+    let mut artifacts = Vec::with_capacity(ensured_artifacts.len());
 
     for (artifact, artifact_value) in ensured_artifacts {
         let path = artifact.resolve_path(
@@ -468,15 +477,24 @@ async fn materialize_inputs(
             }
             .as_ref(),
         )?;
-        paths.push(path.clone());
+        artifacts.push((path, (*artifact_value).dupe()));
     }
 
-    ctx.per_transaction_data()
+    let re_use_case = invocation_re_use_case(ctx);
+    let response = ctx
+        .per_transaction_data()
         .get_materializer()
-        .ensure_materialized(paths, MaterializationPurpose::IntermediateOnly)
+        .materialize(MaterializeRequest {
+            artifacts,
+            purpose: MaterializationPurpose::IntermediateOnly,
+            re_use_case,
+        })
         .await?;
+    for result in response.results {
+        result?;
+    }
 
-    Ok(InputArtifactsMaterialized(()))
+    Ok((InputArtifactsMaterialized(()), response.lease))
 }
 
 async fn resolve_dynamic_values(

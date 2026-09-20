@@ -13,11 +13,13 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::ActionCalculation;
+use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_error::BuckErrorContext;
 use buck2_error::BuckErrorOptionContext;
 use buck2_error::ErrorTag;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
+use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
 use derive_more::Display;
@@ -88,13 +90,21 @@ impl Key for SingleValidationKey {
         let validation_result_path = fs.fs().resolve(&project_relative_path);
 
         // Make sure validation result is materialized before we parse it
-        ctx.per_transaction_data()
+        let re_use_case = invocation_re_use_case(ctx);
+        let response = ctx
+            .per_transaction_data()
             .get_materializer()
-            .ensure_materialized(
-                vec![project_relative_path],
-                MaterializationPurpose::IntermediateOnly,
-            )
+            .materialize(MaterializeRequest {
+                artifacts: vec![(project_relative_path, artifact_value.dupe())],
+                purpose: MaterializationPurpose::IntermediateOnly,
+                re_use_case,
+            })
             .await?;
+        for result in response.results {
+            result?;
+        }
+        // Held while the result is read.
+        let _lease = response.lease;
 
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
