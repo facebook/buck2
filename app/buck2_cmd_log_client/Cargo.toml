@@ -25,7 +25,6 @@ buck2_util.workspace = true
 buck2_wrapper_common.workspace = true
 clap.workspace = true
 csv.workspace = true
-derive_more.workspace = true
 dupe.workspace = true
 futures.workspace = true
 gazebo.workspace = true
