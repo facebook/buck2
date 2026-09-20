@@ -152,6 +152,14 @@ export const sidebars: SidebarsConfig = {
                 'users/languages/java/jvm_abis',
               ],
             },
+            {
+              type: 'category' as const,
+              label: 'Python',
+              collapsed: false,
+              items: [
+                'users/languages/python/typechecking',
+              ],
+            },
           ],
         },
         'users/cheat_sheet',
