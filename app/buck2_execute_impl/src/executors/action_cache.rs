@@ -14,6 +14,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::REMOTE_DEP_FILE_KEY;
 use buck2_action_metadata_proto::RemoteDepFile;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_events::dispatch::span_async;
@@ -50,6 +51,9 @@ pub struct ActionCacheChecker {
     pub materializer: Arc<dyn Materializer>,
     pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
+    /// The buck2 invocation's, for what a cache hit materializes; the cache queries themselves
+    /// run under `re_client`'s.
+    pub invocation_re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
@@ -79,6 +83,7 @@ async fn query_action_cache_and_download_result(
     materializer: &dyn Materializer,
     incremental_db_state: &Arc<IncrementalDbState>,
     re_client: &ManagedRemoteExecutionClient,
+    invocation_re_use_case: RemoteExecutorUseCase,
     re_action_key: &Option<String>,
     paranoid: &Option<ParanoidDownloader>,
     action_digest: &ActionDigest,
@@ -196,6 +201,7 @@ async fn query_action_cache_and_download_result(
         TimeSpan::start_now(),
         materializer,
         re_client,
+        invocation_re_use_case,
         digest_config,
         manager,
         &identity,
@@ -285,6 +291,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.materializer.as_ref(),
             &self.incremental_db_state,
             &self.re_client,
+            self.invocation_re_use_case,
             &self.re_action_key,
             &self.paranoid,
             action_digest,
@@ -306,6 +313,9 @@ pub struct RemoteDepFileCacheChecker {
     pub materializer: Arc<dyn Materializer>,
     pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
+    /// The buck2 invocation's, for what a cache hit materializes; the cache queries themselves
+    /// run under `re_client`'s.
+    pub invocation_re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub upload_all_actions: bool,
     pub knobs: ExecutorGlobalKnobs,
@@ -351,6 +361,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.materializer.as_ref(),
             &self.incremental_db_state,
             &self.re_client,
+            self.invocation_re_use_case,
             &self.re_action_key,
             &self.paranoid,
             &action_digest,

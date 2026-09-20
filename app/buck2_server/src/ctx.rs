@@ -1034,6 +1034,7 @@ impl DiceCommandUpdater<'_, '_> {
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             override_use_case,
+            invocation_re_settings.use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.repo.incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,

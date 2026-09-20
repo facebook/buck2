@@ -18,6 +18,7 @@ use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::Symlink;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -77,6 +78,7 @@ pub async fn download_action_results<'a>(
     execution_time: TimeSpanBuilder,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
+    invocation_re_use_case: RemoteExecutorUseCase,
     digest_config: DigestConfig,
     manager: CommandExecutionManager,
     identity: &ReActionIdentity<'_>,
@@ -157,8 +159,14 @@ pub async fn download_action_results<'a>(
                         stage: Some(buck2_data::MaterializeFailedInputs {}.into()),
                     },
                     async move {
-                        match materialize_inputs(artifact_fs, materializer, request, digest_config)
-                            .await
+                        match materialize_inputs(
+                            artifact_fs,
+                            materializer,
+                            request,
+                            digest_config,
+                            invocation_re_use_case,
+                        )
+                        .await
                         {
                             Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
                             Err(e) => {
