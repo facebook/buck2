@@ -41,7 +41,8 @@ message KotlinExtraParams {
   // in proto3.
   map<string, PluginParams> kotlinCompilerPlugins = 7;
   map<string, string> kosabiPluginOptions = 8;
-  string kosabiJvmAbiGenEarlyTerminationMessagePrefix = 9;
+  reserved 9;
+  reserved "kosabiJvmAbiGenEarlyTerminationMessagePrefix";
   repeated string friendPaths = 10;
   repeated string kotlinHomeLibraries = 11;
   string jvmTarget = 12;

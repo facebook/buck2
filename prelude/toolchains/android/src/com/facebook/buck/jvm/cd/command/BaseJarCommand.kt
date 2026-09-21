@@ -20,10 +20,10 @@ import com.facebook.buck.jvm.cd.serialization.java.BuildTargetValueSerializer
 import com.facebook.buck.jvm.cd.serialization.java.CompilerOutputPathsValueSerializer
 import com.facebook.buck.jvm.cd.serialization.java.JarParametersSerializer
 import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerializer
-import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacSerializer
 import com.facebook.buck.jvm.core.BuildTargetValue
 import com.facebook.buck.jvm.java.CompilerOutputPathsValue
 import com.facebook.buck.jvm.java.JarParameters
+import com.facebook.buck.jvm.java.JdkProvidedInMemoryJavac
 import com.facebook.buck.jvm.java.ResolvedJavac
 import com.facebook.buck.jvm.java.ResolvedJavacOptions
 import com.google.common.collect.ImmutableList
@@ -47,14 +47,13 @@ class BaseJarCommand(
     val resolvedJavacOptions: ResolvedJavacOptions,
     val buildTargetValue: BuildTargetValue,
     val buckOut: RelPath,
-    val pathToClasses: RelPath?,
     val annotationPath: RelPath?,
 ) {
 
   companion object {
     fun fromProto(model: ProtoBaseJarCommand, scratchDir: Optional<RelPath>): BaseJarCommand {
       return BaseJarCommand(
-          model.abiCompatibilityMode,
+          AbiGenerationMode.CLASS,
           model.abiGenerationMode,
           model.trackClassUsage,
           model.trackClassUsage,
@@ -66,11 +65,10 @@ class BaseJarCommand(
           if (model.hasJarParameters()) JarParametersSerializer.deserialize(model.jarParameters)
           else null,
           AbsPathSerializer.deserialize(""),
-          ResolvedJavacSerializer.deserialize(model.resolvedJavac),
+          JdkProvidedInMemoryJavac.createJsr199Javac(),
           ResolvedJavacOptionsSerializer.deserialize(model.resolvedJavacOptions),
           BuildTargetValueSerializer.deserialize(model.buildTargetValue),
-          RelPathSerializer.deserialize(model.configuredBuckOut),
-          RelPathSerializer.deserialize(model.pathToClasses),
+          RelPath.get("buck-out/v2"),
           RelPathSerializer.deserialize(model.annotationsPath),
       )
     }

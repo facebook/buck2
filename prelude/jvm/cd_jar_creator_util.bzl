@@ -142,7 +142,6 @@ def encode_jar_params(remove_classes: list[str], output_paths: OutputPaths, mani
         ),
         entriesToJar = [output_paths.classes.as_output()],
         manifestFile = manifest_file,
-        duplicatesLogLevel = "FINE",
     )
 
 def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [AbiGenerationMode, None]) -> [AbiGenerationMode, None]:
@@ -214,7 +213,6 @@ def encode_ap_params(annotation_processor_properties: AnnotationProcessorPropert
                         runsOnJavaOnly = ap.runs_on_java_only,
                         processorNames = ap.processors,
                         classpath = ap.deps.project_as_json("javacd_json") if ap.deps else [],
-                        pathParams = {},
                     ),
                 )
     return encoded_ap_params
@@ -223,7 +221,6 @@ def encode_plugin_params(plugin_params: [PluginParams, None]) -> [struct, None]:
     encoded_plugin_params = None
     if plugin_params:
         encoded_plugin_params = struct(
-            parameters = [],
             pluginProperties = [encode_plugin_properties(processor, arguments, plugin_params) for processor, arguments in plugin_params.processors],
         )
     return encoded_plugin_params
@@ -286,14 +283,12 @@ def encode_base_jar_command(
         fullyQualifiedName = qualified_name,
         type = encode_target_type(target_type),
     )
-    resolved_javac = {"jsr199Javac": {}}
     resolved_java_options = struct(
         bootclasspathList = bootclasspath_entries,
         languageLevelOptions = struct(
             sourceLevel = source_level,
             targetLevel = target_level,
         ),
-        debug = True,
         javaAnnotationProcessorParams = encode_ap_params(annotation_processor_properties, target_type),
         standardJavacPluginParams = encode_plugin_params(plugin_params),
         extraArguments = extra_arguments,
@@ -305,11 +300,8 @@ def encode_base_jar_command(
         compileTimeClasspathPaths = compiling_classpath,
         compileTimeClasspathSnapshotPaths = compiling_classpath_snapshot,
         javaSrcs = srcs,
-        # We use "class" abi compatibility to match buck1 (other compatibility modes are used for abi verification.
-        abiCompatibilityMode = encode_abi_generation_mode(AbiGenerationMode("class")),
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
         trackClassUsage = track_class_usage,
-        configuredBuckOut = "buck-out/v2",
         buildTargetValue = build_target_value,
         resourcesMap = [
             {
@@ -318,10 +310,8 @@ def encode_base_jar_command(
             }
             for (k, v) in resources_map.items()
         ],
-        resolvedJavac = resolved_javac,
         resolvedJavacOptions = resolved_java_options,
         jarParameters = jar_parameters,
-        pathToClasses = output_paths.jar.as_output(),
         annotationsPath = output_paths.annotations.as_output(),
     )
 

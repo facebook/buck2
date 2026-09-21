@@ -60,7 +60,8 @@ public class KotlinExtraParamsSerializer {
             .collect(
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, e -> AbsPathSerializer.deserialize(e.getValue()))),
-        Optional.ofNullable(kotlinExtraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix()),
+        Optional.of(
+            "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI."),
         kotlinExtraParams.getFriendPathsList().stream()
             .map(AbsPathSerializer::deserialize)
             .collect(ImmutableSortedSet.toImmutableSortedSet(AbsPath.comparator())),
