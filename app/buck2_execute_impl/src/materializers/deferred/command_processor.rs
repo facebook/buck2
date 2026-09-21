@@ -776,7 +776,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     )
                 });
 
-                if let MaterializationPurpose::FinalOutput { .. } = purpose {
+                if purpose == MaterializationPurpose::FinalOutput {
                     self.promote_final_output_closure(&paths);
                 }
 
@@ -887,25 +887,23 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig".to_owned()
     }
 
-    /// One result per path, in order. A path with nothing to wait for (already materialized,
-    /// or never declared) yields `Ok(())` immediately.
     fn materialize_many_artifacts(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         event_dispatcher: EventDispatcher,
     ) -> BoxStream<'static, Result<(), MaterializationError>> {
-        let tasks = paths.into_iter().map(|path| {
-            match self.materialize_artifact(path.as_ref(), event_dispatcher.dupe()) {
-                Some(fut) => future::Either::Left(fut.map_err(move |e| match e {
-                    SharedMaterializingError::Error(source) => {
-                        MaterializationError::Error { path, source }
-                    }
-                    SharedMaterializingError::NotFound(source) => {
-                        MaterializationError::NotFound { source }
-                    }
-                })),
-                None => future::Either::Right(future::ready(Ok(()))),
-            }
+        let tasks = paths.into_iter().filter_map(|path| {
+            self.materialize_artifact(path.as_ref(), event_dispatcher.dupe())
+                .map(move |fut| {
+                    fut.map_err(move |e| match e {
+                        SharedMaterializingError::Error(source) => {
+                            MaterializationError::Error { path, source }
+                        }
+                        SharedMaterializingError::NotFound(source) => {
+                            MaterializationError::NotFound { source }
+                        }
+                    })
+                })
         });
 
         tasks.collect::<FuturesOrdered<_>>().boxed()

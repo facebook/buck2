@@ -68,10 +68,7 @@ impl ArtifactMaterializer for DiceComputationsData {
                 let result: buck2_error::Result<_> = try {
                     if required {
                         materializer
-                            .ensure_materialized(
-                                vec![path],
-                                MaterializationPurpose::FinalOutput { required: true },
-                            )
+                            .ensure_materialized(vec![path], MaterializationPurpose::FinalOutput)
                             .await?;
                     } else {
                         materializer.try_materialize_final_artifact(path).await?;

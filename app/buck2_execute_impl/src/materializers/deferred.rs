@@ -61,12 +61,9 @@ use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_execute::materialize::materializer::MaterializeRequest;
-use buck2_execute::materialize::materializer::MaterializeResponse;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::MaterializerBackgroundCleanupGuard;
 use buck2_execute::materialize::materializer::MaterializerIterItem;
-use buck2_execute::materialize::materializer::ReadLease;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
@@ -74,7 +71,6 @@ use buck2_util::threads::thread_spawn;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::StreamExt;
 use futures::TryStreamExt;
 use futures::stream::BoxStream;
 use jiff::SignedDuration;
@@ -440,51 +436,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(())
     }
 
-    /// Requires the artifacts to have been declared, as every caller does today; the values are
-    /// carried for the materializer that consumes them, this one only ensures the paths.
-    async fn materialize(
-        &self,
-        request: MaterializeRequest,
-    ) -> buck2_error::Result<MaterializeResponse> {
-        let MaterializeRequest {
-            artifacts,
-            purpose,
-            // Every download this materializer issues runs under the use case its artifact was
-            // declared with, so there is nothing to attribute to the requester.
-            re_use_case: _,
-        } = request;
-
-        if purpose == (MaterializationPurpose::FinalOutput { required: false })
-            && !self.materialize_final_artifacts
-        {
-            return Ok(MaterializeResponse {
-                results: artifacts.iter().map(|_| Ok(())).collect(),
-                lease: ReadLease::noop(),
-            });
-        }
-
-        let paths = artifacts.into_iter().map(|(path, _)| path).collect();
-        let (sender, recv) = oneshot::channel();
-        self.command_sender
-            .send(MaterializerCommand::Ensure(
-                paths,
-                purpose,
-                get_dispatcher(),
-                current_span(),
-                sender,
-            ))
-            .buck_error_context("Sending Ensure() command.")?;
-        let materialization_fut = recv
-            .await
-            .buck_error_context("Receiving materialization future from command thread.")?;
-        let results = materialization_fut.collect::<Vec<_>>().await;
-
-        Ok(MaterializeResponse {
-            results,
-            lease: ReadLease::noop(),
-        })
-    }
-
     async fn declare_copy_impl(
         &self,
         path: ProjectRelativePathBuf,
@@ -693,11 +644,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         artifact_path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<bool> {
         if self.materialize_final_artifacts {
-            self.ensure_materialized(
-                vec![artifact_path],
-                MaterializationPurpose::FinalOutput { required: true },
-            )
-            .await?;
+            self.ensure_materialized(vec![artifact_path], MaterializationPurpose::FinalOutput)
+                .await?;
             Ok(true)
         } else {
             Ok(false)

@@ -126,10 +126,7 @@ async fn create_unhashed_outputs_via_materializer_impl(
         }
         Materializations::Materialize => {
             materializer
-                .ensure_materialized(
-                    unhashed_paths,
-                    MaterializationPurpose::FinalOutput { required: true },
-                )
+                .ensure_materialized(unhashed_paths, MaterializationPurpose::FinalOutput)
                 .await?;
         }
     }
