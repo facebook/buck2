@@ -1210,8 +1210,8 @@ third_party_jar(
 third_party_jar(
     name = "zstd-jni",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/github/luben/zstd-jni:zstd-jni__toolchain",
-    sha1 = "69cdf67db2077e677113172f5b9cb30a15cffc05",
-    url = "mvn:com.github.luben:zstd-jni:jar:1.5.6-9",
+    sha1 = "b4fea046fcd925681fa10c61be99da059f4f745a",
+    url = "mvn:com.github.luben:zstd-jni:jar:1.5.7-17",
     visibility = [
         "prelude//toolchains/android/src/...",
         "prelude//toolchains/android/test/...",
