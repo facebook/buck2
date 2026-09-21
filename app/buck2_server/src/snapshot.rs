@@ -212,7 +212,6 @@ impl SnapshotCollector {
         self.add_http_metrics(&mut snapshot);
         self.add_io_metrics(&mut snapshot);
         self.add_dice_metrics(&mut snapshot);
-        self.add_digest_interner_metrics(&mut snapshot);
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
@@ -416,14 +415,6 @@ impl SnapshotCollector {
         let metrics = self.repo.dice_manager.unsafe_dice().metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
-    }
-
-    fn add_digest_interner_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
-        let stats = buck2_common::cas_digest::file_digest_interner_stats();
-        snapshot.file_digest_interner_entries = stats.entries;
-        snapshot.file_digest_interner_pinned_entries = stats.pinned;
-        snapshot.file_digest_interner_hits = stats.hits;
-        snapshot.file_digest_interner_misses = stats.misses;
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
