@@ -766,7 +766,7 @@ impl MaterializerStateSqliteTable {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use buck2_common::file_ops::metadata::TrackedFileDigest;
+    use buck2_common::cas_digest::TrackedCasDigest;
     use buck2_directory::directory::builder::DirectoryBuilder;
     use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use buck2_execute::directory::new_symlink;
@@ -795,10 +795,8 @@ mod tests {
             let directory = {
                 let mut builder = DirectoryBuilder::empty_non_exhaustive();
                 {
-                    let digest = TrackedFileDigest::from_content(
-                        b"hello",
-                        digest_config.cas_digest_config(),
-                    );
+                    let digest =
+                        TrackedCasDigest::from_content(b"hello", digest_config.cas_digest_config());
                     let metadata = FileMetadata {
                         digest,
                         is_executable: false,

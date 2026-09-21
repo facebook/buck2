@@ -30,6 +30,7 @@ use pagable::Pagable;
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
 use crate::cas_digest::CasDigestKind;
+use crate::cas_digest::TrackedCasDigest;
 use crate::external_symlink::ExternalSymlink;
 
 /// std::fs::FileType is an opaque type that isn't constructible. This is
@@ -112,11 +113,15 @@ pub struct FileDigestKind {
     _private: (),
 }
 
-impl CasDigestKind for FileDigestKind {}
+impl CasDigestKind for FileDigestKind {
+    fn empty_digest(config: CasDigestConfig) -> Option<TrackedCasDigest<Self>> {
+        Some(config.empty_file_digest())
+    }
+}
 
 pub type FileDigest = CasDigest<FileDigestKind>;
 
-pub use crate::cas_digest::TrackedFileDigest;
+pub type TrackedFileDigest = TrackedCasDigest<FileDigestKind>;
 
 #[derive(Copy, Dupe, Clone)]
 pub struct FileDigestConfig {

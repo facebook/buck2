@@ -189,6 +189,7 @@ pub(crate) fn testing_materializer_state_sqlite_db(
 mod tests {
 
     use assert_matches::assert_matches;
+    use buck2_common::cas_digest::TrackedCasDigest;
     use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_common::file_ops::metadata::Symlink;
     use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -244,7 +245,7 @@ mod tests {
             //     └── qux -> ../foo
             {
                 let digest =
-                    TrackedFileDigest::from_content(b"hello", digest_config.cas_digest_config());
+                    TrackedCasDigest::from_content(b"hello", digest_config.cas_digest_config());
                 let metadata = FileMetadata {
                     digest,
                     is_executable: false,
