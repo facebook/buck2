@@ -371,7 +371,7 @@ def _encode_kotlin_extra_params(
 
     return struct(
         extraClassPaths = bootclasspath_entries,
-        extraClassPathSnapshots = bootclasspath_snapshot_entries,
+        extraClassPathSnapshots = bootclasspath_snapshot_entries if should_kotlinc_run_incrementally else [],
         standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
         annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
         jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
