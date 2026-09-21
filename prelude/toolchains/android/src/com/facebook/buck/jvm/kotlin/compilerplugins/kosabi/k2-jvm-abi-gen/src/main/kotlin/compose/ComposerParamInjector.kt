@@ -73,6 +73,9 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
         ComposerParamVisitor(pluginContext, composerIrType),
         null,
     )
+    // This must run after every in-module composable has been transformed, so links between two
+    // transformed declarations are preserved while stale links to dependency declarations are not.
+    moduleFragment.accept(OverrideLinkRepairVisitor(), null)
   }
 
   private inner class ComposerParamVisitor(
@@ -235,6 +238,29 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
 
       function.valueParameters = newParams
     }
+  }
+
+  /**
+   * Removes override links whose source-level dependency declarations lack Compose's synthetic
+   * parameters. The transformed JVM descriptor still matches the dependency's real Compose-lowered
+   * descriptor, so no bridge is needed to preserve the override in bytecode.
+   */
+  private inner class OverrideLinkRepairVisitor : IrElementVisitorVoidCompat() {
+    override fun visitElement(element: IrElement) {
+      element.acceptChildren(this, null)
+    }
+
+    override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+      if (declaration.hasInjectedComposerParam() && declaration.overriddenSymbols.isNotEmpty()) {
+        declaration.overriddenSymbols =
+            declaration.overriddenSymbols.filter { it.owner.hasInjectedComposerParam() }
+      }
+      super.visitSimpleFunction(declaration)
+    }
+  }
+
+  private fun IrSimpleFunction.hasInjectedComposerParam(): Boolean = valueParameters.any {
+    it.name.asString() == "\$composer"
   }
 }
 
