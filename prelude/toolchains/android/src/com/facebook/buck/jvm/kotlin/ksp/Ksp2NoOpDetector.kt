@@ -86,6 +86,12 @@ class Ksp2NoOpDetector {
   }
 
   private companion object {
+    /**
+     * Matched against processor superclasses by name: the adapter lives on the per-target processor
+     * classloader, so it cannot be referenced directly. Pinned to the real class by
+     * `AdapterBaseClassFqnTest` in fbandroid and to the same-named fixture by
+     * `Ksp2NoOpDetectorTest` — update all three together on a rename or move.
+     */
     const val ADAPTER_BASE_CLASS = "com.facebook.kotlin.ksp.kspadapter.SymbolProcessorBase"
   }
 }

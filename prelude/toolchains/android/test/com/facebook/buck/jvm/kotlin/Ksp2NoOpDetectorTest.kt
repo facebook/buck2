@@ -171,4 +171,17 @@ class Ksp2NoOpDetectorTest {
 
     assertEquals(mapOf(ProductiveProvider::class.java.name to 1), detector.countsByProcessor)
   }
+
+  /**
+   * Tripwire half of the adapter-FQN pin: the fixture must keep the real base class's name. The
+   * other half is `AdapterBaseClassFqnTest` in fbandroid, which pins the real class to this same
+   * literal; `Ksp2NoOpDetector` matches processors against it by name.
+   */
+  @Test
+  fun `adapter fixture keeps the real base class name`() {
+    assertEquals(
+        "com.facebook.kotlin.ksp.kspadapter.SymbolProcessorBase",
+        SymbolProcessorBase::class.java.name,
+    )
+  }
 }

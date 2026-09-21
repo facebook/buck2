@@ -89,10 +89,14 @@ class Ksp2Step(
                   this@Ksp2Step::class.java.simpleName,
                   "Ksp2 step duration: $durationMs ms",
               )
-              // Only on success: an aborted run leaves processors that never ran reading zero,
-              // which is indistinguishable from a genuine no-op.
               val counts = noOpDetector.countsByProcessor
-              if (exitCode == KotlinSymbolProcessing.ExitCode.OK && counts.isNotEmpty()) {
+              if (
+                  shouldRecordProcessorCounts(
+                      exitCode == KotlinSymbolProcessing.ExitCode.OK,
+                      counts.isNotEmpty(),
+                      ksp2Mode,
+                  )
+              ) {
                 addExtras(
                     PROCESSOR_OUTPUT_EXTRAS_KEY,
                     counts.entries.joinToString(",") { "${it.key}=${it.value}" },
@@ -295,6 +299,17 @@ class Ksp2Step(
     private val LOG: Logger = Logger.get(Ksp2Step::class.java)
 
     private const val PROCESSOR_OUTPUT_EXTRAS_KEY = "ksp2_processor_generated_files"
+
+    /**
+     * Telemetry records only successful non-incremental runs that produced counts: an aborted run
+     * leaves never-ran processors reading zero, and in an incremental round a zero mixes genuine
+     * no-ops with legitimately idle processors.
+     */
+    fun shouldRecordProcessorCounts(
+        succeeded: Boolean,
+        hasCounts: Boolean,
+        ksp2Mode: Ksp2Mode,
+    ): Boolean = succeeded && hasCounts && ksp2Mode is Ksp2Mode.NonIncremental
 
     private val jdkHomeCache = java.util.concurrent.ConcurrentHashMap<String, File>()
     private val JAVA_HOME_REGEX = Regex("""java\.home\s*=\s*(.+)""")
