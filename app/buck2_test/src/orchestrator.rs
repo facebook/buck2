@@ -52,7 +52,6 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_i
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_build_api::interpreter::rule_defs::required_test_local_resource::StarlarkRequiredTestLocalResource;
 use buck2_build_api::keep_going::KeepGoing;
-use buck2_build_api::materialize::invocation_re_use_case;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
@@ -1109,18 +1108,12 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.ctx().get_blocking_executor();
-        let re_use_case = invocation_re_use_case(&self.dice.ctx());
 
-        // This prepares a command that the test runner executes out of process after this
-        // returns; buck2 never sees that process, so the inputs' lease has no scope to cover
-        // here and goes with the result. Tests buck2 runs itself go through the local
-        // executor, which holds its lease across the run.
         let materialized_inputs = materialize_inputs(
             fs,
             materializer,
             &execution_request,
             self.dice.global_data().get_digest_config(),
-            re_use_case,
         )
         .await?;
 
@@ -1141,7 +1134,6 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 materializer,
                 &local_resource_setup_command.execution_request,
                 self.dice.global_data().get_digest_config(),
-                re_use_case,
             )
             .await?;
             let blocking_executor = self.dice.ctx().get_blocking_executor();

@@ -16,7 +16,6 @@ use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::execution_types::revision::LazyVcsRevision;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
@@ -84,8 +83,6 @@ pub struct ReExecutor {
     pub materializer: Arc<dyn Materializer>,
     pub incremental_db_state: Arc<IncrementalDbState>,
     pub re_client: ManagedRemoteExecutionClient,
-    /// For what the executor materializes; the RE request itself runs under `re_client`'s.
-    pub invocation_re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_read: bool,
@@ -497,7 +494,6 @@ impl PreparedCommandExecutor for ReExecutor {
             execution_time,
             &*self.materializer,
             &self.re_client,
-            self.invocation_re_use_case,
             *digest_config,
             manager,
             &identity,
