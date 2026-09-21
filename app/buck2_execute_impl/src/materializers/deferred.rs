@@ -59,6 +59,7 @@ use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
@@ -67,6 +68,7 @@ use buck2_execute::materialize::materializer::MaterializerIterItem;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::BuckMutSet;
+use buck2_http::HttpClient;
 use buck2_util::threads::thread_spawn;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
@@ -494,6 +496,25 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(())
     }
 
+    async fn declare_http(
+        &self,
+        path: ProjectRelativePathBuf,
+        info: HttpDownloadInfo,
+    ) -> buck2_error::Result<()> {
+        let cmd = MaterializerCommand::Declare(
+            DeclareArtifactPayload {
+                path,
+                artifact: ArtifactValue::file(info.metadata.dupe()),
+            },
+            Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
+            get_dispatcher(),
+            current_span(),
+        );
+        self.command_sender.send(cmd)?;
+
+        Ok(())
+    }
+
     async fn declare_write<'a>(
         &self,
         generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
@@ -870,6 +891,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         configs: DeferredMaterializerConfigs,
         sqlite_db: Option<MaterializerStateSqliteDb>,
         sqlite_state: Option<MaterializerState>,
+        http_client: HttpClient,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Self> {
         Self::new_with_io(
@@ -879,6 +901,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 buck_out_path,
                 re_client_manager,
                 io_executor,
+                http_client,
             )),
             configs,
             sqlite_db,

@@ -256,6 +256,7 @@ struct RepoStateInit<'a> {
 struct DaemonSharedServices<'a> {
     blocking_executor_factory: &'a BlockingExecutorFactory,
     scribe_sink: Option<&'a Arc<dyn EventSinkWithStats>>,
+    http_client: &'a HttpClient,
     memory_tracker: Option<&'a MemoryTrackerHandle>,
     daemon_id: &'a DaemonId,
 }
@@ -569,6 +570,7 @@ impl RepoState {
             deferred_materializer_configs,
             materializer_db,
             materializer_state,
+            shared.http_client.dupe(),
             daemon_dispatcher,
         )?;
 
@@ -746,6 +748,7 @@ impl RepoState {
         deferred_materializer_configs: DeferredMaterializerConfigs,
         materializer_db: Option<MaterializerStateSqliteDb>,
         materializer_state: Option<MaterializerState>,
+        http_client: HttpClient,
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Arc<dyn Materializer>> {
         Ok(Arc::new(DeferredMaterializer::new(
@@ -757,6 +760,7 @@ impl RepoState {
             deferred_materializer_configs,
             materializer_db,
             materializer_state,
+            http_client,
             daemon_dispatcher,
         )?))
     }
@@ -960,6 +964,7 @@ impl DaemonStateData {
         DaemonSharedServices {
             blocking_executor_factory: &self.blocking_executor_factory,
             scribe_sink: self.scribe_sink.as_ref(),
+            http_client: &self.http_client,
             memory_tracker: self.memory_tracker.as_ref(),
             daemon_id: &self.daemon_id,
         }
@@ -1181,6 +1186,7 @@ impl DaemonState {
                     DaemonSharedServices {
                         blocking_executor_factory: &blocking_executor_factory,
                         scribe_sink: scribe_sink.as_ref(),
+                        http_client: &http_client,
                         memory_tracker: memory_tracker.as_ref(),
                         daemon_id: &daemon_id,
                     },

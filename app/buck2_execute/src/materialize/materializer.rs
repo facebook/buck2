@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -36,6 +38,7 @@ use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
 use crate::execute::action_digest::TrackedActionDigest;
+use crate::materialize::http::Checksum;
 use crate::re::error::RemoteExecutionError;
 
 pub struct WriteRequest {
@@ -199,6 +202,12 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<DeclareArtifactPayload>,
+    ) -> buck2_error::Result<()>;
+
+    async fn declare_http(
+        &self,
+        path: ProjectRelativePathBuf,
+        info: HttpDownloadInfo,
     ) -> buck2_error::Result<()>;
 
     /// Write contents to paths. The output is ordered in the same order as the input. Implicitly
@@ -666,6 +675,24 @@ impl CasDownloadInfo {
             | CasDownloadInfoOrigin::TestArtifact => None,
         }
     }
+}
+
+/// Information about a CAS download we might require when an artifact is not materialized.
+#[derive(Debug, Display, Allocative)]
+#[display("{} declared by {}", self.url, self.owner)]
+pub struct HttpDownloadInfo {
+    /// URL to download the file from.
+    pub url: Arc<str>,
+
+    /// Size, whether the file is executable. Also contains a digest, which is a bit of a shame
+    /// since it's duplicative of checksum.
+    pub metadata: FileMetadata,
+
+    /// Checksum for the file, to valiate before downloading.
+    pub checksum: Checksum,
+
+    /// Target that declared the action.
+    pub owner: BaseDeferredKey,
 }
 
 #[derive(Debug, buck2_error::Error)]

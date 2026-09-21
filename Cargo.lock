@@ -2249,6 +2249,7 @@ dependencies = [
  "buck2_forkserver_proto",
  "buck2_fs",
  "buck2_hash",
+ "buck2_http",
  "buck2_resource_control",
  "buck2_util",
  "buck2_worker_proto",

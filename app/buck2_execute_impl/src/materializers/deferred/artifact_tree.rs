@@ -31,6 +31,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::CopiedArtifact;
+use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::output_size::OutputSize;
 use derive_more::Display;
 use dupe::Dupe;
@@ -225,6 +226,10 @@ pub enum ArtifactMaterializationMethod {
         info: Arc<CasDownloadInfo>,
     },
 
+    /// The file must be fetched over HTTP.
+    #[display("http download ({})", info)]
+    HttpDownload { info: HttpDownloadInfo },
+
     #[cfg(test)]
     Test,
 }
@@ -284,7 +289,8 @@ impl ArtifactRematerializationMethod {
         method: &Arc<ArtifactMaterializationMethod>,
     ) -> Option<Arc<Self>> {
         match method.as_ref() {
-            ArtifactMaterializationMethod::CasDownload { .. } => {
+            ArtifactMaterializationMethod::CasDownload { .. }
+            | ArtifactMaterializationMethod::HttpDownload { .. } => {
                 Some(Arc::new(Self(method.dupe())))
             }
             _ => None,
@@ -316,6 +322,9 @@ impl ArtifactRematerializationMethod {
                 }
                 UnmaterializationEligibility::Eligible
             }
+            ArtifactMaterializationMethod::HttpDownload { .. } => {
+                UnmaterializationEligibility::Eligible
+            }
             _ => UnmaterializationEligibility::Ineligible(
                 UnmaterializationIneligibilityReason::NoRematerializationMethod,
             ),
@@ -338,6 +347,9 @@ impl Allocative for ArtifactMaterializationMethod {
             }
             Self::CasDownload { info } => {
                 visitor.visit_field(ident_key!(CasDownload), info);
+            }
+            Self::HttpDownload { info } => {
+                visitor.visit_field(ident_key!(HttpDownload), info);
             }
             #[cfg(test)]
             Self::Test => {
@@ -362,6 +374,9 @@ impl MaterializationMethodToProto for ArtifactMaterializationMethod {
                 buck2_data::MaterializationMethod::CasDownload
             }
             ArtifactMaterializationMethod::Write { .. } => buck2_data::MaterializationMethod::Write,
+            ArtifactMaterializationMethod::HttpDownload { .. } => {
+                buck2_data::MaterializationMethod::HttpDownload
+            }
             #[cfg(test)]
             ArtifactMaterializationMethod::Test => unimplemented!(),
         }
@@ -402,7 +417,7 @@ impl ArtifactTree {
 
     /// Given a path that's (possibly) not yet materialized, returns the path
     /// `contents_path` where its contents can be found. Returns Err if the
-    /// contents cannot be found (ex. if it requires a CAS download)
+    /// contents cannot be found (ex. if it requires HTTP or CAS download)
     ///
     /// Note that the returned `contents_path` could be the same as `path`.
     #[instrument(level = "trace", skip(self), fields(path = %path))]
@@ -462,7 +477,8 @@ impl ArtifactTree {
                     ),
                 }
             }
-            ArtifactMaterializationMethod::Write { .. } => {
+            ArtifactMaterializationMethod::HttpDownload { .. }
+            | ArtifactMaterializationMethod::Write { .. } => {
                 // TODO: Do the write directly to RE instead of materializing locally?
                 Err(ArtifactNotMaterializedReason::RequiresMaterialization { path })
             }
