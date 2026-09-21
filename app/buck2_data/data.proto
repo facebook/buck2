@@ -1347,10 +1347,6 @@ message Snapshot {
   uint64 file_digest_interner_hits = 469;
   uint64 file_digest_interner_misses = 470;
 
-  // Interner entries that a value paged out of memory refers to, and so are
-  // kept and refreshed until it is read back.
-  uint64 file_digest_interner_paged_entries = 471;
-
   // Delay between time snapshot is created and time it is received
   // by the client.
   optional int64 this_event_client_delay_ms = 2001;
