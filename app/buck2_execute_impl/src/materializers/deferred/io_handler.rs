@@ -241,12 +241,6 @@ impl DefaultIoHandler {
                     .map(|x| u64::try_from(x.named_digest.digest.size_in_bytes).unwrap_or_default())
                     .sum();
 
-                if files.is_empty() {
-                    // Only directories and symlinks, all created above; there is nothing to ask
-                    // the CAS for, and a daemon without RE must not be asked to connect.
-                    return Ok(());
-                }
-
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client().with_use_case(info.re_use_case);
 
