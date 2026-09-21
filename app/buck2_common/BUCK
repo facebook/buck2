@@ -48,7 +48,6 @@ rust_library(
         "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:compact_str",
-        "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:digest-010",
