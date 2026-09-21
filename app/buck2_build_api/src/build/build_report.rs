@@ -26,6 +26,7 @@ use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
 use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_cli_proto::CommonBuildOptions;
+use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::CellResolver;
@@ -62,6 +63,7 @@ use buck2_sketches::DependencyGraphSketch;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
+use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use itertools::Either;
@@ -70,7 +72,9 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark_map::small_set::SmallSet;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::build::BuildProviderType;
+use crate::build::BuildTargetResult;
 use crate::build::ConfiguredBuildTargetResult;
 use crate::build::action_error::ActionErrorBuildOptions;
 use crate::build::action_error::BuildReportActionError;
@@ -1347,4 +1351,128 @@ pub fn initialize_streaming_build_report(
         .buck_error_context("Error initializing streaming build report")?;
 
     Ok(())
+}
+
+async fn process_streaming_build_result(
+    ctx: DiceTransaction,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: &TraceId,
+    build_opts: &CommonBuildOptions,
+    build_result: BuildTargetResult,
+    graph_properties_opts: GraphPropertiesOptions,
+) -> buck2_error::Result<()> {
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
+    let artifact_fs = ctx.ctx().get_artifact_fs().await?;
+
+    let build_report_opts = build_report_opts(
+        &mut ctx.ctx(),
+        &cell_resolver,
+        build_opts,
+        graph_properties_opts,
+    )
+    .await?;
+
+    stream_build_report(
+        build_report_opts,
+        artifact_fs,
+        &cell_resolver,
+        project_root,
+        cwd,
+        trace_id,
+        &build_result.configured,
+        &build_result.configured_to_pattern_modifiers,
+        &build_result.other_errors,
+        None, // no detailed metrics for streaming build reports to avoid the computation/copy
+        None, // no action graph sketch for streaming build reports to avoid the computation/copy
+        None, // no artifact_path_sketch_result for streaming build reports
+    )?;
+
+    Ok(())
+}
+
+async fn init_streaming_build_report(
+    ctx: DiceTransaction,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    build_opts: &CommonBuildOptions,
+    graph_properties_opts: GraphPropertiesOptions,
+) -> buck2_error::Result<()> {
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
+
+    let build_report_opts = build_report_opts(
+        &mut ctx.ctx(),
+        &cell_resolver,
+        build_opts,
+        graph_properties_opts,
+    )
+    .await?;
+
+    initialize_streaming_build_report(build_report_opts, project_root, cwd)?;
+
+    Ok(())
+}
+
+pub async fn maybe_stream_build_reports(
+    build_future: impl std::future::Future<Output = buck2_error::Result<BuildTargetResult>>,
+    build_opts: &CommonBuildOptions,
+    ctx: DiceTransaction,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: TraceId,
+    graph_properties: GraphPropertiesOptions,
+    mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
+) -> buck2_error::Result<BuildTargetResult> {
+    if build_opts
+        .unstable_streaming_build_report_filename
+        .is_empty()
+    {
+        return build_future.await;
+    }
+
+    init_streaming_build_report(ctx.clone(), project_root, cwd, build_opts, graph_properties)
+        .await?;
+
+    let mut build_future = std::pin::pin!(build_future);
+    loop {
+        tokio::select! {
+            // Wait for the final build result
+            result = &mut build_future => {
+                // Drain any remaining streaming results
+                while let Ok(streaming_result) = streaming_build_result_rx.try_recv() {
+                    process_streaming_build_result(
+                        ctx.clone(),
+                        project_root,
+                        cwd,
+                        &trace_id,
+                        build_opts,
+                        streaming_result,
+                        graph_properties,
+                    )
+                    .await?;
+                }
+                return result;
+            }
+            // Process streaming build results as they arrive
+            streaming_result = streaming_build_result_rx.recv() => {
+                match streaming_result {
+                    Some(result) => {
+                        process_streaming_build_result(
+                            ctx.clone(),
+                            project_root,
+                            cwd,
+                            &trace_id,
+                            build_opts,
+                            result,
+                            graph_properties,
+                        )
+                        .await?;
+                    }
+                    None => {
+                        // Channel closed, but continue waiting for build completion
+                    }
+                }
+            }
+        }
+    }
 }
