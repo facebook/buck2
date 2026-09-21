@@ -266,7 +266,6 @@ impl CacheUploader {
                             info.digest_config,
                             &self.artifact_fs,
                             self.materializer.as_ref(),
-                            self.invocation_re_use_case,
                             result,
                         )
                         .await?
