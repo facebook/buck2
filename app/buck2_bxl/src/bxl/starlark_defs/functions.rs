@@ -424,4 +424,32 @@ pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBu
         let super_package = read_super_package(package_path, eval)?;
         Ok(eval.heap().alloc(super_package.visibility_cap().to_json()))
     }
+
+    /// Read the `within_view` cap propagated from `enforce_within_view_intersection()`
+    /// in ancestor `PACKAGE` files for the given package path.
+    ///
+    /// Returns the same JSON-shaped value as `buck2 audit package-values`: a list of
+    /// pattern strings, `["PUBLIC"]` when no ancestor caps `within_view` (the default),
+    /// or `{"intersection": [list, ...]}` with one list per opted-in ancestor when
+    /// several of them contributed to the cap.
+    ///
+    /// The `package_path` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_within_view_cap(ctx):
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     within_view_cap = bxl.read_package_within_view_cap(node.label.package_path)
+    ///
+    ///     within_view_cap2 = bxl.read_package_within_view_cap("root//path/to/pkg")
+    /// ```
+    fn read_package_within_view_cap<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
+        let super_package = read_super_package(package_path, eval)?;
+        Ok(eval.heap().alloc(super_package.within_view_cap().to_json()))
+    }
 }

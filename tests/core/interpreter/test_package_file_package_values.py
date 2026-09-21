@@ -50,6 +50,7 @@ async def test_audit_package_values_select(buck: Buck) -> None:
     assert "visibility" in pkg
     assert "within_view" in pkg
     assert "visibility_cap" in pkg
+    assert "within_view_cap" in pkg
 
 
 @buck_test()

@@ -193,6 +193,7 @@ impl AttributeSpecExt for AttributeSpec {
                     internals.buildfile_path().package(),
                     a.attr.coercer(),
                     within_view,
+                    internals.super_package.within_view_cap(),
                     default_deps,
                 )
                 .with_buck_error_context(|| {

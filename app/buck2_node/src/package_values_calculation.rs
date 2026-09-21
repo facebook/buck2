@@ -24,6 +24,7 @@ pub struct PackageValues {
     pub visibility: serde_json::Value,
     pub within_view: serde_json::Value,
     pub visibility_cap: serde_json::Value,
+    pub within_view_cap: serde_json::Value,
 }
 
 #[async_trait]

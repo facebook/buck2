@@ -9,6 +9,7 @@
 ## dedupe
 ## dynamic\_actions
 ## enforce\_visibility\_intersection
+## enforce\_within\_view\_intersection
 ## get\_base\_path
 ## get\_cell\_name
 ## get\_parent\_modifiers

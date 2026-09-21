@@ -48,17 +48,27 @@ enum CheckWithinViewError {
     )]
     #[buck2(tag = Visibility)]
     DepNotWithinView(TargetLabel, WithinViewSpecification),
+    #[error(
+        "Target's effective `within_view` does not allow dependency `{0}` (within_view = {1}). Capped to {2} by `enforce_within_view_intersection()` in an ancestor PACKAGE"
+    )]
+    #[buck2(tag = Visibility)]
+    DepNotWithinViewCap(TargetLabel, WithinViewSpecification, VisibilityPatternList),
 }
 
-/// Check that dependencies in attribute do not violate `within_view`.
+/// Check that dependencies in attribute do not violate `within_view`, i.e. that
+/// every dep matches both the target's own `within_view` and the cap propagated
+/// from `enforce_within_view_intersection()` in ancestor `PACKAGE` files.
 pub(crate) fn check_within_view(
     attr: &CoercedAttr,
     pkg: PackageLabel,
     attr_type: &AttrType,
     within_view: &WithinViewSpecification,
+    within_view_cap: &VisibilityPatternList,
     default_deps: Option<&SmallSet<TargetLabel>>,
 ) -> buck2_error::Result<()> {
-    if within_view == &WithinViewSpecification::PUBLIC {
+    if within_view == &WithinViewSpecification::PUBLIC
+        && within_view_cap == &VisibilityPatternList::Public
+    {
         // Shortcut.
         return Ok(());
     }
@@ -66,6 +76,7 @@ pub(crate) fn check_within_view(
     struct WithinViewCheckTraversal<'x> {
         pkg: PackageLabel,
         within_view: &'x WithinViewSpecification,
+        within_view_cap: &'x VisibilityPatternList,
         default_deps: &'x SmallSet<TargetLabel>,
     }
 
@@ -73,14 +84,26 @@ pub(crate) fn check_within_view(
         fn check_dep_within_view(&self, dep: TargetLabel) -> buck2_error::Result<()> {
             if self.pkg == dep.pkg()
                 || self.default_deps.contains(&dep)
-                || self.within_view.0.matches_target(&dep)?
+                || (self.within_view.0.matches_target(&dep)?
+                    && self.within_view_cap.matches_target(&dep)?)
             {
-                Ok(())
-            } else {
+                return Ok(());
+            }
+            // Inside an opted-in subtree the cap is named even when the target's
+            // own list is what refuses the dep: widening that list alone would
+            // still be refused by the cap, so a cap-blind message misleads.
+            if matches!(self.within_view_cap, VisibilityPatternList::Public) {
                 Err(
                     CheckWithinViewError::DepNotWithinView(dep.dupe(), self.within_view.dupe())
                         .into(),
                 )
+            } else {
+                Err(CheckWithinViewError::DepNotWithinViewCap(
+                    dep.dupe(),
+                    self.within_view.dupe(),
+                    self.within_view_cap.dupe(),
+                )
+                .into())
             }
         }
     }
@@ -118,6 +141,7 @@ pub(crate) fn check_within_view(
         &mut WithinViewCheckTraversal {
             pkg,
             within_view,
+            within_view_cap,
             default_deps: default_deps.unwrap_or(&SmallSet::new()),
         },
     )

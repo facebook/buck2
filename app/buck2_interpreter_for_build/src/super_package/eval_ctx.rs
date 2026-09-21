@@ -45,6 +45,8 @@ pub struct PackageFileEvalCtx {
     pub(crate) test_config_unification_rollout: RefCell<Option<bool>>,
     /// `true` iff this PACKAGE called `enforce_visibility_intersection()`.
     pub(crate) enforces_visibility_intersection: RefCell<bool>,
+    /// `true` iff this PACKAGE called `enforce_within_view_intersection()`.
+    pub(crate) enforces_within_view_intersection: RefCell<bool>,
 }
 
 impl PackageFileEvalCtx {
@@ -83,6 +85,12 @@ impl PackageFileEvalCtx {
             .as_ref()
             .filter(|f| f.visibility_was_set)
             .map(|f| f.visibility.0.dupe());
+
+        // Captured before `inherit=True` is applied, like `explicit_visibility`.
+        // An omitted `within_view=` parses to `Public`, the identity of the
+        // intersection, so unlike `visibility` it needs no `was_set` flag.
+        let explicit_within_view: Option<VisibilityPatternList> =
+            visibility_fields.as_ref().map(|f| f.within_view.0.dupe());
 
         let (visibility, within_view) = match visibility_fields {
             Some(package_visibility) => {
@@ -127,11 +135,20 @@ impl PackageFileEvalCtx {
             _ => self.parent.visibility_cap().dupe(),
         };
 
+        let within_view_cap = match (
+            self.enforces_within_view_intersection.into_inner(),
+            explicit_within_view,
+        ) {
+            (true, Some(raw)) => self.parent.within_view_cap().intersect_with(&raw),
+            _ => self.parent.within_view_cap().dupe(),
+        };
+
         SuperPackage::new(
             merged_package_values,
             visibility,
             within_view,
             visibility_cap,
+            within_view_cap,
             cfg_constructor,
             test_config_unification_rollout,
         )

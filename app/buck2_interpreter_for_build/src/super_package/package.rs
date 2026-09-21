@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::cell::RefCell;
+
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
@@ -27,6 +29,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
+use crate::super_package::eval_ctx::PackageFileEvalCtx;
 use crate::super_package::eval_ctx::PackageFileVisibilityFields;
 
 #[derive(Debug, buck2_error::Error)]
@@ -34,12 +37,10 @@ use crate::super_package::eval_ctx::PackageFileVisibilityFields;
 enum PackageFileError {
     #[error("`package()` function can be used at most once per `PACKAGE` file")]
     AtMostOnce,
-    #[error(
-        "`enforce_visibility_intersection()` function can be used at most once per `PACKAGE` file"
-    )]
-    EnforceVisibilityIntersectionAtMostOnce,
-    #[error("`enforce_visibility_intersection()` can only be called from a `PACKAGE` file")]
-    EnforceVisibilityIntersectionMustBeDirect,
+    #[error("`{0}()` function can be used at most once per `PACKAGE` file")]
+    EnforceIntersectionAtMostOnce(&'static str),
+    #[error("`{0}()` can only be called from a `PACKAGE` file")]
+    EnforceIntersectionMustBeDirect(&'static str),
 }
 
 fn add_visibility_pattern<'v>(
@@ -108,6 +109,45 @@ fn parse_within_view<'v>(
         )?;
     }
     Ok(builder.build_within_view())
+}
+
+/// Shared body of the `enforce_*_intersection()` functions: the call must come
+/// directly from a `PACKAGE` file (not from a `bzl` it loads) and may happen at
+/// most once per file; on success the file's opt-in flag is set.
+fn enforce_intersection(
+    eval: &mut Evaluator,
+    function_name: &'static str,
+    opted_in: fn(&PackageFileEvalCtx) -> &RefCell<bool>,
+) -> starlark::Result<NoneType> {
+    let build_context = BuildContext::from_context(eval)?;
+    let package_file_eval_ctx = build_context
+        .additional
+        .require_package_file(function_name)?;
+
+    let direct_package_call = eval.call_stack_top_location().is_some_and(|loc| {
+        let filename = std::path::Path::new(loc.filename());
+        PackageFilePath::package_file_names().any(|pkg| filename.ends_with(pkg))
+    });
+    if !direct_package_call {
+        return Err(
+            buck2_error::Error::from(PackageFileError::EnforceIntersectionMustBeDirect(
+                function_name,
+            ))
+            .into(),
+        );
+    }
+
+    let mut enforces = opted_in(package_file_eval_ctx).borrow_mut();
+    if *enforces {
+        return Err(
+            buck2_error::Error::from(PackageFileError::EnforceIntersectionAtMostOnce(
+                function_name,
+            ))
+            .into(),
+        );
+    }
+    *enforces = true;
+    Ok(NoneType)
 }
 
 /// Globals for `PACKAGE` files and `bzl` files included from `PACKAGE` files.
@@ -181,32 +221,25 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
     ///
     /// Can only be called from a `PACKAGE` file.
     fn enforce_visibility_intersection(eval: &mut Evaluator) -> starlark::Result<NoneType> {
-        let build_context = BuildContext::from_context(eval)?;
-        let package_file_eval_ctx = build_context
-            .additional
-            .require_package_file("enforce_visibility_intersection")?;
+        enforce_intersection(eval, "enforce_visibility_intersection", |ctx| {
+            &ctx.enforces_visibility_intersection
+        })
+    }
 
-        let direct_package_call = eval.call_stack_top_location().is_some_and(|loc| {
-            let filename = std::path::Path::new(loc.filename());
-            PackageFilePath::package_file_names().any(|pkg| filename.ends_with(pkg))
-        });
-        if !direct_package_call {
-            return Err(buck2_error::Error::from(
-                PackageFileError::EnforceVisibilityIntersectionMustBeDirect,
-            )
-            .into());
-        }
-
-        let mut enforces = package_file_eval_ctx
-            .enforces_visibility_intersection
-            .borrow_mut();
-        if *enforces {
-            return Err(buck2_error::Error::from(
-                PackageFileError::EnforceVisibilityIntersectionAtMostOnce,
-            )
-            .into());
-        }
-        *enforces = true;
-        Ok(NoneType)
+    /// Opts this PACKAGE and its descendants into intersection-based
+    /// `within_view`: every target's effective `within_view` is ANDed with a
+    /// propagating cap built from each opted-in ancestor PACKAGE's
+    /// `package(within_view=...)` list. The cap only tightens: a target
+    /// declaring a broader `within_view`, or a descendant PACKAGE
+    /// replacing the inherited default with `within_view=["PUBLIC"]`, still
+    /// cannot depend on anything outside the cap. `"PUBLIC"` is the
+    /// identity, so calling this without `package(within_view=...)` adds
+    /// nothing to the cap — the parent's cap propagates unchanged.
+    ///
+    /// Can only be called from a `PACKAGE` file.
+    fn enforce_within_view_intersection(eval: &mut Evaluator) -> starlark::Result<NoneType> {
+        enforce_intersection(eval, "enforce_within_view_intersection", |ctx| {
+            &ctx.enforces_within_view_intersection
+        })
     }
 }

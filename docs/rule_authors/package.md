@@ -139,6 +139,50 @@ The propagated cap can be inspected via `buck2 audit package-values`. When a
 visibility check fails because of the cap, the error reports the cap that
 blocked it.
 
+#### [`enforce_within_view_intersection`](../../api/build#enforce_within_view_intersection)
+
+```python
+def enforce_within_view_intersection() -> None
+```
+
+This global API is only available in `PACKAGE` files. Like
+`enforce_visibility_intersection()`, calling it from a `bzl` file included in a
+`PACKAGE` file results in an error, and it may be called at most once per
+`PACKAGE` file.
+
+By default, `package(within_view=...)` only supplies a default `within_view`: a
+target that declares its own `within_view` ignores the `PACKAGE` list entirely,
+and a nested `package()` call (with `inherit=False`, the default) replaces the
+inherited list for its subtree. `enforce_within_view_intersection()` changes
+this to intersection-based `within_view` for the current `PACKAGE` and all of
+its descendants: every target's effective `within_view` is the intersection
+(logical AND) of its own `within_view` (declared, or defaulted from `package()`)
+and a propagating cap.
+
+The cap is built from the `package(within_view=...)` list of each opted-in
+ancestor `PACKAGE`. Because the cap only tightens `within_view`, a directory
+tree can make "what my targets may depend on" a property that no descendant can
+widen: neither a target declaring a broader `within_view` (including
+`within_view=["PUBLIC"]`) nor a nested `package(within_view=["PUBLIC"])` can
+escape the cap. Dependencies within the same package, and dependencies that come
+from an attribute's default value, are exempt, as they are for `within_view`
+generally.
+
+`"PUBLIC"` is the identity of the intersection, so calling
+`enforce_within_view_intersection()` in a `PACKAGE` whose `package()` call omits
+`within_view` (or sets it to `["PUBLIC"]`) contributes nothing to the cap. The
+parent's cap simply propagates unchanged. Note that `within_view=[]` also parses
+to `PUBLIC` and so contributes nothing, unlike `visibility=[]`, which is an
+empty visibility cap. `inherit=True` still unions the `within_view` *default*
+with the parent's as usual; the cap is independent of `inherit` and always
+intersects, so an `inherit=True` child whose own list is disjoint from the
+parent's cap yields a cap that no cross-package dependency satisfies.
+
+The propagated cap can be inspected via `buck2 audit package-values`. Inside an
+opted-in subtree, a refused dependency is reported together with both the
+target's own `within_view` and the cap, since widening the target's own list
+alone cannot get past the cap.
+
 #### [`read_config`](../../api/build#read_config)
 
 `PACKAGE` files are able to call `read_config` to read buckconfigs.

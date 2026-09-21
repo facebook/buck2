@@ -153,3 +153,33 @@ read_package_visibility_cap = bxl_main(
     impl = _read_package_visibility_cap_impl,
     cli_args = {},
 )
+
+def _read_package_within_view_cap_impl(ctx):
+    # No ancestor caps `within_view` at the root, so the cap is PUBLIC (no restriction).
+    asserts.equals(bxl.read_package_within_view_cap("root//"), ["PUBLIC"])
+
+    # `within_view_cap_dir` opts into intersection-based `within_view`, so its
+    # `package(within_view=...)` propagates as the cap. Exercise both input forms.
+    cap_pkg_path = ctx.unconfigured_targets("root//within_view_cap_dir:within_view_cap_dummy").label.package_path
+    asserts.equals(bxl.read_package_within_view_cap(cap_pkg_path), ["root//within_view_cap_dir/..."])
+    asserts.equals(
+        bxl.read_package_within_view_cap("root//within_view_cap_dir"),
+        ["root//within_view_cap_dir/..."],
+    )
+
+    # `within_view_cap_dir/sub_dir` declares its own `within_view` but does not opt
+    # in, so its cap is the one propagated from the ancestor -- and is distinct
+    # from the package's own `within_view`.
+    asserts.equals(
+        bxl.read_package_within_view_cap("root//within_view_cap_dir/sub_dir"),
+        ["root//within_view_cap_dir/..."],
+    )
+    asserts.equals(
+        bxl.read_package_within_view("root//within_view_cap_dir/sub_dir"),
+        ["root//other/..."],
+    )
+
+read_package_within_view_cap = bxl_main(
+    impl = _read_package_within_view_cap_impl,
+    cli_args = {},
+)
