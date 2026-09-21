@@ -391,24 +391,29 @@ def generate_java_classpath_snapshot(
     return output
 
 def single_library_compiling_deps(actions: AnalysisActions, library_output: [JavaClasspathEntry, None]) -> [JavaCompilingDepsTSet, None]:
-    if library_output:
-        return actions.tset(JavaCompilingDepsTSet, value = library_output)
-    else:
+    return get_compiling_deps_tset(actions, value = library_output)
+
+def get_compiling_deps_tset(
+    actions: AnalysisActions,
+    deps: list[Dependency] = [],
+    additional_classpath_entries: list[JavaCompilingDepsTSet] = [],
+    value: JavaClasspathEntry | None = None,
+    preserve_root: bool = False,
+) -> JavaCompilingDepsTSet | None:
+    """Create a classpath root with an optional value before its children.
+
+    Preserve shared provider roots: collapsing them can change ordering and
+    deduplication when another branch references their children directly.
+    """
+    children = [info.compiling_deps for info in filter(None, [dep.get(JavaLibraryInfo) for dep in deps]) if info.compiling_deps != None]
+    children += additional_classpath_entries
+    if value != None:
+        return actions.tset(JavaCompilingDepsTSet, value = value, children = children)
+    if not children:
         return None
-
-# Accumulate deps necessary for compilation, which consist of this library's output and compiling_deps of its exported deps
-def derive_compiling_deps(actions: AnalysisActions, library_output: [JavaCompilingDepsTSet, None], children: list[Dependency]) -> [JavaCompilingDepsTSet, None]:
-    if children:
-        filtered_children = filter(
-            None,
-            [exported_dep.compiling_deps for exported_dep in filter(None, [x.get(JavaLibraryInfo) for x in children])],
-        )
-        children = filtered_children
-
-    if not library_output and not children:
-        return None
-
-    return actions.tset(JavaCompilingDepsTSet, children = (children or []) + ([library_output] if library_output else []))
+    if len(children) == 1 and not preserve_root:
+        return children[0]
+    return actions.tset(JavaCompilingDepsTSet, children = children)
 
 def single_library_compiling_deps_wrapper(actions: AnalysisActions, compiling_deps_tset: [JavaCompilingDepsTSet, None]) -> [JavaCompilingDepsTSetWrapper, None]:
     if compiling_deps_tset:
@@ -714,7 +719,13 @@ def _create_non_template_providers(
         global_code_config,
     )
 
-    compiling_deps = derive_compiling_deps(ctx.actions, single_library, exported_deps + exported_provided_deps)
+    compiling_deps = get_compiling_deps_tset(
+        ctx.actions,
+        exported_deps + exported_provided_deps,
+        [single_library] if single_library else [],
+        # Collapsing this shared provider root can change classpath ordering in dependents.
+        preserve_root = True,
+    )
 
     return (
         JavaLibraryInfo(
@@ -770,7 +781,7 @@ def create_java_library_providers(
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
-    compiling_deps = derive_compiling_deps(ctx.actions, None, declared_deps + exported_deps + provided_deps + exported_provided_deps)
+    compiling_deps = get_compiling_deps_tset(ctx.actions, declared_deps + exported_deps + provided_deps + exported_provided_deps)
     desugar_classpath = compiling_deps.project_as_args("full_library_args") if needs_desugar and compiling_deps != None else None
 
     library_info, packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph = _create_non_template_providers(

@@ -18,15 +18,14 @@ load(
 load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
-    "JavaCompilingDepsTSet",
+    "JavaCompilingDepsTSet",  # @unused Used as a type
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
     "JavaProviders",
     "create_java_library_providers",
     "create_native_providers",
-    "derive_compiling_deps",
-    "single_library_compiling_deps",
+    "get_compiling_deps_tset",
     "to_list",
 )
 load(
@@ -111,7 +110,7 @@ def _create_kotlin_sources(
     # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
     compiling_classpath.add(bootclasspath_entries)
 
-    compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
+    compiling_deps_tset = get_compiling_deps_tset(ctx.actions, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
         compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
 
@@ -486,24 +485,18 @@ def build_kotlin_library(
                 srcs.append(kapt_generated_sources)
             if ksp_generated_sources:
                 srcs.append(ksp_generated_sources)
-            kotlinc_classes_classpath = [
-                single_library_compiling_deps(
-                    ctx.actions,
-                    JavaClasspathEntry(
-                        full_library = kotlinc_classes,
-                        abi = kotlinc_classes,
-                        abi_as_dir = None,
-                        required_for_source_only_abi = True,
-                        abi_jar_snapshot = None,
-                    ),
-                )
-            ]
-            children = (
-                kotlinc_classes_classpath
-                + ([additional_classpath_entries] if additional_classpath_entries else [])
-                + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps]
+            all_additional_classpath_entries = get_compiling_deps_tset(
+                ctx.actions,
+                value = JavaClasspathEntry(
+                    full_library = kotlinc_classes,
+                    abi = kotlinc_classes,
+                    abi_as_dir = None,
+                    required_for_source_only_abi = True,
+                    abi_jar_snapshot = None,
+                ),
+                additional_classpath_entries = ([additional_classpath_entries] if additional_classpath_entries else [])
+                + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps],
             )
-            all_additional_classpath_entries = ctx.actions.tset(JavaCompilingDepsTSet, children = children)
             java_lib = build_java_library(
                 ctx,
                 srcs,

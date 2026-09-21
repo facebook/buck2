@@ -12,6 +12,7 @@ load(
     "JavaCompileOutputs",  # @unused Used as a type
     "JavaCompilingDepsTSet",  # @unused Used as a type
     "generate_java_classpath_snapshot",
+    "get_compiling_deps_tset",
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
@@ -46,7 +47,6 @@ load(
     "encode_command",
     "generate_abi_jars",
     "get_abi_generation_mode",
-    "get_compiling_deps_tset",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -106,7 +106,7 @@ def create_jar_artifact_javacd(
 
     output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths)
 
-    compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
+    compiling_deps_tset = get_compiling_deps_tset(actions, deps, [additional_classpath_entries] if additional_classpath_entries else [])
 
     track_class_usage = java_toolchain.track_class_usage and enable_depfiles
     define_javacd_action = partial(

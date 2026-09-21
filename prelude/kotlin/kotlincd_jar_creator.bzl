@@ -13,6 +13,7 @@ load(
     "JavaCompilingDepsTSet",  # @unused Used as a type
     "JavaLibraryInfo",
     "generate_java_classpath_snapshot",
+    "get_compiling_deps_tset",
     "make_compile_outputs",
 )
 load("@prelude//java:java_resources.bzl", "get_resources_map")
@@ -40,7 +41,6 @@ load(
     "define_output_paths",
     "encode_command",
     "generate_abi_jars",
-    "get_compiling_deps_tset",
     "get_source_only_abi_compiling_deps",
     "prepare_cd_exe",
     "prepare_final_jar",
@@ -132,7 +132,7 @@ def create_jar_artifact_kotlincd(
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_content_based_paths, dir = True)
     incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 
-    compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
+    compiling_deps_tset = get_compiling_deps_tset(actions, deps, [additional_classpath_entries] if additional_classpath_entries else [])
 
     # Compute the reduced SO-ABI classpath for applicability checking during
     # library builds. The applicability plugin needs to know which deps will be

@@ -11,8 +11,8 @@ load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os
 load("@prelude//utils:expect.bzl", "expect")
 load(
     ":java_providers.bzl",
-    "derive_compiling_deps",
     "get_all_java_packaging_deps",
+    "get_compiling_deps_tset",
 )
 
 _GWT_COMPILER_CLASS = "com.google.gwt.dev.Compiler"
@@ -26,7 +26,7 @@ def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     deploy_output = ctx.actions.declare_output("deploy", has_content_based_path = False)
 
     module_deps_classpath = [dep.gwt_module for dep in get_all_java_packaging_deps(ctx, ctx.attrs.module_deps) if dep.gwt_module]
-    compiling_deps_tset = derive_compiling_deps(ctx.actions, None, ctx.attrs.deps)
+    compiling_deps_tset = get_compiling_deps_tset(ctx.actions, ctx.attrs.deps)
     deps_classpath = [dep.full_library for dep in (list(compiling_deps_tset.traverse()) if compiling_deps_tset else [])]
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]

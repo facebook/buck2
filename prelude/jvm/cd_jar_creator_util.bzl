@@ -9,10 +9,9 @@
 load(
     "@prelude//java:java_providers.bzl",
     "JavaClasspathEntry",
-    "JavaCompilingDepsTSet",
+    "JavaCompilingDepsTSet",  # @unused Used as type
     "JavaLibraryInfo",
     "create_abi",
-    "derive_compiling_deps",
 )
 load("@prelude//java:java_toolchain.bzl", "AbiGenerationMode", "JavaToolchainInfo", "unsafe_memory_access_jvm_args")
 load("@prelude//java/plugins:java_annotation_processor.bzl", "AnnotationProcessorProperties")  # @unused Used as type
@@ -154,18 +153,6 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
     if target_type == TargetType("source_only_abi"):
         return AbiGenerationMode("source_only")
     return abi_generation_mode
-
-def get_compiling_deps_tset(
-    actions: AnalysisActions, deps: list[Dependency], additional_classpath_entries: JavaCompilingDepsTSet | None
-) -> [JavaCompilingDepsTSet, None]:
-    compiling_deps_tset = derive_compiling_deps(actions, None, deps)
-    if additional_classpath_entries:
-        if compiling_deps_tset == None:
-            compiling_deps_tset = additional_classpath_entries
-        else:
-            compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = [compiling_deps_tset, additional_classpath_entries])
-
-    return compiling_deps_tset
 
 def _source_only_abi_jars(entries: list[JavaClasspathEntry]):
     return [entry.abi for entry in entries]

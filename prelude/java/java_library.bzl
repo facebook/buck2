@@ -22,8 +22,8 @@ load(
     "create_abi",
     "create_java_library_providers",
     "create_native_providers",
-    "derive_compiling_deps",
     "generate_java_classpath_snapshot",
+    "get_compiling_deps_tset",
     "make_compile_outputs",
     "to_list",
 )
@@ -167,7 +167,7 @@ def _build_classpath(
     classpath_args_projection: str,
     additional_classpath_entries_list: list[Artifact],
 ) -> [cmd_args, None]:
-    compiling_deps_tset = derive_compiling_deps(actions, None, deps)
+    compiling_deps_tset = get_compiling_deps_tset(actions, deps)
 
     if additional_classpath_entries or compiling_deps_tset or additional_classpath_entries_list:
         args = cmd_args()
