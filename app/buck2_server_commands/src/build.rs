@@ -45,6 +45,8 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -80,6 +82,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
@@ -431,9 +434,10 @@ async fn build(
         build_future,
         build_opts,
         cloned_ctx,
+        server_ctx.project_root(),
+        server_ctx.working_dir(),
+        server_ctx.events().trace_id().dupe(),
         graph_properties.dupe(),
-        server_ctx,
-        request,
         streaming_build_result_rx,
     )
     .await?;
@@ -547,15 +551,14 @@ async fn build(
 }
 
 async fn process_streaming_build_result(
-    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
-    request: &buck2_cli_proto::BuildRequest,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: &TraceId,
+    build_opts: &CommonBuildOptions,
     build_result: BuildTargetResult,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<()> {
-    let build_opts = expect_build_opts(request);
-    let fs = server_ctx.project_root();
-    let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
     let cell_resolver = ctx.ctx().get_cell_resolver().await?;
     let artifact_fs = ctx.ctx().get_artifact_fs().await?;
 
@@ -571,9 +574,9 @@ async fn process_streaming_build_result(
         build_report_opts,
         artifact_fs,
         &cell_resolver,
-        fs,
+        project_root,
         cwd,
-        server_ctx.events().trace_id(),
+        trace_id,
         &build_result.configured,
         &build_result.configured_to_pattern_modifiers,
         &build_result.other_errors,
@@ -586,14 +589,12 @@ async fn process_streaming_build_result(
 }
 
 async fn init_streaming_build_report(
-    server_ctx: &dyn ServerCommandContextTrait,
     ctx: DiceTransaction,
-    request: &buck2_cli_proto::BuildRequest,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    build_opts: &CommonBuildOptions,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<()> {
-    let build_opts = expect_build_opts(request);
-    let fs = server_ctx.project_root();
-    let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
     let cell_resolver = ctx.ctx().get_cell_resolver().await?;
 
     let build_report_opts = build_report_opts(
@@ -604,7 +605,7 @@ async fn init_streaming_build_report(
     )
     .await?;
 
-    initialize_streaming_build_report(build_report_opts, fs, cwd)?;
+    initialize_streaming_build_report(build_report_opts, project_root, cwd)?;
 
     Ok(())
 }
@@ -613,9 +614,10 @@ async fn maybe_stream_build_reports(
     build_future: impl std::future::Future<Output = buck2_error::Result<BuildTargetResult>>,
     build_opts: &CommonBuildOptions,
     ctx: DiceTransaction,
+    project_root: &ProjectRoot,
+    cwd: &ProjectRelativePath,
+    trace_id: TraceId,
     graph_properties: GraphPropertiesOptions,
-    server_ctx: &dyn ServerCommandContextTrait,
-    request: &buck2_cli_proto::BuildRequest,
     mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
 ) -> buck2_error::Result<BuildTargetResult> {
     if build_opts
@@ -625,7 +627,8 @@ async fn maybe_stream_build_reports(
         return build_future.await;
     }
 
-    init_streaming_build_report(server_ctx, ctx.clone(), request, graph_properties).await?;
+    init_streaming_build_report(ctx.clone(), project_root, cwd, build_opts, graph_properties)
+        .await?;
 
     let mut build_future = std::pin::pin!(build_future);
     loop {
@@ -635,12 +638,15 @@ async fn maybe_stream_build_reports(
                 // Drain any remaining streaming results
                 while let Ok(streaming_result) = streaming_build_result_rx.try_recv() {
                     process_streaming_build_result(
-                            server_ctx,
-                            ctx.clone(),
-                            request,
-                            streaming_result,
-                            graph_properties,
-                        ).await?;
+                        ctx.clone(),
+                        project_root,
+                        cwd,
+                        &trace_id,
+                        build_opts,
+                        streaming_result,
+                        graph_properties,
+                    )
+                    .await?;
                 }
                 return result;
             }
@@ -649,12 +655,15 @@ async fn maybe_stream_build_reports(
                 match streaming_result {
                     Some(result) => {
                         process_streaming_build_result(
-                            server_ctx,
                             ctx.clone(),
-                            request,
+                            project_root,
+                            cwd,
+                            &trace_id,
+                            build_opts,
                             result,
                             graph_properties,
-                        ).await?;
+                        )
+                        .await?;
                     }
                     None => {
                         // Channel closed, but continue waiting for build completion
