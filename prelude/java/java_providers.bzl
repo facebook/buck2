@@ -398,20 +398,15 @@ def get_compiling_deps_tset(
     deps: list[Dependency] = [],
     additional_classpath_entries: list[JavaCompilingDepsTSet] = [],
     value: JavaClasspathEntry | None = None,
-    preserve_root: bool = False,
 ) -> JavaCompilingDepsTSet | None:
-    """Create a classpath root with an optional value before its children.
-
-    Preserve shared provider roots: collapsing them can change ordering and
-    deduplication when another branch references their children directly.
-    """
+    """Create a classpath root with an optional value before its children."""
     children = [info.compiling_deps for info in filter(None, [dep.get(JavaLibraryInfo) for dep in deps]) if info.compiling_deps != None]
     children += additional_classpath_entries
     if value != None:
         return actions.tset(JavaCompilingDepsTSet, value = value, children = children)
     if not children:
         return None
-    if len(children) == 1 and not preserve_root:
+    if len(children) == 1:
         return children[0]
     return actions.tset(JavaCompilingDepsTSet, children = children)
 
@@ -723,8 +718,6 @@ def _create_non_template_providers(
         ctx.actions,
         exported_deps + exported_provided_deps,
         [single_library] if single_library else [],
-        # Collapsing this shared provider root can change classpath ordering in dependents.
-        preserve_root = True,
     )
 
     return (
