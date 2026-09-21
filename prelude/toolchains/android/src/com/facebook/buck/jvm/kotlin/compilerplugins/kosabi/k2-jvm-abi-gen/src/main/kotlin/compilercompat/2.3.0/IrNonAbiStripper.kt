@@ -669,11 +669,14 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     //    the `<init>(..., int mask, DefaultConstructorMarker)` overload) reaches codegen with a
     //    body that still holds Kosabi's `skipBodies` IrErrorExpression placeholders, which
     //    ExpressionCodegen cannot emit.
-    // For most classes a stub (empty) body is sufficient -- ABI jars are compile-classpath-only,
-    // only the signature matters, and ordinary constructors keep the delegating call fir2ir
-    // still emits for them.
+    // A stub body must still carry a delegating constructor call: an empty body compiles to a
+    // bare RETURN and the JVM verifier rejects a constructor that returns without first calling
+    // super()/this() ("Constructor must call super() or this() before return"). ABI jars are
+    // compile-classpath-only, so only a well-formed delegating call matters, not its arguments
+    // (see createSuperDelegatingConstructorBody). Ordinary constructors whose delegating call
+    // fir2ir still emits are left untouched by the default traversal.
     //
-    // Inner classes are the exception: the JVM pipeline runs InnerClassesLowering, which asserts
+    // Inner classes need extra care: the JVM pipeline runs InnerClassesLowering, which asserts
     // that every inner-class constructor body contains an IrDelegatingConstructorCall (it
     // rewrites that call to thread the outer `this`). A bodyless inner constructor is skipped by
     // that lowering but then fails codegen; an *empty* stub body makes the lowering run and trip
@@ -720,24 +723,31 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
         declaration.body == null ||
             declaration.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER
     ) {
-      declaration.body = irFactory.createBlockBody(-1, -1)
+      // SKIP_BODIES dropped the delegating constructor call for a bodyless constructor (e.g. a
+      // primary constructor whose body was stripped) and left the synthetic <init>$default overload
+      // holding skipBodies error expressions. An empty replacement body is a bare RETURN that the
+      // JVM verifier rejects, so synthesize a super-delegation instead -- the same well-formed stub
+      // used for inner-class constructors above.
+      declaration.body =
+          createSuperDelegatingConstructorBody(declaration) ?: irFactory.createBlockBody(-1, -1)
     }
     return super.visitConstructor(declaration)
   }
 
   /**
-   * Builds a constructor body with a delegating call to [innerClass]'s superclass constructor
-   * (defaulting to kotlin.Any) plus an instance-initializer, so InnerClassesLowering can find and
-   * rewrite it after SKIP_BODIES stripped the original delegating call. When the superclass
-   * constructor takes value parameters, fabricated default constants are passed -- for a
-   * compile-classpath-only ABI stub the argument values are irrelevant, only a well-formed call is.
-   * Returns null only when the superclass has no usable constructor.
+   * Builds a constructor body with a delegating call to the owner class's superclass constructor
+   * (defaulting to kotlin.Any) plus an instance-initializer. SKIP_BODIES stripped the original
+   * delegating call, so without this the stub would be a bare RETURN (rejected by the JVM verifier)
+   * and, for an inner class, InnerClassesLowering would have no delegating call to find and
+   * rewrite. When the superclass constructor takes value parameters, fabricated default constants
+   * are passed -- for a compile-classpath-only ABI stub the argument values are irrelevant, only a
+   * well-formed call is. Returns null only when the superclass has no usable constructor.
    */
   @OptIn(org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi::class)
   private fun createSuperDelegatingConstructorBody(constructor: IrConstructor): IrBody? {
-    val innerClass = constructor.parentAsClass
+    val ownerClass = constructor.parentAsClass
     val superClass =
-        innerClass.superTypes
+        ownerClass.superTypes
             .mapNotNull { it.classOrNull?.owner }
             .firstOrNull { it.kind == ClassKind.CLASS } ?: irBuiltins.anyClass.owner
     val superConstructor = superClass.primaryConstructor ?: superClass.constructors.firstOrNull()
@@ -752,7 +762,7 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     // super-delegations), so populate it here with the current inner class's enclosing `this`;
     // otherwise codegen sees a null dispatch receiver ("Null argument ... kind:DispatchReceiver").
     if (superClass.isInner) {
-      innerClass.parentAsClass.thisReceiver?.let { outerThis ->
+      ownerClass.parentAsClass.thisReceiver?.let { outerThis ->
         delegatingCall.dispatchReceiver = IrGetValueImpl(-1, -1, outerThis.type, outerThis.symbol)
       }
     }
@@ -773,7 +783,7 @@ internal class NonAbiDeclarationsStrippingIrVisitor(
     // instance-initializer marks it as a super-delegation, so the lowering initializes the
     // outer-this field instead of rewriting the delegating call.
     val instanceInitializer =
-        IrInstanceInitializerCallImpl(-1, -1, innerClass.symbol, irBuiltins.unitType)
+        IrInstanceInitializerCallImpl(-1, -1, ownerClass.symbol, irBuiltins.unitType)
     return irFactory.createBlockBody(-1, -1).apply {
       statements.add(delegatingCall)
       statements.add(instanceInitializer)
