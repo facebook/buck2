@@ -551,9 +551,7 @@ async fn process_streaming_build_result(
     ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
-    detailed_metrics: Option<DetailedAggregatedMetrics>,
     graph_properties_opts: GraphPropertiesOptions,
-    action_graph_sketch_result: Option<ActionGraphSketchResult>,
 ) -> buck2_error::Result<()> {
     let build_opts = expect_build_opts(request);
     let fs = server_ctx.project_root();
@@ -579,8 +577,8 @@ async fn process_streaming_build_result(
         &build_result.configured,
         &build_result.configured_to_pattern_modifiers,
         &build_result.other_errors,
-        detailed_metrics,
-        action_graph_sketch_result,
+        None, // no detailed metrics for streaming build reports to avoid the computation/copy
+        None, // no action graph sketch for streaming build reports to avoid the computation/copy
         None, // no artifact_path_sketch_result for streaming build reports
     )?;
 
@@ -641,9 +639,7 @@ async fn maybe_stream_build_reports(
                             ctx.clone(),
                             request,
                             streaming_result,
-                            None, // no detailed metrics for streaming build reports to avoid the computation/copy
                             graph_properties,
-                            None, // no action graph sketch for streaming build reports to avoid the computation/copy
                         ).await?;
                 }
                 return result;
@@ -657,9 +653,7 @@ async fn maybe_stream_build_reports(
                             ctx.clone(),
                             request,
                             result,
-                            None, // no detailed metrics for streaming build reports to avoid the computation/copy
                             graph_properties,
-                            None, // no action graph sketch for streaming build reports to avoid the computation/copy
                         ).await?;
                     }
                     None => {
