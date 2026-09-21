@@ -36,7 +36,7 @@ use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::directory::ActionSharedDirectory;
-use crate::execute::action_digest::ActionDigest;
+use crate::execute::action_digest::TrackedActionDigest;
 use crate::re::error::RemoteExecutionError;
 
 pub struct WriteRequest {
@@ -572,9 +572,8 @@ pub enum CasDownloadInfoOrigin {
 
 #[derive(Debug, Allocative)]
 pub struct ActionExecutionOrigin {
-    /// Digest of the action that led us to discover this CAS object. Reported, not tracked: what
-    /// says whether this origin still guarantees the download is the action's own TTL below.
-    action_digest: ActionDigest,
+    /// Digest of the action that led us to discover this CAS object.
+    action_digest: TrackedActionDigest,
 
     /// When did we learn of the connection between this digest and the download it allows. This
     /// typically represents how much time has passed since we executed the action or hit in the
@@ -676,7 +675,7 @@ pub struct CasDownloadInfo {
 
 impl CasDownloadInfo {
     pub fn new_execution(
-        action_digest: ActionDigest,
+        action_digest: TrackedActionDigest,
         re_use_case: RemoteExecutorUseCase,
         action_instant: Timestamp,
         ttl: SignedDuration,
@@ -746,7 +745,7 @@ impl CasDownloadInfo {
         }
     }
 
-    pub fn action_digest(&self) -> Option<&ActionDigest> {
+    pub fn action_digest(&self) -> Option<&TrackedActionDigest> {
         match &self.origin {
             CasDownloadInfoOrigin::Execution(execution) => Some(&execution.action_digest),
             CasDownloadInfoOrigin::Declared

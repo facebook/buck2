@@ -31,6 +31,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
+use buck2_execute::execute::action_digest::TrackedActionDigest;
 use buck2_execute::execute::executor_stage_async;
 use buck2_execute::execute::kind::RemoteCommandExecutionDetails;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -327,7 +328,11 @@ impl CasDownloader<'_> {
             // disagree, and because the difference of two in-range datetimes can't overflow.
             let ttl = expires.duration_since(now);
             let info = CasDownloadInfo::new_execution(
-                details.action_digest.dupe(),
+                TrackedActionDigest::new_expires(
+                    details.action_digest.dupe(),
+                    expires,
+                    self.digest_config.cas_digest_config(),
+                ),
                 self.re_client.use_case,
                 now,
                 ttl,

@@ -25,3 +25,4 @@ impl CasDigestKind for DepFileDigestKind {
 }
 
 pub type DepFileDigest = CasDigest<DepFileDigestKind>;
+pub type TrackedDepFileDigest = TrackedCasDigest<DepFileDigestKind>;

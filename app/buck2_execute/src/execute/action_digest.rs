@@ -25,3 +25,4 @@ impl CasDigestKind for ActionDigestKind {
 }
 
 pub type ActionDigest = CasDigest<ActionDigestKind>;
+pub type TrackedActionDigest = TrackedCasDigest<ActionDigestKind>;
