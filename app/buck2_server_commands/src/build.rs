@@ -68,7 +68,6 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
-use buck2_execute::re::invocation_re_settings::HasInvocationReSettings;
 use buck2_hash::BuckMutSet;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -760,9 +759,6 @@ async fn process_build_result(
                 ctx.global_data().get_digest_config(),
                 ctx.per_transaction_data().get_materializer(),
                 final_artifact_materializations,
-                ctx.per_transaction_data()
-                    .get_invocation_re_settings()
-                    .use_case,
             )
             .await;
             (res, buck2_data::CreateOutputSymlinksEnd {})

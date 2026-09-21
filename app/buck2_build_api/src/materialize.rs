@@ -92,7 +92,6 @@ async fn materialize_artifact_group(
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
 
-        let re_use_case = invocation_re_use_case(ctx);
         let data = ctx.data();
         let shared_data = Arc::new((
             data.dupe(),
@@ -122,11 +121,7 @@ async fn materialize_artifact_group(
                         let configuration_hash_path = artifact_fs
                             .resolve_build_configuration_hash_path(artifact.get_path())?;
 
-                        // A content-based output lives at its content path; the configuration
-                        // path users know is a symlink to it, which nobody but this code
-                        // declares. The request then names the symlink, whose deps reach the
-                        // content path, exactly the path that was ensured before.
-                        let artifacts = if artifact.get_path().is_content_based_path() {
+                        if artifact.get_path().is_content_based_path() {
                             let content_based_path = artifact_fs.resolve_build(
                                 artifact.get_path(),
                                 Some(&value.content_based_path_hash()),
@@ -142,22 +137,18 @@ async fn materialize_artifact_group(
                             let symlink_value = builder.build(&configuration_hash_path)?;
 
                             materializer
-                            .declare_copy(configuration_hash_path.clone(), symlink_value.dupe(), Vec::new())
+                            .declare_copy(configuration_hash_path.clone(), symlink_value, Vec::new())
                             .await
                             .buck_error_context(
                                 "Failed to declare configuration path to content-based path symlinks",
                             )?;
-                            vec![(configuration_hash_path, symlink_value)]
-                        } else {
-                            vec![(configuration_hash_path, value)]
-                        };
+                        }
 
                         data.try_materialize_requested_artifact(
                             &artifact,
                             waiting_data,
                             force,
-                            artifacts,
-                            re_use_case,
+                            configuration_hash_path,
                             &artifact_group,
                         )
                         .await

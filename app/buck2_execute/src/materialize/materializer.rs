@@ -329,6 +329,22 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
             .await?)
     }
 
+    /// Similar to `ensure_materialized`, but it relaxes its most important
+    /// invariant: there's no guarantee that the artifact will be materialized
+    /// after calling this method. It's meant for final artifacts that are NOT
+    /// required by further build steps and therefore can be skipped in some
+    /// cases.
+    ///
+    /// The materializer returns `Ok(true)` if the materialization succeeded,
+    /// `Ok(false)` if it was skipped, and [`Err`] if it was tried but failed.
+    ///
+    /// Calling this on an artifact that was never declared is undefined
+    /// behavior.
+    async fn try_materialize_final_artifact(
+        &self,
+        artifact_path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<bool>;
+
     /// Given a `file_path` whose contents we are interested in, *tries* to
     /// find a materialized path with the same contents. It returns [`None`] if
     /// the path leads to a file that needs to be fetched from the CAS.

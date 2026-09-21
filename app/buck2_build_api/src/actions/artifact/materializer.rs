@@ -14,15 +14,12 @@ use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async_simple;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_util::time_span::TimeSpan;
 use dice::DiceComputations;
 use dice::DiceComputationsData;
@@ -36,17 +33,14 @@ pub trait ArtifactMaterializer {
     /// Called to materialize the final set of requested artifacts for the build of a target.
     /// This method will render events in superconsole.
     ///
-    /// `artifacts` are the paths and values that make `artifact` appear on disk (its own, plus
-    /// the configuration-path symlink of a content-based output). `requested_group` is the
-    /// top-level `ArtifactGroup` that this artifact belongs to, used to record correct critical
-    /// path dependencies (e.g. tset ensure vs individual action).
+    /// `requested_group` is the top-level `ArtifactGroup` that this artifact belongs to,
+    /// used to record correct critical path dependencies (e.g. tset ensure vs individual action).
     async fn try_materialize_requested_artifact(
         &self,
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        re_use_case: RemoteExecutorUseCase,
+        path: ProjectRelativePathBuf,
         requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()>;
 }
@@ -58,8 +52,7 @@ impl ArtifactMaterializer for DiceComputationsData {
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        re_use_case: RemoteExecutorUseCase,
+        path: ProjectRelativePathBuf,
         requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
@@ -73,21 +66,16 @@ impl ArtifactMaterializer for DiceComputationsData {
                 let now = Instant::now();
 
                 let result: buck2_error::Result<_> = try {
-                    let response = materializer
-                        .materialize(MaterializeRequest {
-                            artifacts,
-                            purpose: MaterializationPurpose::FinalOutput { required },
-                            re_use_case,
-                        })
-                        .await?;
-                    // Final outputs are read after the command returns, outside anything the
-                    // materializer can serialize against, so there is no scope to hold the lease
-                    // over.
-                    drop(
-                        response
-                            .ensure_results_ok()
-                            .map_err(Into::<buck2_error::Error>::into)?,
-                    );
+                    if required {
+                        materializer
+                            .ensure_materialized(
+                                vec![path],
+                                MaterializationPurpose::FinalOutput { required: true },
+                            )
+                            .await?;
+                    } else {
+                        materializer.try_materialize_final_artifact(path).await?;
+                    }
                 };
 
                 if let Some(signals) = self.per_transaction_data().get_build_signals() {
@@ -123,8 +111,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
-        artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        re_use_case: RemoteExecutorUseCase,
+        path: ProjectRelativePathBuf,
         requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()> {
         self.data()
@@ -132,8 +119,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
                 artifact,
                 waiting_data,
                 required,
-                artifacts,
-                re_use_case,
+                path,
                 requested_group,
             )
             .await

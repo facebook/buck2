@@ -1227,18 +1227,12 @@ mod state_machine {
             dm.materialize_final_artifacts = false;
             dm.declare_existing(vec![DeclareArtifactPayload {
                 path: path.clone(),
-                artifact: value.dupe(),
+                artifact: value,
             }])
             .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
-            let response = dm
-                .materialize(request(
-                    vec![(path.clone(), value.dupe())],
-                    MaterializationPurpose::FinalOutput { required: false },
-                ))
-                .await?;
-            drop(response.ensure_results_ok()?);
+            assert!(!dm.try_materialize_final_artifact(path.clone()).await?);
             assert_eq!(
                 *dm.stats.sizes.read(),
                 MaterializerSizeStats {
@@ -1256,13 +1250,7 @@ mod state_machine {
             );
 
             dm.materialize_final_artifacts = true;
-            let response = dm
-                .materialize(request(
-                    vec![(path, value)],
-                    MaterializationPurpose::FinalOutput { required: true },
-                ))
-                .await?;
-            drop(response.ensure_results_ok()?);
+            assert!(dm.try_materialize_final_artifact(path).await?);
             let mut snapshot = buck2_data::Snapshot::default();
             dm.add_snapshot_stats(&mut snapshot);
             assert_eq!(

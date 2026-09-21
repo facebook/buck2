@@ -131,7 +131,8 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     #[allocative(skip)]
     #[cfg_attr(not(test), expect(dead_code))]
     command_thread: Option<std::thread::JoinHandle<()>>,
-    /// Whether final outputs that are not required get materialized at all.
+    /// Determines what to do on `try_materialize_final_artifact`: if true,
+    /// materializes them, otherwise skips them.
     materialize_final_artifacts: bool,
     defer_write_actions: bool,
 
@@ -685,6 +686,22 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             .await
             .buck_error_context("Receiving materialization future from command thread.")?;
         Ok(materialization_fut.try_collect().await?)
+    }
+
+    async fn try_materialize_final_artifact(
+        &self,
+        artifact_path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<bool> {
+        if self.materialize_final_artifacts {
+            self.ensure_materialized(
+                vec![artifact_path],
+                MaterializationPurpose::FinalOutput { required: true },
+            )
+            .await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     async fn get_materialized_file_paths(

@@ -12,7 +12,6 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_cli_proto::build_request::Materializations;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -21,11 +20,9 @@ use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use buck2_util::future::try_join_all;
-use dupe::Dupe;
 use itertools::Itertools;
 use tracing::info;
 
@@ -70,7 +67,6 @@ pub(crate) async fn create_unhashed_outputs_via_materializer(
     digest_config: DigestConfig,
     materializer: &dyn Materializer,
     materializations: Materializations,
-    re_use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<()> {
     create_unhashed_outputs_via_materializer_impl(
         provider_artifacts,
@@ -78,7 +74,6 @@ pub(crate) async fn create_unhashed_outputs_via_materializer(
         digest_config,
         materializer,
         materializations,
-        re_use_case,
     )
     .await
     .tag(ErrorTag::UnhashedOutputSymlink)
@@ -91,7 +86,6 @@ async fn create_unhashed_outputs_via_materializer_impl(
     digest_config: DigestConfig,
     materializer: &dyn Materializer,
     materializations: Materializations,
-    re_use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<()> {
     let unhashed_to_hashed = unhashed_output_links(provider_artifacts, artifact_fs)?;
     let mut declarations = Vec::new();
@@ -113,27 +107,32 @@ async fn create_unhashed_outputs_via_materializer_impl(
             );
         }
     }
-    // Nothing produces these symlinks, so they are declared rather than reported.
+    let unhashed_paths: Vec<_> = declarations.iter().map(|(path, _)| path.clone()).collect();
     try_join_all(
         declarations
-            .iter()
-            .map(|(path, value)| materializer.declare_copy(path.clone(), value.dupe(), Vec::new())),
+            .into_iter()
+            .map(|(path, value)| materializer.declare_copy(path, value, Vec::new())),
     )
     .await?;
-    let required = match materializations {
-        Materializations::Skip => return Ok(()),
-        Materializations::Default => false,
-        Materializations::Materialize => true,
-    };
-    let response = materializer
-        .materialize(MaterializeRequest {
-            artifacts: declarations,
-            purpose: MaterializationPurpose::FinalOutput { required },
-            re_use_case,
-        })
-        .await?;
-    // Read after the command returns, so there is no scope to hold the lease over.
-    drop(response.ensure_results_ok()?);
+    match materializations {
+        Materializations::Skip => {}
+        Materializations::Default => {
+            try_join_all(
+                unhashed_paths
+                    .into_iter()
+                    .map(|path| materializer.try_materialize_final_artifact(path)),
+            )
+            .await?;
+        }
+        Materializations::Materialize => {
+            materializer
+                .ensure_materialized(
+                    unhashed_paths,
+                    MaterializationPurpose::FinalOutput { required: true },
+                )
+                .await?;
+        }
+    }
 
     Ok(())
 }
