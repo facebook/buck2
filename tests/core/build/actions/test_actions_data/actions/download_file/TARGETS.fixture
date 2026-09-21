@@ -1,10 +1,3 @@
 load(":defs.bzl", "test")
 
-size_bytes = read_config("test", "size_bytes")
-
-test(
-    name = "test",
-    url = read_config("test", "url"),
-    sha1 = read_config("test", "sha1"),
-    size_bytes = int(size_bytes) if size_bytes != None else None,
-)
+test(name = "test", url = read_config("test", "url"), sha1 = read_config("test", "sha1"))

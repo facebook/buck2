@@ -30,27 +30,20 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact_value::ArtifactValue;
-use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::http::Checksum;
 use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
-use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
-use buck2_execute::materialize::materializer::DeclareMatchOutcome;
+use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_hash::BuckIndexSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
-use jiff::SignedDuration;
-use jiff::Timestamp;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::OwnedFrozen;
@@ -67,24 +60,6 @@ enum DownloadFileActionError {
         "Downloads using content-based path {0} must supply metadata (usually in the form of a sha1)!"
     )]
     ContentBasedPathWithoutMetadata(BuildArtifactPath),
-}
-
-/// Minimum remaining CAS TTL for a probe hit to be declared as a CAS download instead of
-/// fetching the content. Nothing but the CAS backs such a declaration, so the blob has to
-/// survive until the TTL refresher adopts it.
-// FIXME(materializer): This has to exceed the refresher's pass interval plus the remaining TTL
-// below which it extends, which should be a static assertion against the refresher's constants
-// rather than a number chosen here. Do that once the standalone refresher has replaced the
-// materializer's and there is one set of constants to assert against.
-const PROBE_MIN_REMAINING_TTL: SignedDuration = SignedDuration::from_hours(2);
-
-enum DeclaredMetadata {
-    /// The file's digest is known without downloading it.
-    Known(FileMetadata),
-    /// No checksum the digest config accepts, or no size: only a download can tell.
-    Unknown,
-    /// The size had to come from a HEAD request, and that failed.
-    HeadFailed(buck2_error::Error),
 }
 
 #[derive(Debug, Allocative, Pagable)]
@@ -161,12 +136,12 @@ impl DownloadFileAction {
         }
     }
 
-    /// Works out what the downloaded file's metadata will be without downloading it.
+    /// Try to produce a FileMetadata without downloading the file.
     async fn declared_metadata(
         &self,
         client: &HttpClient,
         digest_config: DigestConfig,
-    ) -> DeclaredMetadata {
+    ) -> buck2_error::Result<Option<FileMetadata>> {
         let digest = if digest_config.cas_digest_config().allows_sha1() {
             self.inner
                 .checksum
@@ -183,15 +158,39 @@ impl DownloadFileAction {
 
         let digest = match digest {
             Some(digest) => digest,
-            None => return DeclaredMetadata::Unknown,
+            None => return Ok(None),
         };
 
         let size = match self.inner.size_bytes {
             Some(s) => Some(s),
-            None => match self.head_content_length(client).await {
-                Ok(size) => size,
-                Err(e) => return DeclaredMetadata::HeadFailed(e),
-            },
+            None => {
+                let url = self.url(client);
+                let head = http_head(client, url)
+                    .await
+                    .map_err(|e| e.tag([ErrorTag::DownloadFileHeadRequest]))?;
+
+                head.headers()
+                    .get(http::header::CONTENT_LENGTH)
+                    .map(|content_length| {
+                        let content_length = content_length
+                            .to_str()
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Http))
+                            .buck_error_context("Header is not valid utf-8")?;
+                        let content_length_number =
+                            content_length.parse().with_buck_error_context(|| {
+                                format!("Header is not a number: `{content_length}`")
+                            })?;
+                        buck2_error::Ok(content_length_number)
+                    })
+                    .transpose()
+                    .with_buck_error_context(|| {
+                        format!(
+                            "Request to `{}` returned an invalid `{}` header",
+                            url,
+                            http::header::CONTENT_LENGTH
+                        )
+                    })?
+            }
         };
 
         match size {
@@ -200,198 +199,13 @@ impl DownloadFileAction {
                     FileDigest::new(digest, size),
                     digest_config.cas_digest_config(),
                 );
-                DeclaredMetadata::Known(FileMetadata {
+                Ok(Some(FileMetadata {
                     digest,
                     is_executable: self.inner.is_executable,
-                })
+                }))
             }
-            None => DeclaredMetadata::Unknown,
+            None => Ok(None),
         }
-    }
-
-    /// The `Content-Length` a HEAD request reports for the URL, if the server sends one.
-    async fn head_content_length(&self, client: &HttpClient) -> buck2_error::Result<Option<u64>> {
-        let url = self.url(client);
-        let head = http_head(client, url)
-            .await
-            .map_err(|e| e.tag([ErrorTag::DownloadFileHeadRequest]))?;
-
-        head.headers()
-            .get(http::header::CONTENT_LENGTH)
-            .map(|content_length| {
-                let content_length = content_length
-                    .to_str()
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Http))
-                    .buck_error_context("Header is not valid utf-8")?;
-                let content_length_number =
-                    content_length.parse().with_buck_error_context(|| {
-                        format!("Header is not a number: `{content_length}`")
-                    })?;
-                buck2_error::Ok(content_length_number)
-            })
-            .transpose()
-            .with_buck_error_context(|| {
-                format!(
-                    "Request to `{}` returned an invalid `{}` header",
-                    url,
-                    http::header::CONTENT_LENGTH
-                )
-            })
-    }
-
-    fn output_path(
-        &self,
-        ctx: &dyn ActionExecutionCtx,
-        value: &ArtifactValue,
-    ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        let path = self.output().get_path();
-        ctx.fs().resolve_build(
-            path,
-            path.is_content_based_path()
-                .then(|| value.content_based_path_hash())
-                .as_ref(),
-        )
-    }
-
-    /// Declares the output as a CAS download when the CAS already holds the content, which
-    /// leaves nothing to fetch from the origin server or to write to disk now. `None` when the
-    /// content is not there, is about to expire, or there is no CAS to ask.
-    async fn declare_from_cas(
-        &self,
-        ctx: &dyn ActionExecutionCtx,
-        metadata: &FileMetadata,
-    ) -> buck2_error::Result<Option<ArtifactValue>> {
-        if !ctx.cas_configured() {
-            return Ok(None);
-        }
-        let use_case = ctx.invocation_re_use_case();
-        let info = Arc::new(CasDownloadInfo::new_probed(use_case));
-        let digest = metadata.digest.data();
-
-        let expiration = match ctx
-            .re_client()
-            .with_use_case(use_case)
-            .get_digest_expirations(vec![digest.to_re()], &info)
-            .await
-        {
-            Ok(expirations) => match expirations.into_iter().next() {
-                Some((_, expiration)) => expiration,
-                None => return Ok(None),
-            },
-            Err(e) => {
-                // Falling back to the download is correct for this action, but a CAS that cannot
-                // answer this query would silently turn every download into an origin fetch,
-                // which should be visible somewhere.
-                let _ignored = buck2_core::soft_error!(
-                    "download_file_cas_probe_failed",
-                    e.context(format!("CAS lookup for `{digest}` failed; downloading instead")),
-                    quiet: true
-                );
-                return Ok(None);
-            }
-        };
-
-        if expiration < Timestamp::now() + PROBE_MIN_REMAINING_TTL {
-            return Ok(None);
-        }
-
-        let value = ArtifactValue::file(FileMetadata {
-            digest: TrackedFileDigest::new_expires(
-                digest.dupe(),
-                expiration,
-                ctx.digest_config().cas_digest_config(),
-            ),
-            is_executable: metadata.is_executable,
-        });
-        let path = self.output_path(ctx, &value)?;
-        ctx.materializer()
-            .declare_cas_many(
-                info,
-                vec![DeclareArtifactPayload {
-                    path,
-                    artifact: value.dupe(),
-                }],
-            )
-            .await?;
-
-        Ok(Some(value))
-    }
-
-    /// Puts the content at the output path now, unless the materializer already has exactly this
-    /// content there from an earlier daemon.
-    async fn download(
-        &self,
-        ctx: &dyn ActionExecutionCtx,
-        client: &HttpClient,
-        url: &str,
-        metadata: Option<&FileMetadata>,
-    ) -> buck2_error::Result<(ArtifactValue, ActionExecutionKind)> {
-        let materializer = ctx.materializer();
-
-        let path = match metadata {
-            Some(metadata) => {
-                let value = ArtifactValue::file(metadata.dupe());
-                let path = self.output_path(ctx, &value)?;
-                if let DeclareMatchOutcome::Match = materializer
-                    .declare_match(vec![(path.clone(), value.dupe())])
-                    .await?
-                {
-                    return Ok((value, ActionExecutionKind::Simple));
-                }
-                path
-            }
-            None => ctx.fs().resolve_build(self.output().get_path(), None)?,
-        };
-
-        // Whatever is at the path is stale or untracked; the `declare_existing` below replaces
-        // the materializer's record of it, so the disk has to be cleared to match.
-        materializer.invalidate_many(vec![path.clone()]).await?;
-        ctx.blocking_executor()
-            .execute_io(
-                Box::new(CleanOutputPaths {
-                    paths: vec![path.clone()],
-                }),
-                ctx.cancellation_context(),
-            )
-            .await?;
-
-        let digest = http_download(
-            client,
-            ctx.fs().fs(),
-            ctx.digest_config(),
-            &path,
-            url,
-            &self.inner.checksum,
-            self.inner.is_executable,
-        )
-        .await?;
-
-        // RE knows this file by the digest (checksum, size), where the size came from
-        // `size_bytes` or the HEAD response rather than from the content. A wrong size would leave
-        // every remote consumer unable to find its input, so it is caught here.
-        if let Some(metadata) = metadata
-            && digest.size() != metadata.digest.size()
-        {
-            return Err(buck2_error!(
-                ErrorTag::DownloadSizeMismatch,
-                "Downloaded size ({}) does not match expected size ({})",
-                digest.size(),
-                metadata.digest.size(),
-            ));
-        }
-
-        let value = ArtifactValue::file(FileMetadata {
-            digest,
-            is_executable: self.inner.is_executable,
-        });
-        materializer
-            .declare_existing(vec![DeclareArtifactPayload {
-                path,
-                artifact: value.dupe(),
-            }])
-            .await?;
-
-        Ok((value, ActionExecutionKind::Simple))
     }
 
     /// Execute this action for offline builds (e.g. no network).
@@ -459,41 +273,81 @@ impl Action for DownloadFileAction {
         }
 
         let client = ctx.http_client();
-        let url = self.url(client);
-        let is_content_based = self.output().get_path().is_content_based_path();
+        let url = self.url(&client);
 
-        let metadata = match self.declared_metadata(client, ctx.digest_config()).await {
-            DeclaredMetadata::Known(metadata) => Some(metadata),
-            DeclaredMetadata::Unknown => None,
-            DeclaredMetadata::HeadFailed(e) => {
-                if is_content_based {
-                    return Err(e.into());
+        let (value, execution_kind) = {
+            match self.declared_metadata(&client, ctx.digest_config()).await? {
+                Some(metadata) => {
+                    let artifact_fs = ctx.fs();
+                    let value = ArtifactValue::file(metadata.dupe());
+                    let rel_path = artifact_fs.resolve_build(
+                        self.output().get_path(),
+                        if self.output().get_path().is_content_based_path() {
+                            Some(value.content_based_path_hash())
+                        } else {
+                            None
+                        }
+                        .as_ref(),
+                    )?;
+
+                    // Fast path: download later via the materializer.
+                    ctx.materializer()
+                        .declare_http(
+                            rel_path,
+                            HttpDownloadInfo {
+                                url: url.dupe(),
+                                checksum: self.inner.checksum.dupe(),
+                                metadata,
+                                owner: ctx.target().owner().dupe(),
+                            },
+                        )
+                        .await?;
+
+                    (value, ActionExecutionKind::Deferred)
                 }
-                // Not a soft error: servers legitimately refuse HEAD, and a server that is
-                // actually down fails the GET that follows.
-                tracing::debug!(
-                    "HEAD request for `{}` failed, downloading instead: {:#}",
-                    url,
-                    e
-                );
-                None
-            }
-        };
-        if metadata.is_none() && is_content_based {
-            return Err(ExecuteError::Error {
-                error: DownloadFileActionError::ContentBasedPathWithoutMetadata(
-                    self.output().get_path().dupe(),
-                )
-                .into(),
-            });
-        }
+                None => {
+                    if self.output().get_path().is_content_based_path() {
+                        return Err(ExecuteError::Error {
+                            error: DownloadFileActionError::ContentBasedPathWithoutMetadata(
+                                self.output().get_path().dupe(),
+                            )
+                            .into(),
+                        });
+                    }
 
-        let (value, execution_kind) = match &metadata {
-            Some(metadata) => match self.declare_from_cas(ctx, metadata).await? {
-                Some(value) => (value, ActionExecutionKind::Deferred),
-                None => self.download(ctx, client, url, Some(metadata)).await?,
-            },
-            None => self.download(ctx, client, url, None).await?,
+                    ctx.cleanup_outputs().await?;
+
+                    let artifact_fs = ctx.fs();
+                    let project_fs = artifact_fs.fs();
+
+                    let rel_path = artifact_fs.resolve_build(self.output().get_path(), None)?;
+
+                    // Slow path: download now.
+                    let digest = http_download(
+                        &client,
+                        project_fs,
+                        ctx.digest_config(),
+                        &rel_path,
+                        url,
+                        &self.inner.checksum,
+                        self.inner.is_executable,
+                    )
+                    .await?;
+
+                    let metadata = FileMetadata {
+                        digest,
+                        is_executable: self.inner.is_executable,
+                    };
+                    ctx.materializer()
+                        .declare_existing(vec![DeclareArtifactPayload {
+                            path: rel_path,
+                            artifact: ArtifactValue::file(metadata.dupe()),
+                        }])
+                        .await?;
+
+                    (ArtifactValue::file(metadata), ActionExecutionKind::Simple)
+                }
+            }
         };
 
         // If we're tracing I/O, get the materializer to copy to the offline cache
