@@ -66,6 +66,7 @@ def read_all_outputs(buck: Buck, report: str) -> list[str]:
 
     with open(buck.cwd / report) as f:
         report = json.load(f)
+        # pyrefly: ignore [bad-index]
         for _target, state in report["results"].items():
             ret.extend(state["outputs"].get("DEFAULT", []))
             ret.extend(state["other_outputs"].get("DEFAULT", []))
