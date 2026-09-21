@@ -339,15 +339,14 @@ impl TrackedFileDigest {
 /// expiration is what lets the next construction of that digest know the blob is in the CAS
 /// without asking, and the case that pays is an action's input tree, dropped right after its
 /// upload, whose files the next action uploads too. Such an entry is *pinned*, and nothing but
-/// a [`sweep`](Self::sweep) releases it. Smarter retention is possible, but the table is a
+/// a sweep of the whole table releases it. Smarter retention is possible, but the table is a
 /// small fraction of the daemon's memory, so this is deliberately the simplest policy with that
 /// property.
 #[derive(Allocative)]
 pub struct DigestInterner {
     /// Dropping a handle takes its shard's write lock, so never construct or drop a
-    /// `TrackedFileDigest` while holding a guard on this map; anything that walks it
-    /// ([`sweep`](Self::sweep)) or looks into it ([`peek`](Self::peek)) works on the bare
-    /// `Arc`s and hands out handles only once the guard is gone.
+    /// `TrackedFileDigest` while holding a guard on this map; anything that walks it works on
+    /// the bare `Arc`s and hands out handles only once the guard is gone.
     entries: BuckDashMap<InternedDigest, ()>,
     /// Entries whose expiration is set; maintained at the transition, since counting them by
     /// walking the table would make snapshots proportional to the table.
@@ -393,37 +392,6 @@ pub struct DigestInternerStats {
     pub misses: u64,
 }
 
-/// What one [`DigestInterner::sweep`] found and did.
-#[derive(Clone, Copy, Debug, Default, Dupe, PartialEq, Eq)]
-pub struct SweepStats {
-    /// Entries the sweep looked at.
-    pub visited: u64,
-    /// Entries it removed, because nothing but the table held them.
-    pub swept: u64,
-}
-
-/// One table entry as it was the moment [`DigestInterner::sweep`] or [`DigestInterner::peek`]
-/// looked at it.
-#[derive(Clone, Copy, Debug)]
-pub struct DigestEntry {
-    pub data: FileDigest,
-    /// Seconds since the unix epoch at which the CAS last said the blob expires; zero when it was
-    /// never asked.
-    pub expires_secs: i64,
-    /// Whether any handle, as opposed to only the table, refers to the entry.
-    pub referenced: bool,
-}
-
-impl DigestEntry {
-    fn of(inner: &Arc<TrackedFileDigestInner>) -> Self {
-        Self {
-            data: inner.data.dupe(),
-            expires_secs: inner.expires.load(Ordering::Relaxed),
-            referenced: Arc::count(inner) > 1,
-        }
-    }
-}
-
 impl Default for DigestInterner {
     fn default() -> Self {
         Self::new()
@@ -455,65 +423,7 @@ impl DigestInterner {
         }
     }
 
-    /// One walk over the table: removes every entry that nothing but the table holds, pinned or
-    /// not, and hands out handles for the surviving entries `pick` selects.
-    ///
-    /// Together with `Self::dropped` the removal is the whole lifetime story of an entry: an
-    /// unpinned entry normally leaves with its last handle, a pinned one stays until the next
-    /// sweep, and either kind that the drop-side check missed is caught here. The time between a
-    /// pinned entry's last drop and the next sweep is deliberate: it is the window in which a
-    /// recorded expiration keeps answering for a blob that a later construction asks about again,
-    /// which is what makes an RE input tree that is dropped right after its upload still pay off
-    /// for the next action.
-    ///
-    /// `pick` runs under a shard's write lock and sees entries as they are at that moment, so it
-    /// must not construct or drop a `TrackedFileDigest`, which takes that same lock. The handles
-    /// are made only after every lock is gone, which is what makes it safe to hold or drop them
-    /// freely afterwards. A sweep holds each shard's write lock while it visits that shard, so it
-    /// is meant to run rarely (the TTL refresher's cadence), not per build.
-    pub fn sweep(
-        &self,
-        mut pick: impl FnMut(&DigestEntry) -> bool,
-    ) -> (SweepStats, Vec<TrackedFileDigest>) {
-        let mut stats = SweepStats::default();
-        let mut pinned_swept = 0u64;
-        let mut picked = Vec::new();
-        self.entries.retain(|entry, ()| {
-            stats.visited += 1;
-            if Arc::count(&entry.0) == 1 {
-                stats.swept += 1;
-                if entry.0.is_pinned() {
-                    pinned_swept += 1;
-                }
-                return false;
-            }
-            if pick(&DigestEntry::of(&entry.0)) {
-                picked.push(entry.0.clone());
-            }
-            true
-        });
-        if pinned_swept > 0 {
-            self.pinned.fetch_sub(pinned_swept, Ordering::Relaxed);
-        }
-        let handles = picked
-            .into_iter()
-            .map(|inner| TrackedFileDigest { inner })
-            .collect();
-        (stats, handles)
-    }
-
-    /// The table's entry for `data` as it is right now, if there is one. Looking hands out no
-    /// handle, so whether anything but the table holds the entry is not changed by the looking.
-    pub fn peek(&self, data: &FileDigest) -> Option<DigestEntry> {
-        self.entries
-            .get(data)
-            .map(|entry| DigestEntry::of(&entry.key().0))
-    }
-
-    /// Handles for this table's kind come into existence through [`TrackedFileDigest`]'s
-    /// constructors, which intern into the kind's own table; calling this directly is for tests
-    /// over a private table.
-    pub fn intern(&self, data: FileDigest, expires: i64) -> TrackedFileDigest {
+    pub(crate) fn intern(&self, data: FileDigest, expires: i64) -> TrackedFileDigest {
         // The common case is a hit, which only needs a shard read lock and no allocation.
         let existing = self.entries.get(&data).map(|entry| entry.key().0.clone());
         let inner = match existing {
@@ -780,131 +690,6 @@ mod tests {
         if let Some(stranded) = interner().get(&data) {
             assert_eq!(stranded.data(), &data);
         }
-    }
-
-    #[test]
-    fn test_sweep_removes_what_only_the_table_holds() {
-        // A private table, so that the counts are not shared with the rest of the test binary.
-        // Its handles are dropped through the global interner, which does not know these
-        // entries, so their last drop strands them exactly as the race in `dropped` would.
-        let table = DigestInterner::new();
-        let expiry = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(4);
-
-        let stranded = digest_of(b"test_sweep_removes_what_only_the_table_holds stranded");
-        let pinned = digest_of(b"test_sweep_removes_what_only_the_table_holds pinned");
-        let held = digest_of(b"test_sweep_removes_what_only_the_table_holds held");
-        let held_pinned = digest_of(b"test_sweep_removes_what_only_the_table_holds held pinned");
-
-        drop(table.intern(stranded.dupe(), 0));
-        drop(table.intern(pinned.dupe(), expiry.as_second()));
-        let _held = table.intern(held.dupe(), 0);
-        let _held_pinned = table.intern(held_pinned.dupe(), expiry.as_second());
-        assert_eq!(table.stats().entries, 4);
-        assert_eq!(table.stats().pinned, 2);
-
-        assert_eq!(
-            table.sweep(|_| false).0,
-            SweepStats {
-                visited: 4,
-                swept: 2
-            }
-        );
-        assert!(table.get(&stranded).is_none());
-        assert!(table.get(&pinned).is_none());
-        assert!(table.get(&held).is_some());
-        assert!(table.get(&held_pinned).is_some());
-        assert_eq!(table.stats().entries, 2);
-        assert_eq!(table.stats().pinned, 1);
-
-        assert_eq!(
-            table.sweep(|_| false).0,
-            SweepStats {
-                visited: 2,
-                swept: 0
-            }
-        );
-    }
-
-    #[test]
-    fn test_sweep_hands_out_handles_to_the_survivors_it_picks() {
-        let table = DigestInterner::new();
-        let data = digest_of(b"test_sweep_hands_out_handles_to_the_survivors_it_picks");
-        let other = digest_of(b"test_sweep_hands_out_handles_to_the_survivors_it_picks other");
-        let expiry = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(4);
-        let live = table.intern(data.dupe(), expiry.as_second());
-        let _other = table.intern(other.dupe(), 0);
-
-        let (stats, picked) = table.sweep(|entry| {
-            assert!(
-                entry.referenced,
-                "unreferenced entries are swept before `pick` sees them"
-            );
-            entry.data == data && {
-                assert_eq!(entry.expires_secs, expiry.as_second());
-                true
-            }
-        });
-        assert_eq!(
-            stats,
-            SweepStats {
-                visited: 2,
-                swept: 0
-            }
-        );
-        assert_eq!(picked.len(), 1);
-        assert!(picked[0].ptr_eq(&live));
-
-        // `peek` sees an entry without becoming a holder of it. The entry is pinned, so it
-        // outlives its last handle (dropped through the global interner, which does not know
-        // this table's entries, so nothing removes it either way).
-        drop(picked);
-        drop(live);
-        let entry = table
-            .peek(&data)
-            .expect("a pinned entry outlives its last handle");
-        assert!(!entry.referenced);
-        assert_eq!(entry.expires_secs, expiry.as_second());
-        assert!(table.peek(&other).unwrap().referenced);
-        assert!(table.peek(&digest_of(b"never interned")).is_none());
-    }
-
-    #[test]
-    fn test_sweeping_under_concurrent_interning_and_dropping() {
-        // Sweeps race constructions and last drops of the same digests here, on a private table
-        // so that the sweeps cannot disturb other tests' entries. A handle must always find its
-        // own entry, and only entries nothing holds may disappear.
-        let table = DigestInterner::new();
-        let digests: Vec<FileDigest> = (0..16)
-            .map(|i| {
-                digest_of(
-                    format!("test_sweeping_under_concurrent_interning_and_dropping {i}").as_bytes(),
-                )
-            })
-            .collect();
-
-        std::thread::scope(|s| {
-            for _ in 0..4 {
-                s.spawn(|| {
-                    for round in 0..500 {
-                        let data = &digests[round % digests.len()];
-                        let handle = table.intern(data.dupe(), 0);
-                        let live = table
-                            .get(data)
-                            .expect("an entry with a live handle is never swept");
-                        assert!(live.ptr_eq(&handle));
-                    }
-                });
-            }
-            s.spawn(|| {
-                for _ in 0..200 {
-                    table.sweep(|_| false);
-                }
-            });
-        });
-
-        // Every handle is gone, so one more sweep empties the table.
-        table.sweep(|_| false);
-        assert_eq!(table.stats().entries, 0);
     }
 
     #[test]
