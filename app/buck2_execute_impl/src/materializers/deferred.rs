@@ -638,40 +638,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(WriteLease::noop())
     }
 
-    async fn publish(
-        &self,
-        src: ProjectRelativePathBuf,
-        dest: ProjectRelativePathBuf,
-        value: ArtifactValue,
-    ) -> buck2_error::Result<()> {
-        // This materializer keeps `dest` as a copy of `src` rather than moving the content, and
-        // makes the copy right away so that it happens while the caller still guarantees `src`
-        // is intact. Moving would need writers serialized against readers of `dest`, which
-        // nothing here provides; that is a property of the rewritten materializer. Leaving `src`
-        // behind is harmless: nothing reads it until the action that owns it runs again, and
-        // that run deletes it first.
-        self.declare_existing(vec![DeclareArtifactPayload {
-            path: src.clone(),
-            artifact: value.dupe(),
-        }])
-        .await?;
-        let materializer: &dyn Materializer = self;
-        materializer
-            .declare_copy(
-                dest.clone(),
-                value.dupe(),
-                vec![CopiedArtifact::new(
-                    src,
-                    dest.clone(),
-                    value.entry().dupe().map_dir(|d| d.as_immutable()),
-                    None,
-                )],
-            )
-            .await?;
-        self.ensure_materialized(vec![dest], MaterializationPurpose::IntermediateOnly)
-            .await
-    }
-
     async fn materialize_many(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,

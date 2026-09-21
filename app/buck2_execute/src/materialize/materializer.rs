@@ -312,16 +312,6 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
         paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<WriteLease>;
 
-    /// Makes the untracked content an action produced at `src` the artifact at `dest`, described
-    /// by `value`. The content moves: `src` is the caller's to produce and not to keep. Returns
-    /// once `dest` is on disk.
-    async fn publish(
-        &self,
-        src: ProjectRelativePathBuf,
-        dest: ProjectRelativePathBuf,
-        value: ArtifactValue,
-    ) -> buck2_error::Result<()>;
-
     /// Ask the materializer if the artifacts at the set of paths match what is on disk or
     /// declared. Returns Ok(Ok) if they do and Ok(Err) if they don't. It's a result not a boolean
     /// so you can't ignore it.
