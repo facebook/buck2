@@ -435,7 +435,7 @@ quick-xml = { version = "0.42.0", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
 quickcheck_macros = "1.2.0"
 quote = "1.0.47"
-rand = "0.10.2"
+rand = "0.10.3"
 rand_chacha = "0.10"
 rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
