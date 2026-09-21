@@ -32,6 +32,7 @@ use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ExecEnvironment;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -49,6 +50,12 @@ use crate::commands::build::print_buck_ui;
 use crate::commands::build::print_build_failed;
 use crate::commands::build::print_build_result;
 use crate::commands::build::print_build_succeeded;
+
+const WRAPPER_ENV_VARS: [&str; 3] = [
+    BUCK2_WRAPPER_ENV_VAR,
+    BUCK_WRAPPER_UUID_ENV_VAR,
+    BUCK_WRAPPER_START_TIME_ENV_VAR,
+];
 
 /// Build and run the selected target.
 ///
@@ -198,15 +205,6 @@ impl StreamingCommand for RunCommand {
         print_buck_ui(&console, ctx, events_ctx.used_superconsole)?;
         print_build_succeeded(&console, ctx, extra)?;
 
-        // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
-        // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var(BUCK2_WRAPPER_ENV_VAR) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var(BUCK_WRAPPER_UUID_ENV_VAR) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var(BUCK_WRAPPER_START_TIME_ENV_VAR) };
-
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_buck_error_context(|| {
                 format!("Failed to create/open `{file_path}` to print command")
@@ -215,7 +213,9 @@ impl StreamingCommand for RunCommand {
             let command = CommandArgsFile {
                 path: run_args[0].clone(),
                 argv: run_args,
-                envp: std::env::vars().collect(),
+                envp: std::env::vars()
+                    .filter(|(key, _value)| !WRAPPER_ENV_VARS.contains(&key.as_str()))
+                    .collect(),
                 is_fix_script: false,
                 print_command: false,
             };
@@ -247,7 +247,10 @@ impl StreamingCommand for RunCommand {
             run_args[0].clone().into(),
             run_args.into_iter().map(|arg| arg.into()).collect(),
             chdir,
-            vec![("BUCK_RUN_BUILD_ID".to_owned(), ctx.trace_id.to_string())],
+            ExecEnvironment {
+                set: vec![("BUCK_RUN_BUILD_ID".to_owned(), ctx.trace_id.to_string())],
+                remove: WRAPPER_ENV_VARS.into_iter().map(str::to_owned).collect(),
+            },
         )
     }
 

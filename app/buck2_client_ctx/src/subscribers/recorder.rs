@@ -2850,6 +2850,7 @@ mod tests {
     use buck2_error::internal_error;
     use buck2_wrapper_common::invocation_id::TraceId;
 
+    use crate::exit_result::ExecEnvironment;
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
     use crate::subscribers::recorder::truncate_stderr;
@@ -2885,7 +2886,8 @@ mod tests {
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Crashed);
         recorder.daemon_connection_failure = false;
 
-        let exit_result = ExitResult::exec(OsString::new(), vec![], None, vec![]);
+        let exit_result =
+            ExitResult::exec(OsString::new(), vec![], None, ExecEnvironment::default());
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
 
         let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");

@@ -35,7 +35,16 @@ pub struct ExecArgs {
     prog: OsString,
     argv: Vec<OsString>,
     chdir: Option<AbsPathBuf>,
-    env: Vec<(String, String)>,
+    environment: ExecEnvironment,
+}
+
+/// Environment changes applied only to the process launched by [`ExitResult::exec`].
+#[derive(Debug, Default)]
+pub struct ExecEnvironment {
+    /// Variables to set or replace.
+    pub set: Vec<(String, String)>,
+    /// Variables to remove from the inherited environment.
+    pub remove: Vec<String>,
 }
 
 /// ExitResult represents the outcome of a process execution where we care to return a specific
@@ -119,14 +128,14 @@ impl ExitResult {
         prog: OsString,
         argv: Vec<OsString>,
         chdir: Option<AbsPathBuf>,
-        env: Vec<(String, String)>,
+        environment: ExecEnvironment,
     ) -> Self {
         Self {
             variant: ExitResultVariant::Exec(ExecArgs {
                 prog,
                 argv,
                 chdir,
-                env,
+                environment,
             }),
             stdout: Vec::new(),
             emitted_errors: Vec::new(),
@@ -213,7 +222,7 @@ impl ExitResult {
                 exe.into_os_string(),
                 std::env::args_os().collect(),
                 None,
-                Vec::new(),
+                ExecEnvironment::default(),
             )))
         } else {
             Ok(None)
@@ -460,6 +469,15 @@ fn do_exec(command: &mut Command) -> buck2_error::Error {
     command.exec().into()
 }
 
+fn apply_exec_environment(command: &mut Command, environment: ExecEnvironment) {
+    for key in environment.remove {
+        command.env_remove(key);
+    }
+    for (key, value) in environment.set {
+        command.env(key, value);
+    }
+}
+
 /// Invokes the given program with the given argv and replaces the program image with the new program.
 /// Does not return.
 fn execv(args: ExecArgs) -> ! {
@@ -472,13 +490,36 @@ fn execv(args: ExecArgs) -> ! {
         // (otherwise this would be a really bad idea, even without the promise).
         command.current_dir(dir);
     }
-    for (k, v) in args.env {
-        // Same as above.
-        command.env(k, v);
-    }
+    apply_exec_environment(&mut command, args.environment);
     let err = do_exec(&mut command).context(format!(
         "Failed to execute target process, running {:?} {:?}",
         args.prog, args.argv
     ));
     ExitResult::err(err).report()
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_util::process::background_command;
+
+    use super::*;
+
+    #[test]
+    fn exec_environment_applies_additions_and_removals() {
+        let mut command = background_command("program");
+        apply_exec_environment(
+            &mut command,
+            ExecEnvironment {
+                set: vec![("SET_ME".to_owned(), "value".to_owned())],
+                remove: vec!["REMOVE_ME".to_owned()],
+            },
+        );
+
+        let environment: Vec<_> = command.get_envs().collect();
+        assert!(environment.contains(&(
+            std::ffi::OsStr::new("SET_ME"),
+            Some(std::ffi::OsStr::new("value"))
+        )));
+        assert!(environment.contains(&(std::ffi::OsStr::new("REMOVE_ME"), None)));
+    }
 }
