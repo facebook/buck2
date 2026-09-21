@@ -51,9 +51,13 @@ def configure_clean_stale(buck: Buck, settings: str) -> None:
 
 async def audit_entry(buck: Buck, artifact_name: str) -> str:
     entries = (await buck.audit("deferred-materializer", "list")).stdout.splitlines()
-    entry = next(entry for entry in entries if artifact_name in entry)
-    assert entry is not None, f"no entry for {artifact_name}: {entries}"
-    return entry
+    matches = [
+        entry
+        for entry in entries
+        if "\t" in entry and artifact_name in entry.split("\t", 1)[0]
+    ]
+    assert len(matches) == 1, f"expected one entry for {artifact_name}: {matches}"
+    return matches[0]
 
 
 def golden_audit_entries(*, entries: list[str], rel_path: str) -> None:
@@ -546,17 +550,18 @@ async def test_adaptive_unmaterializes_active_write_intermediate(
     )
     assert result.get_build_report().output_for_target("root//:consume_local").exists()
     audit_entries = [await audit_entry(buck, "__write__")]
+    artifact_path = audit_entries[0].split("\t", 1)[0]
 
     # `root//:write` should get unmaterialized here
     await buck.clean("--stale")
-    audit_entries.append(await audit_entry(buck, "__write__"))
+    audit_entries.append(await audit_entry(buck, artifact_path))
 
     # Now we request `root//:write` as final output, which should require the unmaterialized
     # artifact to be re-materialized.
     write = await buck.build("root//:write")
     await expect_exec_count(buck, 0)
     assert write.get_build_report().output_for_target("root//:write").exists()
-    audit_entries.append(await audit_entry(buck, "__write__"))
+    audit_entries.append(await audit_entry(buck, artifact_path))
     golden_audit_entries(
         entries=audit_entries,
         rel_path="golden/test_adaptive_unmaterializes_active_write_intermediate.golden.txt",
@@ -601,14 +606,15 @@ async def test_adaptive_unmaterializes_active_local_copy_intermediate(
     )
     assert result.get_build_report().output_for_target("root//:consume_copy").exists()
     audit_entries = [await audit_entry(buck, "__consume_local__")]
+    artifact_path = audit_entries[0].split("\t", 1)[0]
 
     await buck.clean("--stale")
-    audit_entries.append(await audit_entry(buck, "__consume_local__"))
+    audit_entries.append(await audit_entry(buck, artifact_path))
 
     copied = await buck.build("root//:consume_local")
     await expect_exec_count(buck, 0)
     assert copied.get_build_report().output_for_target("root//:consume_local").exists()
-    audit_entries.append(await audit_entry(buck, "__consume_local__"))
+    audit_entries.append(await audit_entry(buck, artifact_path))
     golden_audit_entries(
         entries=audit_entries,
         rel_path="golden/test_adaptive_unmaterializes_active_local_copy_intermediate.golden.txt",

@@ -2,4 +2,4 @@
 
 buck-out/v2/art/root/__write__/<HASH>/out.txt	materialized (ts=<TIMESTAMP>, size=5)
 buck-out/v2/art/root/__write__/<HASH>/out.txt	declared: cas download (action: uploaded by client)
-buck-out/v2/art/root/<HASH>/__write__/out.txt	materialized (ts=<TIMESTAMP>, size=0)
+buck-out/v2/art/root/__write__/<HASH>/out.txt	materialized (ts=<TIMESTAMP>, size=5)
