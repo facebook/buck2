@@ -48,7 +48,6 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationPurpose;
-use buck2_execute::materialize::materializer::MaterializeRequest;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::error::RemoteExecutionError;
@@ -191,7 +190,6 @@ pub async fn download_action_results<'a>(
                 request,
                 &outputs,
                 materialize_failed_re_action_outputs,
-                invocation_re_use_case,
             )
             .await
             {
@@ -231,7 +229,6 @@ async fn materialize_failed_build_outputs(
     request: &CommandExecutionRequest,
     available_outputs: &BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
     materialize_failed_re_action_outputs: bool,
-    re_use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
     if !materialize_failed_re_action_outputs && request.outputs_for_error_handler().is_empty() {
@@ -242,7 +239,6 @@ async fn materialize_failed_build_outputs(
     let materialize_select_outputs: BuckMutSet<&BuildArtifactPath> =
         request.outputs_for_error_handler().iter().collect();
 
-    let mut artifacts = Vec::new();
     for output in request.outputs() {
         if let CommandExecutionOutputRef::BuildArtifact { path, .. } = output {
             // If materialize_failed_re_action_outputs is not set and materialize_select_outputs is not empty,
@@ -254,8 +250,7 @@ async fn materialize_failed_build_outputs(
                 continue;
             }
 
-            let value = available_outputs.get(&output.cloned());
-            let content_hash = value.and_then(|value| {
+            let content_hash = available_outputs.get(&output.cloned()).and_then(|value| {
                 if path.is_content_based_path() {
                     Some(value.content_based_path_hash())
                 } else {
@@ -263,32 +258,13 @@ async fn materialize_failed_build_outputs(
                 }
             });
 
-            let resolved = artifact_fs.resolve_build(path, content_hash.as_ref())?;
-            // An output the failed run did not produce has nothing to materialize. Its path is
-            // still reported, and the error handler decides what its absence means.
-            if let Some(value) = value {
-                artifacts.push((resolved.clone(), value.dupe()));
-            }
-            paths.push(resolved);
+            paths.push(artifact_fs.resolve_build(path, content_hash.as_ref())?);
         }
     }
 
-    if !artifacts.is_empty() {
-        let response = materializer
-            .materialize(MaterializeRequest {
-                artifacts,
-                purpose: MaterializationPurpose::IntermediateOnly,
-                re_use_case,
-            })
-            .await?;
-        for result in response.results {
-            result?;
-        }
-        // FIXME(materializer): The error handler reads these after this returns, outside any
-        // lease. Materializing belongs where the handler runs, so it can hold one. A human
-        // reading them after the command is what final outputs are for and needs none.
-        drop(response.lease);
-    }
+    materializer
+        .ensure_materialized(paths.clone(), MaterializationPurpose::IntermediateOnly)
+        .await?;
 
     Ok(paths)
 }
