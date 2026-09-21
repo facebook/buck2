@@ -34,6 +34,17 @@ def _sanitize_timing_fields(obj: Any) -> None:
             _sanitize_timing_fields(item)
 
 
+def _collect_output_paths(report: dict[str, Any]) -> set[str]:
+    output_paths = set()
+    for target_result in report["results"].values():
+        for configured_result in target_result["configured"].values():
+            for provider_outputs in configured_result.get("outputs", {}).values():
+                output_paths.update(provider_outputs)
+            for provider_outputs in configured_result.get("other_outputs", {}).values():
+                output_paths.update(provider_outputs)
+    return output_paths
+
+
 def build_report_test(name: str, command: list[str]) -> None:
     async def impl(buck: Buck, tmp_path: Path) -> None:
         report = tmp_path / "build-report.json"
@@ -335,6 +346,17 @@ async def test_streaming_build_report(buck: Buck, tmp_path: Path) -> None:
             assert "success" in report_data
             assert "results" in report_data
             assert "project_root" in report_data
+
+        # Each snapshot is cumulative: it repeats every output reported so far.
+        output_snapshots = [_collect_output_paths(json.loads(line)) for line in lines]
+        assert [len(paths) for paths in output_snapshots] == [1, 2, 3]
+        assert output_snapshots[0].issubset(output_snapshots[1])
+        assert output_snapshots[1].issubset(output_snapshots[2])
+        assert {Path(path).name for path in output_snapshots[-1]} == {
+            "out.txt",
+            "out1.txt",
+            "out2.txt",
+        }
 
 
 @buck_test()

@@ -26,6 +26,7 @@ use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
+use buck2_build_api::build::build_report::maybe_stream_build_reports;
 use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
@@ -112,6 +113,7 @@ use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::downward_api::BuckTestDownwardApi;
 use crate::executor_launcher::ExecutorLaunch;
@@ -475,7 +477,19 @@ async fn test(
     let mut test_executor_args = request.test_executor_args.clone();
     test_executor_args.extend(extra_tpx_args);
 
-    let test_outcome = test_targets(
+    let (streaming_build_result_tx, streaming_build_result_rx) =
+        tokio::sync::mpsc::unbounded_channel();
+    // Avoid streaming intermediary build results unless a streaming build report was requested.
+    let streaming_build_result_tx = if !build_opts
+        .unstable_streaming_build_report_filename
+        .is_empty()
+    {
+        Some(streaming_build_result_tx)
+    } else {
+        None
+    };
+
+    let test_future = test_targets(
         ctx.dupe(),
         resolved_pattern,
         global_cfg_options,
@@ -497,6 +511,18 @@ async fn test(
         build_default_info,
         build_run_info,
         tpx_experiments,
+        streaming_build_result_tx,
+    );
+
+    let test_outcome = maybe_stream_build_reports(
+        test_future,
+        build_opts,
+        ctx.dupe(),
+        server_ctx.project_root(),
+        server_ctx.working_dir(),
+        server_ctx.events().trace_id().dupe(),
+        Default::default(),
+        streaming_build_result_rx,
     )
     .await?;
 
@@ -638,6 +664,7 @@ async fn test_targets(
     build_default_info: bool,
     build_run_info: bool,
     tpx_experiments: BuckMutSet<String>,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 ) -> buck2_error::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -751,24 +778,27 @@ async fn test_targets(
                 // Only initialized when a target has InternalRunnerTestInfo.
                 let internal_orchestrator = tokio::sync::OnceCell::new();
 
-                let mut driver = TestDriver::new(TestDriverState {
-                    ctx: &ctx,
-                    label_filtering: &label_filtering,
-                    global_cfg_options: &global_cfg_options,
-                    session: &session,
-                    test_executor: &test_executor,
-                    internal_orchestrator: &internal_orchestrator,
-                    internal_test_status_sender: &internal_test_status_sender,
-                    liveliness_observer: &liveliness_observer,
-                    cell_resolver: &cell_resolver,
-                    working_dir_cell,
-                    internal_test_timeout,
-                    internal_runner_config: &internal_runner_config,
-                    missing_target_behavior,
-                    ignore_tests_attribute,
-                    build_default_info,
-                    build_run_info,
-                });
+                let mut driver = TestDriver::new(
+                    TestDriverState {
+                        ctx: &ctx,
+                        label_filtering: &label_filtering,
+                        global_cfg_options: &global_cfg_options,
+                        session: &session,
+                        test_executor: &test_executor,
+                        internal_orchestrator: &internal_orchestrator,
+                        internal_test_status_sender: &internal_test_status_sender,
+                        liveliness_observer: &liveliness_observer,
+                        cell_resolver: &cell_resolver,
+                        working_dir_cell,
+                        internal_test_timeout,
+                        internal_runner_config: &internal_runner_config,
+                        missing_target_behavior,
+                        ignore_tests_attribute,
+                        build_default_info,
+                        build_run_info,
+                    },
+                    streaming_build_result_tx,
+                );
 
                 driver.push_pattern(
                     pattern.convert_pattern().buck_error_context(
@@ -964,10 +994,14 @@ struct TestDriver<'a, 'e> {
     labels_tested: BuckMutSet<ConfiguredProvidersLabel>,
     error_events: Vec<BuildEvent>,
     build_target_result: BuildTargetResult,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 }
 
 impl<'a, 'e> TestDriver<'a, 'e> {
-    fn new(state: TestDriverState<'a, 'e>) -> Self {
+    fn new(
+        state: TestDriverState<'a, 'e>,
+        streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+    ) -> Self {
         Self {
             state,
             work: FuturesUnordered::new(),
@@ -975,6 +1009,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             labels_tested: BuckMutSet::default(),
             error_events: Vec::new(),
             build_target_result: BuildTargetResult::new(),
+            streaming_build_result_tx,
         }
     }
 
@@ -1344,6 +1379,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
         let state = self.state;
         let build_label = label.dupe();
+        let streaming_build_result_tx = self.streaming_build_result_tx.clone();
         let fut = async move {
             let ctx = state.ctx.clone();
 
@@ -1360,6 +1396,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             modifiers_dupe,
                             state.build_default_info,
                             state.build_run_info,
+                            streaming_build_result_tx,
                         )
                         .await
                     }
@@ -1445,6 +1482,7 @@ async fn build_target_result(
     modifiers: Modifiers,
     build_default_info: bool,
     build_run_info: bool,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 ) -> buck2_error::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
@@ -1478,7 +1516,7 @@ async fn build_target_result(
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();
     let (result_builder, consumer) =
-        AsyncBuildTargetResultBuilder::new(None, std::time::Instant::now());
+        AsyncBuildTargetResultBuilder::new(streaming_build_result_tx, std::time::Instant::now());
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },

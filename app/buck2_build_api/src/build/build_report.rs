@@ -1413,8 +1413,11 @@ async fn init_streaming_build_report(
     Ok(())
 }
 
-pub async fn maybe_stream_build_reports(
-    build_future: impl std::future::Future<Output = buck2_error::Result<BuildTargetResult>>,
+/// Shared by `buck build` and `buck test`. `buck test` keeps its result senders alive past the
+/// build phase, so once the channel closes we stop polling it to avoid busy-looping while
+/// `command_future` is still running.
+pub async fn maybe_stream_build_reports<T>(
+    command_future: impl std::future::Future<Output = buck2_error::Result<T>>,
     build_opts: &CommonBuildOptions,
     ctx: DiceTransaction,
     project_root: &ProjectRoot,
@@ -1422,22 +1425,23 @@ pub async fn maybe_stream_build_reports(
     trace_id: TraceId,
     graph_properties: GraphPropertiesOptions,
     mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
-) -> buck2_error::Result<BuildTargetResult> {
+) -> buck2_error::Result<T> {
     if build_opts
         .unstable_streaming_build_report_filename
         .is_empty()
     {
-        return build_future.await;
+        return command_future.await;
     }
 
     init_streaming_build_report(ctx.clone(), project_root, cwd, build_opts, graph_properties)
         .await?;
 
-    let mut build_future = std::pin::pin!(build_future);
+    let mut channel_open = true;
+    let mut command_future = std::pin::pin!(command_future);
     loop {
         tokio::select! {
-            // Wait for the final build result
-            result = &mut build_future => {
+            // Wait for the command future (build or test) to finish
+            result = &mut command_future => {
                 // Drain any remaining streaming results
                 while let Ok(streaming_result) = streaming_build_result_rx.try_recv() {
                     process_streaming_build_result(
@@ -1453,8 +1457,11 @@ pub async fn maybe_stream_build_reports(
                 }
                 return result;
             }
-            // Process streaming build results as they arrive
-            streaming_result = streaming_build_result_rx.recv() => {
+            // As long as the channel is open, continue processing streaming results as they
+            // arrive. The `if channel_open` guard disables this select arm once every sender has
+            // dropped: `recv()` on a closed channel resolves immediately, so without the guard
+            // this arm would spin until `command_future` resolves.
+            streaming_result = streaming_build_result_rx.recv(), if channel_open => {
                 match streaming_result {
                     Some(result) => {
                         process_streaming_build_result(
@@ -1469,7 +1476,8 @@ pub async fn maybe_stream_build_reports(
                         .await?;
                     }
                     None => {
-                        // Channel closed, but continue waiting for build completion
+                        // Channel closed, but continue waiting for the command to complete
+                        channel_open = false;
                     }
                 }
             }
