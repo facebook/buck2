@@ -728,7 +728,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         generated_build_info_compile_output = compile_generated_build_info(ctx, generated_build_info)
         generated_build_info_external_debug_info = generated_build_info_compile_output.external_debug_info
         generated_build_info_objects = generated_build_info_compile_output.objects
-        own_exe_link_flags += generated_build_info.linker_flags
+        binary_linker_flags += generated_build_info.linker_flags
 
     links = [
         LinkArgs(
