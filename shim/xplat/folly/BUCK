@@ -1,0 +1,19 @@
+constraint_setting(
+    name = "folly_demangle_macos_use_iberty_constraint",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "folly_demangle_macos_disable_iberty",
+    constraint_setting = ":folly_demangle_macos_use_iberty_constraint",
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "folly_demangle_macos_disable_iberty_config",
+    constraint_values = [
+        "prelude//os/constraints:os[macos]",
+        ":folly_demangle_macos_disable_iberty",
+    ],
+    visibility = ["PUBLIC"],
+)

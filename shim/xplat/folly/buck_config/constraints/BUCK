@@ -1,0 +1,32 @@
+constraint_setting(
+    name = "singleton",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "singleton-schedule-at-exit-disabled",
+    constraint_setting = ":singleton",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "f14-fallback",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "f14-fallback-disabled",
+    constraint_setting = ":f14-fallback",
+    visibility = ["PUBLIC"],
+)
+
+constraint_setting(
+    name = "gflags",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "gflags-enabled",
+    constraint_setting = ":gflags",
+    visibility = ["PUBLIC"],
+)
