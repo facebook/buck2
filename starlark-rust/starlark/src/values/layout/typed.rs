@@ -71,13 +71,16 @@ use crate::values::type_repr::StarlarkTypeRepr;
 pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 /// [`Value`] wrapper which asserts contained value is of type `<T>` and is frozen.
 ///
-/// The brand of a frozen heap (`'fh`, `'fv`, `'fm`: no mutable heap has such a brand) already
-/// says that every value at it is frozen, so at such a brand [`ValueTyped`] is the type to use.
-/// This type exists for the one brand where frozen and unfrozen values mix, a module's value heap
-/// `'v`, when the frozen bit is a fact code needs about a value it is handed there: a
-/// provider collection or a transitive-set definition that is frozen by construction and is read
-/// without being copied. The frozen bit of the pointer is set; every constructor establishes
-/// that.
+/// At the brand of a frozen heap (`'fh`, `'fv`, `'fm`: no mutable heap has such a brand) every
+/// value is frozen, so there a [`ValueTyped`] says as much. This type is for the brand where
+/// frozen and unfrozen values mix, a module's value heap `'v`: it records that a value handed out
+/// there is frozen by construction, such as a provider collection, a transitive-set definition,
+/// or a compiler product in the module's frozen heap. The frozen bit of the pointer is set; every
+/// constructor establishes that.
+///
+/// Freezing a `FrozenValueTyped` re-types it at the new brand and copies nothing, so a type that
+/// holds one can be frozen whether or not `T` itself can be: a `T` that only ever lives in
+/// frozen heaps needs no [`Freeze`] impl of its own.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
 #[repr(transparent)]
@@ -317,6 +320,16 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         Ok(FrozenValueTyped(value, marker::PhantomData))
     }
 
+    /// The typed value, if it is frozen; always the case for a value at a frozen heap's brand.
+    #[inline]
+    pub fn from_typed(value: ValueTyped<'v, T>) -> Option<FrozenValueTyped<'v, T>> {
+        if value.to_value().is_frozen() {
+            Some(FrozenValueTyped(value.to_value(), marker::PhantomData))
+        } else {
+            None
+        }
+    }
+
     /// Erase the type.
     #[inline]
     pub fn to_value(self) -> Value<'v> {
@@ -407,17 +420,18 @@ where
     }
 }
 
+/// The value is frozen already, so freezing it copies nothing and its type does not change:
+/// `Frozen<'fv>` is `T` at `'fv`. That takes no [`Freeze`] impl on `T`, see the type doc.
 impl<'v, T> Freeze<'v> for FrozenValueTyped<'v, T>
 where
     T: StarlarkValue<'v>,
-    T: Freeze<'v>,
-    for<'fv> <T as Freeze<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
+    T::StaticType: IsStaticType,
+    for<'fv> <T::StaticType as IsStaticType>::Reinfect<'fv>: StarlarkValue<'fv>,
 {
-    type Frozen<'fv> = FrozenValueTyped<'fv, <T as Freeze<'v>>::Frozen<'fv>>;
+    type Frozen<'fv> = FrozenValueTyped<'fv, <T::StaticType as IsStaticType>::Reinfect<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        // The value is already frozen, so the freezer only re-brands it (the target heap takes
-        // over the source heap's dependencies); its type does not change.
+        // The freezer hands a frozen value back at `'fv` through its `SealEdge`.
         Ok(FrozenValueTyped::new_err(self.0.freeze(freezer)?)
             .expect("a frozen value's type does not change across brands"))
     }
