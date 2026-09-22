@@ -2182,6 +2182,7 @@ pub struct OwnedFrozenReconstructor<'fv> {
 }
 
 impl<'fv> OwnedFrozenReconstructor<'fv> {
+    /// Packages a value of this heap into an `OwnedFrozen` of its own.
     pub fn reconstruct<T: IsStaticType>(&self, v: T::Reinfect<'fv>) -> OwnedFrozen<T>
     where
         for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2> + Sized,
