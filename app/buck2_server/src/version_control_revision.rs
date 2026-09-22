@@ -425,6 +425,11 @@ mod tests {
     async fn test_get_hg_status_uses_repo_root() -> buck2_error::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let repo_root = temp_repo_root(&temp_dir)?;
+        // Not every machine has an hg, GitHub's macOS and Windows runners don't.
+        if run_hg(&repo_root, &["version"]).await.is_err() {
+            eprintln!("skipping: no hg on this machine");
+            return Ok(());
+        }
         run_hg(&repo_root, &["init"])
             .await
             .expect("initializing the test hg repository should succeed");

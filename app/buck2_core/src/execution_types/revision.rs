@@ -112,10 +112,20 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("creating a temporary directory should succeed");
         let repo_root = AbsNormPathBuf::try_from(temp_dir.path().to_path_buf())
             .expect("the temporary directory should be absolute");
-        // Stop hg from discovering an enclosing checkout when TMPDIR is inside one.
-        tokio::fs::create_dir(repo_root.as_path().join(".hg"))
+        // An hg repository no hg can open: it stops hg from discovering an enclosing
+        // checkout when TMPDIR is inside one, and makes the lookup fall through to git.
+        // An empty `.hg` is not enough, Mercurial reads it as a valid repository at the
+        // null revision.
+        let hg_dir = repo_root.as_path().join(".hg");
+        tokio::fs::create_dir(&hg_dir)
             .await
-            .expect("creating an invalid hg metadata directory should succeed");
+            .expect("creating the hg metadata directory should succeed");
+        tokio::fs::write(
+            hg_dir.join("requires"),
+            "buck2-test-unopenable-repository\n",
+        )
+        .await
+        .expect("writing the hg requirements should succeed");
         git(&repo_root, &["init", "-q"]).await;
         tokio::fs::write(repo_root.as_path().join("file.txt"), contents)
             .await
