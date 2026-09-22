@@ -138,8 +138,11 @@ unsafe impl<'v> Trace<'v> for StmtCompiledCell<'v> {
     }
 }
 
-unsafe impl<'v> Sync for StmtCompiledCell<'v> {}
-unsafe impl<'v> Send for StmtCompiledCell<'v> {}
+// SAFETY: The cell is written once, by `post_freeze`, before the frozen def is reachable from any
+// other thread (see `set` and `get`), so sharing it is sharing the `Bc<'static>` inside, which is
+// `Sync` like the contents of every frozen value. At any other brand the def is unfrozen and
+// belongs to one thread, like every `Value<'v>`.
+unsafe impl Sync for StmtCompiledCell<'static> {}
 
 impl<'v> StmtCompiledCell<'v> {
     fn new() -> StmtCompiledCell<'v> {

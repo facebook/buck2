@@ -166,8 +166,12 @@ impl<'v> AllocValue<'v> for EnumType<'v> {
     }
 }
 
-unsafe impl<'v, V: EnumVariant + Send> Send for EnumTypeGen<'v, V> {}
-unsafe impl<'v, V: EnumVariant + Sync> Sync for EnumTypeGen<'v, V> {}
+// SAFETY: `elements` is written once, in `EnumType::new`, before the value is reachable from
+// anywhere else (see `elements`), so the `UnsafeCell` is shared like the `SmallMap` inside it,
+// whose `Value<'static>`s are `Send + Sync` like the contents of every frozen value. At any
+// other brand the value is unfrozen and belongs to one thread, like every `Value<'v>`.
+unsafe impl<V: EnumVariant + Send> Send for EnumTypeGen<'static, V> {}
+unsafe impl<V: EnumVariant + Sync> Sync for EnumTypeGen<'static, V> {}
 
 impl<'v, V: EnumVariant + ?Sized> Display for EnumTypeGen<'v, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
