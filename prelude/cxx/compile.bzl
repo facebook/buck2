@@ -1904,8 +1904,8 @@ def _mk_argsfiles(
         )
         return argsfile
 
-    def write_for_dep_file_filtering(filename: str, content, absolute: bool = False) -> (Artifact, Artifact):
-        # We write two versions of the file:
+    def write_for_dep_file_filtering(filename: str, content, absolute: bool = False) -> (Artifact, Artifact | None):
+        # Dep-file filtering needs two versions of the file:
         # - The first is a tagged file with the optionally content-based paths, which
         #   will be passed to the compiler as usual, but will NOT be marked used, so
         #   whether the paths in it change or not, the action will NOT rerun.
@@ -1921,6 +1921,11 @@ def _mk_argsfiles(
             absolute = absolute,
             has_content_based_path = uses_content_based_paths,
         )
+        # Precompile actions do not filter inputs with dep files, so the real
+        # argsfile already tracks flag changes.
+        if is_precompile:
+            return (output, None)
+
         redacted_output, _ = actions.write(
             filename + "_redacted",
             content,
@@ -1931,7 +1936,7 @@ def _mk_argsfiles(
         )
         return (output, redacted_output)
 
-    def mk_argsfile_for_dep_file_filtering(filename: str, args, absolute: bool = False) -> (Artifact, Artifact):
+    def mk_argsfile_for_dep_file_filtering(filename: str, args, absolute: bool = False) -> (Artifact, Artifact | None):
         return write_for_dep_file_filtering(
             filename,
             create_cmd_args(is_nasm, is_xcode_argsfile, args),
@@ -2023,7 +2028,7 @@ def _mk_argsfiles(
         argsfiles.append(
             cmd_args(
                 headers_tag.tag_artifacts(deps_argsfile_for_compiler),
-                hidden = deps_argsfile_for_buck_action_rerun,
+                hidden = [deps_argsfile_for_buck_action_rerun] if deps_argsfile_for_buck_action_rerun != None else [],
             )
         )
         args_list.extend(deps_args)
@@ -2155,11 +2160,13 @@ def _mk_argsfiles(
 
     args = create_cmd_args(is_nasm, is_xcode_argsfile, args_list)
     input_args = [args, file_args]
+    if argsfile_for_buck_action_rerun != None:
+        input_args.append(argsfile_for_buck_action_rerun)
 
     cmd_form = cmd_args(
         headers_tag.tag_artifacts(argsfile),
         format = "-@{}" if is_nasm else "@{}",
-        hidden = input_args + [argsfile_for_buck_action_rerun],
+        hidden = input_args,
     )
 
     return CompileArgsfile(
