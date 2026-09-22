@@ -62,6 +62,7 @@ use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::evaluator;
 use crate::register_starlark_any;
 use crate::syntax::DialectTypes;
+use crate::values::FrozenValueTyped;
 use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::any::StarlarkAny;
@@ -122,6 +123,8 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
             let module_def_info = fh.alloc_simple_typed(StarlarkAnyComplex::new(
                 DefInfo::for_module(codemap, local_names.clone(), parent, globals),
             ));
+            let module_def_info =
+                FrozenValueTyped::from_typed(module_def_info).expect("allocated in a frozen heap");
             let old_def_info = self.module_def_info.replace(edge.rebrand(module_def_info));
 
             self.call_stack.alloc_if_needed(

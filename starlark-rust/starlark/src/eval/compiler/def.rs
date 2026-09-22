@@ -97,6 +97,7 @@ use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::SealEdge;
@@ -434,9 +435,8 @@ pub(crate) struct CopySlotFromParent {
 
 /// Static info for `def`, `lambda` or module: a compiler product in the module's frozen heap, at
 /// its brand, allocated as a `StarlarkAnyComplex` (see [`DefInfoValue`]).
-#[derive(Derivative, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
+#[derive(Derivative, Allocative, ProvidesStaticType, StarlarkPagable)]
 #[derivative(Debug)]
-#[freeze(frozen_only)]
 pub(crate) struct DefInfo<'f> {
     pub(crate) name: StringValue<'f>,
     /// Span of function signature.
@@ -486,7 +486,7 @@ pub(crate) struct DefInfo<'f> {
 register_starlark_any_complex!(frozen DefInfo<'_>);
 
 /// A [`DefInfo`] as the value it is allocated as, at the brand of the heap it lives in.
-pub(crate) type DefInfoValue<'f> = ValueTyped<'f, StarlarkAnyComplex<DefInfo<'f>>>;
+pub(crate) type DefInfoValue<'f> = FrozenValueTyped<'f, StarlarkAnyComplex<DefInfo<'f>>>;
 
 impl<'f> DefInfo<'f> {
     pub(crate) fn for_module(
@@ -633,6 +633,7 @@ impl<'fm> Compiler<'_, '_, '_, '_, 'fm> {
             stmt_compile_context: self.compile_context(return_type.is_some()),
             globals: self.globals,
         }));
+        let info = FrozenValueTyped::from_typed(info).expect("allocated in a frozen heap");
 
         Ok(ExprCompiled::Def(DefCompiled {
             params,

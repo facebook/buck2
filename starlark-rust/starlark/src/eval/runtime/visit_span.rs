@@ -25,6 +25,7 @@ use crate::eval::compiler::span::IrSpanned;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::params::spec::ParametersSpecPrototype;
 use crate::util::arc_str::ArcStr;
+use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueTyped;
@@ -77,6 +78,10 @@ impl<'f, V: VisitSpanMut<'f>> VisitSpanMut<'f> for Box<V> {
 }
 
 impl<'f, T: StarlarkValue<'f>> VisitSpanMut<'f> for ValueTyped<'f, T> {
+    fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan<'f>)) {}
+}
+
+impl<'f, T: StarlarkValue<'f>> VisitSpanMut<'f> for FrozenValueTyped<'f, T> {
     fn visit_spans(&mut self, _visitor: &mut impl FnMut(&mut FrameSpan<'f>)) {}
 }
 
