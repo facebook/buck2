@@ -184,21 +184,8 @@ pub(crate) struct Pointer<'p> {
     _phantom: PhantomData<*mut &'p ()>,
 }
 
-// Similar to `Pointer` but allows widening lifetime, which is valid operation for frozen pointers.
-#[derive(Clone, Copy, Dupe)]
-pub(crate) struct FrozenPointer<'p> {
-    ptr: RawPointer,
-    phantom: PhantomData<&'p AValueHeader>,
-}
-
-fn _test_lifetime_covariant<'a>(p: FrozenPointer<'static>) -> FrozenPointer<'a> {
-    p
-}
-
 assert_eq_size!(Pointer<'static>, usize);
 assert_eq_size!(Option<Pointer<'static>>, usize);
-assert_eq_size!(FrozenPointer<'static>, usize);
-assert_eq_size!(Option<FrozenPointer<'static>>, usize);
 
 #[allow(dead_code)] // False positive.
 const TAG_BITS: usize = 3;
@@ -326,8 +313,24 @@ impl<'p> Pointer<'p> {
     }
 
     #[inline]
+    pub(crate) fn new_frozen_usize_with_str_tag(x: usize) -> Self {
+        debug_assert!((x & TAG_MASK & !TAG_STR) == 0);
+        unsafe { Self::new(RawPointer::new_unchecked(x)) }
+    }
+
+    #[inline]
     pub(crate) fn new_unfrozen(x: &'p AValueHeader, is_string: bool) -> Self {
         unsafe { Self::new(RawPointer::new_unfrozen(x, is_string)) }
+    }
+
+    #[inline]
+    pub(crate) fn new_frozen(x: &'p AValueHeader, is_str: bool) -> Self {
+        unsafe { Self::new(RawPointer::new_frozen(x, is_str)) }
+    }
+
+    #[inline]
+    pub(crate) fn new_int(x: InlineInt) -> Self {
+        unsafe { Self::new(RawPointer::new_int(x)) }
     }
 
     #[inline]
@@ -379,6 +382,15 @@ impl<'p> Pointer<'p> {
         unsafe { self.ptr.unpack_pointer_i32_unchecked() }
     }
 
+    /// Unpack pointer when it is known to be frozen, not an integer, not a string.
+    #[inline]
+    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeapEntry {
+        unsafe {
+            debug_assert!(self.ptr.tags() == PointerTags::OtherFrozen);
+            cast::usize_to_ptr(self.ptr.0.get())
+        }
+    }
+
     #[inline]
     pub(crate) fn ptr_eq(self, other: Pointer<'_>) -> bool {
         self.ptr == other.ptr
@@ -394,57 +406,6 @@ impl<'p> Pointer<'p> {
         Pointer {
             ptr: self.ptr,
             _phantom: PhantomData,
-        }
-    }
-
-    #[inline]
-    pub(crate) unsafe fn to_frozen_pointer_unchecked(self) -> FrozenPointer<'p> {
-        unsafe { FrozenPointer::new(self.ptr) }
-    }
-}
-
-impl<'p> FrozenPointer<'p> {
-    #[inline]
-    pub(crate) unsafe fn new(ptr: RawPointer) -> FrozenPointer<'p> {
-        debug_assert!(!ptr.is_unfrozen());
-        FrozenPointer {
-            ptr,
-            phantom: PhantomData,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn new_frozen_usize_with_str_tag(x: usize) -> Self {
-        debug_assert!((x & TAG_MASK & !TAG_STR) == 0);
-        unsafe { Self::new(RawPointer::new_unchecked(x)) }
-    }
-
-    #[inline]
-    pub(crate) fn new_frozen(x: &'p AValueHeader, is_str: bool) -> Self {
-        unsafe { Self::new(RawPointer::new_frozen(x, is_str)) }
-    }
-
-    #[inline]
-    pub(crate) fn new_int(x: InlineInt) -> Self {
-        unsafe { Self::new(RawPointer::new_int(x)) }
-    }
-
-    /// It is safe to bitcast `FrozenPointer` to `Pointer`
-    /// but not vice versa.
-    #[inline]
-    pub(crate) fn to_pointer(self) -> Pointer<'p> {
-        Pointer {
-            ptr: self.ptr,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Unpack pointer when it is known to be frozen, not an integer, not a string.
-    #[inline]
-    pub(crate) unsafe fn unpack_ptr_no_int_no_str_unchecked(self) -> &'p AValueHeapEntry {
-        unsafe {
-            debug_assert!(self.ptr.tags() == PointerTags::OtherFrozen);
-            cast::usize_to_ptr(self.ptr.0.get())
         }
     }
 }

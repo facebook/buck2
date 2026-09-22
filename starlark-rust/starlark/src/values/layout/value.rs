@@ -81,7 +81,6 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::pointer::FrozenPointer;
 use crate::values::layout::pointer::Pointer;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::static_string::VALUE_EMPTY_STRING;
@@ -218,7 +217,7 @@ impl<'v> Value<'v> {
     /// A value in a frozen heap, at the brand of the reference to it.
     #[inline]
     pub(crate) fn new_frozen_ptr(x: &'v AValueHeader, is_str: bool) -> Self {
-        Self(FrozenPointer::new_frozen(x, is_str).to_pointer())
+        Self(Pointer::new_frozen(x, is_str))
     }
 
     #[inline]
@@ -232,7 +231,7 @@ impl<'v> Value<'v> {
     /// keeps alive, with the string tag set iff the value is a string.
     #[inline]
     pub(crate) unsafe fn new_frozen_ptr_usize_with_str_tag(x: usize) -> Self {
-        Self(FrozenPointer::new_frozen_usize_with_str_tag(x).to_pointer())
+        Self(Pointer::new_frozen_usize_with_str_tag(x))
     }
 
     /// Create a new `None` value.
@@ -252,7 +251,7 @@ impl<'v> Value<'v> {
     /// Create a new integer.
     #[inline]
     pub(crate) fn new_int(x: InlineInt) -> Self {
-        Self(FrozenPointer::new_int(x).to_pointer())
+        Self(Pointer::new_int(x))
     }
 
     /// The immutable empty list.
