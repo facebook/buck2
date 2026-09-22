@@ -164,16 +164,18 @@ impl<'fv, T: crate::pagable::StarlarkDeserialize<'fv>> crate::pagable::StarlarkD
 ///
 /// Three forms:
 /// - `register_starlark_any_complex!(T)` — registers the typing vtable for
-///   `StarlarkAnyComplex<T>`. Use for a `T` that is never stored on the
-///   frozen heap (e.g. unfrozen `Foo<'_>` alone, or a standalone type).
+///   `StarlarkAnyComplex<T>`. Use for a `T` that is never stored on a frozen heap: a `T` that
+///   freezes into another type, or one that is only ever allocated with
+///   [`Heap::alloc_complex_no_freeze`](crate::values::Heap::alloc_complex_no_freeze).
 /// - `register_starlark_any_complex!(frozen T)` — registers the typing vtable **and**
-///   the frozen-heap vtable. Use for the `'static` frozen companion that
-///   lives on the frozen heap.
-/// - `register_starlark_any_complex!(T, frozen FrozenT)` — paired form: does both of
-///   the above in one call. Preferred for a typical freeze pair.
+///   the frozen-heap vtable. Use for a `T` that is stored on frozen heaps: one that is its own
+///   frozen form, or one that another type freezes into.
+/// - `register_starlark_any_complex!(T, frozen FrozenT)` — both of the above in one call, for
+///   a `T` that freezes into a different `FrozenT`.
 ///
 /// ```ignore
-/// register_starlark_any_complex!(Foo<'_>, frozen FrozenFoo);
+/// register_starlark_any_complex!(frozen Foo<'_>);
+/// register_starlark_any_complex!(Bar<'_>, frozen FrozenBar<'_>);
 /// ```
 #[macro_export]
 macro_rules! register_starlark_any_complex {

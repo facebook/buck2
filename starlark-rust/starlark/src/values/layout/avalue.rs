@@ -190,8 +190,8 @@ impl<'v, T: AValue<'v>> AValueImpl<'v, T> {
     }
 }
 
-/// `heap_freeze` implementation for simple `StarlarkValue` and `StarlarkFloat`
-/// (`StarlarkFloat` is logically a simple type, but it is not considered simple type).
+/// `heap_freeze` implementation for simple values: the payload is moved to the frozen heap as it
+/// is.
 pub(super) unsafe fn heap_freeze_simple_impl<'v, 'fv, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
     freezer: &Freezer<'v, 'fv>,

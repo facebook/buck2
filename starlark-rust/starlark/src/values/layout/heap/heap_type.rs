@@ -421,7 +421,7 @@ macro_rules! singleton_heap_name {
     }};
 }
 
-/// `FrozenHeap` when it is no longer modified and can be shared between threads.
+/// Identifies one sealing of a heap, see `FrozenFrozenHeap::serialization_nonce`.
 #[derive(Debug, Clone, Copy, Allocative, PagableSerialize, PagableDeserialize)]
 struct HeapSerializationNonce(u128);
 
@@ -431,6 +431,8 @@ impl HeapSerializationNonce {
     }
 }
 
+/// A sealed frozen heap: no longer allocated on, and shared between threads through
+/// [`FrozenHeapArc`].
 #[derive(Allocative)]
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
@@ -894,7 +896,7 @@ fn deserialize_heap_arc_with_recipe(
 
 impl Debug for OwnedFrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let mut x = f.debug_struct("FrozenHeap");
+        let mut x = f.debug_struct("OwnedFrozenHeap");
         x.field("bytes", &self.arena.allocated_bytes());
         x.field("refs", &self.refs.try_len());
         x.finish()

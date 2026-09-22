@@ -433,8 +433,8 @@ pub trait StarlarkValue<'v>:
     ///
     /// # Parameters
     ///
-    /// * `me` - self, but as `Value`, meaning it has unfrozen flag,
-    ///   so it can be stored in a heap.
+    /// * `me` - `self` as the [`Value`] it is stored in, for putting on the call stack or in
+    ///   other values.
     fn invoke(
         &self,
         _me: Value<'v>,

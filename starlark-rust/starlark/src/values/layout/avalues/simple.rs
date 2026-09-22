@@ -123,11 +123,12 @@ impl<'v> Heap<'v> {
     /// Allocate a simple [`StarlarkValue`](crate::values::StarlarkValue) on this heap.
     ///
     /// Simple value is any starlark value which:
-    /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
+    /// * is `'static`: it holds no `Value`s, so it is neither traced nor frozen, and freezing the
+    ///   module moves it to the frozen heap as it is
     /// * is not special builtin (e.g. `None`)
     ///
-    /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
-    pub fn alloc_simple<T: AValueSimpleBound<'v> + Send + Sync + 'static>(self, x: T) -> Value<'v> {
+    /// Being `'static`, it is [`Send`] and [`Sync`] like the contents of every frozen value.
+    pub fn alloc_simple<T: AValueSimpleBound<'v> + 'static>(self, x: T) -> Value<'v> {
         self.alloc_raw(simple(x)).to_value()
     }
 }

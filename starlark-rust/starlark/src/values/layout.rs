@@ -16,7 +16,7 @@
  */
 
 // Possible optimisations:
-// Encoding none, bool etc in the pointer of frozen value
+// Encoding none, bool etc in the pointer
 
 pub(crate) mod aligned_size;
 pub(crate) mod avalue;
