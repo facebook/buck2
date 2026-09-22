@@ -11,8 +11,8 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -169,7 +169,7 @@ async fn compute_platform_configuration_no_label_check(
         .get_configuration_analysis_result(&ProvidersLabel::default_for(target.dupe()))
         .await?
         .provider_collection()
-        .builtin_provider::<FrozenPlatformInfo>()
+        .builtin_provider::<PlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?
         .to_configuration(false)
 }
@@ -294,7 +294,7 @@ impl Key for ConfigurationNodeKey {
         // capture the result so the temporaries get dropped before providers
         let result = match providers
             .provider_collection()
-            .builtin_provider::<FrozenConfigurationInfo>()
+            .builtin_provider::<ConfigurationInfo>()
         {
             Some(configuration_info) => configuration_info,
             None => {

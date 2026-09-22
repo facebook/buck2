@@ -16,8 +16,8 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::ExecutionPlatformRegistrationInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -497,7 +497,7 @@ async fn compute_execution_platforms(
         .await?;
 
     let registration_info = providers
-        .builtin_provider_value::<FrozenExecutionPlatformRegistrationInfo>()
+        .builtin_provider_value::<ExecutionPlatformRegistrationInfo>()
         .ok_or_else(|| {
             ExecutionPlatformComputationError::MissingExecutionPlatformRegistrationInfo(
                 execution_platforms_target.dupe(),
@@ -518,7 +518,7 @@ async fn compute_execution_platforms(
         let marker_providers = ctx.get_configuration_analysis_result(&marker_label).await?;
         let constraint_value_info = marker_providers
             .provider_collection()
-            .builtin_provider::<FrozenConstraintValueInfo>()
+            .builtin_provider::<ConstraintValueInfo>()
             .ok_or_else(|| {
                 buck2_error::Error::from(
                     ExecutionPlatformComputationError::MissingConstraintValueInfo(

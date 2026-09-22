@@ -22,9 +22,7 @@ use itertools::Itertools;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfo;
-use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
-use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 
@@ -193,11 +191,11 @@ pub fn test_provider_from_collection<'v>(
     providers: &ProviderCollection<'v>,
 ) -> Option<&'v dyn TestProvider<'v>> {
     // Check for InternalRunnerTestInfo first
-    if let Some(provider) = providers.builtin_provider::<FrozenInternalRunnerTestInfo>() {
+    if let Some(provider) = providers.builtin_provider::<InternalRunnerTestInfo>() {
         return Some(provider.as_ref());
     }
 
-    if let Some(provider) = providers.builtin_provider::<FrozenExternalRunnerTestInfo>() {
+    if let Some(provider) = providers.builtin_provider::<ExternalRunnerTestInfo>() {
         return Some(provider.as_ref());
     }
 

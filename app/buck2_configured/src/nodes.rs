@@ -17,7 +17,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::dep_only_incompatible_info::DepOnlyIncompatibleCustomSoftErrors;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::dep_only_incompatible_info::FrozenDepOnlyIncompatibleInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::dep_only_incompatible_info::DepOnlyIncompatibleInfo;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
@@ -1509,7 +1509,7 @@ async fn get_dep_only_incompatible_custom_soft_error(
             let providers = ctx.get_configuration_analysis_result(&target).await?;
             let dep_only_incompatible_info = providers
                 .provider_collection()
-                .builtin_provider::<FrozenDepOnlyIncompatibleInfo>()
+                .builtin_provider::<DepOnlyIncompatibleInfo>()
                 .unwrap();
             let result = dep_only_incompatible_info.custom_soft_errors(
                 root_cell,

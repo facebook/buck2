@@ -43,10 +43,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::ExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::OwnedExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::OwnedLocalResourceInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
@@ -1601,7 +1601,7 @@ impl BuckTestOrchestrator<'_> {
         // the orchestrator could resolve fields from the Internal
         // provider while TPX was set up with the External one.
         let internal: Option<OwnedInternalRunnerTestInfo> =
-            providers.builtin_provider_value::<FrozenInternalRunnerTestInfo>();
+            providers.builtin_provider_value::<InternalRunnerTestInfo>();
         if let Some(internal) = internal {
             if internal_runner_config.should_use(internal.as_ref().value().as_ref().test_type()) {
                 return Ok(OwnedTestInfo::Internal(internal));
@@ -1609,7 +1609,7 @@ impl BuckTestOrchestrator<'_> {
         }
 
         let external: Option<OwnedExternalRunnerTestInfo> =
-            providers.builtin_provider_value::<FrozenExternalRunnerTestInfo>();
+            providers.builtin_provider_value::<ExternalRunnerTestInfo>();
         if let Some(external) = external {
             return Ok(OwnedTestInfo::External(external));
         }

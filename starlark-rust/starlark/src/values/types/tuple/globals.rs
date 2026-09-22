@@ -25,7 +25,7 @@ use crate::values::ValueOfUnchecked;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::tuple::AllocTuple;
 use crate::values::tuple::TupleRef;
-use crate::values::tuple::value::FrozenTuple;
+use crate::values::tuple::value::Tuple;
 use crate::values::typing::StarlarkIter;
 
 #[starlark_module]
@@ -43,7 +43,7 @@ pub(crate) fn register_tuple(globals: &mut GlobalsBuilder) {
     /// # "#);
     /// ```
     #[starlark(
-        as_type = FrozenTuple,
+        as_type = Tuple<'static>,
         speculative_exec_safe,
         special_builtin_function = SpecialBuiltinFunction::Tuple,
     )]

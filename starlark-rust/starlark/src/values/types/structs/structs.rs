@@ -37,7 +37,6 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::structs::TyStruct;
 use crate::util::arc_str::ArcStr;
 use crate::values::Heap;
-use crate::values::structs::value::FrozenStruct;
 use crate::values::structs::value::Struct;
 
 #[derive(
@@ -47,7 +46,7 @@ struct StructType;
 
 impl TyCustomFunctionImpl for StructType {
     fn is_type(&self) -> bool {
-        // `struct` is declared `as_type = FrozenStruct`, so at runtime it has a
+        // `struct` is declared `as_type = Struct`, so at runtime it has a
         // `.type` attribute and can be used in a type expression (`struct | None`).
         true
     }
@@ -84,7 +83,7 @@ impl TyCustomFunctionImpl for StructType {
 pub(crate) fn register_struct(builder: &mut GlobalsBuilder) {
     #[starlark(
         ty_custom_function = StructType,
-        as_type = FrozenStruct,
+        as_type = Struct<'static>,
     )]
     fn r#struct<'v>(args: &Arguments<'v, '_>, heap: Heap<'v>) -> starlark::Result<Struct<'v>> {
         args.no_positional_args(heap)?;

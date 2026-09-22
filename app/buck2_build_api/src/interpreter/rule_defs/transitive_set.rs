@@ -17,16 +17,13 @@ mod transitive_set_iterator;
 mod transitive_set_json_projection;
 mod traversal;
 
-pub use self::transitive_set::FrozenTransitiveSet;
 pub use self::transitive_set::TransitiveSet;
-pub use self::transitive_set_args_projection::FrozenTransitiveSetArgsProjection;
 pub use self::transitive_set_args_projection::TransitiveSetArgsProjection;
 pub use self::transitive_set_definition::FrozenTransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetDefinition;
 pub use self::transitive_set_definition::TransitiveSetOperations;
 pub use self::transitive_set_definition::TransitiveSetProjectionKind;
 pub use self::transitive_set_definition::TransitiveSetProjectionSpec;
-pub use self::transitive_set_json_projection::FrozenTransitiveSetJsonProjection;
 pub use self::transitive_set_json_projection::TransitiveSetJsonProjection;
 pub use self::traversal::TransitiveSetOrdering;
 

@@ -53,7 +53,7 @@
 //! For provider instances, in starlark all of their fields will be accessible by the field name.
 //!
 //! In rust, a StarlarkValue can be converted to the provider like normal with `MyProvider::from_value()`.
-//! Often internally we'd have the analysis result (`FrozenProviderCollection`) and want to get the
+//! Often internally we'd have the analysis result (`ProviderCollection`) and want to get the
 //! provider out of their so there's a convenience function for that: `MyProvider::from_providers(collect)`.
 
 use std::convert::Infallible;
@@ -73,7 +73,6 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfo;
 use crate::interpreter::rule_defs::provider::builtin::default_info::DefaultInfoCallable;
-use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 

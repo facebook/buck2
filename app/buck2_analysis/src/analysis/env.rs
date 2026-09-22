@@ -16,8 +16,8 @@ use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::FrozenValidationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::validation_info::ValidationInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
@@ -138,7 +138,7 @@ pub fn resolve_unkeyed_placeholder<'v>(
         let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
             let placeholder_info = collection
                 .as_ref()
-                .builtin_provider::<FrozenTemplatePlaceholderInfo>()?;
+                .builtin_provider::<TemplatePlaceholderInfo>()?;
             let value = placeholder_info.unkeyed_variables().get(name).copied()?;
             // IMPORTANT: Anything given back to the user must be kept alive; the edge
             // makes the dep's heap a dependency of the module's heap.
@@ -360,7 +360,7 @@ pub fn transitive_validations(
     provider_collection: FrozenProviderCollectionValueRef,
 ) -> Option<TransitiveValidations> {
     let provider_collection = provider_collection.to_owned();
-    let info = provider_collection.builtin_provider_value::<FrozenValidationInfo>();
+    let info = provider_collection.builtin_provider_value::<ValidationInfo>();
     if info.is_some() || deps.len() > 1 {
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info,

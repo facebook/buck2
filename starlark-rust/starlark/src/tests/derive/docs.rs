@@ -134,7 +134,7 @@ fn test_derive_docs() {
 
 #[test]
 fn test_derive_docs_on_complex_values() {
-    let complex_obj = DocType::from_starlark_value::<FrozenComplexTestExample>();
+    let complex_obj = DocType::from_starlark_value::<ComplexTestExample<'static>>();
 
     assert_eq!(
         DocString::from_docstring(DocStringKind::Rust, "Main module docs"),

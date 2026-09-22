@@ -99,7 +99,7 @@ macro_rules! register_avalue_simple_frozen {
 
 /// Macro to register a vtable for a special type with a custom AValue implementation.
 ///
-/// This macro is for special types (like `StarlarkStr`, `FrozenTuple`, `ListGen<FrozenListData>`)
+/// This macro is for special types (like `StarlarkStr`, `Tuple`, `ListGen<FrozenListData>`)
 /// that use custom AValue implementations instead of `AValueSimple<T>`.
 macro_rules! register_special_avalue_frozen {
     ($starlark_value:ty, $avalue:ty) => {

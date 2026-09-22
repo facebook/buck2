@@ -45,7 +45,6 @@ use starlark::values::none::NoneOr;
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::ConstraintSettingInfo;
 use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::ConstraintValueInfo;
-use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
 
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
@@ -57,7 +56,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Fro
 #[derive(Debug, Trace, Freeze, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct ConfigurationInfo<'v> {
-    constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+    constraints: ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, ConstraintValueInfo<'static>>>,
     values: ValueOfUnchecked<'v, DictType<String, String>>,
     root_values: ValueOfUnchecked<'v, DictType<String, String>>,
 }
@@ -199,7 +198,7 @@ fn build_constraints_map_from_dict<'v>(
 
 #[starlark_module]
 fn configuration_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenConfigurationInfo)]
+    #[starlark(as_type = ConfigurationInfo<'static>)]
     fn ConfigurationInfo<'v>(
         #[starlark(require = named)] constraints: UnpackDictEntries<
             ValueOf<'v, &'v StarlarkTargetLabel>,
@@ -254,7 +253,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn constraints<'v>(
         this: &ConfigurationInfo<'v>,
     ) -> starlark::Result<
-        ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, FrozenConstraintValueInfo>>,
+        ValueOfUnchecked<'v, DictType<StarlarkTargetLabel, ConstraintValueInfo<'static>>>,
     > {
         Ok(this.constraints)
     }

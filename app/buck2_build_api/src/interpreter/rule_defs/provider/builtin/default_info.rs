@@ -56,7 +56,6 @@ use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::ProviderCollection;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 
 /// A provider that all rules' implementations must return
 ///
@@ -144,7 +143,7 @@ pub struct DefaultInfo<'v> {
     /// `ProviderCollection`, this collection must include at least a `DefaultInfo` provider. The
     /// subtargets can have their own subtargets as well, which can be accessed by chaining them,
     /// e.g.: `buck2 build cell//foo:bar[baz][qux]`.
-    sub_targets: ValueOfUnchecked<'v, DictType<String, FrozenProviderCollection>>,
+    sub_targets: ValueOfUnchecked<'v, DictType<String, ProviderCollection<'static>>>,
     /// A list of `Artifact`s that are built by default if this rule is requested
     /// explicitly (via CLI or `$(location)` etc), or depended on as as a "source"
     /// (i.e., `attrs.source()`).
@@ -382,7 +381,7 @@ enum DefaultOutputError {
 
 #[starlark_module]
 fn default_info_creator(builder: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenDefaultInfo)]
+    #[starlark(as_type = DefaultInfo<'static>)]
     fn DefaultInfo<'v>(
         // TODO(nga): parameters must be named only.
         #[starlark(default = NoneOr::None)] default_output: NoneOr<
@@ -432,7 +431,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                 let as_provider_collection = ProviderCollection::try_from_value_subtarget(v, heap)?;
                 Ok((
                     k,
-                    ValueOfUnchecked::<FrozenProviderCollection>::new(
+                    ValueOfUnchecked::<ProviderCollection<'static>>::new(
                         heap.alloc(as_provider_collection),
                     ),
                 ))

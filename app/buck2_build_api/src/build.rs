@@ -59,8 +59,8 @@ use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
-use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::builtin::run_info::OwnedRunInfo;
+use crate::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use crate::keep_going::KeepGoing;
 use crate::materialize::HasMaterializationQueueTracker;
 use crate::materialize::MaterializationAndUploadContext;
@@ -629,7 +629,7 @@ async fn build_configured_label_inner(
             .get_providers(&providers_label)
             .await?
             .require_compatible()?
-            .builtin_provider_value::<FrozenRunInfo>()
+            .builtin_provider_value::<RunInfo>()
     } else {
         None
     };

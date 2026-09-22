@@ -31,9 +31,9 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::InstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::OwnedRunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
@@ -372,7 +372,7 @@ async fn collect_install_request_data(
                 .get_providers(&providers_label)
                 .await?
                 .require_compatible()?
-                .builtin_provider_value::<FrozenInstallInfo>();
+                .builtin_provider_value::<InstallInfo>();
             match install_info {
                 Some(owned_install_info) => {
                     let install_info = owned_install_info.as_ref().value().as_ref();
@@ -923,7 +923,7 @@ async fn build_launch_installer(
 
     // Held across awaits, so this needs the owned form; the branded view is derived at each use.
     let installer_run_info: Option<OwnedRunInfo> =
-        frozen_providers.builtin_provider_value::<FrozenRunInfo>();
+        frozen_providers.builtin_provider_value::<RunInfo>();
     if let Some(installer_run_info) = installer_run_info {
         let artifact_fs = ctx.get_artifact_fs().await?;
         let inputs = {

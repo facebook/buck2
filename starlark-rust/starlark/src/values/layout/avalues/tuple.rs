@@ -37,7 +37,6 @@ use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_fro
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 
 fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, AValueTuple> {
@@ -142,7 +141,7 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
     }
 
     fn offset_of_extra() -> usize {
-        FrozenTuple::offset_of_content()
+        Tuple::offset_of_content()
     }
 
     fn visit_extra_allocative<'a, 'b: 'a>(
@@ -267,5 +266,5 @@ impl<'v> Heap<'v> {
     }
 }
 
-// Register vtable for FrozenTuple (special type not handled by #[starlark_value] macro).
-register_special_avalue_frozen!(FrozenTuple, AValueFrozenTuple);
+// Register vtable for Tuple (special type not handled by #[starlark_value] macro).
+register_special_avalue_frozen!(Tuple<'static>, AValueFrozenTuple);

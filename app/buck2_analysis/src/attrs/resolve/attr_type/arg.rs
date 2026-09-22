@@ -11,7 +11,7 @@
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfoCallable;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacrosPart;
@@ -153,7 +153,7 @@ fn resolve_configured_macro<'v>(
         ConfiguredMacro::UserKeyedPlaceholder(box (name, label, arg)) => {
             let providers = ctx.get_dep(label)?;
             let placeholder_info = providers
-                .builtin_provider::<FrozenTemplatePlaceholderInfo>()
+                .builtin_provider::<TemplatePlaceholderInfo>()
                 .ok_or_else(|| {
                     ResolveMacroError::KeyedPlaceholderInfoMissing(
                         (**name).to_owned(),

@@ -39,7 +39,7 @@ pub unsafe trait StaticValueRegistered {}
 ///
 /// ```ignore
 /// static_starlark_value!(pub(crate) VALUE_NONE: NoneType = NoneType);
-/// static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: FrozenTuple = unsafe { FrozenTuple::new(0) });
+/// static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: Tuple = unsafe { Tuple::new(0) });
 ///
 /// // Multiple static values of the same type
 /// static_starlark_value!(StarlarkBool {

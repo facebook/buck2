@@ -66,7 +66,6 @@ use starlark_map::Hashed;
 use crate::interpreter::rule_defs::provider::DefaultInfo;
 use crate::interpreter::rule_defs::provider::DefaultInfoCallable;
 use crate::interpreter::rule_defs::provider::FrozenBuiltinProviderLike;
-use crate::interpreter::rule_defs::provider::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
@@ -165,13 +164,11 @@ impl<'fv> SmallMapKeyDeserialize<'fv> for CollectionKey {
     }
 }
 
-static_starlark_value!(EMPTY_PROVIDER_COLLECTION: FrozenProviderCollection = FrozenProviderCollection {
+static_starlark_value!(EMPTY_PROVIDER_COLLECTION: ProviderCollection<'static> = ProviderCollection {
     providers: SmallMap::new(),
 });
 
 /// Type of a frozen provider collection.
-pub type FrozenProviderCollection = ProviderCollection<'static>;
-
 // These are the hand-written equivalents of `starlark_complex_value!`,
 // which we can't use because empty collections should be allocated as the
 // statically interned empty collection.
@@ -378,7 +375,7 @@ impl<'v> ProviderCollection<'v> {
     }
 }
 
-impl FrozenProviderCollection {
+impl ProviderCollection<'static> {
     pub fn testing_new_default<'v>(heap: FrozenHeap<'v>) -> ValueTyped<'v, ProviderCollection<'v>> {
         heap.alloc_typed(ProviderCollection {
             providers: SmallMap::from_iter([(
@@ -459,7 +456,7 @@ impl<'v> Freeze<'v> for ProviderCollection<'v> {
 
 impl<'v> ProviderCollection<'v> {
     pub fn default_info(&self) -> buck2_error::Result<ValueTyped<'v, DefaultInfo<'v>>> {
-        self.builtin_provider::<FrozenDefaultInfo>().ok_or_else(|| {
+        self.builtin_provider::<DefaultInfo>().ok_or_else(|| {
             internal_error!(
                 "DefaultInfo should always be set for providers returned from rule function"
             )
@@ -523,7 +520,7 @@ impl Serialize for FrozenProviderCollectionValue {
 impl FrozenProviderCollectionValue {
     pub fn try_from_value(value: OwnedFrozen<Value<'static>>) -> buck2_error::Result<Self> {
         Ok(Self {
-            value: value.downcast_starlark::<FrozenProviderCollection>()?,
+            value: value.downcast_starlark::<ProviderCollection>()?,
         })
     }
 
@@ -730,7 +727,7 @@ pub mod tester {
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::StarlarkError,
-                        "{:?} was not a FrozenProviderCollection",
+                        "{:?} was not a ProviderCollection",
                         collection
                     )
                 })?
@@ -746,7 +743,7 @@ pub mod tester {
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::StarlarkError,
-                        "{:?} was not a FrozenProviderCollection",
+                        "{:?} was not a ProviderCollection",
                         collection
                     )
                 })?

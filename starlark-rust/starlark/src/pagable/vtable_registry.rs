@@ -364,11 +364,11 @@ mod tests {
     #[test]
     fn test_complex_type_frozen_is_registered() {
         // Verify that the frozen variant of complex type was registered
-        let type_id = DeserTypeId::of::<FrozenTestComplex>();
+        let type_id = DeserTypeId::of::<TestComplex<'static>>();
         let vtable = lookup_vtable(type_id);
         assert!(
             vtable.is_ok(),
-            "Expected FrozenTestComplex to be registered. Available types: {:?}",
+            "Expected TestComplex to be registered. Available types: {:?}",
             registered_type_ids()
         );
         let vt = vtable.unwrap();
@@ -411,12 +411,12 @@ mod tests {
 
     #[test]
     fn test_frozen_tuple_is_registered() {
-        use crate::values::types::tuple::value::FrozenTuple;
-        let type_id = DeserTypeId::of::<FrozenTuple>();
+        use crate::values::types::tuple::value::Tuple;
+        let type_id = DeserTypeId::of::<Tuple<'static>>();
         let vtable = lookup_vtable(type_id);
         assert!(
             vtable.is_ok(),
-            "Expected FrozenTuple to be registered. Available types: {:?}",
+            "Expected Tuple to be registered. Available types: {:?}",
             registered_type_ids()
         );
         let vt = vtable.unwrap();

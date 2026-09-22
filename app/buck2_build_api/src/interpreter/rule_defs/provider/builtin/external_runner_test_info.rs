@@ -491,7 +491,7 @@ fn validate_external_runner_test_info<'v>(
 
 #[starlark_module]
 fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenExternalRunnerTestInfo)]
+    #[starlark(as_type = ExternalRunnerTestInfo<'static>)]
     fn ExternalRunnerTestInfo<'v>(
         // TODO(nga): these need types.
         #[starlark(require = named)] r#type: Value<'v>,

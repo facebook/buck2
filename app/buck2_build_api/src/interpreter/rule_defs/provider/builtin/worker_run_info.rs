@@ -54,7 +54,7 @@ pub struct WorkerRunInfo<'v> {
 
 #[starlark_module]
 fn worker_run_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenWorkerRunInfo)]
+    #[starlark(as_type = WorkerRunInfo<'static>)]
     fn WorkerRunInfo<'v>(
         #[starlark(require = named, default = NoneOr::None)] worker: NoneOr<
             ValueTyped<'v, WorkerInfo<'v>>,

@@ -35,7 +35,6 @@ use starlark::values::dict::UnpackDictEntries;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_rollout::DepOnlyIncompatibleRollout;
-use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_rollout::FrozenDepOnlyIncompatibleRollout;
 
 /// A provider for defining custom soft error categories for dep-only incompatible targets.
 /// This can be used to get finer-grained data on whether it is safe to enable
@@ -76,12 +75,12 @@ use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_roll
 #[repr(C)]
 pub struct DepOnlyIncompatibleInfo<'v> {
     pub custom_soft_errors:
-        ValueOfUnchecked<'v, DictType<String, FrozenDepOnlyIncompatibleRollout>>,
+        ValueOfUnchecked<'v, DictType<String, DepOnlyIncompatibleRollout<'static>>>,
 }
 
 #[starlark_module]
 fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenDepOnlyIncompatibleInfo)]
+    #[starlark(as_type = DepOnlyIncompatibleInfo<'static>)]
     fn DepOnlyIncompatibleInfo<'v>(
         #[starlark(require = named)] custom_soft_errors: UnpackDictEntries<
             ValueOf<'v, &'v str>,

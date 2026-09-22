@@ -28,9 +28,9 @@ use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
 use buck2_build_api::build::build_report::maybe_stream_build_reports;
 use buck2_build_api::build::build_report::write_build_report;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::build_external_runner_spec;
@@ -1508,7 +1508,7 @@ async fn build_target_result(
         || build_run_info
             && providers
                 .provider_collection()
-                .builtin_provider::<FrozenRunInfo>()
+                .builtin_provider::<RunInfo>()
                 .is_some())
     {
         return Ok((BuildTargetResult::new(), providers));
@@ -1567,7 +1567,7 @@ async fn test_target<'a, 'e>(
     // Gated by [test].use_internal_runner (default true, comma-separated framework types,
     // or false to force TPX fallback).
     let internal_provider: Option<OwnedInternalRunnerTestInfo> =
-        providers.builtin_provider_value::<FrozenInternalRunnerTestInfo>();
+        providers.builtin_provider_value::<InternalRunnerTestInfo>();
     if let Some(internal_provider) = internal_provider {
         // `'v`-branded views of the provider must not be held across awaits (only the
         // `OwnedFrozen` may be), so views are derived in scopes that end before the next await.

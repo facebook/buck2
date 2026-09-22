@@ -28,8 +28,8 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
 
-use crate::transition::provider::FrozenTransitionInfo;
 use crate::transition::provider::OwnedTransitionInfo;
+use crate::transition::provider::TransitionInfo;
 use crate::transition::starlark::FrozenTransition;
 use crate::transition::starlark::OwnedTransition;
 
@@ -122,7 +122,7 @@ impl FetchTransition for DiceComputations<'_> {
                 let transition_info = self
                     .get_configuration_analysis_result(label)
                     .await?
-                    .builtin_provider_value::<FrozenTransitionInfo>()
+                    .builtin_provider_value::<TransitionInfo>()
                     .ok_or_else(|| FetchTransitionError::MissingTransitionInfo(label.clone()))?;
                 Ok(TransitionData::Target(transition_info))
             }

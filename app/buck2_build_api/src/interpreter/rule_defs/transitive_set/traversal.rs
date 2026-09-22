@@ -23,7 +23,6 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::starlark_value;
 
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
@@ -119,7 +118,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetTraversal<'v> {
 #[display("Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
 pub struct TransitiveSetProjectionTraversal<'v> {
-    pub(super) transitive_set: ValueOfUnchecked<'v, FrozenTransitiveSet>,
+    pub(super) transitive_set: ValueOfUnchecked<'v, TransitiveSet<'static>>,
     pub projection: usize,
     pub ordering: TransitiveSetOrdering,
 }

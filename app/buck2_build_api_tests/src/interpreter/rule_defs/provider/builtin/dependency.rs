@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
+use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -41,9 +41,8 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
                 panic!();
             }
         };
-        let collection = eval.frozen_heap(|fh, edge| {
-            edge.rebrand(FrozenProviderCollection::testing_new_default(fh))
-        });
+        let collection =
+            eval.frozen_heap(|fh, edge| edge.rebrand(ProviderCollection::testing_new_default(fh)));
 
         Ok(Dependency::new(eval.heap(), label, collection, None))
     }

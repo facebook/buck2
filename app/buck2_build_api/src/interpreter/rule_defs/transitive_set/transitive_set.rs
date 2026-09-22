@@ -635,7 +635,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Json, projection)?;
 
         Ok(TransitiveSetJsonProjection {
-            transitive_set: ValueOfUnchecked::<FrozenTransitiveSet>::new(this.value),
+            transitive_set: ValueOfUnchecked::<TransitiveSet<'static>>::new(this.value),
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         })
@@ -653,7 +653,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Args, projection)?;
 
         Ok(TransitiveSetArgsProjection {
-            transitive_set: ValueOfUnchecked::<FrozenTransitiveSet>::new(this.value),
+            transitive_set: ValueOfUnchecked::<TransitiveSet<'static>>::new(this.value),
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         })

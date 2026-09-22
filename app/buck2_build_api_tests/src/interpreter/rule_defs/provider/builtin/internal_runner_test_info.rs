@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::FrozenInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::InternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::internal_runner_test_info::OwnedInternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::register_rule_defs;
@@ -35,7 +34,7 @@ fn freeze_provider(starlark_code: &str) -> buck2_error::Result<OwnedInternalRunn
         .env()
         .get("exported_info")
         .expect("`exported_info` not found")
-        .downcast_starlark::<FrozenInternalRunnerTestInfo>()
+        .downcast_starlark::<InternalRunnerTestInfo>()
         .map_err(buck2_error::Error::from)
 }
 

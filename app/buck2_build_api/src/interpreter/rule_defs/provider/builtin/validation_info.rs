@@ -27,7 +27,6 @@ use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 
 use crate as buck2_build_api;
-use crate::interpreter::rule_defs::validation_spec::FrozenStarlarkValidationSpec;
 use crate::interpreter::rule_defs::validation_spec::StarlarkValidationSpec;
 
 #[derive(Debug, buck2_error::Error)]
@@ -97,7 +96,7 @@ pub struct ValidationInfo<'v> {
     /// See the [Validations guide](https://buck2.build/docs/rule_authors/validation/)
     /// for how to declare validations end-to-end and write the validator
     /// action that produces each spec's `validation_result`.
-    validations: ValueOfUnchecked<'v, Vec<FrozenStarlarkValidationSpec>>,
+    validations: ValueOfUnchecked<'v, Vec<StarlarkValidationSpec<'static>>>,
 }
 
 fn validate_validation_info<'v>(info: &ValidationInfo<'v>) -> buck2_error::Result<()> {
@@ -125,7 +124,7 @@ fn validate_validation_info<'v>(info: &ValidationInfo<'v>) -> buck2_error::Resul
 
 #[starlark_module]
 fn validation_info_creator(globals: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenValidationInfo)]
+    #[starlark(as_type = ValidationInfo<'static>)]
     fn ValidationInfo<'v>(
         #[starlark(require = named)] validations: ValueOf<
             'v,

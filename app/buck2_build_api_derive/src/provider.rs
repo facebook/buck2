@@ -203,11 +203,6 @@ impl ProviderCodegen {
         Ok(self.name_str()?.to_case(Case::Snake))
     }
 
-    fn frozen_name(&self) -> syn::Result<syn::Ident> {
-        let name = self.name()?;
-        Ok(format_ident!("Frozen{}", name))
-    }
-
     fn callable_name(&self) -> syn::Result<syn::Ident> {
         let name = self.name()?;
         Ok(format_ident!("{}Callable", name))
@@ -560,10 +555,10 @@ impl ProviderCodegen {
     }
 
     fn impl_frozen_builtin_provider(&self) -> syn::Result<syn::Item> {
-        let frozen_name = self.frozen_name()?;
+        let name = self.name()?;
         let callable_name = self.callable_name()?;
         Ok(syn::parse_quote_spanned! { self.span=>
-            impl buck2_build_api::interpreter::rule_defs::provider::FrozenBuiltinProviderLike for #frozen_name {
+            impl buck2_build_api::interpreter::rule_defs::provider::FrozenBuiltinProviderLike for #name<'static> {
                 fn builtin_provider_id() -> &'static std::sync::Arc<buck2_core::provider::id::ProviderId> {
                     #callable_name::provider_id()
                 }
@@ -644,8 +639,8 @@ impl ProviderCodegen {
     fn callable_impl(&self) -> syn::Result<syn::Item> {
         let callable_name = self.callable_name()?;
         let vis = &self.input.vis;
+        let name = self.name()?;
         let name_str = self.name_str()?;
-        let frozen_name = self.frozen_name()?;
 
         Ok(syn::parse_quote_spanned! { self.span=>
             impl #callable_name {
@@ -655,11 +650,11 @@ impl ProviderCodegen {
                 }
 
                 #vis fn provider_id_t() -> &'static std::sync::Arc<
-                    buck2_core::provider::id::ProviderIdWithType<#frozen_name>,
+                    buck2_core::provider::id::ProviderIdWithType<#name<'static>>,
                 > {
                     static PROVIDER_ID_T: std::sync::OnceLock<
                         std::sync::Arc<
-                            buck2_core::provider::id::ProviderIdWithType<#frozen_name>,
+                            buck2_core::provider::id::ProviderIdWithType<#name<'static>>,
                         >
                     > = std::sync::OnceLock::new();
                     PROVIDER_ID_T.get_or_init(|| {

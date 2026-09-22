@@ -199,7 +199,7 @@ fn verify_variables_type(field_key: &str, variables: Value) -> buck2_error::Resu
 
 #[starlark_module]
 fn template_placeholder_info_creator(builder: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenTemplatePlaceholderInfo)]
+    #[starlark(as_type = TemplatePlaceholderInfo<'static>)]
     fn TemplatePlaceholderInfo<'v>(
         // TODO(nga): specify parameter types.
         #[starlark(default = AllocDict::EMPTY)] unkeyed_variables: Value<'v>,

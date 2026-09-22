@@ -223,7 +223,7 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 pub fn register_validation_spec(builder: &mut GlobalsBuilder) {
-    #[starlark(as_type = FrozenStarlarkValidationSpec)]
+    #[starlark(as_type = StarlarkValidationSpec<'static>)]
     fn ValidationSpec<'v>(
         #[starlark(require = named)] name: StringValue<'v>,
         #[starlark(require = named)] validation_result: ValueOf<'v, ValueIsInputArtifactAnnotation>,

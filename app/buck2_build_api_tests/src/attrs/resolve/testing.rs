@@ -13,7 +13,7 @@ use std::sync::Arc;
 use buck2_analysis::attrs::resolve::ctx::AnalysisQueryResult;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::FrozenTemplatePlaceholderInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::template_placeholder_info::TemplatePlaceholderInfo;
 use buck2_build_api::interpreter::rule_defs::provider::callable::register_provider;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
@@ -235,7 +235,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 let resolved = providers.value.by_ref_with_reconstructor(|collection, r| {
                     let placeholders = collection
                         .as_ref()
-                        .builtin_provider::<FrozenTemplatePlaceholderInfo>()?;
+                        .builtin_provider::<TemplatePlaceholderInfo>()?;
                     let value = placeholders.unkeyed_variables().get(name).copied()?;
                     Some(r.edge(self.module.heap()).rebrand(value))
                 });

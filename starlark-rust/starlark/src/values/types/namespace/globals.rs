@@ -21,7 +21,6 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::eval::Arguments;
 use crate::values::Heap;
-use crate::values::namespace::FrozenNamespace;
 use crate::values::namespace::Namespace;
 use crate::values::namespace::typing::TyNamespaceFunction;
 use crate::values::namespace::value::MaybeDocHiddenValue;
@@ -30,7 +29,7 @@ use crate::values::namespace::value::MaybeDocHiddenValue;
 pub fn register_namespace(builder: &mut GlobalsBuilder) {
     #[starlark(
         ty_custom_function = TyNamespaceFunction,
-        as_type = FrozenNamespace,
+        as_type = Namespace<'static>,
     )]
     fn namespace<'v>(args: &Arguments<'v, '_>, heap: Heap<'v>) -> starlark::Result<Namespace<'v>> {
         args.no_positional_args(heap)?;

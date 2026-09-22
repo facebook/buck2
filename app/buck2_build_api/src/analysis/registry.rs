@@ -86,7 +86,6 @@ use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageBox;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use crate::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use crate::interpreter::rule_defs::provider::collection::ProviderCollection;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
@@ -709,7 +708,7 @@ impl RecordedAnalysisValues {
                             .get()
                             .unwrap()
                             .new_frozen_dynamic_lambda_params_storage(),
-                        result_value: Some(FrozenProviderCollection::testing_new_default(heap)),
+                        result_value: Some(ProviderCollection::testing_new_default(heap)),
                     },
                 })
             });

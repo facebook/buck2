@@ -564,7 +564,6 @@ mod tests {
     use crate::values::none::NoneType;
     use crate::values::tuple::value::Tuple;
     use crate::values::types::any_array::AnyArray;
-    use crate::values::types::tuple::value::FrozenTuple;
 
     #[derive(Allocative, ProvidesStaticType, Debug, StarlarkPagable)]
     struct TestPayloadA;
@@ -602,10 +601,10 @@ mod tests {
 
     #[test]
     fn test_round_trip_live_generic_matches_frozen_canonical() {
-        // `FrozenTuple::Canonical = TupleGen<Value<'v>>` and
+        // `Tuple::Canonical = TupleGen<Value<'v>>` and
         // `Tuple::Canonical = Tuple` (which is `TupleGen<Value<'v>>`). Both go
         // through the same `HasTyVTable` impl and should be indistinguishable.
-        let ty_frozen = TyStarlarkValue::new::<FrozenTuple>();
+        let ty_frozen = TyStarlarkValue::new::<Tuple<'static>>();
         let ty_live = TyStarlarkValue::new::<Tuple>();
         assert_eq!(ty_frozen, ty_live);
         assert_eq!(round_trip(ty_frozen), ty_frozen);
@@ -688,7 +687,7 @@ mod tests {
         // Two distinct types serialized/deserialized in one stream must each
         // round-trip to their own entry without cross-contamination.
         let none_ty = TyStarlarkValue::new::<NoneType>();
-        let tuple_ty = TyStarlarkValue::new::<FrozenTuple>();
+        let tuple_ty = TyStarlarkValue::new::<Tuple<'static>>();
 
         let mut ser = TestingSerializer::new();
         none_ty.pagable_serialize(&mut ser).unwrap();

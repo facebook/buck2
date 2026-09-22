@@ -48,7 +48,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
-use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetOrdering;
 use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProjectionTraversal;
@@ -70,7 +69,7 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
 pub struct TransitiveSetArgsProjection<'v> {
-    pub(super) transitive_set: ValueOfUnchecked<'v, FrozenTransitiveSet>,
+    pub(super) transitive_set: ValueOfUnchecked<'v, TransitiveSet<'static>>,
 
     /// The index of the projection. Once transitive sets are defined, their projections never
     /// change, so we can afford to just store the index here.
@@ -311,7 +310,7 @@ fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn transitive_set<'v>(
         this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
-    ) -> starlark::Result<ValueOfUnchecked<'v, FrozenTransitiveSet>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, TransitiveSet<'static>>> {
         Ok(this.typed.transitive_set)
     }
 }

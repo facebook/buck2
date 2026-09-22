@@ -29,7 +29,6 @@ use starlark::values::none::NoneOr;
 
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
-use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -58,7 +57,7 @@ enum ExecutionPlatformRegistrationTypeError {
 #[repr(C)]
 pub struct ExecutionPlatformRegistrationInfo<'v> {
     /// The list of execution platforms that are available for the build.
-    platforms: ValueOfUnchecked<'v, Vec<FrozenExecutionPlatformInfo>>,
+    platforms: ValueOfUnchecked<'v, Vec<ExecutionPlatformInfo<'static>>>,
     /// Specifies the behavior when no compatible execution platform is found from the `platforms` list.
     /// Can be one of:
     /// - `None` or `"use_unspecified"`: Proceed with an unspecified execution platform.

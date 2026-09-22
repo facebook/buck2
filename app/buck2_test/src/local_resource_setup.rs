@@ -9,7 +9,7 @@
  */
 
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::LocalResourceInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::OwnedLocalResourceInfo;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
@@ -82,7 +82,7 @@ async fn get_local_resource_info<'v>(
         .get_providers(target)
         .await?
         .require_compatible()?
-        .builtin_provider_value::<FrozenLocalResourceInfo>()
+        .builtin_provider_value::<LocalResourceInfo>()
         .ok_or_else(|| {
             internal_error!("Target `{target}` expected to contain `LocalResourceInfo` provider")
         })?;

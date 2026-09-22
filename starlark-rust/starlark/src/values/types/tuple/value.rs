@@ -45,7 +45,7 @@ use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
 
-/// Define the tuple type. [`FrozenTuple`] is an alias for `Tuple<'static>`.
+/// Define the tuple type.
 #[repr(C)]
 #[derive(ProvidesStaticType, Allocative)]
 pub(crate) struct Tuple<'v> {
@@ -90,11 +90,9 @@ impl<'v> Tuple<'v> {
     }
 }
 
-static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: FrozenTuple = unsafe { FrozenTuple::new(0) });
+static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: Tuple<'static> = unsafe { Tuple::new(0) });
 
 /// Runtime type of frozen tuple.
-pub(crate) type FrozenTuple = Tuple<'static>;
-
 impl<'v> Tuple<'v> {
     /// Downcast a value to a tuple.
     pub(crate) fn from_value(value: Value<'v>) -> Option<&'v Self> {
