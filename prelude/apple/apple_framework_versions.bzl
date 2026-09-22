@@ -647,6 +647,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 9, 0),
         "watchos": (2, 0, 0),
     },
+    "MarketplaceKit": {"iphoneos": (17, 4, 0)},
     "Matter": {
         "appletvos": (16, 0, 0),
         "iphoneos": (16, 0, 0),
