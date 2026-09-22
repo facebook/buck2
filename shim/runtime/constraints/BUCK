@@ -1,0 +1,41 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+constraint_setting(
+    name = "runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-host-test",
+    constraint_setting = ":runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-instrumentation-test",
+    constraint_setting = ":runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-unit-test",
+    constraint_setting = ":runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "anywhere-linux",
+    constraint_setting = ":runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "fbcode",
+    constraint_setting = ":runtime",
+    visibility = ["PUBLIC"],
+)

@@ -17,6 +17,12 @@ load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 
 oncall("open_source")
 
+configuration_alias(
+    name = "none",
+    actual = "prelude//:none",
+    visibility = ["PUBLIC"],
+)
+
 system_cxx_toolchain(
     name = "cxx",
     compiler = "gcc",

@@ -6,6 +6,14 @@
 # of this source tree.
 
 config_setting(
+    name = "linux",
+    constraint_values = [
+        "prelude//os/constraints:linux",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
     name = "linux-fedora",
     constraint_values = [
         "prelude//os/constraints:os[linux]",
@@ -23,10 +31,76 @@ config_setting(
     visibility = ["PUBLIC"],
 )
 
+configuration_alias(
+    name = "android",
+    actual = "prelude//os:android",
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-arm64",
+    constraint_values = [
+        "prelude//cpu/constraints:arm64",
+        "prelude//os/constraints:android",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "android-x86_64",
+    constraint_values = [
+        "prelude//cpu/constraints:x86_64",
+        "prelude//os/constraints:android",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "appletvos",
+    actual = "prelude//os:tvos",
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "iphoneos",
+    actual = "prelude//os:iphoneos",
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "linux-arm64",
+    actual = "prelude//os:linux-arm64",
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "linux-sgx",
+    actual = "prelude//os:linux-sgx",
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "macos",
+    actual = "prelude//os:macos",
+    visibility = ["PUBLIC"],
+)
+
 config_setting(
     name = "macos-homebrew",
     constraint_values = [
         "prelude//os/constraints:os[macos]",
     ],
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "watchos",
+    actual = "prelude//os:watchos",
+    visibility = ["PUBLIC"],
+)
+
+configuration_alias(
+    name = "windows",
+    actual = "prelude//os:windows",
     visibility = ["PUBLIC"],
 )
