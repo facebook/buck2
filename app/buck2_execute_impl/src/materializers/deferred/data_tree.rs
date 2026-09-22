@@ -21,7 +21,6 @@
 //! "foo/bar", and we need to find out which artifact "foo/bar/c" belongs to.
 
 use std::borrow::Borrow;
-use std::collections::hash_map::Entry;
 use std::collections::hash_map::IntoIter;
 use std::collections::hash_map::Iter;
 use std::hash::Hash;
@@ -43,8 +42,152 @@ use buck2_hash::StdBuckHashMap;
 #[derive(Debug)]
 pub enum DataTree<K, V> {
     /// Stores data of type `V` with key of type `Iterator<Item = K>`.
-    Tree(StdBuckHashMap<K, DataTree<K, V>>),
+    Tree(DataTreeChildren<K, DataTree<K, V>>),
     Data(V),
+}
+
+/// Child storage that allocates a hash table only when a path branches.
+#[derive(Debug)]
+pub enum DataTreeChildren<K, V> {
+    Empty,
+    One(Box<(K, V)>),
+    Many(Box<StdBuckHashMap<K, V>>),
+}
+
+impl<K, V> DataTreeChildren<K, V> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq + ?Sized,
+    {
+        match self {
+            Self::Empty => None,
+            Self::One(entry) => (entry.0.borrow() == key).then_some(&entry.1),
+            Self::Many(entries) => entries.get(key),
+        }
+    }
+
+    fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq + ?Sized,
+    {
+        match self {
+            Self::Empty => None,
+            Self::One(entry) => (entry.0.borrow() == key).then_some(&mut entry.1),
+            Self::Many(entries) => entries.get_mut(key),
+        }
+    }
+
+    fn get_or_insert_with(&mut self, key: K, value: impl FnOnce() -> V) -> &mut V
+    where
+        K: Hash + Eq,
+    {
+        if matches!(self, Self::One(entry) if entry.0 != key) {
+            let Self::One(entry) = mem::replace(self, Self::Empty) else {
+                unreachable!();
+            };
+            *self = Self::Many(Box::new(StdBuckHashMap::from([*entry])));
+        }
+
+        if matches!(self, Self::Empty) {
+            *self = Self::One(Box::new((key, value())));
+            let Self::One(entry) = self else {
+                unreachable!();
+            };
+            return &mut entry.1;
+        }
+
+        match self {
+            Self::Empty => unreachable!(),
+            Self::One(entry) => &mut entry.1,
+            Self::Many(entries) => entries.entry(key).or_insert_with(value),
+        }
+    }
+
+    fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq + ?Sized,
+    {
+        match self {
+            Self::Empty => None,
+            Self::One(entry) if entry.0.borrow() != key => None,
+            Self::One(_) => {
+                let Self::One(entry) = mem::replace(self, Self::Empty) else {
+                    unreachable!();
+                };
+                Some(entry.1)
+            }
+            Self::Many(entries) => {
+                let removed = entries.remove(key);
+                if entries.len() == 1 {
+                    let Self::Many(entries) = mem::replace(self, Self::Empty) else {
+                        unreachable!();
+                    };
+                    *self = Self::One(Box::new(
+                        (*entries)
+                            .into_iter()
+                            .next()
+                            .expect("len == 1 branch guarantees a single entry"),
+                    ));
+                }
+                removed
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+
+    fn iter(&self) -> DataTreeChildrenIter<'_, K, V> {
+        match self {
+            Self::Empty => DataTreeChildrenIter::One(None.into_iter()),
+            Self::One(entry) => DataTreeChildrenIter::One(Some((&entry.0, &entry.1)).into_iter()),
+            Self::Many(entries) => DataTreeChildrenIter::Many(entries.iter()),
+        }
+    }
+
+    fn into_iter(self) -> DataTreeChildrenIntoIter<K, V> {
+        match self {
+            Self::Empty => DataTreeChildrenIntoIter::One(None.into_iter()),
+            Self::One(entry) => DataTreeChildrenIntoIter::One(Some(*entry).into_iter()),
+            Self::Many(entries) => DataTreeChildrenIntoIter::Many((*entries).into_iter()),
+        }
+    }
+}
+
+pub enum DataTreeChildrenIter<'a, K, V> {
+    One(std::option::IntoIter<(&'a K, &'a V)>),
+    Many(Iter<'a, K, V>),
+}
+
+impl<'a, K, V> Iterator for DataTreeChildrenIter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::One(iter) => iter.next(),
+            Self::Many(iter) => iter.next(),
+        }
+    }
+}
+
+pub enum DataTreeChildrenIntoIter<K, V> {
+    One(std::option::IntoIter<(K, V)>),
+    Many(IntoIter<K, V>),
+}
+
+impl<K, V> Iterator for DataTreeChildrenIntoIter<K, V> {
+    type Item = (K, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::One(iter) => iter.next(),
+            Self::Many(iter) => iter.next(),
+        }
+    }
 }
 
 /// Visits a whole `DataTree` without making the flamegraph stack follow the
@@ -59,7 +202,31 @@ impl<K: Allocative, V: Allocative> Allocative for DataTree<K, V> {
         match self {
             Self::Tree(children) => {
                 visitor.visit_field_with(Key::new("Tree"), mem::size_of_val(children), |visitor| {
-                    visit_hash_map_keys_and_skipped_values(visitor, children);
+                    match children {
+                        DataTreeChildren::Empty => {}
+                        DataTreeChildren::One(entry) => {
+                            let mut visitor =
+                                visitor.enter_unique(Key::new("One"), mem::size_of::<*const ()>());
+                            visitor.visit_field_with(
+                                Key::new("entry"),
+                                mem::size_of_val(&**entry) - mem::size_of_val(&entry.1),
+                                |visitor| visitor.visit_field(Key::new("key"), &entry.0),
+                            );
+                            visitor.exit();
+                        }
+                        DataTreeChildren::Many(entries) => {
+                            let mut visitor =
+                                visitor.enter_unique(Key::new("Many"), mem::size_of::<*const ()>());
+                            visitor.visit_field_with(
+                                Key::new("map"),
+                                mem::size_of_val(&**entries),
+                                |visitor| {
+                                    visit_hash_map_keys_and_skipped_values(visitor, entries);
+                                },
+                            );
+                            visitor.exit();
+                        }
+                    }
                 });
             }
             Self::Data(data) => visitor.visit_field(Key::new("Data"), data),
@@ -117,7 +284,7 @@ impl<K: Allocative, V: Allocative> Allocative for DataTreeAllocativeDfs<'_, K, V
         while let Some(tree) = stack.pop() {
             tree.visit(&mut visitor);
             if let DataTree::Tree(children) = tree {
-                stack.extend(children.values());
+                stack.extend(children.iter().map(|(_, child)| child));
             }
         }
         visitor.exit();
@@ -132,7 +299,7 @@ impl<K, V> DataTree<K, V> {
 
 impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     pub fn new() -> Self {
-        Self::Tree(StdBuckHashMap::default())
+        Self::Tree(DataTreeChildren::Empty)
     }
 
     /// Gets the value at `key` or one of its prefixes, and returns it.
@@ -196,7 +363,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     pub fn get_subtree<'a, I, Q>(
         &self,
         key: &mut I,
-    ) -> buck2_error::Result<Option<&StdBuckHashMap<K, Self>>>
+    ) -> buck2_error::Result<Option<&DataTreeChildren<K, Self>>>
     where
         K: 'a + Borrow<Q>,
         Q: 'a + Hash + Eq + ?Sized,
@@ -244,10 +411,10 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
             if matches!(self, Self::Data(_)) {
                 *self = Self::new();
             }
-            let child = match self.children_mut().unwrap().entry(k) {
-                Entry::Occupied(e) => e.into_mut(),
-                Entry::Vacant(e) => e.insert(Self::new()),
-            };
+            let child = self
+                .children_mut()
+                .unwrap()
+                .get_or_insert_with(k, Self::new);
             child.insert(key, value);
         } else {
             *self = Self::Data(value);
@@ -287,14 +454,14 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         }
     }
 
-    pub fn children(&self) -> Option<&StdBuckHashMap<K, DataTree<K, V>>> {
+    pub fn children(&self) -> Option<&DataTreeChildren<K, Self>> {
         match self {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
         }
     }
 
-    fn children_mut(&mut self) -> Option<&mut StdBuckHashMap<K, DataTree<K, V>>> {
+    fn children_mut(&mut self) -> Option<&mut DataTreeChildren<K, Self>> {
         match self {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
@@ -320,7 +487,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
 
 pub enum DataTreeIterator<'a, K, V, T> {
     Stack(
-        Vec<(Option<&'a K>, Iter<'a, K, DataTree<K, V>>)>,
+        Vec<(Option<&'a K>, DataTreeChildrenIter<'a, K, DataTree<K, V>>)>,
         PhantomData<T>,
     ),
     Entry(Option<&'a V>),
@@ -360,7 +527,7 @@ where
 
 pub enum DataTreeIntoIterator<K, V, T> {
     Stack(
-        Vec<(Option<K>, IntoIter<K, DataTree<K, V>>)>,
+        Vec<(Option<K>, DataTreeChildrenIntoIter<K, DataTree<K, V>>)>,
         PhantomData<T>,
     ),
     Entry(Option<V>),
@@ -424,6 +591,119 @@ mod tests {
     }
 
     #[test]
+    fn test_child_storage_transitions() {
+        let mut tree = DataTree::<i32, i32>::new();
+        assert_matches!(tree.children(), Some(DataTreeChildren::Empty));
+        tree.insert([1].into_iter(), 10);
+        assert_matches!(tree.children(), Some(DataTreeChildren::One(_)));
+        tree.insert([1].into_iter(), 11);
+        assert_eq!(tree.prefix_get(&mut [1].iter()), Some(&11));
+        assert_matches!(tree.children(), Some(DataTreeChildren::One(_)));
+        assert!(tree.remove([2].iter()).is_none());
+        tree.insert([2].into_iter(), 20);
+        tree.insert([3].into_iter(), 30);
+        assert_matches!(tree.children(), Some(DataTreeChildren::Many(_)));
+        assert_matches!(tree.remove([2].iter()), Some(DataTree::Data(20)));
+        assert_matches!(tree.children(), Some(DataTreeChildren::Many(_)));
+        assert!(tree.remove([4].iter()).is_none());
+        assert_matches!(tree.remove([3].iter()), Some(DataTree::Data(30)));
+        assert_matches!(tree.children(), Some(DataTreeChildren::One(_)));
+        assert_eq!(tree.prefix_get(&mut [1].iter()), Some(&11));
+        assert_matches!(tree.remove([1].iter()), Some(DataTree::Data(11)));
+        assert_matches!(tree.children(), Some(DataTreeChildren::Empty));
+    }
+
+    #[test]
+    fn test_prefix_lookup_preserves_suffix() {
+        let mut tree = DataTree::<i32, i32>::new();
+        tree.insert([1, 2].into_iter(), 12);
+        tree.insert([1, 3].into_iter(), 13);
+        let path = [1, 2, 4, 5];
+        let mut key = path.iter();
+        assert_eq!(tree.prefix_get(&mut key), Some(&12));
+        assert_eq!(key.copied().collect::<Vec<_>>(), [4, 5]);
+        let mut key = path.iter();
+        *tree.prefix_get_mut(&mut key).unwrap() = 120;
+        assert_eq!(key.copied().collect::<Vec<_>>(), [4, 5]);
+        assert_eq!(tree.prefix_get(&mut path.iter()), Some(&120));
+    }
+
+    #[test]
+    fn test_overwrite_ancestor_and_descendants() {
+        let mut tree = DataTree::<i32, i32>::new();
+        tree.insert([1, 2].into_iter(), 12);
+        tree.insert([1, 3].into_iter(), 13);
+        tree.insert([1].into_iter(), 1);
+        assert_eq!(tree.iter::<CopyCollector<_>>().count(), 1);
+        assert_eq!(tree.prefix_get(&mut [1, 2].iter()), Some(&1));
+        tree.insert([1, 4].into_iter(), 14);
+        assert!(tree.prefix_get(&mut [1].iter()).is_none());
+        assert!(tree.prefix_get(&mut [1, 2].iter()).is_none());
+        assert_eq!(tree.prefix_get(&mut [1, 4].iter()), Some(&14));
+        assert_eq!(tree.into_iter::<CopyCollector<_>>().count(), 1);
+    }
+
+    #[test]
+    fn test_subtree_and_borrowed_keys() {
+        let mut tree = DataTree::<String, i32>::new();
+        tree.insert(["foo", "bar"].map(str::to_owned).into_iter(), 1);
+        tree.insert(["foo", "baz"].map(str::to_owned).into_iter(), 2);
+        let subtree = tree.get_subtree(&mut ["foo"].into_iter()).unwrap().unwrap();
+        assert_eq!(subtree.iter().count(), 2);
+        assert!(subtree.get("bar").is_some());
+        assert!(
+            tree.get_subtree(&mut ["missing"].into_iter())
+                .unwrap()
+                .is_none()
+        );
+        assert!(tree.get_subtree(&mut ["foo", "bar"].into_iter()).is_err());
+        tree.remove(["foo", "bar"].into_iter());
+        assert_eq!(tree.prefix_get(&mut ["foo", "baz"].into_iter()), Some(&2));
+    }
+
+    #[test]
+    fn test_root_value() {
+        let mut tree = DataTree::<i32, i32>::new();
+        tree.insert([1, 2].into_iter(), 12);
+        tree.insert(std::iter::empty(), 0);
+        let mut key = [1, 2].iter();
+        assert_eq!(tree.prefix_get(&mut key), Some(&0));
+        assert_eq!(key.next(), Some(&1));
+        assert!(tree.get_subtree(&mut std::iter::empty::<&i32>()).is_err());
+        let entries = tree.iter::<CopyCollector<_>>().collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].0.0.is_empty());
+        let mut key = [1, 2].iter();
+        let removed = tree.remove(&mut key).unwrap();
+        assert_eq!(key.next(), Some(&1));
+        let entries = removed.into_iter::<CopyCollector<_>>().collect::<Vec<_>>();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].0.0.is_empty());
+        assert_eq!(entries[0].1, 0);
+        assert_matches!(tree.children(), Some(DataTreeChildren::Empty));
+    }
+
+    #[test]
+    fn test_allocative_singleton_storage() {
+        let mut tree = DataTree::<u64, u64>::new();
+        tree.insert([1, 2, 3].into_iter(), 123);
+        let mut graph = allocative::FlameGraphBuilder::default();
+        graph.visit_root(&tree.allocative_dfs());
+        let output = graph.finish();
+        assert_eq!(output.warnings(), "");
+        let bytes: usize = output
+            .flamegraph()
+            .write()
+            .lines()
+            .map(|line| line.rsplit_once(' ').unwrap().1.parse::<usize>().unwrap())
+            .sum();
+        let expected = mem::size_of::<DataTreeAllocativeDfs<'_, u64, u64>>()
+            + mem::size_of::<DataTree<u64, u64>>()
+            + 3 * mem::size_of::<(u64, DataTree<u64, u64>)>();
+        assert_eq!(bytes, expected);
+    }
+
+    #[test]
     fn test_iter() {
         let expected: BTreeMap<Vec<i32>, String> = [
             (vec![1, 2, 3], "123".to_owned()),
@@ -451,6 +731,7 @@ mod tests {
     fn test_allocative_dfs_does_not_recurse_in_node_stack() {
         let mut tree = DataTree::<i32, String>::new();
         tree.insert(vec![1, 2, 3, 4, 5].into_iter(), "12345".to_owned());
+        tree.insert(vec![1, 2, 6].into_iter(), "126".to_owned());
 
         let mut graph = allocative::FlameGraphBuilder::default();
         graph.visit_root(&tree.allocative_dfs());

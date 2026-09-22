@@ -47,7 +47,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
-use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
@@ -78,6 +77,7 @@ use crate::materializers::deferred::artifact_tree::UnmaterializationUpload;
 use crate::materializers::deferred::artifact_tree::UnmaterializeArtifactsResult;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
+use crate::materializers::deferred::data_tree::DataTreeChildren;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -550,7 +550,7 @@ impl CleanStaleArtifactsCommand {
                 let dir_subtree = match dir_subtree {
                     Some(t) => t,
                     None => {
-                        empty = StdBuckHashMap::default();
+                        empty = DataTreeChildren::Empty;
                         &empty
                     }
                 };
@@ -1557,7 +1557,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
     fn visit_recursively(
         &mut self,
         path: ProjectRelativePathBuf,
-        subtree: &StdBuckHashMap<FileNameBuf, ArtifactTree>,
+        subtree: &DataTreeChildren<FileNameBuf, ArtifactTree>,
     ) -> ScanDirectoryOutcome {
         let mut queue = vec![(path, subtree)];
 
@@ -1577,10 +1577,10 @@ impl<T: IoHandler> StaleFinder<'_, T> {
     fn visit<'t>(
         &mut self,
         path: &ProjectRelativePath,
-        subtree: &'t StdBuckHashMap<FileNameBuf, ArtifactTree>,
+        subtree: &'t DataTreeChildren<FileNameBuf, ArtifactTree>,
         queue: &mut Vec<(
             ProjectRelativePathBuf,
-            &'t StdBuckHashMap<FileNameBuf, ArtifactTree>,
+            &'t DataTreeChildren<FileNameBuf, ArtifactTree>,
         )>,
     ) -> buck2_error::Result<()> {
         let abs_path = self.io.fs().resolve(path);
