@@ -158,16 +158,12 @@ def cpp_library(
             headers,
             partial(_update_headers_with_src_headers, src_headers),
         )
-    if not is_select(linker_flags):
-        linker_flags = linker_flags or []
-        linker_flags = list(linker_flags)
-        if exported_linker_flags != None:
-            linker_flags += exported_linker_flags
+    linker_flags = _combine_deps(linker_flags, exported_linker_flags)
     prelude.cxx_library(
         name = name,
         srcs = srcs,
-        deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
-        exported_deps = _fix_deps(exported_deps + external_deps_to_targets(exported_external_deps)),
+        deps = _fix_deps(_combine_deps(deps, external_deps_to_targets(external_deps))),
+        exported_deps = _fix_deps(_combine_deps(exported_deps, external_deps_to_targets(exported_external_deps))),
         visibility = visibility,
         preferred_linkage = "static",
         exported_headers = headers,
@@ -473,4 +469,15 @@ def external_dep_to_target(t):
         return "fbcode//third-party-buck/platform010/build/{}:{}".format(t, t)
 
 def external_deps_to_targets(ts):
+    if ts == None:
+        return []
+    if is_select(ts):
+        return select_map(ts, external_deps_to_targets)
     return [external_dep_to_target(t) for t in ts]
+
+def _combine_deps(left, right):
+    if left == None:
+        left = []
+    if right == None:
+        right = []
+    return left + right
