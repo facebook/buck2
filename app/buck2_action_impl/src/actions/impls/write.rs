@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
@@ -170,30 +171,12 @@ impl WriteAction {
     ) -> buck2_error::Result<String> {
         let mut cli = Vec::<String>::new();
 
-        let macro_files = self
-            .inner
-            .macro_files
-            .as_ref()
-            .map(|macro_files| {
-                macro_files
-                    .iter()
-                    .map(|a| a.resolve_path(fs.fs(), artifact_path_mapping.get(a)))
-                    .collect::<buck2_error::Result<Vec<_>>>()
-            })
-            .transpose()?;
-
-        self.contents.by_ref(|v| -> buck2_error::Result<()> {
-            let mut fmt = CommandLineBuilder::new_with_options(
-                &mut cli,
-                artifact_path_mapping,
-                fs,
-                self.inner.absolute,
-                macro_files,
-            );
-            ValueAsCommandLineLike::unpack_value_err(*v)?
-                .0
-                .add_to_command_line(&mut fmt)?;
-            Ok(())
+        self.contents.by_ref(|v| {
+            WriteCommandLineOptions {
+                absolute: self.inner.absolute,
+                macro_files: self.inner.macro_files.as_ref(),
+            }
+            .render(*v, fs, artifact_path_mapping, &mut cli)
         })?;
 
         Ok(cli.join("\n"))
@@ -320,6 +303,41 @@ impl Action for WriteAction {
                 waiting_data,
             },
         ))
+    }
+}
+
+pub(crate) struct WriteCommandLineOptions<'a> {
+    pub(crate) absolute: bool,
+    pub(crate) macro_files: Option<&'a BuckIndexSet<Artifact>>,
+}
+
+impl WriteCommandLineOptions<'_> {
+    pub(crate) fn render(
+        &self,
+        content: Value<'_>,
+        fs: &ExecutorFs<'_>,
+        artifact_path_mapping: &dyn ArtifactPathMapper,
+        sink: &mut dyn CommandLineSink,
+    ) -> buck2_error::Result<()> {
+        let macro_files = self
+            .macro_files
+            .map(|files| {
+                files
+                    .iter()
+                    .map(|a| a.resolve_path(fs.fs(), artifact_path_mapping.get(a)))
+                    .collect::<buck2_error::Result<Vec<_>>>()
+            })
+            .transpose()?;
+        let mut builder = CommandLineBuilder::new_with_options(
+            sink,
+            artifact_path_mapping,
+            fs,
+            self.absolute,
+            macro_files,
+        );
+        ValueAsCommandLineLike::unpack_value_err(content)?
+            .0
+            .add_to_command_line(&mut builder)
     }
 }
 
