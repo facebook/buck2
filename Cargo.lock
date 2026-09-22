@@ -8506,7 +8506,6 @@ dependencies = [
  "num-traits",
  "once_cell",
  "pagable",
- "paste",
  "rand 0.10.3",
  "ref-cast",
  "regex",

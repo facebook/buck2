@@ -495,7 +495,6 @@ mod tests;
 #[doc(hidden)]
 pub mod __macro_refs {
     pub use either::Either;
-    pub use paste::item;
 }
 
 pub mod __derive_refs;

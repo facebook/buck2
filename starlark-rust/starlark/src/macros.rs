@@ -18,8 +18,8 @@
 /// Reduce boilerplate when defining a Starlark value that contains other values.
 ///
 /// The type is written once, as `X<'v>`, and freezes to `X<'fv>` — see
-/// [`Freeze`](crate::values::Freeze). The macro defines a `FrozenX` alias for
-/// `X<'static>` and instances of [`AllocValue`](crate::values::AllocValue),
+/// [`Freeze`](crate::values::Freeze). The macro defines instances of
+/// [`AllocValue`](crate::values::AllocValue),
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue),
 /// [`StarlarkTypeRepr`](crate::values::type_repr::StarlarkTypeRepr) and
 /// [`UnpackValue`](crate::values::UnpackValue) for `&'v X<'v>`, plus a
@@ -29,11 +29,7 @@
 #[macro_export]
 macro_rules! starlark_complex_value {
     ($v:vis $x:ident) => {
-        $crate::__macro_refs::item! {
-            /// Type of frozen value.
-            #[allow(unused)]
-            $v type [< Frozen $x >] = $x<'static>;
-
+        const _: () = {
             $crate::register_simple_vtable_entry!($x<'static>);
 
             // SAFETY: The vtable entry is registered above. The deser type id
@@ -50,7 +46,10 @@ macro_rules! starlark_complex_value {
 
             impl<'fv> $crate::values::AllocFrozenValue<'fv> for $x<'fv> {
                 #[inline]
-                fn alloc_frozen_value(self, heap: $crate::values::FrozenHeap<'fv>) -> $crate::values::Value<'fv> {
+                fn alloc_frozen_value(
+                    self,
+                    heap: $crate::values::FrozenHeap<'fv>,
+                ) -> $crate::values::Value<'fv> {
                     heap.alloc_simple_typed(self).to_value()
                 }
             }
@@ -59,7 +58,7 @@ macro_rules! starlark_complex_value {
                 /// Downcast the value.
                 #[inline]
                 pub fn from_value(x: $crate::values::Value<'v>) -> Option<&'v Self> {
-                    x.downcast_ref::< $x<'v> >()
+                    x.downcast_ref::<$x<'v>>()
                 }
             }
 
@@ -76,11 +75,13 @@ macro_rules! starlark_complex_value {
                 type Error = std::convert::Infallible;
 
                 #[inline]
-                fn unpack_value_impl(x: $crate::values::Value<'v>) -> Result<Option<&'v $x<'v>>, Self::Error> {
+                fn unpack_value_impl(
+                    x: $crate::values::Value<'v>,
+                ) -> Result<Option<&'v $x<'v>>, Self::Error> {
                     Ok($x::from_value(x))
                 }
             }
-        }
+        };
     };
 }
 
@@ -143,7 +144,7 @@ macro_rules! starlark_complex_value {
 #[macro_export]
 macro_rules! starlark_simple_value {
     ($x:ident) => {
-        $crate::__macro_refs::item! {
+        const _: () = {
             impl<'v> $crate::values::AllocValue<'v> for $x {
                 #[inline]
                 fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
@@ -153,7 +154,10 @@ macro_rules! starlark_simple_value {
 
             impl<'fv> $crate::values::AllocFrozenValue<'fv> for $x {
                 #[inline]
-                fn alloc_frozen_value(self, heap: $crate::values::FrozenHeap<'fv>) -> $crate::values::Value<'fv> {
+                fn alloc_frozen_value(
+                    self,
+                    heap: $crate::values::FrozenHeap<'fv>,
+                ) -> $crate::values::Value<'fv> {
                     heap.alloc_simple(self)
                 }
             }
@@ -162,7 +166,7 @@ macro_rules! starlark_simple_value {
                 /// Downcast a value to self type.
                 #[inline]
                 pub fn from_value<'v>(x: $crate::values::Value<'v>) -> Option<&'v Self> {
-                    x.downcast_ref::< $x >()
+                    x.downcast_ref::<$x>()
                 }
             }
 
@@ -178,10 +182,12 @@ macro_rules! starlark_simple_value {
                 type Error = std::convert::Infallible;
 
                 #[inline]
-                fn unpack_value_impl(x: $crate::values::Value<'v>) -> std::result::Result<Option<&'v $x>, Self::Error> {
+                fn unpack_value_impl(
+                    x: $crate::values::Value<'v>,
+                ) -> std::result::Result<Option<&'v $x>, Self::Error> {
                     std::result::Result::Ok($x::from_value(x))
                 }
             }
-        }
+        };
     };
 }

@@ -35,7 +35,6 @@ num-bigint.workspace = true
 num-traits.workspace = true
 once_cell.workspace = true
 pagable.workspace = true
-paste.workspace = true
 rand.workspace = true
 ref-cast.workspace = true
 regex.workspace = true
