@@ -148,6 +148,7 @@ def cpp_library(
     propagated_pp_flags = (),
     feature = None,
     preferred_linkage = None,
+    cpp_compiler_flags = None,
     **kwargs,
 ):
     base_path = native.package_name()
@@ -160,6 +161,11 @@ def cpp_library(
         kwargs = {key: value for key, value in kwargs.items() if key != "header_namespace"}
 
     _unused = (undefined_symbols, modular_headers, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
+    if cpp_compiler_flags != None:
+        if "compiler_flags" in kwargs:
+            kwargs["compiler_flags"] = kwargs["compiler_flags"] + cpp_compiler_flags
+        else:
+            kwargs["compiler_flags"] = cpp_compiler_flags
     if headers == None:
         headers = []
     if labels != None and "oss_dependency" in labels:
