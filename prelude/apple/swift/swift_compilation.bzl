@@ -686,6 +686,7 @@ def _compile_dump_ast(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, share
         num_threads = INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS,
         output_file_map = output_file_map,
         supports_serialized_errors = False,
+        incremental_build_allowed = False,
     )
 
 # We use separate actions for swiftmodule and object file output. This
