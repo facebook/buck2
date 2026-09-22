@@ -51,6 +51,7 @@ use crate::starlark_simple_value;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapName;
+use crate::values::FrozenValueTyped;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::OwnedFrozenRef;
@@ -63,7 +64,7 @@ use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::dict::globals::register_dict;
 use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
-use crate::values::layout::typed::AtomicValueTypedOption;
+use crate::values::layout::typed::AtomicFrozenValueTypedOption;
 use crate::values::list::AllocList;
 use crate::values::list::globals::register_list;
 use crate::values::none::NoneType;
@@ -2282,13 +2283,13 @@ fn test_frozen_any_array_empty_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
-/// Host type holding an `AtomicValueTypedOption` field.
+/// Host type holding an `AtomicFrozenValueTypedOption` field.
 #[derive(Display, Allocative, ProvidesStaticType, NoSerialize, StarlarkPagable)]
 #[display("AtomicHost({})", self.label)]
 struct AtomicHost<'v> {
     label: String,
     #[allocative(skip)]
-    option: AtomicValueTypedOption<'v, StarlarkAnyComplex<FrozenComplexPayload>>,
+    option: AtomicFrozenValueTypedOption<'v, StarlarkAnyComplex<FrozenComplexPayload>>,
 }
 
 impl std::fmt::Debug for AtomicHost<'_> {
@@ -2313,9 +2314,10 @@ fn test_atomic_value_typed_option_some_round_trip() -> crate::Result<()> {
             label: "target".to_owned(),
             numbers: vec![42],
         }));
+        let payload = FrozenValueTyped::from_typed(payload).unwrap();
         erase(heap.alloc_simple(AtomicHost {
             label: "host_with_some".to_owned(),
-            option: AtomicValueTypedOption::new(Some(payload)),
+            option: AtomicFrozenValueTypedOption::new(Some(payload)),
         }))
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
@@ -2344,7 +2346,7 @@ fn test_atomic_value_typed_option_none_round_trip() -> crate::Result<()> {
     let root = heap.with(|heap| {
         erase(heap.alloc_simple(AtomicHost {
             label: "host_with_none".to_owned(),
-            option: AtomicValueTypedOption::new(None),
+            option: AtomicFrozenValueTypedOption::new(None),
         }))
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name(

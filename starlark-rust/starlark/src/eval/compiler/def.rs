@@ -109,7 +109,7 @@ use crate::values::ValueTyped;
 use crate::values::any::StarlarkAny;
 use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::function::FUNCTION_TYPE;
-use crate::values::layout::typed::AtomicValueTypedOption;
+use crate::values::layout::typed::AtomicFrozenValueTypedOption;
 use crate::values::types::any_array::AnyArray;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
@@ -677,7 +677,7 @@ pub(crate) struct Def<'v> {
     /// When the module is not frozen yet, this field contains `None`, and function's module
     /// can be accessed from evaluator's module.
     #[allocative(skip)]
-    pub(crate) module: AtomicValueTypedOption<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>,
+    pub(crate) module: AtomicFrozenValueTypedOption<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>,
     /// See [`StmtCompiledCell`].
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
@@ -742,7 +742,7 @@ impl<'v> Def<'v> {
             parameter_captures: stmt.value.parameter_captures,
             return_type,
             captured,
-            module: AtomicValueTypedOption::new(eval.top_frame_def_frozen_module(false)?),
+            module: AtomicFrozenValueTypedOption::new(eval.top_frame_def_frozen_module(false)?),
             optimized_on_freeze_stmt: StmtCompiledCell::new(),
             def_info: stmt,
         }))

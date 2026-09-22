@@ -522,28 +522,23 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v> for Value
     }
 }
 
-/// `Atomic<Option<ValueTyped<'v, T>>>`, for a `T` that only lives in frozen heaps.
+/// `Atomic<Option<FrozenValueTyped<'v, T>>>`.
 ///
 /// Holds a back reference that is filled in after its holder has been frozen and can no longer be
 /// mutated: a [`Def`](crate::eval::compiler::def::Def)'s module. Because the value is frozen it is
 /// not traced, and freezing the holder only re-types it at the new brand.
-pub(crate) struct AtomicValueTypedOption<'v, T> {
+pub(crate) struct AtomicFrozenValueTypedOption<'v, T> {
     ptr: AtomicPtr<()>,
-    /// The auto traits of the `ValueTyped<'v, T>` held.
+    /// The auto traits of the `FrozenValueTyped<'v, T>` held.
     _marker: marker::PhantomData<(Value<'v>, T)>,
 }
 
 // `encode` and `decode` transmute `Option<Value>` <-> `*mut ()`; the niche maps `None` to null.
 const _: () = assert!(mem::size_of::<Option<Value<'static>>>() == mem::size_of::<*mut ()>());
 
-impl<'v, T: StarlarkValue<'v>> AtomicValueTypedOption<'v, T> {
-    fn encode(value: Option<ValueTyped<'v, T>>) -> *mut () {
-        let value: Option<Value<'v>> = value.map(ValueTyped::to_value);
-        // Not traced, so an unfrozen value stored here would dangle after a GC; fail loudly.
-        assert!(
-            value.is_none_or(|v| v.is_frozen()),
-            "`AtomicValueTypedOption` holds frozen values only"
-        );
+impl<'v, T: StarlarkValue<'v>> AtomicFrozenValueTypedOption<'v, T> {
+    fn encode(value: Option<FrozenValueTyped<'v, T>>) -> *mut () {
+        let value: Option<Value<'v>> = value.map(FrozenValueTyped::to_value);
         // SAFETY: The sizes match (asserted above), and `Option<Value>` has no padding: `None`
         // is the null niche of the pointer.
         unsafe { mem::transmute(value) }
@@ -552,52 +547,55 @@ impl<'v, T: StarlarkValue<'v>> AtomicValueTypedOption<'v, T> {
     /// # Safety
     ///
     /// `raw` must come from `encode` on this type.
-    unsafe fn decode(raw: *mut ()) -> Option<ValueTyped<'v, T>> {
+    unsafe fn decode(raw: *mut ()) -> Option<FrozenValueTyped<'v, T>> {
         // SAFETY: The caller's obligation.
         let value: Option<Value<'v>> = unsafe { mem::transmute(raw) };
-        // SAFETY: `encode` took a `ValueTyped<'v, T>`.
-        value.map(|v| unsafe { ValueTyped::new_unchecked(v) })
+        // `encode` took a `FrozenValueTyped<'v, T>`.
+        value.map(|v| FrozenValueTyped(v, marker::PhantomData))
     }
 
-    pub(crate) fn new(value: Option<ValueTyped<'v, T>>) -> Self {
+    pub(crate) fn new(value: Option<FrozenValueTyped<'v, T>>) -> Self {
         Self {
             ptr: AtomicPtr::new(Self::encode(value)),
             _marker: marker::PhantomData,
         }
     }
 
-    pub(crate) fn load_relaxed(&self) -> Option<ValueTyped<'v, T>> {
+    pub(crate) fn load_relaxed(&self) -> Option<FrozenValueTyped<'v, T>> {
         // SAFETY: Only `encode`d pointers are stored.
         unsafe { Self::decode(self.ptr.load(Ordering::Relaxed)) }
     }
 
-    pub(crate) fn store_relaxed(&self, value: ValueTyped<'v, T>) {
+    pub(crate) fn store_relaxed(&self, value: FrozenValueTyped<'v, T>) {
         self.ptr.store(Self::encode(Some(value)), Ordering::Relaxed);
     }
 }
 
-unsafe impl<'v, T: StarlarkValue<'v>> Trace<'v> for AtomicValueTypedOption<'v, T> {
+unsafe impl<'v, T: StarlarkValue<'v>> Trace<'v> for AtomicFrozenValueTypedOption<'v, T> {
     fn trace(&mut self, _: &Tracer<'v>) {
         // The value is frozen.
     }
 }
 
-impl<'v, T> Freeze<'v> for AtomicValueTypedOption<'v, T>
+impl<'v, T> Freeze<'v> for AtomicFrozenValueTypedOption<'v, T>
 where
     T: StarlarkValue<'v>,
-    T: Freeze<'v>,
-    for<'fv> <T as Freeze<'v>>::Frozen<'fv>: StarlarkValue<'fv>,
+    T::StaticType: IsStaticType,
+    for<'fv> <T::StaticType as IsStaticType>::Reinfect<'fv>: StarlarkValue<'fv>,
 {
-    type Frozen<'fv> = AtomicValueTypedOption<'fv, <T as Freeze<'v>>::Frozen<'fv>>;
+    type Frozen<'fv> =
+        AtomicFrozenValueTypedOption<'fv, <T::StaticType as IsStaticType>::Reinfect<'fv>>;
 
     fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(AtomicValueTypedOption::new(
+        Ok(AtomicFrozenValueTypedOption::new(
             self.load_relaxed().map(|v| v.freeze(freezer)).transpose()?,
         ))
     }
 }
 
-impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for AtomicValueTypedOption<'v, T> {
+impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize
+    for AtomicFrozenValueTypedOption<'v, T>
+{
     fn starlark_serialize(
         &self,
         ctx: &mut dyn crate::pagable::starlark_serialize::StarlarkSerializeContext,
@@ -607,13 +605,13 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkSerialize for AtomicValue
 }
 
 impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize<'v>
-    for AtomicValueTypedOption<'v, T>
+    for AtomicFrozenValueTypedOption<'v, T>
 {
     fn starlark_deserialize(
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
         Ok(Self::new(
-            <Option<ValueTyped<'v, T>> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+            <Option<FrozenValueTyped<'v, T>> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
         ))
     }
 }

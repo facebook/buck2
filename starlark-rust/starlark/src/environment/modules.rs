@@ -52,9 +52,9 @@ use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
 use crate::register_starlark_any_complex;
 use crate::singleton_heap_name;
-use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::OwnedFrozen;
@@ -110,7 +110,8 @@ type OwnedFrozenModuleData =
     OwnedFrozen<ValueTyped<'static, StarlarkAnyComplex<FrozenModuleData<'static>>>>;
 
 /// A [`FrozenModule`]'s data as the value it is allocated as, at the brand of the module's heap.
-pub(crate) type FrozenModuleValue<'v> = ValueTyped<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>;
+pub(crate) type FrozenModuleValue<'v> =
+    FrozenValueTyped<'v, StarlarkAnyComplex<FrozenModuleData<'v>>>;
 
 impl PagableSerialize for FrozenModule {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
@@ -132,8 +133,7 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
 }
 
 /// The contents of a [`FrozenModule`], at the brand of the heap they live in.
-#[derive(Debug, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
-#[freeze(frozen_only)]
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
 pub(crate) struct FrozenModuleData<'v> {
     pub(crate) names: FrozenNames<'v>,
     pub(crate) slots: FrozenSlots<'v>,
@@ -578,8 +578,9 @@ impl<'v> Module<'v> {
                 docstring: docstring.into_inner(),
                 heap_profile,
             }));
+            let module = FrozenValueTyped::from_typed(data).expect("allocated in a frozen heap");
             for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-                frozen_def.post_freeze(data, heap, fh, edge, seal_edge);
+                frozen_def.post_freeze(module, heap, fh, edge, seal_edge);
             }
             FreezeResult::Ok(data)
         })?;
