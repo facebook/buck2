@@ -106,6 +106,25 @@ def _update_headers_with_src_headers(src_headers, out_headers):
         out_headers.update({k: k for k in src_headers})
     return out_headers
 
+def _map_package_headers(headers):
+    if headers == None or is_select(headers) or is_dict(headers):
+        return headers
+    subpackage_headers = {_subpackage_header_name(header): header for header in headers if _subpackage_header_name(header) != None}
+    if subpackage_headers:
+        return {(_subpackage_header_name(header) or header): header for header in headers}
+    return headers
+
+def _subpackage_header_name(header):
+    package = native.package_name()
+    prefix = "//" + package + "/"
+    if not header.startswith(prefix):
+        return None
+    parts = header[2:].split(":", 1)
+    if len(parts) != 2:
+        return None
+    label_package, label_name = parts
+    return label_package[len(package) + 1 :] + "/" + label_name
+
 def prebuilt_cpp_library(name, headers = None, linker_flags = None, private_linker_flags = None, **kwargs):
     prelude.prebuilt_cxx_library(name = name, exported_headers = headers, exported_linker_flags = linker_flags, linker_flags = private_linker_flags, **kwargs)
 
@@ -136,6 +155,9 @@ def cpp_library(
     header_base_path = base_path
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
+    if "header_namespace" in kwargs:
+        header_base_path = kwargs["header_namespace"]
+        kwargs = {key: value for key, value in kwargs.items() if key != "header_namespace"}
 
     _unused = (undefined_symbols, modular_headers, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
     if headers == None:
@@ -159,6 +181,8 @@ def cpp_library(
             partial(_update_headers_with_src_headers, src_headers),
         )
     linker_flags = _combine_deps(linker_flags, exported_linker_flags)
+    headers = _map_package_headers(headers)
+    private_headers = _map_package_headers(private_headers)
     prelude.cxx_library(
         name = name,
         srcs = srcs,
