@@ -107,7 +107,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
-    pub(crate) macro_files: Option<BuckIndexSet<Artifact>>,
+    pub(crate) macro_files: Option<Box<[Artifact]>>,
     pub(crate) use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
