@@ -160,6 +160,8 @@ def translate_target(target: str, ctx = DEFAULT_REWRITE_CTX) -> str:
         return target
 
     (cell, path) = target.split("//", 1)
+    # Ignore the optional @ when matching cells; preserve unmatched targets verbatim.
+    cell = cell.removeprefix("@")
 
     if cell == ctx.cells.root:
         # This cell is explicitly root. Don't touch
