@@ -169,7 +169,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             //   is `write_json_cli_args`. We want just `cmd_args`,
             //   because users don't care about precise type.
             //   Do it when we migrate to new types not based on strings.
-            let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
             Ok(Either::Right(cli))
         } else {
             Ok(Either::Left(value))
