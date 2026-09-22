@@ -338,7 +338,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
                 }
-                Some(macro_files.into_iter().collect())
+                Some(macro_files)
             } else {
                 None
             };
