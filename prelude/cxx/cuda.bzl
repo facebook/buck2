@@ -34,6 +34,19 @@ CudaCompileStyle = enum(
     "dist",
 )
 
+CudaDistributedCompileSpec = record(
+    cuda_compile_info = field(CudaCompileInfo),
+    original_cmd = field(cmd_args),
+    output_declared_artifact = field(OutputArtifact),
+    src_compile_cmd = field(CxxSrcCompileCommand),
+)
+
+PreparedCudaCommand = record(
+    cmd_node = field(dict[str, typing.Any]),
+    exe = field(str),
+    parts = field(list[typing.Any]),
+)
+
 def declare_cuda_dist_compile_output(actions: AnalysisActions, cuda_compile_info: CudaCompileInfo) -> CudaDistributedCompileOutput:
     """
     Declare output artifacts for CUDA distributed compilation upfront.
@@ -105,17 +118,19 @@ def cuda_mono_compile(
 
 def cuda_distributed_compile(
     actions: AnalysisActions,
-    toolchain: CxxToolchainInfo,
     cmd: cmd_args,
     object: OutputArtifact,
     cuda_dist_output: CudaDistributedCompileOutput,
     src_compile_cmd: CxxSrcCompileCommand,
     cuda_compile_info: CudaCompileInfo,
-) -> None:
+    prepare_cuda_dist: bool,
+    shared_plan_identifier: str | None,
+) -> CudaDistributedCompileSpec:
     """
-    Compile a CUDA file using distributed compilation.
-    NVCC provides the compilation plan, but compilation is split into
-    one Buck action per sub-command.
+    Set up distributed compilation for a CUDA file: optionally register the
+    nvcc -dryrun prepare action that produces the target's shared compilation
+    plan, and return the spec from which create_cuda_distributed_compiles
+    later creates one Buck action per NVCC sub-command.
 
     Compilation modes that require a whole-program device link step are NOT
     supported here: relocatable device code (-rdc=true / --device-c), device
@@ -128,39 +143,36 @@ def cuda_distributed_compile(
     """
     hostcc_argsfile = cuda_dist_output.hostcc_argsfile
 
-    # We'll first run nvcc with -dryrun. So do not bind the object file yet.
-    cmd.add(["-o", object.short_path])
-    original_cmd = cmd.copy()
-    cmd.add([
-        "-_NVCC_DRYRUN_",
-        "-_NVCC_HOSTCC_ARGSFILE_",
-        as_output(hostcc_argsfile),
-        "-_NVCC_DRYRUN_ENV_OUT_",
-        as_output(cuda_dist_output.nvcc_env),
-        "-_NVCC_DRYRUN_DAG_OUT_",
-        as_output(cuda_dist_output.nvcc_dag),
-    ])
-
-    # Run nvcc with -dryrun to create the inputs needed for dist nvcc.
-    actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
-
-    actions.dynamic_output_new(
-        _nvcc_dynamic_compile_rule(
-            toolchain = toolchain,
-            cuda_compile_infos = [cuda_compile_info],
-            src_compile_cmds = [src_compile_cmd],
-            original_cmds = [original_cmd],
-            hostcc_argsfile = hostcc_argsfile,
-            plan_artifact = cuda_dist_output.nvcc_dag,
-            env_artifact = cuda_dist_output.nvcc_env,
-            output_declared_artifacts = [object],
+    # The object is produced by the replayed plan sub-actions, not by this
+    # command, so embed its path as a string rather than binding the output.
+    original_cmd = cmd_args(cmd, ["-o", object.short_path])
+    if prepare_cuda_dist:
+        prepare_cmd = cmd_args(
+            original_cmd,
+            [
+                "-_NVCC_DRYRUN_",
+                "-_NVCC_HOSTCC_ARGSFILE_",
+                as_output(hostcc_argsfile),
+                "-_NVCC_DRYRUN_ENV_OUT_",
+                as_output(cuda_dist_output.nvcc_env),
+                "-_NVCC_DRYRUN_DAG_OUT_",
+                as_output(cuda_dist_output.nvcc_dag),
+            ],
         )
+
+        # Run nvcc with -dryrun to create the inputs needed for dist nvcc.
+        actions.run(prepare_cmd, category = "cuda_compile_prepare", identifier = shared_plan_identifier or cuda_compile_info.identifier)
+
+    return CudaDistributedCompileSpec(
+        cuda_compile_info = cuda_compile_info,
+        original_cmd = original_cmd,
+        output_declared_artifact = object,
+        src_compile_cmd = src_compile_cmd,
     )
 
 # Keep the old cuda_compile function for backward compatibility
 def cuda_compile(
     actions: AnalysisActions,
-    toolchain: CxxToolchainInfo,
     cmd: cmd_args,
     object: OutputArtifact,
     src_compile_cmd: CxxSrcCompileCommand,
@@ -170,7 +182,9 @@ def cuda_compile(
     error_handler: [typing.Callable, None],
     cuda_compile_style: CudaCompileStyle | None,
     cuda_dist_output: CudaDistributedCompileOutput | None = None,
-) -> None:
+    prepare_cuda_dist: bool = False,
+    shared_plan_identifier: str | None = None,
+) -> CudaDistributedCompileSpec | None:
     """
     Compile a CUDA file using either monolithic or distributed compilation.
     This is a convenience function that dispatches to the appropriate implementation.
@@ -190,23 +204,46 @@ def cuda_compile(
     elif cuda_compile_style == CudaCompileStyle("dist"):
         if cuda_dist_output == None:
             fail("cuda_dist_output is required for distributed CUDA compilation")
-        cuda_distributed_compile(
+        return cuda_distributed_compile(
             actions,
-            toolchain,
             cmd,
             object,
             cuda_dist_output,
             src_compile_cmd,
             cuda_compile_info,
+            prepare_cuda_dist,
+            shared_plan_identifier,
         )
-        return None
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
+
+def create_cuda_distributed_compiles(
+    actions: AnalysisActions,
+    toolchain: CxxToolchainInfo,
+    cuda_dist_output: CudaDistributedCompileOutput,
+    specs: list[CudaDistributedCompileSpec],
+) -> None:
+    if not specs:
+        return
+
+    actions.dynamic_output_new(
+        _nvcc_dynamic_compile_rule(
+            toolchain = toolchain,
+            cuda_compile_infos = [spec.cuda_compile_info for spec in specs],
+            src_compile_cmds = [spec.src_compile_cmd for spec in specs],
+            original_cmds = [spec.original_cmd for spec in specs],
+            hostcc_argsfile = cuda_dist_output.hostcc_argsfile,
+            plan_artifact = cuda_dist_output.nvcc_dag,
+            env_artifact = cuda_dist_output.nvcc_env,
+            output_declared_artifacts = [spec.output_declared_artifact for spec in specs],
+        )
+    )
 
 def _create_file_to_artifact_map(
     actions: AnalysisActions,
     plan_json: list[dict[str, typing.Any]],
     src_compile_cmd: CxxSrcCompileCommand,
+    cuda_compile_info: CudaCompileInfo,
     output_declared_artifact: OutputArtifact,
     uses_content_based_paths: bool,
 ) -> dict[str, Artifact | OutputArtifact]:
@@ -221,7 +258,8 @@ def _create_file_to_artifact_map(
                     file2artifact[input] = src_compile_cmd.src
                 else:
                     input_artifact = actions.declare_output(
-                        input,
+                        "__cuda_intermediates__",
+                        "{}/{}".format(cuda_compile_info.filename, input),
                         has_content_based_path = uses_content_based_paths,
                     )
                     file2artifact[input] = input_artifact
@@ -231,7 +269,8 @@ def _create_file_to_artifact_map(
                     file2artifact[output] = output_declared_artifact
                 else:
                     output_artifact = actions.declare_output(
-                        output,
+                        "__cuda_intermediates__",
+                        "{}/{}".format(cuda_compile_info.filename, output),
                         has_content_based_path = uses_content_based_paths,
                     )
                     file2artifact[output] = output_artifact
@@ -245,7 +284,12 @@ def _create_nvcc_subcmd_env(env_artifact: ArtifactValue) -> dict[str, str]:
         subcmd_env[key] = value
     return subcmd_env
 
-def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[str, typing.Any], subcmd: cmd_args) -> None:
+def _include_symlinked_stubs_dir(
+    actions: AnalysisActions,
+    cuda_compile_info: CudaCompileInfo,
+    file2artifact: dict[str, typing.Any],
+    subcmd: cmd_args,
+) -> None:
     """
     .cudafe1.stub.c and .fatbin.c files are hardcoded into the cudafe1.cpp file
     and its includes like below:
@@ -261,6 +305,7 @@ def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[s
     """
     stubs_dir = actions.declare_output(
         "__stubs__",
+        cuda_compile_info.filename,
         dir = True,
         has_content_based_path = True,
     )
@@ -268,8 +313,7 @@ def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[s
     for file, artifact in file2artifact.items():
         if file.endswith(".cudafe1.stub.c") or file.endswith(".fatbin.c"):
             # Remove the parent paths because the includes are the filenames only.
-            # We can do this because each dynamic compile deals with only one CUDA
-            # source file (enforced in _nvcc_dynamic_compile).
+            # Each stubs directory is scoped to one CUDA source file.
             stubs[artifact.basename] = artifact
     symlinked_dir = actions.symlinked_dir(
         stubs_dir,
@@ -277,6 +321,36 @@ def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[s
         has_content_based_path = True,
     )
     subcmd.add(cmd_args(symlinked_dir, format = "-I{}"))
+
+def _prepare_cuda_command(cmd_node: dict[str, typing.Any], hostcc_argsfile: Artifact) -> PreparedCudaCommand:
+    parts = []
+    common = cmd_args()
+    for token in cmd_node["cmd"][1:]:
+        placeholder = None
+        if "{input}" in token:
+            placeholder = "input"
+        elif "{output}" in token:
+            placeholder = "output"
+        elif "{source_path}" in token:
+            placeholder = "source_path"
+
+        if placeholder != None:
+            parts.append(("common", common))
+            left, right = token.split("{" + placeholder + "}", 1)
+
+            # Replay substitutes exactly one placeholder per token; a second
+            # one would be passed through literally.
+            for kind in ("input", "output", "source_path"):
+                if "{" + kind + "}" in left + right:
+                    fail("plan token carries multiple placeholders: {}".format(token))
+            parts.append((placeholder, (left, right)))
+            common = cmd_args()
+        elif token.startswith("-Wp,@"):
+            common.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
+        else:
+            common.add(token)
+    parts.append(("common", common))
+    return PreparedCudaCommand(cmd_node = cmd_node, exe = cmd_node["cmd"][0], parts = parts)
 
 def _nvcc_dynamic_compile(
     actions: AnalysisActions,
@@ -289,105 +363,129 @@ def _nvcc_dynamic_compile(
     env_artifact: ArtifactValue,
     output_declared_artifacts: list[OutputArtifact],
 ) -> list[Provider]:
-    if len(cuda_compile_infos) != 1 or len(src_compile_cmds) != 1 or len(original_cmds) != 1 or len(output_declared_artifacts) != 1:
-        fail("batched CUDA dynamic compiles are not supported yet; expected exactly one entry per input list")
-    cuda_compile_info = cuda_compile_infos[0]
-    src_compile_cmd = src_compile_cmds[0]
-    original_cmd = original_cmds[0]
-    output_declared_artifact = output_declared_artifacts[0]
-    plan = plan_artifact.read_json()
-    content_based = cuda_compile_info.uses_content_based_paths
-    file2artifact = _create_file_to_artifact_map(
-        actions,
-        plan,
-        src_compile_cmd,
-        output_declared_artifact,
-        content_based,
-    )
-    subcmd_env = _create_nvcc_subcmd_env(env_artifact)
-
-    category_counts = {}
-    for cmd_node in plan:
-        subcmd = cmd_args()
-        exe = cmd_node["cmd"].pop(0)
-        is_host_compiler = "g++" in exe or "clang++" in exe
-        if is_host_compiler:
-            # Add the original command as a hidden dependency, so that
-            # we have access to the host compiler and header files.
-            subcmd.add(cmd_args(hidden = original_cmd))
-        elif "ptxas" in exe:
-            # Ptxas occasionally produces an empty output. The root cause
-            # is unknown as we're unable to reproduce it locally. Check the
-            # output is not empty
-            subcmd.add(toolchain.internal_tools.check_nonempty_output)
-        subcmd.add(exe)
-
-        if content_based and cmd_node["category"] == "cuda_cxx_compile":
-            _include_symlinked_stubs_dir(actions, file2artifact, subcmd)
-
-        for token in cmd_node["cmd"]:
-            # Replace the {input} and {output} placeholders with the actual
-            # artifacts. node["inputs"] and node["outputs"] are used as a
-            # queue here where the files will always be correctly replaced
-            # in a FIFO order.
-            if "{input}" in token:
-                input = cmd_node["inputs"].pop(0)
-                left, right = token.split("{input}", 1)
-                subcmd.add(cmd_args([left, file2artifact[input], right], delimiter = ""))
-            elif "{output}" in token:
-                output = cmd_node["outputs"].pop(0)
-                left, right = token.split("{output}", 1)
-                artifact = file2artifact[output]
-                if isinstance(artifact, Artifact):
-                    bindable = artifact.as_output()
-                else:
-                    bindable = artifact
-                subcmd.add(cmd_args([left, bindable, right], delimiter = ""))
-            elif token.startswith("-Wp,@"):
-                subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
-            else:
-                subcmd.add(token)
-
-        # Some nodes have hidden dependencies (deps that don't appear in
-        # the cmd). Add them to the hidden field of cmd_args.
-        if cmd_node["hidden"]:
-            subcmd.add(cmd_args(hidden = [file2artifact[f] for f in cmd_node["hidden"]]))
-
-        # Add the cuda toolchain deps so that we can find the Nvidia tools
-        # and CUDA header files.
-        subcmd.add(cmd_args(hidden = [toolchain.cuda_compiler_info.compiler]))
-
-        # `original_cmd` pins the target's whole declared header closure into every
-        # host compiler sub-action. Without dep files none of it is prunable, so any
-        # header change anywhere in the closure re-runs all of these sub-actions even
-        # when their output is byte-identical. Let the host compiler report the
-        # headers it actually read so buck can prune the rest from the action key.
-        action_dep_files = {}
-        headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-        if is_host_compiler and headers_dep_files:
-            # Categories can repeat within a plan, so disambiguate with a
-            # per-category ordinal.
-            ordinal = category_counts.get(cmd_node["category"], 0)
-            category_counts[cmd_node["category"]] = ordinal + 1
-            subcmd = add_headers_dep_files(
-                actions,
-                subcmd,
-                headers_dep_files,
-                src_compile_cmd.src,
-                "{}/{}/{}".format(cuda_compile_info.filename, cmd_node["category"], ordinal),
-                action_dep_files,
+    num_sources = len(cuda_compile_infos)
+    if len(src_compile_cmds) != num_sources or len(original_cmds) != num_sources or len(output_declared_artifacts) != num_sources:
+        fail(
+            "per-source dist CUDA lists must be the same length, got {}/{}/{}/{}".format(
+                len(cuda_compile_infos),
+                len(src_compile_cmds),
+                len(original_cmds),
+                len(output_declared_artifacts),
             )
-
-        actions.run(
-            subcmd,
-            category = cmd_node["category"],
-            env = subcmd_env,
-            identifier = cuda_compile_info.identifier,
-            dep_files = action_dep_files,
-            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-            allow_dep_file_cache_upload = False,
-            prefer_remote = True if "preproc" in cmd_node["category"] else False,
         )
+
+    plan = plan_artifact.read_json()
+    subcmd_env = _create_nvcc_subcmd_env(env_artifact)
+    prepared_commands = [_prepare_cuda_command(cmd_node, hostcc_argsfile) for cmd_node in plan]
+    cuda_toolchain_inputs = cmd_args(hidden = [toolchain.cuda_compiler_info.compiler])
+
+    for cuda_compile_info, src_compile_cmd, original_cmd, output_declared_artifact in zip(
+        cuda_compile_infos,
+        src_compile_cmds,
+        original_cmds,
+        output_declared_artifacts,
+    ):
+        content_based = cuda_compile_info.uses_content_based_paths
+        file2artifact = _create_file_to_artifact_map(
+            actions,
+            plan,
+            src_compile_cmd,
+            cuda_compile_info,
+            output_declared_artifact,
+            content_based,
+        )
+
+        category_counts = {}
+        for prepared in prepared_commands:
+            cmd_node = prepared.cmd_node
+            subcmd = cmd_args()
+            exe = prepared.exe
+            is_host_compiler = "g++" in exe or "clang++" in exe
+            if is_host_compiler:
+                # Add the original command as a hidden dependency, so that
+                # we have access to the host compiler and header files.
+                subcmd.add(cmd_args(hidden = original_cmd))
+            elif "ptxas" in exe:
+                # Ptxas occasionally produces an empty output. The root cause
+                # is unknown as we're unable to reproduce it locally. Check the
+                # output is not empty
+                subcmd.add(toolchain.internal_tools.check_nonempty_output)
+            subcmd.add(exe)
+
+            # The stubs directory must lead the include path so its generated
+            # stub files shadow any same-named file in later include dirs.
+            if content_based and cmd_node["category"] == "cuda_cxx_compile":
+                _include_symlinked_stubs_dir(actions, cuda_compile_info, file2artifact, subcmd)
+
+            input_index = 0
+            output_index = 0
+            for kind, value in prepared.parts:
+                if kind == "common":
+                    subcmd.add(value)
+                elif kind == "input":
+                    input = cmd_node["inputs"][input_index]
+                    input_index += 1
+                    subcmd.add(cmd_args([value[0], file2artifact[input], value[1]], delimiter = ""))
+                elif kind == "output":
+                    output = cmd_node["outputs"][output_index]
+                    output_index += 1
+                    artifact = file2artifact[output]
+                    bindable = artifact.as_output() if isinstance(artifact, Artifact) else artifact
+                    subcmd.add(cmd_args([value[0], bindable, value[1]], delimiter = ""))
+                elif kind == "source_path":
+                    # The contents of the `source_path` files are not actually
+                    # used as inputs to the sub-action, they are used primarily
+                    # to name the actual source path for inclusion in things like
+                    # DWARF information. However, artifacts with content-based-paths
+                    # can't know their paths until their content is known, so they
+                    # cannot be included as ignore_artifacts=True
+                    # TODO(jtbraun): when has_content_based_path is available,
+                    # use that as the condition here
+                    if src_compile_cmd.src.is_source:
+                        subcmd.add(cmd_args([value[0], src_compile_cmd.src, value[1]], delimiter = "", ignore_artifacts = True))
+                    else:
+                        subcmd.add(cmd_args([value[0], src_compile_cmd.src, value[1]], delimiter = ""))
+                else:
+                    fail("unhandled placeholder kind: {}".format(kind))
+
+            # Some nodes have hidden dependencies (deps that don't appear in
+            # the cmd). Add them to the hidden field of cmd_args.
+            if cmd_node["hidden"]:
+                subcmd.add(cmd_args(hidden = [file2artifact[f] for f in cmd_node["hidden"]]))
+
+            subcmd.add(cuda_toolchain_inputs)
+
+            # `original_cmd` pins the target's whole declared header closure into every
+            # host compiler sub-action. Without dep files none of it is prunable, so any
+            # header change anywhere in the closure re-runs all of these sub-actions even
+            # when their output is byte-identical. Let the host compiler report the
+            # headers it actually read so buck can prune the rest from the action key.
+            action_dep_files = {}
+            headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+            if is_host_compiler and headers_dep_files:
+                # Categories can repeat within a plan, so disambiguate with a
+                # per-category ordinal.
+                ordinal = category_counts.get(cmd_node["category"], 0)
+                category_counts[cmd_node["category"]] = ordinal + 1
+                subcmd = add_headers_dep_files(
+                    actions,
+                    subcmd,
+                    headers_dep_files,
+                    src_compile_cmd.src,
+                    "{}/{}/{}".format(cuda_compile_info.filename, cmd_node["category"], ordinal),
+                    action_dep_files,
+                )
+
+            actions.run(
+                subcmd,
+                category = cmd_node["category"],
+                env = subcmd_env,
+                identifier = cuda_compile_info.identifier,
+                dep_files = action_dep_files,
+                allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+                allow_dep_file_cache_upload = False,
+                prefer_remote = True if "preproc" in cmd_node["category"] else False,
+            )
 
     return [DefaultInfo()]
 
