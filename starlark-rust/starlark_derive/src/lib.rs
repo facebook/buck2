@@ -160,11 +160,9 @@ pub fn derive_trace(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///   error.
 /// - `bounds = "..."` on the type: extra `where` predicates for the impl; the brand is in scope
 ///   under its name.
-/// - `frozen_only` on the type: the type is only ever allocated into a frozen heap (a
-///   `StarlarkAnyComplex` payload built with `FrozenHeap::alloc_simple_typed`), so it is never
-///   frozen itself, but handles to it are fields of values that are, and re-typing such a handle
-///   at `'fv` goes through `Self::Frozen<'fv>`. `freeze` is `unreachable!`, and neither the
-///   fields nor the type parameters need a `Freeze` impl of their own.
+///
+/// A type that is only ever allocated into a frozen heap needs no `Freeze` impl: hold it through
+/// a `FrozenValueTyped`, which re-types under freeze on its own.
 #[proc_macro_derive(Freeze, attributes(freeze))]
 pub fn derive_freeze(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     freeze::derive_freeze(input)

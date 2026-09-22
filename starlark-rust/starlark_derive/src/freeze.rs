@@ -54,11 +54,9 @@ impl Input<'_> {
     /// rejected: the derive cannot tell which one is the heap's.
     ///
     /// Type parameters are frozen through their own `Freeze` impl, so they are bound by it and
-    /// mapped through `Frozen<'fv>`. Under `frozen_only` nothing is frozen: type parameters keep
-    /// their declared bounds and pass through unchanged.
+    /// mapped through `Frozen<'fv>`.
     fn format_impl_generics(
         &self,
-        frozen_only: bool,
     ) -> syn::Result<(syn::Lifetime, TokenStream, TokenStream, TokenStream)> {
         let trait_ = freeze_trait();
         let span = self.input.span();
@@ -85,25 +83,14 @@ impl Input<'_> {
                 GenericParam::Type(t) => {
                     let name = &t.ident;
                     let bounds = t.bounds.iter();
-                    if frozen_only {
-                        impl_params.push(quote_spanned! {
-                            span=>
-                            #name: #(#bounds +)*
-                        });
-                        output_params.push(quote_spanned! {
-                            span=>
-                            #name
-                        });
-                    } else {
-                        impl_params.push(quote_spanned! {
-                            span=>
-                            #name: #(#bounds +)* #trait_<#brand>
-                        });
-                        output_params.push(quote_spanned! {
-                            span=>
-                            <#name as #trait_<#brand>>::Frozen<'fv>
-                        });
-                    }
+                    impl_params.push(quote_spanned! {
+                        span=>
+                        #name: #(#bounds +)* #trait_<#brand>
+                    });
+                    output_params.push(quote_spanned! {
+                        span=>
+                        <#name as #trait_<#brand>>::Frozen<'fv>
+                    });
                     input_params.push(quote_spanned! {
                         span=>
                         #name
@@ -141,7 +128,6 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         validator,
         bounds,
         identity,
-        frozen_only,
     } = extract_options(&input.input.attrs)?;
 
     if let Some(identity) = identity {
@@ -151,45 +137,28 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         ));
     }
 
-    let (brand, impl_params, input_params, output_params) =
-        input.format_impl_generics(frozen_only.is_some())?;
+    let (brand, impl_params, input_params, output_params) = input.format_impl_generics()?;
 
     let bounds_body = match bounds {
         Some(bounds) => quote_spanned! { span=> where #bounds },
         None => quote_spanned! { span=> },
     };
 
-    let body = match frozen_only {
-        Some(frozen_only) => {
-            if let Some(validator) = validator {
-                return Err(syn::Error::new_spanned(
-                    validator,
-                    "`validator` never runs under `frozen_only`",
-                ));
-            }
-            reject_field_options(input.input)?;
-            quote_spanned! { frozen_only.span()=>
-                unreachable!("only allocated in frozen heaps")
-            }
-        }
-        None => {
-            let validate_body = match validator {
-                Some(validator) => quote_spanned! {
-                    span=>
-                    match #validator(&frozen) {
-                        Ok(v) => v,
-                        Err(e) => return std::result::Result::Err(FreezeError::new(e.to_string()))
-                    };
-                },
-                None => quote_spanned! { span=> },
+    let validate_body = match validator {
+        Some(validator) => quote_spanned! {
+            span=>
+            match #validator(&frozen) {
+                Ok(v) => v,
+                Err(e) => return std::result::Result::Err(FreezeError::new(e.to_string()))
             };
-            let body = freeze_impl(input.input)?;
-            quote_spanned! { span=>
-                let frozen = #body;
-                #validate_body
-                std::result::Result::Ok(frozen)
-            }
-        }
+        },
+        None => quote_spanned! { span=> },
+    };
+    let body = freeze_impl(input.input)?;
+    let body = quote_spanned! { span=>
+        let frozen = #body;
+        #validate_body
+        std::result::Result::Ok(frozen)
     };
 
     let trait_ = freeze_trait();
@@ -209,7 +178,6 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
 }
 
 syn::custom_keyword!(identity);
-syn::custom_keyword!(frozen_only);
 
 #[derive(Default)]
 struct FreezeDeriveOptions {
@@ -219,26 +187,6 @@ struct FreezeDeriveOptions {
     bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     /// `#[freeze(identity)]`.
     identity: Option<identity>,
-    /// `#[freeze(frozen_only)]`.
-    frozen_only: Option<frozen_only>,
-}
-
-/// Under `frozen_only` no field is frozen, so a field option would be silently ignored.
-fn reject_field_options(input: &DeriveInput) -> syn::Result<()> {
-    let fields: Vec<&syn::Field> = match &input.data {
-        syn::Data::Struct(s) => s.fields.iter().collect(),
-        syn::Data::Enum(e) => e.variants.iter().flat_map(|v| v.fields.iter()).collect(),
-        syn::Data::Union(u) => u.fields.named.iter().collect(),
-    };
-    for field in fields {
-        if let Some(attr) = field.attrs.iter().find(|a| a.path().is_ident("freeze")) {
-            return Err(syn::Error::new_spanned(
-                attr,
-                "field options have no effect under `frozen_only`, which freezes no field",
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// Parse a `#[freeze(...)]` annotation.
@@ -279,14 +227,6 @@ fn extract_options(attrs: &[Attribute]) -> syn::Result<FreezeDeriveOptions> {
                         ));
                     }
                     opts.identity = Some(identity);
-                } else if let Some(frozen_only) = input.parse::<Option<frozen_only>>()? {
-                    if opts.frozen_only.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            frozen_only,
-                            "`frozen_only` was set twice",
-                        ));
-                    }
-                    opts.frozen_only = Some(frozen_only);
                 } else {
                     return Err(input.lookahead1().error());
                 }
@@ -316,7 +256,6 @@ fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
                     validator,
                     bounds,
                     identity,
-                    frozen_only,
                 } = extract_options(&f.attrs)?;
                 if let Some(validator) = validator {
                     return Err(syn::Error::new_spanned(
@@ -328,12 +267,6 @@ fn freeze_impl(derive_input: &DeriveInput) -> syn::Result<syn::Expr> {
                     return Err(syn::Error::new_spanned(
                         bounds,
                         "Cannot use `bounds` on field",
-                    ));
-                }
-                if let Some(frozen_only) = frozen_only {
-                    return Err(syn::Error::new_spanned(
-                        frozen_only,
-                        "`frozen_only` can only be used on the type",
                     ));
                 }
 
