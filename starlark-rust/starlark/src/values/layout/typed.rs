@@ -40,8 +40,6 @@ use crate::any::AnyLifetime;
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
 use crate::any::ReinfectStatic;
-use crate::coerce::Coerce;
-use crate::coerce::CoerceKey;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -69,6 +67,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
+#[repr(transparent)]
 pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 /// [`Value`] wrapper which asserts contained value is of type `<T>` and is frozen.
 ///
@@ -83,11 +82,6 @@ pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T
 #[allocative(skip)] // Heap owns the value.
 #[repr(transparent)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
-
-// SAFETY: A `ValueTyped` is a `Value` with a type-level annotation, and hashes and compares as
-// the `Value` does.
-unsafe impl<'v, T: StarlarkValue<'v>> Coerce<Value<'v>> for ValueTyped<'v, T> {}
-unsafe impl<'v, T: StarlarkValue<'v>> CoerceKey<Value<'v>> for ValueTyped<'v, T> {}
 
 unsafe impl<'v, 'f, T: StarlarkValue<'f>> Trace<'v> for FrozenValueTyped<'f, T> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}

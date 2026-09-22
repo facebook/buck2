@@ -32,7 +32,6 @@ use triomphe::Arc;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
-use crate::coerce::coerce;
 use crate::collections::symbol::map::SymbolMap;
 use crate::docs::DocParam;
 use crate::docs::DocParams;
@@ -778,7 +777,7 @@ impl<'v> ParametersSpec<Value<'v>> {
 
             fn alloc(self, heap: Heap<'v>) -> Value<'v> {
                 let kwargs = match self.kwargs {
-                    Some(kwargs) => Dict::new(coerce(kwargs)),
+                    Some(kwargs) => Dict::from_string_keyed(kwargs),
                     None => Dict::default(),
                 };
                 heap.alloc(kwargs)

@@ -37,7 +37,6 @@ use starlark_map::Equivalent;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
@@ -257,7 +256,13 @@ impl<'v> Dict<'v> {
             .copied()
     }
 
-    /// Try to coerce all keys to strings.
+    /// The content as a map keyed by strings, if every key is one.
+    ///
+    /// A `SmallMap<StringValue<'v>, Value<'v>>` and a `SmallMap<Value<'v>, Value<'v>>` whose keys
+    /// are all strings are the same map: `StringValue` is a `#[repr(transparent)]` wrapper of
+    /// `Value`, and its `Hash` and `Eq` agree with the `Value`'s on a string. This and
+    /// [`from_string_keyed`](Dict::from_string_keyed) convert between the two without touching
+    /// the entries.
     pub(crate) fn downcast_ref_key_string(&self) -> Option<&SmallMap<StringValue<'v>, Value<'v>>> {
         for &key in self.content.keys() {
             if unlikely(!key.is_str()) {
@@ -265,18 +270,24 @@ impl<'v> Dict<'v> {
             }
         }
 
-        // Scary part: `SmallMap` has the same repr for `Value` and `StringValue`,
-        // and we just checked above that all keys are strings.
-
-        fn _assert_coerce<'v>(
-            s: SmallMap<StringValue<'v>, Value<'v>>,
-        ) -> SmallMap<Value<'v>, Value<'v>> {
-            coerce(s)
-        }
-
+        // SAFETY: All keys are strings (just checked), and the two map types have one layout and
+        // the same key hashing and equality, see above.
         Some(unsafe {
             transmute!(&SmallMap<Value, Value>, &SmallMap<StringValue, Value>, &self.content)
         })
+    }
+
+    /// A dict from a map keyed by strings, without rehashing; the inverse of
+    /// [`downcast_ref_key_string`](Dict::downcast_ref_key_string).
+    pub(crate) fn from_string_keyed(content: SmallMap<StringValue<'v>, Value<'v>>) -> Dict<'v> {
+        // SAFETY: The two map types have one layout and the same key hashing and equality, see
+        // `downcast_ref_key_string`.
+        let content = unsafe {
+            mem::transmute::<SmallMap<StringValue<'v>, Value<'v>>, SmallMap<Value<'v>, Value<'v>>>(
+                content,
+            )
+        };
+        Dict { content }
     }
 
     /// Reserve capacity to insert `additional` elements without reallocating.
@@ -551,7 +562,6 @@ impl<'v, T: DictLike<'v>> Serialize for DictGen<T> {
 #[cfg(test)]
 mod tests {
     use crate::assert;
-    use crate::coerce::coerce;
     use crate::collections::SmallMap;
     use crate::values::Heap;
     use crate::values::dict::Dict;
@@ -574,12 +584,12 @@ b1 and b2 and b3
     #[test]
     fn test_get_str() -> crate::Result<()> {
         Heap::temp(|heap| {
-            let k1 = heap.alloc_str("hello").get_hashed();
-            let k2 = heap.alloc_str("world").get_hashed();
+            let k1 = heap.alloc_str("hello").get_hashed_value();
+            let k2 = heap.alloc_str("world").get_hashed_value();
             let mut sm = SmallMap::new();
             sm.insert_hashed(k1, heap.alloc(12));
             sm.insert_hashed(k2, heap.alloc(56));
-            let d = Dict::new(coerce(sm));
+            let d = Dict::new(sm);
 
             assert_eq!(d.get(heap.alloc("hello"))?.unwrap().unpack_i32(), Some(12));
             assert_eq!(d.get(heap.alloc("foo"))?, None);

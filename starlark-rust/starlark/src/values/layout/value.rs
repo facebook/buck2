@@ -38,7 +38,6 @@ use crate as starlark;
 use crate::any::AnyLifetime;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
-use crate::coerce::Coerce;
 use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::StarlarkHasher;
@@ -136,8 +135,6 @@ enum ValueValueError {
 #[allocative(skip)] // Value is owned by heap.
 // One possible change: moving to Forward during GC.
 pub struct Value<'v>(pub(crate) Pointer<'v>);
-
-unsafe impl<'v> Coerce<Value<'v>> for Value<'v> {}
 
 impl Default for Value<'_> {
     fn default() -> Self {

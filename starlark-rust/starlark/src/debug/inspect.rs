@@ -114,7 +114,6 @@ mod tests {
 
     use crate as starlark;
     use crate::assert;
-    use crate::coerce::coerce;
     use crate::collections::SmallMap;
     use crate::environment::GlobalsBuilder;
     use crate::eval::Evaluator;
@@ -131,9 +130,9 @@ mod tests {
         ) -> anyhow::Result<Dict<'v>> {
             let mut sm = SmallMap::new();
             for (k, v) in eval.local_variables() {
-                sm.insert_hashed(eval.heap().alloc_str(&k).get_hashed(), v);
+                sm.insert_hashed(eval.heap().alloc_str(&k).get_hashed_value(), v);
             }
-            Ok(Dict::new(coerce(sm)))
+            Ok(Dict::new(sm))
         }
     }
 

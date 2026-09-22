@@ -28,7 +28,6 @@ use starlark_syntax::value_error;
 use thiserror::Error;
 
 use crate as starlark;
-use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::collections::StarlarkHashValue;
@@ -334,7 +333,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     ///
     /// This operation fails if named argument names are not unique.
     pub(crate) fn names(&self) -> crate::Result<Dict<'v>> {
-        Ok(Dict::new(coerce(self.names_map()?)))
+        Ok(Dict::from_string_keyed(self.names_map()?))
     }
 
     /// Unpack all positional parameters into an iterator.
@@ -605,8 +604,8 @@ mod tests {
             assert!(p.no_named_args().is_ok());
             assert_eq!(p.len().unwrap(), 0);
             let mut sm = SmallMap::new();
-            sm.insert_hashed(heap.alloc_str("test").get_hashed(), Value::new_none());
-            p.0.kwargs = Some(heap.alloc(Dict::new(coerce(sm))));
+            sm.insert_hashed(heap.alloc_str("test").get_hashed_value(), Value::new_none());
+            p.0.kwargs = Some(heap.alloc(Dict::new(sm)));
             assert!(p.no_named_args().is_err());
             assert_eq!(p.len().unwrap(), 1);
 

@@ -205,7 +205,6 @@ mod tests {
     use starlark_syntax::dot_format_parser::FormatConv;
 
     use crate::assert;
-    use crate::coerce::coerce;
     use crate::values::Heap;
     use crate::values::Value;
     use crate::values::dict::Dict;
@@ -231,10 +230,10 @@ mod tests {
             let mut args = FormatArgs::new(original_args.iter().copied());
             let mut kwargs = SmallMap::new();
 
-            kwargs.insert_hashed(heap.alloc_str("a").get_hashed(), heap.alloc("x"));
-            kwargs.insert_hashed(heap.alloc_str("b").get_hashed(), heap.alloc("y"));
-            kwargs.insert_hashed(heap.alloc_str("c").get_hashed(), heap.alloc("z"));
-            let kwargs = Dict::new(coerce(kwargs));
+            kwargs.insert_hashed(heap.alloc_str("a").get_hashed_value(), heap.alloc("x"));
+            kwargs.insert_hashed(heap.alloc_str("b").get_hashed_value(), heap.alloc("y"));
+            kwargs.insert_hashed(heap.alloc_str("c").get_hashed_value(), heap.alloc("z"));
+            let kwargs = Dict::new(kwargs);
             assert_eq!(
                 format_capture_for_test("", FormatConv::Str, &mut args, &kwargs).unwrap(),
                 "1"

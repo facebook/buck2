@@ -486,7 +486,6 @@ pub mod wasm;
 
 pub mod pagable;
 
-pub(crate) mod coerce;
 #[cfg(test)]
 mod tests;
 
