@@ -106,8 +106,9 @@ Code is generally the same internally and externally, exceptions will be locally
 
 ## Rust Dependencies
 
-When modifying dependencies internally at Meta, change BUCK files. Almost all of our Cargo.toml
-files are maintained by autocargo, run `arc autocargo -p buck2` to update them.
+When modifying dependencies internally at Meta, change BUCK files. Our Cargo.toml files are
+maintained by autocargo, run `arc autocargo -p buck2` to update them. See
+./cargo_internally.fb.md for more.
 
 Autocargo is not available outside Meta. Hand-edit Cargo files if needed, we will deal with it on
 import.
