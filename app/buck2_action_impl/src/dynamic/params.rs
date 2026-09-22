@@ -20,6 +20,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
@@ -48,7 +49,7 @@ pub(crate) struct DynamicLambdaParams<'v> {
     pub(crate) lambda: StarlarkCallable<'v>,
     pub(crate) attr_values: Option<(
         DynamicAttrValues<'v>,
-        ValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
+        FrozenValueTyped<'v, FrozenStarlarkDynamicActionsCallable<'v>>,
     )>,
     pub(crate) outputs: Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,
@@ -61,7 +62,7 @@ pub struct FrozenDynamicLambdaParams<'fv> {
     lambda: StarlarkCallable<'fv>,
     pub attr_values: Option<(
         DynamicAttrValues<'fv>,
-        ValueTyped<'fv, FrozenStarlarkDynamicActionsCallable<'fv>>,
+        FrozenValueTyped<'fv, FrozenStarlarkDynamicActionsCallable<'fv>>,
     )>,
     pub(crate) outputs: Box<[ValueTyped<'fv, FrozenStarlarkOutputArtifact<'fv>>]>,
     pub(crate) static_fields: DynamicLambdaStaticFields,

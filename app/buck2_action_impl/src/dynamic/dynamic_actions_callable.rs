@@ -34,13 +34,13 @@ use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::values::ValueTyped;
 use starlark::values::list::ListType;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
@@ -179,7 +179,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let me = ValueTyped::new_err(me)?;
+        let me = FrozenValueTyped::new_err(me)?;
         let attr_values: DynamicAttrValues<'v> =
             self.signature.parser(args, eval, |parser, _eval| {
                 let mut attr_values = Vec::with_capacity(self.attrs.len());
@@ -241,27 +241,6 @@ impl<'v> Freeze<'v> for DynamicActionsCallable<'v> {
             name,
             attrs: attrs.freeze(freezer)?,
             signature,
-        })
-    }
-}
-
-impl<'v> Freeze<'v> for FrozenStarlarkDynamicActionsCallable<'v> {
-    type Frozen<'fv> = FrozenStarlarkDynamicActionsCallable<'fv>;
-
-    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        let FrozenStarlarkDynamicActionsCallable {
-            self_ty,
-            implementation,
-            attrs,
-            name,
-            signature,
-        } = self;
-        Ok(FrozenStarlarkDynamicActionsCallable {
-            self_ty,
-            implementation: implementation.freeze(freezer)?,
-            attrs: attrs.freeze(freezer)?,
-            name,
-            signature: signature.freeze(freezer)?,
         })
     }
 }
