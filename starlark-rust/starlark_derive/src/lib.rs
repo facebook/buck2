@@ -236,7 +236,7 @@ pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro
 ///
 /// `StarlarkDeserialize` is implemented at the type's brand: its one lifetime parameter, or a
 /// fresh `'fv` (every brand) for a type without lifetime parameters. A type with several
-/// lifetime parameters names its brand with `#[starlark_pagable(brand = 'x)]`.
+/// lifetime parameters implements the trait by hand.
 #[proc_macro_derive(StarlarkPagable, attributes(starlark_pagable))]
 pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable::derive_starlark_pagable(input)

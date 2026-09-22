@@ -54,7 +54,6 @@ use syn::parse_quote;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
-use crate::pagable_brand::OtherArgs;
 use crate::pagable_brand::deserialize_brand;
 
 #[derive(Default)]
@@ -101,7 +100,6 @@ struct TypeAttrs {
 
 fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
     syn::custom_keyword!(bound);
-    syn::custom_keyword!(brand);
 
     let mut opts = TypeAttrs::default();
 
@@ -128,15 +126,8 @@ fn extract_type_attrs(attrs: &[Attribute]) -> syn::Result<TypeAttrs> {
                             )
                         })?;
                     opts.bound = Some(predicates.into_iter().collect());
-                } else if input.peek(brand) {
-                    // Read by `deserialize_brand`.
-                    input.parse::<brand>()?;
-                    input.parse::<Token![=]>()?;
-                    input.parse::<Lifetime>()?;
                 } else {
-                    return Err(input.error(
-                        "expected `bound = \"...\"` or `brand = 'x` at the type level",
-                    ));
+                    return Err(input.error("expected `bound = \"...\"` at the type level"));
                 }
                 if input.is_empty() {
                     break;
@@ -525,7 +516,7 @@ pub fn derive_starlark_deserialize(input: proc_macro::TokenStream) -> proc_macro
 fn derive_starlark_deserialize_impl(input: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
     let type_attrs = extract_type_attrs(&input.attrs)?;
-    let (brand, generics) = deserialize_brand(input, OtherArgs::Skip)?;
+    let (brand, generics) = deserialize_brand(input)?;
     let (impl_generics, _, _) = generics.split_for_impl();
     let bounds = effective_bounds(input, &type_attrs, DerivedTrait::Deserialize(&brand))?;
     let (target_ty, where_clause) = gen_target_ty(name, &input.generics, &bounds);

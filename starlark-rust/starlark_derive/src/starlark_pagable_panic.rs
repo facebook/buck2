@@ -25,7 +25,6 @@ use quote::quote_spanned;
 use syn::DeriveInput;
 use syn::spanned::Spanned;
 
-use crate::pagable_brand::OtherArgs;
 use crate::pagable_brand::deserialize_brand;
 
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -41,7 +40,7 @@ fn derive_starlark_pagable_panic_impl(
     let input: DeriveInput = syn::parse2(input)?;
     let name = &input.ident;
     let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
-    let (brand, de_generics) = deserialize_brand(&input, OtherArgs::Reject)?;
+    let (brand, de_generics) = deserialize_brand(&input)?;
     let (de_impl_generics, _, _) = de_generics.split_for_impl();
 
     Ok(quote_spanned! { input.span() =>
