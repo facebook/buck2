@@ -57,6 +57,12 @@ impl ExpandedCommandLineFingerprinter {
         }
     }
 
+    pub fn push_bytes(&mut self, bytes: &[u8]) {
+        self.count += 1;
+        self.digest.update(bytes);
+        self.digest.update(bytes.len().to_le_bytes().as_slice());
+    }
+
     pub fn push_count(&mut self) {
         self.digest.update(self.count.to_le_bytes().as_slice());
         self.count = 0;
@@ -73,11 +79,7 @@ impl ExpandedCommandLineFingerprinter {
 
 impl CommandLineSink for ExpandedCommandLineFingerprinter {
     fn push_arg(&mut self, s: Cow<'_, str>) {
-        self.count += 1;
-
-        let bytes = s.as_bytes();
-        self.digest.update(bytes);
-        self.digest.update(bytes.len().to_le_bytes().as_slice());
+        self.push_bytes(s.as_bytes());
     }
 }
 
