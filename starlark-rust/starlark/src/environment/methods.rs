@@ -30,6 +30,7 @@ use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
@@ -220,6 +221,7 @@ impl MethodsBuilder {
                 // SAFETY: Set to `Some` immediately above
                 callable: |value, _, _| Ok(unsafe { value.unwrap_unchecked() }),
             });
+            let attr = FrozenValueTyped::from_typed(attr).expect("allocated in a frozen heap");
             // SAFETY: Allocated in `self.heap` just above.
             unsafe { erase_member(UnboundValue::Attr(attr)) }
         });
@@ -245,6 +247,7 @@ impl MethodsBuilder {
                 data: None,
                 callable: f,
             });
+            let attr = FrozenValueTyped::from_typed(attr).expect("allocated in a frozen heap");
             // SAFETY: Allocated in `self.heap` just above.
             unsafe { erase_member(UnboundValue::Attr(attr)) }
         });
@@ -273,6 +276,7 @@ impl MethodsBuilder {
                 docs: components.into_docs(None, heap),
                 ty,
             });
+            let method = FrozenValueTyped::from_typed(method).expect("allocated in a frozen heap");
             // SAFETY: Allocated in `self.heap` just above.
             unsafe { erase_member(UnboundValue::Method(method)) }
         });

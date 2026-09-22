@@ -42,15 +42,13 @@ use crate::typing::arc_ty::ArcTy;
 use crate::typing::tuple::TyTuple;
 use crate::values::AllocFrozenValue;
 use crate::values::Freeze;
-use crate::values::FreezeResult;
-use crate::values::Freezer;
 use crate::values::FrozenHeap;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::ValueTyped;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
@@ -291,22 +289,6 @@ impl<'fv> AllocFrozenValue<'fv> for NativeMethod<'fv> {
     }
 }
 
-// Only ever allocated in the frozen heaps of methods tables, so never actually frozen; the impl
-// is what lets a `ValueTyped` of it be a field of a freezable type.
-impl<'v> Freeze<'v> for NativeMethod<'v> {
-    type Frozen<'fv> = NativeMethod<'fv>;
-
-    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        Ok(NativeMethod {
-            function: NativeMeth(self.function.0, self.function.1.freeze(freezer)?),
-            name: self.name,
-            ty: self.ty,
-            speculative_exec_safe: self.speculative_exec_safe,
-            docs: self.docs,
-        })
-    }
-}
-
 #[starlark_value(type = "native_method", frozen_vtable)]
 impl<'v> StarlarkValue<'v> for NativeMethod<'v> {
     fn documentation(&self) -> DocItem {
@@ -388,7 +370,7 @@ impl<'v> StarlarkValue<'v> for NativeAttribute<'v> {
 #[repr(C)]
 #[display("{}", method)]
 pub(crate) struct BoundMethod<'v> {
-    pub(crate) method: ValueTyped<'v, NativeMethod<'v>>,
+    pub(crate) method: FrozenValueTyped<'v, NativeMethod<'v>>,
     pub(crate) this: Value<'v>,
 }
 
@@ -397,7 +379,7 @@ starlark_complex_value!(pub(crate) BoundMethod);
 impl<'v> BoundMethod<'v> {
     /// Create a new [`BoundMethod`]. Given the expression `object.function`,
     /// the first argument would be `object`, and the second would be `getattr(object, "function")`.
-    pub(crate) fn new(this: Value<'v>, method: ValueTyped<'v, NativeMethod<'v>>) -> Self {
+    pub(crate) fn new(this: Value<'v>, method: FrozenValueTyped<'v, NativeMethod<'v>>) -> Self {
         BoundMethod { method, this }
     }
 }

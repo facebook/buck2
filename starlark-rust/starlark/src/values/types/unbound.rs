@@ -28,10 +28,10 @@ use crate::any::ProvidesStaticType;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::HeapEdge;
 use crate::values::Value;
-use crate::values::ValueTyped;
 use crate::values::function::BoundMethod;
 use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMethod;
@@ -41,9 +41,9 @@ use crate::values::function::NativeMethod;
 #[derive(Clone, Copy, Dupe, ProvidesStaticType, crate::StarlarkPagable)]
 pub(crate) enum UnboundValue<'v> {
     /// A method with `this` unbound.
-    Method(ValueTyped<'v, NativeMethod<'v>>),
+    Method(FrozenValueTyped<'v, NativeMethod<'v>>),
     /// An attribute with `this` unbound.
-    Attr(ValueTyped<'v, NativeAttribute<'v>>),
+    Attr(FrozenValueTyped<'v, NativeAttribute<'v>>),
 }
 
 impl<'v> Debug for UnboundValue<'v> {
