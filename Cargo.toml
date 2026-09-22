@@ -184,9 +184,9 @@ members = [
   "starlark-rust/starlark_lsp",
   "starlark-rust/starlark_map",
   "starlark-rust/starlark_syntax",
-  "superconsole",
   "tools/starlark_fmt",
 ]
+exclude = ["superconsole"]
 resolver = "2"
 
 [workspace.package]
@@ -485,7 +485,7 @@ strong_hash = { version = "0.1.0", path = "gazebo/strong_hash", features = ["com
 strong_hash_derive = { version = "0.1.0", path = "gazebo/strong_hash_derive" }
 strsim = "0.11.1"
 strum = { version = "0.28.0", features = ["derive"] }
-superconsole = { path = "superconsole" }
+superconsole = { version = "0.3.0", path = "superconsole" }
 syn = { version = "3.0.6", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = "1.0.2"
 sys-info = "0.9.1"
