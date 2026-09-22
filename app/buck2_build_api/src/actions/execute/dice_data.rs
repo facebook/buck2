@@ -12,7 +12,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::BuckErrorContext;
@@ -28,8 +27,6 @@ use dice::DiceDataBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
 use remote_execution as RE;
-
-use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 
 pub struct CommandExecutorResponse {
     pub executor: Arc<dyn PreparedCommandExecutor>,
@@ -61,21 +58,20 @@ impl SetCommandExecutor for UserComputationData {
     }
 }
 
-#[async_trait]
 pub trait DiceHasCommandExecutor {
-    async fn get_command_executor_from_dice(
-        &mut self,
+    fn get_command_executor_from_dice(
+        &self,
+        artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
     ) -> buck2_error::Result<CommandExecutorResponse>;
 }
 
-#[async_trait]
 impl DiceHasCommandExecutor for DiceComputations<'_> {
-    async fn get_command_executor_from_dice(
-        &mut self,
+    fn get_command_executor_from_dice(
+        &self,
+        artifact_fs: &ArtifactFs,
         config: &CommandExecutorConfig,
     ) -> buck2_error::Result<CommandExecutorResponse> {
-        let artifact_fs = self.get_artifact_fs().await?;
         let holder = self
             .per_transaction_data()
             .data

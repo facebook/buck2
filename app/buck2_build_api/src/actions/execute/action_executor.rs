@@ -330,7 +330,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             remote_dep_file_cache_checker,
             cache_uploader,
             output_trees_download_config,
-        } = self.get_command_executor_from_dice(executor_config).await?;
+        } = self.get_command_executor_from_dice(artifact_fs, executor_config)?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
         let events = self.per_transaction_data().get_dispatcher();

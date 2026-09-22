@@ -634,7 +634,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             .executor()
             .is_local_execution_possible(executor_preference)
         {
-            let setup_local_resources_executor = Self::get_local_executor(dice, fs).await?;
+            let setup_local_resources_executor = Self::get_local_executor(dice, fs)?;
             let simple_stage = stage.as_ref().into();
 
             let available_resources: BuckMutMap<_, _> =
@@ -1029,7 +1029,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
         let setup_local_resources_executor =
-            Self::get_local_executor(&mut self.dice.dupe().ctx(), fs).await?;
+            Self::get_local_executor(&mut self.dice.dupe().ctx(), fs)?;
         let available_resources: BuckMutMap<_, _> =
             test_info.local_resources().into_iter().collect();
         let rule_required_names = test_info.execution_required_local_resource_names();
@@ -1508,7 +1508,7 @@ impl BuckTestOrchestrator<'_> {
         }
     }
 
-    async fn get_command_executor(
+    fn get_command_executor(
         dice: &mut DiceComputations<'_>,
         fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
@@ -1522,7 +1522,7 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader,
             output_trees_download_config: _,
-        } = dice.get_command_executor_from_dice(executor_config).await?;
+        } = dice.get_command_executor_from_dice(fs, executor_config)?;
 
         let (cache_uploader, action_cache_checker) = match stage {
             TestStage::Listing { .. } => (cache_uploader, action_cache_checker),
@@ -1551,7 +1551,7 @@ impl BuckTestOrchestrator<'_> {
         Ok(executor)
     }
 
-    async fn get_local_executor(
+    fn get_local_executor(
         dice: &mut DiceComputations<'_>,
         fs: &ArtifactFs,
     ) -> buck2_error::Result<CommandExecutor> {
@@ -1571,9 +1571,7 @@ impl BuckTestOrchestrator<'_> {
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
             output_trees_download_config: _,
-        } = dice
-            .get_command_executor_from_dice(&executor_config)
-            .await?;
+        } = dice.get_command_executor_from_dice(fs, &executor_config)?;
         let executor = CommandExecutor::new(
             executor,
             Arc::new(NoOpCommandOptionalExecutor {}),
@@ -1673,7 +1671,6 @@ impl BuckTestOrchestrator<'_> {
             stage,
             supports_test_execution_caching,
         )
-        .await
         .buck_error_context("Error constructing CommandExecutor")?;
 
         Ok(TestExecutor {
