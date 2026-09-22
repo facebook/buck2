@@ -558,7 +558,8 @@ def _define_kotlincd_action(
             cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1),
             cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
         ]
-        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_content_based_paths)
+        if target_type == TargetType("library"):
+            used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_content_based_paths)
         abi_to_abi_dir_map = None
         if kotlin_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):

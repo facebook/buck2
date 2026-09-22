@@ -336,7 +336,8 @@ def _define_javacd_action(
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
                 args.add(classpath_jars_tag.tag_artifacts(cmd_args(hidden = abi_to_abi_dir_map)))
         used_classes_json_outputs = [cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1)]
-        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_content_based_paths)
+        if target_type == TargetType("library"):
+            used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json", uses_content_based_paths)
         setup_dep_files(
             actions,
             actions_identifier,
