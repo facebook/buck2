@@ -104,3 +104,34 @@ configuration_alias(
     actual = "prelude//os:windows",
     visibility = ["PUBLIC"],
 )
+
+config_setting(
+    name = "windows-cl",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+    ],
+    values = {"cxx.windows_compiler_type": "windows"},
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "windows-clang",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+    ],
+    values = {"cxx.windows_compiler_type": "clang"},
+    visibility = ["PUBLIC"],
+)
+
+# Matches the same configurations as windows-clang: gcc is not a supported
+# Windows toolchain in the OSS shim, so "gcc or clang" reduces to clang.
+# Exported selects use this key and windows-cl in the same dict, so the two
+# must never both match one configuration.
+config_setting(
+    name = "windows-gcc-or-clang",
+    constraint_values = [
+        "prelude//os/constraints:windows",
+    ],
+    values = {"cxx.windows_compiler_type": "clang"},
+    visibility = ["PUBLIC"],
+)
