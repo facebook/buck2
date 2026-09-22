@@ -26,7 +26,6 @@ use crate::any::ProvidesStaticType;
 use crate::eval::runtime::heap_file_span::HeapFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::register_starlark_any_complex;
-use crate::values::Freeze;
 use crate::values::HeapEdge;
 
 /// Span of the call frame (including inlined call frames), at the brand of the frozen heap that
@@ -44,10 +43,8 @@ use crate::values::HeapEdge;
     Default,
     Allocative,
     ProvidesStaticType,
-    Freeze,
     starlark_derive::StarlarkPagable
 )]
-#[freeze(frozen_only)]
 pub(crate) struct FrameSpan<'f> {
     pub(crate) span: HeapFileSpan<'f>,
     /// Parent frames.
