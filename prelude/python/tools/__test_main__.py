@@ -400,6 +400,7 @@ class StderrLogHandler(logging.StreamHandler):
         logging.Handler.__init__(self)
 
     @property
+    # pyrefly: ignore [bad-override]
     def stream(self):
         return sys.stderr
 
