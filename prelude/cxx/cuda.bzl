@@ -147,13 +147,13 @@ def cuda_distributed_compile(
     actions.dynamic_output_new(
         _nvcc_dynamic_compile_rule(
             toolchain = toolchain,
-            cuda_compile_info = cuda_compile_info,
-            src_compile_cmd = src_compile_cmd,
-            original_cmd = original_cmd,
+            cuda_compile_infos = [cuda_compile_info],
+            src_compile_cmds = [src_compile_cmd],
+            original_cmds = [original_cmd],
             hostcc_argsfile = hostcc_argsfile,
             plan_artifact = cuda_dist_output.nvcc_dag,
             env_artifact = cuda_dist_output.nvcc_env,
-            output_declared_artifact = object,
+            output_declared_artifacts = [object],
         )
     )
 
@@ -269,7 +269,7 @@ def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[s
         if file.endswith(".cudafe1.stub.c") or file.endswith(".fatbin.c"):
             # Remove the parent paths because the includes are the filenames only.
             # We can do this because each dynamic compile deals with only one CUDA
-            # source file.
+            # source file (enforced in _nvcc_dynamic_compile).
             stubs[artifact.basename] = artifact
     symlinked_dir = actions.symlinked_dir(
         stubs_dir,
@@ -281,14 +281,20 @@ def _include_symlinked_stubs_dir(actions: AnalysisActions, file2artifact: dict[s
 def _nvcc_dynamic_compile(
     actions: AnalysisActions,
     toolchain: CxxToolchainInfo,
-    cuda_compile_info: CudaCompileInfo,
-    src_compile_cmd: CxxSrcCompileCommand,
-    original_cmd: cmd_args,
+    cuda_compile_infos: list[CudaCompileInfo],
+    src_compile_cmds: list[CxxSrcCompileCommand],
+    original_cmds: list[cmd_args],
     hostcc_argsfile: Artifact,
     plan_artifact: ArtifactValue,
     env_artifact: ArtifactValue,
-    output_declared_artifact: OutputArtifact,
+    output_declared_artifacts: list[OutputArtifact],
 ) -> list[Provider]:
+    if len(cuda_compile_infos) != 1 or len(src_compile_cmds) != 1 or len(original_cmds) != 1 or len(output_declared_artifacts) != 1:
+        fail("batched CUDA dynamic compiles are not supported yet; expected exactly one entry per input list")
+    cuda_compile_info = cuda_compile_infos[0]
+    src_compile_cmd = src_compile_cmds[0]
+    original_cmd = original_cmds[0]
+    output_declared_artifact = output_declared_artifacts[0]
     plan = plan_artifact.read_json()
     content_based = cuda_compile_info.uses_content_based_paths
     file2artifact = _create_file_to_artifact_map(
@@ -388,13 +394,13 @@ def _nvcc_dynamic_compile(
 _nvcc_dynamic_compile_rule = dynamic_actions(
     impl = _nvcc_dynamic_compile,
     attrs = {
-        "cuda_compile_info": dynattrs.value(CudaCompileInfo),
+        "cuda_compile_infos": dynattrs.list(dynattrs.value(CudaCompileInfo)),
         "env_artifact": dynattrs.artifact_value(),
         "hostcc_argsfile": dynattrs.value(Artifact),
-        "original_cmd": dynattrs.value(cmd_args),
-        "output_declared_artifact": dynattrs.output(),
+        "original_cmds": dynattrs.list(dynattrs.value(cmd_args)),
+        "output_declared_artifacts": dynattrs.list(dynattrs.output()),
         "plan_artifact": dynattrs.artifact_value(),
-        "src_compile_cmd": dynattrs.value(CxxSrcCompileCommand),
+        "src_compile_cmds": dynattrs.list(dynattrs.value(CxxSrcCompileCommand)),
         "toolchain": dynattrs.value(CxxToolchainInfo),
     },
 )
