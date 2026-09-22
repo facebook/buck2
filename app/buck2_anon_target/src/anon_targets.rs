@@ -691,23 +691,13 @@ pub(crate) fn init_anon_target_registry_new() {
 }
 
 impl<'v> AnonTargetsRegistry<'v> {
-    pub(crate) fn downcast_mut(
-        registry: &mut dyn AnonTargetsRegistryDyn<'v>,
-    ) -> buck2_error::Result<&'v mut AnonTargetsRegistry<'v>> {
-        let registry: &mut AnonTargetsRegistry = registry
+    pub(crate) fn downcast_mut<'a>(
+        registry: &'a mut dyn AnonTargetsRegistryDyn<'v>,
+    ) -> buck2_error::Result<&'a mut AnonTargetsRegistry<'v>> {
+        registry
             .as_any_mut()
-            .downcast_mut::<AnonTargetsRegistry>()
-            .ok_or_else(|| {
-                internal_error!("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")
-            })?;
-        unsafe {
-            // It is hard or impossible to express this safely with the borrow checker.
-            // Has something to do with 'v being invariant.
-            Ok(mem::transmute::<
-                &mut AnonTargetsRegistry,
-                &mut AnonTargetsRegistry,
-            >(registry))
-        }
+            .downcast_mut::<AnonTargetsRegistry<'v>>()
+            .ok_or_else(|| internal_error!("AnonTargetsRegistryDyn is not an AnonTargetsRegistry"))
     }
 
     pub(crate) fn anon_target_key(
