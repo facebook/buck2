@@ -423,6 +423,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_hg_status_uses_repo_root() -> buck2_error::Result<()> {
+        if std::process::Command::new("hg")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            eprintln!("skipping: hg is not installed");
+            return Ok(());
+        }
         let temp_dir = tempfile::tempdir()?;
         let repo_root = temp_repo_root(&temp_dir)?;
         run_hg(&repo_root, &["init"])
