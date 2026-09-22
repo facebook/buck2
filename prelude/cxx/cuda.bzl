@@ -236,6 +236,7 @@ def create_cuda_distributed_compiles(
     cuda_dist_output: CudaDistributedCompileOutput,
     specs: list[CudaDistributedCompileSpec],
     allow_cache_upload: bool,
+    cuda_cxx_compile_inputs: cmd_args,
     headers_dep_files: HeadersDepFiles | None,
 ) -> None:
     if not specs:
@@ -247,6 +248,7 @@ def create_cuda_distributed_compiles(
             cuda_compile_infos = [spec.cuda_compile_info for spec in specs],
             srcs = [spec.src for spec in specs],
             allow_cache_upload = allow_cache_upload,
+            cuda_cxx_compile_inputs = cuda_cxx_compile_inputs,
             headers_dep_files = headers_dep_files,
             original_cmds = [spec.original_cmd for spec in specs],
             hostcc_argsfile = cuda_dist_output.hostcc_argsfile,
@@ -369,12 +371,26 @@ def _prepare_cuda_command(cmd_node: dict[str, typing.Any], hostcc_argsfile: Arti
     parts.append(("common", common))
     return PreparedCudaCommand(cmd_node = cmd_node, exe = cmd_node["cmd"][0], parts = parts)
 
+def _cuda_replay_input_kind(category: str) -> str:
+    # Device phase categories appear both arch-suffixed (`cuda_opt_sm90a`) and
+    # bare: the plan parser emits the bare form whenever an intermediate file
+    # name carries no compute_{arch} component, e.g. for arch suffixes its
+    # normalization does not recognize.
+    if category == "cuda_host_preproc" or category == "cuda_device_preproc" or category.startswith("cuda_device_preproc_"):
+        return "preprocess"
+    if category == "cuda_cxx_compile":
+        return "host_compile"
+    if category in ("cudafepp", "cuda_fatbin", "cuda_opt", "cuda_cubin_lower") or category.startswith("cuda_opt_") or category.startswith("cuda_cubin_lower_"):
+        return "cuda_tool"
+    fail("Unsupported distributed CUDA phase category `{}`; update its input policy".format(category))
+
 def _nvcc_dynamic_compile(
     actions: AnalysisActions,
     toolchain: CxxToolchainInfo,
     cuda_compile_infos: list[CudaCompileInfo],
     srcs: list[Artifact],
     allow_cache_upload: bool,
+    cuda_cxx_compile_inputs: cmd_args,
     headers_dep_files: HeadersDepFiles | None,
     original_cmds: list[cmd_args],
     hostcc_argsfile: Artifact,
@@ -396,7 +412,8 @@ def _nvcc_dynamic_compile(
     plan = plan_artifact.read_json()
     subcmd_env = _create_nvcc_subcmd_env(env_artifact)
     prepared_commands = [_prepare_cuda_command(cmd_node, hostcc_argsfile) for cmd_node in plan]
-    cuda_toolchain_inputs = cmd_args(hidden = [toolchain.cuda_compiler_info.compiler])
+    cuda_toolchain = getattr(toolchain.cuda_compiler_info, "compiler_for_dryrun", None) or toolchain.cuda_compiler_info.compiler
+    cuda_tool_inputs = cmd_args(hidden = [cuda_toolchain])
 
     for cuda_compile_info, src, original_cmd, output_declared_artifact in zip(
         cuda_compile_infos,
@@ -419,12 +436,15 @@ def _nvcc_dynamic_compile(
             cmd_node = prepared.cmd_node
             subcmd = cmd_args()
             exe = prepared.exe
-            is_cxx_subcommand = cmd_node["category"] == "cuda_cxx_compile" or "preproc" in cmd_node["category"]
-            if is_cxx_subcommand:
-                # Add the original command as a hidden dependency so that its
-                # source and header inputs are available to the replayed command.
+            input_kind = _cuda_replay_input_kind(cmd_node["category"])
+            if input_kind == "preprocess":
                 subcmd.add(cmd_args(hidden = original_cmd))
-            elif "ptxas" in exe:
+            elif input_kind == "host_compile":
+                subcmd.add(cmd_args(hidden = cuda_cxx_compile_inputs))
+            else:
+                subcmd.add(cuda_tool_inputs)
+
+            if "ptxas" in exe:
                 # Ptxas occasionally produces an empty output. The root cause
                 # is unknown as we're unable to reproduce it locally. Check the
                 # output is not empty
@@ -472,15 +492,11 @@ def _nvcc_dynamic_compile(
             if cmd_node["hidden"]:
                 subcmd.add(cmd_args(hidden = [file2artifact[f] for f in cmd_node["hidden"]]))
 
-            subcmd.add(cuda_toolchain_inputs)
-
-            # `original_cmd` pins the target's whole declared header closure into every
-            # host compiler sub-action. Without dep files none of it is prunable, so any
-            # header change anywhere in the closure re-runs all of these sub-actions even
-            # when their output is byte-identical. Let the host compiler report the
-            # headers it actually read so buck can prune the rest from the action key.
+            # Host-compiler sub-actions pin a declared header closure; dep files
+            # let the compiler report what it actually read so buck can prune the
+            # rest from the action key.
             action_dep_files = {}
-            if is_cxx_subcommand and headers_dep_files:
+            if input_kind != "cuda_tool" and headers_dep_files != None:
                 # Categories can repeat within a plan, so disambiguate with a
                 # per-category ordinal.
                 ordinal = category_counts.get(cmd_node["category"], 0)
@@ -512,6 +528,7 @@ _nvcc_dynamic_compile_rule = dynamic_actions(
     attrs = {
         "allow_cache_upload": dynattrs.value(bool),
         "cuda_compile_infos": dynattrs.list(dynattrs.value(CudaCompileInfo)),
+        "cuda_cxx_compile_inputs": dynattrs.value(cmd_args),
         "env_artifact": dynattrs.artifact_value(),
         "headers_dep_files": dynattrs.option(dynattrs.value(HeadersDepFiles)),
         "hostcc_argsfile": dynattrs.value(Artifact),
