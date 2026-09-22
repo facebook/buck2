@@ -130,6 +130,7 @@ def cxx_toolchain_impl(ctx):
     cuda_info = (
         CudaCompilerInfo(
             compiler = ctx.attrs.cuda_compiler[RunInfo],
+            compiler_for_dryrun = ctx.attrs.cuda_compiler_for_dryrun[RunInfo] if ctx.attrs.cuda_compiler_for_dryrun else None,
             compiler_type = ctx.attrs.cuda_compiler_type or ctx.attrs.compiler_type,
             compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
             preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
@@ -332,6 +333,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "compiler_flavor_flags": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), default = {}),
         "cpp_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "cuda_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "cuda_compiler_for_dryrun": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cuda_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "custom_tools": attrs.dict(key = attrs.string(), value = dep_type(providers = [RunInfo]), default = {}),
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),

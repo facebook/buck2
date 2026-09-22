@@ -169,7 +169,7 @@ _compiler_fields = [
 AsCompilerInfo = provider(fields = _compiler_fields)
 AsmCompilerInfo = provider(fields = _compiler_fields)
 CCompilerInfo = provider(fields = _compiler_fields)
-CudaCompilerInfo = provider(fields = _compiler_fields)
+CudaCompilerInfo = provider(fields = _compiler_fields + ["compiler_for_dryrun"])
 CvtresCompilerInfo = provider(fields = _compiler_fields)
 CxxCompilerInfo = provider(fields = _compiler_fields)
 HipCompilerInfo = provider(fields = _compiler_fields)
@@ -184,6 +184,11 @@ def compiler_info_with_argsfiles(
     fields["argsfile"] = argsfile
     fields["argsfile_xcode"] = argsfile_xcode
     fields["argsfile_precompile"] = argsfile_precompile
+
+    # CudaCompilerInfo carries fields beyond the shared set.
+    compiler_for_dryrun = getattr(compiler_info, "compiler_for_dryrun", None)
+    if compiler_for_dryrun != None:
+        fields["compiler_for_dryrun"] = compiler_for_dryrun
     return ctor(**fields)
 
 DistLtoToolsInfo = provider(
