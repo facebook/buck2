@@ -396,22 +396,6 @@ impl<'v> Freeze<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-impl<'v> Freeze<'v> for FrozenTransitiveSetDefinition<'v> {
-    type Frozen<'fv> = FrozenTransitiveSetDefinition<'fv>;
-
-    fn freeze<'fv>(self, freezer: &Freezer<'v, 'fv>) -> FreezeResult<Self::Frozen<'fv>> {
-        // Already frozen: freezing the contained values just re-brands them.
-        let Self {
-            exported,
-            operations,
-        } = self;
-        Ok(FrozenTransitiveSetDefinition {
-            exported,
-            operations: operations.freeze(freezer)?,
-        })
-    }
-}
-
 pub trait TransitiveSetDefinitionLike<'v> {
     fn has_id(&self) -> bool;
 

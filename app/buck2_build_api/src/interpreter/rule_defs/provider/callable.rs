@@ -53,6 +53,7 @@ use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
+use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -61,7 +62,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
-use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
@@ -244,8 +244,7 @@ fn create_callable_function_signature<'v>(
 ///
 /// One copy per provider type, shared by the callable and every instance: allocated in the
 /// module's frozen heap as a `StarlarkAnyComplex` (see [`UserProviderCallableDataValue`]).
-#[derive(Debug, Allocative, ProvidesStaticType, Freeze, StarlarkPagable)]
-#[freeze(frozen_only)]
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
 pub(crate) struct UserProviderCallableData<'v> {
     #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
@@ -259,7 +258,7 @@ starlark::register_starlark_any_complex!(frozen UserProviderCallableData<'_>);
 /// A [`UserProviderCallableData`] as the value it is allocated as, at the brand of the heap that
 /// holds it.
 pub(crate) type UserProviderCallableDataValue<'v> =
-    ValueTyped<'v, StarlarkAnyComplex<UserProviderCallableData<'v>>>;
+    FrozenValueTyped<'v, StarlarkAnyComplex<UserProviderCallableData<'v>>>;
 
 /// Initialized after the name is assigned to the provider.
 #[derive(Debug, Trace, Allocative, StarlarkPagable)]
@@ -555,6 +554,8 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable<'v> {
                                 .collect(),
                             ty_provider_type_instance_id,
                         }));
+                    let data =
+                        FrozenValueTyped::from_typed(data).expect("allocated in a frozen heap");
                     edge.rebrand(data)
                 }),
                 ty_provider,
