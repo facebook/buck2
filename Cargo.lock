@@ -10763,3 +10763,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "bindgen"
+version = "0.72.1"
+source = "git+https://github.com/jsgf/rust-bindgen?rev=4d385d21c160e6ee1f443aeb7e00528a1dc7fd44#4d385d21c160e6ee1f443aeb7e00528a1dc7fd44"
