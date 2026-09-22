@@ -54,11 +54,29 @@ async fn get_vcs_revision(vcs: RepoVcs, repo_root: &AbsNormPath) -> Option<Strin
     Some(std::str::from_utf8(&output.stdout).ok()?.trim().to_owned())
 }
 
+/// The VCS owning `repo_root`, from the nearest `.hg`, `.sl` or `.git` in it or its parents.
+fn repo_vcs(repo_root: &AbsNormPath) -> Option<RepoVcs> {
+    repo_root.as_path().ancestors().find_map(|dir| {
+        if dir.join(".hg").is_dir() || dir.join(".sl").is_dir() {
+            Some(RepoVcs::Hg)
+        } else if dir.join(".git").exists() {
+            Some(RepoVcs::Git)
+        } else {
+            None
+        }
+    })
+}
+
 async fn compute_revision(repo_root: &AbsNormPath) -> Option<String> {
-    if let Some(revision) = get_vcs_revision(RepoVcs::Hg, repo_root).await {
-        return Some(revision);
+    match repo_vcs(repo_root) {
+        Some(vcs) => get_vcs_revision(vcs, repo_root).await,
+        None => {
+            if let Some(revision) = get_vcs_revision(RepoVcs::Hg, repo_root).await {
+                return Some(revision);
+            }
+            get_vcs_revision(RepoVcs::Git, repo_root).await
+        }
     }
-    get_vcs_revision(RepoVcs::Git, repo_root).await
 }
 
 /// Lazily computed version-control revision for one repository root.
@@ -112,10 +130,6 @@ mod tests {
         let temp_dir = tempfile::tempdir().expect("creating a temporary directory should succeed");
         let repo_root = AbsNormPathBuf::try_from(temp_dir.path().to_path_buf())
             .expect("the temporary directory should be absolute");
-        // Stop hg from discovering an enclosing checkout when TMPDIR is inside one.
-        tokio::fs::create_dir(repo_root.as_path().join(".hg"))
-            .await
-            .expect("creating an invalid hg metadata directory should succeed");
         git(&repo_root, &["init", "-q"]).await;
         tokio::fs::write(repo_root.as_path().join("file.txt"), contents)
             .await
