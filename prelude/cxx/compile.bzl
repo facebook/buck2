@@ -27,8 +27,6 @@ load(
     "@prelude//cxx:cuda.bzl",
     "CudaCompileInfo",
     "CudaCompileStyle",  # @unused Used as a type
-    "CudaDistributedCompileSpec",  # @unused Used as a type
-    "create_cuda_distributed_compiles",
     "cuda_compile",
     "declare_cuda_dist_compile_output",
 )
@@ -77,10 +75,6 @@ load(
     "cxx_merge_cpreprocessors",
     "get_flags_for_compiler_type",
 )
-
-# Output folder shared by every per-source object declaration; the shared CUDA
-# plan must declare its outputs under the same folder as the objects it feeds.
-_OBJECTS_FOLDER = "__objects__"
 
 # Record containing compile info that will be passed to the dynamic action
 CxxCompileInfo = record(
@@ -379,7 +373,6 @@ def _prepare_cxx_compilation(
     use_header_units: UseHeaderUnitsMode,
     separate_debug_info: bool,
     cuda_compile_style: CudaCompileStyle | None,
-    shared_cuda_dist_output: CudaDistributedCompileOutput | None,
     compile_pch: CxxPrecompiledHeader | None,
 ) -> CxxCompileInput:
     """
@@ -405,7 +398,7 @@ def _prepare_cxx_compilation(
         identifier = "{} ({})".format(identifier, flavor.value)
 
     content_based = src_compile_cmd.uses_content_based_paths
-    folder_name = _OBJECTS_FOLDER
+    folder_name = "__objects__"
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
 
     # Declare main object output
@@ -516,7 +509,7 @@ def _prepare_cxx_compilation(
     # Only declare CUDA distributed compile outputs for CUDA source files
     cuda_dist_output = None
     if src_compile_cmd.src.extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
-        cuda_dist_output = shared_cuda_dist_output or declare_cuda_dist_compile_output(
+        cuda_dist_output = declare_cuda_dist_compile_output(
             actions,
             CudaCompileInfo(
                 filename = filename_base,
@@ -605,12 +598,10 @@ def _compile_single_cxx(
     clang_tidy_diagnostics: OutputArtifact | None,
     preproc: OutputArtifact,
     index_store: OutputArtifact | None,
-    dist_cuda: CudaDistributedCompileOutput | None,
-    prepare_cuda_dist: bool,
-    cuda_shared_plan_identifier: str | None,
+    dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
     pch_object: OutputArtifact | None,
     json_error: OutputArtifact | None,
-) -> CudaDistributedCompileSpec | None:
+) -> None:
     """
     EXECUTION PHASE: Creates compilation actions for a single source file.
 
@@ -635,7 +626,6 @@ def _compile_single_cxx(
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
     content_based = src_compile_cmd.uses_content_based_paths
 
-    cuda_dist_spec = None
     if src_compile_cmd.src.extension == ".cu":
         output_args = None
     elif compile_pch:
@@ -759,8 +749,16 @@ def _compile_single_cxx(
             uses_content_based_paths = content_based,
         )
 
-        cuda_dist_spec = cuda_compile(
+        cuda_dist_output = None
+        if dist_cuda:
+            cuda_dist_output = CudaDistributedCompileOutput(
+                nvcc_dag = dist_cuda[0].as_input(),
+                nvcc_env = dist_cuda[1].as_input(),
+                hostcc_argsfile = dist_cuda[2].as_input(),
+            )
+        cuda_compile(
             actions,
+            toolchain,
             cmd,
             object,
             src_compile_cmd,
@@ -769,9 +767,7 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
             cuda_compile_style = cuda_compile_style,
-            cuda_dist_output = dist_cuda,
-            prepare_cuda_dist = prepare_cuda_dist,
-            shared_plan_identifier = cuda_shared_plan_identifier,
+            cuda_dist_output = cuda_dist_output,
         )
     else:
         is_producing_compiled_pch = bool(compile_pch)
@@ -876,8 +872,6 @@ def _compile_single_cxx(
         error_handler = src_compile_cmd.error_handler,
     )
 
-    return cuda_dist_spec
-
 def _get_base_compile_cmd(
     bitcode_args: cmd_args | list,
     src_compile_cmd: CxxSrcCompileCommand,
@@ -951,7 +945,6 @@ def _cxx_dynamic_compile(
     preproc: list[OutputArtifact],
     index_store: list[OutputArtifact | None],
     dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
-    shared_dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
     pch_object: list[OutputArtifact | None],
     json_error: list[OutputArtifact | None],
 ) -> list[Provider]:
@@ -985,33 +978,8 @@ def _cxx_dynamic_compile(
     one per source file.
     """
     flavors_set = set(flavors)
-    shared_cuda_specs = []
-    shared_cuda_dist_output = None
-    shared_cuda_plan_src_idx = None
-    if shared_dist_cuda != None:
-        shared_cuda_dist_output = CudaDistributedCompileOutput(
-            nvcc_dag = shared_dist_cuda[0].as_input(),
-            nvcc_env = shared_dist_cuda[1].as_input(),
-            hostcc_argsfile = shared_dist_cuda[2].as_input(),
-        )
-    cuda_shared_plan_identifier = _cuda_plan_identifier(flavors_set) if shared_cuda_dist_output != None else None
     for i in range(len(infos)):
-        is_cuda = infos[i].compile_cmd.src.extension == ".cu"
-
-        # Exactly one prepare action must bind the shared plan outputs. Any
-        # shared CUDA source is a valid representative, since sharing requires
-        # identical plan-affecting args across sources; use the first one.
-        if is_cuda and shared_cuda_dist_output != None and shared_cuda_plan_src_idx == None:
-            shared_cuda_plan_src_idx = i
-        source_dist_cuda = shared_cuda_dist_output if is_cuda else None
-        if source_dist_cuda == None and dist_cuda[i] != None:
-            source_dist_cuda = CudaDistributedCompileOutput(
-                nvcc_dag = dist_cuda[i][0].as_input(),
-                nvcc_env = dist_cuda[i][1].as_input(),
-                hostcc_argsfile = dist_cuda[i][2].as_input(),
-            )
-        prepare_cuda_dist = source_dist_cuda != None and (shared_cuda_dist_output == None or i == shared_cuda_plan_src_idx)
-        cuda_dist_spec = _compile_single_cxx(
+        _compile_single_cxx(
             actions = actions,
             label = label,
             toolchain = toolchain,
@@ -1033,24 +1001,10 @@ def _cxx_dynamic_compile(
             clang_tidy_diagnostics = clang_tidy_diagnostics[i],
             preproc = preproc[i],
             index_store = index_store[i],
-            dist_cuda = source_dist_cuda,
-            prepare_cuda_dist = prepare_cuda_dist,
-            cuda_shared_plan_identifier = cuda_shared_plan_identifier,
+            dist_cuda = dist_cuda[i],
             pch_object = pch_object[i],
             json_error = json_error[i],
         )
-        if cuda_dist_spec != None:
-            if shared_cuda_dist_output != None:
-                shared_cuda_specs.append(cuda_dist_spec)
-            else:
-                create_cuda_distributed_compiles(actions, toolchain, source_dist_cuda, [cuda_dist_spec])
-
-    if shared_cuda_dist_output != None:
-        expect(
-            shared_cuda_plan_src_idx != None,
-            "shared CUDA plan outputs were declared but no .cu source is present to bind them",
-        )
-        create_cuda_distributed_compiles(actions, toolchain, shared_cuda_dist_output, shared_cuda_specs)
 
     return [EMPTY_DEFAULT_INFO]
 
@@ -1080,51 +1034,10 @@ _dynamic_compile_rule = dynamic_actions(
         "pch_object": dynattrs.list(dynattrs.option(dynattrs.output())),
         "precompiled_header": dynattrs.option(dynattrs.value(Dependency)),
         "preproc": dynattrs.list(dynattrs.output()),
-        "shared_dist_cuda": dynattrs.option(dynattrs.tuple(dynattrs.output(), dynattrs.output(), dynattrs.output())),
         "toolchain": dynattrs.value(CxxToolchainInfo),
         "use_header_units": dynattrs.value(UseHeaderUnitsMode),
     },
 )
-
-def _cuda_plan_flavor(flavors: set[CxxCompileFlavor]) -> str:
-    return ".".join(sorted([flavor.value for flavor in flavors])) or "default"
-
-def _cuda_plan_identifier(flavors: set[CxxCompileFlavor]) -> str:
-    return "cuda_compile_plan ({})".format(_cuda_plan_flavor(flavors))
-
-def maybe_get_shared_cuda_dist_output(
-    actions: AnalysisActions,
-    src_compile_cmds: list[CxxSrcCompileCommand],
-    cuda_compile_style: CudaCompileStyle | None,
-    flavors: set[CxxCompileFlavor],
-) -> CudaDistributedCompileOutput | None:
-    cuda_src_compile_cmds = [cmd for cmd in src_compile_cmds if cmd.src.extension == ".cu"]
-    if cuda_compile_style != CudaCompileStyle("dist") or not cuda_src_compile_cmds:
-        return None
-
-    for cmd in cuda_src_compile_cmds:
-        # Same-extension sources already share one `cxx_compile_cmd`, so per-source
-        # args, duplicate-basename disambiguation (`index`), and path style are the
-        # only sharing hazards.
-        # create_compile_cmds appends source flags before "-c" and the source artifact.
-        # Only commands with no source-specific flags can share an NVCC plan.
-        if len(cmd.args) != 2 or cmd.args[0] != "-c" or cmd.args[1] != cmd.src or cmd.index != None:
-            return None
-        if cmd.uses_content_based_paths != cuda_src_compile_cmds[0].uses_content_based_paths:
-            return None
-
-    # Plan outputs are named per flavor set: callers invoke compile_cxx at most
-    # once per flavor set within a target, and a collision fails analysis loudly.
-    cuda_plan_flavor = _cuda_plan_flavor(flavors)
-    return declare_cuda_dist_compile_output(
-        actions,
-        CudaCompileInfo(
-            filename = "cuda_compile_plan.{}".format(cuda_plan_flavor),
-            identifier = _cuda_plan_identifier(flavors),
-            output_prefix = _OBJECTS_FOLDER,
-            uses_content_based_paths = cuda_src_compile_cmds[0].uses_content_based_paths,
-        ),
-    )
 
 def compile_cxx(
     actions: AnalysisActions,
@@ -1183,13 +1096,6 @@ def compile_cxx(
     pch_object_outputs = []
     json_error_outputs = []
 
-    shared_cuda_dist_output = maybe_get_shared_cuda_dist_output(
-        actions,
-        src_compile_cmds,
-        cuda_compile_style,
-        flavors,
-    )
-
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_input = _prepare_cxx_compilation(
             actions = actions,
@@ -1201,7 +1107,6 @@ def compile_cxx(
             use_header_units = use_header_units,
             separate_debug_info = separate_debug_info,
             cuda_compile_style = cuda_compile_style,
-            shared_cuda_dist_output = shared_cuda_dist_output,
             compile_pch = compile_pch,
         )
 
@@ -1221,11 +1126,7 @@ def compile_cxx(
         clang_tidy_diagnostics_outputs.append(map_val(as_output, declared.clang_tidy_diagnostics))
         preproc_outputs.append(declared.preproc.as_output())
         index_store_outputs.append(map_val(as_output, declared.index_store))
-        dist_cuda_outputs.append(
-            None
-            if shared_cuda_dist_output != None
-            else map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda)
-        )
+        dist_cuda_outputs.append(map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda))
         pch_object_outputs.append(map_val(as_output, declared.pch_object))
         json_error_outputs.append(map_val(as_output, declared.json_error))
 
@@ -1254,7 +1155,6 @@ def compile_cxx(
             pch_object = pch_object_outputs,
             precompiled_header = precompiled_header,
             preproc = preproc_outputs,
-            shared_dist_cuda = map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), shared_cuda_dist_output),
             toolchain = toolchain,
             use_header_units = use_header_units,
         )
