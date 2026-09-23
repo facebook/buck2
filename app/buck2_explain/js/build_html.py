@@ -96,7 +96,11 @@ def main() -> None:
         args.src, tmp_src_path, dirs_exist_ok=True, copy_function=copy_writable
     )
 
-    env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
+    offline_mirror = args.yarn_offline_mirror
+    # Resolving Buck's symlinked artifact points into Eden scratch on Windows.
+    if os.name != "nt":
+        offline_mirror = os.path.realpath(offline_mirror)
+    env = {"YARN_YARN_OFFLINE_MIRROR": offline_mirror}
     run(
         yarn
         + [
