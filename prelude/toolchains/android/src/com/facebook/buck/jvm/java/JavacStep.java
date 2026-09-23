@@ -11,6 +11,7 @@
 package com.facebook.buck.jvm.java;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.step.StepExecutionResult;
@@ -33,6 +34,7 @@ public class JavacStep implements IsolatedStep {
   private final RelPath configuredBuckOut;
   private final boolean ownsPipelineObject;
   private final CompilerOutputPathsValue compilerOutputPathsValue;
+  private final boolean skipIfNoCompilationUnits;
 
   private final boolean mixedModule;
 
@@ -43,6 +45,7 @@ public class JavacStep implements IsolatedStep {
       RelPath configuredBuckOut,
       CompilerOutputPathsValue compilerOutputPathsValue,
       CompilerParameters compilerParameters,
+      boolean skipIfNoCompilationUnits,
       @Nullable JarParameters abiJarParameters,
       @Nullable JarParameters libraryJarParameters,
       boolean mixedCompilation) {
@@ -58,6 +61,7 @@ public class JavacStep implements IsolatedStep {
         configuredBuckOut,
         true,
         compilerOutputPathsValue,
+        skipIfNoCompilationUnits,
         mixedCompilation);
   }
 
@@ -66,7 +70,7 @@ public class JavacStep implements IsolatedStep {
       BuildTargetValue invokingRule,
       RelPath configuredBuckOut,
       CompilerOutputPathsValue compilerOutputPathsValue) {
-    this(state, invokingRule, configuredBuckOut, false, compilerOutputPathsValue, false);
+    this(state, invokingRule, configuredBuckOut, false, compilerOutputPathsValue, false, false);
   }
 
   private JavacStep(
@@ -75,18 +79,24 @@ public class JavacStep implements IsolatedStep {
       RelPath configuredBuckOut,
       boolean ownsPipelineObject,
       CompilerOutputPathsValue compilerOutputPathsValue,
+      boolean skipIfNoCompilationUnits,
       boolean mixedModule) {
     this.state = state;
     this.invokingRule = invokingRule;
     this.configuredBuckOut = configuredBuckOut;
     this.ownsPipelineObject = ownsPipelineObject;
     this.compilerOutputPathsValue = compilerOutputPathsValue;
+    this.skipIfNoCompilationUnits = skipIfNoCompilationUnits;
     this.mixedModule = mixedModule;
   }
 
   @Override
   public final StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context)
       throws IOException, InterruptedException {
+
+    if (skipIfNoCompilationUnits && !hasCompilationUnits(context.getRuleCellRoot())) {
+      return StepExecutionResults.SUCCESS;
+    }
 
     int exitCode;
     Optional<String> stderr = Optional.empty();
@@ -113,6 +123,17 @@ public class JavacStep implements IsolatedStep {
     }
 
     return new StepExecutionResult(exitCode, stderr);
+  }
+
+  /**
+   * KSP and KAPT stage a {@code .src.zip} into the Java source list before their processors have
+   * run, so whether javac has anything to compile is not known until this step executes.
+   */
+  private boolean hasCompilationUnits(AbsPath ruleCellRoot) throws IOException {
+    return JavaPaths.hasJavaCompilationUnits(
+        state.getCompilerParameters().getSourceFilePaths().stream()
+            .map(path -> ruleCellRoot.resolve(path).getPath())
+            .collect(ImmutableList.toImmutableList()));
   }
 
   @VisibleForTesting

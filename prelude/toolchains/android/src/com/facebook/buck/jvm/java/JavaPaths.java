@@ -60,6 +60,32 @@ public class JavaPaths {
   }
 
   /**
+   * Whether the given source paths expand to at least one {@code .java} compilation unit. A
+   * SRC_ZIP/SRC_JAR staged by an annotation processor may hold no Java sources at all, so the
+   * archives are inspected rather than counted.
+   *
+   * <p>A path that is neither a Java source nor an archive counts as a compilation unit, leaving it
+   * to javac to reject.
+   */
+  static boolean hasJavaCompilationUnits(Iterable<Path> javaSourceFilePaths) throws IOException {
+    for (Path path : javaSourceFilePaths) {
+      String pathString = path.toString();
+      if (!pathString.endsWith(SRC_ZIP) && !pathString.endsWith(SRC_JAR)) {
+        return true;
+      }
+      try (ZipFile zipFile = new ZipFile(path.toFile())) {
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+          if (entries.nextElement().getName().endsWith(".java")) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Traverses a list of java inputs return the list of all found files (for SRC_ZIP/SRC_JAR, it
    * returns the paths from within the archive).
    */

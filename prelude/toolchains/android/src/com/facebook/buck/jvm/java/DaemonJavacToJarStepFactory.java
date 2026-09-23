@@ -66,6 +66,8 @@ public class DaemonJavacToJarStepFactory extends BaseJavacToJarStepFactory {
               buckOut,
               compilerOutputPathsValue,
               compilerParameters,
+              // javac writes libraryJarParameters here, so it must run even with nothing to compile
+              /* skipIfNoCompilationUnits */ false,
               abiJarParameters,
               libraryJarParameters,
               false));

@@ -84,7 +84,10 @@ public class JavacStepsBuilder {
         steps,
         resolvedJavac,
         null,
-        JavaExtraParams.of(resolvedJavacOptions, /* addAnnotationPath */ false),
+        JavaExtraParams.of(
+            resolvedJavacOptions,
+            /* addAnnotationPath */ false,
+            /* skipIfNoCompilationUnits */ true),
         abiJarParameter,
         true);
   }
