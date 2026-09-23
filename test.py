@@ -191,9 +191,7 @@ def list_starlark_files(git: bool):
 def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
     """
     Make the formatting consistent, using the custom rustfmt,
-    which is a pre-release of rustfmt 2.0.
-    We do that by putting rustfmt on the PATH, but that PATH
-    also has a copy of rustup tools, so use our rustup captured before.
+    which is a pre-release of rustfmt 2.0, via `RUSTFMT`.
     Mixing and matching cargo-fmt and rust-fmt doesn't work on Windows,
     so skip formatting for now.
     """
@@ -203,15 +201,12 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
         return
 
     print_running("rustfmt")
-    cargo_fmt = run(
-        ["rustup", "which", "cargo-fmt"], capture_output=True
-    ).stdout.strip()
     env = os.environ.copy()
     env["RUSTFMT"] = str(
         buck2_dir.parent.parent / "tools" / "third-party" / "rustfmt" / "rustfmt"
     )
 
-    if run([cargo_fmt, "--"], env=env).returncode != 0:
+    if run(["cargo", "fmt", "--"], env=env).returncode != 0:
         sys.exit(1)
 
     # On CI, fail if any committed files have changed,
@@ -245,7 +240,7 @@ def _get_default_rustc_warnings() -> list[str]:
     So, we have to ask rustc to list all the default warnings for us, and error
     out on them here.
     """
-    rustc = run(["rustup", "which", "rustc"], capture_output=True).stdout.strip()
+    rustc = os.environ.get("RUSTC", "rustc")
     out = run([rustc, "-Whelp"], capture_output=True).stdout.strip()
 
     # This is some parsing that wants to be a little robust to changes in the
