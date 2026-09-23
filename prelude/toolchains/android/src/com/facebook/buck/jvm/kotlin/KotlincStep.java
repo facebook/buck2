@@ -52,6 +52,8 @@ public class KotlincStep implements IsolatedStep {
   private static final String DESTINATION_FLAG = "-d";
   private static final String X_PLUGIN_ARG = "-Xplugin=";
   private static final String PLUGIN = "-P";
+  private static final String APPLICABILITY_PLUGIN_ID =
+      "com.facebook.kotlin.compilerplugins.kosabiapplicability";
 
   private static final int EXPECTED_SOURCE_ONLY_ABI_EXIT_CODE = 2;
 
@@ -277,37 +279,7 @@ public class KotlincStep implements IsolatedStep {
       addClasspath(builder, buildClasspathEntries);
     }
 
-    // We expect Kosabi/Applicability to generate a compilation error if
-    // a library target verification fails.
-    // User will see a broken compilation with the following message:
-    // Kosabi/Applicability FAILED on this target ...
-    if (verifySourceOnlyAbiConstraints && invokingRule.isLibraryJar()) {
-      if (resolvedKosabiPluginOptionPath.containsKey(
-          KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_PLUGIN)) {
-        AbsPath applicabilityPlugin =
-            resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_PLUGIN);
-        builder.add(X_PLUGIN_ARG + applicabilityPlugin);
-
-        // Pass the reduced source-only-abi classpath to the applicability plugin
-        // so checkers can detect types that won't be available during SO-ABI
-        // generation. applicabilityClasspath contains only deps with
-        // required_for_source_only_abi=True or in source_only_abi_deps — an
-        // empty list is valid (no deps on SO-ABI classpath, checker flags all
-        // external type refs). Never fall back to compilationClasspath here
-        // as it contains the full library classpath during library builds.
-        if (!applicabilityClasspath.isEmpty()) {
-          String classpathValue =
-              Joiner.on(File.pathSeparator)
-                  .join(transform(applicabilityClasspath, path -> path.getPath().toString()));
-          builder.add(PLUGIN);
-          builder.add(
-              "plugin:"
-                  + "com.facebook.kotlin.compilerplugins.kosabiapplicability"
-                  + ":source-only-abi-classpath="
-                  + classpathValue);
-        }
-      }
-    }
+    configureKosabiApplicability(builder, ruleCellRoot);
 
     if (trackClassUsage) {
       depTrackerPath.ifPresentOrElse(
@@ -345,6 +317,77 @@ public class KotlincStep implements IsolatedStep {
     }
 
     return builder.build();
+  }
+
+  private void configureKosabiApplicability(
+      ImmutableList.Builder<String> builder, AbsPath sourceRoot) {
+    if (!verifySourceOnlyAbiConstraints || !invokingRule.isLibraryJar()) return;
+
+    builder.add(
+        X_PLUGIN_ARG + getRequiredKosabiApplicabilityPlugin(resolvedKosabiPluginOptionPath));
+    builder.addAll(
+        getKosabiApplicabilityPluginOptions(
+            invokingRule.getFullyQualifiedName(),
+            sourceRoot,
+            applicabilityClasspath,
+            Optional.ofNullable(
+                resolvedKosabiPluginOptionPath.get(
+                    KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_CELL_ROOT))));
+  }
+
+  @VisibleForTesting
+  static AbsPath getRequiredKosabiApplicabilityPlugin(
+      ImmutableMap<String, AbsPath> resolvedPluginPaths) {
+    AbsPath plugin = resolvedPluginPaths.get(KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_PLUGIN);
+    if (plugin == null) {
+      throw new IllegalStateException(
+          "Structured Kosabi applicability was enabled, but the plugin path is missing");
+    }
+    return plugin;
+  }
+
+  @VisibleForTesting
+  static ImmutableList<String> getKosabiApplicabilityPluginOptions(
+      String targetLabel,
+      AbsPath sourceRoot,
+      ImmutableList<AbsPath> classpath,
+      Optional<AbsPath> cellRoot) {
+    int cellSeparator = targetLabel.indexOf("//");
+    if (cellSeparator <= 0) {
+      throw new IllegalStateException(
+          "Kosabi applicability requires a fully-qualified target label: " + targetLabel);
+    }
+    AbsPath resolvedCellRoot =
+        cellRoot.orElseThrow(
+            () -> new IllegalStateException("Kosabi applicability cell root path is missing"));
+    if (!resolvedCellRoot.startsWith(sourceRoot)) {
+      throw new IllegalStateException(
+          "Kosabi applicability cell root path must be within the project source root");
+    }
+    String sourceRootPrefix =
+        sourceRoot
+            .relativize(resolvedCellRoot)
+            .getPath()
+            .toString()
+            .replace(File.separatorChar, '/');
+    if (sourceRootPrefix.isEmpty()) sourceRootPrefix = ".";
+
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    addApplicabilityPluginOption(builder, "target-label", targetLabel);
+    addApplicabilityPluginOption(builder, "source-root", sourceRoot.getPath().toString());
+    addApplicabilityPluginOption(builder, "source-root-prefix", sourceRootPrefix);
+    addApplicabilityPluginOption(
+        builder,
+        "source-only-abi-classpath",
+        Joiner.on(File.pathSeparator)
+            .join(transform(classpath, path -> path.getPath().toString())));
+    return builder.build();
+  }
+
+  private static void addApplicabilityPluginOption(
+      ImmutableList.Builder<String> builder, String name, String value) {
+    builder.add(PLUGIN);
+    builder.add("plugin:" + APPLICABILITY_PLUGIN_ID + ":" + name + "=" + value);
   }
 
   protected void configureSourceOnlyOptions(

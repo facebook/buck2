@@ -14,6 +14,9 @@ package com.facebook.buck.jvm.kotlin;
 public abstract class KosabiConfig {
   public static final String PROPERTY_KOSABI_APPLICABILITY_PLUGIN = "kosabi_applicability_plugin";
 
+  public static final String PROPERTY_KOSABI_APPLICABILITY_CELL_ROOT =
+      "kosabi_applicability_cell_root";
+
   public static final String PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN = "kosabi_stubs_gen_k2_plugin";
 
   public static final String PROPERTY_KOSABI_JVM_ABI_GEN_K2_PLUGIN = "kosabi_jvm_abi_gen_k2_plugin";

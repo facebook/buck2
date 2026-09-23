@@ -105,6 +105,11 @@ def create_jar_artifact_kotlincd(
             )
         )
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
+    kosabi_applicability_cell_root = (
+        label.cell_root
+        if not is_creating_subtarget and actual_abi_generation_mode == AbiGenerationMode("source_only") and kotlin_toolchain.kosabi_applicability_plugin != None
+        else None
+    )
     uses_content_based_paths = uses_content_based_paths or kotlin_toolchain.allow_experimental_content_based_path_hashing
 
     output_paths = define_output_paths(actions, actions_identifier, label, uses_content_based_paths)
@@ -127,8 +132,9 @@ def create_jar_artifact_kotlincd(
         jvm_abi_gen = None
         should_use_jvm_abi_gen = False
 
-    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental
+    # Structured applicability must see every source in the target.
+    should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental and kosabi_applicability_cell_root == None
+    should_ksp2_run_incrementally = kotlin_toolchain.ksp2_enable_incremental_processing and incremental and kosabi_applicability_cell_root == None
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", uses_content_based_paths, dir = True)
     incremental_metadata_ignored_inputs_tag = actions.artifact_tag()
 
@@ -208,7 +214,7 @@ def create_jar_artifact_kotlincd(
         friend_paths = friend_paths,
         target_level = target_level,
         should_use_jvm_abi_gen = should_use_jvm_abi_gen,
-        actual_abi_generation_mode = actual_abi_generation_mode,
+        kosabi_applicability_cell_root = kosabi_applicability_cell_root,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
         should_ksp2_run_incrementally = should_ksp2_run_incrementally,
         incremental_state_dir = incremental_state_dir,
@@ -268,7 +274,7 @@ def create_jar_artifact_kotlincd(
             friend_paths = friend_paths,
             target_level = target_level,
             should_use_jvm_abi_gen = should_use_jvm_abi_gen,
-            actual_abi_generation_mode = actual_abi_generation_mode,
+            kosabi_applicability_cell_root = None,
             should_kotlinc_run_incrementally = False,
             should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
@@ -349,7 +355,7 @@ def _encode_kotlin_extra_params(
     friend_paths: list[Dependency],
     target_level: int,
     should_use_jvm_abi_gen: bool,
-    actual_abi_generation_mode: AbiGenerationMode,
+    kosabi_applicability_cell_root,
     should_kotlinc_run_incrementally: bool,
     should_ksp2_run_incrementally: bool,
     incremental_state_dir: Artifact | None,
@@ -358,13 +364,15 @@ def _encode_kotlin_extra_params(
     source_only_abi_applicability_classpath: cmd_args = cmd_args(),
 ):
     kosabiPluginOptionsMap = {}
-    is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")
 
     if kotlin_toolchain.kosabi_stubs_gen_k2_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_k2_plugin"] = kotlin_toolchain.kosabi_stubs_gen_k2_plugin
 
     if kotlin_toolchain.kosabi_applicability_plugin != None:
         kosabiPluginOptionsMap["kosabi_applicability_plugin"] = kotlin_toolchain.kosabi_applicability_plugin
+
+    if kosabi_applicability_cell_root != None:
+        kosabiPluginOptionsMap["kosabi_applicability_cell_root"] = cmd_args(kosabi_applicability_cell_root, delimiter = "")
 
     if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_k2_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin
@@ -381,7 +389,7 @@ def _encode_kotlin_extra_params(
         kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
         jvmTarget = get_kotlinc_compatible_target(str(target_level)),
         shouldUseJvmAbiGen = should_use_jvm_abi_gen,
-        shouldVerifySourceOnlyAbiConstraints = is_source_only_abi,
+        shouldVerifySourceOnlyAbiConstraints = kosabi_applicability_cell_root != None,
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
