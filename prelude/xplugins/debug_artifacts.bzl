@@ -45,6 +45,7 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
 
     dir_contents = {}
     manifest = {}
+    function_mapping_manifest = []
 
     name_counts = {}
     for entry in info.tset.traverse():
@@ -61,9 +62,21 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
                 "configured_target": entry.target,
                 "path": filename,
             })
+            function_mapping_manifest.append({
+                "path": entry.manifest_info.function_mapping,
+                "target": entry.target,
+            })
 
     manifest_file = actions.write_json("manifest.json", manifest, pretty = True, has_content_based_path = False)
     dir_contents["MANIFEST.json"] = manifest_file
+
+    function_mapping_manifest_file = actions.declare_output("function_mapping_manifest.json", has_content_based_path = False)
+    function_mapping_manifest_inputs = actions.write_json(
+        function_mapping_manifest_file,
+        function_mapping_manifest,
+        with_inputs = True,
+        pretty = True,
+    )
 
     directory = actions.copied_dir(
         "XPluginsFunctionMappings",
@@ -74,6 +87,12 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
     return [
         DefaultInfo(
             sub_targets = {
+                "function_mapping_manifest": [
+                    DefaultInfo(
+                        default_output = function_mapping_manifest_file,
+                        other_outputs = [function_mapping_manifest_inputs],
+                    ),
+                ],
                 "function_mappings": [DefaultInfo(default_output = directory)],
             },
         ),
