@@ -157,6 +157,138 @@ simple_dep_file = rule(
     },
 )
 
+def _identity_projection(value):
+    return value
+
+CanonicalJsonInputs = transitive_set(args_projections = {"args": _identity_projection})
+
+def _canonical_json_dep_file_impl(ctx):
+    content_paths = ctx.attrs.use_content_based_paths
+    used = ctx.actions.write("used", ctx.attrs.used, has_content_based_path = content_paths)
+    unused = (
+        ctx.actions.symlink_file("unused", ctx.attrs.unused_src, has_content_based_path = content_paths)
+        if ctx.attrs.unused_src != None
+        else ctx.actions.write("unused", ctx.attrs.unused, has_content_based_path = content_paths)
+    )
+    untagged = ctx.actions.write("untagged", ctx.attrs.untagged, has_content_based_path = content_paths)
+    inputs = [unused, used] if ctx.attrs.reverse else [used, unused]
+    if ctx.attrs.repeat:
+        inputs.append(inputs[0])
+    tag = ctx.actions.artifact_tag()
+    inputs = ctx.actions.tset(CanonicalJsonInputs, value = cmd_args(inputs))
+    out = ctx.actions.declare_output("out", has_content_based_path = content_paths)
+    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = content_paths)
+    proto = ctx.actions.declare_output("command.json", has_content_based_path = content_paths)
+    fingerprints = []
+    input_options = {}
+    if ctx.attrs.placement in ["with_inputs", "without_inputs"]:
+        input_options["with_inputs"] = ctx.attrs.placement == "with_inputs"
+    if ctx.attrs.format == "args":
+
+        def write_args(output, content):
+            allow_args = ctx.attrs.placement != "no_allow_args"
+            written = ctx.actions.write(
+                output,
+                content,
+                allow_args = allow_args,
+                dep_files_fingerprint_using_canonical_paths = True,
+                absolute = ctx.attrs.absolute,
+                is_executable = ctx.attrs.executable,
+                use_dep_files_placeholder_for_content_based_paths = ctx.attrs.placement == "placeholder",
+                **input_options,
+            )
+            if allow_args:
+                written, _ = written
+            artifact, fingerprint = written
+            fingerprints.append(fingerprint)
+            return artifact
+
+        content = cmd_args(
+            ctx.attrs.option,
+            untagged,
+            out.as_output(),
+            tag.tag_artifacts(dep_file.as_output()),
+            tag.tag_artifacts(inputs.project_as_args("args")),
+            quote = "shell",
+            delimiter = " " if ctx.attrs.pretty else "\n",
+        )
+        if ctx.attrs.placement == "nested":
+            inner = ctx.actions.declare_output("inner.args", has_content_based_path = content_paths)
+            inner = write_args(inner, content)
+            content = cmd_args(tag.tag_artifacts(inner), format = "@{}")
+        proto = write_args(proto, content)
+    else:
+        proto, fingerprint = ctx.actions.write_json(
+            proto,
+            {
+                "dep_file": tag.tag_artifacts(dep_file.as_output()),
+                "inputs": tag.tag_artifacts(inputs.project_as_args("args")),
+                "option": ctx.attrs.option,
+                "out": out.as_output(),
+                "untagged": untagged,
+            },
+            dep_files_fingerprint_using_canonical_paths = True,
+            pretty = ctx.attrs.pretty,
+            absolute = ctx.attrs.absolute,
+            use_dep_files_placeholder_for_content_based_paths = ctx.attrs.placement == "placeholder",
+            **input_options,
+        )
+        fingerprints.append(fingerprint)
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import json, os, pathlib, shlex, sys",
+            "if sys.argv[2] == 'args':",
+            "    args = shlex.split(pathlib.Path(sys.argv[1]).read_text())",
+            "    if args[0].startswith('@'): args = shlex.split(pathlib.Path(args[0][1:]).read_text())",
+            "    option, untagged, out, dep_file, *inputs = args",
+            "    command = dict(option=option, untagged=untagged, out=out, dep_file=[dep_file], inputs=inputs)",
+            "else:",
+            "    command = json.load(open(sys.argv[1]))",
+            "used = command['inputs'][0]",
+            "output = command['option'] + pathlib.Path(used).read_text() + pathlib.Path(command['untagged']).read_text()",
+            "if command['option'] == 'executable-bit': output = str(os.access(sys.argv[1], os.X_OK))",
+            "pathlib.Path(command['out']).write_text(output)",
+            "pathlib.Path(command['dep_file'][0]).write_text(os.path.relpath(used) + '\\n')",
+        ],
+        has_content_based_path = content_paths,
+    )
+    args = cmd_args("fbpython", script)
+    if ctx.attrs.placement == "command_line":
+        args.add(fingerprints[0])
+    else:
+        args.add(tag.tag_artifacts(proto))
+    if ctx.attrs.placement == "ordinary":
+        args.add(cmd_args(hidden = proto))
+    args.add(ctx.attrs.format)
+    ctx.actions.run(
+        args,
+        category = "canonical_json_consumer",
+        dep_files = {"used": tag},
+        dep_file_fingerprints = [proto] if ctx.attrs.placement == "invalid_descriptor" else fingerprints,
+        allow_dep_file_cache_upload = True,
+    )
+    return [DefaultInfo(default_output = out, sub_targets = {"json": [DefaultInfo(default_output = proto)]})]
+
+canonical_json_dep_file = rule(
+    impl = _canonical_json_dep_file_impl,
+    attrs = {
+        "absolute": attrs.bool(default = False),
+        "executable": attrs.bool(default = False),
+        "format": attrs.string(),
+        "option": attrs.string(default = "option"),
+        "placement": attrs.string(default = "direct"),
+        "pretty": attrs.bool(default = False),
+        "repeat": attrs.bool(default = False),
+        "reverse": attrs.bool(default = False),
+        "untagged": attrs.string(default = "extra"),
+        "unused": attrs.string(default = "unused"),
+        "unused_src": attrs.option(attrs.source(), default = None),
+        "use_content_based_paths": attrs.bool(default = True),
+        "used": attrs.string(default = "used"),
+    },
+)
+
 def _cross_config_run_impl(ctx):
     # A minimal `run` action that copies a marker file to a content-based output.
     marker = ctx.actions.write("marker", ctx.attrs.marker_content, has_content_based_path = True)
@@ -389,3 +521,26 @@ consume_path_args = rule(
         "trigger": attrs.source(),
     },
 )
+
+def _canonical_platforms_impl(ctx):
+    return [
+        DefaultInfo(),
+        ExecutionPlatformRegistrationInfo(
+            platforms = [
+                ExecutionPlatformInfo(
+                    label = ctx.label.raw_target(),
+                    configuration = ConfigurationInfo(constraints = {}, values = {}),
+                    executor_config = CommandExecutorConfig(
+                        local_enabled = True,
+                        remote_enabled = True,
+                        remote_execution_properties = {"platform": "linux-remote-execution"},
+                        remote_execution_use_case = "buck2-testing",
+                        allow_cache_uploads = True,
+                        remote_dep_file_cache_enabled = True,
+                    ),
+                )
+            ]
+        ),
+    ]
+
+canonical_platforms = rule(impl = _canonical_platforms_impl, attrs = {})

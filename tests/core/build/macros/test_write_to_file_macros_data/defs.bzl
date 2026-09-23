@@ -19,7 +19,8 @@ def _test_rule(ctx):
     arg = ctx.attrs.arg
 
     f = ctx.actions.declare_output("out.txt", has_content_based_path = False)
-    f, _ = ctx.actions.write(
+    fingerprint = read_config("test", "dep_files_fingerprint_using_canonical_paths", "false") == "true"
+    written, _ = ctx.actions.write(
         f,
         [
             cmd_args(arg, hidden = arg),
@@ -28,10 +29,21 @@ def _test_rule(ctx):
             cmd_args(cmd_args(arg), relative_to = f),
         ],
         allow_args = True,
-        with_inputs = True,
+        with_inputs = not fingerprint,
+        dep_files_fingerprint_using_canonical_paths = fingerprint,
     )
 
-    return [DefaultInfo(default_output = f)]
+    if fingerprint:
+        artifact, descriptor = written
+        copied = ctx.actions.declare_output("copy.txt")
+        ctx.actions.run(
+            [read_config("test", "python"), "-c", "import shutil,sys; shutil.copyfile(sys.argv[1],sys.argv[2])", artifact, copied.as_output()],
+            category = "copy_args",
+            dep_file_fingerprints = [descriptor],
+            local_only = True,
+        )
+        return [DefaultInfo(default_output = f, other_outputs = [copied])]
+    return [DefaultInfo(default_output = written)]
 
 test_rule = rule(
     impl = _test_rule,

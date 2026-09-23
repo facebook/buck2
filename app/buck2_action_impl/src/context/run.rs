@@ -60,6 +60,7 @@ use starlark::values::typing::StarlarkCallable;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
 
+use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::run::MetadataParameter;
 use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
@@ -157,6 +158,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///       rather than all tagged inputs
     ///     * Depfiles must use Makefile syntax: `output: input1 input2 input3`
     ///     * For complete documentation and examples, see [`ctx.actions.artifact_tag()`](../AnalysisActions#analysisactionsartifact_tag)
+    /// * `dep_file_fingerprints`: fingerprints returned alongside artifacts by `write` or
+    ///   `write_json` with `dep_files_fingerprint_using_canonical_paths = True`. Their canonical contents contribute to
+    ///   dep-file matching, and their referenced inputs are visited with their original tags.
+    ///   Supply each corresponding artifact to the command separately, tagged for dep-file
+    ///   filtering. Include fingerprints for nested files explicitly; they are not
+    ///   discovered through command arguments.
     /// * `allow_offline_output_cache`: enables caching of this action's outputs for offline builds (default: `false`)
     ///     * When `true`, action outputs are cached during trace builds (via `buck2 debug trace-io`)
     ///       and restored during offline builds without re-executing the action
@@ -259,6 +266,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named)] weight: Option<u32>,
         #[starlark(require = named)] weight_percentage: Option<u32>,
         #[starlark(require = named)] dep_files: Option<SmallMap<&'v str, &'v ArtifactTag>>,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        dep_file_fingerprints: UnpackListOrTuple<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
@@ -395,6 +404,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
+        for fingerprint in &dep_file_fingerprints.items {
+            fingerprint.as_ref().visit_inputs(&mut artifact_visitor)?;
+        }
 
         // TODO(nga): we should not accept output artifacts in worker.
         let (starlark_exe, starlark_worker, starlark_remote_worker) = match exe {
@@ -541,6 +553,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_values = heap.alloc(StarlarkRunActionValues {
             exe: heap.alloc_typed(starlark_exe),
             args: heap.alloc_typed(starlark_args),
+            dep_file_fingerprints: dep_file_fingerprints.items,
             env: starlark_env,
             worker: starlark_worker,
             remote_worker: starlark_remote_worker,

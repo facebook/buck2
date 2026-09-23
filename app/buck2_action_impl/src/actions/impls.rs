@@ -11,6 +11,7 @@
 pub(crate) mod assembled_dir;
 pub(crate) mod cas_artifact;
 pub(crate) mod copy;
+pub(crate) mod dep_file_fingerprint;
 pub(crate) mod download_file;
 pub(crate) mod offline;
 pub(crate) mod run;

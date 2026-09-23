@@ -769,6 +769,7 @@ version = "0.1.0"
 dependencies = [
  "allocative",
  "async-trait",
+ "blake3",
  "buck2_action_metadata_proto",
  "buck2_analysis",
  "buck2_artifact",

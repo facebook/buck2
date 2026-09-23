@@ -9,7 +9,9 @@
 
 import os
 import re
+import sys
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -32,8 +34,15 @@ def _find_file(dir, name: str) -> str:
 
 
 @buck_test(setup_eden=True)
-async def test_xxx(buck: Buck) -> None:
-    result = await buck.build("//:test_rule")
+@pytest.mark.parametrize("fingerprint", ["true", "false"])
+async def test_xxx(buck: Buck, fingerprint: str) -> None:
+    result = await buck.build(
+        "//:test_rule",
+        "-c",
+        f"test.dep_files_fingerprint_using_canonical_paths={fingerprint}",
+        "-c",
+        f"test.python={sys.executable}",
+    )
     out = result.get_build_report().output_for_target("root//:test_rule")
 
     # Out contents is:

@@ -45,6 +45,8 @@ use starlark::values::none::NoneOr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark_map::small_set::SmallSet;
 
+use crate::actions::impls::dep_file_fingerprint::DepFileFingerprintFormat;
+use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::write::UnregisteredWriteAction;
 use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
@@ -56,6 +58,14 @@ enum WriteActionError {
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."
     )]
     ArgAttrsDetectedButNotAllowed,
+    #[error(
+        "dep_files_fingerprint_using_canonical_paths cannot be combined with placeholder output"
+    )]
+    DepFileFingerprintWithPlaceholderOutput,
+    #[error(
+        "`with_inputs = True` cannot be combined with `dep_files_fingerprint_using_canonical_paths = True`: the fingerprint already forwards inputs with their original tags. Omit `with_inputs` and pass the fingerprint to `run(dep_file_fingerprints = [...])`."
+    )]
+    DepFileFingerprintWithInputs,
 }
 
 #[derive(UnpackValue, StarlarkTypeRepr)]
@@ -63,6 +73,17 @@ enum WriteContentArg<'v> {
     CommandLineArg(CommandLineArg<'v>),
     StarlarkCommandLineValueUnpack(StarlarkCommandLineValueUnpack<'v>),
 }
+
+type WriteOutput<'v> = Either<
+    ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
+    (
+        ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
+        StarlarkDepFileFingerprint<'v>,
+    ),
+>;
+
+type WriteReturnValue<'v> =
+    Either<WriteOutput<'v>, (WriteOutput<'v>, Vec<StarlarkDeclaredArtifact<'v>>)>;
 
 /// We don't need to run this visitor in order to provide the inputs to the write actions,
 /// because that is done lazily when we run the action.
@@ -120,6 +141,11 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     /// * If you pass `with_inputs = True`, you'll get back a `cmd_args` that expands to the JSON
     ///   file but carries all the underlying inputs as dependencies (so you don't have to use, for
     ///   example, `hidden` for them to be added to an action that already receives the JSON file)
+    /// * `dep_files_fingerprint_using_canonical_paths` (optional): returns an `(artifact, DepFileFingerprint)` pair.
+    ///   Pass the fingerprint to `run(dep_file_fingerprints = [...])` to fingerprint the JSON with
+    ///   canonical content-based paths and forward its referenced inputs with their original tags.
+    ///   Pass the artifact to the command separately, tagged for dep-file filtering.
+    ///   Cannot be combined with `with_inputs = True`.
     /// * `pretty` (optional): write formatted JSON (defaults to `False`)
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
@@ -130,6 +156,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] content: ValueOf<'v, JsonUnpack<'v>>,
         #[starlark(require = named, default = false)] with_inputs: bool,
+        #[starlark(require = named, default = false)]
+        dep_files_fingerprint_using_canonical_paths: bool,
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
@@ -137,6 +165,19 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v> + use<'v>> {
+        if dep_files_fingerprint_using_canonical_paths && with_inputs {
+            return Err(
+                buck2_error::Error::from(WriteActionError::DepFileFingerprintWithInputs).into(),
+            );
+        }
+        if dep_files_fingerprint_using_canonical_paths
+            && use_dep_files_placeholder_for_content_based_paths
+        {
+            return Err(buck2_error::Error::from(
+                WriteActionError::DepFileFingerprintWithPlaceholderOutput,
+            )
+            .into());
+        }
         let mut this = this.state()?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
@@ -164,14 +205,22 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
-        if with_inputs {
+        if dep_files_fingerprint_using_canonical_paths {
+            let fingerprint = StarlarkDepFileFingerprint {
+                artifact: value.to_value(),
+                content: content.value,
+                absolute,
+                format: DepFileFingerprintFormat::Json { pretty },
+            };
+            Ok(Either::Right((value, fingerprint)))
+        } else if with_inputs {
             // TODO(nga): we use `AllocValue`, so this function return type for this branch
             //   is `write_json_cli_args`. We want just `cmd_args`,
             //   because users don't care about precise type.
             //   Do it when we migrate to new types not based on strings.
-            Ok(Either::Right(cli))
+            Ok(Either::Left(Either::Right(cli)))
         } else {
-            Ok(Either::Left(value))
+            Ok(Either::Left(Either::Left(value)))
         }
     }
 
@@ -185,6 +234,12 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///       list of artifact values that were written by macros, which should be used in hidden
     ///       fields or similar
     /// * `with_inputs` (optional): if set, add artifacts in `content` as associated artifacts of the return `artifact`.
+    /// * `dep_files_fingerprint_using_canonical_paths` (optional): returns an `(artifact, DepFileFingerprint)` pair in
+    ///   place of the artifact (also inside the pair returned by `allow_args`). Pass the fingerprint
+    ///   to `run(dep_file_fingerprints = [...])` and the artifact to the command separately, tagged
+    ///   for dep-file filtering. The fingerprint forwards content and macro dependencies with their
+    ///   original tags and includes the executable mode and canonical contents.
+    ///   Cannot be combined with `with_inputs = True`.
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
@@ -201,20 +256,14 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] allow_args: bool,
         // If set, add artifacts in content as associated artifacts of the output. This will only work for bound artifacts.
         #[starlark(require = named, default = false)] with_inputs: bool,
+        #[starlark(require = named, default = false)]
+        dep_files_fingerprint_using_canonical_paths: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = false)]
         use_dep_files_placeholder_for_content_based_paths: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<
-        Either<
-            ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
-            (
-                ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
-                Vec<StarlarkDeclaredArtifact<'v>>,
-            ),
-        >,
-    > {
+    ) -> starlark::Result<WriteReturnValue<'v>> {
         fn count_write_to_file_macros(
             args_allowed: bool,
             cli: &dyn CommandLineArgLike,
@@ -259,6 +308,19 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             Ok(visitor.associated_artifacts)
         }
 
+        if dep_files_fingerprint_using_canonical_paths && with_inputs {
+            return Err(
+                buck2_error::Error::from(WriteActionError::DepFileFingerprintWithInputs).into(),
+            );
+        }
+        if dep_files_fingerprint_using_canonical_paths
+            && use_dep_files_placeholder_for_content_based_paths
+        {
+            return Err(buck2_error::Error::from(
+                WriteActionError::DepFileFingerprintWithPlaceholderOutput,
+            )
+            .into());
+        }
         let mut this = this.state()?;
         let (declaration, output_artifact) = this.get_or_declare_output(
             eval,
@@ -348,6 +410,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 use_dep_files_placeholder_for_content_based_paths,
             }
         };
+        let fingerprint_macro_files =
+            dep_files_fingerprint_using_canonical_paths.then(|| action.macro_files.clone());
         this.register_action(
             buck_indexset![output_artifact],
             action,
@@ -365,6 +429,20 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
         let value =
             declaration.into_declared_artifact(AssociatedArtifacts::from(associated_artifacts));
+        let value = if let Some(macro_files) = fingerprint_macro_files {
+            let fingerprint = StarlarkDepFileFingerprint {
+                artifact: value.to_value(),
+                content: content_cli.to_value(),
+                absolute,
+                format: DepFileFingerprintFormat::Args {
+                    is_executable,
+                    macro_files,
+                },
+            };
+            Either::Right((value, fingerprint))
+        } else {
+            Either::Left(value)
+        };
         if allow_args {
             let macro_files: Vec<StarlarkDeclaredArtifact> = written_macro_files
                 .into_iter()

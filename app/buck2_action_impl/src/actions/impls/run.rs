@@ -132,6 +132,7 @@ use starlark::values::starlark_value;
 use strong_hash::StrongHash;
 
 use self::dep_files::DepFileBundle;
+use crate::actions::impls::dep_file_fingerprint::StarlarkDepFileFingerprint;
 use crate::actions::impls::offline;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
@@ -317,6 +318,7 @@ impl UnregisteredAction for UnregisteredRunAction {
 pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, StarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, StarlarkCmdArgs<'v>>,
+    pub(crate) dep_file_fingerprints: Vec<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
@@ -337,6 +339,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
 pub(crate) struct FrozenStarlarkRunActionValues<'v> {
     pub(crate) exe: ValueTyped<'v, FrozenStarlarkCmdArgs<'v>>,
     pub(crate) args: ValueTyped<'v, FrozenStarlarkCmdArgs<'v>>,
+    pub(crate) dep_file_fingerprints: Vec<ValueTyped<'v, StarlarkDepFileFingerprint<'v>>>,
     pub(crate) env: Option<ValueOfUnchecked<'v, DictType<String, ValueAsCommandLineLike<'static>>>>,
     pub(crate) worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
     pub(crate) remote_worker: Option<ValueTyped<'v, WorkerInfo<'v>>>,
@@ -366,6 +369,7 @@ impl<'v> Freeze<'v> for StarlarkRunActionValues<'v> {
         let StarlarkRunActionValues {
             exe,
             args,
+            dep_file_fingerprints,
             env,
             worker,
             remote_worker,
@@ -377,6 +381,7 @@ impl<'v> Freeze<'v> for StarlarkRunActionValues<'v> {
         Ok(FrozenStarlarkRunActionValues {
             exe: Freeze::freeze(exe, freezer)?,
             args: Freeze::freeze(args, freezer)?,
+            dep_file_fingerprints: Freeze::freeze(dep_file_fingerprints, freezer)?,
             env: Freeze::freeze(env, freezer)?,
             worker: Freeze::freeze(worker, freezer)?,
             remote_worker: Freeze::freeze(remote_worker, freezer)?,
@@ -429,6 +434,7 @@ struct UnpackedWorkerValues<'v> {
 struct UnpackedRunActionValues<'v> {
     exe: &'v dyn CommandLineArgLike<'v>,
     args: &'v dyn CommandLineArgLike<'v>,
+    dep_file_fingerprints: &'v [ValueTyped<'v, StarlarkDepFileFingerprint<'v>>],
     env: Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)>,
     worker: Option<UnpackedWorkerValues<'v>>,
     remote_worker: Option<UnpackedWorkerValues<'v>>,
@@ -498,6 +504,9 @@ impl RunAction {
     ) -> buck2_error::Result<()> {
         let values = Self::unpack(self.values())?;
         values.args.visit_artifacts(artifact_visitor)?;
+        for fingerprint in values.dep_file_fingerprints {
+            fingerprint.as_ref().visit_inputs(artifact_visitor)?;
+        }
         values.exe.visit_artifacts(artifact_visitor)?;
         if let Some(worker) = values.worker {
             worker.exe.visit_artifacts(artifact_visitor)?;
@@ -564,6 +573,7 @@ impl RunAction {
         Ok(UnpackedRunActionValues {
             exe,
             args,
+            dep_file_fingerprints: &values.dep_file_fingerprints,
             env,
             worker,
             remote_worker,
@@ -829,6 +839,19 @@ impl RunAction {
 
         command_line_digest_for_dep_files.push_arg(Cow::Owned(env_len.to_string()));
         command_line_digest_for_dep_files.push_count();
+
+        if !values.dep_file_fingerprints.is_empty() {
+            command_line_digest_for_dep_files
+                .push_arg(Cow::Borrowed("buck2.structured-dep-file-inputs.v1"));
+            for fingerprint in values.dep_file_fingerprints {
+                let fingerprint = fingerprint.as_ref();
+                fingerprint.visit_inputs(artifact_visitor)?;
+                let (path, digest) = fingerprint.fingerprint(fs)?;
+                command_line_digest_for_dep_files.push_bytes(path.as_str().as_bytes());
+                command_line_digest_for_dep_files.push_bytes(&digest);
+            }
+            command_line_digest_for_dep_files.push_count();
+        }
 
         Ok((
             ExpandedCommandLine {

@@ -10,6 +10,7 @@
 
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ACTION_IMPL_GLOBALS;
 
+use crate::actions::impls::dep_file_fingerprint::register_dep_file_fingerprint;
 use crate::actions::impls::write_json::register_write_json_cli_args;
 use crate::context::assembled_dir::register_assembled_dir;
 use crate::dynamic::attrs_starlark::register_dynamic_attrs;
@@ -24,6 +25,7 @@ pub(crate) fn init_register_buck2_action_impl_globals() {
         register_dynamic_attrs(globals);
         register_resolved_dynamic_value(globals);
         register_write_json_cli_args(globals);
+        register_dep_file_fingerprint(globals);
         register_assembled_dir(globals);
     });
 }

@@ -6,24 +6,25 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
-
+from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 import typing
 from pathlib import Path
 from typing import Any
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException
+from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 from buck2.tests.e2e_util.helper.utils import (
     expect_exec_count,
     filter_events,
+    get_last_execution_kind,
     random_string,
     read_what_ran,
 )
@@ -1498,3 +1499,335 @@ async def test_input_tagged_multiple_times(buck: Buck) -> None:
         buck.build("root//:input_tagged_multiple_times"),
         stderr_regex="Dep-files input.*input_tagged_multiple_times.txt.*is tagged with multiple tags relevant for dep-files: `deps1` and `deps2`",
     )
+
+
+async def _build_canonical_input(
+    buck: Buck, options: dict[str, str], expected_kind: int
+) -> BuildResult:
+    flags = [
+        flag for key, value in options.items() for flag in ("-c", f"test.{key}={value}")
+    ]
+    result = await buck.build(
+        "root//app:canonical_json",
+        "root//app:canonical_json[json]",
+        "--local-only",
+        "--no-remote-cache",
+        *flags,
+    )
+    assert (
+        await get_last_execution_kind(
+            buck, category="canonical_json_consumer", target_name="canonical_json"
+        )
+        == expected_kind
+    )
+    return result
+
+
+def _canonical_input_output(result: BuildResult) -> tuple[str, str]:
+    report = result.get_build_report()
+    return (
+        report.output_for_target("root//app:canonical_json").read_text(),
+        report.output_for_target("root//app:canonical_json", "json").read_text(),
+    )
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize("content_paths", ["true", "false"])
+@pytest.mark.parametrize(
+    "input_format, placement",
+    [
+        ("json", "direct"),
+        ("json", "without_inputs"),
+        ("args", "direct"),
+        ("args", "no_allow_args"),
+        ("args", "nested"),
+        ("args", "without_inputs"),
+    ],
+)
+async def test_canonical_input_dep_file(
+    buck: Buck, content_paths: str, input_format: str, placement: str
+) -> None:
+    options = {
+        "use_content_based_paths": content_paths,
+        "canonical_placement": placement,
+        "canonical_format": input_format,
+    }
+    output, original_json = _canonical_input_output(
+        await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    )
+    assert output == "optionusedextra"
+
+    options["canonical_unused"] = "unused-changed"
+    output, changed_json = _canonical_input_output(
+        await _build_canonical_input(
+            buck, options, ACTION_EXECUTION_KIND_LOCAL_DEP_FILE
+        )
+    )
+    assert output == "optionusedextra"
+    assert (original_json != changed_json) == (content_paths == "true")
+
+    for key, value, expected in [
+        ("canonical_used", "used-changed", "optionused-changedextra"),
+        ("canonical_untagged", "extra-changed", "optionused-changedextra-changed"),
+        ("canonical_option", "new-option", "new-optionused-changedextra-changed"),
+        ("canonical_reverse", "true", "new-optionunused-changedextra-changed"),
+        ("canonical_repeat", "true", "new-optionunused-changedextra-changed"),
+    ]:
+        options[key] = value
+        output, _ = _canonical_input_output(
+            await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+        )
+        assert output == expected
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize("content_paths", ["true", "false"])
+async def test_canonical_args_executable(buck: Buck, content_paths: str) -> None:
+    options = {
+        "canonical_format": "args",
+        "canonical_option": "executable-bit",
+        "use_content_based_paths": content_paths,
+    }
+    for executable in ["false", "true", "false"]:
+        options["canonical_executable"] = executable
+        output, _ = _canonical_input_output(
+            await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+        )
+        assert output == str(executable == "true")
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_absolute_pretty(buck: Buck, input_format: str) -> None:
+    options = {
+        "canonical_absolute": "true",
+        "canonical_pretty": "true",
+        "canonical_format": input_format,
+    }
+    output, original_json = _canonical_input_output(
+        await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    )
+    assert output == "optionusedextra"
+    if input_format == "json":
+        assert Path(json.loads(original_json)["inputs"][0]).is_absolute()
+        assert "\n" in original_json
+    else:
+        assert Path(shlex.split(original_json)[4]).is_absolute()
+        assert "\n" not in original_json
+    options["canonical_unused"] = "changed"
+    output, changed_json = _canonical_input_output(
+        await _build_canonical_input(
+            buck, options, ACTION_EXECUTION_KIND_LOCAL_DEP_FILE
+        )
+    )
+    assert output == "optionusedextra"
+    assert original_json != changed_json
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_ordinary_occurrence(
+    buck: Buck, input_format: str
+) -> None:
+    options = {"canonical_placement": "ordinary", "canonical_format": input_format}
+    await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    options["canonical_unused"] = "changed"
+    # An ordinary occurrence of the same file still requires its physical digest to match.
+    output, _ = _canonical_input_output(
+        await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    )
+    assert output == "optionusedextra"
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize(
+    "placement, error",
+    [
+        (
+            "with_inputs",
+            "`with_inputs = True` cannot be combined with `dep_files_fingerprint_using_canonical_paths = True`: "
+            "the fingerprint already forwards inputs with their original tags",
+        ),
+        ("placeholder", "cannot be combined with placeholder output"),
+        ("command_line", "DepFileFingerprint"),
+        ("invalid_descriptor", "DepFileFingerprint"),
+    ],
+)
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_invalid_placement(
+    buck: Buck, placement: str, error: str, input_format: str
+) -> None:
+    await expect_failure(
+        buck.build(
+            "root//app:canonical_json",
+            "-c",
+            f"test.canonical_placement={placement}",
+            "-c",
+            f"test.canonical_format={input_format}",
+            "-c",
+            "test.use_content_based_paths=false",
+        ),
+        stderr_regex=error,
+    )
+
+
+@buck_test(
+    data_dir="dep_files",
+    setup_eden=False,
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_dep_file_state": "true"}},
+)
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_persisted_dep_file(
+    buck: Buck, input_format: str
+) -> None:
+    await _build_canonical_input(
+        buck, {"canonical_format": input_format}, ACTION_EXECUTION_KIND_LOCAL
+    )
+    await buck.kill()
+    await _build_canonical_input(
+        buck,
+        {"canonical_format": input_format},
+        ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE,
+    )
+    # Reloaded entries have no live filtered-input signatures. The first changed build
+    # executes; subsequent unused changes can use the new live dep-file entry.
+    await _build_canonical_input(
+        buck,
+        {"canonical_format": input_format, "canonical_unused": "changed"},
+        ACTION_EXECUTION_KIND_LOCAL,
+    )
+    output, _ = _canonical_input_output(
+        await _build_canonical_input(
+            buck,
+            {"canonical_format": input_format, "canonical_unused": "changed-again"},
+            ACTION_EXECUTION_KIND_LOCAL_DEP_FILE,
+        )
+    )
+    assert output == "optionusedextra"
+    output, _ = _canonical_input_output(
+        await _build_canonical_input(
+            buck,
+            {"canonical_format": input_format, "canonical_option": "new-option"},
+            ACTION_EXECUTION_KIND_LOCAL,
+        )
+    )
+    assert output == "new-optionusedextra"
+
+
+@buck_test(
+    data_dir="dep_files",
+    write_invocation_record=True,
+    skip_for_os=["windows"],
+    extra_buck_config={
+        "buck2_hydration": {
+            "enable_paging": "true",
+            "page_out_on_idle": "true",
+            "page_out_min_free_disk_gb": "0",
+        }
+    },
+)
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_paged_analysis(buck: Buck, input_format: str) -> None:
+    options = {"canonical_unused_src": "true", "canonical_format": input_format}
+    await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    await buck.debug("hydration", "page-out")
+    (buck.cwd / "app/other.h").write_text("changed unused source")
+    result = await _build_canonical_input(
+        buck, options, ACTION_EXECUTION_KIND_LOCAL_DEP_FILE
+    )
+    assert result.invocation_record()["page_in_count"] > 0
+    output, _ = _canonical_input_output(result)
+    assert output == "optionusedextra"
+
+
+@buck_test(
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+    extra_buck_config={
+        "build": {"execution_platforms": "root//app:canonical_platforms"}
+    },
+)
+@env("BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE", "true")
+@pytest.mark.parametrize("input_format", ["json", "args"])
+async def test_canonical_input_remote_dep_file_key(
+    buck: Buck, input_format: str
+) -> None:
+    options = {"canonical_option": random_string(), "canonical_format": input_format}
+
+    async def build() -> tuple[str, str, int | None]:
+        flags = [
+            flag
+            for key, value in options.items()
+            for flag in ("-c", f"test.{key}={value}")
+        ]
+        result = await buck.build("root//app:canonical_json", "--local-only", *flags)
+        queries = [
+            entry["reproducer"]["details"]["digest"]
+            for entry in await read_what_ran(
+                buck,
+                "--emit-cache-queries",
+                "--filter-category",
+                "canonical_json_consumer",
+            )
+            if entry["reproducer"]["executor"] == "CacheQuery"
+        ]
+        assert len(queries) == 1
+        output = (
+            result.get_build_report()
+            .output_for_target("root//app:canonical_json")
+            .read_text()
+        )
+        kind = await get_last_execution_kind(buck, category="canonical_json_consumer")
+        return queries[0], output, kind
+
+    initial_key, output, _ = await build()
+    assert output == options["canonical_option"] + "usedextra"
+    await buck.debug("flush-dep-files")
+    options["canonical_unused"] = "changed"
+    unused_key, output, kind = await build()
+    assert unused_key == initial_key
+    assert output == options["canonical_option"] + "usedextra"
+    # Developer machines may not have permission to populate the remote cache.
+    assert kind in (
+        ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE,
+        ACTION_EXECUTION_KIND_LOCAL,
+    )
+
+    await buck.debug("flush-dep-files")
+    options["canonical_used"] = "used-changed"
+    used_key, output, kind = await build()
+    assert used_key == initial_key
+    assert output == options["canonical_option"] + "used-changedextra"
+    assert kind == ACTION_EXECUTION_KIND_LOCAL
+
+    await buck.debug("flush-dep-files")
+    options["canonical_option"] += "-changed"
+    changed_key, output, kind = await build()
+    assert changed_key != initial_key
+    assert output == options["canonical_option"] + "used-changedextra"
+    assert kind == ACTION_EXECUTION_KIND_LOCAL
+
+
+@buck_test(data_dir="dep_files", skip_for_os=["windows"])
+@pytest.mark.parametrize("delimiter", ["true", "false"])
+async def test_canonical_args_quoting(buck: Buck, delimiter: str) -> None:
+    option = "option with 'quotes' and\na newline"
+    options = {
+        "canonical_format": "args",
+        "canonical_pretty": delimiter,
+        "canonical_option": option,
+    }
+    output, args = _canonical_input_output(
+        await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    )
+    assert output == option + "usedextra"
+    assert shlex.split(args)[0] == option
+    options["canonical_unused"] = "changed"
+    await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL_DEP_FILE)
+    options["canonical_empty_option"] = "true"
+    output, args = _canonical_input_output(
+        await _build_canonical_input(buck, options, ACTION_EXECUTION_KIND_LOCAL)
+    )
+    assert output == "usedextra"
+    assert shlex.split(args)[0] == ""
