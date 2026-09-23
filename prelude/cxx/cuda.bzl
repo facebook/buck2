@@ -145,17 +145,10 @@ def cuda_distributed_compile(
 
     # The object is produced by the replayed plan sub-actions, not by this
     # command, so embed its path as a string rather than binding the output.
-    cmd_with_output = cmd_args(cmd, ["-o", object.short_path])
-    original_cmd = cmd_args(
-        cmd_with_output,
-        hidden = [
-            src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
-            src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
-        ],
-    )
+    original_cmd = cmd_args(cmd, ["-o", object.short_path])
     if prepare_cuda_dist:
         prepare_cmd = cmd_args(
-            cmd_with_output,
+            original_cmd,
             [
                 "-_NVCC_DRYRUN_",
                 "-_NVCC_HOSTCC_ARGSFILE_",
@@ -407,8 +400,8 @@ def _nvcc_dynamic_compile(
             cmd_node = prepared.cmd_node
             subcmd = cmd_args()
             exe = prepared.exe
-            is_host_compile = "g++" in exe or "clang++" in exe
-            if is_host_compile:
+            is_host_compiler = "g++" in exe or "clang++" in exe
+            if is_host_compiler:
                 # Add the original command as a hidden dependency, so that
                 # we have access to the host compiler and header files.
                 subcmd.add(cmd_args(hidden = original_cmd))
@@ -469,7 +462,7 @@ def _nvcc_dynamic_compile(
             # headers it actually read so buck can prune the rest from the action key.
             action_dep_files = {}
             headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-            if is_host_compile and headers_dep_files:
+            if is_host_compiler and headers_dep_files:
                 # Categories can repeat within a plan, so disambiguate with a
                 # per-category ordinal.
                 ordinal = category_counts.get(cmd_node["category"], 0)
