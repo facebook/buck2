@@ -608,7 +608,6 @@ def _compile_single_cxx(
     dist_cuda: CudaDistributedCompileOutput | None,
     prepare_cuda_dist: bool,
     cuda_shared_plan_identifier: str | None,
-    cuda_dryrun_source: Artifact | None,
     pch_object: OutputArtifact | None,
     json_error: OutputArtifact | None,
 ) -> CudaDistributedCompileSpec | None:
@@ -678,18 +677,6 @@ def _compile_single_cxx(
         output_args = output_args,
         base_compile_cmd_override = base_compile_cmd_override,
     )
-    cuda_prepare_cmd = None
-    if prepare_cuda_dist:
-        expect(cuda_dryrun_source != None, "distributed CUDA compilation requires a dry-run source")
-        cuda_prepare_cmd = _get_base_compile_cmd(
-            bitcode_args = bitcode_args,
-            src_compile_cmd = src_compile_cmd,
-            flavors = flavors,
-            flavor_flags = flavor_flags,
-            use_header_units = use_header_units,
-            base_compile_cmd_override = base_compile_cmd_override,
-            source_override = cuda_dryrun_source,
-        )
 
     if index_store:
         compile_index_store_cmd = _get_base_compile_cmd(
@@ -795,7 +782,7 @@ def _compile_single_cxx(
             error_handler = src_compile_cmd.error_handler,
             cuda_compile_style = cuda_compile_style,
             cuda_dist_output = dist_cuda,
-            cuda_prepare_cmd = cuda_prepare_cmd,
+            prepare_cuda_dist = prepare_cuda_dist,
             shared_plan_identifier = cuda_shared_plan_identifier,
         )
     else:
@@ -911,7 +898,6 @@ def _get_base_compile_cmd(
     output_args: list | None = None,
     use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
     base_compile_cmd_override = None,
-    source_override: Artifact | None = None,
 ) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
@@ -933,15 +919,7 @@ def _get_base_compile_cmd(
         if flags:
             cmd.add(flags)
 
-    if source_override == None:
-        cmd.add(src_compile_cmd.args)
-    else:
-        expect(
-            src_compile_cmd.args and src_compile_cmd.args[-1] == src_compile_cmd.src,
-            "source override requires the source artifact to be the final compile argument",
-        )
-        cmd.add(src_compile_cmd.args[:-1])
-        cmd.add(source_override)
+    cmd.add(src_compile_cmd.args)
 
     cmd.add(bitcode_args)
 
@@ -1030,9 +1008,6 @@ def _cxx_dynamic_compile(
             hostcc_argsfile = shared_dist_cuda[2].as_input(),
         )
     cuda_shared_plan_identifier = _cuda_plan_identifier(flavors_set) if shared_cuda_dist_output != None else None
-    cuda_dryrun_source = None
-    if cuda_compile_style == CudaCompileStyle("dist"):
-        cuda_dryrun_source = actions.write("__cuda_dryrun_source.cu", "")
     for i in range(len(infos)):
         is_cuda = infos[i].compile_cmd.src.extension == ".cu"
 
@@ -1074,7 +1049,6 @@ def _cxx_dynamic_compile(
             dist_cuda = source_dist_cuda,
             prepare_cuda_dist = prepare_cuda_dist,
             cuda_shared_plan_identifier = cuda_shared_plan_identifier,
-            cuda_dryrun_source = cuda_dryrun_source,
             pch_object = pch_object[i],
             json_error = json_error[i],
         )

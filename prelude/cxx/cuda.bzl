@@ -123,7 +123,7 @@ def cuda_distributed_compile(
     cuda_dist_output: CudaDistributedCompileOutput,
     src_compile_cmd: CxxSrcCompileCommand,
     cuda_compile_info: CudaCompileInfo,
-    cuda_prepare_cmd: cmd_args | None,
+    prepare_cuda_dist: bool,
     shared_plan_identifier: str | None,
 ) -> CudaDistributedCompileSpec:
     """
@@ -153,10 +153,9 @@ def cuda_distributed_compile(
             src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
         ],
     )
-    if cuda_prepare_cmd != None:
+    if prepare_cuda_dist:
         prepare_cmd = cmd_args(
-            cuda_prepare_cmd,
-            ["-o", object.short_path],
+            cmd_with_output,
             [
                 "-_NVCC_DRYRUN_",
                 "-_NVCC_HOSTCC_ARGSFILE_",
@@ -190,7 +189,7 @@ def cuda_compile(
     error_handler: [typing.Callable, None],
     cuda_compile_style: CudaCompileStyle | None,
     cuda_dist_output: CudaDistributedCompileOutput | None = None,
-    cuda_prepare_cmd: cmd_args | None = None,
+    prepare_cuda_dist: bool = False,
     shared_plan_identifier: str | None = None,
 ) -> CudaDistributedCompileSpec | None:
     """
@@ -219,7 +218,7 @@ def cuda_compile(
             cuda_dist_output,
             src_compile_cmd,
             cuda_compile_info,
-            cuda_prepare_cmd,
+            prepare_cuda_dist,
             shared_plan_identifier,
         )
     else:
@@ -408,10 +407,10 @@ def _nvcc_dynamic_compile(
             cmd_node = prepared.cmd_node
             subcmd = cmd_args()
             exe = prepared.exe
-            is_cxx_subcommand = cmd_node["category"] == "cuda_cxx_compile" or "preproc" in cmd_node["category"]
-            if is_cxx_subcommand:
-                # Add the original command as a hidden dependency so that its
-                # source and header inputs are available to the replayed command.
+            is_host_compile = "g++" in exe or "clang++" in exe
+            if is_host_compile:
+                # Add the original command as a hidden dependency, so that
+                # we have access to the host compiler and header files.
                 subcmd.add(cmd_args(hidden = original_cmd))
             elif "ptxas" in exe:
                 # Ptxas occasionally produces an empty output. The root cause
@@ -470,7 +469,7 @@ def _nvcc_dynamic_compile(
             # headers it actually read so buck can prune the rest from the action key.
             action_dep_files = {}
             headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
-            if is_cxx_subcommand and headers_dep_files:
+            if is_host_compile and headers_dep_files:
                 # Categories can repeat within a plan, so disambiguate with a
                 # per-category ordinal.
                 ordinal = category_counts.get(cmd_node["category"], 0)
