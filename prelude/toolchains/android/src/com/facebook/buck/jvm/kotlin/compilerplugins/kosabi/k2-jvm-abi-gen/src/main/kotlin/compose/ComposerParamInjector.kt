@@ -14,18 +14,24 @@
 package com.facebook
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.builders.irCallConstructor
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.makeNullable
+import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.hasAnnotation
+import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -53,6 +59,8 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
     val COMPOSABLE_FQ_NAME = FqName("androidx.compose.runtime.Composable")
     private val COMPOSER_CLASS_ID =
         ClassId(FqName("androidx.compose.runtime"), Name.identifier("Composer"))
+    private val JVM_NAME_CLASS_ID = ClassId(FqName("kotlin.jvm"), Name.identifier("JvmName"))
+    private val JVM_NAME_FQ_NAME = FqName("kotlin.jvm.JvmName")
 
     /** Each parameter uses 3 bits in the $changed bitmask. 32 / 3 = 10 slots per Int. */
     private const val SLOTS_PER_INT = 10
@@ -64,6 +72,10 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
   /** The Composer type, resolved lazily. Nullable if Compose runtime is not on classpath. */
   private val composerType: IrType? by lazy {
     pluginContext.referenceClass(COMPOSER_CLASS_ID)?.defaultType?.makeNullable()
+  }
+
+  private val jvmNameClass: IrClassSymbol? by lazy {
+    pluginContext.referenceClass(JVM_NAME_CLASS_ID)
   }
 
   /** Run the transform on the entire module. */
@@ -237,6 +249,42 @@ internal class ComposerParamInjector(private val pluginContext: IrPluginContext)
       }
 
       function.valueParameters = newParams
+      stampAccessorJvmName(function)
+    }
+
+    // A @Composable PROPERTY ACCESSOR must keep the plain JVM name of the accessor.
+    //
+    // ComposerParamTransformer.copyWithComposerParam stamps @JvmName(getterName(property)) on every
+    // accessor it rewrites, and @JvmName suppresses both the value-class mangle and the $module
+    // suffix the JVM backend would otherwise apply. Injecting the synthetic params in place leaves
+    // neither suppressed, so the stub advertises a name the real jar does not have. Measured on
+    // MdsButton$Type:
+    //
+    //   real: getMinHeight(Composer, int)F
+    //   stub: getMinHeight-chRvn1I$fbandroid_java_com_facebook_mds_compose_button_button(
+    //             Composer, int)F
+    //
+    // A consumer compiled against the stub links the mangled name -> NoSuchMethodError. A
+    // @Composable FUNCTION has no corresponding property, gets no @JvmName from the real
+    // transformer either, and must keep both manglings -- which is why this is scoped to accessors.
+    private fun stampAccessorJvmName(function: IrSimpleFunction) {
+      val property = function.correspondingPropertySymbol?.owner ?: return
+      if (function.hasAnnotation(JVM_NAME_FQ_NAME)) return
+      val constructor = jvmNameClass?.constructors?.singleOrNull() ?: return
+      val propertyName = property.name.identifier
+      val accessorName =
+          if (property.setter == function) JvmAbi.setterName(propertyName)
+          else JvmAbi.getterName(propertyName)
+      val annotation =
+          pluginContext.irBuiltIns.createIrBuilder(function.symbol).run {
+            irCallConstructor(constructor, emptyList()).apply {
+              putValueArgument(
+                  0,
+                  IrConstImpl.string(-1, -1, pluginContext.irBuiltIns.stringType, accessorName),
+              )
+            }
+          }
+      function.annotations = function.annotations + annotation
     }
   }
 
