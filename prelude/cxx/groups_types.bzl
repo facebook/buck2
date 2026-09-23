@@ -69,6 +69,13 @@ GroupAttrs = record(
     linker_flags = field(list[typing.Any], []),
     # Passes a linker script to the link group shared library's link command.
     linker_script = field([Artifact, None], None),
+    # Passes a version script to the link group shared library's link command.
+    # Tagging a group's symbols with a version keeps them from satisfying an
+    # identically-named *versioned* reference in another copy of the same library
+    # loaded into the process, which is otherwise allowed: glibc lets an
+    # unversioned definition satisfy a versioned reference, so whichever copy
+    # reaches the global scope first captures the other.
+    version_script = field([Artifact, None], None),
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
     exported_linker_flags = field(list[typing.Any], []),

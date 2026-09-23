@@ -1194,6 +1194,11 @@ def create_link_groups(
                 + link_group_spec.group.attrs.linker_flags
                 + link_group_spec.group.attrs.exported_linker_flags
                 + ([cmd_args(link_group_spec.group.attrs.linker_script, format = "-Wl,--script={}")] if link_group_spec.group.attrs.linker_script else [])
+                + (
+                    [cmd_args(link_group_spec.group.attrs.version_script, format = "-Wl,--version-script={}")]
+                    if link_group_spec.group.attrs.version_script
+                    else []
+                )
             ),
             params = create_link_group_params,
         )
