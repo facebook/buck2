@@ -84,8 +84,7 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
         ClassId(FqName("androidx.compose.runtime"), Name.identifier("Composer"))
     private val STABILITY_INFERRED_CLASS_ID =
         ClassId(FqName("androidx.compose.runtime.internal"), Name.identifier("StabilityInferred"))
-    private val STABILITY_INFERRED_FQ_NAME =
-        FqName("androidx.compose.runtime.internal.StabilityInferred")
+    private val STABILITY_INFERRED_FQ_NAME = STABILITY_INFERRED_CLASS_ID.asSingleFqName()
 
     // Known stable FQNs beyond primitives/String/Unit
     private val KNOWN_STABLE_FQNS = setOf(
