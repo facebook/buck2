@@ -24,7 +24,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -51,7 +50,7 @@ pub(crate) enum DepFileFingerprintFormat {
     },
     Args {
         is_executable: bool,
-        macro_files: Option<BuckIndexSet<Artifact>>,
+        macro_files: Option<Box<[Artifact]>>,
     },
 }
 
@@ -142,7 +141,7 @@ impl<'v> StarlarkDepFileFingerprint<'v> {
                 };
                 WriteCommandLineOptions {
                     absolute: self.absolute,
-                    macro_files: macro_files.as_ref(),
+                    macro_files: macro_files.as_deref(),
                 }
                 .render(self.content, fs, &mapper, &mut sink)?;
                 sink.result?;

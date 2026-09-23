@@ -108,7 +108,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
-    pub(crate) macro_files: Option<BuckIndexSet<Artifact>>,
+    pub(crate) macro_files: Option<Box<[Artifact]>>,
     pub(crate) use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
@@ -174,7 +174,7 @@ impl WriteAction {
         self.contents.by_ref(|v| {
             WriteCommandLineOptions {
                 absolute: self.inner.absolute,
-                macro_files: self.inner.macro_files.as_ref(),
+                macro_files: self.inner.macro_files.as_deref(),
             }
             .render(*v, fs, artifact_path_mapping, &mut cli)
         })?;
@@ -308,7 +308,7 @@ impl Action for WriteAction {
 
 pub(crate) struct WriteCommandLineOptions<'a> {
     pub(crate) absolute: bool,
-    pub(crate) macro_files: Option<&'a BuckIndexSet<Artifact>>,
+    pub(crate) macro_files: Option<&'a [Artifact]>,
 }
 
 impl WriteCommandLineOptions<'_> {
