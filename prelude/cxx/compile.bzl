@@ -21,7 +21,6 @@ load(
     "DepFileType",
     "HeaderExtension",
     "HeadersDepFiles",
-    "IndexStoreFactory",
     "UseHeaderUnitsMode",
 )
 load(
@@ -87,31 +86,19 @@ _CUDA_DRYRUN_SOURCE_PLACEHOLDER = "__buck2_cuda_dryrun_placeholder__.cu"
 
 # Record containing compile info that will be passed to the dynamic action
 CxxCompileInfo = record(
-    src = field(Artifact),
-    args = field(list[typing.Any]),
+    compile_cmd = field(CxxSrcCompileCommand),
     short_path = field(str),
     filename_base = field(str),
     index_store_base = field(str | None),  # filename_base for index store compilation
     identifier = field(str),
     folder_name = field(str),
-)
-
-CxxSharedCompileInfo = record(
-    cxx_compile_cmd = field(CxxCompileCommand),
-    index_store_factory = field(IndexStoreFactory | None),
-    error_handler = field([typing.Callable, None]),
-    expect_eligible_for_dedupe = field(bool),
+    flavor_flags = field(dict[str, typing.Any]),
 )
 
 # Input for a single CXX compilation - declared artifacts and compile info
 CxxCompileInput = record(
     declared_artifacts = field(CxxCompileOutput),
     info = field(CxxCompileInfo),
-)
-
-CxxSharedCompileCommandArgs = record(
-    before_src = field(cmd_args),
-    after_src = field(cmd_args),
 )
 
 def _project_clang_traces_as_args(traces: list[Artifact]):
@@ -525,6 +512,7 @@ def _prepare_cxx_compilation(
     # globally on a toolchain level.
     object_has_external_debug_info = toolchain.split_debug_mode == SplitDebugMode("single")
 
+    flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, src_compile_cmd.cxx_compile_cmd.compiler_type)
     clang_trace = _declare_clang_trace_output(toolchain, compiler_type, actions, filename_base, content_based)
 
     # Only declare CUDA distributed compile outputs for CUDA source files
@@ -581,13 +569,13 @@ def _prepare_cxx_compilation(
     )
 
     info = CxxCompileInfo(
-        src = src_compile_cmd.src,
-        args = src_compile_cmd.args,
+        compile_cmd = src_compile_cmd,
         short_path = short_path,
         filename_base = filename_base,
         index_store_base = index_store_base,
         identifier = identifier,
         folder_name = folder_name,
+        flavor_flags = flavor_flags,
     )
 
     return CxxCompileInput(
@@ -599,13 +587,14 @@ def _compile_single_cxx(
     actions: AnalysisActions,
     label: Label,
     toolchain: CxxToolchainInfo,
+    bitcode_args: list,
     flavors: set[CxxCompileFlavor],
     compile_pch: CxxPrecompiledHeader | None,
     precompiled_header: Dependency | None,
     cuda_compile_style: CudaCompileStyle | None,
+    use_header_units: UseHeaderUnitsMode,
     # CxxCompileInfo fields
     info: CxxCompileInfo,
-    shared_info: CxxSharedCompileInfo,
     # Output artifacts
     object: OutputArtifact,
     external_debug_info: OutputArtifact | None,
@@ -621,8 +610,6 @@ def _compile_single_cxx(
     dist_cuda: CudaDistributedCompileOutput | None,
     prepare_cuda_dist: bool,
     cuda_shared_plan_identifier: str | None,
-    shared_compile_args: CxxSharedCompileCommandArgs,
-    shared_auxiliary_args: CxxSharedCompileCommandArgs,
     pch_object: OutputArtifact | None,
     json_error: OutputArtifact | None,
 ) -> CudaDistributedCompileSpec | None:
@@ -638,24 +625,23 @@ def _compile_single_cxx(
     """
 
     # Extract info fields
-    src = info.src
-    src_args = info.args
+    src_compile_cmd = info.compile_cmd
     filename_base = info.filename_base
     index_store_base = info.index_store_base
     identifier = info.identifier
     folder_name = info.folder_name
     short_path = info.short_path
-    cxx_compile_cmd = shared_info.cxx_compile_cmd
+    flavor_flags = info.flavor_flags
 
     # Get compiler type
-    compiler_type = cxx_compile_cmd.compiler_type
-    content_based = cxx_compile_cmd.allow_content_based_paths
+    compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+    content_based = src_compile_cmd.uses_content_based_paths
 
     cuda_dist_spec = None
-    if src.extension == ".cu":
+    if src_compile_cmd.src.extension == ".cu":
         output_args = None
     elif compile_pch:
-        if compiler_type == "windows":
+        if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
             output_args = [
                 cmd_args(object, format = "/Fp{}"),
                 cmd_args(pch_object, format = "/Fo{}"),
@@ -674,7 +660,7 @@ def _compile_single_cxx(
         output_args = get_output_flags(compiler_type, object)
 
     base_compile_cmd_override = None
-    if src.extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
+    if src_compile_cmd.src.extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
         compiler_for_dryrun = getattr(toolchain.cuda_compiler_info, "compiler_for_dryrun", None)
         if compiler_for_dryrun != None:
             base_compile_cmd_override = _get_compile_base(
@@ -685,32 +671,34 @@ def _compile_single_cxx(
             )
 
     cmd = _get_base_compile_cmd(
-        src = src,
-        src_args = src_args,
-        cxx_compile_cmd = cxx_compile_cmd,
+        bitcode_args = bitcode_args,
+        src_compile_cmd = src_compile_cmd,
+        flavors = flavors,
+        flavor_flags = flavor_flags,
+        use_header_units = use_header_units,
         output_args = output_args,
         base_compile_cmd_override = base_compile_cmd_override,
-        shared_args = shared_compile_args,
     )
     cuda_prepare_cmd = None
     if prepare_cuda_dist:
         cuda_prepare_cmd = _get_base_compile_cmd(
-            src = src,
-            src_args = src_args,
-            cxx_compile_cmd = cxx_compile_cmd,
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = flavor_flags,
+            use_header_units = use_header_units,
             base_compile_cmd_override = base_compile_cmd_override,
             source_override = _CUDA_DRYRUN_SOURCE_PLACEHOLDER,
-            shared_args = shared_compile_args,
         )
 
     if index_store:
         compile_index_store_cmd = _get_base_compile_cmd(
-            src = src,
-            src_args = src_args,
-            cxx_compile_cmd = cxx_compile_cmd,
-            shared_args = shared_auxiliary_args,
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
         )
-        shared_info.index_store_factory.compile(
+        src_compile_cmd.index_store_factory.compile(
             actions,
             label,
             index_store,
@@ -728,16 +716,16 @@ def _compile_single_cxx(
             pch_flavor = flavor.value if flavor.value else pch_flavor
 
         target = pch_subtargets[pch_flavor].get(CPrecompiledHeaderInfo)
-        cmd.add(_get_use_pch_args(src, cxx_compile_cmd, target, precompiled_header[CPrecompiledHeaderInfo]))
+        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header[CPrecompiledHeaderInfo]))
 
     action_dep_files = {}
 
-    headers_dep_files = cxx_compile_cmd.headers_dep_files
+    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
 
     # CUDA compilation attaches dep files itself (see cuda_mono_compile and
     # cuda_distributed_compile), because the flags have to land on the real
     # compile sub-command rather than on the nvcc driver command we dryrun here.
-    if src.extension == ".cu":
+    if src_compile_cmd.src.extension == ".cu":
         headers_dep_files = None
 
     if headers_dep_files:
@@ -745,7 +733,7 @@ def _compile_single_cxx(
             actions,
             cmd,
             headers_dep_files,
-            src,
+            src_compile_cmd.src,
             filename_base,
             action_dep_files,
         )
@@ -787,7 +775,7 @@ def _compile_single_cxx(
             cmd,
         )
 
-    if src.extension == ".cu":
+    if src_compile_cmd.src.extension == ".cu":
         expect(cuda_compile_style != None, "CUDA compile style should be configured for targets with .cu sources")
         cuda_compile_info = CudaCompileInfo(
             filename = filename_base,
@@ -800,12 +788,11 @@ def _compile_single_cxx(
             actions,
             cmd,
             object,
-            src,
-            cxx_compile_cmd,
+            src_compile_cmd,
             cuda_compile_info,
             action_dep_files,
             allow_dep_file_cache_upload = False,
-            error_handler = shared_info.error_handler,
+            error_handler = src_compile_cmd.error_handler,
             cuda_compile_style = cuda_compile_style,
             cuda_dist_output = dist_cuda,
             cuda_prepare_cmd = cuda_prepare_cmd,
@@ -816,42 +803,42 @@ def _compile_single_cxx(
         is_consuming_compiled_pch = bool(precompiled_header and precompiled_header[CPrecompiledHeaderInfo].compiled)
         actions.run(
             cmd,
-            category = cxx_compile_cmd.category,
+            category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier,
             dep_files = action_dep_files,
-            allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            error_handler = shared_info.error_handler,
+            error_handler = src_compile_cmd.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
             local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
-            expect_eligible_for_dedupe = shared_info.expect_eligible_for_dedupe,
+            expect_eligible_for_dedupe = src_compile_cmd.expect_eligible_for_dedupe,
         )
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
     if assembly:
         assembly_cmd = _get_base_compile_cmd(
-            src = src,
-            src_args = src_args,
-            cxx_compile_cmd = cxx_compile_cmd,
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-S"] + get_output_flags(compiler_type, assembly),
-            shared_args = shared_auxiliary_args,
         )
         actions.run(
             assembly_cmd,
-            category = cxx_compile_cmd.category,
+            category = src_compile_cmd.cxx_compile_cmd.category,
             identifier = identifier + " (assembly)",
-            allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            error_handler = shared_info.error_handler,
+            error_handler = src_compile_cmd.error_handler,
         )
 
     if diagnostics:
         syntax_only_cmd = _get_base_compile_cmd(
-            src = src,
-            src_args = src_args,
-            cxx_compile_cmd = cxx_compile_cmd,
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
             output_args = ["-fsyntax-only"],
-            shared_args = shared_auxiliary_args,
         )
         diagnostics_dep_files = {}
         if headers_dep_files:
@@ -859,7 +846,7 @@ def _compile_single_cxx(
                 actions = actions,
                 cmd = syntax_only_cmd,
                 headers_dep_files = headers_dep_files,
-                src = src,
+                src = src_compile_cmd.src,
                 filename_base = "{}.check".format(filename_base),
                 action_dep_files = diagnostics_dep_files,
             )
@@ -872,9 +859,9 @@ def _compile_single_cxx(
             category = "check",
             identifier = short_path,
             dep_files = diagnostics_dep_files,
-            allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            error_handler = shared_info.error_handler,
+            error_handler = src_compile_cmd.error_handler,
         )
 
     if clang_tidy_diagnostics:
@@ -884,97 +871,81 @@ def _compile_single_cxx(
                 toolchain.internal_tools.clang_tidy_wrapper,
                 cmd_args(clang_tidy_diagnostics, format = "--output={}"),
                 cmd_args(clang_tidy_tool, format = "--clang-tidy={}"),
-                cmd_args(src, format = "--source={}"),
+                cmd_args(src_compile_cmd.src, format = "--source={}"),
                 "--",
-                cxx_compile_cmd.base_compile_cmd,
-                cxx_compile_cmd.argsfile.cmd_form,
-                src_args,
+                src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
+                src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
+                src_compile_cmd.args,
             ],
             category = "clang_tidy",
             identifier = short_path,
-            allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            error_handler = shared_info.error_handler,
+            error_handler = src_compile_cmd.error_handler,
         )
 
     # Generate pre-processed sources
     preproc_cmd = _get_base_compile_cmd(
-        src = src,
-        src_args = src_args,
-        cxx_compile_cmd = cxx_compile_cmd,
+        bitcode_args = bitcode_args,
+        src_compile_cmd = src_compile_cmd,
+        flavors = flavors,
+        flavor_flags = toolchain.compiler_flavor_flags,
         output_args = [COMMON_PREPROCESSOR_OUTPUT_ARGS, get_output_flags(compiler_type, preproc)],
-        shared_args = shared_auxiliary_args,
     )
     actions.run(
         preproc_cmd,
-        category = cxx_compile_cmd.category,
+        category = src_compile_cmd.cxx_compile_cmd.category,
         identifier = identifier + " (preprocessor)",
-        allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
+        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
-        error_handler = shared_info.error_handler,
+        error_handler = src_compile_cmd.error_handler,
     )
 
     return cuda_dist_spec
 
 def _get_base_compile_cmd(
-    src: Artifact,
-    src_args: list[typing.Any],
-    cxx_compile_cmd: CxxCompileCommand,
-    shared_args: CxxSharedCompileCommandArgs,
+    bitcode_args: cmd_args | list,
+    src_compile_cmd: CxxSrcCompileCommand,
+    flavors: set[CxxCompileFlavor],
+    flavor_flags: dict[str, typing.Any],
     output_args: list | None = None,
+    use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
     base_compile_cmd_override = None,
     source_override: str | None = None,
 ) -> cmd_args:
     """
-    Construct a compile command for a single CXX source from its
-    `cxx_compile_cmd`, the extension-shared `shared_args`, and other
-    compilation options.
+    Construct a shared compile command for a single CXX source based on
+    `src_compile_command` and other compilation options.
     """
-    cmd = cmd_args(base_compile_cmd_override if base_compile_cmd_override != None else cxx_compile_cmd.base_compile_cmd)
+    cmd = cmd_args(base_compile_cmd_override if base_compile_cmd_override != None else src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
     if output_args:
         cmd.add(output_args)
 
-    cmd.add(shared_args.before_src)
+    if use_header_units == UseHeaderUnitsMode("pcm") and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+    elif use_header_units == UseHeaderUnitsMode("stub") and src_compile_cmd.cxx_compile_cmd.header_unit_stubs_argsfile:
+        cmd.add(cmd_args(hidden = src_compile_cmd.cxx_compile_cmd.header_unit_stubs_argsfile.file))
 
-    if source_override == None:
-        cmd.add(src_args)
-    else:
-        expect(
-            src_args and src_args[-1] == src,
-            "source override requires the source artifact to be the final compile argument",
-        )
-        cmd.add(src_args[:-1])
-        cmd.add(source_override)
-
-    cmd.add(shared_args.after_src)
-
-    return cmd
-
-def _get_shared_compile_command_args(
-    bitcode_args: cmd_args | list,
-    cxx_compile_cmd: CxxCompileCommand,
-    flavors: set[CxxCompileFlavor],
-    flavor_flags: dict[str, list[str]],
-    use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
-) -> CxxSharedCompileCommandArgs:
-    before_src = cmd_args()
-
-    if use_header_units == UseHeaderUnitsMode("pcm") and cxx_compile_cmd.header_units_argsfile:
-        before_src.add(cxx_compile_cmd.header_units_argsfile.cmd_form)
-    elif use_header_units == UseHeaderUnitsMode("stub") and cxx_compile_cmd.header_unit_stubs_argsfile:
-        before_src.add(cmd_args(hidden = cxx_compile_cmd.header_unit_stubs_argsfile.file))
-
-    before_src.add(cxx_compile_cmd.argsfile.cmd_form)
+    cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
 
     for flavor in flavors:
         flags = flavor_flags.get(flavor.value)
         if flags:
-            before_src.add(flags)
+            cmd.add(flags)
 
-    return CxxSharedCompileCommandArgs(
-        before_src = before_src,
-        after_src = cmd_args(bitcode_args),
-    )
+    if source_override == None:
+        cmd.add(src_compile_cmd.args)
+    else:
+        expect(
+            src_compile_cmd.args and src_compile_cmd.args[-1] == src_compile_cmd.src,
+            "source override requires the source artifact to be the final compile argument",
+        )
+        cmd.add(src_compile_cmd.args[:-1])
+        cmd.add(source_override)
+
+    cmd.add(bitcode_args)
+
+    return cmd
 
 def toolchain_supports_flavor(toolchain: CxxToolchainInfo, flavor: CxxCompileFlavor) -> bool:
     return flavor.value in toolchain.supported_compile_flavors and toolchain.compiler_flavor_flags.get(flavor.value) != None
@@ -1003,22 +974,21 @@ def _cxx_dynamic_compile(
     compile_pch: CxxPrecompiledHeader | None,
     cuda_compile_style: CudaCompileStyle | None,
     infos: list[CxxCompileInfo],
-    shared_infos: dict[str, CxxSharedCompileInfo],
     object: list[OutputArtifact],
-    external_debug_info: dict[int, OutputArtifact],
-    clang_remarks: dict[int, OutputArtifact],
-    clang_llvm_statistics: dict[int, OutputArtifact],
-    clang_trace: dict[int, OutputArtifact],
-    gcno_file: dict[int, OutputArtifact],
+    external_debug_info: list[OutputArtifact | None],
+    clang_remarks: list[OutputArtifact | None],
+    clang_llvm_statistics: list[OutputArtifact | None],
+    clang_trace: list[OutputArtifact | None],
+    gcno_file: list[OutputArtifact | None],
     assembly: list[OutputArtifact | None],
     diagnostics: list[OutputArtifact | None],
-    clang_tidy_diagnostics: dict[int, OutputArtifact],
+    clang_tidy_diagnostics: list[OutputArtifact | None],
     preproc: list[OutputArtifact],
-    index_store: dict[int, OutputArtifact],
-    dist_cuda: dict[int, (OutputArtifact, OutputArtifact, OutputArtifact)],
+    index_store: list[OutputArtifact | None],
+    dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
     shared_dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
-    pch_object: dict[int, OutputArtifact],
-    json_error: dict[int, OutputArtifact],
+    pch_object: list[OutputArtifact | None],
+    json_error: list[OutputArtifact | None],
 ) -> list[Provider]:
     """
     DYNAMIC ACTION CALLBACK: The bridge between declaration and execution phases.
@@ -1060,26 +1030,8 @@ def _cxx_dynamic_compile(
             hostcc_argsfile = shared_dist_cuda[2].as_input(),
         )
     cuda_shared_plan_identifier = _cuda_plan_identifier(flavors_set) if shared_cuda_dist_output != None else None
-    shared_compile_args = {}
-    shared_auxiliary_args = {}
-    for extension, shared_info in shared_infos.items():
-        flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, shared_info.cxx_compile_cmd.compiler_type)
-        shared_compile_args[extension] = _get_shared_compile_command_args(
-            bitcode_args = bitcode_args,
-            cxx_compile_cmd = shared_info.cxx_compile_cmd,
-            flavors = flavors_set,
-            flavor_flags = flavor_flags,
-            use_header_units = use_header_units,
-        )
-        shared_auxiliary_args[extension] = _get_shared_compile_command_args(
-            bitcode_args = bitcode_args,
-            cxx_compile_cmd = shared_info.cxx_compile_cmd,
-            flavors = flavors_set,
-            flavor_flags = toolchain.compiler_flavor_flags,
-        )
     for i in range(len(infos)):
-        extension = infos[i].src.extension
-        is_cuda = extension == ".cu"
+        is_cuda = infos[i].compile_cmd.src.extension == ".cu"
 
         # Exactly one prepare action must bind the shared plan outputs. Any
         # shared CUDA source is a valid representative, since sharing requires
@@ -1087,71 +1039,53 @@ def _cxx_dynamic_compile(
         if is_cuda and shared_cuda_dist_output != None and shared_cuda_plan_src_idx == None:
             shared_cuda_plan_src_idx = i
         source_dist_cuda = shared_cuda_dist_output if is_cuda else None
-        source_dist_cuda_outputs = dist_cuda.get(i)
-        if source_dist_cuda == None and source_dist_cuda_outputs != None:
+        if source_dist_cuda == None and dist_cuda[i] != None:
             source_dist_cuda = CudaDistributedCompileOutput(
-                nvcc_dag = source_dist_cuda_outputs[0].as_input(),
-                nvcc_env = source_dist_cuda_outputs[1].as_input(),
-                hostcc_argsfile = source_dist_cuda_outputs[2].as_input(),
+                nvcc_dag = dist_cuda[i][0].as_input(),
+                nvcc_env = dist_cuda[i][1].as_input(),
+                hostcc_argsfile = dist_cuda[i][2].as_input(),
             )
         prepare_cuda_dist = source_dist_cuda != None and (shared_cuda_dist_output == None or i == shared_cuda_plan_src_idx)
         cuda_dist_spec = _compile_single_cxx(
             actions = actions,
             label = label,
             toolchain = toolchain,
+            bitcode_args = bitcode_args,
             flavors = flavors_set,
             compile_pch = compile_pch,
             precompiled_header = precompiled_header,
             cuda_compile_style = cuda_compile_style,
+            use_header_units = use_header_units,
             info = infos[i],
-            shared_info = shared_infos[extension],
             object = object[i],
-            external_debug_info = external_debug_info.get(i),
-            clang_remarks = clang_remarks.get(i),
-            clang_llvm_statistics = clang_llvm_statistics.get(i),
-            clang_trace = clang_trace.get(i),
-            gcno_file = gcno_file.get(i),
+            external_debug_info = external_debug_info[i],
+            clang_remarks = clang_remarks[i],
+            clang_llvm_statistics = clang_llvm_statistics[i],
+            clang_trace = clang_trace[i],
+            gcno_file = gcno_file[i],
             assembly = assembly[i],
             diagnostics = diagnostics[i],
-            clang_tidy_diagnostics = clang_tidy_diagnostics.get(i),
+            clang_tidy_diagnostics = clang_tidy_diagnostics[i],
             preproc = preproc[i],
-            index_store = index_store.get(i),
+            index_store = index_store[i],
             dist_cuda = source_dist_cuda,
             prepare_cuda_dist = prepare_cuda_dist,
             cuda_shared_plan_identifier = cuda_shared_plan_identifier,
-            shared_compile_args = shared_compile_args[extension],
-            shared_auxiliary_args = shared_auxiliary_args[extension],
-            pch_object = pch_object.get(i),
-            json_error = json_error.get(i),
+            pch_object = pch_object[i],
+            json_error = json_error[i],
         )
         if cuda_dist_spec != None:
             if shared_cuda_dist_output != None:
                 shared_cuda_specs.append(cuda_dist_spec)
             else:
-                cxx_compile_cmd = shared_infos[extension].cxx_compile_cmd
-                create_cuda_distributed_compiles(
-                    actions,
-                    toolchain,
-                    source_dist_cuda,
-                    [cuda_dist_spec],
-                    cxx_compile_cmd.allow_cache_upload,
-                    cxx_compile_cmd.headers_dep_files,
-                )
+                create_cuda_distributed_compiles(actions, toolchain, source_dist_cuda, [cuda_dist_spec])
 
-    if shared_cuda_specs:
-        cxx_compile_cmd = shared_infos[".cu"].cxx_compile_cmd
+    if shared_cuda_dist_output != None:
         expect(
             shared_cuda_plan_src_idx != None,
             "shared CUDA plan outputs were declared but no .cu source is present to bind them",
         )
-        create_cuda_distributed_compiles(
-            actions,
-            toolchain,
-            shared_cuda_dist_output,
-            shared_cuda_specs,
-            cxx_compile_cmd.allow_cache_upload,
-            cxx_compile_cmd.headers_dep_files,
-        )
+        create_cuda_distributed_compiles(actions, toolchain, shared_cuda_dist_output, shared_cuda_specs)
 
     return [EMPTY_DEFAULT_INFO]
 
@@ -1161,28 +1095,27 @@ _dynamic_compile_rule = dynamic_actions(
     impl = _cxx_dynamic_compile,
     attrs = {
         "assembly": dynattrs.list(dynattrs.option(dynattrs.output())),
-        "bitcode_args": dynattrs.value(list[str]),
-        "clang_llvm_statistics": dynattrs.dict(int, dynattrs.output()),
-        "clang_remarks": dynattrs.dict(int, dynattrs.output()),
-        "clang_tidy_diagnostics": dynattrs.dict(int, dynattrs.output()),
-        "clang_trace": dynattrs.dict(int, dynattrs.output()),
+        "bitcode_args": dynattrs.list(dynattrs.value(str)),
+        "clang_llvm_statistics": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "clang_remarks": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "clang_tidy_diagnostics": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "clang_trace": dynattrs.list(dynattrs.option(dynattrs.output())),
         "compile_pch": dynattrs.option(dynattrs.value(CxxPrecompiledHeader)),
         "cuda_compile_style": dynattrs.option(dynattrs.value(CudaCompileStyle)),
         "diagnostics": dynattrs.list(dynattrs.option(dynattrs.output())),
-        "dist_cuda": dynattrs.dict(int, dynattrs.tuple(dynattrs.output(), dynattrs.output(), dynattrs.output())),
-        "external_debug_info": dynattrs.dict(int, dynattrs.output()),
-        "flavors": dynattrs.value(list[CxxCompileFlavor]),
-        "gcno_file": dynattrs.dict(int, dynattrs.output()),
-        "index_store": dynattrs.dict(int, dynattrs.output()),
-        "infos": dynattrs.value(list[CxxCompileInfo]),
-        "json_error": dynattrs.dict(int, dynattrs.output()),
+        "dist_cuda": dynattrs.list(dynattrs.option(dynattrs.tuple(dynattrs.output(), dynattrs.output(), dynattrs.output()))),
+        "external_debug_info": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "flavors": dynattrs.list(dynattrs.value(CxxCompileFlavor)),
+        "gcno_file": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "index_store": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "infos": dynattrs.list(dynattrs.value(CxxCompileInfo)),
+        "json_error": dynattrs.list(dynattrs.option(dynattrs.output())),
         "label": dynattrs.value(Label),
         "object": dynattrs.list(dynattrs.output()),
-        "pch_object": dynattrs.dict(int, dynattrs.output()),
+        "pch_object": dynattrs.list(dynattrs.option(dynattrs.output())),
         "precompiled_header": dynattrs.option(dynattrs.value(Dependency)),
         "preproc": dynattrs.list(dynattrs.output()),
         "shared_dist_cuda": dynattrs.option(dynattrs.tuple(dynattrs.output(), dynattrs.output(), dynattrs.output())),
-        "shared_infos": dynattrs.dict(str, dynattrs.value(CxxSharedCompileInfo)),
         "toolchain": dynattrs.value(CxxToolchainInfo),
         "use_header_units": dynattrs.value(UseHeaderUnitsMode),
     },
@@ -1268,42 +1201,22 @@ def compile_cxx(
 
     objects = []
 
-    # Dynamic action inputs
+    # Lists for dynamic action inputs
     infos = []
     object_outputs = []
-    external_debug_info_outputs = {}
-    clang_remarks_outputs = {}
-    clang_llvm_statistics_outputs = {}
-    clang_trace_outputs = {}
-    gcno_file_outputs = {}
+    external_debug_info_outputs = []
+    clang_remarks_outputs = []
+    clang_llvm_statistics_outputs = []
+    clang_trace_outputs = []
+    gcno_file_outputs = []
     assembly_outputs = []
     diagnostics_outputs = []
-    clang_tidy_diagnostics_outputs = {}
+    clang_tidy_diagnostics_outputs = []
     preproc_outputs = []
-    index_store_outputs = {}
-    dist_cuda_outputs = {}
-    pch_object_outputs = {}
-    json_error_outputs = {}
-    shared_infos = {}
-
-    for src_compile_cmd in src_compile_cmds:
-        extension = src_compile_cmd.src.extension
-        shared_info = shared_infos.get(extension)
-        if shared_info == None:
-            shared_infos[extension] = CxxSharedCompileInfo(
-                cxx_compile_cmd = src_compile_cmd.cxx_compile_cmd,
-                index_store_factory = src_compile_cmd.index_store_factory,
-                error_handler = src_compile_cmd.error_handler,
-                expect_eligible_for_dedupe = src_compile_cmd.expect_eligible_for_dedupe,
-            )
-        else:
-            expect(
-                src_compile_cmd.cxx_compile_cmd == shared_info.cxx_compile_cmd
-                and src_compile_cmd.index_store_factory == shared_info.index_store_factory
-                and src_compile_cmd.error_handler == shared_info.error_handler
-                and src_compile_cmd.expect_eligible_for_dedupe == shared_info.expect_eligible_for_dedupe,
-                "sources with the same extension must share compile command inputs",
-            )
+    index_store_outputs = []
+    dist_cuda_outputs = []
+    pch_object_outputs = []
+    json_error_outputs = []
 
     shared_cuda_dist_output = maybe_get_shared_cuda_dist_output(
         actions,
@@ -1312,7 +1225,7 @@ def compile_cxx(
         flavors,
     )
 
-    for source_index, src_compile_cmd in enumerate(src_compile_cmds):
+    for src_compile_cmd in src_compile_cmds:
         cxx_compile_input = _prepare_cxx_compilation(
             actions = actions,
             toolchain = toolchain,
@@ -1333,33 +1246,23 @@ def compile_cxx(
         # Collect outputs - call .as_output() on each artifact
         declared = cxx_compile_input.declared_artifacts
         object_outputs.append(declared.object.as_output())
-        if declared.external_debug_info:
-            external_debug_info_outputs[source_index] = declared.external_debug_info.as_output()
-        if declared.clang_remarks:
-            clang_remarks_outputs[source_index] = declared.clang_remarks.as_output()
-        if declared.clang_llvm_statistics:
-            clang_llvm_statistics_outputs[source_index] = declared.clang_llvm_statistics.as_output()
-        if declared.clang_trace:
-            clang_trace_outputs[source_index] = declared.clang_trace.as_output()
-        if declared.gcno_file:
-            gcno_file_outputs[source_index] = declared.gcno_file.as_output()
+        external_debug_info_outputs.append(map_val(as_output, declared.external_debug_info))
+        clang_remarks_outputs.append(map_val(as_output, declared.clang_remarks))
+        clang_llvm_statistics_outputs.append(map_val(as_output, declared.clang_llvm_statistics))
+        clang_trace_outputs.append(map_val(as_output, declared.clang_trace))
+        gcno_file_outputs.append(map_val(as_output, declared.gcno_file))
         assembly_outputs.append(map_val(as_output, declared.assembly))
         diagnostics_outputs.append(map_val(as_output, declared.diagnostics))
-        if declared.clang_tidy_diagnostics:
-            clang_tidy_diagnostics_outputs[source_index] = declared.clang_tidy_diagnostics.as_output()
+        clang_tidy_diagnostics_outputs.append(map_val(as_output, declared.clang_tidy_diagnostics))
         preproc_outputs.append(declared.preproc.as_output())
-        if declared.index_store:
-            index_store_outputs[source_index] = declared.index_store.as_output()
-        if shared_cuda_dist_output == None and declared.dist_cuda:
-            dist_cuda_outputs[source_index] = (
-                declared.dist_cuda.nvcc_dag.as_output(),
-                declared.dist_cuda.nvcc_env.as_output(),
-                declared.dist_cuda.hostcc_argsfile.as_output(),
-            )
-        if declared.pch_object:
-            pch_object_outputs[source_index] = declared.pch_object.as_output()
-        if declared.json_error:
-            json_error_outputs[source_index] = declared.json_error.as_output()
+        index_store_outputs.append(map_val(as_output, declared.index_store))
+        dist_cuda_outputs.append(
+            None
+            if shared_cuda_dist_output != None
+            else map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda)
+        )
+        pch_object_outputs.append(map_val(as_output, declared.pch_object))
+        json_error_outputs.append(map_val(as_output, declared.json_error))
 
         objects.append(declared)
 
@@ -1387,7 +1290,6 @@ def compile_cxx(
             precompiled_header = precompiled_header,
             preproc = preproc_outputs,
             shared_dist_cuda = map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), shared_cuda_dist_output),
-            shared_infos = shared_infos,
             toolchain = toolchain,
             use_header_units = use_header_units,
         )
@@ -2576,26 +2478,21 @@ def _generate_base_compile_command(
         allow_content_based_paths = allow_content_based_paths,
     )
 
-def _get_use_pch_args(
-    src: Artifact,
-    cxx_compile_cmd: CxxCompileCommand,
-    compile_with_pch: CPrecompiledHeaderInfo,
-    precompiled_header: CPrecompiledHeaderInfo,
-) -> cmd_args:
-    if precompiled_header.clanguage != src.extension:
+def _get_use_pch_args(src_compile_cmd: CxxSrcCompileCommand, compile_with_pch: CPrecompiledHeaderInfo, precompiled_header: CPrecompiledHeaderInfo) -> cmd_args:
+    if precompiled_header.clanguage != src_compile_cmd.src.extension:
         return cmd_args()
 
     pch_args = cmd_args()
-    if cxx_compile_cmd.compiler_type in ["windows"]:
+    if src_compile_cmd.cxx_compile_cmd.compiler_type in ["windows"]:
         pch_args.add(cmd_args(compile_with_pch.basename, format = "/Yu{}"))
         pch_args.add(cmd_args(compile_with_pch.basename, format = "/FI{}"))
         pch_args.add(cmd_args(compile_with_pch.header, format = "/Fp{}"))
-    elif cxx_compile_cmd.compiler_type in ["clang"]:
+    elif src_compile_cmd.cxx_compile_cmd.compiler_type in ["clang"]:
         pch_args.add("-Xclang", "-include-pch", "-Xclang", compile_with_pch.header)
     else:
         fail(
             "Warning: Unsupported compiler type for precompiled header usage: {}".format(
-                cxx_compile_cmd.compiler_type,
+                src_compile_cmd.cxx_compile_cmd.compiler_type,
             )
         )
 
