@@ -5,37 +5,25 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-constraint_setting(
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
+
+constraint_with_aliases(
     name = "runtime",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "android-host-test",
-    constraint_setting = ":runtime",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "android-instrumentation-test",
-    constraint_setting = ":runtime",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "android-unit-test",
-    constraint_setting = ":runtime",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "anywhere-linux",
-    constraint_setting = ":runtime",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "fbcode",
-    constraint_setting = ":runtime",
+    aliases = {
+        "android-host-test": "android-host-test",
+        "android-instrumentation-test": "android-instrumentation-test",
+        "android-unit-test": "android-unit-test",
+        "anywhere-linux": "anywhere-linux",
+        "fbcode": "fbcode",
+    },
+    default = "unspecified",
+    values = [
+        "android-host-test",
+        "android-instrumentation-test",
+        "android-unit-test",
+        "anywhere-linux",
+        "fbcode",
+        "unspecified",
+    ],
     visibility = ["PUBLIC"],
 )
