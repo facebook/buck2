@@ -8,6 +8,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import datetime
 import logging
 import re
@@ -29,6 +31,7 @@ from .provisioning_profile_diagnostics import (
     UnsupportedPlatform,
 )
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
+from .serialization import expect_dict, expect_keys
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -172,6 +175,25 @@ def _make_multiple_matching_profiles_message(
 class SelectedProvisioningProfileInfo:
     profile: ProvisioningProfileMetadata
     identity: CodeSigningIdentity
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "identity": self.identity.to_dict(),
+            "profile": self.profile.to_dict(),
+        }
+
+    @staticmethod
+    def from_dict(value: object) -> SelectedProvisioningProfileInfo:
+        data = expect_dict(value, "SelectedProvisioningProfileInfo")
+        expect_keys(
+            data,
+            "SelectedProvisioningProfileInfo",
+            frozenset({"identity", "profile"}),
+        )
+        return SelectedProvisioningProfileInfo(
+            profile=ProvisioningProfileMetadata.from_dict(data["profile"]),
+            identity=CodeSigningIdentity.from_dict(data["identity"]),
+        )
 
 
 def _filter_matching_selected_provisioning_profile_infos(

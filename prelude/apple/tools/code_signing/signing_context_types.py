@@ -17,6 +17,7 @@ from typing import Optional, Union
 from .identity import CodeSigningIdentity
 from .info_plist_metadata import InfoPlistMetadata
 from .provisioning_profile_selection import SelectedProvisioningProfileInfo
+from .serialization import expect_dict, expect_keys, expect_optional_str, expect_str
 
 
 @dataclass
@@ -25,6 +26,50 @@ class SigningContextWithProfileSelection:
     info_plist_destination: Path
     info_plist_metadata: InfoPlistMetadata
     selected_profile_info: SelectedProvisioningProfileInfo
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "info_plist_source": str(self.info_plist_source),
+            "info_plist_destination": str(self.info_plist_destination),
+            "info_plist_metadata": self.info_plist_metadata.to_dict(),
+            "selected_profile_info": self.selected_profile_info.to_dict(),
+        }
+
+    @staticmethod
+    def from_dict(value: object) -> SigningContextWithProfileSelection:
+        data = expect_dict(value, "SigningContextWithProfileSelection")
+        expect_keys(
+            data,
+            "SigningContextWithProfileSelection",
+            frozenset(
+                {
+                    "info_plist_source",
+                    "info_plist_destination",
+                    "info_plist_metadata",
+                    "selected_profile_info",
+                }
+            ),
+        )
+        return SigningContextWithProfileSelection(
+            info_plist_source=Path(
+                expect_str(
+                    data["info_plist_source"],
+                    "SigningContextWithProfileSelection.info_plist_source",
+                )
+            ),
+            info_plist_destination=Path(
+                expect_str(
+                    data["info_plist_destination"],
+                    "SigningContextWithProfileSelection.info_plist_destination",
+                )
+            ),
+            info_plist_metadata=InfoPlistMetadata.from_dict(
+                data["info_plist_metadata"]
+            ),
+            selected_profile_info=SelectedProvisioningProfileInfo.from_dict(
+                data["selected_profile_info"]
+            ),
+        )
 
 
 @dataclass
@@ -46,6 +91,37 @@ class AdhocSigningContext:
         return CodeSigningIdentity(
             fingerprint=self.codesign_identity,
             subject_common_name="",
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "codesign_identity": self.codesign_identity,
+            "profile_selection_context": (
+                self.profile_selection_context.to_dict()
+                if self.profile_selection_context
+                else None
+            ),
+        }
+
+    @staticmethod
+    def from_dict(value: object) -> AdhocSigningContext:
+        data = expect_dict(value, "AdhocSigningContext")
+        expect_keys(
+            data,
+            "AdhocSigningContext",
+            frozenset({"codesign_identity", "profile_selection_context"}),
+        )
+        psc_data = data["profile_selection_context"]
+        psc = (
+            SigningContextWithProfileSelection.from_dict(psc_data)
+            if psc_data is not None
+            else None
+        )
+        return AdhocSigningContext(
+            codesign_identity=expect_optional_str(
+                data["codesign_identity"], "AdhocSigningContext.codesign_identity"
+            ),
+            profile_selection_context=psc,
         )
 
 

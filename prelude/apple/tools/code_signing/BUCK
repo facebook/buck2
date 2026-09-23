@@ -34,6 +34,13 @@ python_library(
 )
 
 python_library(
+    name = "serialization",
+    srcs = ["serialization.py"],
+    typing = True,
+    visibility = ["PUBLIC"],
+)
+
+python_library(
     name = "lib",
     srcs = glob(
         [
@@ -43,6 +50,7 @@ python_library(
             "*_test.py",
             "main.py",
             "apple_platform.py",
+            "serialization.py",
         ],
     ),
     resources = [":dummy_binary_for_signing_configured"],
@@ -54,6 +62,7 @@ python_library(
         # @oss-disable[end= ]: "prelude//apple/tools/meta_only/codesign_rust:check_adhoc_signature_lib",
         # @oss-disable[end= ]: "prelude//apple/tools/meta_only/entitlements_mismatch:check_entitlements_lib",
         ":apple_platform_lib",
+        ":serialization",
     ],
 )
 
