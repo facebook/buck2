@@ -35,6 +35,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_hash::BuckIndexSet;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
@@ -819,14 +820,15 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     }
 
     // TODO(cjhopman): switch to for_each_query?
+    /// Returns distinct queries and their resolved literals in first-occurrence order.
     pub fn queries(
         self,
     ) -> impl Iterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)> + 'a {
         struct Traversal {
-            queries: Vec<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
+            queries: BuckIndexSet<(String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
         }
         let mut traversal = Traversal {
-            queries: Vec::new(),
+            queries: BuckIndexSet::default(),
         };
         impl ConfiguredAttrTraversal for Traversal {
             fn dep(&mut self, _dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
@@ -840,7 +842,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 resolved_literals: &ResolvedQueryLiterals<ConfiguredProvidersLabel>,
             ) -> buck2_error::Result<()> {
                 self.queries
-                    .push((query.to_owned(), resolved_literals.clone()));
+                    .insert((query.to_owned(), resolved_literals.clone()));
                 Ok(())
             }
         }
@@ -891,5 +893,135 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
 
     pub fn buildfile_path(self) -> &'a BuildFilePath {
         self.0.get().target_node.buildfile_path()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::*;
+    use crate::attrs::attr_type::arg::MacroBase;
+    use crate::attrs::attr_type::arg::QueryExpansion;
+    use crate::attrs::attr_type::arg::StringWithMacros;
+    use crate::attrs::attr_type::arg::StringWithMacrosPart;
+    use crate::attrs::attr_type::query::QueryAttr;
+    use crate::attrs::attr_type::query::QueryAttrBase;
+    use crate::attrs::attr_type::query::QueryMacroBase;
+
+    fn query(text: &str, target: &str) -> QueryAttrBase<ProvidersLabel> {
+        QueryAttrBase {
+            query: text.to_owned(),
+            resolved_literals: ResolvedQueryLiterals(BTreeMap::from([(
+                (5, 4),
+                ProvidersLabel::default_for(TargetLabel::testing_parse(target)),
+            )])),
+        }
+    }
+
+    fn node(
+        cfg: ConfigurationData,
+        attrs: Vec<(&str, Attribute, CoercedAttr)>,
+    ) -> ConfiguredTargetNode {
+        ConfiguredTargetNode::testing_new(
+            TargetLabel::testing_parse("root//pkg:owner").configure(cfg),
+            "test_rule",
+            ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+            attrs,
+            None,
+        )
+    }
+
+    #[test]
+    fn test_queries_deduplicate_attributes_and_macro_expansions() {
+        let query = query("deps(:dep)", "root//pkg:dep");
+        let query_attr = CoercedAttr::Query(Box::new(QueryAttr {
+            providers: ProviderIdSet::EMPTY,
+            query: query.clone(),
+        }));
+        let macros = [
+            QueryExpansion::Target,
+            QueryExpansion::Output,
+            QueryExpansion::TargetAndOutput(None),
+        ]
+        .into_iter()
+        .map(|expansion_type| {
+            StringWithMacrosPart::Macro(
+                true,
+                MacroBase::Query(Box::new(QueryMacroBase {
+                    expansion_type,
+                    query: query.clone(),
+                })),
+            )
+        })
+        .collect();
+        let attrs = vec![
+            (
+                "first",
+                Attribute::new_const(None, "", AttrType::query()),
+                query_attr.clone(),
+            ),
+            (
+                "second",
+                Attribute::new_const(None, "", AttrType::query()),
+                query_attr,
+            ),
+            (
+                "command",
+                Attribute::new_const(None, "", AttrType::arg(false)),
+                CoercedAttr::Arg(StringWithMacros::ManyParts(macros)),
+            ),
+        ];
+
+        for cfg in [
+            ConfigurationData::testing_new(),
+            ConfigurationData::unspecified(),
+        ] {
+            let node = node(cfg.dupe(), attrs.clone());
+            let queries: Vec<_> = node.queries().collect();
+            assert_eq!(queries.len(), 1);
+            assert_eq!(queries[0].0, query.query);
+            assert_eq!(
+                queries[0].1.0[&(5, 4)],
+                query.resolved_literals.0[&(5, 4)].configure(cfg),
+            );
+        }
+    }
+
+    #[test]
+    fn test_queries_preserve_order_and_distinct_literal_bindings() {
+        let first = query("deps(:dep, 1)", "root//pkg:dep");
+        let second = query("deps(:dep)", "root//pkg:dep");
+        let third = query("deps(:dep)", "root//other:dep");
+        let macros = [&first, &second, &first, &third, &second]
+            .into_iter()
+            .map(|query| {
+                StringWithMacrosPart::Macro(
+                    false,
+                    MacroBase::Query(Box::new(QueryMacroBase {
+                        expansion_type: QueryExpansion::Target,
+                        query: query.clone(),
+                    })),
+                )
+            })
+            .collect();
+        let cfg = ConfigurationData::testing_new();
+        let node = node(
+            cfg.dupe(),
+            vec![(
+                "command",
+                Attribute::new_const(None, "", AttrType::arg(false)),
+                CoercedAttr::Arg(StringWithMacros::ManyParts(macros)),
+            )],
+        );
+        let queries: Vec<_> = node.queries().collect();
+        assert_eq!(queries.len(), 3);
+        for (actual, expected) in queries.iter().zip([first, second, third]) {
+            assert_eq!(actual.0, expected.query);
+            assert_eq!(
+                actual.1.0[&(5, 4)],
+                expected.resolved_literals.0[&(5, 4)].configure(cfg.dupe()),
+            );
+        }
     }
 }

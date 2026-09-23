@@ -73,6 +73,17 @@ async def test_analysis_query_deps(buck: Buck) -> None:
 
 
 @buck_test(data_dir="analysis_query_deps")
+async def test_duplicate_analysis_query_expansions(buck: Buck) -> None:
+    result = await buck.build_without_report(":duplicate_queries", "--out=-")
+    fields = result.stdout.strip().split("|")
+    assert len(fields) == 4
+    assert all(fields)
+    assert fields[0] == fields[2]
+    assert fields[1] == fields[3]
+    assert fields[0].endswith(":bar")
+
+
+@buck_test(data_dir="analysis_query_deps")
 async def test_analysis_query_deps_with_depth(buck: Buck) -> None:
     deps = await buck.build_without_report(":deps1", "--out=-")
     golden(output=deps.stdout, rel_path="analysis_query_deps/deps1.txt.golden")
