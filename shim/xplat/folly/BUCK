@@ -1,11 +1,15 @@
-constraint_setting(
-    name = "folly_demangle_macos_use_iberty_constraint",
-    visibility = ["PUBLIC"],
-)
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 
-constraint_value(
-    name = "folly_demangle_macos_disable_iberty",
-    constraint_setting = ":folly_demangle_macos_use_iberty_constraint",
+constraint_with_aliases(
+    name = "folly_demangle_macos_use_iberty_constraint",
+    aliases = {
+        "folly_demangle_macos_disable_iberty": "disable",
+    },
+    default = "unspecified",
+    values = [
+        "disable",
+        "unspecified",
+    ],
     visibility = ["PUBLIC"],
 )
 
