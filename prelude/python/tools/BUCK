@@ -148,6 +148,7 @@ prelude.sh_binary(
     resources = [
         "gen_bytecode_bundle.py",
         "make_py_package_inplace.py",
+        "make_py_package_manifest_module.py",
         "run_inplace.py.in",
         "type_check_result_to_validation.py",
         "wheel.py",

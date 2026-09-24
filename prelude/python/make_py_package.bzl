@@ -252,6 +252,7 @@ def make_py_package(
     allow_cache_upload: bool,
     link_args: list[LinkArgs] = [],
     debuginfo_files: list[(str | (str, SharedLibrary, str), Artifact)] = [],
+    manifest_entries_overlay: Artifact | None = None,
 ) -> PexProviders:
     """
     Passes a standardized set of flags to a `make_py_package` binary to create a python
@@ -302,7 +303,7 @@ def make_py_package(
     )
     generated_files.append((startup_functions_loader, "__par__/__startup_function_loader__.py"))
 
-    manifest_module = _generate_manifest_module(ctx, manifest_module_entries, python_toolchain, python_internal_tools, srcs)
+    manifest_module = _generate_manifest_module(ctx, manifest_module_entries, manifest_entries_overlay, python_toolchain, python_internal_tools, srcs)
     if manifest_module:
         generated_files.append((manifest_module.artifacts[1], "__manifest__.py"))
         generated_files.append((manifest_module.artifacts[0], "__manifest__.json"))
@@ -1351,6 +1352,7 @@ def load_startup_functions():
 def _generate_manifest_module(
     ctx: AnalysisContext,
     manifest_module_entries: dict[str, typing.Any] | None,
+    manifest_entries_overlay: Artifact | None,
     python_toolchain: PythonToolchainInfo,
     python_internal_tools: PythonInternalToolsInfo,
     src_manifests: list[ArgLike],
@@ -1365,13 +1367,14 @@ def _generate_manifest_module(
     if manifest_module_entries == None:
         return None
     module = ctx.actions.declare_output("manifest/__manifest__.py", has_content_based_path = False)
+    json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json", has_content_based_path = False)
     entries_json = ctx.actions.write_json("manifest/entries.json", manifest_module_entries, has_content_based_path = False)
     src_manifests_path = ctx.actions.write(
         "__module_manifests.txt",
         src_manifests,
         has_content_based_path = False,
     )
-    if ctx.attrs.use_rust_make_par:
+    if ctx.attrs.use_rust_make_par and manifest_entries_overlay == None:
         cmd = cmd_args(
             python_toolchain.make_py_package_live[RunInfo],
             "manifest-module",
@@ -1380,18 +1383,19 @@ def _generate_manifest_module(
             ["--output", module.as_output()],
             hidden = src_manifests,
         )
+        ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
+        ctx.actions.copy_file(json_entries_output.as_output(), entries_json)
     else:
         cmd = cmd_args(
             python_internal_tools.make_py_package_manifest_module,
             ["--manifest-entries", entries_json],
+            ["--manifest-entries-overlay", manifest_entries_overlay] if manifest_entries_overlay else [],
             ["--module-manifests", src_manifests_path],
             ["--output", module.as_output()],
+            ["--output-json", json_entries_output.as_output()],
             hidden = src_manifests,
         )
-    ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
-
-    json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json", has_content_based_path = False)
-    ctx.actions.copy_file(json_entries_output.as_output(), entries_json)
+        ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
 
     src_manifest = ctx.actions.write_json(
         "manifest/module_manifest.json",
