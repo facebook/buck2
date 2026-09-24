@@ -25,7 +25,7 @@ PRE_STAMPED_SUFFIX = "-pre_stamped"
 def cxx_stamp_build_info(ctx: AnalysisContext) -> bool:
     if getattr(ctx.attrs, "_generated_build_info_enabled", False):
         spec = ctx.attrs._generated_build_info_spec
-        return bool((spec.get("link_as_shared_library", False) or getattr(ctx.attrs, "link_group_map", None) != None) and cxx_is_gnu(ctx))
+        return bool(spec.get("link_as_shared_library", False) and cxx_is_gnu(ctx))
 
     generated_build_info = getattr(ctx.attrs, "_generated_build_info_spec", {})
     if generated_build_info.get("enabled", False):
