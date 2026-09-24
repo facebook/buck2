@@ -211,6 +211,7 @@ def _rust_binary_common(
     generated_build_info_args = ctx.attrs._generated_build_info_args if generated_build_info_enabled else []
 
     generated_build_info_link_args = []
+    generated_build_info_link_objects = []
 
     resources = flatten_dict(
         gather_resources(
@@ -465,7 +466,7 @@ def _rust_binary_common(
             )
             if generated_build_info:
                 generated_build_info_link_args.extend(generated_build_info.linker_flags)
-                generated_build_info_link_args.extend(compile_generated_build_info(ctx, generated_build_info).objects)
+                generated_build_info_link_objects.extend(compile_generated_build_info(ctx, generated_build_info).objects)
                 extra_link_args = executable_shlib_args.extra_link_args + generated_build_info_link_args
         link_result = rust_link_binary(
             ctx = ctx,
@@ -474,6 +475,7 @@ def _rust_binary_common(
             dep_link_strategy = params.dep_link_strategy,
             reloc_model = params.reloc_model,
             extra_link_args = extra_link_args,
+            extra_link_objects = generated_build_info_link_objects,
             inherited_link_args = native_link_args,
             dwo_output_directory = link.compile_output.dwo_output_directory,
             output = predeclared_output,

@@ -67,6 +67,7 @@ load(
     "LinkInfos",  # @unused Used as a type
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
+    "ObjectsLinkable",
     "create_merged_link_info",
     "get_link_args_for_strategy",
     "set_link_info_link_whole",
@@ -2093,6 +2094,7 @@ def rust_link_binary(
     dep_link_strategy: LinkStrategy,
     reloc_model: RelocModel,
     extra_link_args: list[typing.Any],
+    extra_link_objects: list[Artifact],
     inherited_link_args: LinkArgs,
     dwo_output_directory: Artifact | None,
     output: Artifact,
@@ -2188,6 +2190,24 @@ def rust_link_binary(
         ),
         LinkArgs(flags = extra_link_args),
     ]
+
+    if extra_link_objects:
+        links.append(
+            LinkArgs(
+                infos = [
+                    LinkInfo(
+                        name = "extra_link_objects",
+                        linkables = [
+                            ObjectsLinkable(
+                                objects = extra_link_objects,
+                                linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+                                link_whole = True,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        )
 
     if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
         flags = [
