@@ -25,9 +25,9 @@ use crate::win::process_group as imp;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Tier0)]
 pub enum SpawnError {
-    #[error("Failed to spawn a process")]
+    #[error("Failed to spawn a process: {0}")]
     IoError(io::Error),
-    #[error("Failed to create a process group")]
+    #[error("Failed to create a process group: {0}")]
     GenericError(buck2_error::Error),
 }
 
