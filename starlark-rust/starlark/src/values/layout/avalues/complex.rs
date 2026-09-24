@@ -20,6 +20,7 @@ use std::mem;
 
 use crate::private::Private;
 use crate::values::ComplexValue;
+use crate::values::FreezeError;
 use crate::values::FreezePlan;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -30,6 +31,7 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::freeze::FreezeDestination;
+use crate::values::freeze::is_published_at;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::heap_copy_impl;
@@ -74,9 +76,14 @@ where
                 }
                 FreezeDestination::Slot(slot) => slot,
             };
-            let value =
-                AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, slot.forward_ptr());
-            let fv = plan.freeze_into(value, freezer, slot)?.publish();
+            let forward = slot.forward_ptr();
+            let value = AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(me, forward);
+            let fv = plan.freeze_into(value, freezer, slot)?;
+            if !is_published_at(fv, forward) {
+                return Err(FreezeError::new(
+                    "freeze plan did not initialize and publish its destination".to_owned(),
+                ));
+            }
             if let Some(frozen_def) = ValueTyped::new(fv) {
                 freezer.frozen_defs.borrow_mut().push(frozen_def);
             }
@@ -107,10 +114,13 @@ impl<'v> Heap<'v> {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use allocative::Allocative;
     use derive_more::Display;
     use starlark_derive::NoSerialize;
     use starlark_derive::StarlarkPagable;
+    use starlark_derive::StarlarkPagablePanic;
     use starlark_derive::starlark_value;
 
     use crate as starlark;
@@ -122,9 +132,9 @@ mod tests {
     use crate::values::FreezeSlot;
     use crate::values::FreezeTarget;
     use crate::values::Freezer;
-    use crate::values::InitializedFreezeSlot;
     use crate::values::StarlarkValue;
     use crate::values::Trace;
+    use crate::values::Value;
 
     #[derive(
         Debug,
@@ -158,106 +168,109 @@ mod tests {
         type Canonical = SmallTarget;
     }
 
-    #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative, Trace)]
-    #[display("dynamic freeze source")]
-    struct FreezeDynamicValue {
-        large: bool,
-        fail: bool,
-        panics: bool,
-        wrong_target: bool,
+    /// The size of `SmallTarget`, but with a destructor.
+    #[derive(
+        Debug,
+        Display,
+        ProvidesStaticType,
+        NoSerialize,
+        Allocative,
+        StarlarkPagablePanic
+    )]
+    #[display("dropping dynamic freeze target")]
+    struct DropTarget(Box<u32>);
+
+    #[starlark_value(type = "dynamic_freeze_target")]
+    impl<'v> StarlarkValue<'v> for DropTarget {
+        type Canonical = SmallTarget;
     }
 
-    impl FreezeDynamicValue {
-        fn small() -> FreezeDynamicValue {
+    #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative, Trace)]
+    #[display("dynamic freeze source")]
+    struct FreezeDynamicValue<'v> {
+        plan: DynamicPlan,
+        /// The value this one is allocated as, for the plan that hands back the slot
+        /// without writing it.
+        this: RefCell<Option<Value<'v>>>,
+    }
+
+    impl<'v> FreezeDynamicValue<'v> {
+        fn with_plan(plan: DynamicPlan) -> FreezeDynamicValue<'v> {
             FreezeDynamicValue {
-                large: false,
-                fail: false,
-                panics: false,
-                wrong_target: false,
+                plan,
+                this: RefCell::new(None),
             }
         }
 
-        fn large() -> FreezeDynamicValue {
-            FreezeDynamicValue {
-                large: true,
-                ..Self::small()
-            }
+        fn small() -> FreezeDynamicValue<'v> {
+            Self::with_plan(DynamicPlan::Small)
         }
 
-        fn failing() -> FreezeDynamicValue {
-            FreezeDynamicValue {
-                fail: true,
-                ..Self::small()
-            }
+        fn large() -> FreezeDynamicValue<'v> {
+            Self::with_plan(DynamicPlan::Large)
+        }
+
+        fn failing() -> FreezeDynamicValue<'v> {
+            Self::with_plan(DynamicPlan::Fail)
         }
 
         // Only referenced by the `cfg(panic = "unwind")` test below.
         #[cfg(panic = "unwind")]
-        fn panicking() -> FreezeDynamicValue {
-            FreezeDynamicValue {
-                panics: true,
-                ..Self::small()
-            }
-        }
-
-        fn wrong_target() -> FreezeDynamicValue {
-            FreezeDynamicValue {
-                wrong_target: true,
-                ..Self::small()
-            }
+        fn panicking() -> FreezeDynamicValue<'v> {
+            Self::with_plan(DynamicPlan::Panic)
         }
     }
 
     #[starlark_value(type = "dynamic_freeze_target", skip_vtable)]
-    impl<'v> StarlarkValue<'v> for FreezeDynamicValue {
+    impl<'v> StarlarkValue<'v> for FreezeDynamicValue<'v> {
         type Canonical = SmallTarget;
     }
 
+    #[derive(Copy, Clone, Debug, Allocative)]
     enum DynamicPlan {
         Small,
         Large,
         Fail,
+        /// Constructed only by the `cfg(panic = "unwind")` test.
+        #[cfg_attr(not(panic = "unwind"), allow(dead_code))]
         Panic,
+        /// Selects `SmallTarget` and writes a `LargeTarget`.
         WrongTarget,
+        /// Selects `SmallTarget` and writes a `DropTarget`, which has its size but a
+        /// destructor.
+        WrongDrop,
+        /// Returns a frozen value that is not the slot.
+        Impostor,
+        /// Returns the slot's own value, obtained through the forward, without writing
+        /// the slot.
+        Unpublished,
     }
 
-    impl<'v> FreezeDynamic<'v> for FreezeDynamicValue {
+    impl<'v> FreezeDynamic<'v> for FreezeDynamicValue<'v> {
         type Plan<'fv> = DynamicPlan;
 
         fn prepare_freeze<'fv>(
             &self,
             _freezer: &Freezer<'v, 'fv>,
         ) -> FreezeResult<Self::Plan<'fv>> {
-            Ok(if self.fail {
-                DynamicPlan::Fail
-            } else if self.panics {
-                DynamicPlan::Panic
-            } else if self.wrong_target {
-                DynamicPlan::WrongTarget
-            } else if self.large {
-                DynamicPlan::Large
-            } else {
-                DynamicPlan::Small
-            })
+            Ok(self.plan)
         }
     }
 
-    impl<'v, 'fv> FreezePlan<'v, 'fv, FreezeDynamicValue> for DynamicPlan {
+    impl<'v, 'fv> FreezePlan<'v, 'fv, FreezeDynamicValue<'v>> for DynamicPlan {
         fn target(&self) -> FreezeTarget<'fv> {
             match self {
-                Self::Small | Self::Fail | Self::Panic | Self::WrongTarget => {
-                    FreezeTarget::simple::<SmallTarget>()
-                }
                 Self::Large => FreezeTarget::simple::<LargeTarget>(),
+                _ => FreezeTarget::simple::<SmallTarget>(),
             }
         }
 
         fn freeze_into(
             self,
-            _value: FreezeDynamicValue,
-            _freezer: &Freezer<'v, 'fv>,
+            value: FreezeDynamicValue<'v>,
+            freezer: &Freezer<'v, 'fv>,
             slot: FreezeSlot<'fv>,
-        ) -> FreezeResult<InitializedFreezeSlot<'fv>> {
+        ) -> FreezeResult<Value<'fv>> {
             match self {
                 Self::Small => slot.write(SmallTarget(1)),
                 Self::Large => slot.write(LargeTarget([2, 3, 5, 7])),
@@ -266,6 +279,15 @@ mod tests {
                 )),
                 Self::Panic => panic!("intentional dynamic freeze panic"),
                 Self::WrongTarget => slot.write(LargeTarget([11, 13, 17, 19])),
+                Self::WrongDrop => slot.write(DropTarget(Box::new(23))),
+                // The last two leave `slot` unwritten.
+                Self::Impostor => Ok(freezer.frozen_heap().alloc_simple(SmallTarget(29))),
+                Self::Unpublished => {
+                    // The source forwards to the slot, so freezing the source's own
+                    // value hands back the slot's address.
+                    let this = value.this.into_inner().expect("set by the test");
+                    freezer.freeze(this)
+                }
             }
         }
     }
@@ -340,23 +362,46 @@ mod tests {
         });
     }
 
-    #[test]
-    fn mismatched_freeze_target_is_an_error_not_a_panic() {
+    /// Freezes a value with `plan`, expects an error mentioning `message`, and checks
+    /// the frozen heap is still usable.
+    fn expect_freeze_error(plan: DynamicPlan, message: &str) {
         Freezer::testing_temp(|heap, freezer| {
-            let value = heap.alloc_complex(FreezeDynamicValue::wrong_target());
+            let value = heap.alloc_complex(FreezeDynamicValue::with_plan(plan));
+            if let Some(source) = value.downcast_ref::<FreezeDynamicValue>() {
+                source.this.replace(Some(value));
+            }
 
-            let error = freezer
-                .freeze(value)
-                .expect_err("writing a non-selected target should fail");
+            let error = freezer.freeze(value).expect_err("the plan should fail");
             assert!(
-                error.err_msg.contains("different from its selected target"),
+                error.err_msg.contains(message),
                 "unexpected error: {}",
                 error.err_msg
             );
-            let following = freezer
-                .frozen_heap()
-                .alloc_str("after mismatched freeze target");
-            assert_eq!("after mismatched freeze target", following.as_str());
+            let following = freezer.frozen_heap().alloc_str("after the failed freeze");
+            assert_eq!("after the failed freeze", following.as_str());
         });
+    }
+
+    #[test]
+    fn mismatched_freeze_target_is_an_error_not_a_panic() {
+        expect_freeze_error(
+            DynamicPlan::WrongTarget,
+            "different from its selected target",
+        );
+    }
+
+    #[test]
+    fn same_size_different_drop_region_is_an_error() {
+        expect_freeze_error(DynamicPlan::WrongDrop, "different from its selected target");
+    }
+
+    #[test]
+    fn returning_another_value_is_an_error() {
+        expect_freeze_error(DynamicPlan::Impostor, "did not initialize and publish");
+    }
+
+    #[test]
+    fn returning_the_unwritten_slot_is_an_error() {
+        expect_freeze_error(DynamicPlan::Unpublished, "did not initialize and publish");
     }
 }

@@ -71,13 +71,18 @@ pub(crate) struct AValueRepr<T> {
 /// Lower bit (which is the same bit as `TAG_UNFROZEN`) is always unset
 /// regardless of whether it points to frozen or unfrozen value.
 /// User of this struct must set this bit explicitly if needed.
-#[derive(Copy, Clone, Dupe)]
+#[derive(Copy, Clone, Dupe, PartialEq, Eq)]
 pub(crate) struct ForwardPtr(usize);
 
 impl ForwardPtr {
     pub(crate) fn new(ptr: usize) -> ForwardPtr {
         debug_assert_eq!(ptr & HEAP_ENTRY_TAG_MASK, 0);
         ForwardPtr(ptr)
+    }
+
+    /// Whether this is the address of `entry`.
+    pub(crate) fn points_to(self, entry: &AValueHeapEntry) -> bool {
+        self.0 == entry as *const AValueHeapEntry as usize
     }
 
     /// Create a forward pointer to a frozen value. This is used during heap freeze.

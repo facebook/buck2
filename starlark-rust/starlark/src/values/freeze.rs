@@ -43,38 +43,53 @@
 //!
 //! # Allocating and publishing a frozen value
 //!
-//! The [`FreezeDynamic`] protocol separates inspecting the source from consuming it:
+//! Freezing a value copies it to the frozen heap and leaves a forwarding record in its
+//! place, so that every other value pointing at it finds the copy. The forward has to
+//! be in place *before* the value's fields are frozen, because a field may point back
+//! at the value. Writing the forward takes the copy's address, so its space has to be
+//! reserved first, and that takes its size. When the frozen type is fixed, the size is
+//! known from the type; when it is chosen at runtime, the value has to be looked at
+//! first. That is the whole reason for the shape of [`FreezeDynamic`]: freezing is a
+//! look and then a consume, with the reservation and the forward between them.
 //!
-//! 1. [`FreezeDynamic::prepare_freeze`] runs while the source header and payload are
-//!    intact and returns a single-use [`FreezePlan`].
-//! 2. [`FreezePlan::target`] either identifies an existing frozen [`Value`] or
-//!    describes the exact AValue allocation to reserve. An existing value is
-//!    forwarded to immediately and [`FreezePlan::freeze_into`] is not called.
-//! 3. For a new allocation, the frozen heap writes a reservation header containing
-//!    the allocation size and returns a [`FreezeSlot`]. The reservation makes the
-//!    allocation walkable without reading any uninitialized payload bytes.
-//! 4. The source header is replaced by a forwarding record to the reserved
-//!    destination. The source payload is then moved into
-//!    [`FreezePlan::freeze_into`]. Recursive [`Value`] fields must be passed
-//!    back through [`Freezer::freeze`] before being inspected.
-//! 5. The plan initializes the complete payload and any trailing elements, then
-//!    returns an [`InitializedFreezeSlot`] obtained from [`FreezeSlot::write`] or
-//!    an internal typed initializer. The freeze driver consumes that proof and
-//!    publishes the allocation by replacing the reservation header with the final
-//!    AValue vtable.
+//! ```text
+//!        unfrozen heap                                  frozen heap
+//!  src: [ vtable | payload: T ]
 //!
-//! If initialization fails or unwinds, the reservation header remains in place.
-//! The partial payload is never exposed as a value, and the frozen heap remains
-//! safe to walk and discard. Sources already overwritten with forwarding
-//! records still point at the abandoned reservation, however, so an error
-//! abandons the entire freeze; debug builds enforce this.
+//!  1  plan = payload.prepare_freeze(freezer)   look, don't consume: reuse an existing
+//!                                              value, or allocate for some type and size
+//!  2  plan.target().reserve(freezer)           [ RESERVED(size) | ........ ]  a FreezeSlot
+//!                                              (an existing value: forward src to it, done)
+//!  3  payload = overwrite_with_forward(src)    [ FORWARD -> slot ]  read out first: the
+//!                                              forward is two words and clobbers its start
+//!  4  plan.freeze_into(payload, freezer, slot) freezes the fields (`Freezer::freeze`
+//!                                              follows forwards, possibly into this very
+//!                                              slot), builds the frozen value, and
+//!                                              `slot.write(it)`, which publishes:
+//!                                              [ vtable | frozen value ]  a live Value<'fv>
+//! ```
+//!
+//! The driver is `AValueComplex::heap_freeze`. What is checked, and where:
+//!
+//! * [`FreezeSlot::write`] checks that what it is given is exactly what was reserved:
+//!   the same allocation size, because heap walks stride by the published header's
+//!   size, and the same drop region, because a destructor outside it never runs. A
+//!   plan that selects one target and writes another gets a [`FreezeError`], not
+//!   undefined behaviour. (Alignment needs no check: every value type is bounded by
+//!   the arena's alignment at compile time.)
+//! * The driver checks that the value a plan returns is the slot it was given, and
+//!   that the slot is published. A plan can come by the slot's address before writing
+//!   it, because a field that pointed back at the source freezes to the forward, so the
+//!   returned value alone is not evidence of a write.
+//! * Until `write` publishes the value, the reservation word stays in place. If a plan
+//!   fails or unwinds, the frozen heap stays walkable and droppable. The sources already
+//!   forwarded point at a reservation, however, so the whole freeze is abandoned;
+//!   debug builds enforce this.
 //!
 //! The blanket [`FreezeDynamic`] implementation for [`Freeze`] follows the same
-//! protocol: its plan selects the `'static` instantiation of `Freeze::Frozen`
-//! as a simple target, [`Freeze::freeze`] builds that payload after forwarding
-//! is installed, and the initialized slot is returned for the driver to publish.
+//! protocol: its plan selects `Freeze::Frozen` at the frozen heap's brand as a simple
+//! target, and [`Freeze::freeze`] builds the value that `write` publishes.
 
-use std::any::TypeId;
 use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::cell::UnsafeCell;
@@ -86,10 +101,10 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_syntax::slice_vec_ext::VecExt;
 
-use crate::any::ProvidesStaticType;
 use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
+use crate::values::FrozenHeap;
 use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -99,12 +114,11 @@ use crate::values::layout::avalue::AValueSimpleBound;
 use crate::values::layout::avalues::simple::AValueSimple;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntry;
-#[cfg(debug_assertions)]
 use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::layout::heap::send::HeapSyncable;
-use crate::values::layout::vtable::AValueVTable;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
 
 /// Need to be implemented for non-simple `StarlarkValue`.
 ///
@@ -202,8 +216,7 @@ where
 impl<'v, T> FreezeDynamic<'v> for T
 where
     T: Freeze<'v>,
-    for<'a> T::Frozen<'a>:
-        AValueSimpleBound<'a> + ProvidesStaticType<'a, StaticType = T::Frozen<'static>>,
+    for<'a> T::Frozen<'a>: AValueSimpleBound<'a>,
 {
     type Plan<'fv> = StaticFreezePlan<'v, 'fv, T>;
 
@@ -215,18 +228,12 @@ where
 impl<'v, 'fv, T> FreezePlan<'v, 'fv, T> for StaticFreezePlan<'v, 'fv, T>
 where
     T: Freeze<'v>,
-    for<'a> T::Frozen<'a>:
-        AValueSimpleBound<'a> + ProvidesStaticType<'a, StaticType = T::Frozen<'static>>,
+    for<'a> T::Frozen<'a>: AValueSimpleBound<'a>,
 {
     fn target(&self) -> FreezeTarget<'fv> {
         match self.direct {
             Some(value) => FreezeTarget::direct(value.to_value()),
-            // The target names the `'static` instantiation because allocation
-            // identity (vtable and `TypeId`) only exists at `'static`. The
-            // `ProvidesStaticType` bound proves the instantiations of `Frozen`
-            // are one type constructor, so the payload written at `'fv`
-            // through `write_branded` shares this target's layout.
-            None => FreezeTarget::simple::<T::Frozen<'static>>(),
+            None => FreezeTarget::simple::<T::Frozen<'fv>>(),
         }
     }
 
@@ -235,7 +242,7 @@ where
         value: T,
         freezer: &Freezer<'v, 'fv>,
         slot: FreezeSlot<'fv>,
-    ) -> FreezeResult<InitializedFreezeSlot<'fv>> {
+    ) -> FreezeResult<Value<'fv>> {
         if self.direct.is_some() {
             // The freeze driver forwards to a direct target without reserving
             // a destination or calling this method, so this arm only rejects
@@ -244,23 +251,16 @@ where
                 "a direct branded freeze plan must not be initialized".to_owned(),
             ));
         }
-        slot.write_branded::<T>(value.freeze(freezer)?)
+        slot.write(value.freeze(freezer)?)
     }
 }
 
 /// Freezes a value whose concrete frozen representation is selected at runtime.
 ///
-/// Heap freezing first calls [`FreezeDynamic::prepare_freeze`] while the source payload
-/// is still intact. The returned [`FreezePlan`] identifies either an existing
-/// frozen value or the exact destination allocation. For an allocation, the
-/// freezer reserves that destination and installs the source's forwarding record
-/// before moving the source payload into [`FreezePlan::freeze_into`]. This order
-/// allows recursive values to find the destination while it is initialized.
-///
-/// Most implementations should use [`Freeze`] instead. Implement this
-/// trait directly when runtime data determines the frozen type, layout, or size.
-/// In either case, the frozen value must be equal to the source and produce the
-/// same hash.
+/// The module documentation walks through the protocol. Most implementations should
+/// use [`Freeze`] instead; implement this trait directly when runtime data determines
+/// the frozen type, layout, or size. In either case, the frozen value must be equal to
+/// the source and produce the same hash.
 pub trait FreezeDynamic<'v>: Sized {
     /// State prepared from this value before its forwarding pointer is installed.
     type Plan<'fv>: FreezePlan<'v, 'fv, Self>;
@@ -279,20 +279,21 @@ pub trait FreezeDynamic<'v>: Sized {
 
 /// A prepared, single-use runtime freeze operation.
 ///
-/// [`FreezePlan::target`] is called before the source is replaced by a forwarding
-/// record. An allocated target is reserved immediately, then the plan and source
-/// payload are consumed by [`FreezePlan::freeze_into`]. That method must initialize
-/// exactly the target it selected and return an [`InitializedFreezeSlot`]. The
-/// freeze driver then publishes that slot. Returning an error or unwinding before
-/// publication leaves the reservation header intact, so the frozen heap remains
-/// walkable without exposing a partial value.
+/// [`target`](FreezePlan::target) is called before the source is replaced by a
+/// forwarding record. An allocated target is reserved immediately, then the plan and
+/// the source payload are consumed by [`freeze_into`](FreezePlan::freeze_into), which
+/// must initialize exactly the target it selected, through [`FreezeSlot::write`], and
+/// return the value that produced. Returning an error or unwinding before then leaves
+/// the reservation header intact, so the frozen heap remains walkable without exposing
+/// a partial value.
 pub trait FreezePlan<'v, 'fv, T> {
     /// Returns the exact destination selected by this plan.
     ///
     /// A direct target is already frozen and bypasses [`FreezePlan::freeze_into`].
     fn target(&self) -> FreezeTarget<'fv>;
 
-    /// Initializes the reserved destination from `value`.
+    /// Initializes the reserved destination from `value` and returns the published
+    /// frozen value.
     ///
     /// The source already has a forwarding record at this point. Any
     /// [`Value`] fields in `value` must be frozen through [`Freezer`] before
@@ -302,7 +303,7 @@ pub trait FreezePlan<'v, 'fv, T> {
         value: T,
         freezer: &Freezer<'v, 'fv>,
         slot: FreezeSlot<'fv>,
-    ) -> FreezeResult<InitializedFreezeSlot<'fv>>;
+    ) -> FreezeResult<Value<'fv>>;
 }
 
 /// Runtime-selected destination for a frozen value.
@@ -310,44 +311,12 @@ pub struct FreezeTarget<'fv>(FreezeTargetRepr<'fv>);
 
 enum FreezeTargetRepr<'fv> {
     Direct(Value<'fv>),
-    Allocate(FreezeAllocation),
-}
-
-/// What reserving and validating a destination needs: its size (through the
-/// monomorphized `reserve`) and its identity. The final vtable is supplied by
-/// the typed initializer that proves the payload complete.
-#[derive(Copy, Clone)]
-struct FreezeAllocation {
-    reserve: fn(&Freezer, usize) -> *mut AValueHeapEntry,
-    // `AValueVTable::new` is const-promoted and its address is not canonical
-    // across codegen units, so use Rust's canonical type identity for checks.
-    avalue_type_id: TypeId,
-    extra_len: usize,
-    payload_offset: usize,
-}
-
-impl FreezeAllocation {
-    fn new<A>(extra_len: usize) -> Self
-    where
-        A: AValue<'static> + 'static,
-        A::StarlarkValue: HeapSendable<'static> + HeapSyncable<'static>,
-    {
-        fn reserve<A>(freezer: &Freezer, extra_len: usize) -> *mut AValueHeapEntry
-        where
-            A: AValue<'static> + 'static,
-            A::StarlarkValue: HeapSendable<'static> + HeapSyncable<'static>,
-        {
-            let (reservation, _extra) = freezer.frozen_heap().reserve_with_extra::<A>(extra_len);
-            reservation.into_entry_ptr()
-        }
-
-        Self {
-            reserve: reserve::<A>,
-            avalue_type_id: TypeId::of::<A>(),
-            extra_len,
-            payload_offset: AValueRepr::<A::StarlarkValue>::offset_of_payload(),
-        }
-    }
+    /// An allocation, described by the monomorphized function that reserves it and
+    /// the number of trailing elements to reserve it with.
+    Allocate {
+        reserve: fn(FrozenHeap<'fv>, usize) -> FreezeSlot<'fv>,
+        extra_len: usize,
+    },
 }
 
 impl<'fv> FreezeTarget<'fv> {
@@ -367,22 +336,37 @@ impl<'fv> FreezeTarget<'fv> {
         Self(FreezeTargetRepr::Direct(value))
     }
 
-    /// Allocates the final value as a normal fixed-size Starlark value.
-    pub fn simple<T>() -> Self
-    where
-        T: AValueSimpleBound<'static>,
-    {
+    /// Allocates the final value as a normal fixed-size Starlark value, to be
+    /// written by [`FreezeSlot::write`] with a `T`.
+    pub fn simple<T: AValueSimpleBound<'fv>>() -> Self {
         Self::avalue::<AValueSimple<T>>(0)
     }
 
+    /// Allocates the final value as an `A` with `extra_len` trailing elements, to be
+    /// initialized in place through [`FreezeSlot::payload_ptr`] and published with
+    /// [`FreezeSlot::publish`].
     pub(crate) fn avalue<A>(extra_len: usize) -> Self
     where
-        A: AValue<'static> + 'static,
-        A::StarlarkValue: HeapSendable<'static> + HeapSyncable<'static>,
+        A: AValue<'fv>,
+        A::StarlarkValue: HeapSendable<'fv> + HeapSyncable<'fv>,
     {
-        Self(FreezeTargetRepr::Allocate(FreezeAllocation::new::<A>(
+        fn reserve<'fv, A>(heap: FrozenHeap<'fv>, extra_len: usize) -> FreezeSlot<'fv>
+        where
+            A: AValue<'fv>,
+            A::StarlarkValue: HeapSendable<'fv> + HeapSyncable<'fv>,
+        {
+            let (reservation, _extra) = heap.reserve_with_extra::<A>(extra_len);
+            FreezeSlot {
+                pointer: reservation.into_entry_ptr(),
+                needs_drop: A::NEEDS_DROP,
+                _brand: PhantomData,
+            }
+        }
+
+        Self(FreezeTargetRepr::Allocate {
+            reserve: reserve::<A>,
             extra_len,
-        )))
+        })
     }
 
     /// Resolves this target into a concrete destination, reserving an
@@ -392,13 +376,8 @@ impl<'fv> FreezeTarget<'fv> {
     pub(crate) fn reserve(self, freezer: &Freezer<'_, 'fv>) -> FreezeDestination<'fv> {
         match self.0 {
             FreezeTargetRepr::Direct(value) => FreezeDestination::Direct(value),
-            FreezeTargetRepr::Allocate(allocation) => {
-                let pointer = (allocation.reserve)(freezer, allocation.extra_len);
-                FreezeDestination::Slot(FreezeSlot {
-                    allocation,
-                    pointer,
-                    _brand: PhantomData,
-                })
+            FreezeTargetRepr::Allocate { reserve, extra_len } => {
+                FreezeDestination::Slot(reserve(freezer.frozen_heap(), extra_len))
             }
         }
     }
@@ -411,164 +390,133 @@ pub(crate) enum FreezeDestination<'fv> {
 
 /// Exclusive access to a reserved frozen destination.
 ///
-/// Dropping an unfinished slot leaves its reservation header intact, so errors
+/// Dropping an unwritten slot leaves its reservation header intact, so errors
 /// and unwinding cannot publish a partially initialized value.
 pub struct FreezeSlot<'fv> {
-    allocation: FreezeAllocation,
     /// The reserved entry; it holds a reservation word until publication
-    /// replaces it with the final value header.
+    /// replaces it with the value's header.
     pointer: *mut AValueHeapEntry,
-    /// Ties this reserved destination to its frozen heap.
-    _brand: PhantomData<&'fv ()>,
+    /// Whether the reservation is in the heap's drop region.
+    needs_drop: bool,
+    _brand: PhantomData<fn(&'fv ()) -> &'fv ()>,
 }
 
 impl<'fv> FreezeSlot<'fv> {
     /// Target for the source's forwarding record. The destination holds no
-    /// value until the initialized slot is published.
+    /// value until the slot is published.
     pub(crate) fn forward_ptr(&self) -> ForwardPtr {
         ForwardPtr::new(self.pointer as usize)
     }
 
-    /// Writes a fixed-size Starlark value into this slot.
-    ///
-    /// Fails if this slot was reserved for a different type than `T`, that is
-    /// when a [`FreezePlan`] initializes a destination other than the target
-    /// it selected.
-    pub fn write<T>(self, value: T) -> FreezeResult<InitializedFreezeSlot<'fv>>
-    where
-        T: AValueSimpleBound<'static>,
-    {
-        let expected = FreezeAllocation::new::<AValueSimple<T>>(0);
-        self.check_matches(expected)?;
-        // SAFETY: The target check proves that this slot was allocated for
-        // `AValueSimple<T>`, and the reservation exclusively owns the payload.
-        unsafe {
-            self.payload_non_null::<AValueSimple<T>>()
-                .as_ptr()
-                .write(value);
+    /// The size the reservation was made with.
+    fn reserved_size(&self) -> ValueAllocSize {
+        // SAFETY: The slot exclusively owns its entry, which holds a reservation word
+        // until `publish` replaces it.
+        match unsafe { (*self.pointer).state() } {
+            AValueHeapEntryState::Reservation(size) => size,
+            _ => unreachable!("an unpublished slot still holds its reservation word"),
         }
-        Ok(InitializedFreezeSlot {
-            slot: self,
-            vtable: AValueVTable::new::<AValueSimple<T>>(),
-        })
     }
 
-    /// Writes a branded fixed-size Starlark value into this slot.
-    ///
-    /// The slot's identity is checked against the `'static` instantiation of
-    /// `T::Frozen`; the payload is written at this heap's brand.
-    pub fn write_branded<'v, T>(
-        self,
-        value: T::Frozen<'fv>,
-    ) -> FreezeResult<InitializedFreezeSlot<'fv>>
-    where
-        T: Freeze<'v>,
-        T::Frozen<'static>: AValueSimpleBound<'static>,
-    {
-        let expected = FreezeAllocation::new::<AValueSimple<T::Frozen<'static>>>(0);
-        self.check_matches(expected)?;
-        // SAFETY: `T::Frozen<'fv>` and `T::Frozen<'static>` are one type
-        // constructor instantiated at different heap brands and share a single
-        // layout. The target check proves this slot was allocated for that
-        // layout, and the reservation exclusively owns the payload.
-        unsafe {
-            self.payload_non_null::<AValueSimple<T::Frozen<'static>>>()
-                .cast::<T::Frozen<'fv>>()
-                .as_ptr()
-                .write(value);
-        }
-        Ok(InitializedFreezeSlot {
-            slot: self,
-            vtable: AValueVTable::new::<AValueSimple<T::Frozen<'static>>>(),
-        })
+    /// Whether an `A` with `extra_len` trailing elements is exactly what was reserved:
+    /// the same allocation size, which heap walks stride by, and the same drop region.
+    /// Alignment is not a question, since every payload is bounded by the arena's at
+    /// compile time (`PAYLOAD_ALIGNED`, named in [`payload_ptr`](FreezeSlot::payload_ptr)).
+    pub(crate) fn fits<A: AValue<'fv>>(&self, extra_len: usize) -> bool {
+        A::alloc_size_for_extra_len(extra_len) == self.reserved_size()
+            && A::NEEDS_DROP == self.needs_drop
     }
 
-    fn check_matches(&self, expected: FreezeAllocation) -> FreezeResult<()> {
-        if self.allocation.avalue_type_id == expected.avalue_type_id
-            && self.allocation.extra_len == expected.extra_len
-            && self.allocation.payload_offset == expected.payload_offset
-        {
-            Ok(())
-        } else {
-            Err(FreezeError::new(
+    /// Writes a fixed-size Starlark value into this slot and publishes it.
+    ///
+    /// Fails if this slot was not reserved for a `T`, that is when a [`FreezePlan`]
+    /// initializes a destination other than the target it selected.
+    pub fn write<T: AValueSimpleBound<'fv>>(self, value: T) -> FreezeResult<Value<'fv>> {
+        if !self.fits::<AValueSimple<T>>(0) {
+            return Err(FreezeError::new(
                 "freeze plan initialized a destination different from its selected target"
                     .to_owned(),
-            ))
+            ));
+        }
+        // SAFETY: The check proves the reservation has exactly an `AValueRepr<T>`'s
+        // size and is in the region `T` needs, and `payload_ptr` that it is aligned for
+        // `T`; the slot owns it exclusively, and the payload is complete once written.
+        unsafe {
+            self.payload_ptr::<AValueSimple<T>>().as_ptr().write(value);
+            Ok(self.publish::<AValueSimple<T>>())
         }
     }
 
-    fn assert_matches(&self, expected: FreezeAllocation) {
-        self.check_matches(expected)
-            .expect("crate-internal freeze initializers must match their reserved target");
-    }
-
-    pub(crate) fn payload_non_null<A>(&self) -> NonNull<A::StarlarkValue>
-    where
-        A: AValue<'static> + 'static,
-        A::StarlarkValue: HeapSendable<'static> + HeapSyncable<'static>,
-    {
-        self.assert_matches(FreezeAllocation::new::<A>(self.allocation.extra_len));
-        // SAFETY: The checked allocation metadata supplies the payload offset,
-        // and the reservation is non-null and uniquely owned.
+    /// The payload of the reserved allocation, for initializing an `A` in place; its
+    /// trailing elements follow at `A::offset_of_extra()`.
+    ///
+    /// Writing through the pointer is only sound for an `A` that [`fits`](FreezeSlot::fits)
+    /// with the trailing length being written, and the result is only a value once
+    /// [`publish`](FreezeSlot::publish)ed.
+    pub(crate) fn payload_ptr<A: AValue<'fv>>(&self) -> NonNull<A::StarlarkValue> {
+        // At compile time: `A`'s payload is at most as aligned as the arena allocates, so
+        // the reservation is aligned for it and the payload offset is the header's size.
+        let () = AValueRepr::<A::StarlarkValue>::PAYLOAD_ALIGNED;
+        // SAFETY: `pointer` is non-null, and the offset is the one-word header, within
+        // any reservation (`MIN_ALLOC`).
         unsafe {
             NonNull::new_unchecked(
                 self.pointer
                     .cast::<u8>()
-                    .add(self.allocation.payload_offset)
+                    .add(AValueRepr::<A::StarlarkValue>::offset_of_payload())
                     .cast(),
             )
         }
     }
-}
 
-/// Proof that a freeze slot has been completely initialized.
-///
-/// The private `slot` field is part of the safety boundary for the safe
-/// [`FreezePlan`] API. An implementation cannot claim successful initialization
-/// without consuming its [`FreezeSlot`] through [`FreezeSlot::write`]. The
-/// freeze driver alone publishes the initialized slot as a live AValue.
-pub struct InitializedFreezeSlot<'fv> {
-    slot: FreezeSlot<'fv>,
-    /// The published header's vtable, recorded by the typed initializer that
-    /// proved the payload complete.
-    vtable: &'static AValueVTable,
-}
-
-impl<'fv> InitializedFreezeSlot<'fv> {
-    pub(crate) fn publish(self) -> Value<'fv> {
-        let vtable = self.vtable;
-        let FreezeSlot {
-            allocation: _,
-            pointer,
-            _brand: _,
-        } = self.slot;
-        // SAFETY: `pointer` is this slot's reserved heap entry: valid,
-        // aligned, and exclusively owned until publication.
-        #[cfg(debug_assertions)]
-        let reserved = match unsafe { (&*pointer).state() } {
-            AValueHeapEntryState::Reservation(size) => size,
-            _ => unreachable!("an unpublished slot still holds its reservation word"),
+    /// Publishes the slot as a live value by installing `A`'s header over the
+    /// reservation word.
+    ///
+    /// # Safety
+    ///
+    /// An `A::StarlarkValue` and its trailing elements must be fully initialized behind
+    /// [`payload_ptr`](FreezeSlot::payload_ptr), with the trailing length the slot was
+    /// reserved for ([`fits`](FreezeSlot::fits)): heap walks stride by the published
+    /// header's size, which must reproduce the reservation.
+    pub(crate) unsafe fn publish<A: AValue<'fv>>(self) -> Value<'fv> {
+        // At compile time: a string's pointer carries a tag that this does not set.
+        // Strings are allocated through `alloc_str`, never reserved.
+        const {
+            assert!(
+                !A::IS_STR,
+                "a string cannot be published through a freeze slot"
+            )
         };
-        let header = pointer.cast::<AValueHeader>();
-        // SAFETY: A reserved entry is header-sized and header-aligned
-        // storage owned by this slot, and construction of
-        // `InitializedFreezeSlot` proves the payload behind it is complete,
-        // so installing the final vtable is what publishes the value.
-        unsafe { header.write(AValueHeader(vtable)) };
-        // Heap walks stride by the published header's payload-derived size,
-        // so it must reproduce the reservation exactly.
-        // SAFETY: The header was written just above and the slot exclusively
-        // owns the entry until publication returns.
+        #[cfg(debug_assertions)]
+        let reserved = self.reserved_size();
+        let header = self.pointer.cast::<AValueHeader>();
+        // SAFETY: A reserved entry is header-sized and header-aligned storage owned by
+        // this slot, and the caller promises the payload behind it is complete, so
+        // installing the header is what publishes the value.
+        unsafe { header.write(AValueHeader::new::<A>()) };
+        // SAFETY: The header was written just above.
         #[cfg(debug_assertions)]
         debug_assert_eq!(
             unsafe { (&*header).alloc_size() },
             reserved,
             "published value reports a different size than its reservation",
         );
-        // SAFETY: The header was written just above and lives as long as its
-        // frozen heap. Reservations are never strings, so the pointer carries
-        // no string tag.
+        // SAFETY: The header was written just above and lives as long as its frozen
+        // heap, and `A` is not a string (checked above), so the pointer carries no
+        // string tag.
         unsafe { Value::new_frozen_ptr(&*header, false) }
+    }
+}
+
+/// Whether `value`, which a plan returned, is the published contents of the slot
+/// whose forward is `forward`. See the module documentation for why both halves are
+/// needed.
+pub(crate) fn is_published_at(value: Value<'_>, forward: ForwardPtr) -> bool {
+    match value.0.unpack_ptr() {
+        Some(entry) if forward.points_to(entry) => {
+            matches!(entry.state(), AValueHeapEntryState::Value(_))
+        }
+        _ => false,
     }
 }
 
