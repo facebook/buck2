@@ -385,13 +385,7 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     fn alloc_uninit<'v, 'v2, T: AValue<'v2>>(bump: &'v A, extra_len: usize) -> ArenaUninit<'v2, T> {
-        assert!(
-            mem::align_of::<T>() <= AValueHeader::ALIGN,
-            "Unexpected alignment in Starlark arena. Type {} has alignment {}, expected <= {}",
-            std::any::type_name::<T>(),
-            mem::align_of::<T>(),
-            AValueHeader::ALIGN,
-        );
+        let () = AValueRepr::<T::StarlarkValue>::PAYLOAD_ALIGNED;
 
         let size = T::alloc_size_for_extra_len(extra_len);
         let p = bump.alloc(size).as_ptr();

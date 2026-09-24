@@ -354,9 +354,14 @@ impl AValueHeader {
 }
 
 impl<T> AValueRepr<T> {
-    const _ASSERTIONS: () = {
-        assert!(mem::align_of::<Self>() == AValueHeader::ALIGN);
-    };
+    /// Naming this constant asserts, where the code is instantiated, that `T` is at most as
+    /// aligned as the arena allocates. The payload then starts right after the one-word
+    /// header, at an address the arena aligns for it. Every place that puts a `T` into an
+    /// allocation names it.
+    pub(crate) const PAYLOAD_ALIGNED: () = assert!(
+        mem::align_of::<Self>() == AValueHeader::ALIGN,
+        "a Starlark value must not be aligned more strictly than the heap allocates"
+    );
 
     pub(crate) const fn with_metadata(
         metadata: &'static AValueVTable,
