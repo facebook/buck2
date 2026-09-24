@@ -36,11 +36,12 @@ use pagable::PagableSerializer;
 use starlark_map::Equivalent;
 
 use crate::any::IsStaticType;
-use crate::cast::transmute;
 use crate::values::FrozenHeap;
 use crate::values::Heap;
 use crate::values::HeapSendable;
 use crate::values::OwnedFrozenHeap;
+use crate::values::layout::heap::branding::rebrand_ref_unchecked;
+use crate::values::layout::heap::branding::rebrand_unchecked;
 use crate::values::layout::heap::edge::HeapEdge;
 use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::layout::heap::owned_frozen_ext::FnOncish;
@@ -145,9 +146,8 @@ where
     ///
     /// The result must be stored alongside an owner that keeps `'fv` alive.
     pub(crate) unsafe fn erase_brand<'fv>(v: T::Reinfect<'fv>) -> T {
-        // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
-        // lifetimes; keeping `'fv` alive is the caller's obligation.
-        unsafe { transmute!(T::Reinfect<'fv>, T, v) }
+        // SAFETY: The caller's obligation is the erased storage case of `rebrand_unchecked`'s.
+        unsafe { rebrand_unchecked::<T, T::Reinfect<'fv>, T>(v) }
     }
 
     /// Give `v`, which had its brand forgotten by [`erase_brand`](OwnedFrozen::erase_brand), a
@@ -157,8 +157,18 @@ where
     ///
     /// The heap identified by `'fv` must keep `v` alive.
     pub(crate) unsafe fn restore_brand<'fv>(v: T) -> T::Reinfect<'fv> {
-        // SAFETY: As for `erase_brand`.
-        unsafe { transmute!(T, T::Reinfect<'fv>, v) }
+        // SAFETY: The caller's obligation is `rebrand_unchecked`'s.
+        unsafe { rebrand_unchecked::<T, T, T::Reinfect<'fv>>(v) }
+    }
+
+    /// [`restore_brand`](OwnedFrozen::restore_brand), behind a reference.
+    ///
+    /// # SAFETY
+    ///
+    /// As for [`restore_brand`](OwnedFrozen::restore_brand).
+    pub(crate) unsafe fn restore_brand_ref<'a, 'fv>(v: &'a T) -> &'a T::Reinfect<'fv> {
+        // SAFETY: The caller's obligation is `rebrand_unchecked`'s.
+        unsafe { rebrand_ref_unchecked::<T, T, T::Reinfect<'fv>>(v) }
     }
 
     /// Build a value in a fresh frozen heap and return it kept alive by that heap.
@@ -212,7 +222,7 @@ where
         heap.add_reference(self.owner());
 
         // SAFETY: The heap we just added the reference to keeps this alive for `'v`
-        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+        unsafe { Self::restore_brand(self.v) }
     }
 
     /// Access the underlying value and a reconstructor in a closure
@@ -228,9 +238,9 @@ where
         // forever and the poison is mostly gone anyway, but it's still very hard to reason about.
         for<'a, 'fv> F: FnOnce(&'a T::Reinfect<'fv>, OwnedFrozenReconstructor<'fv>) -> R,
     {
-        // SAFETY: See the comment on the type
+        // SAFETY: `self.heap_ref` keeps the value alive for the borrow that `'fv` is.
         f(
-            unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) },
+            unsafe { Self::restore_brand_ref(&self.v) },
             OwnedFrozenReconstructor {
                 heap_ref: &self.heap_ref,
                 _invariant: PhantomData,
@@ -249,8 +259,8 @@ where
         for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
         for<'a, 'fv> F: FnOncish<&'a T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
     {
-        // SAFETY: See the comment on the type
-        let v = f(unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) })?;
+        // SAFETY: `self.heap_ref` keeps the value alive for the borrow that `'fv` is.
+        let v = f(unsafe { Self::restore_brand_ref(&self.v) })?;
         // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
         // it can only return values derived from its input, which our heap keeps alive
         Some(unsafe { OwnedFrozenRef::unchecked_new(self.owner(), v) })
@@ -267,35 +277,31 @@ where
                 (Result<U::Reinfect<'fv>, E>, R),
             >,
     {
-        // SAFETY: See the comment on the type
-        let (v, extra) = f(
-            unsafe { transmute!(T, T::Reinfect<'_>, self.v) },
-            OwnedFrozenReconstructor {
-                // We have to transmute this lifetime because we want to allow our borrow of
-                // `self.heap_ref` to expire when we move `self.heap_ref` below, but the lifetime of
-                // that borrow is also the lifetime of the `'fv` in `v` which would have to expire
-                // then too.
-                //
-                // SAFETY: `self.heap_ref` is not moved until after `f` returns, so the
-                // lifetime-extended reference stays valid for the duration of the call.
-                heap_ref: unsafe { transmute!(&FrozenHeapArc, &FrozenHeapArc, &self.heap_ref) },
+        let OwnedFrozen {
+            heap_ref,
+            v,
+            _no_auto_traits: _,
+        } = self;
+        // `'fv` is the borrow of `heap_ref`, which has to end before `heap_ref` can move into the
+        // result, so the result's brand is erased first, as `OwnedFrozenHeap::seal_with` does.
+        let (v, extra) = {
+            let reconstructor = OwnedFrozenReconstructor {
+                heap_ref: &heap_ref,
                 _invariant: PhantomData,
-            },
-        );
-        match v {
-            // SAFETY: `v`'s `'fv` is the brand of the heap owned by `self.heap_ref`, which we
-            // pass in as the owner.
-            Ok(v) => unsafe {
-                (
-                    Ok(OwnedFrozen::unchecked_new(
-                        OwnedFrozen::for_heap(self.heap_ref),
-                        v,
-                    )),
-                    extra,
-                )
-            },
-            Err(e) => (Err(e), extra),
-        }
+            };
+            // SAFETY: `heap_ref` keeps the value alive for the borrow that `'fv` is.
+            let (v, extra) = f(unsafe { Self::restore_brand(v) }, reconstructor);
+            // SAFETY: `'fv` is the brand of `heap_ref`, which the result is paired with below.
+            (
+                v.map(|v| unsafe { OwnedFrozen::<U>::erase_brand(v) }),
+                extra,
+            )
+        };
+        // SAFETY: `heap_ref` is the heap that `'fv` named.
+        (
+            v.map(|v| unsafe { OwnedFrozen::from_erased(OwnedFrozen::for_heap(heap_ref), v) }),
+            extra,
+        )
     }
 }
 
@@ -545,7 +551,7 @@ where
         Self {
             heap_ref: owner.heap_ref,
             // SAFETY: Caller promised
-            v: unsafe { transmute!(T::Reinfect<'f>, T, v) },
+            v: unsafe { OwnedFrozen::<T>::erase_brand(v) },
             _no_auto_traits: PhantomData,
         }
     }
@@ -556,7 +562,7 @@ where
         T: Copy,
     {
         // SAFETY: The heap ref keeps the value alive for `'f`
-        unsafe { transmute!(T, T::Reinfect<'f>, self.v) }
+        unsafe { OwnedFrozen::<T>::restore_brand(self.v) }
     }
 
     /// Get access to this value within the provided heap
@@ -566,7 +572,7 @@ where
         heap.add_reference(self.owner());
 
         // SAFETY: The heap we just added the reference to keeps this alive for `'v`
-        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+        unsafe { OwnedFrozen::<T>::restore_brand(self.v) }
     }
 
     /// Like [`add_to_heap`](OwnedFrozenRef::add_to_heap), but for a frozen heap
@@ -574,7 +580,7 @@ where
         heap.add_reference(self.owner());
 
         // SAFETY: The heap we just added the reference to keeps this alive for `'v`
-        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+        unsafe { OwnedFrozen::<T>::restore_brand(self.v) }
     }
 
     /// Convert to an [`OwnedFrozen`] of the same value
@@ -598,7 +604,7 @@ where
     {
         let owner = self.owner();
         // SAFETY: The heap ref keeps the value alive for `'f`
-        let v = f(unsafe { transmute!(T, T::Reinfect<'f>, self.v) })?;
+        let v = f(unsafe { OwnedFrozen::<T>::restore_brand(self.v) })?;
         // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
         // it can only return values derived from its input, which our heap keeps alive
         Ok(unsafe { OwnedFrozenRef::unchecked_new(owner, v) })

@@ -22,34 +22,25 @@
 ///
 /// # Safety
 ///
-/// `StaticType` must be `Self` with all lifetimes replaced by `'static`. Additionally, if
-/// `Self::StaticType` implements [`IsStaticType`], the two impls must agree, i.e.
-/// `<Self::StaticType as IsStaticType>::Reinfect<'a>` is `Self` and
-/// `<Self::StaticType as IsStaticType>::Reinfect<'static>` is `Self::StaticType`.
+/// `Self` must have no lifetimes other than `'a` and `'static`, and `StaticType` must be `Self`
+/// with `'a` replaced by `'static`. It follows that two types with the same `StaticType` are one
+/// type at two lifetimes, and so have one layout; every brand change in the crate rests on that
+/// (`rebrand_unchecked` in `values/layout/heap/branding.rs`).
 pub unsafe trait ProvidesStaticType<'a> {
     /// Same type as `Self` but with lifetimes dropped to `'static`.
     type StaticType: 'static + ?Sized;
-    // FIXME(JakobDegen): Ideally we'd like to "connect" this trait to `IsStaticType` bia the
-    // following two additional bounds:
-    //
-    // ```rs
-    // + IsStaticType<Reinfect<'a> = Self>;
-    // + IsStaticType<Reinfect<'static> = Self::StaticType>;
-    // ```
-    //
-    // That would ensure that both operations agree with each other. Unfortunately, the compiler
-    // struggles with the bounds when this is being implemented for some `X<T>` with further bounds
-    // on `T` (including `Sized`). So we leave this bound out and rely on the `unsafe` to guarantee
-    // this agreement.
 }
 
 /// A `'static` type that can be "reinfected" with a lifetime to produce a related type.
 ///
-/// This trait is the inverse of [`ProvidesStaticType`]. Given a static type `T`,
-/// `T::Reinfect<'a>` produces a type that is `T` with lifetime `'a` injected.
+/// This trait is the inverse of [`ProvidesStaticType`]: `T::Reinfect<'a>` is `T` with `'a` in
+/// place of `'static`, and `T` is its own static type. Both are checked by the bounds, so the
+/// trait is safe to implement and adds nothing to what [`ProvidesStaticType`]'s contract
+/// promises. (The converse, that every static type implements this trait, cannot be a bound on
+/// [`ProvidesStaticType`]: the two would be mutually recursive.)
 ///
 /// This type is usually implemented with `#[derive(ProvidesStaticType)]`.
-pub trait IsStaticType: 'static {
+pub trait IsStaticType: 'static + ProvidesStaticType<'static, StaticType = Self> {
     /// The type with lifetime `'lt` injected.
     type Reinfect<'lt>: ?Sized + ProvidesStaticType<'lt, StaticType = Self>;
 }

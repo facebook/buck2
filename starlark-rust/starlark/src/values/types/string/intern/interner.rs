@@ -20,12 +20,13 @@
 use hashbrown::HashTable;
 
 use crate as starlark;
+use crate::any::ProvidesStaticType;
 use crate::collections::Hashed;
 use crate::values::StringValue;
 use crate::values::Trace;
 
 /// Interner of the strings of one heap.
-#[derive(Default, Trace)]
+#[derive(Default, Trace, ProvidesStaticType)]
 pub(crate) struct StringValueInterner<'v> {
     map: HashTable<StringValue<'v>>,
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//! Documentation-only module to provide an overview of branding in starlark.
+//! An overview of branding in starlark, and the one operation that changes a brand.
 //!
 //! The lifetimes of starlark values are tied to the lifetimes of a heap that they are allocated in.
 //! Starlark uses branded accesses to the heap to ensure that starlark values cannot escape the
@@ -199,6 +199,51 @@
 //! Nothing beyond the contract this module opens with. Every brand change goes through an edge,
 //! and every edge is minted where the dependency it certifies is established. The `'static`
 //! brand is honest: apart from the private erased storage of the owning carriers
-//! (`OwnedFrozen`, `FrozenModule`, `Globals`) and of the frozen heaps themselves, which the
-//! freezer and the pagable deserializer fill at a brand and which is only ever read back at a
-//! brand the owner vouches for, the only data at `'static` is immortal.
+//! (`OwnedFrozen`, `FrozenModule`, `Globals`) and of the heaps themselves (their arenas and string
+//! interners), which is filled at a brand and only ever read back at a brand the owner vouches
+//! for, the only data at `'static` is immortal.
+
+use crate::any::ProvidesStaticType;
+use crate::cast::transmute;
+
+/// `v`, which is at the `'from` brand, at the `'to` brand.
+///
+/// This is the one place a brand changes; [`HeapEdge::rebrand`](super::edge::HeapEdge::rebrand)
+/// and the accessors of `OwnedFrozen` are calls of it with the obligation below discharged.
+/// `From` and `To` are one type at two brands: two types with the same `StaticType` differ only
+/// in lifetimes, by the contract of [`ProvidesStaticType`], so no bytes change and the question
+/// is a lifetime one.
+///
+/// # Safety
+///
+/// Everything `v` refers to must be kept alive by the heap identified by `'to`, so that it is
+/// usable wherever a value at `'to` is. `'to` may be `'static` only for the private erased storage
+/// of an owner, which reads it back at a brand the owner vouches for, see above.
+pub(in crate::values::layout::heap) unsafe fn rebrand_unchecked<'from, 'to, S, From, To>(
+    v: From,
+) -> To
+where
+    S: ?Sized,
+    From: ProvidesStaticType<'from, StaticType = S>,
+    To: ProvidesStaticType<'to, StaticType = S>,
+{
+    // SAFETY: Same layout by the bounds, see above; the lifetime is the caller's obligation.
+    unsafe { transmute!(From, To, v) }
+}
+
+/// [`rebrand_unchecked`], behind a reference: the borrow is kept.
+///
+/// # Safety
+///
+/// As for [`rebrand_unchecked`].
+pub(in crate::values::layout::heap) unsafe fn rebrand_ref_unchecked<'a, 'from, 'to, S, From, To>(
+    v: &'a From,
+) -> &'a To
+where
+    S: ?Sized,
+    From: ProvidesStaticType<'from, StaticType = S>,
+    To: ProvidesStaticType<'to, StaticType = S>,
+{
+    // SAFETY: References to two types of one layout have one layout; see `rebrand_unchecked`.
+    unsafe { transmute!(&'a From, &'a To, v) }
+}

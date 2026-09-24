@@ -31,7 +31,6 @@ use std::mem::MaybeUninit;
 use bumpalo::Bump;
 use dupe::Dupe;
 
-use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::AllocValue;
@@ -52,6 +51,7 @@ use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::HeapKind;
 use crate::values::layout::heap::arena::ValueReservation;
+use crate::values::layout::heap::branding::rebrand_ref_unchecked;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
@@ -72,6 +72,9 @@ struct OwnedHeap {
     /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
     peak_allocated: Cell<usize>,
     arena: FastCell<Arena<Bump>>,
+    /// The strings interned on this heap. Like the arena, this is the heap's own storage, held
+    /// with the brand erased because the heap has none until a [`Heap`] handle names it;
+    /// `string_interner` restores it.
     str_interner: RefCell<StringValueInterner<'static>>,
     /// Memory I depend on.
     refs: HeapReferences,
@@ -140,14 +143,10 @@ impl<'v> Heap<'v> {
     }
 
     pub(in crate::values::layout) fn string_interner(self) -> RefMut<'v, StringValueInterner<'v>> {
-        // SAFETY: The lifetime of the interner is the lifetime of the heap.
-        unsafe {
-            transmute!(
-                RefMut<'v, StringValueInterner<'static>>,
-                RefMut<'v, StringValueInterner<'v>>,
-                self.0.str_interner.borrow_mut()
-            )
-        }
+        // SAFETY: Every entry was allocated in this heap, which `'v` names.
+        let interner: &'v RefCell<StringValueInterner<'v>> =
+            unsafe { rebrand_ref_unchecked(&self.0.str_interner) };
+        interner.borrow_mut()
     }
 
     pub(crate) fn trace_interner(self, tracer: &Tracer<'v>) {

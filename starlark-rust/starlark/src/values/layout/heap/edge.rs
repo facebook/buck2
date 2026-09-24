@@ -21,8 +21,9 @@ use dupe::Dupe;
 
 use crate::any::IsStaticType;
 use crate::any::ProvidesStaticType;
-use crate::cast::transmute;
 use crate::values::Value;
+use crate::values::layout::heap::branding::rebrand_ref_unchecked;
+use crate::values::layout::heap::branding::rebrand_unchecked;
 
 /// Witness that the heap identified by `'v` depends on the heap identified by `'dep`.
 ///
@@ -61,11 +62,9 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
         U::StaticType: IsStaticType + Sized,
         <U::StaticType as IsStaticType>::Reinfect<'v>: Sized,
     {
-        // SAFETY: The input and output are the same type up to the brand (guaranteed by
-        // `ProvidesStaticType`/`IsStaticType`), and everything that exists at the `'dep` brand
-        // lives as long as the `'dep` heap, which lives at least as long as the `'v` heap (both
-        // guaranteed by the construction contract of `self`)
-        unsafe { transmute!(U, <U::StaticType as IsStaticType>::Reinfect<'v>, v) }
+        // SAFETY: Everything at the `'dep` brand is kept alive by the `'dep` heap, which the `'v`
+        // heap keeps alive by the construction contract of `self`.
+        unsafe { rebrand_unchecked::<U::StaticType, U, _>(v) }
     }
 
     /// [`rebrand`](HeapEdge::rebrand), behind a reference.
@@ -75,9 +74,8 @@ impl<'v, 'dep> HeapEdge<'v, 'dep> {
         U::StaticType: IsStaticType + Sized,
         <U::StaticType as IsStaticType>::Reinfect<'v>: Sized,
     {
-        // SAFETY: As for `rebrand`; references to two types that differ only in lifetimes have
-        // the same layout, and the borrow is kept.
-        unsafe { transmute!(&'a U, &'a <U::StaticType as IsStaticType>::Reinfect<'v>, v) }
+        // SAFETY: As for `rebrand`.
+        unsafe { rebrand_ref_unchecked::<U::StaticType, U, _>(v) }
     }
 }
 
