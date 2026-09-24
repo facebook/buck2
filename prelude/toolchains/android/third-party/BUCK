@@ -1149,6 +1149,11 @@ third_party_exe(
     name = "protoc-linux-x86_64",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/google/protobuf/protoc:protoc-linux-x86_64",
     sha1 = "9065c462198f65a0f5ab4945023dac99288cf24f",
+    target_compatible_with = select({
+        "DEFAULT": ["ovr_config//cpu:x86_64"],
+        "ovr_config//os:macos": [],
+        "ovr_config//os:windows": [],
+    }),
     url = "mvn:com.google.protobuf:protoc:exe:linux-x86_64:3.25.6",
     visibility = ["PUBLIC"],
 )
