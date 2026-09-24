@@ -289,6 +289,7 @@ def _compute_pex_providers(
     linker_map_data = None,
     gc_sections_data = None,
     native_runtime_files = [],
+    build_info_manifest_entries = None,
 ) -> list[Provider] | Promise:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
@@ -469,6 +470,7 @@ def _compute_pex_providers(
         allow_cache_upload = allow_cache_upload,
         debuginfo_files = debuginfo_files,
         link_args = link_args,
+        manifest_entries_overlay = build_info_manifest_entries,
     )
 
     pex.sub_targets.update(extra)
@@ -601,16 +603,19 @@ def _convert_python_library_to_executable(
                     providers[LinkProviders].linker_map_data,
                     providers[LinkProviders].gc_sections_data,
                     native_runtime_files = providers[LinkProviders].runtime_files,
+                    build_info_manifest_entries = providers[LinkProviders].build_info_manifest_entries,
                 )
             )
         else:
-            shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, native_runtime_files = process_native_linking(
-                ctx,
-                deps,
-                python_toolchain,
-                python_internal_tools,
-                package_style,
-                allow_cache_upload,
+            shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, native_runtime_files, build_info_manifest_entries = (
+                process_native_linking(
+                    ctx,
+                    deps,
+                    python_toolchain,
+                    python_internal_tools,
+                    package_style,
+                    allow_cache_upload,
+                )
             )
             if ctx.attrs.runtime_bundle:
                 runtime_bundle = ctx.attrs.runtime_bundle[PythonRuntimeBundleInfo]
@@ -633,6 +638,7 @@ def _convert_python_library_to_executable(
                     )
 
     else:
+        build_info_manifest_entries = None
         linker_map_data = None
         gc_sections_data = None
         extensions = {}
@@ -669,6 +675,7 @@ def _convert_python_library_to_executable(
         linker_map_data = linker_map_data if link_strategy == NativeLinkStrategy("native") else None,
         gc_sections_data = gc_sections_data if link_strategy == NativeLinkStrategy("native") else None,
         native_runtime_files = native_runtime_files,
+        build_info_manifest_entries = build_info_manifest_entries,
     )
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
