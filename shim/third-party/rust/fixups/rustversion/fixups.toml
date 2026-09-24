@@ -6,4 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-buildscript.run = true
+[buildscript.run.env]
+# As in fbsource: `#[rustversion::since(YYYY-MM-DD)]` evaluates as true even
+# when the compiler is a stable release, which fbsource's is; unstable features
+# are allowed through RUSTC_BOOTSTRAP=1, and bytemuck's unstable `core::simd`
+# support, which the third-party manifest enables, picks the current portable
+# SIMD API only on what rustversion takes for a recent nightly.
+RUSTC_OVERRIDE_VERSION_STRING = "1.999.0-nightly"
