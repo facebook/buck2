@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests:bxl_test.bzl", "bxl_test")
+load("@fbcode_macros//build_defs:sanitizers.bzl", "sanitizers")
 load("@prelude//cfg/modifier:buckconfig_backed_modifiers.bzl", "BuckconfigBackedModifier", "buckconfig_backed_modifiers")
 load(":test_platform_rule.bzl", "test_platform")
 
@@ -17,17 +18,38 @@ oncall("build_infra")
     )
 ]
 
+buckconfig_backed_modifiers(
+    name = "test_sanitizer_modifiers",
+    post_platform = [],
+    pre_cli = [],
+    pre_platform = [
+        BuckconfigBackedModifier(
+            modifiers = [sanitizers.get_sanitizer_constraint(sanitizer)],
+            oncall = "build_infra",
+            property = "sanitizer",
+            section = "test",
+            value = sanitizer,
+        )
+        for sanitizer in ("address", "address-undefined", "thread", "hwaddress")
+    ],
+)
+
 [
     bxl_test(
         name = "{}_test".format(sanitizer),
         src = "test_sanitizer_buckconfig_backed_modifiers.bxl",
         buck_args = [
             "--config",
-            "fbcode.sanitizer={}".format(sanitizer),
+            "test.sanitizer={}".format(sanitizer),
         ],
     )
     for sanitizer in ("address", "address-undefined", "thread", "hwaddress")
 ]
+
+bxl_test(
+    name = "no_sanitizer_test",
+    src = "test_sanitizer_buckconfig_backed_modifiers.bxl",
+)
 
 # Test infrastructure for buckconfig-backed platform modifiers
 test_platform(

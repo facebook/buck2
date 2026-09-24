@@ -29,8 +29,9 @@ def _impl(ctx: bxl.Context):
     asserts.equals(0, len(info.pre_cli_modifiers))
 
     # Run cfg_constructor end-to-end with this target in extra_data.
-    # A target modifier is needed to avoid the cfg_constructor's early return
-    # when no modifiers are present.
+    # The platform-backed modifiers alone already bypass the cfg_constructor's
+    # no-modifier early return; the target modifier adds a second source so
+    # the test also covers composition with standalone modifiers.
     nosan = "ovr_config//build_mode:sanitizer_type[no-san]"
     refs, params = cfg_constructor_pre_constraint_analysis(
         package_modifiers = None,
