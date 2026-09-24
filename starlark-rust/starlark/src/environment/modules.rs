@@ -66,9 +66,9 @@ use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::any_complex::StarlarkAnyComplex;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
-use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::arena::HeapKind;
 use crate::values::layout::heap::module_heaps::ModuleHeaps;
+use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 
@@ -730,7 +730,7 @@ mod tests {
     use crate::values::StarlarkValue;
     use crate::values::Trace;
     use crate::values::Value;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::list::ListRef;
     use crate::values::starlark_value;
 

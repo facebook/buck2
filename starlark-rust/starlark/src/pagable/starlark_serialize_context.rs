@@ -41,11 +41,11 @@ use crate::pagable::starlark_serialize::StarlarkSerializeScope;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::Value;
 use crate::values::layout::heap::arena::ChunkInfo;
-use crate::values::layout::heap::heap_type::FrozenHeapArc;
-use crate::values::layout::heap::heap_type::FrozenHeapPtr;
-use crate::values::layout::heap::heap_type::FrozenValueOwnerSearchResult;
-use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::sealed::FrozenHeapArc;
+use crate::values::layout::heap::sealed::FrozenHeapPtr;
+use crate::values::layout::heap::sealed::FrozenValueOwnerSearchResult;
+use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
 use crate::values::layout::pointer::PointerTags;
 
 /// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base address

@@ -59,7 +59,7 @@ use crate::values::Value;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
 use crate::values::function::SpecialBuiltinFunction;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::namespace::Namespace;
 use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::types::function::NativeFunction;

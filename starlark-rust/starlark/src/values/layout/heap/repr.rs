@@ -27,7 +27,7 @@ use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
-use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::arena::HeapKind;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;

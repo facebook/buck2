@@ -210,7 +210,7 @@ mod tests {
     use crate::typing::Ty;
     use crate::values::Heap;
     use crate::values::ValueTyped;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::record::field::Field;
     use crate::values::record::instance::Record;
     use crate::values::record::record_type::FrozenRecordType;

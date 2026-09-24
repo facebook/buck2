@@ -38,7 +38,7 @@ use crate::util::arc_str::ArcStr;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::layout::heap::arena::ArenaVisitor;
-use crate::values::layout::heap::heap_type::HeapKind;
+use crate::values::layout::heap::arena::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::profile::string_index::StringId;
@@ -408,7 +408,7 @@ mod tests {
     use crate::const_frozen_string;
     use crate::values::Freezer;
     use crate::values::Heap;
-    use crate::values::layout::heap::heap_type::HeapKind;
+    use crate::values::layout::heap::arena::HeapKind;
     use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
     use crate::values::layout::heap::profile::aggregated::StackFrame;
     use crate::values::layout::heap::profile::summary_by_function::HeapSummaryByFunction;

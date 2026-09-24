@@ -57,11 +57,11 @@ use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::edge::HeapEdge;
-use crate::values::layout::heap::heap_type::FrozenHeapArc;
-use crate::values::layout::heap::heap_type::FrozenHeapPtr;
-use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
-use crate::values::layout::heap::heap_type::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::sealed::FrozenHeapArc;
+use crate::values::layout::heap::sealed::FrozenHeapPtr;
+use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
+use crate::values::layout::heap::sealed::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
@@ -1323,7 +1323,7 @@ mod tests {
 
     use super::HeapValueId;
     use super::StarlarkDeserWaitGraph;
-    use crate::values::layout::heap::heap_type::FrozenHeapPtr;
+    use crate::values::layout::heap::sealed::FrozenHeapPtr;
 
     fn value_id(n: usize) -> HeapValueId {
         HeapValueId {

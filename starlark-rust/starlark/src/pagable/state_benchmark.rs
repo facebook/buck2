@@ -49,7 +49,7 @@ use crate::starlark_simple_value;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::StarlarkValue;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::layout::heap::name::FrozenHeapName;
 
 /// Minimal `StarlarkValue` for stuffing predictable bytes into a heap.
 #[derive(

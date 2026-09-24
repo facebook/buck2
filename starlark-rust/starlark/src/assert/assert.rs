@@ -44,7 +44,7 @@ use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozen;
 use crate::values::Value;
-use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+use crate::values::layout::heap::name::StarlarkTestHeapName;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
 use crate::values::tuple::UnpackTuple;

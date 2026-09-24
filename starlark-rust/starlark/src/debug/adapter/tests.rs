@@ -46,7 +46,7 @@ mod t {
     use crate::syntax::Dialect;
     use crate::values::OwnedFrozen;
     use crate::values::Value;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::wasm::is_wasm;
 
     #[derive(Debug)]

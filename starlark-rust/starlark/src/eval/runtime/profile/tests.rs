@@ -28,7 +28,7 @@ use crate::eval::Evaluator;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
-use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+use crate::values::layout::heap::name::StarlarkTestHeapName;
 
 fn test_profile_golden_for_mode(mode: ProfileMode) {
     Module::with_temp_heap(|module| {

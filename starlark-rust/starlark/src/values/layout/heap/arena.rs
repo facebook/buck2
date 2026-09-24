@@ -60,7 +60,6 @@ use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
 use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
-use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::alloc_counts::AllocCounts;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
@@ -85,6 +84,14 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
         AlignedSize::of::<AValueHeapEntry>(),
     )
 };
+
+/// Whether values are read out of an unfrozen or a frozen heap: the two publish their
+/// pointers with different tags, see `Value`.
+#[derive(Copy, Clone, Dupe)]
+pub(crate) enum HeapKind {
+    Unfrozen,
+    Frozen,
+}
 
 /// Which bump region a value is allocated in.
 #[derive(Allocative, Copy, Clone, Debug, Eq, PartialEq, Hash)]

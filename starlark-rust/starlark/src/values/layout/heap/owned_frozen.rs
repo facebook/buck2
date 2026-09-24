@@ -15,367 +15,795 @@
  * limitations under the License.
  */
 
-use std::fmt;
+//! [`OwnedFrozen`] and [`OwnedFrozenRef`]: a value paired with the sealed frozen heap that keeps
+//! it alive. Everything that touches the pairing is in this file; conveniences built on its safe
+//! API are in `owned_frozen_ext.rs`.
 
-use allocative::Allocative;
+use std::any::Any;
+use std::convert::Infallible;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::marker::PhantomData;
+
 use dupe::Dupe;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use starlark_map::Equivalent;
 
 use crate::any::IsStaticType;
-use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
-use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
-use crate::pagable::starlark_serialize::StarlarkSerializeContext;
-use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
+use crate::cast::transmute;
+use crate::values::FrozenHeap;
+use crate::values::Heap;
 use crate::values::HeapSendable;
-use crate::values::HeapSyncable;
-use crate::values::OwnedFrozen;
-use crate::values::OwnedFrozenRef;
-use crate::values::StarlarkValue;
-use crate::values::Value;
-use crate::values::ValueTyped;
-use crate::values::layout::heap::heap_type::FrozenHeapArc;
+use crate::values::OwnedFrozenHeap;
+use crate::values::layout::heap::edge::HeapEdge;
+use crate::values::layout::heap::name::FrozenHeapName;
+use crate::values::layout::heap::owned_frozen_ext::FnOncish;
+use crate::values::layout::heap::owned_frozen_ext::FnOncish2;
+use crate::values::layout::heap::profile::by_type::HeapSummary;
+use crate::values::layout::heap::sealed::FrozenHeapArc;
+use crate::values::layout::heap::send::HeapSyncable;
 
-/// An alias for `FnOnce`.
+/// A value in a frozen heap that is automatically kept alive.
 ///
-/// `FnOncish<T, U>` should just be read as `FnOnce(T) -> U`.
+/// This type is a `T` together with the sealed frozen heap that keeps that `T` alive. The
+/// `'static` in a type like `OwnedFrozen<Value<'static>>` stands in for the brand of that heap,
+/// which has no name, and no accessor hands the value back at `'static`:
 ///
-/// This has to exist to work around a limitation in the type system:
-/// <https://github.com/rust-lang/rust/issues/49601>.
-pub trait FnOncish<T, U>: FnOnce(T) -> U {}
+/// * [`add_to_heap`](OwnedFrozen::add_to_heap) records the owning heap as a reference of the
+///   given heap and hands the value back at that heap's brand. This is what you want nearly all
+///   of the time.
+/// * [`by_ref`](OwnedFrozen::by_ref) runs a closure on the value at a brand `'fv` private to the
+///   closure, so nothing derived from it can escape;
+///   [`by_ref_with_reconstructor`](OwnedFrozen::by_ref_with_reconstructor) also provides an
+///   `OwnedFrozenReconstructor`, which re-pairs derived values with the owner or mints a
+///   [`HeapEdge`].
+/// * [`map`](OwnedFrozen::map), [`try_map`](OwnedFrozen::try_map) and
+///   [`maybe_map`](OwnedFrozen::maybe_map) produce an `OwnedFrozen<U>` of the same heap.
+/// * [`as_ref`](OwnedFrozen::as_ref) borrows the owner as an [`OwnedFrozenRef`], which uses the
+///   borrow as the brand and hands the value out directly.
+///
+/// The `branding` module explains why the accessors are shaped this way.
+///
+/// `OwnedFrozen<()>` is a bare heap handle: it keeps a heap alive without picking out any value in
+/// it, and offers only the heap-identity API (`name`, `refs`, the size accessors). It compares and
+/// hashes by heap identity. Sealing an [`OwnedFrozenHeap`] produces one, see
+/// [`OwnedFrozenHeap::seal`], and it is the currency of [`Heap::add_reference`] and
+/// [`FrozenHeap::add_reference`].
+pub struct OwnedFrozen<T> {
+    heap_ref: FrozenHeapArc,
+    // This is morally storing a `T::Reinfect<'fv>` for `'fv` the lifetime associated with the
+    // frozen heap. It would be a little bit more natural to store a `T::Reinfect<'static>` here;
+    // `T` is guaranteed by the safety contract on `ProvidesStaticType` to be the same, but if we
+    // had a `T::Reinfect<'static>` we wouldn't need to rely on that.
+    //
+    // The problem is that that would require us to add a `T: IsStaticType` bound to this *type*.
+    // That does mostly turn out fine, except that it turns out to be the *exact* pattern that
+    // consistently hits the compiler bug in <https://github.com/rust-lang/rust/issues/102211>,
+    // making this type ~unusable in async contexts. Once that bug is fixed, it may be worth to
+    // revisit.
+    v: T,
+    _no_auto_traits: PhantomData<dyn Any>,
+}
 
-impl<F, T, U> FnOncish<T, U> for F where F: FnOnce(T) -> U {}
-
-/// See [`FnOncish`].
-pub trait FnOncish2<T1, T2, U>: FnOnce(T1, T2) -> U {}
-
-impl<F, T1, T2, U> FnOncish2<T1, T2, U> for F where F: FnOnce(T1, T2) -> U {}
+// This module only has the safety-critical impls for this type. Additional conveniences and trait
+// impls are found in `owned_frozen_ext.rs` and based on the safe APIs provided here
+impl<T> OwnedFrozen<T>
+where
+    for<'fv> T: IsStaticType<Reinfect<'fv> = T>,
+{
+    /// Get a reference to the inner value
+    pub fn get<'a>(&'a self) -> &'a T {
+        &self.v
+    }
+}
 
 impl<T: IsStaticType> OwnedFrozen<T>
 where
     for<'fv> T::Reinfect<'fv>: Sized,
 {
-    /// Access the underlying value in a closure
-    pub fn by_ref<'s, F, R>(&'s self, f: F) -> R
+    /// Create a new `OwnedFrozen` from the given heap and a value associated with that heap.
+    ///
+    /// # SAFETY
+    ///
+    /// The `'fv` provided must be kept alive by the passed `owner`.
+    pub unsafe fn unchecked_new<'fv>(owner: OwnedFrozen<()>, v: T::Reinfect<'fv>) -> Self
     where
-        for<'a, 'fv> F: FnOnce(&'a T::Reinfect<'fv>) -> R,
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
     {
-        self.by_ref_with_reconstructor(|v, _r| f(v))
+        // SAFETY: The caller guarantees that `owner` keeps `'fv` alive.
+        unsafe { Self::from_erased(owner, Self::erase_brand(v)) }
     }
 
-    /// Transform the contained value
-    pub fn map<U, F>(self, f: F) -> OwnedFrozen<U>
+    /// Pair `v`, which had its brand forgotten by [`erase_brand`](OwnedFrozen::erase_brand), with
+    /// the heap that keeps it alive.
+    ///
+    /// # SAFETY
+    ///
+    /// `owner` must keep the brand that `v` was erased from alive.
+    pub(crate) unsafe fn from_erased(owner: OwnedFrozen<()>, v: T) -> Self
     where
-        U: IsStaticType,
-        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-        for<'fv> F: FnOncish<T::Reinfect<'fv>, U::Reinfect<'fv>>,
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
     {
-        match self.try_map::<_, std::convert::Infallible, _>(|v| Ok(f(v))) {
-            Ok(x) => x,
+        Self {
+            heap_ref: owner.heap_ref,
+            v,
+            _no_auto_traits: PhantomData,
         }
     }
 
-    /// Transform the contained value
-    pub fn try_map<U, E, F>(self, f: F) -> Result<OwnedFrozen<U>, E>
+    /// Forget the brand of `v`.
+    ///
+    /// # SAFETY
+    ///
+    /// The result must be stored alongside an owner that keeps `'fv` alive.
+    pub(crate) unsafe fn erase_brand<'fv>(v: T::Reinfect<'fv>) -> T {
+        // SAFETY: `IsStaticType` guarantees that `T::Reinfect<'fv>` and `T` differ only in
+        // lifetimes; keeping `'fv` alive is the caller's obligation.
+        unsafe { transmute!(T::Reinfect<'fv>, T, v) }
+    }
+
+    /// Give `v`, which had its brand forgotten by [`erase_brand`](OwnedFrozen::erase_brand), a
+    /// brand again.
+    ///
+    /// # SAFETY
+    ///
+    /// The heap identified by `'fv` must keep `v` alive.
+    pub(crate) unsafe fn restore_brand<'fv>(v: T) -> T::Reinfect<'fv> {
+        // SAFETY: As for `erase_brand`.
+        unsafe { transmute!(T, T::Reinfect<'fv>, v) }
+    }
+
+    /// Build a value in a fresh frozen heap and return it kept alive by that heap.
+    ///
+    /// The heap is private to `f`, which can only get data out of it by returning it at the
+    /// heap's brand, so the result is paired with its owner by construction. Use this instead of
+    /// allocating into a heap of your own and reaching for
+    /// [`unchecked_new`](OwnedFrozen::unchecked_new).
+    ///
+    /// The `name` identifies the heap; see [`OwnedFrozen::name`].
+    pub fn build<F>(name: FrozenHeapName, f: F) -> Self
+    where
+        // See comments on `Send` and `Sync` impls below
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
+        for<'fh> F: FnOnce(FrozenHeap<'fh>) -> T::Reinfect<'fh>,
+    {
+        match OwnedFrozenHeap::new().seal_with(name, |heap| Ok::<_, Infallible>(f(heap))) {
+            Ok(v) => v,
+        }
+    }
+
+    /// Use this value within the given heap: records this value's heap as a reference of `heap`,
+    /// which keeps it alive from then on, and hands the value back at `heap`'s brand.
+    ///
+    /// ```
+    /// use starlark::environment::FrozenModule;
+    /// use starlark::environment::Module;
+    /// use starlark::values::FrozenHeapName;
+    /// use starlark::values::OwnedFrozen;
+    /// use starlark::values::Value;
+    ///
+    /// fn copy<'v>(from: &FrozenModule, to: &Module<'v>) {
+    ///     let x: OwnedFrozen<Value<'static>> = from.get("value").unwrap();
+    ///     let v: Value<'v> = x.add_to_heap(to.heap());
+    ///     to.set("value", v);
+    /// }
+    ///
+    /// let from = Module::with_temp_heap(|from| {
+    ///     from.set("value", from.heap().alloc("a string"));
+    ///     from.freeze_named(FrozenHeapName::user("from")).unwrap()
+    /// });
+    /// Module::with_temp_heap(|to| {
+    ///     copy(&from, &to);
+    ///     assert_eq!(to.get("value").unwrap().unpack_str(), Some("a string"));
+    /// });
+    /// ```
+    ///
+    /// When `to` is frozen, the reference is carried into its sealed heap, so the resulting
+    /// `FrozenModule` keeps `from`'s heap alive too. The `branding` module explains the brand.
+    pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v> {
+        heap.add_reference(self.owner());
+
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Access the underlying value and a reconstructor in a closure
+    pub fn by_ref_with_reconstructor<'s, F, R>(&'s self, f: F) -> R
+    where
+        // Note: This `'a` is intentionally not `'s`. The danger that poses is that `'fv` is
+        // supposed to be a brand and hence and arbitrary lifetime, but using `'s` would allow the
+        // user to prove `'fv: 's` which makes the lifetime no longer arbitrary. In the extreme
+        // case, if the caller supplies `'s = 'static`, they can prove `'fv = 'static`, meaning the
+        // `'fv` is no longer unique at all.
+        //
+        // It's not clear that this is actually a problem, since if `'s = 'static` this thing lives
+        // forever and the poison is mostly gone anyway, but it's still very hard to reason about.
+        for<'a, 'fv> F: FnOnce(&'a T::Reinfect<'fv>, OwnedFrozenReconstructor<'fv>) -> R,
+    {
+        // SAFETY: See the comment on the type
+        f(
+            unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) },
+            OwnedFrozenReconstructor {
+                heap_ref: &self.heap_ref,
+                _invariant: PhantomData,
+            },
+        )
+    }
+
+    /// Borrow a part of the underlying value as an [`OwnedFrozenRef`], using the borrow as the
+    /// brand.
+    ///
+    /// This is how a value is picked out of an owner whose type is not `Copy`, where
+    /// [`as_ref`](OwnedFrozen::as_ref) is unavailable.
+    pub fn maybe_map_ref<'s, U, F>(&'s self, f: F) -> Option<OwnedFrozenRef<'s, U>>
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'a, 'fv> F: FnOncish<&'a T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
+    {
+        // SAFETY: See the comment on the type
+        let v = f(unsafe { transmute!(&T, &T::Reinfect<'_>, &self.v) })?;
+        // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
+        // it can only return values derived from its input, which our heap keeps alive
+        Some(unsafe { OwnedFrozenRef::unchecked_new(self.owner(), v) })
+    }
+
+    /// Map the underlying value and access a reconstructor
+    pub fn try_by_value_with_reconstructor<U, E, R, F>(self, f: F) -> (Result<OwnedFrozen<U>, E>, R)
+    where
+        U: IsStaticType,
+        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+        for<'fv> F: FnOncish2<
+                T::Reinfect<'fv>,
+                OwnedFrozenReconstructor<'fv>,
+                (Result<U::Reinfect<'fv>, E>, R),
+            >,
+    {
+        // SAFETY: See the comment on the type
+        let (v, extra) = f(
+            unsafe { transmute!(T, T::Reinfect<'_>, self.v) },
+            OwnedFrozenReconstructor {
+                // We have to transmute this lifetime because we want to allow our borrow of
+                // `self.heap_ref` to expire when we move `self.heap_ref` below, but the lifetime of
+                // that borrow is also the lifetime of the `'fv` in `v` which would have to expire
+                // then too.
+                //
+                // SAFETY: `self.heap_ref` is not moved until after `f` returns, so the
+                // lifetime-extended reference stays valid for the duration of the call.
+                heap_ref: unsafe { transmute!(&FrozenHeapArc, &FrozenHeapArc, &self.heap_ref) },
+                _invariant: PhantomData,
+            },
+        );
+        match v {
+            // SAFETY: `v`'s `'fv` is the brand of the heap owned by `self.heap_ref`, which we
+            // pass in as the owner.
+            Ok(v) => unsafe {
+                (
+                    Ok(OwnedFrozen::unchecked_new(
+                        OwnedFrozen::for_heap(self.heap_ref),
+                        v,
+                    )),
+                    extra,
+                )
+            },
+            Err(e) => (Err(e), extra),
+        }
+    }
+}
+
+/// SAFETY: We would like to write the following impls:
+///
+/// ```rust,ignore
+/// unsafe impl<T: IsStaticType> Send for OwnedFrozen<T>
+/// where
+///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+/// {
+/// }
+/// unsafe impl<T: IsStaticType> Sync for OwnedFrozen<T>
+/// where
+///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
+/// {
+/// }
+/// ```
+///
+/// The justification for such impls would be effectively the ones discussed in the `send` module;
+/// `for<'fv> HeapSendable<'fv> + HeapSyncable<'fv>` bounds are functionally `Send + Sync` up to any
+/// values contained in them, and those values must be frozen values so sending/syncing them is ok.
+///
+/// However, actually writing such an impl once more runs headfirst into
+/// <https://github.com/rust-lang/rust/issues/102211> where the compiler completely fails to prove
+/// them in any async context (there's a test for this in `owned_frozen_ext.rs`). So instead, we impl
+/// `Send + Sync` unconditionally here and impose those bounds at construction time. That's a little
+/// less flexible but otherwise ok.
+unsafe impl<T> Send for OwnedFrozen<T> {}
+unsafe impl<T> Sync for OwnedFrozen<T> {}
+
+/// The heap-identity API: facts about the owning heap, independent of the value.
+///
+/// ```
+/// use starlark::values::FrozenHeapName;
+/// use starlark::values::OwnedFrozen;
+/// use starlark::values::Value;
+///
+/// let v: OwnedFrozen<Value<'static>> =
+///     OwnedFrozen::build(FrozenHeapName::user("example"), |heap| {
+///         heap.alloc("contents")
+///     });
+/// assert_eq!(v.name().unwrap().to_string(), "example");
+/// assert!(v.allocated_bytes() > 0);
+/// assert_eq!(v.refs().count(), 0);
+/// ```
+impl<T> OwnedFrozen<T> {
+    /// The owning heap, as a borrowed handle.
+    pub fn owner(&self) -> OwnedFrozenRef<'_, ()> {
+        OwnedFrozenRef::for_heap(&self.heap_ref)
+    }
+
+    pub(crate) fn heap_arc(&self) -> &FrozenHeapArc {
+        &self.heap_ref
+    }
+
+    /// The name of the owning heap.
+    ///
+    /// Names are assigned when sealing frozen heaps, see [`OwnedFrozenHeap::seal`]; in
+    /// practice, this is done when freezing modules, see
+    /// [`Module::freeze_named`](crate::environment::Module::freeze_named).
+    ///
+    /// The name is made available here and not at a higher point like the module level so that it
+    /// can be inspected even when traversing the dependency graph of frozen heaps via
+    /// [`refs`](OwnedFrozen::refs).
+    pub fn name(&self) -> Option<&FrozenHeapName> {
+        self.heap_ref.name()
+    }
+
+    /// The frozen heaps that the owning heap depends on.
+    pub fn refs(&self) -> impl Iterator<Item = OwnedFrozenRef<'_, ()>> {
+        self.heap_ref.refs_slice().iter().map(OwnedFrozen::owner)
+    }
+
+    /// Number of bytes allocated on the owning heap, not including any memory allocated outside of
+    /// the starlark heap.
+    pub fn allocated_bytes(&self) -> usize {
+        self.heap_ref.allocated_bytes()
+    }
+
+    /// Peak number of bytes allocated on the live heap that produced the owning heap, if it was
+    /// produced by freezing one.
+    pub fn peak_allocated_bytes(&self) -> Option<usize> {
+        self.heap_ref.peak_allocated_bytes()
+    }
+
+    /// Number of bytes allocated by the owning heap but not filled. These bytes will _never_ be
+    /// filled, as no further allocations can be made on a sealed heap.
+    pub fn available_bytes(&self) -> usize {
+        self.heap_ref.available_bytes()
+    }
+
+    /// A summary of how much memory is allocated by the owning heap. Doesn't include the heaps it
+    /// keeps alive by reference.
+    pub fn allocated_summary(&self) -> HeapSummary {
+        self.heap_ref.allocated_summary()
+    }
+}
+
+impl OwnedFrozen<()> {
+    /// A handle to the heap behind `heap_ref`.
+    pub(crate) fn for_heap(heap_ref: FrozenHeapArc) -> Self {
+        Self {
+            heap_ref,
+            v: (),
+            _no_auto_traits: PhantomData,
+        }
+    }
+}
+
+/// The empty heap, which keeps nothing alive.
+impl Default for OwnedFrozen<()> {
+    fn default() -> Self {
+        Self::for_heap(FrozenHeapArc::default())
+    }
+}
+
+/// Heap identity: two handles are equal iff they refer to the same heap allocation. Consistent
+/// within a process, but non-deterministic across executions and between distinct but observably
+/// identical heaps.
+impl PartialEq for OwnedFrozen<()> {
+    fn eq(&self, other: &Self) -> bool {
+        self.heap_ref == other.heap_ref
+    }
+}
+
+impl Eq for OwnedFrozen<()> {}
+
+impl Hash for OwnedFrozen<()> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.heap_ref.hash(state)
+    }
+}
+
+impl PagableSerialize for OwnedFrozen<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.heap_ref.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for OwnedFrozen<()> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(Self::for_heap(FrozenHeapArc::pagable_deserialize(
+            deserializer,
+        )?))
+    }
+}
+
+/// Marker providing the ability to reconstruct `OwnedFrozen` values.
+///
+/// This type is provided as an argument to a number of the closures in `OwnedFrozen` APIs. It
+/// allows constructing more `OwnedFrozen`s referring to the same heap:
+///
+/// ```rust,ignore
+/// let v: OwnedFrozen<(Value<'static>, Value<'static>)> = ...;
+/// let v: (OwnedFrozen<Value<'static>>, OwnedFrozen<Value<'static>>) = v
+///     .by_ref_with_reconstructor(|vs, reconstructor| {
+///         let v0 = reconstructor.reconstruct(vs.0);
+///         let v1 = reconstructor.reconstruct(vs.1);
+///         (v0, v1)
+///     });
+/// ```
+///
+/// Usually this is not needed and combinations of `map`, `clone` suffice instead.
+#[derive(Copy, Clone, Dupe)]
+pub struct OwnedFrozenReconstructor<'fv> {
+    heap_ref: &'fv FrozenHeapArc,
+    // Ensure this is invariant in `'fv`; other than that, it's fine for it to be `Send + Sync`,
+    // though not very useful
+    _invariant: PhantomData<fn(&'fv ()) -> &'fv ()>,
+}
+
+impl<'fv> OwnedFrozenReconstructor<'fv> {
+    /// Packages a value of this heap into an `OwnedFrozen` of its own.
+    pub fn reconstruct<T: IsStaticType>(&self, v: T::Reinfect<'fv>) -> OwnedFrozen<T>
+    where
+        for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2> + Sized,
+    {
+        // SAFETY: The heap ref keeps the value alive for `'fv`
+        unsafe { OwnedFrozen::unchecked_new(OwnedFrozen::for_heap(self.heap_ref.dupe()), v) }
+    }
+
+    /// Make this heap a dependency of the given heap, witnessed by the returned edge.
+    ///
+    /// This is the escape hatch out of the closure-based `OwnedFrozen` APIs: `'fv`-branded
+    /// values can be rebranded for the given heap and returned from the closure.
+    pub fn edge<'v>(&self, heap: Heap<'v>) -> HeapEdge<'v, 'fv> {
+        heap.add_reference(OwnedFrozenRef::for_heap(self.heap_ref));
+
+        // SAFETY: The reference we just added keeps our heap alive for `'v`, and `'fv` is a
+        // closure-introduced brand
+        unsafe { HeapEdge::unchecked_new() }
+    }
+
+    /// Like [`edge`](OwnedFrozenReconstructor::edge), but for a frozen heap
+    pub fn frozen_edge<'v>(&self, heap: FrozenHeap<'v>) -> HeapEdge<'v, 'fv> {
+        heap.add_reference(OwnedFrozenRef::for_heap(self.heap_ref));
+
+        // SAFETY: The reference we just added keeps our heap alive for `'v`, and `'fv` is a
+        // closure-introduced brand
+        unsafe { HeapEdge::unchecked_new() }
+    }
+}
+
+/// A value in a frozen heap, kept alive by a borrowed heap.
+///
+/// This is the borrowed counterpart of [`OwnedFrozen`]: instead of owning the heap, it borrows
+/// one for `'f`, and `'f` doubles as the brand under which the value is handed out. That
+/// makes access much lighter-weight than `OwnedFrozen`'s closure-based APIs — [`value`] hands out
+/// the branded value directly — and the type is `Copy` when `T` is.
+///
+/// Because `'f` is an ordinary lifetime rather than a closure-introduced one, it is a weaker
+/// brand: two `OwnedFrozenRef`s for different heaps may share the same `'f`. The soundness of
+/// this type does not depend on brand uniqueness — only on the heap ref outliving `'f` — but
+/// APIs that accept `'f`-branded values back cannot exist on this type; use the brand-generic
+/// [`try_map`] and friends instead.
+///
+/// Create one with [`OwnedFrozen::as_ref`].
+///
+/// [`value`]: OwnedFrozenRef::value
+/// [`try_map`]: OwnedFrozenRef::try_map
+pub struct OwnedFrozenRef<'f, T> {
+    heap_ref: &'f FrozenHeapArc,
+    // Morally a `T::Reinfect<'f>`, stored brand-erased for the same reasons as `OwnedFrozen::v`
+    v: T,
+    _no_auto_traits: PhantomData<dyn Any>,
+}
+
+// This type has the same relationship to its safety-critical impls as `OwnedFrozen`: everything
+// here upholds the invariant that `v` is kept alive by the heap behind `heap_ref`; conveniences
+// live in `owned_frozen_ext.rs`.
+impl<'f, T: IsStaticType> OwnedFrozenRef<'f, T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Create a new `OwnedFrozenRef` from the given heap and a value associated with that heap.
+    ///
+    /// # SAFETY
+    ///
+    /// The value must be kept alive by the heap behind `owner`.
+    pub unsafe fn unchecked_new(owner: OwnedFrozenRef<'f, ()>, v: T::Reinfect<'f>) -> Self
+    where
+        // See comments on the `Send` and `Sync` impls for `OwnedFrozen`
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        Self {
+            heap_ref: owner.heap_ref,
+            // SAFETY: Caller promised
+            v: unsafe { transmute!(T::Reinfect<'f>, T, v) },
+            _no_auto_traits: PhantomData,
+        }
+    }
+
+    /// Get the value, branded with `'f`
+    pub fn value(&self) -> T::Reinfect<'f>
+    where
+        T: Copy,
+    {
+        // SAFETY: The heap ref keeps the value alive for `'f`
+        unsafe { transmute!(T, T::Reinfect<'f>, self.v) }
+    }
+
+    /// Get access to this value within the provided heap
+    ///
+    /// See the `branding` module for more details.
+    pub fn add_to_heap<'v>(self, heap: Heap<'v>) -> T::Reinfect<'v> {
+        heap.add_reference(self.owner());
+
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Like [`add_to_heap`](OwnedFrozenRef::add_to_heap), but for a frozen heap
+    pub fn add_to_frozen_heap<'v>(self, heap: FrozenHeap<'v>) -> T::Reinfect<'v> {
+        heap.add_reference(self.owner());
+
+        // SAFETY: The heap we just added the reference to keeps this alive for `'v`
+        unsafe { transmute!(T, T::Reinfect<'v>, self.v) }
+    }
+
+    /// Convert to an [`OwnedFrozen`] of the same value
+    pub fn to_owned(&self) -> OwnedFrozen<T>
+    where
+        T: Copy,
+        for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
+    {
+        // SAFETY: The heap ref keeps the value alive
+        unsafe {
+            OwnedFrozen::unchecked_new(OwnedFrozen::for_heap(self.heap_ref.dupe()), self.value())
+        }
+    }
+
+    /// Fallibly transform the contained value
+    pub fn try_map<U, E, F>(self, f: F) -> Result<OwnedFrozenRef<'f, U>, E>
     where
         U: IsStaticType,
         for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
         for<'fv> F: FnOncish<T::Reinfect<'fv>, Result<U::Reinfect<'fv>, E>>,
     {
-        self.try_by_value_with_reconstructor(|v, _r| (f(v), ())).0
-    }
-
-    /// Transform the contained value
-    pub fn maybe_map<U, F>(self, f: F) -> Option<OwnedFrozen<U>>
-    where
-        U: IsStaticType,
-        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-        for<'fv> F: FnOncish<T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
-    {
-        self.try_map(|v| f(v).ok_or(())).ok()
+        let owner = self.owner();
+        // SAFETY: The heap ref keeps the value alive for `'f`
+        let v = f(unsafe { transmute!(T, T::Reinfect<'f>, self.v) })?;
+        // SAFETY: `f` is generic over the brand, so apart from statics, which live in no heap,
+        // it can only return values derived from its input, which our heap keeps alive
+        Ok(unsafe { OwnedFrozenRef::unchecked_new(owner, v) })
     }
 }
 
-impl OwnedFrozen<Value<'static>> {
-    /// Check that the value is a `T`, returning an error describing the actual type if not.
-    pub fn downcast_starlark<T: IsStaticType + StarlarkValue<'static>>(
-        self,
-    ) -> crate::Result<OwnedFrozen<ValueTyped<'static, T>>>
-    where
-        for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-        for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
-    {
-        self.try_map::<ValueTyped<'static, T>, crate::Error, _>(|v| ValueTyped::new_err(v))
+impl<'f, T: Copy> Copy for OwnedFrozenRef<'f, T> {}
+
+impl<'f, T: Copy> Clone for OwnedFrozenRef<'f, T> {
+    fn clone(&self) -> Self {
+        *self
     }
 }
 
-impl<'f, T: IsStaticType> OwnedFrozenRef<'f, T>
-where
-    for<'fv> T::Reinfect<'fv>: Sized,
-{
-    /// Transform the contained value
-    pub fn map<U, F>(self, f: F) -> OwnedFrozenRef<'f, U>
-    where
-        U: IsStaticType,
-        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-        for<'fv> F: FnOncish<T::Reinfect<'fv>, U::Reinfect<'fv>>,
-    {
-        match self.try_map::<_, std::convert::Infallible, _>(|v| Ok(f(v))) {
-            Ok(x) => x,
+impl<'f, T: Copy> Dupe for OwnedFrozenRef<'f, T> {}
+
+/// SAFETY: As for `OwnedFrozen`: the bounds that would justify conditional impls are instead
+/// imposed at construction time, to avoid <https://github.com/rust-lang/rust/issues/102211>.
+/// Additionally, the `heap_ref` field is fine to share because `FrozenHeapArc` is `Sync`.
+unsafe impl<'f, T> Send for OwnedFrozenRef<'f, T> {}
+unsafe impl<'f, T> Sync for OwnedFrozenRef<'f, T> {}
+
+/// The heap-identity API, see the [`OwnedFrozen`] counterparts.
+impl<'f, T> OwnedFrozenRef<'f, T> {
+    /// The owning heap, as a borrowed handle.
+    pub fn owner(&self) -> OwnedFrozenRef<'f, ()> {
+        OwnedFrozenRef::for_heap(self.heap_ref)
+    }
+
+    pub(crate) fn heap_arc(&self) -> &'f FrozenHeapArc {
+        self.heap_ref
+    }
+
+    /// See [`OwnedFrozen::name`].
+    pub fn name(&self) -> Option<&'f FrozenHeapName> {
+        self.heap_ref.name()
+    }
+
+    /// See [`OwnedFrozen::refs`].
+    pub fn refs(&self) -> impl Iterator<Item = OwnedFrozenRef<'f, ()>> + use<'f, T> {
+        let heap_ref: &'f FrozenHeapArc = self.heap_ref;
+        heap_ref.refs_slice().iter().map(OwnedFrozen::owner)
+    }
+
+    /// See [`OwnedFrozen::allocated_bytes`].
+    pub fn allocated_bytes(&self) -> usize {
+        self.heap_ref.allocated_bytes()
+    }
+
+    /// See [`OwnedFrozen::peak_allocated_bytes`].
+    pub fn peak_allocated_bytes(&self) -> Option<usize> {
+        self.heap_ref.peak_allocated_bytes()
+    }
+
+    /// See [`OwnedFrozen::available_bytes`].
+    pub fn available_bytes(&self) -> usize {
+        self.heap_ref.available_bytes()
+    }
+
+    /// See [`OwnedFrozen::allocated_summary`].
+    pub fn allocated_summary(&self) -> HeapSummary {
+        self.heap_ref.allocated_summary()
+    }
+}
+
+impl<'f> OwnedFrozenRef<'f, ()> {
+    /// A handle to the heap behind `heap_ref`.
+    pub(crate) fn for_heap(heap_ref: &'f FrozenHeapArc) -> Self {
+        Self {
+            heap_ref,
+            v: (),
+            _no_auto_traits: PhantomData,
         }
     }
+}
 
-    /// Transform the contained value
-    pub fn maybe_map<U, F>(self, f: F) -> Option<OwnedFrozenRef<'f, U>>
+impl Debug for OwnedFrozenRef<'_, ()> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(self.heap_ref, f)
+    }
+}
+
+/// Heap identity, as for [`OwnedFrozen<()>`].
+impl PartialEq for OwnedFrozenRef<'_, ()> {
+    fn eq(&self, other: &Self) -> bool {
+        *self.heap_ref == *other.heap_ref
+    }
+}
+
+impl Eq for OwnedFrozenRef<'_, ()> {}
+
+impl Hash for OwnedFrozenRef<'_, ()> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.heap_ref.hash(state)
+    }
+}
+
+/// Heap identity, as for [`OwnedFrozen<()>`]: looks a borrowed heap up in a set of owned ones.
+impl Equivalent<OwnedFrozen<()>> for OwnedFrozenRef<'_, ()> {
+    fn equivalent(&self, key: &OwnedFrozen<()>) -> bool {
+        *self.heap_ref == key.heap_ref
+    }
+}
+
+impl<T: IsStaticType> OwnedFrozen<T>
+where
+    for<'fv> T::Reinfect<'fv>: Sized,
+{
+    /// Borrow this value as an [`OwnedFrozenRef`], using the borrow as the brand
+    pub fn as_ref(&self) -> OwnedFrozenRef<'_, T>
     where
-        U: IsStaticType,
-        for<'fv> U::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-        for<'fv> F: FnOncish<T::Reinfect<'fv>, Option<U::Reinfect<'fv>>>,
+        T: Copy,
     {
-        self.try_map(|v| f(v).ok_or(())).ok()
-    }
-}
-
-impl<T: IsStaticType> fmt::Debug for OwnedFrozen<T>
-where
-    for<'fv> T::Reinfect<'fv>: Sized,
-    for<'fv> T::Reinfect<'fv>: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.by_ref(|v| fmt::Debug::fmt(v, f))
-    }
-}
-
-impl<T: IsStaticType> fmt::Display for OwnedFrozen<T>
-where
-    for<'fv> T::Reinfect<'fv>: Sized,
-    for<'fv> T::Reinfect<'fv>: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.by_ref(|v| fmt::Display::fmt(v, f))
-    }
-}
-
-impl<T: IsStaticType> Clone for OwnedFrozen<T>
-where
-    for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Clone + Sized,
-{
-    fn clone(&self) -> Self {
-        self.by_ref_with_reconstructor(|v, r| r.reconstruct(v.clone()))
-    }
-}
-
-impl<T: IsStaticType> Dupe for OwnedFrozen<T> where
-    for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Dupe + Sized
-{
-}
-
-impl<T: IsStaticType> Allocative for OwnedFrozen<T>
-where
-    for<'fv> T::Reinfect<'fv>: Sized,
-    for<'fv> T::Reinfect<'fv>: Allocative,
-{
-    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
-        let mut visitor = visitor.enter_self_sized::<Self>();
-        visitor.visit_field(allocative::Key::new("owner"), self.heap_arc());
-        self.by_ref(|v| v.visit(&mut visitor));
-        visitor.exit();
-    }
-}
-
-impl<T> std::ops::Deref for OwnedFrozen<T>
-where
-    for<'fv> T: IsStaticType<Reinfect<'fv> = T>,
-{
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.get()
-    }
-}
-
-/// The wire format for every `OwnedFrozen` is the owner heap followed by the frozen value.
-///
-/// It is shared by the `Value` and `ValueTyped` forms so the two can be swapped at a field
-/// without a format change.
-fn serialize_owned_frozen(
-    owner: &FrozenHeapArc,
-    value: Value<'_>,
-    serializer: &mut dyn PagableSerializer,
-) -> pagable::Result<()> {
-    // Serialize the owner heap (via pagable arc mechanism).
-    owner.pagable_serialize(serializer)?;
-
-    // Ensure offset maps are registered for the owner heap and its transitive dependencies.
-    // `serialize_arc` for `Arc<FrozenFrozenHeap>` can defer the actual heap serialization, so
-    // the offset maps may not exist yet when we need to serialize the value.
-    let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-    state.ensure_chunk_index_registered(owner)?;
-
-    let mut ctx = StarlarkSerializerImpl::new_with_root(serializer, state, owner);
-    ctx.serialize_value(value).map_err(|e| e.into_anyhow())?;
-
-    Ok(())
-}
-
-/// See [`serialize_owned_frozen`].
-fn deserialize_owned_frozen<'de, D: PagableDeserializer<'de> + ?Sized>(
-    deserializer: &mut D,
-) -> pagable::Result<OwnedFrozen<Value<'static>>> {
-    // Deserialize the owner heap.
-    let owner = OwnedFrozen::<()>::pagable_deserialize(deserializer)?;
-
-    // Recover the page-in scope registered by the preceding owner heap so cross-heap pointer
-    // resolution can find it.
-    StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn(), |ctx| {
-        let value = ctx.deserialize_value().map_err(|e| e.into_anyhow())?;
-        // SAFETY: The context's brand is `owner`'s heap, which the value was resolved against,
-        // so `owner` keeps it alive.
-        Ok(unsafe { OwnedFrozen::unchecked_new(owner, value) })
-    })
-}
-
-impl PagableSerialize for OwnedFrozen<Value<'static>> {
-    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), *v, serializer))
-    }
-}
-
-impl<'de> PagableDeserialize<'de> for OwnedFrozen<Value<'static>> {
-    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> pagable::Result<Self> {
-        deserialize_owned_frozen(deserializer)
-    }
-}
-
-impl<T: IsStaticType + StarlarkValue<'static>> PagableSerialize
-    for OwnedFrozen<ValueTyped<'static, T>>
-where
-    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-{
-    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        self.by_ref(|v| serialize_owned_frozen(self.heap_arc(), v.to_value(), serializer))
-    }
-}
-
-impl<'de, T: IsStaticType + StarlarkValue<'static>> PagableDeserialize<'de>
-    for OwnedFrozen<ValueTyped<'static, T>>
-where
-    for<'fv> T::Reinfect<'fv>: StarlarkValue<'fv> + Sized,
-    for<'fv> ValueTyped<'fv, T::Reinfect<'fv>>: HeapSendable<'fv> + HeapSyncable<'fv>,
-{
-    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> pagable::Result<Self> {
-        deserialize_owned_frozen(deserializer)?
-            .downcast_starlark::<T>()
-            .map_err(|e| anyhow::anyhow!("OwnedFrozen deserialization: {e}"))
+        OwnedFrozenRef {
+            heap_ref: &self.heap_ref,
+            v: self.v,
+            _no_auto_traits: PhantomData,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use allocative::Allocative;
-    use derive_more::Display;
-    use starlark_derive::Freeze;
-    use starlark_derive::NoSerialize;
-    use starlark_derive::Trace;
-    use starlark_derive::starlark_value;
+    use std::collections::HashSet;
 
-    use crate as starlark;
-    use crate::any::ProvidesStaticType;
-    use crate::starlark_complex_value;
-    use crate::values::OwnedFrozen;
-    use crate::values::StarlarkValue;
-    use crate::values::Value;
-    use crate::values::ValueTyped;
+    use dupe::Dupe;
 
-    #[allow(dead_code)]
-    fn construct_any<T>() -> T {
-        unreachable!()
-    }
+    use super::OwnedFrozen;
+    use super::OwnedFrozenRef;
+    use crate::values::FrozenHeapName;
+    use crate::values::OwnedFrozenHeap;
 
-    fn _check_send_sync()
+    #[test]
+    fn test_send_sync()
     where
-        OwnedFrozen<Value<'static>>: Send + Sync,
+        OwnedFrozen<()>: Send + Sync,
     {
     }
 
-    fn _check_send_sync_provable_in_generator_interior() {
-        // An async block holding a `OwnedFrozen<Value<'static>>` in a capture
-        //
-        // When attempting to prove that this future is `Send`, rustc incorrectly tries to prove
-        // `for<'fv> OwnedFrozen<Value<'fv>>: Send` instead of just the `'static` case. This is
-        // the standard mcve for <https://github.com/rust-lang/rust/issues/102211>.
-        async fn hold_in_generator_interior() {
-            let v: OwnedFrozen<Value<'static>> = construct_any();
-            async {}.await;
-            drop(v);
-        }
-
-        fn _prove_send_sync() -> impl Send + Sync {
-            hold_in_generator_interior()
-        }
-    }
-
-    #[derive(
-        Clone,
-        Debug,
-        Display,
-        Trace,
-        Freeze,
-        ProvidesStaticType,
-        NoSerialize,
-        Allocative,
-        starlark_derive::StarlarkPagable
-    )]
-    struct MyComplex<'v>(Value<'v>);
-
-    starlark_complex_value!(MyComplex);
-
-    #[starlark_value(type = "MyComplex")]
-    impl<'v> StarlarkValue<'v> for MyComplex<'v> {}
-
-    fn _check_downcast_starlark_actually_usable() {
-        let v: OwnedFrozen<Value<'static>> = construct_any();
-        let _v: OwnedFrozen<ValueTyped<'static, MyComplex<'static>>> =
-            v.downcast_starlark::<MyComplex<'static>>().unwrap();
+    fn sealed_heap(name: &str) -> OwnedFrozen<()> {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+        });
+        heap.seal(FrozenHeapName::user(name))
     }
 
     #[test]
-    fn test_owned_frozen_ref() {
-        let owned: OwnedFrozen<Value<'static>> = OwnedFrozen::build(
-            crate::values::layout::heap::heap_type::StarlarkTestHeapName::frozen_heap_name(),
-            |heap| heap.alloc("contents"),
+    fn test_heap_identity_api() {
+        let dep = sealed_heap("dep");
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+            heap.add_reference(dep.owner());
+        });
+        let owned = heap.seal(FrozenHeapName::user("heap"));
+
+        assert_eq!(owned.name().unwrap().to_string(), "heap");
+        assert!(owned.allocated_bytes() > 0);
+        assert_eq!(owned.peak_allocated_bytes(), None);
+        assert!(owned.allocated_summary().total_allocated_bytes() > 0);
+        let refs: Vec<OwnedFrozenRef<()>> = owned.refs().collect();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name().unwrap().to_string(), "dep");
+        assert!(refs[0] == dep.owner());
+
+        let borrowed = owned.as_ref();
+        assert_eq!(borrowed.name().unwrap().to_string(), "heap");
+        assert_eq!(borrowed.allocated_bytes(), owned.allocated_bytes());
+        assert_eq!(borrowed.available_bytes(), owned.available_bytes());
+        assert_eq!(borrowed.peak_allocated_bytes(), None);
+        assert_eq!(
+            borrowed.allocated_summary().total_allocated_bytes(),
+            owned.allocated_summary().total_allocated_bytes()
         );
+        assert_eq!(borrowed.refs().count(), 1);
+        assert!(borrowed.refs().next().unwrap() == refs[0]);
+    }
 
-        let r = owned.as_ref();
-        assert_eq!(r.value().unpack_str(), Some("contents"));
-        assert!(r.owner() == owned.owner());
+    #[test]
+    fn test_heap_identity_eq_hash() {
+        let a = sealed_heap("a");
+        let same_content = sealed_heap("a");
+        let empty = OwnedFrozen::<()>::default();
 
-        let r = r
-            .maybe_map::<Value<'static>, _>(|v| Some(v))
-            .unwrap()
-            .map::<Value<'static>, _>(|v| v);
-        let owned2 = r.to_owned();
-        owned2.by_ref(|v| assert_eq!(v.unpack_str(), Some("contents")));
+        assert!(a == a.dupe());
+        assert!(a != same_content);
+        assert!(a != empty);
+        assert!(empty == OwnedFrozen::<()>::default());
+        let set: HashSet<OwnedFrozen<()>> = [a.dupe(), a.dupe(), same_content.dupe(), empty.dupe()]
+            .into_iter()
+            .collect();
+        assert_eq!(set.len(), 3);
 
-        crate::values::Heap::temp(|unfrozen| {
-            let v = owned.as_ref().add_to_heap(unfrozen);
-            assert_eq!(v.unpack_str(), Some("contents"));
-        });
-
-        crate::values::Heap::temp(|unfrozen| {
-            let v = owned.by_ref_with_reconstructor(|v, r| r.edge(unfrozen).rebrand(*v));
-            assert_eq!(v.unpack_str(), Some("contents"));
-        });
-
-        crate::values::FrozenHeap::temp(|other| {
-            let v = owned.as_ref().add_to_frozen_heap(other);
-            assert_eq!(v.unpack_str(), Some("contents"));
-        });
+        assert!(a.as_ref() == a.as_ref());
+        assert!(a.as_ref() != same_content.as_ref());
+        assert!(a.as_ref() != empty.as_ref());
+        let set: HashSet<OwnedFrozenRef<()>> = [
+            a.as_ref(),
+            a.as_ref(),
+            same_content.as_ref(),
+            empty.as_ref(),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(set.len(), 3);
     }
 }

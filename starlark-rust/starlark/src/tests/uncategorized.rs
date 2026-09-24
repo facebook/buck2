@@ -48,7 +48,7 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+use crate::values::layout::heap::name::StarlarkTestHeapName;
 use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::none::NoneType;
 

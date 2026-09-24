@@ -23,7 +23,7 @@ use thiserror::Error;
 
 use crate::pagable::DeserTypeId;
 use crate::pagable::heap_ref_id::HeapRefId;
-use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
+use crate::values::layout::heap::sealed::HeapAllocationOrigin;
 
 /// Errors that can occur during pagable serialization/deserialization.
 #[derive(Debug, Error)]

@@ -20,7 +20,7 @@
 use pagable::PagableSerializer;
 
 use crate::values::Value;
-use crate::values::layout::heap::heap_type::FrozenHeapPtr;
+use crate::values::layout::heap::sealed::FrozenHeapPtr;
 
 /// Opaque context that must follow Starlark values across deferred pagable serialization.
 #[doc(hidden)]

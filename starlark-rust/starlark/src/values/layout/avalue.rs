@@ -246,7 +246,7 @@ mod tests {
     use crate::values::Value;
     use crate::values::dict::AllocDict;
     use crate::values::freeze_error::FreezeResult;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::types::list::value::FrozenListData;
     use crate::values::types::list::value::ListData;
     use crate::values::types::list::value::ListGen;

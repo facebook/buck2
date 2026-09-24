@@ -40,7 +40,7 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethFn;
 use crate::values::function::NativeMethod;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::types::unbound::UnboundValue;
 
 /// Methods of an object.

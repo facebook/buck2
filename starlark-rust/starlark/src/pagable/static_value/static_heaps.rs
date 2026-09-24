@@ -30,8 +30,8 @@ use std::sync::LazyLock;
 use pagable::Pagable;
 
 use crate::pagable::static_value::registry::StaticHeapEntry;
-use crate::values::layout::heap::heap_type::FrozenHeapArc;
-use crate::values::layout::heap::heap_type::FrozenHeapPtr;
+use crate::values::layout::heap::sealed::FrozenHeapArc;
+use crate::values::layout::heap::sealed::FrozenHeapPtr;
 
 /// A unique identifier for a registered static heap.
 ///

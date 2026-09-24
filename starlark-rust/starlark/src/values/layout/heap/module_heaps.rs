@@ -25,7 +25,7 @@ use crate::values::HeapSyncable;
 use crate::values::OwnedFrozen;
 use crate::values::OwnedFrozenHeap;
 use crate::values::SealEdge;
-use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::layout::heap::name::FrozenHeapName;
 
 /// The two heaps of a [`Module`](crate::environment::Module): the value heap and the frozen heap
 /// it is building, owned together.
@@ -180,8 +180,8 @@ mod tests {
     use crate::values::Heap;
     use crate::values::OwnedFrozen;
     use crate::values::Value;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::values::layout::heap::module_heaps::ModuleHeaps;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
 
     /// A frozen value from a heap that only the value heap references is frozen by pointer copy,
     /// so the sealed heap has to reference that heap too, even when the reference was added

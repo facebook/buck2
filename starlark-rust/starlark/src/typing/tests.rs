@@ -49,7 +49,7 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
-use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+use crate::values::layout::heap::name::StarlarkTestHeapName;
 use crate::values::none::NoneType;
 use crate::values::typing::StarlarkCallable;
 use crate::values::typing::StarlarkCallableParamSpec;

@@ -29,7 +29,7 @@ use crate::codemap::FileSpan;
 use crate::eval::Evaluator;
 use crate::syntax::AstModule;
 use crate::values::dict::DictRef;
-use crate::values::layout::heap::heap_type::Heap;
+use crate::values::layout::heap::unfrozen::Heap;
 use crate::values::layout::value::Value;
 
 mod implementation;

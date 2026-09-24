@@ -246,7 +246,7 @@ mod tests {
     use crate::values::Freezer;
     use crate::values::StringValue;
     use crate::values::Value;
-    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::list::AllocList;
     use crate::values::types::any_complex::StarlarkAnyComplex;
 

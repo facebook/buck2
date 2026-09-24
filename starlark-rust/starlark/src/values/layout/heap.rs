@@ -73,7 +73,7 @@
 //! [`OwnedFrozen<()>`]: crate::values::OwnedFrozen
 //! [`OwnedFrozen::add_to_heap`]: crate::values::OwnedFrozen::add_to_heap
 //! [`OwnedFrozenRef`]: crate::values::OwnedFrozenRef
-//! [`OwnedFrozenReconstructor::edge`]: heap_type::OwnedFrozenReconstructor::edge
+//! [`OwnedFrozenReconstructor::edge`]: owned_frozen::OwnedFrozenReconstructor::edge
 //! [`HeapEdge`]: crate::values::HeapEdge
 //! [`HeapEdge::immortal`]: crate::values::HeapEdge::immortal
 //! [`ModuleHeaps`]: module_heaps::ModuleHeaps
@@ -91,10 +91,14 @@ pub(crate) mod call_enter_exit;
 pub(crate) mod edge;
 mod fast_cell;
 pub(crate) mod freezer;
-pub(crate) mod heap_type;
+pub(crate) mod frozen;
 pub(crate) mod maybe_uninit_slice_util;
 pub(crate) mod module_heaps;
+pub(crate) mod name;
 pub(crate) mod owned_frozen;
+pub(crate) mod owned_frozen_ext;
 pub(crate) mod profile;
 pub(crate) mod repr;
+pub(crate) mod sealed;
 pub(crate) mod send;
+pub(crate) mod unfrozen;

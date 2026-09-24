@@ -63,7 +63,7 @@ use crate::values::any::StarlarkAnyRegistered;
 use crate::values::any_complex::StarlarkAnyComplex;
 use crate::values::dict::globals::register_dict;
 use crate::values::layout::avalue::AValueSimpleBound;
-use crate::values::layout::heap::heap_type::HeapAllocationOrigin;
+use crate::values::layout::heap::sealed::HeapAllocationOrigin;
 use crate::values::layout::typed::AtomicFrozenValueTypedOption;
 use crate::values::list::AllocList;
 use crate::values::list::globals::register_list;
