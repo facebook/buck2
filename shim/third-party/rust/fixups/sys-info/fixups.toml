@@ -18,6 +18,14 @@ name = "macos"
 srcs = ["c/darwin.c"]
 headers = ["c/*.h"]
 
+['cfg(target_os = "freebsd")']
+rustc_flags = ["-l", "pthread"]
+
+[['cfg(target_os = "freebsd")'.cxx_library]]
+name = "freebsd"
+srcs = ["c/freebsd.c"]
+headers = ["c/*.h"]
+
 [['cfg(target_os = "windows")'.cxx_library]]
 name = "windows"
 srcs = ["c/windows.c"]

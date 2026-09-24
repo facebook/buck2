@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-#![cfg(any(target_os = "macos", target_os = "linux"))]
+#![cfg(any(target_os = "freebsd", target_os = "macos", target_os = "linux"))]
 
 use std::sync::OnceLock;
 

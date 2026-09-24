@@ -47,5 +47,8 @@ nix.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 nix.workspace = true
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+nix.workspace = true
+
 [lints]
 workspace = true
