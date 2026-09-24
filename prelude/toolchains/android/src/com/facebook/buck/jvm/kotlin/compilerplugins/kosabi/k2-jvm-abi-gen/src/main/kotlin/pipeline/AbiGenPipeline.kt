@@ -17,6 +17,8 @@
 
 package com.facebook
 
+import com.facebook.kotlin.compilercompat.callableNameOrNullCompat
+import com.facebook.kotlin.compilercompat.packageNameOrNullCompat
 import java.io.File
 import java.util.jar.JarFile
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
@@ -286,7 +288,10 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
                 degradeErrorTypedPositions(decl, session)
               } else {
                 recordErrorTypedApiMember(
-                    decl.symbol.callableId?.packageName?.asString() ?: "<unknown>",
+                    // Null callableId (2.3+) degrades to "<unknown>"; a legitimate
+                    // root package stays "". Version detail lives in the buckets
+                    // via packageNameOrNullCompat().
+                    decl.symbol.packageNameOrNullCompat() ?: "<unknown>",
                     decl,
                 )
               }
@@ -885,7 +890,7 @@ internal class FirMetadataSanitizerStage(private val repairLog: AbiGenRepairLog)
   private fun recordErrorTypedApiMember(owner: String, decl: FirCallableDeclaration) {
     val member =
         runCatching {
-          decl.symbol.callableId?.callableName?.asString()
+          decl.symbol.callableNameOrNullCompat()?.asString()
         }
             .getOrNull() ?: "<unknown>"
 
