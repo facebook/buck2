@@ -3,5 +3,5 @@ runs:
   using: composite
   steps:
   - name: Run test.py
-    run: python3 test.py --ci --git --buck2=$RUNNER_TEMP/artifacts/buck2
+    run: python3 test.py --ci --git
     shell: bash
