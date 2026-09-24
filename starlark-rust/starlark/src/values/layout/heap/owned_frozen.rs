@@ -19,7 +19,6 @@
 //! it alive. Everything that touches the pairing is in this file; conveniences built on its safe
 //! API are in `owned_frozen_ext.rs`.
 
-use std::any::Any;
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Debug;
@@ -89,7 +88,6 @@ pub struct OwnedFrozen<T> {
     // making this type ~unusable in async contexts. Once that bug is fixed, it may be worth to
     // revisit.
     v: T,
-    _no_auto_traits: PhantomData<dyn Any>,
 }
 
 // This module only has the safety-critical impls for this type. Additional conveniences and trait
@@ -113,7 +111,7 @@ where
     /// # SAFETY
     ///
     /// The `'fv` provided must be kept alive by the passed `owner`.
-    pub unsafe fn unchecked_new<'fv>(owner: OwnedFrozen<()>, v: T::Reinfect<'fv>) -> Self
+    pub(crate) unsafe fn unchecked_new<'fv>(owner: OwnedFrozen<()>, v: T::Reinfect<'fv>) -> Self
     where
         // See comments on `Send` and `Sync` impls below
         for<'fv2> T::Reinfect<'fv2>: HeapSendable<'fv2> + HeapSyncable<'fv2>,
@@ -136,7 +134,6 @@ where
         Self {
             heap_ref: owner.heap_ref,
             v,
-            _no_auto_traits: PhantomData,
         }
     }
 
@@ -174,9 +171,9 @@ where
     /// Build a value in a fresh frozen heap and return it kept alive by that heap.
     ///
     /// The heap is private to `f`, which can only get data out of it by returning it at the
-    /// heap's brand, so the result is paired with its owner by construction. Use this instead of
-    /// allocating into a heap of your own and reaching for
-    /// [`unchecked_new`](OwnedFrozen::unchecked_new).
+    /// heap's brand, so the result is paired with its owner by construction. This, and
+    /// [`OwnedFrozenHeap::seal_with`] for a heap with more than one root, are how an `OwnedFrozen`
+    /// comes to be: a value is never paired with a heap after the fact.
     ///
     /// The `name` identifies the heap; see [`OwnedFrozen::name`].
     pub fn build<F>(name: FrozenHeapName, f: F) -> Self
@@ -277,11 +274,7 @@ where
                 (Result<U::Reinfect<'fv>, E>, R),
             >,
     {
-        let OwnedFrozen {
-            heap_ref,
-            v,
-            _no_auto_traits: _,
-        } = self;
+        let OwnedFrozen { heap_ref, v } = self;
         // `'fv` is the borrow of `heap_ref`, which has to end before `heap_ref` can move into the
         // result, so the result's brand is erased first, as `OwnedFrozenHeap::seal_with` does.
         let (v, extra) = {
@@ -305,30 +298,16 @@ where
     }
 }
 
-/// SAFETY: We would like to write the following impls:
-///
-/// ```rust,ignore
-/// unsafe impl<T: IsStaticType> Send for OwnedFrozen<T>
-/// where
-///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-/// {
-/// }
-/// unsafe impl<T: IsStaticType> Sync for OwnedFrozen<T>
-/// where
-///     for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv> + Sized,
-/// {
-/// }
-/// ```
-///
-/// The justification for such impls would be effectively the ones discussed in the `send` module;
-/// `for<'fv> HeapSendable<'fv> + HeapSyncable<'fv>` bounds are functionally `Send + Sync` up to any
-/// values contained in them, and those values must be frozen values so sending/syncing them is ok.
-///
-/// However, actually writing such an impl once more runs headfirst into
-/// <https://github.com/rust-lang/rust/issues/102211> where the compiler completely fails to prove
-/// them in any async context (there's a test for this in `owned_frozen_ext.rs`). So instead, we impl
-/// `Send + Sync` unconditionally here and impose those bounds at construction time. That's a little
-/// less flexible but otherwise ok.
+/// SAFETY: `OwnedFrozen<Foo<'static>>` is meant to be `Send` exactly when `Foo<'fv>` is
+/// `HeapSendable<'fv>`, sendable up to the frozen values it holds (see the `send` module), and
+/// `Sync` likewise. The auto traits would say just that, `Value<'static>` being `Send + Sync`, and
+/// so would an impl conditional on `for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>`.
+/// Neither survives an `await`: for a value held across one, rustc replaces the lifetimes with
+/// fresh ones and then has to prove `Value<'0>: Send` for every `'0`, which it cannot
+/// (<https://github.com/rust-lang/rust/issues/102211>; `owned_frozen_ext.rs` has the regression
+/// test, and the auto-trait version fails it). So the impls are unconditional and every
+/// constructor requires the bounds instead, which is equivalent up to the values that can be
+/// constructed.
 unsafe impl<T> Send for OwnedFrozen<T> {}
 unsafe impl<T> Sync for OwnedFrozen<T> {}
 
@@ -403,11 +382,7 @@ impl<T> OwnedFrozen<T> {
 impl OwnedFrozen<()> {
     /// A handle to the heap behind `heap_ref`.
     pub(crate) fn for_heap(heap_ref: FrozenHeapArc) -> Self {
-        Self {
-            heap_ref,
-            v: (),
-            _no_auto_traits: PhantomData,
-        }
+        Self { heap_ref, v: () }
     }
 }
 
@@ -528,7 +503,6 @@ pub struct OwnedFrozenRef<'f, T> {
     heap_ref: &'f FrozenHeapArc,
     // Morally a `T::Reinfect<'f>`, stored brand-erased for the same reasons as `OwnedFrozen::v`
     v: T,
-    _no_auto_traits: PhantomData<dyn Any>,
 }
 
 // This type has the same relationship to its safety-critical impls as `OwnedFrozen`: everything
@@ -543,7 +517,7 @@ where
     /// # SAFETY
     ///
     /// The value must be kept alive by the heap behind `owner`.
-    pub unsafe fn unchecked_new(owner: OwnedFrozenRef<'f, ()>, v: T::Reinfect<'f>) -> Self
+    pub(crate) unsafe fn unchecked_new(owner: OwnedFrozenRef<'f, ()>, v: T::Reinfect<'f>) -> Self
     where
         // See comments on the `Send` and `Sync` impls for `OwnedFrozen`
         for<'fv> T::Reinfect<'fv>: HeapSendable<'fv> + HeapSyncable<'fv>,
@@ -552,7 +526,6 @@ where
             heap_ref: owner.heap_ref,
             // SAFETY: Caller promised
             v: unsafe { OwnedFrozen::<T>::erase_brand(v) },
-            _no_auto_traits: PhantomData,
         }
     }
 
@@ -621,9 +594,8 @@ impl<'f, T: Copy> Clone for OwnedFrozenRef<'f, T> {
 
 impl<'f, T: Copy> Dupe for OwnedFrozenRef<'f, T> {}
 
-/// SAFETY: As for `OwnedFrozen`: the bounds that would justify conditional impls are instead
-/// imposed at construction time, to avoid <https://github.com/rust-lang/rust/issues/102211>.
-/// Additionally, the `heap_ref` field is fine to share because `FrozenHeapArc` is `Sync`.
+/// SAFETY: As for `OwnedFrozen`; the `heap_ref` field is fine to share because `FrozenHeapArc`
+/// is `Sync`.
 unsafe impl<'f, T> Send for OwnedFrozenRef<'f, T> {}
 unsafe impl<'f, T> Sync for OwnedFrozenRef<'f, T> {}
 
@@ -673,11 +645,7 @@ impl<'f, T> OwnedFrozenRef<'f, T> {
 impl<'f> OwnedFrozenRef<'f, ()> {
     /// A handle to the heap behind `heap_ref`.
     pub(crate) fn for_heap(heap_ref: &'f FrozenHeapArc) -> Self {
-        Self {
-            heap_ref,
-            v: (),
-            _no_auto_traits: PhantomData,
-        }
+        Self { heap_ref, v: () }
     }
 }
 
@@ -721,7 +689,6 @@ where
         OwnedFrozenRef {
             heap_ref: &self.heap_ref,
             v: self.v,
-            _no_auto_traits: PhantomData,
         }
     }
 }
