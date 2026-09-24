@@ -794,6 +794,10 @@ _NativeLibSubtargetArtifacts = record(
     unrelinked = Artifact | None,
     linker_command = Artifact | None,
     linker_argsfile = Artifact | None,
+    # Pre-inline module IR (.ll) emitted by the relink when the `preinline-ir`
+    # extra relinker output is enabled; a comment-only `.ll` otherwise. Surfaced
+    # as the `[preinline_ir]` sub-target so tooling (evt) can fetch it.
+    preinline_ir = Artifact | None,
 )
 
 # Writes a directory of <abi>/<soname> shared libraries, and optionally a JSON
@@ -947,6 +951,8 @@ def _declare_library_subtargets(
                 dynamic_outputs.append(linker_command_output)
                 linker_argsfile_output = ctx.actions.declare_output(output_path + ".linker_argsfile", has_content_based_path = False)
                 dynamic_outputs.append(linker_argsfile_output)
+                preinline_ir_output = ctx.actions.declare_output(output_path + ".preinline.ll", has_content_based_path = False)
+                dynamic_outputs.append(preinline_ir_output)
 
                 output_path = output_path + ".unrelinked"
                 unrelinked_lib_output = ctx.actions.declare_output(output_path, dir = True, has_content_based_path = False)
@@ -956,6 +962,7 @@ def _declare_library_subtargets(
                     unrelinked = unrelinked_lib_output,
                     linker_command = linker_command_output,
                     linker_argsfile = linker_argsfile_output,
+                    preinline_ir = preinline_ir_output,
                 )
             else:
                 lib_outputs[soname] = _NativeLibSubtargetArtifacts(
@@ -963,6 +970,7 @@ def _declare_library_subtargets(
                     unrelinked = None,
                     linker_command = None,
                     linker_argsfile = None,
+                    preinline_ir = None,
                 )
 
         lib_outputs_by_platform[platform] = lib_outputs
@@ -986,6 +994,7 @@ def _link_library_subtargets(
         merged_lib_outputs = {}
         linker_commands_by_soname = {}
         linker_argsfiles_by_soname = {}
+        preinline_ir_by_soname = {}
 
         for soname, lib in final_shared_libs.items():
             base_soname = soname
@@ -1004,6 +1013,11 @@ def _link_library_subtargets(
                     }
                 if lib.lib.linker_argsfile:
                     linker_argsfiles_by_soname[soname] = lib.lib.linker_argsfile
+                preinline_ir = lib.extra_outputs.get("preinline-ir") if lib.extra_outputs else None
+                if preinline_ir:
+                    preinline_ir_outputs = preinline_ir[0].default_outputs
+                    if preinline_ir_outputs:
+                        preinline_ir_by_soname[soname] = preinline_ir_outputs[0]
 
         for soname, lib_outputs in lib_outputs_by_platform[platform].items():
             if soname in merged_lib_outputs:
@@ -1035,6 +1049,20 @@ def _link_library_subtargets(
                 else:
                     ctx.actions.write_json(outputs[lib_outputs.linker_argsfile], {})
 
+                if lib_outputs.preinline_ir:
+                    if soname in preinline_ir_by_soname:
+                        ctx.actions.symlink_file(outputs[lib_outputs.preinline_ir], preinline_ir_by_soname[soname])
+                    else:
+                        # `;` is an LLVM IR line comment, so a consumer that parses this
+                        # unconditionally reads an empty module rather than choking on a
+                        # placeholder that is not IR at all.
+                        ctx.actions.write(
+                            outputs[lib_outputs.preinline_ir],
+                            "; no pre-inline IR for {}: the `preinline_ir` relinker output was not enabled for this library (constraint off, or soname absent from `gator.preinline_ir_sonames`)".format(
+                                soname
+                            ),
+                        )
+
 def _create_library_subtargets(
     lib_outputs_by_platform: dict[str, dict[str, _NativeLibSubtargetArtifacts]], native_libs: Artifact, create_default_outputs: bool
 ):
@@ -1047,6 +1075,8 @@ def _create_library_subtargets(
             sub_targets["linker_command"] = [DefaultInfo(default_outputs = [output.linker_command])]
         if output.linker_argsfile:
             sub_targets["linker_argsfile"] = [DefaultInfo(default_outputs = [output.linker_argsfile])]
+        if output.preinline_ir:
+            sub_targets["preinline_ir"] = [DefaultInfo(default_outputs = [output.preinline_ir])]
 
         if output.unrelinked:
             sub_targets["unrelinked"] = [DefaultInfo(default_outputs = [output.unrelinked])]
@@ -2420,7 +2450,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
 
             extra_args = {} # @oss-enable
             # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path, soname, platform)
-            relinker_output_args = get_extra_relinker_args(ctx, output_path)
+            relinker_output_args = get_extra_relinker_args(ctx, output_path, soname)
             extra_args = merge_extra_linker_args([extra_args, relinker_output_args])
             shared_lib = create_shared_lib(
                 ctx,
