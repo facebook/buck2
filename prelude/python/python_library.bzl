@@ -24,7 +24,6 @@ load(
     "get_excluded",
     "get_roots",
 )
-load("@prelude//linking:generated_build_info.bzl", "GeneratedBuildInfoInvalidationInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkedObject",  # @unused Used as a type
@@ -419,12 +418,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         lazy_imports_cache = lazy_imports_cache_output,
     )
     providers.append(library_info)
-    providers.append(
-        GeneratedBuildInfoInvalidationInfo(
-            inputs = native_deps,
-        ),
-    )
-
     providers.append(
         create_unix_env_info(
             actions = ctx.actions,
