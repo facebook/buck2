@@ -325,7 +325,13 @@ cxx_extra_attributes = {
     },
     "cxx_library": _cxx_extra_library_attrs,
     "cxx_precompiled_header": _cxx_extra_library_attrs,
-    "cxx_test": re_test_common.test_args(),
+    "cxx_test": re_test_common.test_args()
+    | {
+        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "_generated_build_info_enabled": attrs.bool(default = False),
+        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
+        "_generated_build_info_spec": BUILD_INFO_ATTR,
+    },
     "cxx_toolchain": cxx_toolchain_extra_attributes(is_toolchain_rule = False),
     "llvm_link_bitcode": {
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -501,7 +507,14 @@ _rust_extra_attributes = {
         "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
         "_generated_build_info_spec": BUILD_INFO_ATTR,
     },
-    "rust_test": {},
+    "rust_test": {
+        "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "_generated_build_info_args": attrs.list(attrs.arg(), default = []),
+        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
+        "_generated_build_info_enabled": attrs.bool(default = False),
+        "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
+        "_generated_build_info_spec": BUILD_INFO_ATTR,
+    },
 }
 
 _core_extra_attributes = (
