@@ -12,7 +12,6 @@ Fake script that acts as a test
 """
 
 import argparse
-import importlib.machinery
 import os
 import shlex
 import signal
@@ -24,12 +23,6 @@ from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 from typing import Optional
-
-# To prevent the next line from creating a pycache dir
-sys.dont_write_bytecode = True
-lint_levels = importlib.machinery.SourceFileLoader(
-    "lint_levels", str(Path(__file__).parent / "lint_levels.bzl")
-).load_module()
 
 
 def is_windows() -> bool:
@@ -138,66 +131,15 @@ def check_no_changes(git: bool):
         sys.exit(1)
 
 
-RUSTC_ALLOW = {
-    # These are not in the shared-with-buck2 lists because they only appear in third-party deps.
-    # Normally cargo would suppress those, but we do vendored builds and so it doesn't.
-    "tail-call-track-caller",  # Listed by Rust 1.98, but gated behind `explicit_tail_calls`.
-    "unfulfilled-lint-expectations",
-    "unknown-lints",
-    # This is not *actually* a  warning but rather a warning level.
-    "warnings",
-}
-
-
-def _get_default_rustc_warnings() -> list[str]:
-    """
-    We want to error on all Rustc default warnings. The very natural way to do
-    this would be to simply enable -Dwarnings, which would enable the
-    `warnings` lint group from rustc like `clippy::all` does.
-
-    Unfortunately, that's not at all what -Dwarnings does! `warnings` is not a
-    lint group, it's a special magical keyword that turns all `warnings` into
-    errors and is completely incompatible with tweaking lint levels (so e.g. if
-    you `--allow` a warning, but have `-Dwarnings` , that will error out).
-
-    So, we have to ask rustc to list all the default warnings for us, and error
-    out on them here.
-    """
-    rustc = os.environ.get("RUSTC", "rustc")
-    out = run([rustc, "-Whelp"], capture_output=True).stdout.strip()
-
-    # This is some parsing that wants to be a little robust to changes in the
-    # output we're reading we're parsing help here.
-    lints = []
-
-    for line in out.split("\n"):
-        maybe_a_lint = line.split(None, 2)
-        if len(maybe_a_lint) == 3 and maybe_a_lint[1] == "warn":
-            lint = maybe_a_lint[0]
-            if lint not in RUSTC_ALLOW:
-                lints.append(lint)
-
-    return lints
-
-
 def clippy(package_args: list[str], fix: bool, target_args: list[str]) -> None:
     """
-    Run cargo clippy.
-    Also fails on any rustc warnings or build errors.
-    We'd really like a quiet option (at least for CI), but it doesn't exist
+    Run cargo clippy, failing on any warning. Which lints warn is the
+    workspace's `[workspace.lints]`, the same levels Buck applies.
     """
 
     print_running("clippy")
 
-    rustc_default_warnings = _get_default_rustc_warnings()
-
     clippy_fix_args = ["--fix"] if fix else []
-
-    clippy_deny_lints = [*lint_levels.CLIPPY_DENY, *rustc_default_warnings]
-    clippy_allow_lints = lint_levels.CLIPPY_ALLOW + lint_levels.CLIPPY_AUTOFIX
-
-    clippy_deny_args = [f"--deny={c}" for c in clippy_deny_lints]
-    clippy_allow_args = [f"--allow={c}" for c in clippy_allow_lints]
 
     run(
         [
@@ -207,13 +149,11 @@ def clippy(package_args: list[str], fix: bool, target_args: list[str]) -> None:
             *package_args,
             *target_args,
             *clippy_fix_args,
-            "-Z=unstable-options",
             "--profile=test",
             "--tests",
             "--benches",
             "--",
-            *clippy_deny_args,
-            *clippy_allow_args,
+            "--deny=warnings",
         ]
     )
 

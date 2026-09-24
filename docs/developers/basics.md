@@ -38,8 +38,7 @@ cat tests/core/README.md
 buck2 test fbcode//buck2/app/buck2_core:buck2_core
 ```
 
-In OSS, standard cargo tooling mostly applies. Exceptions are that integration tests do not run in
-OSS and clippy has some atypical configuration requiring use of `python3 test.py --git --lint-only`
+In OSS, standard cargo tooling applies. Integration tests do not run in OSS.
 
 ## Coding conventions
 
