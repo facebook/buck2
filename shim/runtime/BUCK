@@ -8,7 +8,7 @@
 config_setting(
     name = "fbcode",
     constraint_values = [
-        "//runtime/constraints:fbcode",
+        "//runtime/constraints:runtime[fbcode]",
     ],
     visibility = ["PUBLIC"],
 )
