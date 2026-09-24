@@ -329,6 +329,7 @@ cxx_extra_attributes = {
     "cxx_test": re_test_common.test_args()
     | {
         "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "_generated_build_info_data": attrs.option(attrs.source(), default = None),
         "_generated_build_info_enabled": attrs.bool(default = False),
         "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
         "_generated_build_info_spec": BUILD_INFO_ATTR,
