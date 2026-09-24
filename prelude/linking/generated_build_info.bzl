@@ -314,4 +314,6 @@ def generate_build_info_shared_library(
 
 def generated_build_info_is_shared_library(ctx: AnalysisContext) -> bool:
     spec = getattr(ctx.attrs, "_generated_build_info_spec", {})
-    return bool(spec.get("enabled", False) and spec.get("link_as_shared_library", False))
+    configured_enabled = getattr(ctx.attrs, "_generated_build_info_enabled", None)
+    enabled = configured_enabled if configured_enabled != None else spec.get("enabled", False)
+    return bool(enabled and spec.get("link_as_shared_library", False))

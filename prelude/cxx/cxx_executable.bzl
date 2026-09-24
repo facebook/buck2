@@ -728,6 +728,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
     generated_build_info_shared_library = None
     if generated_build_info_is_shared_library(ctx):
+        binary_linker_flags += ["--build-info=none"]
         generated_build_info_shared_library = generate_build_info_shared_library(
             ctx,
             dep_links,

@@ -63,6 +63,8 @@ cxx_implicit_attrs = {
     "preprocessor_flags": attrs.any(default = []),
     "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
     "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+    "_generated_build_info_enabled": attrs.bool(default = False),
+    "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
     "_generated_build_info_spec": BUILD_INFO_ATTR,
     "_late_build_info_stamping": attrs.any(default = None),
 }

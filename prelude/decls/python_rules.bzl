@@ -127,6 +127,8 @@ def _python_executable_attrs():
             "_cxx_toolchain": toolchains_common.cxx(),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_gen_build_info": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+            "_generated_build_info_enabled": attrs.bool(default = False),
+            "_generated_build_info_mode": attrs.enum(["full", "stable"], default = "stable"),
             "_generated_build_info_spec": BUILD_INFO_ATTR,
             "_late_build_info_stamping": attrs.any(default = None),
             "_python_internal_tools": python_common.internal_tools_arg(),
