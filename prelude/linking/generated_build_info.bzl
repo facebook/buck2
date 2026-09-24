@@ -133,13 +133,20 @@ def _generate_build_info_data(
 
 def generate_build_info_data(
     ctx: AnalysisContext,
+    generator_args: list[typing.Any] = [],
     invalidation_inputs: list[typing.Any] = [],
 ) -> GeneratedBuildInfoData | None:
     config = _generated_build_info_config(ctx)
     if config == None:
         return None
     spec, tool = config
-    return _generate_build_info_data(ctx, spec, tool, invalidation_inputs = invalidation_inputs)
+    return _generate_build_info_data(
+        ctx,
+        spec,
+        tool,
+        generator_args = generator_args,
+        invalidation_inputs = invalidation_inputs,
+    )
 
 # Expected `_generated_build_info_spec` shape:
 # {

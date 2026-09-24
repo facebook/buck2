@@ -103,6 +103,7 @@ load(
     "CommonArgsInfo",
     "CompileContext",
     "output_filename",
+    "strip_build_info_linker_flags",
 )
 load(
     ":crate_name.bzl",
@@ -2101,6 +2102,9 @@ def rust_link_binary(
 ) -> CxxLinkResult:
     """Link an executable from the objects that a bin-crate `Emit("rlib")`
     `rust_compile` extracted, plus the link args of the dependency graph."""
+    linker_flags = ctx.attrs.linker_flags
+    if getattr(ctx.attrs, "_generated_build_info_enabled", False):
+        linker_flags = strip_build_info_linker_flags(linker_flags)
     dist_thinlto = extraction.out_archive != None
 
     retained_flags = cmd_args(extraction.out_argsfile, format = "@{}")
@@ -2179,7 +2183,7 @@ def rust_link_binary(
             flags = cmd_args(
                 compile_ctx.cxx_toolchain_info.linker_info.binary_linker_flags,
                 compile_ctx.toolchain_info.linker_flags,
-                ctx.attrs.linker_flags,
+                linker_flags,
             )
         ),
         LinkArgs(flags = extra_link_args),

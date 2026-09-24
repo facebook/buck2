@@ -169,6 +169,9 @@ def _validate_nightly_features(toolchain_info: RustToolchainInfo):
             )
 
 def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False) -> cmd_args:
+    linker_flags = ctx.attrs.linker_flags
+    if getattr(ctx.attrs, "_generated_build_info_enabled", False):
+        linker_flags = strip_build_info_linker_flags(linker_flags)
     return cmd_script(
         actions = ctx.actions,
         name = "linker_wrapper",
@@ -181,11 +184,14 @@ def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False)
             # implicitly using the one from the C++ toolchain.
             linker_info.binary_linker_flags if binary else [],
             ctx.attrs._rust_toolchain[RustToolchainInfo].linker_flags,
-            ctx.attrs.linker_flags,
+            linker_flags,
         ),
         language = ctx.attrs._exec_os_type[OsLookup].script,
         has_content_based_path = True,
     )
+
+def strip_build_info_linker_flags(linker_flags):
+    return [flag for flag in linker_flags if not flag.startswith("--build-info")]
 
 # Return wrapper script for clippy-driver to make sure sysroot is set right
 # We need to make sure clippy is using the same sysroot - compiler, std libraries -

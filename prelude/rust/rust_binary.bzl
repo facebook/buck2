@@ -207,8 +207,8 @@ def _rust_binary_common(
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
     cxx_deps = cxx_attr_deps(ctx)
-    generated_build_info_spec = getattr(ctx.attrs, "_generated_build_info_spec", {})
-    generated_build_info_enabled = bool(generated_build_info_spec and generated_build_info_spec["enabled"])
+    generated_build_info_enabled = getattr(ctx.attrs, "_generated_build_info_enabled", False)
+    generated_build_info_args = ctx.attrs._generated_build_info_args if generated_build_info_enabled else []
 
     generated_build_info_link_args = []
 
@@ -405,6 +405,7 @@ def _rust_binary_common(
     if generated_build_info_enabled and not links_via_cxx:
         generated_build_info = generate_build_info(
             ctx,
+            generator_args = generated_build_info_args,
             invalidation_inputs = [
                 rust_compile_invalidation_inputs(
                     ctx = ctx,
@@ -455,6 +456,7 @@ def _rust_binary_common(
         if generated_build_info_enabled:
             generated_build_info = generate_build_info(
                 ctx,
+                generator_args = generated_build_info_args,
                 invalidation_inputs = rust_link_inputs
                 + [
                     unpack_link_args(native_link_args),
