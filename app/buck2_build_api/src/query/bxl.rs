@@ -225,6 +225,8 @@ pub static NEW_BXL_CQUERY_FUNCTIONS: LateBinding<
 
 pub static NEW_BXL_UQUERY_FUNCTIONS: LateBinding<
     fn(
+        // allow_partial_graph
+        bool,
         ProjectRoot,
         CellName,
         CellResolver,

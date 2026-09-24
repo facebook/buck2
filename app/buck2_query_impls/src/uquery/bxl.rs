@@ -39,6 +39,7 @@ fn uquery_functions<'v>() -> DefaultQueryFunctions<UqueryEnvironment<'v>> {
 }
 
 struct BxlUqueryFunctionsImpl {
+    allow_partial_graph: bool,
     project_root: ProjectRoot,
     working_dir: ProjectRelativePathBuf,
 }
@@ -63,7 +64,7 @@ impl BxlUqueryFunctionsImpl {
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
-            false, // allow_partial_graph
+            self.allow_partial_graph,
         ));
         Ok(DiceQueryDelegate::new(dice, query_data))
     }
@@ -73,7 +74,11 @@ impl BxlUqueryFunctionsImpl {
         delegate: &'c DiceQueryDelegate<'c, 'd>,
     ) -> buck2_error::Result<UqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
-        Ok(UqueryEnvironment::new(delegate, literals, false))
+        Ok(UqueryEnvironment::new(
+            delegate,
+            literals,
+            self.allow_partial_graph,
+        ))
     }
 }
 
@@ -275,17 +280,20 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
 }
 
 pub(crate) fn init_new_bxl_uquery_functions() {
-    NEW_BXL_UQUERY_FUNCTIONS.init(|project_root, cell_name, cell_resolver| {
-        Box::pin(async move {
-            let cell = cell_resolver.get(cell_name)?;
-            // TODO(nga): working as as cell root is not right.
-            //   Should be either the project root or user's current working directory.
-            let working_dir = cell.path().as_project_relative_path().to_buf();
+    NEW_BXL_UQUERY_FUNCTIONS.init(
+        |allow_partial_graph, project_root, cell_name, cell_resolver| {
+            Box::pin(async move {
+                let cell = cell_resolver.get(cell_name)?;
+                // TODO(nga): working as as cell root is not right.
+                //   Should be either the project root or user's current working directory.
+                let working_dir = cell.path().as_project_relative_path().to_buf();
 
-            Result::<Box<dyn BxlUqueryFunctions>, _>::Ok(Box::new(BxlUqueryFunctionsImpl {
-                project_root,
-                working_dir,
-            }))
-        })
-    })
+                Result::<Box<dyn BxlUqueryFunctions>, _>::Ok(Box::new(BxlUqueryFunctionsImpl {
+                    allow_partial_graph,
+                    project_root,
+                    working_dir,
+                }))
+            })
+        },
+    )
 }

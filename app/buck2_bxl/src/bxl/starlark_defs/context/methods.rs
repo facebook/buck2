@@ -322,8 +322,18 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns the `uqueryctx` that holds all uquery functions.
-    fn uquery<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> starlark::Result<StarlarkUQueryCtx<'v>> {
-        Ok(StarlarkUQueryCtx::new(this)?)
+    ///
+    /// `allow_partial_graph` behaves as `buck2 uquery --allow-partial-graph`.
+    ///
+    /// Current limitation: package load errors while expanding recursive patterns
+    /// passed directly to query methods still fail the query. For example,
+    /// `deps("//foo/...")` still fails if a package in that pattern cannot load.
+    /// Use `eval("deps(//foo/...)")` to tolerate those errors.
+    fn uquery<'v>(
+        this: ValueTyped<'v, BxlContext<'v>>,
+        #[starlark(require = named, default = false)] allow_partial_graph: bool,
+    ) -> starlark::Result<StarlarkUQueryCtx<'v>> {
+        Ok(StarlarkUQueryCtx::new(this, allow_partial_graph)?)
     }
 
     /// Returns the `cqueryctx` that holds all the cquery functions.

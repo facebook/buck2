@@ -77,7 +77,10 @@ enum LazyOperation {
     },
     UnconfiguredTargetNode(OwnedTargetNodeArg),
     UnconfiguredTargetNodeKeepGoing(String),
-    Uquery(LazyUqueryOperation),
+    Uquery {
+        op: LazyUqueryOperation,
+        allow_partial_graph: bool,
+    },
     Cquery(LazyCqueryOperation),
     BuildArtifact(LazyBuildArtifact),
     Join(Arc<LazyOperation>, Arc<LazyOperation>),
@@ -220,7 +223,13 @@ impl LazyOperation {
                     error_packages,
                 )))
             }
-            LazyOperation::Uquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Uquery),
+            LazyOperation::Uquery {
+                op,
+                allow_partial_graph,
+            } => op
+                .resolve(dice, core_data, *allow_partial_graph)
+                .await
+                .map(LazyResult::Uquery),
             LazyOperation::Cquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Cquery),
             LazyOperation::BuildArtifact(artifact) => {
                 artifact.build_artifacts(dice).await?;
@@ -315,9 +324,12 @@ impl StarlarkLazy {
         }
     }
 
-    pub(crate) fn new_uquery(op: LazyUqueryOperation) -> Self {
+    pub(crate) fn new_uquery(op: LazyUqueryOperation, allow_partial_graph: bool) -> Self {
         Self {
-            lazy: Arc::new(LazyOperation::Uquery(op)),
+            lazy: Arc::new(LazyOperation::Uquery {
+                op,
+                allow_partial_graph,
+            }),
         }
     }
 

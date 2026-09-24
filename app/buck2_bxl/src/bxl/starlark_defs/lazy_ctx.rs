@@ -263,10 +263,18 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Gets the lazy uquery context.
+    ///
+    /// `allow_partial_graph` behaves as `buck2 uquery --allow-partial-graph`.
+    ///
+    /// Current limitation: package load errors while expanding recursive patterns
+    /// passed directly to query methods still fail the query. For example,
+    /// `deps("//foo/...")` still fails if a package in that pattern cannot load.
+    /// Use `eval("deps(//foo/...)")` to tolerate those errors.
     fn uquery<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
+        #[starlark(require = named, default = false)] allow_partial_graph: bool,
     ) -> starlark::Result<StarlarkLazyUqueryCtx> {
-        Ok(StarlarkLazyUqueryCtx::new())
+        Ok(StarlarkLazyUqueryCtx::new(allow_partial_graph))
     }
 
     /// Gets the lazy cquery context.

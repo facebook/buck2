@@ -135,12 +135,13 @@ impl LazyUqueryOperation {
         &self,
         dice: &mut DiceComputations<'_>,
         core_data: &BxlContextCoreData,
+        allow_partial_graph: bool,
     ) -> buck2_error::Result<LazyUqueryResult> {
         match self {
             LazyUqueryOperation::TestsOf(expr) => {
                 let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .testsof(dice, &target_set)
                     .await?;
@@ -155,7 +156,7 @@ impl LazyUqueryOperation {
                     .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .allpaths(dice, &from, &to, expr.as_ref())
                     .await?;
@@ -170,7 +171,7 @@ impl LazyUqueryOperation {
                     .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .somepath(dice, &from, &to, expr.as_ref())
                     .await?;
@@ -226,7 +227,7 @@ impl LazyUqueryOperation {
                     .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .deps(dice, &target_set, *depth, expr.as_ref())
                     .await?;
@@ -246,7 +247,7 @@ impl LazyUqueryOperation {
                     .try_map(|s| buck2_query_parser::parse_expr(s.as_str()))?;
                 let expr = filter.as_ref().map(|expr| CapturedExpr { expr });
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .rdeps(dice, &target_set, &from_set, *depth, expr.as_ref())
                     .await?;
@@ -270,7 +271,7 @@ impl LazyUqueryOperation {
             LazyUqueryOperation::AllBuildfiles(expr) => {
                 let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .allbuildfiles(dice, &target_set)
                     .await?;
@@ -281,7 +282,7 @@ impl LazyUqueryOperation {
                 let universe = universe.get(core_data)?;
                 let argset = argset.get(core_data)?;
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .rbuildfiles(dice, &universe, &argset)
                     .await?;
@@ -291,7 +292,7 @@ impl LazyUqueryOperation {
             LazyUqueryOperation::Owner { files } => {
                 let file_set = files.get(core_data)?;
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .owner(dice, &file_set)
                     .await?;
@@ -301,7 +302,7 @@ impl LazyUqueryOperation {
             LazyUqueryOperation::TargetsInBuildfile { files } => {
                 let file_set = files.get(core_data)?;
 
-                let res = get_uquery_env(core_data)
+                let res = get_uquery_env(core_data, allow_partial_graph)
                     .await?
                     .targets_in_buildfile(dice, &file_set)
                     .await?;
@@ -318,7 +319,7 @@ impl LazyUqueryOperation {
                         &core_data.working_dir()?,
                         query,
                         query_args,
-                        false, // allow_partial_graph
+                        allow_partial_graph,
                     )
                     .await?;
 

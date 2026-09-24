@@ -64,6 +64,7 @@ use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 pub(crate) struct StarlarkUQueryCtx<'v> {
     #[derivative(Debug = "ignore")]
     ctx: ValueTyped<'v, BxlContext<'v>>,
+    allow_partial_graph: bool,
 }
 
 starlark::methods_static!(UQUERY_METHODS = uquery_methods);
@@ -77,8 +78,10 @@ impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
 
 pub(crate) async fn get_uquery_env(
     ctx: &BxlContextCoreData,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<Box<dyn BxlUqueryFunctions>> {
     (NEW_BXL_UQUERY_FUNCTIONS.get()?)(
+        allow_partial_graph,
         ctx.project_root().dupe(),
         ctx.cell_name(),
         ctx.cell_resolver().dupe(),
@@ -93,8 +96,14 @@ impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
 }
 
 impl<'v> StarlarkUQueryCtx<'v> {
-    pub(crate) fn new(ctx: ValueTyped<'v, BxlContext<'v>>) -> buck2_error::Result<Self> {
-        Ok(Self { ctx })
+    pub(crate) fn new(
+        ctx: ValueTyped<'v, BxlContext<'v>>,
+        allow_partial_graph: bool,
+    ) -> buck2_error::Result<Self> {
+        Ok(Self {
+            ctx,
+            allow_partial_graph,
+        })
     }
 }
 
@@ -131,7 +140,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                         .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_uquery_env(&this.ctx)
+                    get_uquery_env(&this.ctx, this.allow_partial_graph)
                         .await?
                         .allpaths(
                             dice,
@@ -164,7 +173,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_uquery_env(&this.ctx)
+                    get_uquery_env(&this.ctx, this.allow_partial_graph)
                         .await?
                         .somepath(
                             dice,
@@ -280,7 +289,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
 
                         let targets = unpack_targets(this, dice, universe).await?;
 
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .deps(
                                 dice,
@@ -324,7 +333,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
 
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .rdeps(
                                 dice,
@@ -388,7 +397,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .testsof(dice, &targets)
                             .await
@@ -448,7 +457,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .owner(dice, (files.get(&this.ctx).await?).as_ref())
                             .await
@@ -479,7 +488,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .targets_in_buildfile(dice, (files.get(&this.ctx).await?).as_ref())
                             .await
@@ -509,7 +518,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                 dice.via(|dice| {
                     async {
                         let universe = unpack_targets(this, dice, universe).await?;
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .allbuildfiles(dice, &universe)
                             .await
@@ -539,7 +548,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
-                        get_uquery_env(&this.ctx)
+                        get_uquery_env(&this.ctx, this.allow_partial_graph)
                             .await?
                             .rbuildfiles(
                                 dice,
@@ -619,7 +628,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                                 &this.ctx.working_dir()?,
                                 query,
                                 &query_args,
-                                false, // allow_partial_graph
+                                this.allow_partial_graph,
                             )
                             .await?,
                         heap,
