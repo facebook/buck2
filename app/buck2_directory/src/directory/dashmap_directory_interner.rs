@@ -74,6 +74,14 @@ where
     /// Insert a new entry into the interner. This may insert this data, or return an existing
     /// entry.
     pub fn intern(&self, data: SharedDirectoryData<L, H>) -> SharedDirectory<L, H> {
+        // The self.inner.entry call below holds a lock on it's dashmap shard. If we take
+        // the Occupied branch and the `inner = o.get().upgrade()` is the last strong
+        // reference to inner, dropping inner at the end of the Occupied branch calls
+        // `SharedDirectoryInner::drop`->`dropped()`, which locks the same shard, resulting
+        // in a deadlock. `displaced` holds the inner strong reference until we're outside
+        // the `self.inner.entry` lock.
+        let mut displaced = None;
+
         let new_inner = match self.inner.entry(data.fingerprint.dupe()) {
             Entry::Occupied(mut o) => {
                 if let Some(inner) = o.get().upgrade() {
@@ -83,6 +91,7 @@ where
                     // Same content, different exhaustiveness-variant: take over the slot
                     // (last-wins) so repeated interning of this variant deduplicates from here
                     // on; the previous variant stays alive unshared where it is referenced.
+                    displaced = Some(inner);
                 }
 
                 // Constructing this here is a bit duplicative but it avoids creating a new
@@ -108,6 +117,9 @@ where
                 new_inner
             }
         };
+
+        // The `self.inner.entry` lock is released; dropping this may now re-enter the map safely.
+        drop(displaced);
 
         SharedDirectory { inner: new_inner }
     }
