@@ -102,13 +102,13 @@ def _get_default_package_cmd(ctx: AnalysisContext, unprocessed_ipa_contents: Art
     return process_ipa_cmd
 
 def _compression_level_arg(compression_level: IpaCompressionLevel) -> str:
-    if compression_level.value == "none":
+    if compression_level == IpaCompressionLevel("none"):
         return "0"
-    elif compression_level.value == "default":
+    elif compression_level == IpaCompressionLevel("default"):
         return "6"
-    elif compression_level.value == "min":
+    elif compression_level == IpaCompressionLevel("min"):
         return "1"
-    elif compression_level.value == "max":
+    elif compression_level == IpaCompressionLevel("max"):
         return "9"
     else:
         fail("Unknown .ipa compression level: " + str(compression_level))

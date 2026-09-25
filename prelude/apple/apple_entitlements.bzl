@@ -19,10 +19,10 @@ def get_entitlements_codesign_args(ctx: AnalysisContext, codesign_type: CodeSign
     return entitlements_args
 
 def should_include_entitlements(ctx: AnalysisContext, codesign_type: CodeSignType) -> bool:
-    if codesign_type.value == "distribution":
+    if codesign_type == CodeSignType("distribution"):
         return True
 
-    if codesign_type.value == "adhoc":
+    if codesign_type == CodeSignType("adhoc"):
         # The config-based override value takes priority over target value
         if ctx.attrs._use_entitlements_when_adhoc_code_signing != None:
             return ctx.attrs._use_entitlements_when_adhoc_code_signing

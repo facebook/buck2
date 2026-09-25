@@ -146,7 +146,7 @@ def assemble_bundle(
     else:
         fail("Code signing configuration `{}` not supported".format(code_signing_configuration))
 
-    codesign_required = codesign_type.value in ["distribution", "adhoc"]
+    codesign_required = codesign_type != CodeSignType("skip")
     swift_support_required = swift_stdlib_args and (not ctx.attrs.skip_copying_swift_stdlib) and should_copy_swift_stdlib(bundle.extension)
 
     sdk_name = get_apple_sdk_name(ctx)
@@ -207,7 +207,7 @@ def assemble_bundle(
             identities_command_args = ["--codesign-identities-command", cmd_args(identities_command)] if identities_command else []
             codesign_selection_args.extend(identities_command_args)
 
-        if codesign_type.value == "adhoc":
+        if codesign_type == CodeSignType("adhoc"):
             codesign_selection_args.append("--ad-hoc")
             if ctx.attrs.codesign_identity:
                 codesign_selection_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
@@ -260,18 +260,18 @@ def assemble_bundle(
         if ctx.attrs.entitlements_verification_check_enabled:
             codesign_selection_args.append("--verify-entitlements")
 
-    elif codesign_type.value == "skip":
+    elif codesign_type == CodeSignType("skip"):
         pass
     else:
         fail("Code sign type `{}` not supported".format(codesign_type))
 
-    force_local_bundling = codesign_type.value != "skip"
+    force_local_bundling = codesign_required
     env = {}
     cache_buster = ctx.attrs._bundling_cache_buster
     if cache_buster:
         env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
 
-    if codesign_type.value != "skip":
+    if codesign_required:
         signing_context_path = ctx.actions.declare_output("signing_context.json", has_content_based_path = False)
         resolve_command = [
             tools.resolve_signing_context,
@@ -628,7 +628,7 @@ def _detect_codesign_type(ctx: AnalysisContext, skip_adhoc_signing: bool) -> Cod
         return CodeSignType("adhoc" if is_ad_hoc_sufficient else "distribution")
 
     codesign_type = compute_codesign_type()
-    if skip_adhoc_signing and codesign_type.value == "adhoc":
+    if skip_adhoc_signing and codesign_type == CodeSignType("adhoc"):
         codesign_type = CodeSignType("skip")
 
     return codesign_type
@@ -638,10 +638,10 @@ def _get_extra_codesign_args(ctx: AnalysisContext) -> list[str]:
     return ["--codesign-args={}".format(flag) for flag in codesign_args]
 
 def _should_embed_provisioning_profile(ctx: AnalysisContext, codesign_type: CodeSignType) -> bool:
-    if codesign_type.value == "distribution":
+    if codesign_type == CodeSignType("distribution"):
         return True
 
-    if codesign_type.value == "adhoc":
+    if codesign_type == CodeSignType("adhoc"):
         # The config-based override value takes priority over target value
         if ctx.attrs._embed_provisioning_profile_when_adhoc_code_signing != None:
             return ctx.attrs._embed_provisioning_profile_when_adhoc_code_signing

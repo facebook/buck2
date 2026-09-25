@@ -53,7 +53,7 @@ def _generate_framework_and_dsym_select_maps(prebuilt_xcframework_args, platform
                 #  - We have specified a default_arch and it matches
                 #  - We haven't specified a default_arch in which case
                 #    we take the first match
-                if (default_arch != None and arch == default_arch.value) or framework_select_map.get("DEFAULT") == None:
+                if (default_arch != None and AppleArch(arch) == default_arch) or framework_select_map.get("DEFAULT") == None:
                     framework_select_map["DEFAULT"] = ":" + assemble_name
                     dsym_select_map["DEFAULT"] = dsym_artifacts
 
