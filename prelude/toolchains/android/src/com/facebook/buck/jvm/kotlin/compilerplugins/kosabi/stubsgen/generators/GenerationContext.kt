@@ -72,6 +72,13 @@ class GenerationContext {
   val declaredTypes: Set<FullTypeQualifier>
   val fullQualifierTypes: Set<FullTypeQualifier>
   val importAlias: Set<String>
+
+  /**
+   * Alias name -> the type `import a.B as Alias` names. An import's [FullTypeQualifier] carries the
+   * imported FQN, whose last name is always the real name `B`, so a usage written `Alias` matches
+   * no candidate by name and would otherwise resolve to nothing.
+   */
+  val importAliasQualifiers: Map<String, FullTypeQualifier>
   val typeAliasSymbol: Set<String>
   val parameterNames: Set<String>
 
@@ -101,6 +108,7 @@ class GenerationContext {
       this.declaredTypes = emptySet()
       this.typeValueArgs = emptyMap<String, Int>()
       this.importAlias = emptySet()
+      this.importAliasQualifiers = emptyMap()
       this.fullQualifierTypes = emptySet()
       this.usedUserTypes = emptySet()
       this.typeAliasSymbol = emptySet()
@@ -113,6 +121,12 @@ class GenerationContext {
       val rawImportedTypes = importedDeclarations.filterNot { it.isTopLevelDeclaration() }.toSet()
       // `importedTypes` and `importedTypesByFile` are assigned after the traversal below: both
       // gain the usage-proven class imports, which need the collected type usages.
+      this.importAliasQualifiers =
+          importDirectives
+              .mapNotNull { directive ->
+                directive.aliasName?.let { alias -> alias to directive.toImportedClass() }
+              }
+              .toMap()
 
       val dataInClasspath: Pair<Set<FullTypeQualifier>, Set<List<String>>> =
           parseClasspathFileClassesAndPackages(classpath)
@@ -371,6 +385,34 @@ class GenerationContext {
                 }
           }
           .toSet()
+
+  /**
+   * The candidate an unqualified [simpleName] refers to.
+   *
+   * `import a.B as Alias` binds `Alias` and does not bind `B`, so matching an import by the last
+   * name of its FQN is only correct for an import that carries no alias. An alias resolves to the
+   * type it names; every other name prefers an unaliased import and only then falls back to the
+   * historical last-name match, so a name that resolves today keeps resolving.
+   *
+   * An alias naming a type the caller's own filter excluded stays unresolved: [candidates] is the
+   * authority on what this pass may act on.
+   */
+  fun resolveImportedType(
+      candidates: Collection<FullTypeQualifier>,
+      simpleName: String,
+  ): FullTypeQualifier? {
+    importAliasQualifiers[simpleName]?.let { aliased ->
+      candidates
+          .find { it.segments == aliased.segments }
+          ?.let {
+            return it
+          }
+    }
+    val byLastName = candidates.filter { it.names.last() == simpleName }
+    return byLastName.firstOrNull { candidate ->
+      importAliasQualifiers.values.none { it.segments == candidate.segments }
+    } ?: byLastName.firstOrNull()
+  }
 
   fun packageName(): String? {
     return projectFiles

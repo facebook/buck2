@@ -42,7 +42,7 @@ class InnerClassStubsGenerator : StubsGenerator {
               // imp:           com.foo.T1.T2
               // segment:       T2.T3...
               val imp: FullTypeQualifier? =
-                  context.importedTypes.find { it.names.last() == segment.first() }
+                  context.resolveImportedType(context.importedTypes, segment.first())
               if (imp == null) {
                 Logger.log("  [Warning] ImportedType matches $segment not found!")
               }

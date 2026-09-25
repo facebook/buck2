@@ -49,12 +49,12 @@ class InterfaceStubsGenerator : StubsGenerator {
     // any one earlier retype cleared it.
     val multiBoundStubs =
         context.multiBoundGroups
-            .filterNot { group -> group.any { nested(candidatesFor(it), it) } }
+            .filterNot { group -> group.any { nested(context, candidatesFor(it), it) } }
             .flatMap { group -> group.filter { isStubbed(context, candidatesFor(it), it) } }
 
     for (iType in context.interfaceTypes + multiBoundStubs) {
       val qualifierList = iType.calculateQualifierList()
-      val imp = candidatesFor(iType).find { it.names.last() == qualifierList.first() }
+      val imp = context.resolveImportedType(candidatesFor(iType), qualifierList.first())
       var pkg: String
       var name: String
       var inners: List<String>
@@ -100,9 +100,13 @@ class InterfaceStubsGenerator : StubsGenerator {
 
   // Retyping a nested stub would leave its enclosing stub a class whose InnerClasses entry
   // describes an interface member, and javac rejects that pair while completing the outer.
-  private fun nested(candidates: Collection<FullTypeQualifier>, type: KtUserType): Boolean {
+  private fun nested(
+      context: GenerationContext,
+      candidates: Collection<FullTypeQualifier>,
+      type: KtUserType,
+  ): Boolean {
     val qualifierList = type.calculateQualifierList()
-    val imp = candidates.find { it.names.last() == qualifierList.first() }
+    val imp = context.resolveImportedType(candidates, qualifierList.first())
     return when {
       imp != null ->
           (imp.names.drop(1) + qualifierList.drop(1)).isNotEmpty() ||
@@ -123,7 +127,7 @@ class InterfaceStubsGenerator : StubsGenerator {
       first: KtUserType,
   ): Boolean {
     val qualifierList = first.calculateQualifierList()
-    val imp = candidates.find { it.names.last() == qualifierList.first() }
+    val imp = context.resolveImportedType(candidates, qualifierList.first())
     val pkg: String
     val name: String
     val inners: List<String>

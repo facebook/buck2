@@ -45,7 +45,7 @@ class GenericStubsGenerator : StubsGenerator {
       val candidates = candidatesByFile[genType.containingKtFile] ?: pooledCandidates
       val genFullQualifier = genType.calculateQualifierList()
       val imp =
-          candidates.find { it.names.last() == genFullQualifier.first() }
+          context.resolveImportedType(candidates, genFullQualifier.first())
               ?: when {
                 genFullQualifier.size > 1 -> FullTypeQualifier(genFullQualifier)
                 modulePkg.isNotEmpty() -> FullTypeQualifier(modulePkg + genFullQualifier)
