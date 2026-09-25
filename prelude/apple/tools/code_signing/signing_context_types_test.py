@@ -253,6 +253,15 @@ class TestAdhocSigningContextSerialization(unittest.TestCase):
         self.assertEqual(restored.codesign_identity, "-")
         self.assertIsNone(restored.profile_selection_context)
 
+    def test_rejects_null_codesign_identity(self):
+        with self.assertRaisesRegex(ValueError, "codesign_identity must be a string"):
+            AdhocSigningContext.from_dict(
+                {
+                    "codesign_identity": None,
+                    "profile_selection_context": None,
+                }
+            )
+
     def test_adhoc_with_profile_explicit_none_check(self):
         # Ensures from_dict uses `is not None` check, not truthiness, so empty dict case would be preserved if ever occurs
         expiration = datetime.datetime(2025, 1, 1, 12, 0, 0)

@@ -17,7 +17,7 @@ from typing import Optional, Union
 from .identity import CodeSigningIdentity
 from .info_plist_metadata import InfoPlistMetadata
 from .provisioning_profile_selection import SelectedProvisioningProfileInfo
-from .serialization import expect_dict, expect_keys, expect_optional_str, expect_str
+from .serialization import expect_dict, expect_keys, expect_str
 
 
 @dataclass
@@ -118,7 +118,7 @@ class AdhocSigningContext:
             else None
         )
         return AdhocSigningContext(
-            codesign_identity=expect_optional_str(
+            codesign_identity=expect_str(
                 data["codesign_identity"], "AdhocSigningContext.codesign_identity"
             ),
             profile_selection_context=psc,
