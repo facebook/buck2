@@ -8,7 +8,15 @@
 
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_apk.bzl", "get_install_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidDerivedApkInfo", "KeystoreInfo")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidAabInfo",
+    "AndroidApkInfo",
+    "AndroidApkUnderTestInfo",
+    "AndroidDerivedApkInfo",
+    "AndroidPreprocessedJavaClassesInfo",
+    "KeystoreInfo",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
@@ -37,6 +45,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     input_android_apk_subtargets = None
     input_android_apk_template_placeholder_info = None
     input_android_aab_subtargets = None
+    input_preprocessed_java_classes_info = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
         input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
@@ -48,6 +57,8 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_android_apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
         input_android_apk_subtargets = ctx.attrs.apk[DefaultInfo].sub_targets
         input_android_apk_template_placeholder_info = ctx.attrs.apk[TemplatePlaceholderInfo].keyed_variables
+        if AndroidPreprocessedJavaClassesInfo in ctx.attrs.apk:
+            input_preprocessed_java_classes_info = ctx.attrs.apk[AndroidPreprocessedJavaClassesInfo]
 
         env_vars = {
             "APK": cmd_args(input_apk),
@@ -62,6 +73,8 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
         input_android_aab_subtargets = ctx.attrs.aab[DefaultInfo].sub_targets
         input_unstripped_shared_libraries = input_android_aab_info.unstripped_shared_libraries
+        if AndroidPreprocessedJavaClassesInfo in ctx.attrs.aab:
+            input_preprocessed_java_classes_info = ctx.attrs.aab[AndroidPreprocessedJavaClassesInfo]
 
         env_vars = {
             "AAB": cmd_args(input_apk),
@@ -221,4 +234,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     aab_providers = filter(None, [output_aab_info])
     apk_under_test_providers = filter(None, [input_android_apk_under_test_info])
 
-    return default_providers + apk_providers + aab_providers + apk_under_test_providers + class_to_src_map
+    preprocessed_java_classes_providers = filter(None, [input_preprocessed_java_classes_info])
+
+    return default_providers + apk_providers + aab_providers + apk_under_test_providers + preprocessed_java_classes_providers + class_to_src_map

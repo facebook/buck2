@@ -101,6 +101,7 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
     enhance_ctx = create_enhancement_context(ctx)
     sub_targets = enhance_ctx.get_sub_targets()
     materialized_artifacts = []
+    preprocessed_java_classes_info = None
     if not disable_pre_dex:
         pre_dexed_libs = [java_packaging_dep.dex for java_packaging_dep in java_packaging_deps]
         if ctx.attrs.use_split_dex:
@@ -117,9 +118,9 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
     else:
         jars_to_owners = {packaging_dep.jar: packaging_dep.jar.owner.raw_target() for packaging_dep in java_packaging_deps}
         if ctx.attrs.preprocess_java_classes_bash:
-            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(enhance_ctx, jars_to_owners)
-            if materialized_artifacts_dir:
-                materialized_artifacts.append(materialized_artifacts_dir)
+            jars_to_owners, preprocessed_java_classes_info = get_preprocessed_java_classes(enhance_ctx, jars_to_owners)
+            if preprocessed_java_classes_info:
+                materialized_artifacts.append(preprocessed_java_classes_info.materialized_artifacts_dir)
         if ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
@@ -180,9 +181,13 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
     target_stats_providers, target_stats_subtargets = target_stats_aggregate_providers_and_subtargets(ctx, deps = deps)
     sub_targets.update(target_stats_subtargets)
 
-    return [
-        AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
-        AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk, is_self_instrumenting = is_self_instrumenting),
-        DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
-        class_to_srcs,
-    ] + target_stats_providers
+    return (
+        [
+            AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
+            AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk, is_self_instrumenting = is_self_instrumenting),
+            DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
+            class_to_srcs,
+        ]
+        + ([preprocessed_java_classes_info] if preprocessed_java_classes_info else [])
+        + target_stats_providers
+    )

@@ -6,13 +6,17 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//android:android_providers.bzl", "AndroidPreprocessedJavaClassesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:expect.bzl", "expect")
 
-def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: dict[Artifact, TargetLabel]) -> (dict[Artifact, TargetLabel], Artifact | None):
+def get_preprocessed_java_classes(
+    enhance_ctx: EnhancementContext,
+    input_jars: dict[Artifact, TargetLabel],
+) -> (dict[Artifact, TargetLabel], AndroidPreprocessedJavaClassesInfo | None):
     if not input_jars:
         return {}, None
 
@@ -74,4 +78,7 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
     enhance_ctx.debug_output("preprocess_java_classes_input_jars_map", input_jars_map)
     enhance_ctx.debug_output("preprocess_java_classes_materialized_artifacts_dir", materialized_artifacts_dir)
 
-    return output_jars_to_owners, materialized_artifacts_dir
+    return output_jars_to_owners, AndroidPreprocessedJavaClassesInfo(
+        input_dir = input_dir,
+        materialized_artifacts_dir = materialized_artifacts_dir,
+    )

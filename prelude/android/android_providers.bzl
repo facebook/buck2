@@ -123,6 +123,13 @@ AndroidApkInfo = provider(
     },
 )
 
+AndroidPreprocessedJavaClassesInfo = provider(
+    fields = {
+        "input_dir": provider_field(Artifact),
+        "materialized_artifacts_dir": provider_field(Artifact),
+    },
+)
+
 # Exopackage secondary-dex dir (metadata.txt + secondary-N.dex.jar) so android_instrumentation_test
 # can push it to the device. Only set when the apk is built with exopackage secondary_dex mode.
 AndroidApkExopackageInfo = provider(

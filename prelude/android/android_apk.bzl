@@ -166,6 +166,9 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         class_to_srcs,
     ] + target_stats_providers
 
+    if android_binary_info.preprocessed_java_classes_info:
+        providers.append(android_binary_info.preprocessed_java_classes_info)
+
     # Expose the exopackage secondary-dex dir so android_instrumentation_test can push it to the device.
     if exopackage_info != None and exopackage_info.secondary_dex_info != None:
         providers.append(

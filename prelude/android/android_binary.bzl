@@ -14,6 +14,7 @@ load(
     "AndroidBinaryNativeLibsInfo",  # @unused Used as type
     "AndroidBinaryResourcesInfo",  # @unused Used as type
     "AndroidBuildConfigInfo",  # @unused Used as type
+    "AndroidPreprocessedJavaClassesInfo",  # @unused Used as type
     "BuildConfigField",
     "DexFilesInfo",
     "merge_android_packageable_info",
@@ -47,12 +48,14 @@ AndroidBinaryInfo = record(
     native_library_info = AndroidBinaryNativeLibsInfo,
     resources_info = AndroidBinaryResourcesInfo,
     materialized_artifacts = list[Artifact],
+    preprocessed_java_classes_info = AndroidPreprocessedJavaClassesInfo | None,
     validation_outputs = list[Artifact],
 )
 
 def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBinaryInfo:
     sub_targets = {}
     materialized_artifacts = []
+    preprocessed_java_classes_info = None
 
     deps_by_platform = get_deps_by_platform(ctx)
     primary_platform = CPU_FILTER_FOR_PRIMARY_PLATFORM if CPU_FILTER_FOR_PRIMARY_PLATFORM in deps_by_platform else CPU_FILTER_FOR_DEFAULT_PLATFORM
@@ -176,9 +179,9 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             )
 
         if ctx.attrs.preprocess_java_classes_bash:
-            jars_to_owners, materialized_artifacts_dir = get_preprocessed_java_classes(enhancement_ctx, jars_to_owners)
-            if materialized_artifacts_dir:
-                materialized_artifacts.append(materialized_artifacts_dir)
+            jars_to_owners, preprocessed_java_classes_info = get_preprocessed_java_classes(enhancement_ctx, jars_to_owners)
+            if preprocessed_java_classes_info:
+                materialized_artifacts.append(preprocessed_java_classes_info.materialized_artifacts_dir)
         if has_proguard_config:
             additional_proguard_configs = (
                 [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
@@ -260,6 +263,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         native_library_info = native_library_info,
         resources_info = resources_info,
         materialized_artifacts = materialized_artifacts,
+        preprocessed_java_classes_info = preprocessed_java_classes_info,
         validation_outputs = validation_outputs,
     )
 

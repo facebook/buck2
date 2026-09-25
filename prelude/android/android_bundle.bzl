@@ -49,6 +49,8 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     extra_providers = []
+    if android_binary_info.preprocessed_java_classes_info:
+        extra_providers.append(android_binary_info.preprocessed_java_classes_info)
     sub_targets = {}
     sub_targets.update(android_binary_info.sub_targets)
     if ctx.attrs.use_derived_apk:
