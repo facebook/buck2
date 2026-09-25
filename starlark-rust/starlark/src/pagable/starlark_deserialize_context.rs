@@ -296,7 +296,7 @@ struct HeapArenaState {
     serialization_index_dirty: bool,
 }
 
-/// A heap's header once loaded: how to reopen its row, and where the lazily
+/// A heap's header once loaded: how to reopen its data, and where the lazily
 /// parsed slot metadata starts within it. The dependencies the header names
 /// are bound on the heap itself.
 #[derive(Allocative)]
@@ -306,18 +306,18 @@ struct HeapHeaderState {
 }
 
 /// The owning `FrozenFrozenHeap`'s arena and the information needed to lazily
-/// parse this heap's slot metadata from its row. A restored heap passes
+/// parse this heap's slot metadata from its data. A restored heap passes
 /// through stages, each on first need: skeleton, header loaded, slot metadata
 /// parsed, values restored one by one.
 #[derive(Allocative)]
 pub(crate) struct HeapDeserializationState {
     heap_id: HeapRefId,
-    /// Scope state that owns cross-heap resolution for this heap's row.
+    /// Scope state that owns cross-heap resolution for this heap.
     scope: Arc<StarlarkDeserScope>,
-    /// Where the row is, for a skeleton bound from a ref list without reading
-    /// it. `None` when the row was read in place.
+    /// Where the heap's data is, for a skeleton bound from a ref list without
+    /// loading its header. `None` for a heap read in place.
     #[allocative(skip)]
-    row_key: Option<(DataKey, PageInScope)>,
+    source: Option<(DataKey, PageInScope)>,
     /// The header, once loaded.
     header: OnceLock<HeapHeaderState>,
     /// Locked pointer into the owning `FrozenFrozenHeap`'s arena and the state
@@ -340,13 +340,13 @@ impl HeapDeserializationState {
     pub(crate) unsafe fn new(
         scope: Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        row_key: Option<(DataKey, PageInScope)>,
+        source: Option<(DataKey, PageInScope)>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
         Self {
             scope,
             heap_id,
-            row_key,
+            source,
             header: OnceLock::new(),
             arena: Mutex::new(HeapArenaState {
                 // SAFETY: caller's contract — `arena` is a valid pointer.
@@ -361,9 +361,9 @@ impl HeapDeserializationState {
         self.scope.unregister_heap(self.heap_id, heap_ptr);
     }
 
-    /// Where the row is, if it is still in storage.
-    pub(crate) fn row_key(&self) -> Option<(DataKey, &PageInScope)> {
-        self.row_key
+    /// Where the heap's data is, if it is still in storage.
+    pub(crate) fn source(&self) -> Option<(DataKey, &PageInScope)> {
+        self.source
             .as_ref()
             .map(|(key, page_in_scope)| (*key, page_in_scope))
     }
@@ -371,14 +371,14 @@ impl HeapDeserializationState {
     /// Whether the header is loaded: the heap's dependencies are bound and the
     /// recipe continuing into its slot metadata is retained. Slot metadata and
     /// values may still be unread.
-    pub(crate) fn row_read(&self) -> bool {
+    pub(crate) fn is_header_loaded(&self) -> bool {
         self.header.get().is_some()
     }
 
     /// Record the header as loaded. Two loaders of one header record the same
     /// thing; the heap, and its retained bytes, are counted once, for the load
     /// kept.
-    pub(crate) fn set_row(
+    pub(crate) fn set_header(
         &self,
         recipe: Arc<dyn PagableDeserializerRecipe>,
         metadata_start: PagableCursor,
@@ -390,8 +390,8 @@ impl HeapDeserializationState {
         if self.header.set(header).is_err() {
             return;
         }
-        // Counts rows read and retained, whether or not any value is ever
-        // claimed - a dependency read for its own dependencies lands here too.
+        // Counts headers loaded and retained, whether or not any value is ever
+        // claimed - a dependency loaded for its own dependencies lands here too.
         if partial_deser_stats::enabled() {
             partial_deser_stats::add(&partial_deser_stats::HEAPS_LOADED, 1);
             if let Some(header) = self.header.get() {
@@ -425,11 +425,11 @@ impl HeapDeserializationState {
         &self,
         storage: &PagableStorageHandle,
     ) -> crate::Result<(HeapMetadata, Option<partial_deser_stats::MetadataStats>)> {
-        let row = self.header()?;
-        let mut de = row.recipe.open(storage);
-        // SAFETY: `metadata_start` was captured while reading this row; it is
+        let header = self.header()?;
+        let mut de = header.recipe.open(storage);
+        // SAFETY: `metadata_start` was captured while loading this header; it is
         // a valid position in the recipe.
-        unsafe { de.seek(row.metadata_start) };
+        unsafe { de.seek(header.metadata_start) };
 
         let total_count = u32::pagable_deserialize(&mut *de)? as usize;
         let drop_value_count = u32::pagable_deserialize(&mut *de)? as usize;
@@ -472,7 +472,7 @@ impl HeapDeserializationState {
         // Recorded by `metadata` only for the parse that is kept: two threads
         // can race to parse one heap, and counting here would count it twice.
         let stats = partial_deser_stats::enabled().then(|| partial_deser_stats::MetadataStats {
-            retained_blob_bytes: recipe_retained_data_len(&*row.recipe),
+            retained_blob_bytes: recipe_retained_data_len(&*header.recipe),
             values: total_count as u64,
             // Walks every slot, so it is behind the same branch.
             value_alloc_bytes: slots.iter().map(|s| s.alloc_size.get() as u64).sum(),
@@ -908,7 +908,7 @@ mod partial_deser_stats {
 #[derive(Debug, Clone, Copy, Dupe, Default, PartialEq, Eq)]
 pub struct PartialDeserStats {
     /// Heaps restored from storage to the header-loaded stage: dependencies
-    /// bound and the row's recipe retained, slot metadata and values still
+    /// bound and the data's recipe retained, slot metadata and values still
     /// lazy. A skeleton bound without a load is not counted; a heap loaded
     /// only as another heap's dependency is.
     pub heaps_loaded: u64,
@@ -1196,21 +1196,21 @@ impl StarlarkDeserScope {
             .and_then(|heap| heap.upgrade())
     }
 
-    /// Bound heaps whose rows are still in storage, so whose dependencies are
-    /// not bound yet.
-    fn unread_heaps(&self) -> Vec<FrozenHeapArc> {
+    /// Bound heaps whose header is not loaded, so whose dependencies are not
+    /// bound yet.
+    fn heaps_without_header(&self) -> Vec<FrozenHeapArc> {
         self.heap_bindings
             .bindings
             .iter()
             .filter_map(|entry| entry.value().upgrade())
-            .filter(|heap| !heap.row_read())
+            .filter(|heap| !heap.is_header_loaded())
             .collect()
     }
 }
 
 /// Bind a heap a pointer names but nothing has bound yet.
 ///
-/// Try [`StarlarkHeapKeyIndex`], then read rows breadth-first through `origin`'s
+/// Try [`StarlarkHeapKeyIndex`], then load headers breadth-first through `origin`'s
 /// serialized refs. Targets outside that closure, such as relocated values,
 /// require the index.
 ///
@@ -1236,7 +1236,7 @@ fn resolve_missing_heap(
 
     let mut queue: VecDeque<FrozenHeapArc> = match origin {
         Some(origin) => VecDeque::from([origin.dupe()]),
-        None => scope.unread_heaps().into(),
+        None => scope.heaps_without_header().into(),
     };
     let mut seen: HashSet<FrozenHeapPtr> = HashSet::new();
     while let Some(heap) = queue.pop_front() {
@@ -1246,8 +1246,8 @@ fn resolve_missing_heap(
         if !seen.insert(ptr) {
             continue;
         }
-        if !heap.row_read() {
-            heap.ensure_row_read(scope, storage)?;
+        if !heap.is_header_loaded() {
+            heap.ensure_header_loaded(scope, storage)?;
             if let Some(found) = scope.get_heap(&heap_id) {
                 return Ok(found);
             }
@@ -1420,9 +1420,9 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
 
         let storage = self.pagable.storage();
 
-        // A skeleton bound from a ref list has not read its row, which is where
-        // its values and its own dependencies are.
-        target_heap.ensure_row_read(&self.scope, &storage)?;
+        // A skeleton bound from a ref list has not loaded its header, and its
+        // values and its own dependencies come with it.
+        target_heap.ensure_header_loaded(&self.scope, &storage)?;
         let value_count = target_state.value_count(&storage)?;
         if value_index as usize >= value_count {
             return Err(anyhow::anyhow!(

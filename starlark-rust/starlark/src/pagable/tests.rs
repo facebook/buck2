@@ -3307,7 +3307,7 @@ fn test_unread_dependency_is_bound_but_not_read() -> crate::Result<()> {
         "the skeleton knows its name without a read"
     );
     assert!(
-        !dep.heap_arc().row_read(),
+        !dep.heap_arc().is_header_loaded(),
         "nothing pointed into the dependency, so its row stays in storage"
     );
     Ok(())
