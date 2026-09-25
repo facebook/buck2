@@ -28,6 +28,15 @@ load(":apple_sdk_metadata.bzl", "get_apple_sdk_metadata_for_sdk_name")
 load(":apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 
+# Must match the null case returned by `serialize_signing_context_data`:
+# https://www.internalfb.com/code/fbsource/fbcode/buck2/prelude/apple/tools/bundling/signing_context_data.py?lines=39%2C58
+_EMPTY_SIGNING_CONTEXT_DATA = {
+    "provisioning_profile_data_base64": None,
+    "selected_identity": None,
+    "signing_context": None,
+    "version": 1,
+}
+
 # Defines where and what should be copied into
 AppleBundlePart = record(
     # A file or directory which content should be copied
@@ -78,6 +87,16 @@ def bundle_output(ctx: AnalysisContext) -> Artifact:
     bundle_dir_name = get_bundle_dir_name(ctx)
     output = ctx.actions.declare_output(bundle_dir_name, has_content_based_path = False)
     return output
+
+def _bundling_log_args(ctx: AnalysisContext, output_name: str):
+    if not ctx.attrs._bundling_log_file_enabled:
+        return ([], None)
+
+    output = ctx.actions.declare_output(output_name, has_content_based_path = False)
+    args = ["--log-file", output.as_output()]
+    if ctx.attrs._bundling_log_file_level:
+        args.extend(["--log-level-file", ctx.attrs._bundling_log_file_level])
+    return (args, output)
 
 def assemble_bundle(
     ctx: AnalysisContext,
@@ -233,10 +252,49 @@ def assemble_bundle(
 
         if ctx.attrs._no_check_certificates:
             codesign_args.append("--no-check-certificates")
+
+        if ctx.attrs.entitlements_verification_check_enabled:
+            codesign_args.append("--verify-entitlements")
+
     elif codesign_type.value == "skip":
         pass
     else:
         fail("Code sign type `{}` not supported".format(codesign_type))
+
+    force_local_bundling = codesign_type.value != "skip"
+    env = {}
+    cache_buster = ctx.attrs._bundling_cache_buster
+    if cache_buster:
+        env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
+
+    if codesign_type.value != "skip":
+        signing_context_path = ctx.actions.declare_output("signing_context.json", has_content_based_path = False)
+        resolve_command = [
+            tools.resolve_signing_context,
+            "--output",
+            signing_context_path.as_output(),
+        ]
+        resolution_log_args, resolution_log_output = _bundling_log_args(ctx, "signing_context_resolution_log.txt")
+        resolve_command.extend(resolution_log_args)
+        ctx.actions.run(
+            cmd_args(
+                resolve_command + platform_args + codesign_args,
+            ),
+            local_only = force_local_bundling,
+            prefer_local = not force_local_bundling,
+            category = "apple_resolve_signing_context",
+            env = env,
+            error_handler = apple_build_error_handler,
+        )
+        signing_context_path_arg = ["--signing-context-path", signing_context_path]
+    else:
+        resolution_log_output = None
+        # Avoid adding a resolver action to every unsigned bundle target.
+        signing_context_path = ctx.actions.write_json(
+            "signing_context.json",
+            _EMPTY_SIGNING_CONTEXT_DATA,
+        )
+        signing_context_path_arg = ["--signing-context-path", signing_context_path]
 
     # - Always request codesign manifest, even if signing not required.
     #   Removes the need for conditional subtargets and fields in JSON output.
@@ -248,8 +306,6 @@ def assemble_bundle(
         "--codesign-manifest",
         codesign_manifest.as_output(),
     ]
-
-    verify_entitlements_args = ["--verify-entitlements"] if ctx.attrs.entitlements_verification_check_enabled else []
 
     extra_context_args = [
         "--resources-destination",
@@ -266,10 +322,10 @@ def assemble_bundle(
         ]
         + codesign_args
         + codesign_bundle_extra_args
-        + verify_entitlements_args
         + platform_args
         + swift_args
-        + extra_context_args,
+        + extra_context_args
+        + signing_context_path_arg,
         hidden = [part.source for part in all_parts]
         + [part.codesign_entitlements for part in all_parts if part.codesign_entitlements]
         +
@@ -304,12 +360,11 @@ def assemble_bundle(
         command.add("--profile-output", profile_output)
 
     subtargets = {}
-    bundling_log_output = None
-    if ctx.attrs._bundling_log_file_enabled:
-        bundling_log_output = ctx.actions.declare_output("bundling_log.txt", has_content_based_path = False)
-        command.add("--log-file", bundling_log_output.as_output())
-        if ctx.attrs._bundling_log_file_level:
-            command.add("--log-level-file", ctx.attrs._bundling_log_file_level)
+    if resolution_log_output:
+        subtargets["signing-context-resolution-log"] = [DefaultInfo(default_output = resolution_log_output)]
+    bundling_log_args, bundling_log_output = _bundling_log_args(ctx, "bundling_log.txt")
+    command.add(bundling_log_args)
+    if bundling_log_output:
         subtargets["bundling-log"] = [DefaultInfo(default_output = bundling_log_output)]
 
     command.add("--check-conflicts")
@@ -327,6 +382,16 @@ def assemble_bundle(
 
     signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
     command.add("--signing-info-output", signing_info_output.as_output())
+
+    ctx.actions.run(
+        command,
+        local_only = force_local_bundling,
+        prefer_local = not force_local_bundling,
+        category = category,
+        env = env,
+        error_handler = apple_build_error_handler,
+        **run_incremental_args,
+    )
 
     command_json = ctx.actions.declare_output("bundling_command.json", has_content_based_path = False)
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
@@ -354,22 +419,6 @@ def assemble_bundle(
     subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json_file, other_outputs = [bundle_manifest_cmd_args])]
 
     providers = [AppleBundleManifestInfo(manifest = bundle_manifest)]
-
-    env = {}
-    cache_buster = ctx.attrs._bundling_cache_buster
-    if cache_buster:
-        env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
-
-    force_local_bundling = codesign_type.value != "skip"
-    ctx.actions.run(
-        command,
-        local_only = force_local_bundling,
-        prefer_local = not force_local_bundling,
-        category = category,
-        env = env,
-        error_handler = apple_build_error_handler,
-        **run_incremental_args,
-    )
 
     codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
     codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
@@ -413,11 +462,11 @@ def assemble_bundle(
                 signing_context_output.as_output(),
             ]
             + platform_args
-            + codesign_args,
+            + codesign_args
+            + signing_context_path_arg,
         ),
-        local_only = force_local_bundling,
-        prefer_local = not force_local_bundling,
         category = "apple_provisioning_manifest",
+        error_handler = apple_build_error_handler,
     )
 
     signing_context_tree = _make_signing_context_tree(ctx, signing_context_output, signing_context_parts)

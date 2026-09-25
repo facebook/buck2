@@ -1560,6 +1560,7 @@ apple_tools = prelude_rule(
         "ipa_package_maker": attrs.exec_dep(providers = [RunInfo]),
         "make_modulemap": attrs.exec_dep(providers = [RunInfo]),
         "make_vfsoverlay": attrs.exec_dep(providers = [RunInfo]),
+        "resolve_signing_context": attrs.exec_dep(providers = [RunInfo]),
         "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
         "signing_context": attrs.exec_dep(providers = [RunInfo]),
         "signing_context_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),

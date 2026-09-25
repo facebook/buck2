@@ -20,6 +20,7 @@ apple_tools(
     ipa_package_maker = ":ipa_package_maker",
     make_modulemap = ":make_modulemap",
     make_vfsoverlay = ":make_vfsoverlay",
+    resolve_signing_context = "prelude//apple/tools/bundling:resolve_signing_context",
     selective_debugging_scrubber = apple_oso_scrubber_target(),
     signing_context = "prelude//apple/tools/bundling:signing_context",
     signing_context_tree_postprocessor = "prelude//apple/tools/signing_context_tree_postprocessor:signing_context_tree_postprocessor",
