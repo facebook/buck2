@@ -478,6 +478,14 @@ impl PagableSerialize for FrozenHeapArc {
             return id.pagable_serialize(serializer);
         }
         HEAP_REF_TAG_ARC.pagable_serialize(serializer)?;
+        // The heap's identity - name and seal nonce - goes beside its slot,
+        // outside its own row, so page-in can know which heap a slot names
+        // without reading the row.
+        arc.name
+            .as_ref()
+            .ok_or_else(|| pagable::Error::msg("a serialized frozen heap must have a name"))?
+            .pagable_serialize(serializer)?;
+        arc.serialization_nonce.pagable_serialize(serializer)?;
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_chunk_index_registered(self)?;
         serializer.serialize_arc(arc)
@@ -494,6 +502,11 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
         match tag {
             HEAP_REF_TAG_NONE => Ok(FrozenHeapArc::default()),
             HEAP_REF_TAG_ARC => {
+                // The row is still read in full below and binds under its own
+                // identity; the slot's copy only has to agree with it.
+                let name = FrozenHeapName::pagable_deserialize(deserializer)?;
+                let nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
+                let slot_id = HeapRefId::new(&name, nonce);
                 let arc_box = deserializer.deserialize_arc(
                     std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
                     deserialize_heap_arc_with_recipe,
@@ -508,6 +521,12 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
                     })?
                     .clone();
                 let heap = FrozenHeapArc(Some(arc));
+                if heap.heap_ref_id() != Some(slot_id) {
+                    return Err(pagable::Error::msg(format!(
+                        "frozen heap: slot names {name} ({slot_id:?}) but its row holds {:?}",
+                        heap.heap_ref_id()
+                    )));
+                }
                 heap.register_in_deser_scope(deserializer.as_dyn())?;
                 Ok(heap)
             }
@@ -717,6 +736,11 @@ impl FrozenHeapArc {
     pub(crate) fn heap_ref_id(&self) -> Option<HeapRefId> {
         let arc = self.0.as_ref()?;
         Some(HeapRefId::new(arc.name.as_ref()?, arc.serialization_nonce))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn serialization_nonce(&self) -> Option<HeapSerializationNonce> {
+        self.0.as_ref().map(|arc| arc.serialization_nonce)
     }
 
     /// The frozen heaps that this frozen heap depends on.

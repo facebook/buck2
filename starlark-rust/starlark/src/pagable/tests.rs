@@ -4427,15 +4427,24 @@ fn page_out_in_module(
 fn module_root_without_heap_identity(
     bytes: &[u8],
     expected_heap_id: HeapRefId,
-) -> pagable::Result<(u32, bool)> {
+) -> pagable::Result<(Vec<u8>, u32, bool)> {
     use pagable::PagableDeserializer;
     use pagable::testing::TestingDeserializer;
 
     use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
+    use crate::values::layout::heap::sealed::HeapSerializationNonce;
 
     let mut de = TestingDeserializer::new(bytes);
     let owner_tag = u8::pagable_deserialize(&mut de)?;
     anyhow::ensure!(owner_tag == 1, "expected an out-of-line module heap owner");
+    let name_start = de.position().byte_pos;
+    let name = FrozenHeapName::pagable_deserialize(&mut de)?;
+    let name_end = de.position().byte_pos;
+    let nonce = HeapSerializationNonce::pagable_deserialize(&mut de)?;
+    anyhow::ensure!(
+        HeapRefId::new(&name, nonce) == expected_heap_id,
+        "unexpected module owner identity"
+    );
     let SerializedFrozenValue::HeapPtr {
         heap_id,
         value_index,
@@ -4452,7 +4461,7 @@ fn module_root_without_heap_identity(
         de.position().byte_pos == bytes.len(),
         "unexpected trailing data in module root"
     );
-    Ok((value_index, is_str))
+    Ok((bytes[name_start..name_end].to_vec(), value_index, is_str))
 }
 
 #[test]
@@ -4461,11 +4470,21 @@ fn test_module_root_without_heap_identity() -> pagable::Result<()> {
 
     use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 
-    let heap_id = HeapRefId::from_heap_name(&TestHeapName::heap_name("module_root"));
+    let owner = OwnedFrozen::<Value>::build(TestHeapName::heap_name("module_root"), |heap| {
+        heap.alloc("value")
+    });
+    let heap_id = owner.heap_arc().heap_ref_id().unwrap();
+    let name = owner.name().unwrap();
+    let nonce = owner.heap_arc().serialization_nonce().unwrap();
     let other_id = HeapRefId::from_heap_name(&TestHeapName::heap_name("other_module"));
+    let mut name_ser = TestingSerializer::new();
+    name.pagable_serialize(&mut name_ser)?;
+    let name_bytes = name_ser.finish();
     let encode = |owner_tag: u8, root: SerializedFrozenValue| -> pagable::Result<Vec<u8>> {
         let mut ser = TestingSerializer::new();
         owner_tag.pagable_serialize(&mut ser)?;
+        name.pagable_serialize(&mut ser)?;
+        nonce.pagable_serialize(&mut ser)?;
         root.pagable_serialize(&mut ser)?;
         Ok(ser.finish())
     };
@@ -4478,13 +4497,19 @@ fn test_module_root_without_heap_identity() -> pagable::Result<()> {
     let bytes = encode(1, root(7, false))?;
     assert_eq!(
         module_root_without_heap_identity(&bytes, heap_id)?,
-        (7, false)
+        (name_bytes.clone(), 7, false)
     );
     assert_eq!(
         module_root_without_heap_identity(&encode(1, root(8, true))?, heap_id)?,
-        (8, true)
+        (name_bytes, 8, true)
     );
     assert!(module_root_without_heap_identity(&bytes, other_id).is_err());
+    let wrong_heap = SerializedFrozenValue::HeapPtr {
+        heap_id: other_id,
+        value_index: 7,
+        is_str: false,
+    };
+    assert!(module_root_without_heap_identity(&encode(1, wrong_heap)?, heap_id).is_err());
     assert!(module_root_without_heap_identity(&encode(0, root(7, false))?, heap_id).is_err());
     assert!(
         module_root_without_heap_identity(
