@@ -149,7 +149,7 @@ impl<'de> PagableDeserialize<'de> for Globals {
         // page-in scope, so Starlark fields can resolve value pointers.
         let origin = heap.heap_arc().dupe();
         let data: OwnedFrozen<GlobalsData<'static>> =
-            StarlarkDeserializerImpl::recover_from_pagable_in(
+            StarlarkDeserializerImpl::recover_root_from_pagable_in(
                 deserializer.as_dyn(),
                 &origin,
                 |ctx| {

@@ -34,7 +34,7 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-#[cfg(all(test, feature = "pagable", panic = "unwind"))]
+#[cfg(all(test, feature = "pagable"))]
 use std::sync::mpsc::Sender;
 use std::thread::ThreadId;
 
@@ -56,6 +56,7 @@ use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::lookup_vtable;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
+use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::static_value::get_static_value_by_id;
@@ -70,14 +71,30 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::sealed::ArcKey;
 use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::sealed::FrozenHeapPtr;
+use crate::values::layout::heap::sealed::HeapAllocationOrigin;
 use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
 use crate::values::layout::heap::sealed::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::heap::sealed::load_and_bind_heap_by_id;
 use crate::values::layout::heap::sealed::register_heap_key_index;
+use crate::values::layout::pointer::PointerTags;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
+
+mod readiness;
+
+use readiness::ActiveClaim;
+use readiness::ReadinessGraph;
+
+/// Deserialize a field whose payload will be inspected during construction.
+/// Unlike an opaque graph edge, this requires transitive readiness.
+pub(crate) fn deserialize_for_inspection<'fv, T: StarlarkDeserialize<'fv>>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
+) -> crate::Result<T> {
+    let _root = ActiveClaim::root();
+    T::starlark_deserialize(ctx)
+}
 
 /// Per-slot metadata for partial-deser. Immutable after `deserialize_metadata`.
 #[derive(Allocative)]
@@ -149,6 +166,7 @@ impl DeserializeRecipe {
 /// failure so waiters are not stranded by an early return or unwinding panic.
 struct SlotClaimGuard<'a> {
     state: &'a HeapDeserializationState,
+    value: HeapValueId,
     claim: Option<DeserializeRecipe>,
 }
 
@@ -159,16 +177,17 @@ impl SlotClaimGuard<'_> {
 
     /// # Safety
     /// The recipe's deserializer must have successfully initialized the payload.
-    unsafe fn publish(mut self) {
+    unsafe fn publish(mut self) -> crate::Result<SlotReadiness> {
         let claim = self.claim.take().expect("claim guard is consumed once");
         // SAFETY: `publish` requires this recipe's payload to be successfully
         // initialized, satisfying `write_vtable_to_header`'s precondition.
         unsafe { claim.write_vtable_to_header() };
-        self.state.finalize_claim(claim);
+        self.state.finalize_claim(self.value, claim)
     }
 
     fn abort(mut self, error: &crate::Error) {
         self.state.abort_claim(
+            self.value,
             self.claim.take().expect("claim guard is consumed once"),
             error,
         );
@@ -179,6 +198,7 @@ impl Drop for SlotClaimGuard<'_> {
     fn drop(&mut self) {
         if let Some(claim) = self.claim.take() {
             self.state.abort_claim(
+                self.value,
                 claim,
                 &crate::Error::new_other(anyhow::anyhow!("value deserialization did not complete")),
             );
@@ -190,17 +210,19 @@ impl Drop for SlotClaimGuard<'_> {
 enum SlotState {
     NotStarted,
     /// Claimed and mid-deserialization; carries the pre-allocated header (its
-    /// vtable is still the sentinel).
+    /// vtable may still be the sentinel).
     InProgress(*mut AValueHeader),
+    /// The payload is initialized, but a construction dependency is not ready.
+    Constructed(*mut AValueHeader),
     Failed,
-    Done(*mut AValueHeader),
+    Ready(*mut AValueHeader),
 }
 
 impl SlotState {
-    /// Header pointer if the slot is finalized, else `None`.
-    fn done_ptr(self) -> Option<*mut AValueHeader> {
+    /// Header pointer if the slot and its construction dependencies are ready.
+    fn ready_ptr(self) -> Option<*mut AValueHeader> {
         match self {
-            SlotState::Done(ptr) => Some(ptr),
+            SlotState::Ready(ptr) => Some(ptr),
             _ => None,
         }
     }
@@ -211,23 +233,29 @@ impl SlotState {
         match self {
             SlotState::NotStarted => None,
             SlotState::InProgress(ptr) => Some(ClaimResult::InProgress(ptr)),
+            SlotState::Constructed(ptr) => Some(ClaimResult::Resolved(SlotReadiness::Pending(ptr))),
             SlotState::Failed => Some(ClaimResult::Failed),
-            SlotState::Done(_) => Some(ClaimResult::Done),
+            SlotState::Ready(ptr) => Some(ClaimResult::Resolved(SlotReadiness::Ready(ptr))),
         }
     }
 }
 
 /// Per-slot init state and the single owner of the [`SlotState`] encoding, which
-/// packs all four states into one `u64`:
+/// packs the initialization states into one `u64`:
 /// 1. `0` (`INIT_NOT_STARTED`) — not started.
 /// 2. in progress — bit 0 (`IN_PROGRESS_FLAG`) set; the header pointer is in the
 ///    remaining bits.
-/// 3. done — any other non-zero value (both low bits clear); the value *is* the
+/// 3. ready — any other non-zero value (all low bits clear); the value *is* the
 ///    header pointer.
 /// 4. `0b10` (`INIT_FAILED_FLAG`) — failed.
+/// 5. bit 2 (`READINESS_PENDING`) — enrolled in cycle readiness tracking. With
+///    bit 0 clear, the payload is constructed but not yet safe to publish.
 ///
 /// The low bits are free for the flags because `AValueHeader` is ≥ 8-byte
 /// aligned (checked below).
+/// After the initial claim, mutations require a [`HeapPublication`] guard.
+/// Its mutex serializes enrollment with completion; readers outside that
+/// mutex use acquire loads to observe payload writes published by release stores.
 #[derive(Allocative)]
 #[repr(transparent)]
 struct AtomicSlotState(AtomicU64);
@@ -240,7 +268,8 @@ impl AtomicSlotState {
     const INIT_NOT_STARTED: u64 = 0;
     const IN_PROGRESS_FLAG: u64 = 0b1;
     const INIT_FAILED_FLAG: u64 = 0b10;
-    const INIT_STATE_MASK: u64 = Self::IN_PROGRESS_FLAG | Self::INIT_FAILED_FLAG;
+    const READINESS_PENDING: u64 = 0b100;
+    const INIT_STATE_MASK: u64 = 0b111;
 
     fn not_started() -> Self {
         AtomicSlotState(AtomicU64::new(Self::INIT_NOT_STARTED))
@@ -254,8 +283,10 @@ impl AtomicSlotState {
             SlotState::Failed
         } else if v & Self::IN_PROGRESS_FLAG != 0 {
             SlotState::InProgress((v & !Self::INIT_STATE_MASK) as *mut AValueHeader)
+        } else if v & Self::READINESS_PENDING != 0 {
+            SlotState::Constructed((v & !Self::INIT_STATE_MASK) as *mut AValueHeader)
         } else {
-            SlotState::Done(v as *mut AValueHeader)
+            SlotState::Ready(v as *mut AValueHeader)
         }
     }
 
@@ -267,16 +298,40 @@ impl AtomicSlotState {
             .store((header as u64) | Self::IN_PROGRESS_FLAG, Ordering::Release);
     }
 
-    /// Promote in-progress -> done by clearing the state flags, keeping the
-    /// header the claim already published. Takes no pointer: the only valid value
-    /// is the one stored at claim time.
-    fn finalize(&self) {
-        let prev = self.0.fetch_and(!Self::INIT_STATE_MASK, Ordering::AcqRel);
-        debug_assert!(
-            prev & Self::IN_PROGRESS_FLAG != 0,
-            "finalize on a slot that was not in progress: {:#x}",
-            prev,
-        );
+    /// The publication mutex excludes concurrent readiness enrollment.
+    fn try_finalize(&self, header: *mut AValueHeader) -> bool {
+        if self.0.load(Ordering::Relaxed) != (header as u64 | Self::IN_PROGRESS_FLAG) {
+            return false;
+        }
+        self.0.store(header as u64, Ordering::Release);
+        true
+    }
+
+    /// Requires both the readiness and publication locks, in that order.
+    fn track_readiness(&self) -> SlotState {
+        match self.load(Ordering::Relaxed) {
+            SlotState::InProgress(ptr) => {
+                self.0.store(
+                    ptr as u64 | Self::IN_PROGRESS_FLAG | Self::READINESS_PENDING,
+                    Ordering::Release,
+                );
+                SlotState::InProgress(ptr)
+            }
+            state => state,
+        }
+    }
+
+    fn constructed(&self, header: *mut AValueHeader) {
+        self.0
+            .store(header as u64 | Self::READINESS_PENDING, Ordering::Release);
+    }
+
+    fn ready(&self) {
+        let previous = self.0.load(Ordering::Relaxed);
+        debug_assert_ne!(previous & Self::READINESS_PENDING, 0);
+        // The group's last writer can go straight from in-progress to ready.
+        self.0
+            .store(previous & !Self::INIT_STATE_MASK, Ordering::Release);
     }
 
     /// Publish the claim as failed.
@@ -297,9 +352,11 @@ struct InitWaiterState {
     /// Failure records are sparse because successful slots never need this
     /// diagnostic state.
     failures: Vec<SlotFailure>,
-    #[cfg(all(test, feature = "pagable", panic = "unwind"))]
+    // Used by `test_panicking_deserializer_fails_claim_and_wakes_waiter` and
+    // `cycle_readiness::cross_thread_cycle` to park a waiter before publication.
+    #[cfg(all(test, feature = "pagable"))]
     #[allocative(skip)]
-    wait_started: Option<Sender<()>>,
+    wait_started: Option<(Option<ThreadId>, Sender<()>)>,
 }
 
 #[derive(Allocative)]
@@ -319,11 +376,22 @@ impl InitWaiters {
 
 enum ClaimResult<'a> {
     Claimed(SlotClaimGuard<'a>),
-    Done,
+    Resolved(SlotReadiness),
     /// Slot is mid-deserialization. Carries its pre-allocated header, whose
-    /// vtable is still the sentinel (value not materialized yet).
+    /// vtable may still be the sentinel.
     InProgress(*mut AValueHeader),
     Failed,
+}
+
+enum SlotReadiness {
+    Ready(*mut AValueHeader),
+    /// Locally constructed, but a construction dependency is not ready yet.
+    Pending(*mut AValueHeader),
+}
+
+enum WaitFor {
+    Constructed,
+    Ready,
 }
 
 /// Metadata + init state — lazily parsed from the recipe on first
@@ -347,6 +415,59 @@ pub(crate) struct HeapMetadata {
     original_indices_by_payload: RwLock<HashMap<usize, u32>>,
     /// Coordinates waiters that lost a per-slot initialization race.
     init_waiters: InitWaiters,
+}
+
+/// Serializes slot transitions and wakes waiters once for the whole batch.
+/// When both locks are needed, acquire readiness before this heap's waiter lock.
+struct HeapPublication<'a> {
+    metadata: &'a HeapMetadata,
+    waiters: MutexGuard<'a, InitWaiterState>,
+    changed: bool,
+}
+
+impl HeapPublication<'_> {
+    fn try_finalize(&mut self, index: usize, header: *mut AValueHeader) -> bool {
+        let changed = self.metadata.init_states[index].try_finalize(header);
+        self.changed |= changed;
+        changed
+    }
+
+    fn track_readiness(&mut self, index: usize) -> SlotState {
+        // Enrollment alone does not satisfy either kind of waiter.
+        self.metadata.init_states[index].track_readiness()
+    }
+
+    fn constructed(&mut self, index: usize, header: *mut AValueHeader) {
+        self.metadata.init_states[index].constructed(header);
+        self.changed = true;
+    }
+
+    fn ready(&mut self, index: usize) {
+        self.metadata.init_states[index].ready();
+        self.changed = true;
+    }
+
+    fn fail(&mut self, index: usize, cause: Arc<str>) {
+        let state = &self.metadata.init_states[index];
+        if matches!(state.load(Ordering::Relaxed), SlotState::Failed) {
+            return;
+        }
+        self.waiters.failures.push(SlotFailure { index, cause });
+        state.fail();
+        self.changed = true;
+    }
+}
+
+impl Drop for HeapPublication<'_> {
+    fn drop(&mut self) {
+        // The waiter lock stays held through notification, preventing a waiter
+        // from missing the transition between its state check and parking.
+        if self.changed
+            && let Some(cv) = self.metadata.init_waiters.cv.get()
+        {
+            cv.notify_all();
+        }
+    }
 }
 
 /// A heap's header once loaded: how to reopen its data, and where the lazily
@@ -595,11 +716,11 @@ impl HeapDeserializationState {
             .expect("metadata is populated: this thread set it, or lost to one that did"))
     }
 
-    /// Return the header pointer for slot `index` if it's been finalized.
+    /// Return the header pointer only after transitive readiness is published.
     #[inline]
-    pub(crate) fn loaded_header_ptr(&self, index: usize) -> Option<*mut AValueHeader> {
+    fn ready_header_ptr(&self, index: usize) -> Option<*mut AValueHeader> {
         let m = self.metadata.get()?;
-        m.init_states[index].load(Ordering::Acquire).done_ptr()
+        m.init_states[index].load(Ordering::Acquire).ready_ptr()
     }
 
     /// Return the original recipe index for a claimed payload pointer.
@@ -611,6 +732,22 @@ impl HeapDeserializationState {
             .expect("original index map lock poisoned")
             .get(&raw_ptr)
             .copied()
+    }
+
+    /// Walkers must not expose locally constructed values with unfinished edges.
+    pub(crate) fn unreadable_slot_size(&self, payload: *const ()) -> Option<ValueAllocSize> {
+        let index = self.original_value_index(payload as usize)? as usize;
+        let m = self.metadata.get()?;
+        if m.init_states[index]
+            .load(Ordering::Acquire)
+            .ready_ptr()
+            .is_some()
+        {
+            return None;
+        }
+        Some(ValueAllocSize::new(AlignedSize::new_bytes(
+            m.slots[index].alloc_size.get() as usize,
+        )))
     }
 
     pub(crate) fn serialization_index_is_dirty(&self) -> bool {
@@ -656,9 +793,10 @@ impl HeapDeserializationState {
     /// On loss, returns the slot's terminal state or its in-progress deserialization pointer.
     fn try_claim(
         &self,
-        index: usize,
+        value: HeapValueId,
         storage: &PagableStorageHandle,
     ) -> crate::Result<ClaimResult<'_>> {
+        let index = value.value_index as usize;
         let m = self.metadata(storage)?;
         let state = &m.init_states[index];
 
@@ -713,6 +851,7 @@ impl HeapDeserializationState {
         state.publish_in_progress(header_ptr.as_ptr());
         let claim = SlotClaimGuard {
             state: self,
+            value,
             claim: Some(DeserializeRecipe {
                 index,
                 abs_pos,
@@ -735,8 +874,16 @@ impl HeapDeserializationState {
         Ok(ClaimResult::Claimed(claim))
     }
 
-    /// Block on the slot's condvar until it is published done or failed.
-    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicSlotState) -> ClaimResult<'_> {
+    /// Construction waiters can store a completed payload's pointer; owning
+    /// readers must also wait for its construction dependencies.
+    fn wait_for_slot(
+        &self,
+        index: usize,
+        storage: &PagableStorageHandle,
+        until: WaitFor,
+    ) -> crate::Result<SlotReadiness> {
+        let m = self.metadata(storage)?;
+        let state = &m.init_states[index];
         let cv = m.init_waiters.cv.get_or_init(Condvar::new);
         let mut guard = m
             .init_waiters
@@ -746,14 +893,23 @@ impl HeapDeserializationState {
 
         loop {
             match state.load(Ordering::Acquire) {
-                SlotState::Done(_) => return ClaimResult::Done,
-                SlotState::Failed => return ClaimResult::Failed,
-                // Not started or still in progress — keep waiting.
-                SlotState::NotStarted | SlotState::InProgress(_) => {}
+                SlotState::Ready(ptr) => return Ok(SlotReadiness::Ready(ptr)),
+                SlotState::Failed => {
+                    // Reconstructing the recorded error takes the same waiter lock.
+                    drop(guard);
+                    return Err(self.partial_deserialization_error(index as u32).into());
+                }
+                SlotState::Constructed(ptr) if matches!(until, WaitFor::Constructed) => {
+                    return Ok(SlotReadiness::Pending(ptr));
+                }
+                SlotState::NotStarted | SlotState::InProgress(_) | SlotState::Constructed(_) => {}
             }
 
-            #[cfg(all(test, feature = "pagable", panic = "unwind"))]
-            if let Some(started) = guard.wait_started.take() {
+            #[cfg(all(test, feature = "pagable"))]
+            if guard.wait_started.as_ref().is_some_and(|(thread, _)| {
+                thread.is_none_or(|thread| thread == std::thread::current().id())
+            }) {
+                let (_, started) = guard.wait_started.take().expect("matching test waiter");
                 // Terminal publication cannot overtake this notification before
                 // `cv.wait` releases the waiter lock.
                 let _ = started.send(());
@@ -762,8 +918,8 @@ impl HeapDeserializationState {
         }
     }
 
-    #[cfg(all(test, feature = "pagable", panic = "unwind"))]
-    pub(crate) fn notify_on_next_wait_for_test(&self, started: Sender<()>) {
+    #[cfg(all(test, feature = "pagable"))]
+    pub(crate) fn notify_on_wait_for_test(&self, thread: Option<ThreadId>, started: Sender<()>) {
         self.metadata
             .get()
             .expect("test heap metadata must already be read")
@@ -771,38 +927,56 @@ impl HeapDeserializationState {
             .state
             .lock()
             .expect("init waiter lock poisoned")
-            .wait_started = Some(started);
+            .wait_started = Some((thread, started));
     }
 
-    /// Block until slot `index` is done or failed.
-    fn wait_for_slot(
+    /// Complete local construction after `write_vtable_to_header`. A cycle's
+    /// owning readers stay blocked until its remaining writers also complete.
+    fn finalize_claim(
         &self,
-        index: usize,
-        storage: &PagableStorageHandle,
-    ) -> crate::Result<ClaimResult<'_>> {
-        let m = self.metadata(storage)?;
-        let state = &m.init_states[index];
-        Ok(self.wait_for_init(m, state))
-    }
-
-    /// Publish the claimed slot as done; waiters in `wait_for_slot` then return.
-    /// Call after `write_vtable_to_header`.
-    fn finalize_claim(&self, claim: DeserializeRecipe) {
-        self.publish_and_notify(claim.index, |state, _waiters| state.finalize());
+        value: HeapValueId,
+        claim: DeserializeRecipe,
+    ) -> crate::Result<SlotReadiness> {
+        let finalized = self
+            .publication()
+            .try_finalize(claim.index, claim.header_ptr.as_ptr());
+        if finalized {
+            return Ok(SlotReadiness::Ready(claim.header_ptr.as_ptr()));
+        }
+        // A removed dependency can own the last heap reference. Destructors
+        // must not run under the readiness lock.
+        let mut retired = Vec::new();
+        let result = self
+            .scope
+            .wait_graph
+            .readiness
+            .lock()
+            .expect("readiness lock poisoned")
+            .complete(value, self, &mut retired);
+        drop(retired);
+        result
     }
 
     /// Publish the claimed slot as failed, with `error` as the cause every
     /// later reader of the slot sees.
     #[cold]
-    fn abort_claim(&self, claim: DeserializeRecipe, error: &crate::Error) {
+    fn abort_claim(&self, value: HeapValueId, claim: DeserializeRecipe, error: &crate::Error) {
         let cause = Arc::<str>::from(format!("{error:#}"));
-        self.publish_and_notify(claim.index, |state, waiters| {
-            waiters.failures.push(SlotFailure {
-                index: claim.index,
-                cause,
-            });
-            state.fail();
-        });
+        let mut retired = Vec::new();
+        let mut readiness = self
+            .scope
+            .wait_graph
+            .readiness
+            .lock()
+            .expect("readiness lock poisoned");
+        self.fail_slot(claim.index, cause.dupe());
+        readiness.fail(value, cause, &mut retired);
+        drop(readiness);
+        drop(retired);
+    }
+
+    fn fail_slot(&self, index: usize, cause: Arc<str>) {
+        self.publication().fail(index, cause);
     }
 
     /// Reconstruct the typed error for a slot whose original deserializer
@@ -833,27 +1007,20 @@ impl HeapDeserializationState {
         }
     }
 
-    /// Apply a terminal transition and its diagnostic state under the
-    /// init-waiter lock, then wake any waiters. Publishing both under one lock
-    /// prevents lost wakeups and makes the failure cause visible before the
-    /// atomic slot state becomes `Failed`.
-    fn publish_and_notify(
-        &self,
-        index: usize,
-        transition: impl FnOnce(&AtomicSlotState, &mut InitWaiterState),
-    ) {
-        let m = self
+    fn publication(&self) -> HeapPublication<'_> {
+        let metadata = self
             .metadata
             .get()
-            .expect("publish_and_notify called before metadata parse");
-        let mut waiters = m
+            .expect("publication requires parsed metadata");
+        let waiters = metadata
             .init_waiters
             .state
             .lock()
             .expect("init waiter lock poisoned");
-        transition(&m.init_states[index], &mut waiters);
-        if let Some(cv) = m.init_waiters.cv.get() {
-            cv.notify_all();
+        HeapPublication {
+            metadata,
+            waiters,
+            changed: false,
         }
     }
 }
@@ -1103,6 +1270,8 @@ pub(crate) struct StarlarkDeserWaitGraph {
     /// walk, but every edge of a real deadlock belongs to a thread already
     /// blocked here, and those edges cannot change.
     waiters: Mutex<HashMap<ThreadId, HeapValueId>>,
+    /// Empty on acyclic restores; contains only unfinished cycle dependencies.
+    readiness: Mutex<ReadinessGraph>,
 }
 
 impl StorageState for StarlarkDeserWaitGraph {}
@@ -1152,7 +1321,6 @@ impl StarlarkDeserWaitGraph {
         my_thread: ThreadId,
         start_value: HeapValueId,
     ) -> bool {
-        let mut current = start_value;
         // Bounded by `waiters`: each step lands on a distinct waiting thread.
         // `claimers` is not frozen by this lock, but a real deadlock's edges
         // all belong to blocked threads and cannot move mid-walk, and a chain
@@ -1163,9 +1331,10 @@ impl StarlarkDeserWaitGraph {
             waiters.contains_key(&my_thread),
             "cycle check requires the caller's wait edge to be present"
         );
+        let mut current = start_value;
         for _ in 0..waiters.len() {
             let Some(claimer) = self.claimers.get(&current).map(|c| *c) else {
-                return false;
+                return self.has_cycle_through_readiness(waiters, my_thread, current);
             };
             if claimer == my_thread {
                 return true;
@@ -1174,6 +1343,38 @@ impl StarlarkDeserWaitGraph {
                 return false;
             };
             current = waiting_for;
+        }
+        false
+    }
+
+    /// A locally completed value can wait on several unfinished constructors.
+    /// Ordinary construction-only wait chains need neither this traversal nor
+    /// its temporary visited set.
+    fn has_cycle_through_readiness(
+        &self,
+        waiters: &HashMap<ThreadId, HeapValueId>,
+        my_thread: ThreadId,
+        start: HeapValueId,
+    ) -> bool {
+        let readiness = self.readiness.lock().expect("readiness lock poisoned");
+        let mut pending = readiness.pending_writers(start);
+        let mut seen = HashSet::new();
+        while let Some(current) = pending.pop() {
+            if !seen.insert(current) {
+                continue;
+            }
+            let Some(claimer) = self.claimers.get(&current).map(|c| *c) else {
+                // Locally completed claims no longer have a constructing thread.
+                // A readiness waiter depends on the group's remaining writers.
+                pending.extend(readiness.pending_writers(current));
+                continue;
+            };
+            if claimer == my_thread {
+                return true;
+            }
+            if let Some(&waiting_for) = waiters.get(&claimer) {
+                pending.push(waiting_for);
+            }
         }
         false
     }
@@ -1211,7 +1412,7 @@ fn conflicting_heap_binding(
     heap_id: HeapRefId,
     bound: &FrozenHeapArc,
     bound_heap_ptr: FrozenHeapPtr,
-    conflicting: Option<&FrozenHeapArc>,
+    conflicting_origin: Option<HeapAllocationOrigin>,
     conflicting_heap_ptr: FrozenHeapPtr,
 ) -> PagableError {
     PagableError::ConflictingHeapBinding {
@@ -1222,7 +1423,7 @@ fn conflicting_heap_binding(
         bound_heap_ptr: bound_heap_ptr.addr(),
         bound_origin: bound.allocation_origin(),
         conflicting_heap_ptr: conflicting_heap_ptr.addr(),
-        conflicting_origin: conflicting.map(FrozenHeapArc::allocation_origin),
+        conflicting_origin,
     }
 }
 
@@ -1261,7 +1462,9 @@ impl StarlarkDeserScope {
                         heap_id,
                         &bound,
                         entry.get().heap_ptr(),
-                        heap.upgrade().as_ref(),
+                        heap.upgrade()
+                            .as_ref()
+                            .map(FrozenHeapArc::allocation_origin),
                         heap_ptr,
                     ));
                 }
@@ -1292,7 +1495,7 @@ impl StarlarkDeserScope {
                 heap_id,
                 &bound,
                 entry.heap_ptr(),
-                Some(heap),
+                Some(heap.allocation_origin()),
                 heap_ptr,
             ));
         }
@@ -1418,15 +1621,27 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
     }
 
     /// [`recover_from_pagable`](Self::recover_from_pagable) for a context
-    /// whose values are known to live in `origin`. Prefer it wherever the
-    /// heap is known: it is what lets a pointer into a heap not bound yet be
-    /// found, and retained, on `origin`'s behalf.
+    /// whose values are known to live in `origin`. This lets references to
+    /// unbound heaps be resolved and retained on `origin`'s behalf.
+    /// Independently owning results must instead use
+    /// [`recover_root_from_pagable_in`](Self::recover_root_from_pagable_in).
     pub(crate) fn recover_from_pagable_in<R>(
         deserializer: &mut dyn PagableDeserializer<'de>,
         origin: &FrozenHeapArc,
         f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
     ) -> R {
         Self::recover_from_pagable_impl(deserializer, Some(origin.dupe()), f)
+    }
+
+    /// Owning results can escape independently of an enclosing constructor.
+    /// They must wait for transitive readiness even inside a pagable Arc body.
+    pub(crate) fn recover_root_from_pagable_in<R>(
+        deserializer: &mut dyn PagableDeserializer<'de>,
+        origin: &FrozenHeapArc,
+        f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
+    ) -> R {
+        let _root = ActiveClaim::root();
+        Self::recover_from_pagable_in(deserializer, origin, f)
     }
 
     fn recover_from_pagable_impl<R>(
@@ -1473,7 +1688,7 @@ impl<'de, 'fv> StarlarkDeserializeContext<'de, 'fv> for StarlarkDeserializerImpl
                 heap_id,
                 value_index,
                 is_str,
-            } => self.ensure_initialized(heap_id, value_index, is_str),
+            } => self.resolve_heap_ptr(heap_id, value_index, is_str),
             SerializedFrozenValue::InlineInt(v) => {
                 let inline = InlineInt::try_from(v)
                     .map_err(|_| anyhow::anyhow!("Integer {} does not fit in InlineInt", v))?;
@@ -1496,7 +1711,7 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
     /// The pointers handed out here are the ones the framework wrote into the heap the serialized
     /// pointer names, which is a heap the brand reaches (see `recover_from_pagable`); the
     /// `'fv`-branded results are the framework handing out its own pointers.
-    fn ensure_initialized(
+    fn resolve_heap_ptr(
         &mut self,
         heap_id: HeapRefId,
         value_index: u32,
@@ -1544,15 +1759,57 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
         // values and its own dependencies come with it.
         target_heap.ensure_header_loaded(&self.scope, &storage)?;
         let ptr = resolve_in_loaded_heap(&self.scope, &storage, &target_heap, value_index)?;
-        // SAFETY: a claim initializes its aligned header to a valid sentinel
-        // before release-publishing the pointer; readers acquire that state.
-        // The target heap is retained for `'fv` (see `recover_from_pagable`).
-        // `new_frozen_ptr` only tags the address using the serialized string
-        // flag, without reading the header or payload. A cycle-breaking value
-        // is construction-only until initialization succeeds.
-        let header = unsafe { &*ptr };
-        Ok(Value::new_frozen_ptr(header, is_str))
+        // SAFETY: the allocation is retained by the context's brand. Use the
+        // serialized string tag without borrowing a potentially unwritten
+        // header: a cycle-breaking construction reference is not readable yet.
+        Ok(unsafe {
+            Value::new_frozen_ptr_usize_with_str_tag(
+                ptr as usize
+                    | if is_str {
+                        PointerTags::StrFrozen as usize
+                    } else {
+                        0
+                    },
+            )
+        })
     }
+}
+
+/// Construction guards must leave scope before the caller waits for readiness.
+fn deserialize_claim(
+    scope: &StarlarkDeserScope,
+    storage: &PagableStorageHandle,
+    target_heap: &FrozenHeapArc,
+    slot_claim: SlotClaimGuard<'_>,
+) -> crate::Result<SlotReadiness> {
+    let target = slot_claim.recipe();
+    let _claim = scope
+        .wait_graph
+        .claim(slot_claim.value, std::thread::current().id());
+    let _active = ActiveClaim::enter(
+        &scope.wait_graph,
+        slot_claim.value,
+        slot_claim.state.heap_id,
+    );
+
+    // The caller may be reading a different stream (e.g. a pagable Arc body).
+    // A fresh deserializer also gives concurrent resolves independent cursors.
+    let recipe = slot_claim.state.header()?.recipe.dupe();
+    let result = {
+        let mut de = recipe.open(storage);
+        // SAFETY: metadata parsing computed this position from the target
+        // heap's offset table, so it is valid in this recipe's bytes.
+        unsafe { de.seek(target.abs_pos) };
+        StarlarkDeserializerImpl::recover_from_pagable_in(&mut *de, target_heap, |nested_ctx| {
+            (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx)
+        })
+    };
+    if let Err(e) = result {
+        slot_claim.abort(&e);
+        return Err(e);
+    }
+    // SAFETY: the recipe's deserializer successfully initialized the payload.
+    unsafe { slot_claim.publish() }
 }
 
 /// Resolve a pointer for graph construction in a heap whose blob is already read.
@@ -1563,9 +1820,9 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
 /// scope that keeps it alive, which the caller supplies. The pointee lives as
 /// long as the target heap.
 ///
-/// This is not a transitive readiness barrier: breaking a wait-for cycle can
-/// return the other claimer's unfinished slot. That pointer must not be read
-/// until initialization succeeds.
+/// During nested construction this can return an unfinished cycle reference,
+/// recording a readiness dependency on the current claim. Outside construction
+/// it waits for transitive readiness before letting the pointer escape.
 pub(crate) fn resolve_in_loaded_heap(
     scope: &StarlarkDeserScope,
     storage: &PagableStorageHandle,
@@ -1590,8 +1847,8 @@ pub(crate) fn resolve_in_loaded_heap(
         .into());
     }
 
-    // Fast path: slot is already done.
-    if let Some(ptr) = target_state.loaded_header_ptr(value_index as usize) {
+    // Fast path: slot and its construction dependencies are already ready.
+    if let Some(ptr) = target_state.ready_header_ptr(value_index as usize) {
         return Ok(ptr);
     }
 
@@ -1602,75 +1859,56 @@ pub(crate) fn resolve_in_loaded_heap(
         heap_ptr: target_heap_ptr,
         value_index,
     };
-    let my_thread = std::thread::current().id();
-
-    // Slow path: try to claim. The caller's `PagableDeserializer` may be reading
-    // a different stream (e.g. the body of an `Arc<T>` deser-fn), so it cannot be
-    // seeked. Open a fresh deserializer from the target heap's own recipe instead.
-    match target_state.try_claim(value_index as usize, storage)? {
+    let resolved = match target_state.try_claim(in_progress_key, storage)? {
         ClaimResult::Claimed(slot_claim) => {
-            let target = slot_claim.recipe();
-            // Guard clears the `claimers` edge on every exit below.
-            let _claim = wait_graph.claim(in_progress_key, my_thread);
-
-            // `recipe.open()` produces a fresh deserializer so concurrent resolves
-            // of the same heap have independent cursors.
-            let recipe = target_state.header()?.recipe.dupe();
-
-            let result = {
-                let mut de = recipe.open(storage);
-                // SAFETY: `target.abs_pos` was computed from the target heap's
-                // offset table during `deserialize_metadata`; it is a valid
-                // position in the recipe's bytes for this heap.
-                unsafe { de.seek(target.abs_pos) };
-                // The nested context's lifetime is the target heap's: `de` is
-                // positioned in the target value's data, and the vtable writes
-                // the result into that heap.
-                StarlarkDeserializerImpl::recover_from_pagable_in(
-                    &mut *de,
-                    target_heap,
-                    |nested_ctx| (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx),
-                )
-            };
-
-            if let Err(e) = result {
-                slot_claim.abort(&e);
-                return Err(e);
-            }
-            // SAFETY: the recipe's deserializer successfully initialized the payload.
-            unsafe { slot_claim.publish() };
+            deserialize_claim(scope, storage, target_heap, slot_claim)?
         }
         ClaimResult::InProgress(ptr) => {
+            let my_thread = std::thread::current().id();
             // Slot is mid-deserialization (re-entrant or another thread).
             // `_wait` must outlive the block below so other threads' cycle
             // checks observe this wait.
             let (_wait, cycle) = wait_graph.begin_wait_and_check_cycle(my_thread, in_progress_key);
             if cycle {
-                // This construction edge is not proof that the value is ready to read.
+                let parent = ActiveClaim::current(wait_graph).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "an owning deserialization result depends on its unfinished constructor while waiting for construction"
+                    )
+                })?;
+                parent.depend_on(scope, in_progress_key, target_heap)?;
                 return Ok(ptr);
             }
             // No cycle - safe to block until the claimer finishes.
-            match target_state.wait_for_slot(value_index as usize, storage)? {
-                ClaimResult::Done => {}
-                ClaimResult::Failed => {
-                    return Err(target_state
-                        .partial_deserialization_error(value_index)
-                        .into());
-                }
-                _ => unreachable!(),
-            }
+            target_state.wait_for_slot(value_index as usize, storage, WaitFor::Constructed)?
         }
-        ClaimResult::Done => {}
+        ClaimResult::Resolved(result) => result,
         ClaimResult::Failed => {
             return Err(target_state
                 .partial_deserialization_error(value_index)
                 .into());
         }
-    }
+    };
 
-    Ok(target_state
-        .loaded_header_ptr(value_index as usize)
-        .expect("slot must be done after resolving it"))
+    let ptr = match resolved {
+        SlotReadiness::Ready(ptr) => return Ok(ptr),
+        SlotReadiness::Pending(ptr) => ptr,
+    };
+    if let Some(parent) = ActiveClaim::current(wait_graph) {
+        parent.depend_on(scope, in_progress_key, target_heap)?;
+        return Ok(ptr);
+    }
+    let (_wait, cycle) =
+        wait_graph.begin_wait_and_check_cycle(std::thread::current().id(), in_progress_key);
+    if cycle {
+        return Err(anyhow::anyhow!(
+            "an owning deserialization result depends on its unfinished constructor while waiting for transitive readiness"
+        )
+        .into());
+    }
+    match target_state.wait_for_slot(value_index as usize, storage, WaitFor::Ready)? {
+        SlotReadiness::Ready(ptr) => Ok(ptr),
+        SlotReadiness::Pending(_) => unreachable!("owning readers wait for readiness"),
+    }
 }
 
 #[cfg(all(test, feature = "pagable"))]
@@ -1692,18 +1930,92 @@ mod tests {
     use pagable::testing::TestingDeserializer;
     use pagable::testing::TestingSerializer;
 
+    use super::ActiveClaim;
     use super::ClaimResult;
     use super::HeapValueId;
     use super::MIN_HEAP_BINDING_PRUNE_INTERVAL;
     use super::StarlarkDeserScope;
     use super::StarlarkDeserWaitGraph;
     use super::StarlarkHeapBindings;
+    use crate::pagable::error::PagableError;
     use crate::values::FrozenHeapName;
     use crate::values::OwnedFrozen;
     use crate::values::OwnedFrozenHeap;
     use crate::values::Value;
     use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::layout::heap::sealed::FrozenHeapPtr;
+    use crate::values::layout::heap::sealed::HeapAllocationOrigin;
+
+    #[test]
+    fn test_active_claim_conflicting_heap_binding_is_an_error() {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("active value");
+        });
+        let owner = heap.seal(FrozenHeapName::user("active_claim_binding"));
+        let mut ser = TestingSerializer::new();
+        owner.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        drop(owner);
+        let mut de = TestingDeserializer::new(&bytes);
+        let restored = OwnedFrozen::<()>::pagable_deserialize(&mut de).unwrap();
+        let heap = restored.heap_arc();
+        let heap_id = heap.deser_state().unwrap().heap_id;
+        let active_value = HeapValueId {
+            heap_ptr: heap.downgrade().unwrap().heap_ptr(),
+            value_index: 0,
+        };
+
+        let bound = OwnedFrozenHeap::new();
+        bound.with(|heap| {
+            heap.alloc("conflicting value");
+        });
+        let bound = bound.seal(FrozenHeapName::user("conflicting_binding"));
+        let bound_heap = bound.heap_arc();
+        let bound_weak = bound_heap.downgrade().unwrap();
+        let bound_heap_ptr = bound_weak.heap_ptr();
+        let graph = Arc::new(StarlarkDeserWaitGraph::default());
+        let scope = StarlarkDeserScope::new(Arc::default(), graph.dupe());
+        scope.register_heap(heap_id, bound_weak).unwrap();
+        let _active = ActiveClaim::enter(&graph, active_value, heap_id);
+        let error = ActiveClaim::current(&graph)
+            .unwrap()
+            .depend_on(&scope, active_value, heap)
+            .unwrap_err();
+        let crate::ErrorKind::Other(inner) = error.kind() else {
+            panic!("unexpected error: {error:#}");
+        };
+        let PagableError::ConflictingHeapBinding {
+            heap_id: conflicting_id,
+            bound_heap_ptr: actual_bound_ptr,
+            bound_origin,
+            conflicting_heap_ptr,
+            conflicting_origin,
+            ..
+        } = inner
+            .downcast_ref::<PagableError>()
+            .expect("typed binding error")
+        else {
+            panic!("unexpected error: {error:#}");
+        };
+        assert_eq!(*conflicting_id, heap_id);
+        assert_eq!(*actual_bound_ptr, bound_heap_ptr.addr());
+        assert_eq!(*bound_origin, HeapAllocationOrigin::Native);
+        assert_eq!(*conflicting_heap_ptr, active_value.heap_ptr.addr());
+        assert_eq!(
+            *conflicting_origin,
+            Some(HeapAllocationOrigin::Deserialized)
+        );
+        assert!(scope.is_heap_bound(heap_id, bound_heap).unwrap());
+        assert!(
+            graph
+                .readiness
+                .lock()
+                .unwrap()
+                .pending_writers(active_value)
+                .is_empty()
+        );
+    }
 
     fn registered_native_heap(scope: &StarlarkDeserScope) -> OwnedFrozen<Value<'static>> {
         let heap: OwnedFrozen<Value<'static>> =
@@ -1877,7 +2189,11 @@ mod tests {
         state.refresh_serialization_index(|| false, |entries| assert!(entries.is_empty()));
         assert!(!state.serialization_index_is_dirty());
 
-        let ClaimResult::Claimed(_claim) = state.try_claim(0, &de.storage()).unwrap() else {
+        let value = HeapValueId {
+            heap_ptr: heap.downgrade().unwrap().heap_ptr(),
+            value_index: 0,
+        };
+        let ClaimResult::Claimed(_claim) = state.try_claim(value, &de.storage()).unwrap() else {
             panic!("the cold slot must be unclaimed");
         };
         assert!(state.serialization_index_is_dirty());

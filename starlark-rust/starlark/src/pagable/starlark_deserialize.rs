@@ -71,7 +71,10 @@ pub trait StarlarkDeserializeContext<'de, 'fv> {
     /// Get mutable access to the underlying pagable deserializer.
     fn pagable(&mut self) -> &mut dyn PagableDeserializer<'de>;
 
-    /// Deserialize a reference to a value, making sure the value itself is deserialized.
+    /// Deserialize a value reference. During cyclic heap construction a reference
+    /// may name an unfinished slot: store such edges without inspecting their
+    /// targets. Owning results wait for all construction dependencies to succeed
+    /// before publishing the resulting graph.
     fn deserialize_value(&mut self) -> crate::Result<Value<'fv>>;
 }
 

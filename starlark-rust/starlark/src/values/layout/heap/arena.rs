@@ -193,9 +193,9 @@ pub(crate) struct Arena<A: ArenaAllocator> {
 /// that is a kind of its own rather than a value with a panicking vtable.
 pub(crate) enum ArenaEntry<'a> {
     Value(&'a AValueHeader),
-    /// A slot claimed for deserialization whose value is not there: still
-    /// being written, or never written because that failed. Neither payload
-    /// nor header may be read.
+    /// A claimed slot this walk cannot expose: its payload is unwritten, or
+    /// its construction dependencies are pending or failed. Treat both the
+    /// payload and header as opaque.
     Uninitialized {
         payload: *const (),
         size: ValueAllocSize,
@@ -204,16 +204,35 @@ pub(crate) enum ArenaEntry<'a> {
     Reservation(ValueAllocSize),
 }
 
+#[derive(Clone, Copy)]
+enum WalkMode {
+    /// Expose only values whose construction dependencies are also ready.
+    Readable,
+    /// Inspect allocation addresses/sizes or drop written payloads, including
+    /// those whose dependencies are pending or failed. Never follow value edges.
+    Physical,
+}
+
 impl<'a> ArenaEntry<'a> {
     /// # Safety
     /// See [`AValueHeapEntry::walk_state`].
     unsafe fn classify(
         entry: *const AValueHeapEntry,
         sizes: Option<&HeapDeserializationState>,
+        mode: WalkMode,
     ) -> ArenaEntry<'a> {
         // SAFETY: the caller guarantees the header's lifetime and synchronization.
         match unsafe { AValueHeapEntry::walk_state(entry) } {
-            WalkState::Value(header) => ArenaEntry::Value(header),
+            WalkState::Value(header) => {
+                let payload = header.payload_ptr().ptr;
+                if matches!(mode, WalkMode::Readable)
+                    && let Some(size) = sizes.and_then(|sizes| sizes.unreadable_slot_size(payload))
+                {
+                    ArenaEntry::Uninitialized { payload, size }
+                } else {
+                    ArenaEntry::Value(header)
+                }
+            }
             WalkState::Uninitialized { payload } => {
                 let size = sizes
                     .and_then(|sizes| sizes.uninitialized_slot_size(payload))
@@ -234,7 +253,7 @@ impl<'a> ArenaEntry<'a> {
         }
     }
 
-    /// The header of a live, readable value.
+    /// The header of an initialized payload, filtered by the walk's mode.
     fn value_header(&self) -> Option<&'a AValueHeader> {
         match self {
             ArenaEntry::Value(header) => Some(header),
@@ -351,6 +370,7 @@ pub(crate) trait ArenaVisitor<'v> {
 struct ChunkIter<'c> {
     chunk: AllocatedChunk<'c>,
     sizes: Option<&'c HeapDeserializationState>,
+    mode: WalkMode,
 }
 
 impl<'c> Iterator for ChunkIter<'c> {
@@ -364,7 +384,7 @@ impl<'c> Iterator for ChunkIter<'c> {
                 // Claims were excluded while collecting the range, so every
                 // entry has a header. Only sentinel-to-value publication may
                 // overlap this walk; no reference may precede the acquire load.
-                let kind = ArenaEntry::classify(self.chunk.as_ptr().cast(), self.sizes);
+                let kind = ArenaEntry::classify(self.chunk.as_ptr().cast(), self.sizes, self.mode);
                 let n = kind.size();
                 self.chunk.advance(n.bytes() as usize);
                 Some(kind)
@@ -569,8 +589,9 @@ impl<A: ArenaAllocator> Arena<A> {
     fn iter_chunk<'a>(
         chunk: AllocatedChunk<'a>,
         sizes: Option<&'a HeapDeserializationState>,
+        mode: WalkMode,
     ) -> ChunkIter<'a> {
-        ChunkIter { chunk, sizes }
+        ChunkIter { chunk, sizes, mode }
     }
 
     /// Iterate over values in a single bump allocator in allocation order.
@@ -588,13 +609,13 @@ impl<A: ArenaAllocator> Arena<A> {
         for chunk in chunks.into_iter().rev() {
             match A::CHUNK_ALLOCATION_DIRECTION {
                 ChunkAllocationDirection::Down => {
-                    buffer.extend(Arena::<A>::iter_chunk(chunk, sizes));
+                    buffer.extend(Arena::<A>::iter_chunk(chunk, sizes, WalkMode::Readable));
                     for kind in buffer.drain(..).rev() {
                         f(kind);
                     }
                 }
                 ChunkAllocationDirection::Up => {
-                    for kind in Arena::<A>::iter_chunk(chunk, sizes) {
+                    for kind in Arena::<A>::iter_chunk(chunk, sizes, WalkMode::Readable) {
                         f(kind);
                     }
                 }
@@ -715,14 +736,15 @@ impl<A: ArenaAllocator> Arena<A> {
                 let base = chunk.as_ptr() as usize;
                 let size = chunk.len() as u32;
                 // A claimed slot is a value's address whether or not the value arrived.
-                let mut payload_offsets: Vec<u32> = Arena::<A>::iter_chunk(chunk, sizes)
-                    .filter_map(|kind| match kind {
-                        ArenaEntry::Value(header) => Some(header.payload_ptr().ptr),
-                        ArenaEntry::Uninitialized { payload, .. } => Some(payload),
-                        ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => None,
-                    })
-                    .map(|payload| (payload as usize - base) as u32)
-                    .collect();
+                let mut payload_offsets: Vec<u32> =
+                    Arena::<A>::iter_chunk(chunk, sizes, WalkMode::Physical)
+                        .filter_map(|kind| match kind {
+                            ArenaEntry::Value(header) => Some(header.payload_ptr().ptr),
+                            ArenaEntry::Uninitialized { payload, .. } => Some(payload),
+                            ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => None,
+                        })
+                        .map(|payload| (payload as usize - base) as u32)
+                        .collect();
                 // Sort for binary_search at lookup time. For `Up` allocators
                 // this is a no-op (already ascending); kept for safety across
                 // allocator directions.
@@ -811,7 +833,7 @@ impl<A: ArenaAllocator> Arena<A> {
         // this walk; exclusive access excludes native-heap allocation.
         unsafe {
             for chunk in self.drop.iter_allocated_chunks_rev() {
-                for kind in Arena::<A>::iter_chunk(chunk, sizes) {
+                for kind in Self::iter_chunk(chunk, sizes, WalkMode::Physical) {
                     if let Some(header) = kind.value_header() {
                         f(header);
                     }
@@ -826,7 +848,7 @@ impl<A: ArenaAllocator> Arena<A> {
         mut f: impl FnMut(ArenaEntry<'a>),
     ) {
         for chunk in chunks {
-            for kind in Self::iter_chunk(chunk, sizes) {
+            for kind in Self::iter_chunk(chunk, sizes, WalkMode::Readable) {
                 f(kind);
             }
         }

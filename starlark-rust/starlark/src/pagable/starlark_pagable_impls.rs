@@ -49,6 +49,7 @@ use starlark_syntax::syntax::ast::AssignOp;
 use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
+use crate::pagable::starlark_deserialize_context::deserialize_for_inspection;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeScope;
@@ -268,18 +269,18 @@ where
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_, 'fv>,
     ) -> crate::Result<Hashed<Self>> {
-        let k = Self::starlark_deserialize(ctx)?;
+        let k: Self = deserialize_for_inspection(ctx)?;
         Ok(Hashed::new(k))
     }
 }
 
-/// `Value` has no `Hash` impl; `Value::get_hashed` hashes it, and the value is
-/// initialized by `deserialize_value` before it gets here.
+/// `Value` has no `Hash` impl; `Value::get_hashed` hashes it. Hashing and
+/// collision equality require readable keys, not unfinished construction references.
 impl<'v> SmallMapKeyDeserialize<'v> for crate::values::Value<'v> {
     fn starlark_deserialize_hashed(
         ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Hashed<Self>> {
-        Self::starlark_deserialize(ctx)?.get_hashed()
+        deserialize_for_inspection::<Self>(ctx)?.get_hashed()
     }
 }
 

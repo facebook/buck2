@@ -95,8 +95,8 @@ pub enum PagableError {
         conflicting_origin: Option<HeapAllocationOrigin>,
     },
 
-    /// A lazily deserialized heap slot was previously claimed, but its
-    /// deserializer failed before publishing the completed value.
+    /// A lazily deserialized heap slot was claimed, but its construction or
+    /// a construction dependency failed before the slot became ready.
     #[error(
         "Partial deserialization failed for heap {heap_id:?} value_index {value_index} type `{value_type}`; original error: {cause}"
     )]
@@ -107,7 +107,7 @@ pub enum PagableError {
         value_index: u32,
         /// The Starlark value type registered for the slot.
         value_type: &'static str,
-        /// The complete error chain reported by the original deserializer.
+        /// The recorded cause from this slot or a failed construction dependency.
         cause: Arc<str>,
     },
 

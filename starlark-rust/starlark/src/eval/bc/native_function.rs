@@ -24,6 +24,7 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializeContext;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializeContext;
+use crate::pagable::starlark_deserialize_context::deserialize_for_inspection;
 use crate::values::Value;
 use crate::values::ValueTyped;
 use crate::values::function::NativeFunc;
@@ -50,7 +51,7 @@ impl<'v> StarlarkDeserialize<'v> for BcNativeFunction<'v> {
     fn starlark_deserialize(
         ctx: &mut dyn StarlarkDeserializeContext<'_, 'v>,
     ) -> crate::Result<Self> {
-        let fun = ValueTyped::<'v, NativeFunction<'v>>::starlark_deserialize(ctx)?;
+        let fun = deserialize_for_inspection(ctx)?;
         Ok(BcNativeFunction::new(fun))
     }
 }

@@ -17,6 +17,8 @@
 
 //! Round-trip serialize/deserialize tests for Starlark values.
 
+mod cycle_readiness;
+
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -1304,11 +1306,9 @@ fn test_small_map_string_key_round_trip() -> crate::Result<()> {
 fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
     use starlark_map::small_map::SmallMap;
 
-    // Backward reference: SmallMapFvData (drop bump) has value keys
-    // pointing to frozen strings (undrop bump) and values pointing to HeapData
-    // (also drop bump). HeapData is allocated BEFORE SmallMapFvData, so during
-    // deserialization it's already initialized when SmallMap is deserialized.
-    // `ensure_initialized` sees it's already done and returns immediately.
+    // The map's HeapData values precede it in the drop-bump wire order.
+    // Its string keys are in the later non-drop bump. Lazy restoration must
+    // resolve both directions independently of allocation order.
     let heap = ErasingHeap::new();
 
     // Keys: frozen strings in undrop bump (hashable).
@@ -1379,13 +1379,8 @@ fn test_small_map_frozen_value_key_backward_ref() -> crate::Result<()> {
 fn test_small_map_frozen_value_key_forward_ref() -> crate::Result<()> {
     use starlark_map::small_map::SmallMap;
 
-    // Forward reference test: SmallMap is in drop bump (deserialized first),
-    // its keys point to frozen strings in undrop bump (deserialized later).
-    // During SmallMap deserialization, the string targets are NOT yet initialized.
-    // `ensure_initialized` must seek forward to initialize them before `get_hashed()`.
-    //
-    // Serialization order: drop bump values first, then undrop bump values.
-    // So SmallMap's data comes BEFORE the strings in the stream.
+    // The drop-bump map precedes its non-drop string keys in wire order.
+    // Resolving those forward references must initialize the strings before hashing.
     let heap = ErasingHeap::new();
 
     // Allocate strings in undrop bump.
@@ -3012,7 +3007,7 @@ mod claim_unwind {
         let good = deser_owned_frozen_from_storage(&backing, &handle, &good_key)?;
         let state = good.owner().heap_arc().deser_state().unwrap();
         let (wait_started_tx, wait_started_rx) = mpsc::channel();
-        state.notify_on_next_wait_for_test(wait_started_tx);
+        state.notify_on_wait_for_test(None, wait_started_tx);
         let data = storage
             .fetch_data_blocking(&bad_key)
             .map_err(crate::Error::new_other)?;
@@ -3358,6 +3353,37 @@ fn round_trip_owned_pagable_ser_de_impl(
     <OwnedFrozen<Value>>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
+/// A function's module contains a dictionary keyed by that same function.
+#[test]
+fn test_unfinished_function_dict_key_is_rejected() -> crate::Result<()> {
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    let ast = AstModule::parse(
+        "key_cycle.star",
+        "def f():\n    return 0\nd = {f: 1}\n".to_owned(),
+        &Dialect::Extended,
+    )?;
+    let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName {
+        name: TEST_EVAL_HEAP_NAME,
+    });
+    let module = Module::with_temp_heap(|module| {
+        Evaluator::new(&module).eval_module(ast, &globals).unwrap();
+        module.freeze_named(TestHeapName::heap_name("unfinished_function_dict_key"))
+    })?;
+    let root = module.get("f")?;
+    drop(module);
+    let error = round_trip_owned_pagable_ser_de_impl(root)
+        .expect_err("hashing an unfinished dictionary key must fail closed");
+    assert!(
+        format!("{error:#}").contains("depends on its unfinished constructor"),
+        "{error:#}"
+    );
+    Ok(())
+}
+
 /// Same scenario as `test_cross_heap_frozen_value_round_trip` but routed
 /// through `SerializerForPaging` + `InMemoryPagableStorage` +
 /// `PagableDeserializerImpl`.
@@ -3541,8 +3567,8 @@ fn test_partial_deser_skips_unreachable_values() -> crate::Result<()> {
 /// Partial deser materializes values in demand-walk order, which may differ
 /// from the original allocation order. Source order is [SimpleData(target),
 /// RefData(root)] — A is allocated first, then B which references A. The
-/// root (B) materializes first via `ensure_initialized`, then B's `target`
-/// resolution materializes A. The restored arena ends up [B, A], not [A, B].
+/// root (B) is claimed before resolving its `target` recursively restores A.
+/// The restored arena ends up [B, A], not [A, B].
 #[test]
 fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
     let heap = ErasingHeap::new();
@@ -5143,8 +5169,8 @@ fn test_pointer_lookup_repairs_dirty_transitive_restored_dependency() -> crate::
 /// Cross-thread cycle test: two values on the same heap reference each other.
 /// Two threads simultaneously deserialize one value each. Without cross-thread
 /// cycle detection, this deadlocks (thread A waits for B's value, B waits for A's).
-/// With cycle detection, the wait-for graph detects the cycle and returns a
-/// sentinel pointer to break it.
+/// Cycle detection lets construction use unfinished references; readiness
+/// tracking prevents owning results from escaping before the cycle is complete.
 #[test]
 fn test_cross_thread_cycle_does_not_deadlock() {
     use std::sync::Barrier;
