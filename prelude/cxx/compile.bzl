@@ -1135,6 +1135,9 @@ def _cxx_dynamic_compile(
                     source_dist_cuda,
                     [cuda_dist_spec],
                     cxx_compile_cmd.allow_cache_upload,
+                    # The argsfile closure carries the file-prefix specs file
+                    # that replayed host compiles reference by path.
+                    cmd_args(cxx_compile_cmd.base_compile_cmd, hidden = cxx_compile_cmd.argsfile.cmd_form),
                     cxx_compile_cmd.headers_dep_files,
                 )
 
@@ -1150,6 +1153,7 @@ def _cxx_dynamic_compile(
             shared_cuda_dist_output,
             shared_cuda_specs,
             cxx_compile_cmd.allow_cache_upload,
+            cmd_args(cxx_compile_cmd.base_compile_cmd, hidden = cxx_compile_cmd.argsfile.cmd_form),
             cxx_compile_cmd.headers_dep_files,
         )
 
