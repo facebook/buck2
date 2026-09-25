@@ -3202,6 +3202,297 @@ fn test_pointers_into_unlisted_heaps_sealed_under_one_name_resolve_by_identity()
     Ok(())
 }
 
+/// Page-in reads the owner's row and no more: a dependency nothing points
+/// into is bound by name from the slot that names it, retained, and left in
+/// storage.
+#[cfg(fbcode_build)]
+#[test]
+fn test_unread_dependency_is_bound_but_not_read() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::pagable::starlark_partial_deser_stats;
+
+    let dep = ErasingHeap::new();
+    dep.alloc_simple(SimpleData {
+        flag: true,
+        count: 7,
+    });
+    let dep_ref = dep.into_ref_named(TestHeapName::heap_name("unread_dep"));
+
+    let owner = ErasingHeap::new();
+    owner.add_reference(dep_ref.owner());
+    let root_fv = owner.alloc_simple(SimpleData {
+        flag: false,
+        count: 1,
+    });
+    let owner_ref = owner.into_ref_named(TestHeapName::heap_name("unread_owner"));
+    // SAFETY: `owner_ref` owns the arena hosting `root_fv`.
+    let ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner_ref, root_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key = ser_owned_frozen_value_into_storage(&backing, &ofv)?;
+    drop(ofv);
+    drop(dep_ref);
+
+    let before = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    let after = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+
+    let root: &SimpleData = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("the restored root is SimpleData");
+    assert_eq!(root.count, 1, "the root reads back");
+    assert_eq!(
+        after.heaps_loaded - before.heaps_loaded,
+        1,
+        "only the owner's row is read; the dependency is bound from the slot that names it"
+    );
+    let dep = restored
+        .owner()
+        .refs()
+        .next()
+        .expect("the owner retains its dependency");
+    assert_eq!(
+        dep.name().map(ToString::to_string).as_deref(),
+        Some("TestHeapName(unread_dep)"),
+        "the skeleton knows its name without a read"
+    );
+    assert!(
+        !dep.heap_arc().row_read(),
+        "nothing pointed into the dependency, so its row stays in storage"
+    );
+    Ok(())
+}
+
+/// Three heaps where A lists only B, B lists G, and A's root points straight
+/// into G; paged out into a fresh storage with the rows of all three indexed.
+fn page_out_indirect_graph(
+    prefix: &str,
+) -> crate::Result<(
+    pagable::storage::in_memory::InMemoryPagableStorage,
+    pagable::storage::handle::PagableStorageHandle,
+    pagable::DataKey,
+)> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let heap_g = ErasingHeap::new();
+    let g_fv = heap_g.alloc_simple(SimpleData {
+        flag: true,
+        count: 99,
+    });
+    let g_ref = heap_g.into_ref_named(TestHeapName::heap_name(&format!("{prefix}_g")));
+
+    let heap_b = ErasingHeap::new();
+    heap_b.add_reference(g_ref.owner());
+    heap_b.alloc_simple(SimpleData {
+        flag: false,
+        count: 5,
+    });
+    let b_ref = heap_b.into_ref_named(TestHeapName::heap_name(&format!("{prefix}_b")));
+
+    // G stays alive through B, which is all `add_reference` is for.
+    let heap_a = ErasingHeap::new();
+    heap_a.add_reference(b_ref.owner());
+    let a_fv = heap_a.alloc_ref_data(7, g_fv);
+    let a_ref = heap_a.into_ref_named(TestHeapName::heap_name(&format!("{prefix}_a")));
+    assert_eq!(
+        a_ref.heap_arc().refs_slice(),
+        std::slice::from_ref(&b_ref),
+        "the test only means something if G is not a direct ref of A",
+    );
+    // SAFETY: `a_ref` owns the arena hosting `a_fv`.
+    let ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(a_ref, a_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key = ser_owned_frozen_value_into_storage(&backing, &ofv)?;
+    drop(ofv);
+    drop(b_ref);
+    drop(g_ref);
+    Ok((backing, handle, key))
+}
+
+/// Reads the root back and checks its pointer into G resolved.
+fn assert_points_into_g(restored: &OwnedFrozen<Value<'static>>) {
+    let root: &RefData = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("the restored root is RefData");
+    let target: &SimpleData = root
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("the root's target lives in G");
+    assert_eq!(target.count, 99, "the pointer into G resolves");
+}
+
+/// A pointer into a heap that is not a direct dependency is found in the
+/// index, read, and retained by the heap that used it; the heap between them
+/// stays a skeleton.
+#[cfg(fbcode_build)]
+#[test]
+fn test_pointer_into_indirect_dependency_resolves_through_the_index() -> crate::Result<()> {
+    use crate::pagable::starlark_partial_deser_stats;
+
+    let (backing, handle, key) = page_out_indirect_graph("indexed")?;
+
+    let before = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    assert_points_into_g(&restored);
+    let after = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+
+    assert_eq!(
+        after.heaps_loaded - before.heaps_loaded,
+        2,
+        "A's row is read with the root and G's to claim into it; B's is not needed"
+    );
+    assert_eq!(
+        after.heaps_with_metadata - before.heaps_with_metadata,
+        2,
+        "A's and G's values are parsed; B's, which nothing points into, are not"
+    );
+    let retained = restored.owner().heap_arc().retained_beyond_refs();
+    assert_eq!(
+        retained
+            .iter()
+            .map(|heap| heap.name().map(ToString::to_string))
+            .collect::<Vec<_>>(),
+        vec![Some("TestHeapName(indexed_g)".to_owned())],
+        "A holds G itself: no ref list of A's accounts for the pointer"
+    );
+    Ok(())
+}
+
+/// A value in a heap the owner retains beyond its ref list, projected out of
+/// the owner, serializes: the owner's reachable heaps include the retained one.
+#[test]
+fn test_projection_into_retained_dependency_reserializes() -> crate::Result<()> {
+    let (backing, handle, key) = page_out_indirect_graph("projected")?;
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    assert_points_into_g(&restored);
+
+    let root: &RefData = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("the restored root is RefData");
+    let g_value = erase(root.target);
+    // SAFETY: A owns the projection and retains G, which hosts `g_value`.
+    let projected: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::from_erased(restored.owner().to_owned(), g_value) };
+    drop(restored);
+
+    let projected_key = ser_owned_frozen_value_into_storage(&backing, &projected)?;
+    let back = deser_owned_frozen_from_storage(&backing, &handle, &projected_key)?;
+    let target: &SimpleData = back
+        .as_ref()
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("the projection is G's value");
+    assert_eq!(target.count, 99);
+    Ok(())
+}
+
+/// Without the index the same pointer is found by reading the rows between
+/// the origin and the target, and only those.
+#[cfg(fbcode_build)]
+#[test]
+fn test_pointer_into_indirect_dependency_walks_from_origin_without_the_index() -> crate::Result<()>
+{
+    use crate::pagable::starlark_partial_deser_stats;
+    use crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex;
+
+    let (backing, handle, key) = page_out_indirect_graph("walked")?;
+    handle
+        .storage_context()
+        .get::<StarlarkHeapKeyIndex>()
+        .expect("page-out registers the index")
+        .clear();
+
+    let before = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    assert_points_into_g(&restored);
+    let after = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+
+    assert_eq!(
+        after.heaps_loaded - before.heaps_loaded,
+        3,
+        "A's row is read with the root, B's to find G, and G's to claim into it"
+    );
+    assert_eq!(
+        after.heaps_with_metadata - before.heaps_with_metadata,
+        2,
+        "A's and G's values are parsed; B's, which nothing points into, are not"
+    );
+    assert_eq!(
+        restored
+            .owner()
+            .heap_arc()
+            .retained_beyond_refs()
+            .iter()
+            .map(|heap| heap.name().map(ToString::to_string))
+            .collect::<Vec<_>>(),
+        vec![Some("TestHeapName(walked_g)".to_owned())],
+        "the pointer's owner retains G regardless of how resolution found it"
+    );
+    Ok(())
+}
+
+/// A restored heap whose dependencies are still skeletons re-serializes by
+/// reusing its stored representation, without reading them.
+#[cfg(fbcode_build)]
+#[test]
+fn test_restored_heap_with_unread_dependencies_reserializes_by_key() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::pagable::starlark_partial_deser_stats;
+
+    let dep = ErasingHeap::new();
+    dep.alloc_simple(SimpleData {
+        flag: true,
+        count: 7,
+    });
+    let dep_ref = dep.into_ref_named(TestHeapName::heap_name("reser_dep"));
+
+    let owner = ErasingHeap::new();
+    owner.add_reference(dep_ref.owner());
+    let root_fv = owner.alloc_simple(SimpleData {
+        flag: false,
+        count: 1,
+    });
+    let owner_ref = owner.into_ref_named(TestHeapName::heap_name("reser_owner"));
+    // SAFETY: `owner_ref` owns the arena hosting `root_fv`.
+    let ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner_ref, root_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key = ser_owned_frozen_value_into_storage(&backing, &ofv)?;
+    drop(ofv);
+    drop(dep_ref);
+
+    let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+    let before = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    let key_again = ser_owned_frozen_value_into_storage(&backing, &restored)?;
+    let after = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+
+    assert_eq!(
+        key_again, key,
+        "the same rows are named, so the same key comes back"
+    );
+    assert_eq!(
+        after.heaps_loaded, before.heaps_loaded,
+        "re-serializing reads no row: the dependency stays a skeleton"
+    );
+    Ok(())
+}
+
 /// Serialize an OFV into the given shared storage, returning the top
 /// `DataKey`. Companion to `deser_owned_frozen_value_from_storage`.
 fn ser_owned_frozen_value_into_storage(

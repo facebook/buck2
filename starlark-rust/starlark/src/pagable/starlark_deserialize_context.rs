@@ -18,6 +18,8 @@
 //! Implementation of StarlarkDeserializeContext.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
@@ -39,8 +41,10 @@ use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableDeserializerRecipe;
+use pagable::PageInScope;
 use pagable::PageInState;
 use pagable::StorageState;
+use pagable::storage::data::DataKey;
 use pagable::storage::handle::PagableStorageHandle;
 
 use crate::pagable::DeserTypeId;
@@ -291,18 +295,30 @@ struct HeapArenaState {
     serialization_index_dirty: bool,
 }
 
-/// Locked pointer to the owning `FrozenFrozenHeap`'s arena plus the
-/// information needed to lazily parse this heap's slot metadata from its
-/// recipe. The metadata is materialized only on first `try_claim`.
+/// A heap's header once loaded: how to reopen its row, and where the lazily
+/// parsed slot metadata starts within it. The dependencies the header names
+/// are bound on the heap itself.
+#[derive(Allocative)]
+struct HeapHeaderState {
+    recipe: Arc<dyn PagableDeserializerRecipe>,
+    metadata_start: PagableCursor,
+}
+
+/// The owning `FrozenFrozenHeap`'s arena and the information needed to lazily
+/// parse this heap's slot metadata from its row. A restored heap passes
+/// through stages, each on first need: skeleton, header loaded, slot metadata
+/// parsed, values restored one by one.
 #[derive(Allocative)]
 pub(crate) struct HeapDeserializationState {
     heap_id: HeapRefId,
-    /// Scope state that owns cross-heap resolution for this heap's recipe.
+    /// Scope state that owns cross-heap resolution for this heap's row.
     scope: Arc<StarlarkDeserScope>,
-    /// Cursor within the recipe's data where the lazy metadata region starts
-    metadata_start: PagableCursor,
-    /// Reopen this heap's data to lazily parse metadata.
-    recipe: Arc<dyn PagableDeserializerRecipe>,
+    /// Where the row is, for a skeleton bound from a ref list without reading
+    /// it. `None` when the row was read in place.
+    #[allocative(skip)]
+    row_key: Option<(DataKey, PageInScope)>,
+    /// The header, once loaded.
+    header: OnceLock<HeapHeaderState>,
     /// Locked pointer into the owning `FrozenFrozenHeap`'s arena and the state
     /// needed to refresh its serialization index after lazy allocation.
     arena: Mutex<HeapArenaState>,
@@ -323,24 +339,14 @@ impl HeapDeserializationState {
     pub(crate) unsafe fn new(
         scope: Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        metadata_start: PagableCursor,
-        recipe: Arc<dyn PagableDeserializerRecipe>,
+        row_key: Option<(DataKey, PageInScope)>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
-        // Counts blob fetched-and-retained, whether or not any value is ever
-        // claimed — dependency-only heaps land here too.
-        if partial_deser_stats::enabled() {
-            partial_deser_stats::add(&partial_deser_stats::HEAPS_LOADED, 1);
-            partial_deser_stats::add(
-                &partial_deser_stats::HEAP_RETAINED_BLOB_BYTES,
-                recipe_retained_data_len(&*recipe),
-            );
-        }
         Self {
             scope,
             heap_id,
-            metadata_start,
-            recipe,
+            row_key,
+            header: OnceLock::new(),
             arena: Mutex::new(HeapArenaState {
                 // SAFETY: caller's contract — `arena` is a valid pointer.
                 arena: unsafe { NonNull::new_unchecked(arena as *mut _) },
@@ -352,6 +358,58 @@ impl HeapDeserializationState {
 
     pub(crate) fn unregister_heap(&self, heap_ptr: FrozenHeapPtr) {
         self.scope.unregister_heap(self.heap_id, heap_ptr);
+    }
+
+    /// Where the row is, if it is still in storage.
+    pub(crate) fn row_key(&self) -> Option<(DataKey, &PageInScope)> {
+        self.row_key
+            .as_ref()
+            .map(|(key, page_in_scope)| (*key, page_in_scope))
+    }
+
+    /// Whether the header is loaded: the heap's dependencies are bound and the
+    /// recipe continuing into its slot metadata is retained. Slot metadata and
+    /// values may still be unread.
+    pub(crate) fn row_read(&self) -> bool {
+        self.header.get().is_some()
+    }
+
+    /// Record the header as loaded. Two loaders of one header record the same
+    /// thing; the heap, and its retained bytes, are counted once, for the load
+    /// kept.
+    pub(crate) fn set_row(
+        &self,
+        recipe: Arc<dyn PagableDeserializerRecipe>,
+        metadata_start: PagableCursor,
+    ) {
+        let header = HeapHeaderState {
+            recipe,
+            metadata_start,
+        };
+        if self.header.set(header).is_err() {
+            return;
+        }
+        // Counts rows read and retained, whether or not any value is ever
+        // claimed - a dependency read for its own dependencies lands here too.
+        if partial_deser_stats::enabled() {
+            partial_deser_stats::add(&partial_deser_stats::HEAPS_LOADED, 1);
+            if let Some(header) = self.header.get() {
+                partial_deser_stats::add(
+                    &partial_deser_stats::HEAP_RETAINED_BLOB_BYTES,
+                    recipe_retained_data_len(&*header.recipe),
+                );
+            }
+        }
+    }
+
+    fn header(&self) -> crate::Result<&HeapHeaderState> {
+        self.header.get().ok_or_else(|| {
+            anyhow::anyhow!(
+                "heap {:?}: values requested before its header was loaded",
+                self.heap_id
+            )
+            .into()
+        })
     }
 
     /// Number of values in this heap.
@@ -366,10 +424,11 @@ impl HeapDeserializationState {
         &self,
         storage: &PagableStorageHandle,
     ) -> crate::Result<(HeapMetadata, Option<partial_deser_stats::MetadataStats>)> {
-        let mut de = self.recipe.open(storage);
-        // SAFETY: `metadata_start` was captured during `deserialize_skeleton`
-        // from this recipe's data; it is a valid position in the recipe.
-        unsafe { de.seek(self.metadata_start) };
+        let row = self.header()?;
+        let mut de = row.recipe.open(storage);
+        // SAFETY: `metadata_start` was captured while reading this row; it is
+        // a valid position in the recipe.
+        unsafe { de.seek(row.metadata_start) };
 
         let total_count = u32::pagable_deserialize(&mut *de)? as usize;
         let drop_value_count = u32::pagable_deserialize(&mut *de)? as usize;
@@ -412,7 +471,7 @@ impl HeapDeserializationState {
         // Recorded by `metadata` only for the parse that is kept: two threads
         // can race to parse one heap, and counting here would count it twice.
         let stats = partial_deser_stats::enabled().then(|| partial_deser_stats::MetadataStats {
-            retained_blob_bytes: recipe_retained_data_len(&*self.recipe),
+            retained_blob_bytes: recipe_retained_data_len(&*row.recipe),
             values: total_count as u64,
             // Walks every slot, so it is behind the same branch.
             value_alloc_bytes: slots.iter().map(|s| s.alloc_size.get() as u64).sum(),
@@ -796,8 +855,10 @@ mod partial_deser_stats {
 /// A snapshot of [`starlark_partial_deser_stats`].
 #[derive(Debug, Clone, Copy, Dupe, Default, PartialEq, Eq)]
 pub struct PartialDeserStats {
-    /// Heaps whose blob has been fetched and retained, including heaps pulled in
-    /// only as another heap's dependency.
+    /// Heaps restored from storage to the header-loaded stage: dependencies
+    /// bound and the row's recipe retained, slot metadata and values still
+    /// lazy. A skeleton bound without a load is not counted; a heap loaded
+    /// only as another heap's dependency is.
     pub heaps_loaded: u64,
     /// Serialized bytes those blobs held so any value in them could still be
     /// claimed later. Cumulative like the rest: bytes are not subtracted when
@@ -1082,6 +1143,70 @@ impl StarlarkDeserScope {
             .get(heap_id)
             .and_then(|heap| heap.upgrade())
     }
+
+    /// Bound heaps whose rows are still in storage, so whose dependencies are
+    /// not bound yet.
+    fn unread_heaps(&self) -> Vec<FrozenHeapArc> {
+        self.heap_bindings
+            .iter()
+            .filter_map(|entry| entry.value().upgrade())
+            .filter(|heap| !heap.row_read())
+            .collect()
+    }
+}
+
+/// Bind a heap a pointer names but nothing has bound yet.
+///
+/// Two places a heap can be. A heap whose row was written or read on this
+/// storage is in the [`StarlarkHeapKeyIndex`], whatever lists it - or nothing
+/// does, as for a value relocated into a shared row. Otherwise it sits below a
+/// skeleton: a pointer from a value in `origin` only ever names a heap in
+/// `origin`'s closure, and every heap whose row has been read has its direct
+/// dependencies bound, so reading rows breadth-first from `origin` reaches it.
+///
+/// Either way `origin` ends up holding the target: a heap read on the walk
+/// retains what it lists, and one found through the index is retained by
+/// `origin` directly, since no ref list of `origin`'s accounts for it. Without
+/// an origin the walk starts from every unread heap in the scope instead,
+/// which still terminates but leaves retention to the arc cache.
+///
+/// [`StarlarkHeapKeyIndex`]: crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex
+#[cold]
+fn resolve_missing_heap(
+    scope: &Arc<StarlarkDeserScope>,
+    storage: &PagableStorageHandle,
+    page_in_scope: &PageInScope,
+    origin: Option<&FrozenHeapArc>,
+    heap_id: HeapRefId,
+) -> crate::Result<FrozenHeapArc> {
+    if let Some(found) = load_and_bind_heap_by_id(scope, storage, page_in_scope, heap_id)? {
+        if let Some(origin) = origin {
+            origin.retain_dependency(&found);
+        }
+        return Ok(found);
+    }
+
+    let mut queue: VecDeque<FrozenHeapArc> = match origin {
+        Some(origin) => VecDeque::from([origin.dupe()]),
+        None => scope.unread_heaps().into(),
+    };
+    let mut seen: HashSet<FrozenHeapPtr> = HashSet::new();
+    while let Some(heap) = queue.pop_front() {
+        let Some(ptr) = heap.downgrade().map(|weak| weak.heap_ptr()) else {
+            continue;
+        };
+        if !seen.insert(ptr) {
+            continue;
+        }
+        if !heap.row_read() {
+            heap.ensure_row_read(scope, storage)?;
+            if let Some(found) = scope.get_heap(&heap_id) {
+                return Ok(found);
+            }
+        }
+        queue.extend(heap.refs_slice().iter().map(|dep| dep.heap_arc().dupe()));
+    }
+    Err(PagableError::HeapNotBoundInPageInScope { heap_id }.into())
 }
 
 /// Concrete implementation of StarlarkDeserializeContext.
@@ -1093,7 +1218,9 @@ pub(crate) struct StarlarkDeserializerImpl<'a, 'de, 'fv> {
     /// Shared registry of per-heap deserialization state. Cross-heap pointer
     /// resolution looks up the target heap by `heap_id` here.
     scope: Arc<StarlarkDeserScope>,
-    /// Retains heaps referenced by values being restored into this owner.
+    /// The heap whose values this context deserializes, when known: where a
+    /// pointer into a heap not bound yet is looked for, and what retains it
+    /// once found (see `resolve_missing_heap`).
     origin: Option<FrozenHeapArc>,
     /// The brand this context deserializes at; see [`recover_from_pagable`](Self::recover_from_pagable).
     brand: PhantomData<Value<'fv>>,
@@ -1121,8 +1248,10 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
         Self::recover_from_pagable_impl(deserializer, None, f)
     }
 
-    /// Recover a context whose values are owned by `origin`. Identity-resolved
-    /// dependencies are retained by that heap, including scope-cache hits.
+    /// [`recover_from_pagable`](Self::recover_from_pagable) for a context
+    /// whose values are known to live in `origin`. Prefer it wherever the
+    /// heap is known: it is what lets a pointer into a heap not bound yet be
+    /// found, and retained, on `origin`'s behalf.
     pub(crate) fn recover_from_pagable_in<R>(
         deserializer: &mut dyn PagableDeserializer<'de>,
         origin: &FrozenHeapArc,
@@ -1201,13 +1330,13 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
     ) -> crate::Result<Value<'fv>> {
         let target_heap = match self.scope.get_heap(&heap_id) {
             Some(heap) => heap,
-            None => load_and_bind_heap_by_id(
+            None => resolve_missing_heap(
                 &self.scope,
                 &self.pagable.storage(),
                 self.pagable.page_in_scope(),
+                self.origin.as_ref(),
                 heap_id,
-            )?
-            .ok_or(PagableError::HeapNotBoundInPageInScope { heap_id })?,
+            )?,
         };
         if let Some(origin) = &self.origin {
             origin.retain_dependency(&target_heap);
@@ -1238,6 +1367,9 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
 
         let storage = self.pagable.storage();
 
+        // A skeleton bound from a ref list has not read its row, which is where
+        // its values and its own dependencies are.
+        target_heap.ensure_row_read(&self.scope, &storage)?;
         let value_count = target_state.value_count(&storage)?;
         if value_index as usize >= value_count {
             return Err(anyhow::anyhow!(
@@ -1278,7 +1410,7 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
 
                 // `recipe.open()` produces a fresh deserializer so concurrent `ensure_initialized`
                 // calls on the same heap have independent cursors.
-                let recipe = target_state.recipe.dupe();
+                let recipe = target_state.header()?.recipe.dupe();
 
                 let result = {
                     let mut de = recipe.open(&storage);

@@ -18,6 +18,7 @@
 //! A sealed frozen heap: the shared allocation behind an [`OwnedFrozen`], its wire format for
 //! paging, and the diagnostics for a value that cannot be located.
 
+use std::any::TypeId;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
@@ -34,11 +35,13 @@ use std::sync::Weak;
 use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use dupe::Dupe;
+use pagable::DataKey;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::PageInScope;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
 use pagable::arc_erase::ArcEraseDyn;
@@ -229,14 +232,21 @@ struct FrozenFrozenHeap {
     // load-bearing frozen-value pointer identity. Remove this once distinct equal-content
     // allocations are interchangeable; the nonce prevents independent serializations from
     // sharing a `DataKey`.
-    serialization_nonce: HeapSerializationNonce,
+    #[allocative(skip)]
+    serialization_nonce: OnceLock<HeapSerializationNonce>,
     arena: Arena<ChunkAllocator>,
-    refs: Box<[OwnedFrozen<()>]>,
-    /// Dependencies discovered through identity lookup, outside the serialized ref list.
-    retained: Mutex<Vec<OwnedFrozen<()>>>,
+    /// Unset for a heap restored from storage whose row has not been read:
+    /// its dependencies are unknown until something resolves into it.
+    refs: LazyHeapRefs,
     // TODO(nero): remove Option here, make it required.
     #[allocative(skip)] // We don't really expect it to be big
-    name: Option<FrozenHeapName>,
+    name: OnceLock<FrozenHeapName>,
+    /// Heaps retained beyond the ref list: targets of pointers from this heap's
+    /// values that were bound by identity rather than through a ref list, and
+    /// so are held here by the heap that uses them. Shared allocations,
+    /// accounted where they are owned.
+    #[allocative(skip)]
+    retained: Mutex<Vec<OwnedFrozen<()>>>,
     peak_allocated_bytes: Option<usize>,
     /// Live serialization states this heap is registered with. Production
     /// paging creates at most one `StarlarkSerState` per process, so at most
@@ -251,6 +261,32 @@ struct FrozenFrozenHeap {
     ser_states: Mutex<Vec<Weak<StarlarkSerState>>>,
     #[allocative(skip)]
     deser_state: OnceLock<Arc<HeapDeserializationState>>,
+}
+
+/// A heap's dependencies, set once: at seal for a heap built here, when its
+/// row is read for a heap restored from storage.
+#[derive(Default)]
+struct LazyHeapRefs(OnceLock<Box<[OwnedFrozen<()>]>>);
+
+impl LazyHeapRefs {
+    fn resident(refs: Box<[OwnedFrozen<()>]>) -> Self {
+        Self(OnceLock::from(refs))
+    }
+
+    /// The dependencies, or none while the row is unread.
+    fn get(&self) -> &[OwnedFrozen<()>] {
+        self.0.get().map_or(&[], |refs| refs)
+    }
+}
+
+impl Allocative for LazyHeapRefs {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        if let Some(refs) = self.0.get() {
+            visitor.visit_field(allocative::Key::new("refs"), refs);
+        }
+        visitor.exit();
+    }
 }
 
 /// Process-local identity of an exact `FrozenFrozenHeap` allocation.
@@ -293,9 +329,49 @@ impl FrozenFrozenHeap {
     /// See [`FrozenHeapArc::heap_ref_id`].
     fn heap_ref_id(&self) -> Option<HeapRefId> {
         Some(HeapRefId::new(
-            self.name.as_ref()?,
-            self.serialization_nonce,
+            self.name.get()?,
+            *self.serialization_nonce.get()?,
         ))
+    }
+
+    /// A heap with a known identity and an empty arena, as restored from
+    /// storage before its header is loaded. Its dependencies and values
+    /// arrive with the row.
+    fn new_from_identity(name: FrozenHeapName, nonce: HeapSerializationNonce) -> Self {
+        FrozenFrozenHeap {
+            serialization_nonce: OnceLock::from(nonce),
+            arena: Arena::default(),
+            refs: LazyHeapRefs::default(),
+            name: OnceLock::from(name),
+            retained: Mutex::new(Vec::new()),
+            peak_allocated_bytes: None,
+            ser_states: Mutex::new(Vec::new()),
+            deser_state: OnceLock::new(),
+        }
+    }
+
+    /// Give a restored heap its deserialization state. `blob_key` is `Some`
+    /// for a skeleton whose row is still in storage.
+    ///
+    /// The arc is a stable allocation: `HeapDeserializationState` holds a raw
+    /// pointer into `arena`, so the address must not move.
+    fn install_deser_state(
+        heap: &PartialPagableArc<Self>,
+        scope: &Arc<StarlarkDeserScope>,
+        heap_id: HeapRefId,
+        blob_key: Option<(DataKey, PageInScope)>,
+    ) {
+        let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
+        // SAFETY: `arena_ptr` points into `*heap`, whose arc keeps the state
+        // and arena in one allocation lifetime; state lookup retains the heap
+        // before borrowing this state.
+        let state = Arc::new(unsafe {
+            HeapDeserializationState::new(scope.dupe(), heap_id, blob_key, arena_ptr)
+        });
+        assert!(
+            heap.deser_state.set(state).is_ok(),
+            "a deserialized heap state must only be initialized once",
+        );
     }
 
     fn register_ser_state(&self, state: &Arc<StarlarkSerState>) -> pagable::Result<()> {
@@ -345,13 +421,19 @@ impl FrozenFrozenHeap {
     fn serialize_inner(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         let heap_name = self
             .name
-            .as_ref()
+            .get()
             .expect("The name of the FrozenFrozenHeap should exist in starlark pagable serialize");
         heap_name.pagable_serialize(serializer)?;
-        self.serialization_nonce.pagable_serialize(serializer)?;
+        // A restored heap reuses its data key, so only a heap built here -
+        // whose nonce and refs were set at seal - reaches this point.
+        self.serialization_nonce
+            .get()
+            .expect("a heap serialized from its arena was sealed here")
+            .pagable_serialize(serializer)?;
 
-        self.refs.len().pagable_serialize(serializer)?;
-        for heap_ref in self.refs.iter() {
+        let refs = self.refs.get();
+        refs.len().pagable_serialize(serializer)?;
+        for heap_ref in refs.iter() {
             heap_ref.pagable_serialize(serializer)?;
         }
 
@@ -464,24 +546,26 @@ impl FrozenFrozenHeap {
         Ok(())
     }
 
-    /// Read the heap identity prefix; pair with [`deserialize_skeleton`](Self::deserialize_skeleton).
-    pub fn deserialize_heap_identity<'de, D: PagableDeserializer<'de> + ?Sized>(
+    /// Read a heap row after its identity into `heap`: dependencies - bound
+    /// into `scope` - and the body header, which the lazily parsed body
+    /// is skipped by. Returns where that body starts.
+    ///
+    /// A dependency named by key becomes a skeleton: bound and retained from
+    /// here on, read only if something resolves into it. Where the backend
+    /// cannot name it by key it is read now, as it always was.
+    fn read_row_rest<'de, D: PagableDeserializer<'de> + ?Sized>(
+        heap: &PartialPagableArc<Self>,
         deserializer: &mut D,
-    ) -> crate::Result<(HeapRefId, FrozenHeapName, HeapSerializationNonce)> {
-        let name = FrozenHeapName::pagable_deserialize(deserializer)?;
-        let serialization_nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
-        let heap_id = HeapRefId::new(&name, serialization_nonce);
-        Ok((heap_id, name, serialization_nonce))
-    }
-
-    /// Deserialize the heap references and advance past the lazily-read body.
-    fn deserialize_refs_and_skip_body<'de, D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> crate::Result<(Box<[OwnedFrozen<()>]>, PagableCursor)> {
+        scope: &Arc<StarlarkDeserScope>,
+    ) -> crate::Result<PagableCursor> {
         let refs_count = usize::pagable_deserialize(deserializer)?;
         let mut refs = Vec::with_capacity(refs_count);
         for _ in 0..refs_count {
-            refs.push(OwnedFrozen::<()>::pagable_deserialize(deserializer)?);
+            refs.push(FrozenHeapArc::deserialize_ref(
+                deserializer,
+                scope,
+                HeaderLoad::Deferred,
+            )?);
         }
 
         let mut header = [0u8; 8];
@@ -503,60 +587,10 @@ impl FrozenFrozenHeap {
             })
         };
 
-        Ok((refs.into_boxed_slice(), metadata_start))
-    }
-
-    /// Read refs + body header given an already-read `heap_id`, then seek
-    /// past the heap body. Returns a `PartialPagableArc<Self>` with an empty arena.
-    /// Slot metadata is parsed lazily on first `ensure_initialized` via the
-    /// recipe stashed in `HeapDeserializationState`. Values are materialized
-    /// on demand by [`StarlarkDeserializerImpl::ensure_initialized`].
-    ///
-    /// Returns a stable arc allocation directly: `HeapDeserializationState` holds a raw
-    /// pointer into `arena`, so the address must be stable.
-    /// `Arc::from(Box<T>)` would reallocate and dangle the pointer.
-    pub fn deserialize_skeleton<'de, D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-        heap_id: HeapRefId,
-        name: FrozenHeapName,
-        serialization_nonce: HeapSerializationNonce,
-        recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
-    ) -> crate::Result<PartialPagableArc<Self>> {
-        let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer.as_dyn());
-
-        // Refs are read eagerly — referenced heaps must be registered before
-        // any of this heap's values can be resolved later.
-        let (refs, metadata_start) = Self::deserialize_refs_and_skip_body(deserializer)?;
-
-        let heap = PartialPagableArc::new(FrozenFrozenHeap {
-            serialization_nonce,
-            arena: Arena::default(),
-            refs,
-            retained: Mutex::new(Vec::new()),
-            name: Some(name),
-            peak_allocated_bytes: None,
-            ser_states: Mutex::new(Vec::new()),
-            deser_state: OnceLock::new(),
-        });
-        let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
-
-        // SAFETY: `arena_ptr` points into `*heap`. The returned arc keeps
-        // the state and arena in the same allocation lifetime, and state lookup
-        // retains the heap before borrowing this state.
-        let deser_state = Arc::new(unsafe {
-            HeapDeserializationState::new(scope.dupe(), heap_id, metadata_start, recipe, arena_ptr)
-        });
-        assert!(
-            heap.deser_state.set(deser_state).is_ok(),
-            "a deserialized heap state must only be initialized once",
-        );
-
-        scope.register_heap(
-            heap_id,
-            WeakFrozenHeapRef(PartialPagableArc::downgrade(&heap)),
-        )?;
-
-        Ok(heap)
+        // Two threads can read one row; each produces the same skeletons
+        // through the arc cache, so whichever set lands is right.
+        let _ignored = heap.refs.0.set(refs.into_boxed_slice());
+        Ok(metadata_start)
     }
 }
 
@@ -631,44 +665,94 @@ impl PagableSerialize for FrozenHeapArc {
         // outside its own row, so page-in can know which heap a slot names
         // without reading the row.
         arc.name
-            .as_ref()
+            .get()
             .ok_or_else(|| pagable::Error::msg("a serialized frozen heap must have a name"))?
             .pagable_serialize(serializer)?;
-        arc.serialization_nonce.pagable_serialize(serializer)?;
+        arc.serialization_nonce
+            .get()
+            .expect("a heap sealed here or bound from a slot knows its nonce")
+            .pagable_serialize(serializer)?;
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_chunk_index_registered(self)?;
         serializer.serialize_arc(arc)
     }
 }
 
-/// Custom `deserialize_arc` callback stashes each heap's recipe in
-/// `HeapDeserializationState` keyed by `HeapRefId` for cross heap resolution.
+/// A heap handle outside a ref list - the owner ahead of an `OwnedFrozen`
+/// value, say. Read in full: its values are about to be resolved.
 impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
+        let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer.as_dyn());
+        Self::deserialize_ref(deserializer, &scope, HeaderLoad::Eager)
+            .map(|owned| owned.heap_arc().dupe())
+            .map_err(|e| e.into_anyhow())
+    }
+}
+
+/// When a heap handle's header - its dependencies and where its body starts -
+/// is loaded. Values are lazy either way.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HeaderLoad {
+    /// Before the handle is returned.
+    Eager,
+    /// When something first resolves into the heap, if ever.
+    Deferred,
+}
+
+impl FrozenHeapArc {
+    /// Read one serialized heap handle: tag, name, arc slot.
+    ///
+    /// With an eager `header` the heap's header is loaded before returning;
+    /// with a deferred one, a heap the backend can name by key is bound as a
+    /// skeleton and loaded only when something resolves into it. Either way
+    /// the heap and whatever of its graph is known are registered in `scope`.
+    /// Values are lazy in both cases.
+    fn deserialize_ref<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+        scope: &Arc<StarlarkDeserScope>,
+        header: HeaderLoad,
+    ) -> crate::Result<OwnedFrozen<()>> {
         let tag = u8::pagable_deserialize(deserializer)?;
-        match tag {
-            HEAP_REF_TAG_NONE => Ok(FrozenHeapArc::default()),
+        let heap = match tag {
+            HEAP_REF_TAG_NONE => FrozenHeapArc::default(),
             HEAP_REF_TAG_ARC => {
-                // The row is still read in full below and binds under its own
-                // identity; the slot's copy only has to agree with it.
                 let name = FrozenHeapName::pagable_deserialize(deserializer)?;
                 let nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
-                let slot_id = HeapRefId::new(&name, nonce);
-                let arc_box = deserializer.deserialize_arc(
-                    std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
-                    deserialize_heap_arc_with_recipe,
-                )?;
-                let heap = downcast_heap_arc(&*arc_box).map_err(|e| e.into_anyhow())?;
-                if heap.heap_ref_id() != Some(slot_id) {
-                    return Err(pagable::Error::msg(format!(
-                        "frozen heap: slot names {name} ({slot_id:?}) but its row holds {:?}",
-                        heap.heap_ref_id()
-                    )));
+                match take_arc_key(deserializer)? {
+                    Some(key) => {
+                        let heap = bind_skeleton(
+                            &deserializer.storage(),
+                            deserializer.page_in_scope(),
+                            scope,
+                            name,
+                            nonce,
+                            key,
+                        )?;
+                        if header == HeaderLoad::Eager {
+                            heap.ensure_row_read(scope, &deserializer.storage())?;
+                        }
+                        heap
+                    }
+                    None => {
+                        let arc_box = deserializer.deserialize_arc(
+                            TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
+                            deserialize_heap_arc_with_recipe,
+                        )?;
+                        let heap = downcast_heap_arc(&*arc_box)?;
+                        let slot_id = HeapRefId::new(&name, nonce);
+                        if heap.heap_ref_id() != Some(slot_id) {
+                            return Err(pagable::Error::msg(format!(
+                                "frozen heap: slot names {name} ({slot_id:?}) but its row holds {:?}",
+                                heap.heap_ref_id()
+                            ))
+                            .into());
+                        }
+                        heap.register_heap_graph_in_deser_scope(scope)?;
+                        heap
+                    }
                 }
-                heap.register_in_deser_scope(deserializer.as_dyn())?;
-                Ok(heap)
             }
             HEAP_REF_TAG_STATIC => {
                 let id = StaticHeapId::pagable_deserialize(deserializer)?;
@@ -681,27 +765,225 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
                     .dupe();
                 // Publish the live heap graph so cross-heap value pointers into it (or its
                 // dependencies) resolve.
-                heap.register_in_deser_scope(deserializer.as_dyn())?;
-                Ok(heap)
+                heap.register_heap_graph_in_deser_scope(scope)?;
+                heap
             }
-            _ => Err(pagable::Error::msg(format!(
-                "frozen heap: invalid wire tag {tag}"
-            ))),
+            _ => {
+                return Err(
+                    pagable::Error::msg(format!("frozen heap: invalid wire tag {tag}")).into(),
+                );
+            }
+        };
+        Ok(OwnedFrozen::for_heap(heap))
+    }
+
+    /// Load this heap's header if it is still in storage: its nonce, its
+    /// dependencies - bound into `scope` as skeletons - and where its body
+    /// starts. Slot metadata and values stay lazy, although the row's whole
+    /// serialized data is fetched to get at the header. A heap built here, or
+    /// one whose header is loaded, returns at once.
+    pub(crate) fn ensure_row_read(
+        &self,
+        scope: &Arc<StarlarkDeserScope>,
+        storage: &PagableStorageHandle,
+    ) -> crate::Result<()> {
+        let Some(arc) = &self.0 else {
+            return Ok(());
+        };
+        let Some(state) = arc.deser_state.get() else {
+            return Ok(());
+        };
+        if state.row_read() {
+            return Ok(());
+        }
+        let Some((key, page_in_scope)) = state.row_key() else {
+            return Ok(());
+        };
+        let recipe = fetch_row_recipe(storage, page_in_scope, key)?;
+        let metadata_start = {
+            let mut de = recipe.open(storage);
+            // The row repeats the identity the slot bound this skeleton under.
+            let name = FrozenHeapName::pagable_deserialize(&mut *de)?;
+            let nonce = HeapSerializationNonce::pagable_deserialize(&mut *de)?;
+            let row_id = HeapRefId::new(&name, nonce);
+            if arc.heap_ref_id() != Some(row_id) {
+                return Err(pagable::Error::msg(format!(
+                    "frozen heap: skeleton bound as {:?} but its row holds {name} ({row_id:?})",
+                    arc.heap_ref_id()
+                ))
+                .into());
+            }
+            FrozenFrozenHeap::read_row_rest(arc, &mut *de, scope)?
+        };
+        state.set_row(recipe, metadata_start);
+        Ok(())
+    }
+
+    /// Whether this heap's dependencies are known: always for a heap built
+    /// here, and for a restored one once its row has been read.
+    pub(crate) fn row_read(&self) -> bool {
+        self.0
+            .as_ref()
+            .is_none_or(|arc| arc.deser_state.get().is_none_or(|state| state.row_read()))
+    }
+
+    /// Heaps held beyond the ref list, see [`Self::retain_dependency`].
+    #[cfg(all(test, feature = "pagable", fbcode_build))]
+    pub(crate) fn retained_beyond_refs(&self) -> Vec<FrozenHeapArc> {
+        self.0.as_ref().map_or_else(Vec::new, |arc| {
+            arc.retained
+                .lock()
+                .expect("retained lock poisoned")
+                .iter()
+                .map(|r| r.heap_arc().dupe())
+                .collect()
+        })
+    }
+
+    /// The heaps a value in this heap may point into: the ref list and the
+    /// heaps retained beyond it, see [`Self::retain_dependency`].
+    pub(crate) fn dependency_heaps(&self) -> Vec<FrozenHeapArc> {
+        let Some(arc) = &self.0 else {
+            return Vec::new();
+        };
+        let retained = arc.retained.lock().expect("retained lock poisoned");
+        arc.refs
+            .get()
+            .iter()
+            .chain(retained.iter())
+            .map(|r| r.heap_arc().dupe())
+            .collect()
+    }
+
+    /// Hold `dep` alive for as long as this heap lives, for a pointer from a
+    /// value here into `dep` that no ref list accounts for.
+    ///
+    /// A value may point into a transitive dependency, which its own heap's ref
+    /// list does not name, and a lookup by identity may land in a heap outside
+    /// the serialized dependency graph altogether. Normally the chain of ref
+    /// lists keeps such a target alive, but lazy resolution can reach it before
+    /// that chain is rebuilt. Retaining it here, on a cache hit as much as on a
+    /// fetch, keeps its lifetime off the storage cache.
+    pub(crate) fn retain_dependency(&self, dep: &FrozenHeapArc) {
+        if self == dep {
+            return;
+        }
+        let Some(arc) = &self.0 else {
+            return;
+        };
+        if arc.refs.get().iter().any(|r| r.heap_arc() == dep) {
+            return;
+        }
+        let mut retained = arc.retained.lock().expect("retained lock poisoned");
+        if !retained.iter().any(|r| r.heap_arc() == dep) {
+            retained.push(OwnedFrozen::for_heap(dep.dupe()));
         }
     }
 }
 
-/// Creates a heap's lazy-deserialization state after the generic Arc cache misses.
+/// Bind the heap stored under `key` into `scope` without reading it.
+///
+/// The arc cache decides whether that is a new skeleton or a heap some earlier
+/// page-in already holds - possibly one that never left memory - so every
+/// referrer of the key shares one allocation. Whatever of the heap's graph is
+/// known is registered along with it.
+///
+/// Unreachable where the OSS build's published `pagable` predates the lazy
+/// binding API: without `take_arc_key` no key ever reaches here.
+#[cfg_attr(
+    not(fbcode_build),
+    expect(unused_variables, reason = "the fbcode-only body is the only reader")
+)]
+fn bind_skeleton(
+    storage: &PagableStorageHandle,
+    page_in_scope: &PageInScope,
+    scope: &Arc<StarlarkDeserScope>,
+    name: FrozenHeapName,
+    nonce: HeapSerializationNonce,
+    key: DataKey,
+) -> crate::Result<FrozenHeapArc> {
+    #[cfg(fbcode_build)]
+    {
+        let arc_box = storage.bind_arc_by_key_lazily(
+            key,
+            TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
+            || {
+                let heap_id = HeapRefId::new(&name, nonce);
+                let heap = PartialPagableArc::new(FrozenFrozenHeap::new_from_identity(name, nonce));
+                FrozenFrozenHeap::install_deser_state(
+                    &heap,
+                    scope,
+                    heap_id,
+                    Some((key, page_in_scope.dupe())),
+                );
+                Box::new(heap)
+            },
+        );
+        let heap = downcast_heap_arc(&*arc_box)?;
+        heap.register_heap_graph_in_deser_scope(scope)?;
+        Ok(heap)
+    }
+    #[cfg(not(fbcode_build))]
+    unreachable!("no heap is bound by key without `take_arc_key`")
+}
+
+/// See [`bind_skeleton`] for why this is fbcode-only.
+#[cfg_attr(
+    not(fbcode_build),
+    expect(unused_variables, reason = "the fbcode-only body is the only reader")
+)]
+fn fetch_row_recipe(
+    storage: &PagableStorageHandle,
+    page_in_scope: &PageInScope,
+    key: DataKey,
+) -> crate::Result<Arc<dyn pagable::PagableDeserializerRecipe>> {
+    #[cfg(fbcode_build)]
+    return storage
+        .fetch_recipe_blocking(page_in_scope, key)
+        .map_err(crate::Error::new_other);
+    #[cfg(not(fbcode_build))]
+    unreachable!("no row is left unread without `take_arc_key`")
+}
+
+/// `deserializer.take_arc_key()`, compiled out where the OSS build's published
+/// `pagable` predates the method. `None` there reads every heap eagerly, the
+/// behavior before skeletons.
+fn take_arc_key<'de, D: PagableDeserializer<'de> + ?Sized>(
+    deserializer: &mut D,
+) -> pagable::Result<Option<DataKey>> {
+    #[cfg(fbcode_build)]
+    return deserializer.take_arc_key();
+    #[cfg(not(fbcode_build))]
+    {
+        let _ = deserializer;
+        Ok(None)
+    }
+}
+
+/// `deserialize_arc` callback for a heap row read in place: builds the heap
+/// and reads the row before returning it. The recipe reopens the row for the
+/// lazily parsed body.
 pub(crate) fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
-    let (heap_id, name, serialization_nonce) =
-        FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
-    let arc =
-        FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, serialization_nonce, recipe)
-            .map_err(|e| e.into_anyhow())?;
-    Ok(Box::new(arc))
+    let scope = StarlarkDeserializerImpl::get_or_create_scope(de);
+    let name = FrozenHeapName::pagable_deserialize(de)?;
+    let nonce = HeapSerializationNonce::pagable_deserialize(de)?;
+    let heap_id = HeapRefId::new(&name, nonce);
+    let heap = PartialPagableArc::new(FrozenFrozenHeap::new_from_identity(name, nonce));
+    FrozenFrozenHeap::install_deser_state(&heap, &scope, heap_id, None);
+    let metadata_start =
+        FrozenFrozenHeap::read_row_rest(&heap, de, &scope).map_err(|e| e.into_anyhow())?;
+    heap.deser_state
+        .get()
+        .expect("installed above")
+        .set_row(recipe, metadata_start);
+    scope.register_heap(
+        heap_id,
+        WeakFrozenHeapRef(PartialPagableArc::downgrade(&heap)),
+    )?;
+    Ok(Box::new(heap))
 }
 
 /// Recover a `FrozenHeapArc` from the type-erased arc the arc cache hands out.
@@ -721,9 +1003,10 @@ fn downcast_heap_arc(arc: &dyn ArcEraseDyn) -> crate::Result<FrozenHeapArc> {
 impl Debug for FrozenFrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("FrozenHeap");
-        x.field("serialization_nonce", &self.serialization_nonce);
+        x.field("serialization_nonce", &self.serialization_nonce.get());
         x.field("bytes", &self.arena.allocated_bytes());
-        x.field("refs", &self.refs.len());
+        x.field("refs", &self.refs.get().len());
+        x.field("row_read", &self.refs.0.get().is_some());
         x.finish()
     }
 }
@@ -791,11 +1074,11 @@ impl FrozenHeapArc {
         peak_allocated_bytes: Option<usize>,
     ) -> Self {
         Self(Some(PartialPagableArc::new(FrozenFrozenHeap {
-            serialization_nonce: HeapSerializationNonce::random(),
+            serialization_nonce: OnceLock::from(HeapSerializationNonce::random()),
             arena,
-            refs,
+            refs: LazyHeapRefs::resident(refs),
+            name: name.map_or_else(OnceLock::new, OnceLock::from),
             retained: Mutex::new(Vec::new()),
-            name,
             peak_allocated_bytes,
             ser_states: Mutex::new(Vec::new()),
             deser_state: OnceLock::new(),
@@ -823,54 +1106,7 @@ impl FrozenHeapArc {
             .map(Arc::as_ref)
     }
 
-    /// The heaps a value in this heap may point into, including dependencies
-    /// discovered through identity lookup.
-    pub(crate) fn dependency_heaps(&self) -> Vec<FrozenHeapArc> {
-        let Some(arc) = &self.0 else {
-            return Vec::new();
-        };
-        let retained = arc.retained.lock().expect("retained lock poisoned");
-        arc.refs
-            .iter()
-            .chain(retained.iter())
-            .map(|r| r.heap_arc().dupe())
-            .collect()
-    }
-
-    /// Hold `dep` alive for as long as this heap lives, for a pointer from a
-    /// value here into `dep` that no ref list accounts for.
-    ///
-    /// A value may point into a transitive dependency, which its own heap's ref
-    /// list does not name, and a lookup by identity may land in a heap outside
-    /// the serialized dependency graph altogether. Normally the chain of ref
-    /// lists keeps such a target alive, but lazy resolution can reach it before
-    /// that chain is rebuilt. Retaining it here, on a cache hit as much as on a
-    /// fetch, keeps its lifetime off the storage cache.
-    pub(crate) fn retain_dependency(&self, dep: &FrozenHeapArc) {
-        if self == dep {
-            return;
-        }
-        let Some(arc) = &self.0 else {
-            return;
-        };
-        if arc.refs.iter().any(|r| r.heap_arc() == dep) {
-            return;
-        }
-        let mut retained = arc.retained.lock().expect("retained lock poisoned");
-        if !retained.iter().any(|r| r.heap_arc() == dep) {
-            retained.push(OwnedFrozen::for_heap(dep.dupe()));
-        }
-    }
-
-    fn register_in_deser_scope(
-        &self,
-        deserializer: &mut dyn PagableDeserializer<'_>,
-    ) -> pagable::Result<()> {
-        let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer);
-        self.register_heap_graph_in_deser_scope(&scope)
-    }
-
-    fn register_heap_graph_in_deser_scope(
+    pub(crate) fn register_heap_graph_in_deser_scope(
         &self,
         scope: &StarlarkDeserScope,
     ) -> pagable::Result<()> {
@@ -919,7 +1155,7 @@ impl FrozenHeapArc {
     }
 
     pub(crate) fn name(&self) -> Option<&FrozenHeapName> {
-        self.0.as_ref().and_then(|a| a.name.as_ref())
+        self.0.as_ref().and_then(|a| a.name.get())
     }
 
     /// The identity pointers into this heap are written against: its name and
@@ -931,13 +1167,15 @@ impl FrozenHeapArc {
 
     #[cfg(test)]
     pub(crate) fn serialization_nonce(&self) -> Option<HeapSerializationNonce> {
-        self.0.as_ref().map(|arc| arc.serialization_nonce)
+        self.0.as_ref()?.serialization_nonce.get().copied()
     }
 
-    /// The frozen heaps that this frozen heap depends on.
+    /// The frozen heaps that this frozen heap depends on. Empty for a heap
+    /// restored from storage whose row has not been read, see
+    /// [`Self::row_read`].
     pub(crate) fn refs_slice(&self) -> &[OwnedFrozen<()>] {
         match &self.0 {
-            Some(inner) => &inner.refs,
+            Some(inner) => inner.refs.get(),
             None => &[],
         }
     }
@@ -1054,7 +1292,7 @@ impl FrozenFrozenHeap {
         let heap_ptr = self as *const Self as usize;
         let heap_name = self
             .name
-            .as_ref()
+            .get()
             .map(ToString::to_string)
             .unwrap_or_else(|| "<unnamed>".to_owned());
 
@@ -1104,7 +1342,7 @@ impl FrozenFrozenHeap {
                 };
             }
 
-            for heap_ref in heap.refs.iter() {
+            for heap_ref in heap.refs.get().iter() {
                 if let Some(referenced_heap) = heap_ref.heap_arc().0.as_ref() {
                     pending.push(Deref::deref(referenced_heap));
                 }
@@ -1154,7 +1392,7 @@ impl FrozenFrozenHeap {
         error.with_context(format!(
             "serializing heap `{heap_name}` allocation {heap_ptr:#x} value_index {value_index} type `{value_type}`; source_heap_is_restored={}, direct_ref_count={}; {target_diagnostic}",
             self.deser_state.get().is_some(),
-            self.refs.len(),
+            self.refs.get().len(),
         ))
     }
 }
