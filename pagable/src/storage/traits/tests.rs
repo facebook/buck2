@@ -23,6 +23,8 @@ use crate::PagableDeserialize;
 use crate::PagableDeserializerRecipe;
 use crate::PagableSerialize;
 use crate::PagableTagged;
+use crate::PageInScope;
+use crate::PageInState;
 use crate::PartialPagableArc;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseType;
@@ -30,6 +32,8 @@ use crate::arc_erase::StdArcEraseType;
 use crate::storage::handle::PagableStorageHandle;
 use crate::storage::in_memory::InMemoryPagableStorage;
 use crate::storage::support::SerializerForPaging;
+use crate::testing::TestingDeserializer;
+use crate::testing::TestingSerializer;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
 
@@ -396,6 +400,134 @@ async fn deserialize_arc_does_not_duplicate() -> anyhow::Result<()> {
         total,
         total - num_items - 1,
     );
+    Ok(())
+}
+
+/// `take_arc_key` then `deserialize_arc_by_key` must be `deserialize_arc`
+/// in two steps: no bytes read, one slot consumed, and the same allocation
+/// restored as an eager read of the same arc.
+#[test]
+fn take_arc_key_then_deserialize_by_key_matches_deserialize_arc() -> anyhow::Result<()> {
+    struct ScopeState(AtomicUsize);
+    impl PageInState for ScopeState {}
+
+    fn deserialize_fn(
+        deserializer: &mut dyn PagableDeserializer<'_>,
+        recipe: Arc<dyn PagableDeserializerRecipe>,
+    ) -> crate::Result<Box<dyn ArcEraseDyn>> {
+        deserializer
+            .page_in_scope()
+            .get::<ScopeState>()
+            .expect("the callback must inherit the originating scope")
+            .0
+            .fetch_add(1, Ordering::SeqCst);
+        let storage = deserializer.storage();
+        let reopened = recipe.open(&storage);
+        assert!(PageInScope::ptr_eq(
+            deserializer.page_in_scope(),
+            reopened.page_in_scope(),
+        ));
+        Ok(Box::new(<Arc<Vec<u8>> as ArcErase>::deserialize_inner(
+            deserializer,
+        )?))
+    }
+
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let keys = serialize_shared_arc_items(&storage, 2)?;
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+
+    let data = storage.fetch_data_blocking(&keys[0])?;
+    let eager_data = storage.fetch_data_blocking(&keys[1])?;
+    storage.fetch_count.store(0, Ordering::SeqCst);
+    let mut de = handle.root_deserializer(keys[0], &data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let scope = de.page_in_scope().dupe();
+    let state = scope.get_or_init(|| ScopeState(AtomicUsize::new(0)));
+    let before = de.position();
+    let key = de.take_arc_key()?.expect("the item holds one arc slot");
+    let after = de.position();
+    assert_eq!(after.arc_index, before.arc_index + 1, "one slot consumed");
+    assert_eq!(
+        after.byte_pos, before.byte_pos,
+        "taking a key reads no bytes"
+    );
+    let error = de.take_arc_key().expect_err("no slot left to take");
+    assert_eq!(
+        error.to_string(),
+        "Arc slot index 1 out of bounds (1 slots)"
+    );
+    assert_eq!(
+        de.position(),
+        after,
+        "exhaustion must not advance the cursor"
+    );
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), 0);
+    drop(de);
+
+    let later =
+        handle.deserialize_arc_by_key(&scope, key, TypeId::of::<Arc<Vec<u8>>>(), deserialize_fn)?;
+    let later = later
+        .as_arc_any()
+        .downcast_ref::<Arc<Vec<u8>>>()
+        .expect("the slot holds an Arc<Vec<u8>>")
+        .dupe();
+    assert_eq!(later.as_slice(), &[0xAB; 1000]);
+    assert_eq!(state.0.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        storage.fetch_count.load(Ordering::SeqCst),
+        1,
+        "the by-key path must actually fetch and deserialize the cold arc"
+    );
+
+    let mut de = handle.root_deserializer(keys[1], &eager_data);
+    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    let eager: Arc<Vec<u8>> = crate::PagableDeserialize::pagable_deserialize(&mut de)?;
+    assert!(
+        Arc::ptr_eq(&eager, &later),
+        "both paths must restore the one cached allocation"
+    );
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), 1);
+    Ok(())
+}
+
+#[test]
+fn exhausted_arc_slots_preserve_cursor_and_report_context() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let data = PagableData {
+        data: vec![17],
+        arcs: Vec::new(),
+    };
+    let mut de = handle.root_deserializer(data.compute_key(), &data);
+    let before = de.position();
+    let error = de.take_arc_key().expect_err("there are no arc slots");
+    assert_eq!(
+        error.to_string(),
+        "Arc slot index 0 out of bounds (0 slots)"
+    );
+    let error = Arc::<Vec<u8>>::pagable_deserialize(&mut de).unwrap_err();
+    let message = format!("{error:#}");
+    assert!(message.contains("Deserializing arc with type"));
+    assert!(message.contains("Arc slot index 0 out of bounds (0 slots)"));
+    assert_eq!(de.position(), before);
+    assert_eq!(storage.fetch_count.load(Ordering::SeqCst), 0);
+    assert_eq!(u8::pagable_deserialize(&mut de)?, 17);
+    Ok(())
+}
+
+#[test]
+fn inline_arc_key_fallback_preserves_input() -> anyhow::Result<()> {
+    let value = Arc::new(vec![1u8, 2, 3]);
+    let mut ser = TestingSerializer::new();
+    value.pagable_serialize(&mut ser)?;
+    let bytes = ser.finish();
+    let mut de = TestingDeserializer::new(&bytes);
+    let before = de.position();
+    assert!(de.take_arc_key()?.is_none());
+    assert_eq!(de.position(), before, "unsupported lookup consumes nothing");
+    assert_eq!(Arc::<Vec<u8>>::pagable_deserialize(&mut de)?, value);
     Ok(())
 }
 

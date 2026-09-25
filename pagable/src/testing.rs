@@ -246,6 +246,12 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         }
     }
 
+    /// Arcs are identified inline in the byte stream here rather than by
+    /// `DataKey`, so there is no key to hand out.
+    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>> {
+        Ok(None)
+    }
+
     fn storage(&self) -> PagableStorageHandle {
         self.storage.dupe()
     }

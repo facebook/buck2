@@ -11,12 +11,12 @@
 use std::any::TypeId;
 use std::sync::Arc;
 
+use anyhow::Context;
 use dupe::Dupe;
 use postcard::ser_flavors::Flavor;
 
 use crate::PagableDeserializer;
 use crate::PagableDeserializerRecipe;
-use crate::PagableDeserializerRecipeImpl;
 use crate::PagableSerializer;
 use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
@@ -123,6 +123,18 @@ impl<'de, 's> PagableDeserializerImpl<'de, 's> {
             page_in_scope,
         }
     }
+
+    fn take_stored_arc_key(&mut self) -> crate::Result<DataKey> {
+        let key = self.arcs.get(self.arc_index).copied().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Arc slot index {} out of bounds ({} slots)",
+                self.arc_index,
+                self.arcs.len(),
+            )
+        })?;
+        self.arc_index += 1;
+        Ok(key)
+    }
 }
 
 impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
@@ -139,30 +151,14 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         let key = self
-            .arcs
-            .get(self.arc_index)
-            .ok_or_else(|| anyhow::anyhow!("No more arc keys available during deserialization"))?;
-        self.arc_index += 1;
+            .take_stored_arc_key()
+            .with_context(|| format!("Deserializing arc with type {type_id:?}"))?;
+        self.storage
+            .deserialize_arc_by_key(&self.page_in_scope, key, type_id, deserialize_fn)
+    }
 
-        let storage = self.storage.backing_storage();
-        if let Some(arc) = storage.arc_cache().get(&type_id, key) {
-            return Ok(arc);
-        }
-        let cell = storage.arc_cache().get_or_create_cell(type_id, *key);
-
-        // First thread to reach here deserializes; others block.
-        let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
-            let data = storage.fetch_data_blocking(key)?;
-            let mut deserializer = self.page_in_scope.deserializer(&data, self.storage);
-            // Build a recipe for deferred deserialization.
-            let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(
-                PagableDeserializerRecipeImpl::new(data.dupe(), self.page_in_scope.dupe()),
-            );
-            let arc = deserialize_fn(&mut deserializer, recipe)?;
-            storage.associate_arc_with_data_key(&*arc, *key);
-            Ok(arc)
-        })?;
-        Ok(arc.clone_dyn())
+    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>> {
+        self.take_stored_arc_key().map(Some)
     }
 
     fn position(&self) -> PagableCursor {
