@@ -17,8 +17,8 @@ python_binary(
 )
 
 python_binary(
-    name = "signing_context",
-    main = "signing_context_main.py",
+    name = "provisioning_manifest",
+    main = "provisioning_manifest_main.py",
     visibility = ["PUBLIC"],
     deps = [
         ":lib",

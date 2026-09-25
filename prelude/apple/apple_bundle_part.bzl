@@ -474,7 +474,7 @@ def assemble_bundle(
     ctx.actions.run(
         cmd_args(
             [
-                tools.signing_context,
+                tools.provisioning_manifest,
                 "--output",
                 signing_context_output.as_output(),
             ]

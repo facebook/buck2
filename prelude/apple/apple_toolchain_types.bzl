@@ -55,7 +55,7 @@ AppleToolsInfo = provider(
     # @unsorted-dict-items
     fields = {
         "assemble_bundle": provider_field(RunInfo),
-        "signing_context": provider_field(RunInfo),
+        "provisioning_manifest": provider_field(RunInfo),
         "resolve_signing_context": provider_field(RunInfo),
         "signing_info": provider_field(RunInfo),
         "split_arch_combine_dsym_bundles_tool": provider_field(RunInfo),
