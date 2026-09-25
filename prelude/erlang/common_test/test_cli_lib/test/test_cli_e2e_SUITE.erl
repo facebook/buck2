@@ -26,7 +26,7 @@ all() ->
     [test_list, test_try_make_path_relative].
 
 init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TestInfoFile = filename:join(PrivDir, <<"test_info">>),
 
     {ok, [ErlCmd]} = init:get_argument(progname),
