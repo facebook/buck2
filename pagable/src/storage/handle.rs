@@ -123,6 +123,51 @@ impl PagableStorageHandle {
         Ok(arc.clone_dyn())
     }
 
+    /// Bind an arc under `key` without fetching its row: the cached arc if one
+    /// exists, else the one `make` builds, which every later lookup of `key`
+    /// then shares.
+    ///
+    /// For an arc type that can stand in for its row before reading it — a
+    /// Starlark heap knows its identity from the slot that named it and reads
+    /// the rest on demand — so two referrers of the same key get one
+    /// allocation even though neither paid for a fetch.
+    pub fn bind_arc_by_key_lazily(
+        &self,
+        key: DataKey,
+        type_id: TypeId,
+        make: impl FnOnce() -> Box<dyn ArcEraseDyn>,
+    ) -> Box<dyn ArcEraseDyn> {
+        let storage = self.backing_storage();
+        if let Some(arc) = storage.arc_cache().get(&type_id, &key) {
+            return arc;
+        }
+        let cell = storage.arc_cache().get_or_create_cell(type_id, key);
+        // Keyed before it is published: a lookup that finds the arc must find
+        // its row's key on it, or a page-out in that window would serialize
+        // the arc itself in place of the row.
+        let arc = cell.get_or_init(|| {
+            let arc = make();
+            storage.associate_arc_with_data_key(&*arc, key);
+            arc
+        });
+        arc.clone_dyn()
+    }
+
+    /// Fetch the row under `key` as a recipe that reopens it in `page_in_scope`,
+    /// for a caller that will parse it itself rather than through
+    /// [`deserialize_arc_by_key`](Self::deserialize_arc_by_key).
+    pub fn fetch_recipe_blocking(
+        &self,
+        page_in_scope: &PageInScope,
+        key: DataKey,
+    ) -> crate::Result<Arc<dyn PagableDeserializerRecipe>> {
+        let data = self.backing_storage().fetch_data_blocking(&key)?;
+        Ok(Arc::new(PagableDeserializerRecipeImpl::new(
+            data,
+            page_in_scope.dupe(),
+        )))
+    }
+
     /// Storage-lifetime state, for a caller holding a handle rather than a
     /// deserializer.
     pub fn storage_context(&self) -> &StorageContext {

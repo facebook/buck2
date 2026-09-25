@@ -187,6 +187,8 @@ struct CountingStorage {
     inner: Arc<dyn PagableStorage>,
     fetch_count: AtomicUsize,
     store_count: AtomicUsize,
+    /// Set when an arc was already visible in the cache at the moment it was keyed.
+    keyed_while_visible: AtomicBool,
 }
 
 impl CountingStorage {
@@ -195,6 +197,7 @@ impl CountingStorage {
             inner,
             fetch_count: AtomicUsize::new(0),
             store_count: AtomicUsize::new(0),
+            keyed_while_visible: AtomicBool::new(false),
         }
     }
 }
@@ -203,6 +206,17 @@ impl CountingStorage {
 impl PagableStorage for CountingStorage {
     fn arc_cache(&self) -> &DeserializedArcCache {
         self.inner.arc_cache()
+    }
+
+    fn associate_arc_with_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
+        if self
+            .arc_cache()
+            .get(&arc.as_arc_any().type_id(), &key)
+            .is_some()
+        {
+            self.keyed_while_visible.store(true, Ordering::SeqCst);
+        }
+        self.inner.associate_arc_with_data_key(arc, key)
     }
 
     fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
@@ -529,6 +543,63 @@ fn inline_arc_key_fallback_preserves_input() -> anyhow::Result<()> {
     assert_eq!(de.position(), before, "unsupported lookup consumes nothing");
     assert_eq!(Arc::<Vec<u8>>::pagable_deserialize(&mut de)?, value);
     Ok(())
+}
+
+/// A lazily bound arc is created once per key and shared with every later
+/// binder, and an arc already cached under the key wins over `make`.
+#[test]
+fn bind_arc_by_key_lazily_shares_one_allocation() -> anyhow::Result<()> {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let key = DataKey::testing_new(7);
+    let made = Arc::new(AtomicUsize::new(0));
+
+    let make = |made: &Arc<AtomicUsize>| {
+        let made = made.dupe();
+        move || {
+            made.fetch_add(1, Ordering::SeqCst);
+            Box::new(Arc::new(vec![1u8, 2, 3])) as Box<dyn ArcEraseDyn>
+        }
+    };
+    let first = handle.bind_arc_by_key_lazily(key, TypeId::of::<Arc<Vec<u8>>>(), make(&made));
+    let second = handle.bind_arc_by_key_lazily(key, TypeId::of::<Arc<Vec<u8>>>(), make(&made));
+    assert_eq!(
+        made.load(Ordering::SeqCst),
+        1,
+        "the second binder reuses the first arc"
+    );
+    assert_eq!(
+        first.identity(),
+        second.identity(),
+        "one allocation under the key"
+    );
+    assert_eq!(
+        storage.fetch_count.load(Ordering::SeqCst),
+        0,
+        "binding lazily never fetches"
+    );
+    Ok(())
+}
+
+/// A lazily bound arc carries its row's key before any lookup can see it.
+#[test]
+fn lazily_bound_arc_is_keyed_before_it_is_visible() {
+    let mem = InMemoryPagableStorage::new();
+    let storage = Arc::new(CountingStorage::new(mem.handle()));
+    let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+    let key = DataKey::testing_new(11);
+    let type_id = TypeId::of::<PartialPagableArc<ResidentArcValue>>();
+
+    let bound = handle.bind_arc_by_key_lazily(key, type_id, || {
+        Box::new(PartialPagableArc::new(ResidentArcValue(1))) as Box<dyn ArcEraseDyn>
+    });
+
+    assert_eq!(bound.data_key(), Some(key));
+    assert!(
+        !storage.keyed_while_visible.load(Ordering::SeqCst),
+        "the arc was published to the cache before it was keyed"
+    );
 }
 
 /// Parallel `page_out_item` calls sharing the same `finished` map must
