@@ -66,7 +66,12 @@ object StubBytecodeRender {
 
     var flag =
         when (type) {
-          KStub.Type.ANNOTATION -> Opcodes.ACC_ANNOTATION
+          // ACC_ANNOTATION alone is not a valid annotation type: JVMS 4.1 requires ACC_INTERFACE
+          // (and therefore ACC_ABSTRACT) alongside it, and the class must implement
+          // java/lang/annotation/Annotation. A class carrying only ACC_ANNOTATION does not resolve
+          // in an annotation position, so the use site keeps failing even once the stub exists.
+          KStub.Type.ANNOTATION ->
+              Opcodes.ACC_ANNOTATION or Opcodes.ACC_INTERFACE or Opcodes.ACC_ABSTRACT
           KStub.Type.INTERFACE -> Opcodes.ACC_INTERFACE
           else -> Opcodes.ACC_SUPER
         }
@@ -119,6 +124,10 @@ object StubBytecodeRender {
     return "java/lang/Object"
   }
 
+  private fun KStub.interfaces(): Array<String>? {
+    return if (type == KStub.Type.ANNOTATION) arrayOf("java/lang/annotation/Annotation") else null
+  }
+
   fun KStub.signature(): String? {
     if (genericTypes == 0) return null
     return "<${(0 until genericTypes).map { "T$it:Ljava/lang/Object;" }.joinToString("")}>"
@@ -141,6 +150,9 @@ object StubBytecodeRender {
 
   private fun KStub.renderConstructor(visitor: ClassVisitor) {
     if (ctor == null) return
+    // An annotation type is an interface, and an interface has no <init>: emitting one makes the
+    // class file unverifiable, which would trade the unresolved use site for a worse failure.
+    if (type == KStub.Type.ANNOTATION) return
     visitor.visitMethod(
         Opcodes.ACC_PUBLIC,
         "<init>",
@@ -249,7 +261,7 @@ object StubBytecodeRender {
         stub.internalName(),
         stub.signature(),
         stub.superClass(),
-        null,
+        stub.interfaces(),
     )
 
     stub.apply {
