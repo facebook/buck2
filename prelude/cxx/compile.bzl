@@ -2069,6 +2069,9 @@ def _mk_argsfiles(
     # Create a copy of the args so that we can continue to modify it later.
     args_without_file_prefix_args = cmd_args(args_list)
 
+    # Holder, because the closure below cannot bind an enclosing name.
+    file_prefix_specs = []
+
     def make_file_prefix_argsfile():
         if is_precompile:
             # The precompile_args field overrides these.
@@ -2123,6 +2126,7 @@ def _mk_argsfiles(
                 format = "-specs={}",
                 hidden = specs_file_for_buck_action_rerun,
             )
+            file_prefix_specs.append(specs_file)
         else:
             prefix_ref = file_prefix_args
 
@@ -2173,6 +2177,7 @@ def _mk_argsfiles(
         cmd_form = cmd_form,
         args = args,
         args_without_file_prefix_args = args_without_file_prefix_args,
+        file_prefix_specs = file_prefix_specs[0] if file_prefix_specs else None,
     )
 
 def _mk_header_units_argsfile(

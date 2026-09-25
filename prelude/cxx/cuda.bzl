@@ -156,6 +156,16 @@ def cuda_distributed_compile(
         as_output(cuda_dist_output.nvcc_dag),
     ])
 
+    # The dry run never opens this file. It matches the flag, echoed as one
+    # `-specs=<path>` token, so the plan can carry a placeholder in place of a
+    # path that moves with the header closure.
+    file_prefix_specs = src_compile_cmd.cxx_compile_cmd.argsfile.file_prefix_specs
+    if file_prefix_specs != None:
+        cmd.add(
+            "-_NVCC_FILE_PREFIX_SPECS_",
+            cmd_args(file_prefix_specs, format = "-specs={}"),
+        )
+
     # Run nvcc with -dryrun to create the inputs needed for dist nvcc.
     actions.run(cmd, category = "cuda_compile_prepare", identifier = cuda_compile_info.identifier)
 
@@ -167,6 +177,7 @@ def cuda_distributed_compile(
             original_cmd = original_cmd,
             hostcc_argsfile = hostcc_argsfile,
             hostcc_argsfile_fingerprint = hostcc_argsfile_fingerprint,
+            file_prefix_specs = file_prefix_specs,
             plan_artifact = cuda_dist_output.nvcc_dag,
             env_artifact = cuda_dist_output.nvcc_env,
             output_declared_artifact = object,
@@ -302,6 +313,7 @@ def _nvcc_dynamic_compile(
     original_cmd: cmd_args,
     hostcc_argsfile: Artifact,
     hostcc_argsfile_fingerprint: Artifact | None,
+    file_prefix_specs: Artifact | None,
     plan_artifact: ArtifactValue,
     env_artifact: ArtifactValue,
     output_declared_artifact: OutputArtifact,
@@ -330,6 +342,17 @@ def _nvcc_dynamic_compile(
         )
     else:
         hostcc_wp_form = cmd_args(hostcc_argsfile, format = "-Wp,@{}")
+
+    # Rendering the specs as an artifact rather than the plan's literal path is
+    # what lets buck normalize it: its path moves with the header closure, and
+    # the flags it carries are covered by the argsfile fingerprint.
+    if file_prefix_specs != None and headers_dep_files != None:
+        specs_form = cmd_args(
+            headers_dep_files.tag.tag_artifacts(file_prefix_specs),
+            format = "-specs={}",
+        )
+    else:
+        specs_form = cmd_args(file_prefix_specs, format = "-specs={}")
 
     category_counts = {}
     for cmd_node in plan:
@@ -370,6 +393,10 @@ def _nvcc_dynamic_compile(
                 subcmd.add(cmd_args([left, bindable, right], delimiter = ""))
             elif token.startswith("-Wp,@"):
                 subcmd.add(hostcc_wp_form)
+            elif token == "{file_prefix_specs}":
+                if file_prefix_specs == None:
+                    fail("CUDA plan references file-prefix specs without a specs artifact")
+                subcmd.add(specs_form)
             else:
                 subcmd.add(token)
 
@@ -420,6 +447,7 @@ _nvcc_dynamic_compile_rule = dynamic_actions(
     attrs = {
         "cuda_compile_info": dynattrs.value(CudaCompileInfo),
         "env_artifact": dynattrs.artifact_value(),
+        "file_prefix_specs": dynattrs.option(dynattrs.value(Artifact)),
         "hostcc_argsfile": dynattrs.value(Artifact),
         "hostcc_argsfile_fingerprint": dynattrs.option(dynattrs.value(Artifact)),
         "original_cmd": dynattrs.value(cmd_args),

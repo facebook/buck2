@@ -18,6 +18,9 @@ CompileArgsfile = record(
     args = field(cmd_args),
     # Args aggregated for the argsfile excluding file prefix args (excludes shell quoting).
     args_without_file_prefix_args = field(cmd_args),
+    # The generated GCC specs file carrying the file-prefix-map flags, when the
+    # compiler takes them that way. None for compilers given the flags directly.
+    file_prefix_specs = field(Artifact | None, None),
 )
 
 CompileArgsfiles = record(
