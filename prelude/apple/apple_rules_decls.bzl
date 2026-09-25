@@ -1564,6 +1564,7 @@ apple_tools = prelude_rule(
         "selective_debugging_scrubber": attrs.exec_dep(providers = [RunInfo]),
         "signing_context": attrs.exec_dep(providers = [RunInfo]),
         "signing_context_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),
+        "signing_info": attrs.exec_dep(providers = [RunInfo]),
         "split_arch_combine_dsym_bundles_tool": attrs.exec_dep(providers = [RunInfo]),
         "spm_packager": attrs.exec_dep(providers = [RunInfo]),
         "static_archive_linker": attrs.exec_dep(providers = [RunInfo]),

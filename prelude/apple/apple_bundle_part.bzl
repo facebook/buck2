@@ -296,6 +296,22 @@ def assemble_bundle(
         )
         signing_context_path_arg = ["--signing-context-path", signing_context_path]
 
+    # Keep the signing-info subtarget independent from bundle assembly.
+    signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(
+            [
+                tools.signing_info,
+                "--signing-context-path",
+                signing_context_path,
+                "--output",
+                signing_info_output.as_output(),
+            ],
+        ),
+        category = "apple_signing_info",
+        error_handler = apple_build_error_handler,
+    )
+
     # - Always request codesign manifest, even if signing not required.
     #   Removes the need for conditional subtargets and fields in JSON output.
     #  - Manifest file name reflects whether signing is required or not.
@@ -379,9 +395,6 @@ def assemble_bundle(
     bundle_telemetry_logger = tools.bundle_telemetry_logger
     if bundle_telemetry_logger:
         command.add("--bundle-telemetry-logger", bundle_telemetry_logger)
-
-    signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
-    command.add("--signing-info-output", signing_info_output.as_output())
 
     ctx.actions.run(
         command,
