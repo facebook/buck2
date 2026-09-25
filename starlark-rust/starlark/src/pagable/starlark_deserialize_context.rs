@@ -30,6 +30,7 @@ use std::sync::MutexGuard;
 use std::sync::OnceLock;
 use std::sync::RwLock;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -57,6 +58,7 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::static_value::get_static_value_by_id;
 use crate::values::Value;
+use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
@@ -70,6 +72,7 @@ use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
 use crate::values::layout::heap::sealed::cached_heap_deserialization_state_retained_bytes;
 use crate::values::layout::heap::sealed::load_and_bind_heap_by_id;
 use crate::values::layout::heap::sealed::register_heap_key_index;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
@@ -124,8 +127,14 @@ impl DeserializeRecipe {
     /// Write the real vtable to the header, replacing the sentinel.
     /// Must be called after `starlark_deserialize` completes.
     pub(crate) unsafe fn write_vtable_to_header(&self) {
+        // Release store, paired with the acquire load an arena walk decodes
+        // headers with, so a walk sees the payload before the vtable.
+        // SAFETY: `header_ptr` is the claim's aligned header word.
         unsafe {
-            std::ptr::write(self.header_ptr, AValueHeader(self.vtable));
+            (*(self.header_ptr as *const AtomicPtr<AValueVTable>)).store(
+                self.vtable as *const AValueVTable as *mut AValueVTable,
+                Ordering::Release,
+            );
         }
     }
 }
@@ -317,7 +326,7 @@ pub(crate) struct HeapDeserializationState {
     /// Immutable pointer into the owning `FrozenFrozenHeap`'s arena.
     #[allocative(skip)]
     arena: NonNull<Arena<ChunkAllocator>>,
-    /// Serializes allocation and sentinel publication against other claims.
+    /// Serializes allocation and sentinel publication against claims and walks.
     claims: Mutex<()>,
     /// Whether a claim has allocated since the serialization index was last
     /// published; see `refresh_serialization_index`.
@@ -327,7 +336,8 @@ pub(crate) struct HeapDeserializationState {
 }
 
 // SAFETY: `arena` points into a heap-allocated `FrozenFrozenHeap` kept alive
-// for the state's lifetime; concurrent allocations are serialized by `claims`.
+// for the state's lifetime; `claims` serializes allocations and excludes walks
+// until each new slot has its sentinel header and size metadata.
 unsafe impl Sync for HeapDeserializationState {}
 unsafe impl Send for HeapDeserializationState {}
 
@@ -409,9 +419,25 @@ impl HeapDeserializationState {
         })
     }
 
-    /// Hold off allocation and sentinel publication while the guard lives.
+    /// Hold off claims while the guard lives: a claim allocates before writing
+    /// its header, and a walk in that window would read an unwritten word.
     pub(crate) fn hold_claims(&self) -> MutexGuard<'_, ()> {
         self.claims.lock().expect("claim lock poisoned")
+    }
+
+    /// Size of the claimed slot whose payload starts at `payload`, if any.
+    /// `try_claim` records this before writing the sentinel header.
+    pub(crate) fn uninitialized_slot_size(&self, payload: *const ()) -> Option<ValueAllocSize> {
+        let metadata = self.metadata.get()?;
+        let index = *metadata
+            .original_indices_by_payload
+            .read()
+            .expect("original index map lock poisoned")
+            .get(&(payload as usize))?;
+        let slot = metadata.slots.get(index as usize)?;
+        Some(ValueAllocSize::new(AlignedSize::new_bytes(
+            slot.alloc_size.get() as usize,
+        )))
     }
 
     /// Number of values in this heap.
@@ -543,20 +569,24 @@ impl HeapDeserializationState {
 
     pub(crate) fn refresh_serialization_index(
         &self,
-        is_registered: impl FnOnce() -> bool,
+        is_registered: impl Fn() -> bool,
         register: impl FnOnce(Vec<ChunkInfo>),
     ) {
-        let _claims_held = self.hold_claims();
         if !self.serialization_index_is_dirty() && is_registered() {
             return;
         }
-
-        // SAFETY: `arena` remains valid for this state's lifetime, and
-        // the lock excludes lazy allocation while the index is constructed.
-        let entries = unsafe { self.arena.as_ref().build_chunk_index() };
-        register(entries);
-        self.serialization_index_dirty
-            .store(false, Ordering::Release);
+        // SAFETY: `arena` remains valid for this state's lifetime.
+        let arena = unsafe { self.arena.as_ref() };
+        // Built and published under the claim hold, so the index is current
+        // when it lands; the flag clears only then.
+        arena.refresh_chunk_index(
+            || !self.serialization_index_is_dirty() && is_registered(),
+            |entries| {
+                register(entries);
+                self.serialization_index_dirty
+                    .store(false, Ordering::Release);
+            },
+        );
     }
 
     /// Try to claim a slot for deserialization.
@@ -611,6 +641,15 @@ impl HeapDeserializationState {
                 .as_ref()
                 .alloc_raw_one(slot.bump_kind, slot.alloc_size)
         };
+        let raw_ptr = StarlarkValueRawPtr::new_header_ptr(header_ptr);
+        // Indexed before the header is written, for walks that meet the sentinel.
+        m.original_indices_by_payload
+            .write()
+            .expect("original index map lock poisoned")
+            .insert(
+                raw_ptr.ptr as usize,
+                u32::try_from(index).expect("recipe index should fit in u32"),
+            );
         // SAFETY: sentinel vtable so any access before `starlark_deserialize`
         // would panic.
         unsafe {
@@ -619,16 +658,6 @@ impl HeapDeserializationState {
                 AValueHeader(AValueVTable::uninitialized_sentinel()),
             );
         }
-        // SAFETY: the claim owns this header. `payload_ptr` is address
-        // arithmetic and never reads the (still sentinel) vtable.
-        let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
-        m.original_indices_by_payload
-            .write()
-            .expect("original index map lock poisoned")
-            .insert(
-                raw_ptr.ptr as usize,
-                u32::try_from(index).expect("recipe index should fit in u32"),
-            );
         state.publish_in_progress(header_ptr);
         drop(claims_held);
 
@@ -1571,10 +1600,12 @@ pub(crate) fn resolve_in_loaded_heap(
 
 #[cfg(all(test, feature = "pagable"))]
 mod tests {
+    use std::cell::Cell;
     use std::sync::Arc;
     use std::sync::Barrier;
     use std::sync::TryLockError;
     use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
     use std::thread::ThreadId;
     use std::time::Duration;
@@ -1775,6 +1806,70 @@ mod tests {
             panic!("the cold slot must be unclaimed");
         };
         assert!(state.serialization_index_is_dirty());
+        let mut published = false;
+        state.refresh_serialization_index(
+            || true,
+            |entries| {
+                assert_eq!(
+                    entries
+                        .iter()
+                        .map(|chunk| chunk.payload_offsets.len())
+                        .sum::<usize>(),
+                    1
+                );
+                published = true;
+            },
+        );
+        assert!(published, "a new claim invalidates even a registered index");
+        assert!(!state.serialization_index_is_dirty());
+    }
+
+    #[test]
+    fn test_concurrent_index_refreshes_publish_once() {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+        });
+        let owner = heap.seal(FrozenHeapName::user("concurrent_index_refreshes"));
+        let mut ser = TestingSerializer::new();
+        owner.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        drop(owner);
+        let mut de = TestingDeserializer::new(&bytes);
+        let restored = OwnedFrozen::<()>::pagable_deserialize(&mut de).unwrap();
+        let state = restored.heap_arc().deser_state().unwrap();
+
+        // A clean arena still needs an initial registration in a new context.
+        state
+            .serialization_index_dirty
+            .store(false, Ordering::Release);
+        let registered = AtomicBool::new(false);
+        let publications = AtomicUsize::new(0);
+        let checked = Barrier::new(2);
+        std::thread::scope(|threads| {
+            for _ in 0..2 {
+                threads.spawn(|| {
+                    let first_check = Cell::new(true);
+                    state.refresh_serialization_index(
+                        || {
+                            let result = registered.load(Ordering::Acquire);
+                            if first_check.replace(false) {
+                                // Both requests observe the missing index before
+                                // either can acquire the lock and publish it.
+                                checked.wait();
+                            }
+                            result
+                        },
+                        |_| {
+                            publications.fetch_add(1, Ordering::Relaxed);
+                            registered.store(true, Ordering::Release);
+                        },
+                    );
+                });
+            }
+        });
+        assert!(registered.load(Ordering::Acquire));
+        assert_eq!(publications.load(Ordering::Relaxed), 1);
     }
 
     fn value_id(n: usize) -> HeapValueId {

@@ -66,13 +66,13 @@ use crate::pagable::static_value::get_static_heap_id;
 use crate::values::OwnedFrozen;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
+use crate::values::layout::heap::arena::ArenaEntry;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::arena::HeapKind;
 use crate::values::layout::heap::name::FrozenHeapName;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::layout::value::Value;
 
 #[cfg(fbcode_build)]
@@ -378,6 +378,7 @@ impl FrozenFrozenHeap {
         let state = Arc::new(unsafe {
             HeapDeserializationState::new(scope.dupe(), heap_id, source, arena_ptr)
         });
+        heap.arena.set_deserialization_state(state.dupe());
         assert!(
             heap.deser_state.set(state).is_ok(),
             "a deserialized heap state must only be initialized once",
@@ -1198,23 +1199,21 @@ impl FrozenHeapArc {
             .map(|heap| WeakFrozenHeapRef(PartialPagableArc::downgrade(heap)))
     }
 
-    /// The values in this heap, for the pagable static registry.
-    ///
-    /// The heap is a static, which is what the `'static` brand means.
-    pub(crate) fn iter_values(&'static self) -> impl Iterator<Item = Value<'static>> {
+    /// The initialized values in this heap, borrowed for the lifetime of the heap reference.
+    pub(crate) fn iter_values(&self) -> impl Iterator<Item = Value<'_>> {
         struct ValueCollector<'v>(Vec<Value<'v>>);
         let mut items = ValueCollector(Vec::new());
         if let Some(heap) = &self.0 {
             impl<'v> ArenaVisitor<'v> for ValueCollector<'v> {
                 fn enter_bump(&mut self) {}
 
-                fn regular_entry(&mut self, entry: &'v AValueHeapEntry) {
-                    self.0.push(unsafe {
-                        entry
-                            .value_header()
-                            .expect("static heap should contain only values")
-                            .unpack_value(HeapKind::Frozen)
-                    });
+                fn regular_entry(&mut self, entry: ArenaEntry<'v>) {
+                    if let ArenaEntry::Value(header) = entry {
+                        // SAFETY: the decoded entry is initialized and its frozen heap
+                        // remains borrowed for the lifetime of the returned value.
+                        self.0
+                            .push(unsafe { header.unpack_value(HeapKind::Frozen) });
+                    }
                 }
 
                 fn call_enter(&mut self, _function: Value<'v>, _time: ProfilerInstant) {}

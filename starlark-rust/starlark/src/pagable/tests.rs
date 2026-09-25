@@ -2674,6 +2674,448 @@ fn test_deserialize_field_error_includes_field_name() {
     );
 }
 
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("DropFieldErrorTestData")]
+struct DropFieldErrorTestData {
+    /// Needs drop, so the value lands in the bump the arena walks on drop.
+    owned: String,
+    bad_field: AlwaysFailDeserialize,
+}
+
+starlark_simple_value!(DropFieldErrorTestData);
+
+#[starlark_value(type = "DropFieldErrorTestData")]
+impl<'v> StarlarkValue<'v> for DropFieldErrorTestData {
+    type Canonical = Self;
+}
+
+/// A value that fails to deserialize leaves its slot without a payload; the
+/// heap, dropped on the way out of the failed page-in, must still walk past it.
+#[test]
+fn test_heap_drops_cleanly_after_a_drop_value_fails_to_deserialize() {
+    let heap = ErasingHeap::new();
+    let root = heap.alloc_simple(DropFieldErrorTestData {
+        owned: "owned".to_owned(),
+        bad_field: AlwaysFailDeserialize,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_failed_drop_slot"));
+
+    let err = round_trip_owned(heap_ref, root).expect_err("deserialization fails by construction");
+    assert!(
+        format!("{err:#}").contains("intentional test failure"),
+        "the page-in reports the value's own error, got: {err:#}"
+    );
+}
+
+/// Two roots into one heap, one of which fails to read back. Paged in
+/// together, the failed slot stays in the drop bump while the other root keeps
+/// the heap alive.
+fn page_in_heap_with_a_failed_slot() -> crate::Result<(
+    pagable::storage::in_memory::InMemoryPagableStorage,
+    OwnedFrozen<Value<'static>>,
+)> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let heap = ErasingHeap::new();
+    let good = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 5,
+    });
+    let bad = heap.alloc_simple(DropFieldErrorTestData {
+        owned: "owned".to_owned(),
+        bad_field: AlwaysFailDeserialize,
+    });
+    let owner = heap.into_ref_named(TestHeapName::heap_name("failed_slot_sibling"));
+    // SAFETY: `owner` owns the arena hosting both values.
+    let good_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner.clone(), good) };
+    let bad_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner, bad) };
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let mut ser = SerializerForPaging::new(storage.storage_context());
+    good_root
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    bad_root
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+    let key = storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+        .map_err(crate::Error::new_other)?;
+    storage.flush().map_err(crate::Error::new_other)?;
+    drop((good_root, bad_root));
+    storage.arc_cache().clear();
+
+    let handle = PagableStorageHandle::new(storage.clone());
+    let data = storage
+        .fetch_data_blocking(&key)
+        .map_err(crate::Error::new_other)?;
+    let mut de = handle.root_deserializer(key, &data);
+    let good =
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let failed = OwnedFrozen::<Value>::pagable_deserialize(&mut de);
+    assert!(
+        failed.is_err(),
+        "the second root's value fails to deserialize by construction"
+    );
+    Ok((backing, good))
+}
+
+/// A memory profile of a heap with a failed slot reports the slot as
+/// uninitialized instead of panicking, and page-out of a live value that
+/// points into the heap, which walks it for the chunk index, succeeds.
+#[test]
+fn test_walks_over_a_failed_slot_while_a_sibling_retains_the_heap() -> crate::Result<()> {
+    use allocative::FlameGraphBuilder;
+
+    let (backing, good) = page_in_heap_with_a_failed_slot()?;
+
+    let values: Vec<_> = good.owner().heap_arc().iter_values().collect();
+    assert_eq!(values.len(), 1, "the failed slot is not a readable value");
+    assert_eq!(values[0].downcast_ref::<SimpleData>().unwrap().count, 5);
+
+    let mut graph = FlameGraphBuilder::default();
+    graph.visit_root(&good);
+    let flamegraph = graph.finish().flamegraph().write();
+    assert!(
+        flamegraph.contains("UninitializedValue"),
+        "the failed slot's bytes are reported as uninitialized:\n{flamegraph}"
+    );
+    let summary = good.owner().heap_arc().allocated_summary();
+    assert!(
+        summary.summary.contains_key("UninitializedValue"),
+        "the per-type summary counts the failed slot: {:?}",
+        summary.summary.keys().collect::<Vec<_>>()
+    );
+
+    let live = ErasingHeap::new();
+    live.add_reference(good.owner());
+    let pointer = live.alloc_ref_data(1, erase(good.as_ref().value()));
+    let live_owner = live.into_ref_named(TestHeapName::heap_name("points_at_failed_slot_heap"));
+    // SAFETY: `live_owner` owns the arena hosting `pointer`; it retains `good`'s heap.
+    let live_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(live_owner, pointer) };
+    ser_owned_frozen_value_into_storage(&backing, &live_root)?;
+    Ok(())
+}
+
+/// Page-out builds a restored heap's pointer index while other threads are
+/// still claiming its slots; every index published must describe the arena
+/// as it is.
+#[test]
+fn test_serialization_index_keeps_up_with_concurrent_claims() -> crate::Result<()> {
+    use dupe::Dupe;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    const VALUES: usize = 12;
+    let heap = ErasingHeap::new();
+    let values: Vec<_> = (0..VALUES)
+        .map(|count| heap.alloc_simple(SimpleData { flag: true, count }))
+        .collect();
+    let owner = heap.into_ref_named(TestHeapName::heap_name("index_vs_claims"));
+    // SAFETY: `owner` owns the arena hosting every value.
+    let roots: Vec<OwnedFrozen<Value>> = values
+        .iter()
+        .map(|value| unsafe { OwnedFrozen::from_erased(owner.clone(), *value) })
+        .collect();
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let mut ser = SerializerForPaging::new(storage.storage_context());
+    for root in &roots {
+        root.pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+    }
+    let (data, arcs) = ser.finish();
+    let key = storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+        .map_err(crate::Error::new_other)?;
+    storage.flush().map_err(crate::Error::new_other)?;
+    drop(roots);
+    drop(owner);
+    storage.arc_cache().clear();
+
+    let handle = PagableStorageHandle::new(storage.clone());
+    let data = storage
+        .fetch_data_blocking(&key)
+        .map_err(crate::Error::new_other)?;
+    let first = {
+        let mut de = handle.root_deserializer(key, &data);
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?
+    };
+    let point_at = |target: &OwnedFrozen<Value<'static>>, name: String| {
+        let live = ErasingHeap::new();
+        live.add_reference(target.owner());
+        let pointer = live.alloc_ref_data(0, erase(target.as_ref().value()));
+        let live_owner = live.into_ref_named(TestHeapName::heap_name(&name));
+        // SAFETY: `live_owner` owns the arena hosting `pointer` and retains the target's heap.
+        unsafe { OwnedFrozen::<Value>::from_erased(live_owner, pointer) }
+    };
+
+    // Readers claim the remaining slots while page-outs rebuild the index.
+    let restored = std::thread::scope(|threads| {
+        let readers: Vec<_> = (1..VALUES)
+            .map(|n| {
+                let handle = handle.dupe();
+                let data = data.dupe();
+                threads.spawn(move || {
+                    let mut de = handle.root_deserializer(key, &data);
+                    let mut last = None;
+                    for _ in 0..=n {
+                        last = Some(OwnedFrozen::<Value>::pagable_deserialize(&mut de));
+                    }
+                    last.expect("at least one root is read")
+                })
+            })
+            .collect();
+        for i in 0..8 {
+            let live_root = point_at(&first, format!("index_vs_claims_live_{i}"));
+            ser_owned_frozen_value_into_storage(&backing, &live_root)
+                .expect("a page-out during claims succeeds");
+        }
+        readers
+            .into_iter()
+            .map(|reader| reader.join().expect("a reader must not panic"))
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .map_err(crate::Error::new_other)?;
+
+    let last = restored.last().expect("every root was read");
+    assert_eq!(
+        last.as_ref()
+            .value()
+            .downcast_ref::<SimpleData>()
+            .expect("the last root is SimpleData")
+            .count,
+        VALUES - 1
+    );
+    let live_root = point_at(last, "index_vs_claims_last".to_owned());
+    ser_owned_frozen_value_into_storage(&backing, &live_root)?;
+    Ok(())
+}
+
+/// A value whose deserialization parks until released, so a walk can be run
+/// while its slot is claimed but not yet written.
+struct ParkChannels {
+    parked: std::sync::mpsc::Sender<()>,
+    release: std::sync::mpsc::Receiver<()>,
+}
+
+static PARK: std::sync::Mutex<Option<ParkChannels>> = std::sync::Mutex::new(None);
+static PUBLISH_DURING_WALK: std::sync::Mutex<Option<ParkChannels>> = std::sync::Mutex::new(None);
+
+#[derive(Debug, Allocative)]
+struct ParkField;
+
+impl crate::pagable::StarlarkSerialize for ParkField {
+    fn starlark_serialize(
+        &self,
+        _ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        Ok(())
+    }
+}
+
+impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for ParkField {
+    fn starlark_deserialize(
+        _ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
+    ) -> crate::Result<Self> {
+        if let Some(channels) = PARK.lock().unwrap().take() {
+            channels.parked.send(()).ok();
+            channels.release.recv().ok();
+        }
+        Ok(ParkField)
+    }
+}
+
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize, StarlarkPagable)]
+#[display("ParkedData")]
+struct ParkedData {
+    owned: String,
+    park: ParkField,
+}
+
+impl Allocative for ParkedData {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        if self.owned == "walk gate" {
+            let publication = PUBLISH_DURING_WALK.lock().unwrap().take();
+            if let Some(channels) = publication {
+                channels.parked.send(()).unwrap();
+                channels
+                    .release
+                    .recv_timeout(std::time::Duration::from_secs(10))
+                    .expect("publication and a new claim must finish during the walk");
+            }
+        }
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        visitor.visit_field(allocative::Key::new("owned"), &self.owned);
+        visitor.visit_field(allocative::Key::new("park"), &self.park);
+        visitor.exit();
+    }
+}
+
+starlark_simple_value!(ParkedData);
+
+#[starlark_value(type = "ParkedData")]
+impl<'v> StarlarkValue<'v> for ParkedData {
+    type Canonical = Self;
+}
+
+/// Walk an unfinished slot, then let its writer finish and claim another slot
+/// inside a profiling callback. The snapshot must exclude the later allocation
+/// without blocking the writer or retaining shared references to mutable bytes.
+#[test]
+fn test_walks_over_a_slot_still_being_deserialized() -> crate::Result<()> {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use allocative::FlameGraphBuilder;
+    use dupe::Dupe;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let heap = ErasingHeap::new();
+    let plain = heap.alloc_simple(ParkedData {
+        owned: "walk gate".to_owned(),
+        park: ParkField,
+    });
+    let parked = heap.alloc_simple(ParkedData {
+        owned: "owned".to_owned(),
+        park: ParkField,
+    });
+    let later = heap.alloc_simple(ParkedData {
+        owned: "claimed during walk".to_owned(),
+        park: ParkField,
+    });
+    let owner = heap.into_ref_named(TestHeapName::heap_name("slot_in_progress"));
+    // SAFETY: `owner` owns the arena hosting all three values.
+    let plain_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner.clone(), plain) };
+    let parked_root: OwnedFrozen<Value> =
+        unsafe { OwnedFrozen::from_erased(owner.clone(), parked) };
+    let later_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner, later) };
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let mut ser = SerializerForPaging::new(storage.storage_context());
+    plain_root
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    parked_root
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    later_root
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+    let key = storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+        .map_err(crate::Error::new_other)?;
+    storage.flush().map_err(crate::Error::new_other)?;
+    drop((plain_root, parked_root, later_root));
+    storage.arc_cache().clear();
+
+    let handle = PagableStorageHandle::new(storage.clone());
+    let data = storage
+        .fetch_data_blocking(&key)
+        .map_err(crate::Error::new_other)?;
+    let plain = {
+        let mut de = handle.root_deserializer(key, &data);
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?
+    };
+
+    let (parked_tx, parked_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let (published_tx, published_rx) = mpsc::channel();
+    *PARK.lock().unwrap() = Some(ParkChannels {
+        parked: parked_tx,
+        release: release_rx,
+    });
+    let reader = {
+        let handle = handle.dupe();
+        let data = data.dupe();
+        std::thread::spawn(move || {
+            let mut de = handle.root_deserializer(key, &data);
+            let _plain = OwnedFrozen::<Value>::pagable_deserialize(&mut de)?;
+            let parked = OwnedFrozen::<Value>::pagable_deserialize(&mut de)?;
+            let later = OwnedFrozen::<Value>::pagable_deserialize(&mut de)?;
+            published_tx.send(()).unwrap();
+            pagable::Result::Ok((parked, later))
+        })
+    };
+    parked_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("the reader parks inside the second value");
+
+    let values: Vec<_> = plain.owner().heap_arc().iter_values().collect();
+    assert_eq!(values.len(), 1, "the in-progress slot is not yet readable");
+    assert_eq!(
+        values[0].downcast_ref::<ParkedData>().unwrap().owned,
+        "walk gate"
+    );
+
+    let mut graph = FlameGraphBuilder::default();
+    graph.visit_root(&plain);
+    let flamegraph = graph.finish().flamegraph().write();
+    assert!(
+        flamegraph.contains("UninitializedValue"),
+        "the slot being deserialized is reported as uninitialized:\n{flamegraph}"
+    );
+
+    *PUBLISH_DURING_WALK.lock().unwrap() = Some(ParkChannels {
+        parked: release_tx,
+        release: published_rx,
+    });
+    let summary = plain.owner().heap_arc().allocated_summary();
+    assert_eq!(
+        summary
+            .summary
+            .values()
+            .map(|counts| counts.count)
+            .sum::<usize>(),
+        2,
+        "the walk excludes the new claim made after its chunk snapshot"
+    );
+    let (restored, _later) = reader
+        .join()
+        .expect("the reader must not panic")
+        .map_err(crate::Error::new_other)?;
+    assert!(
+        restored
+            .as_ref()
+            .value()
+            .downcast_ref::<ParkedData>()
+            .is_some(),
+        "the parked value completes once released"
+    );
+    let values: Vec<_> = plain.owner().heap_arc().iter_values().collect();
+    assert_eq!(
+        values.len(),
+        3,
+        "the completed and newly claimed slots are now included"
+    );
+    assert_eq!(
+        values
+            .iter()
+            .filter_map(|v| v.downcast_ref::<ParkedData>())
+            .map(|v| v.owned.as_str())
+            .collect::<Vec<_>>(),
+        ["walk gate", "owned", "claimed during walk"]
+    );
+    Ok(())
+}
+
 #[starlark_derive::starlark_module]
 fn register_foo(builder: &mut GlobalsBuilder) {
     fn foo() -> anyhow::Result<i32> {

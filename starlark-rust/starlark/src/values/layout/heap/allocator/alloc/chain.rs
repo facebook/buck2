@@ -20,7 +20,6 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::ptr::NonNull;
-use std::slice;
 
 use static_assertions::assert_eq_size;
 
@@ -105,15 +104,6 @@ impl ChunkChain {
         match &self.chunk {
             Some(chunk) => chunk.end(),
             None => NonNull::new(EMPTY_DATA.as_ptr() as *mut usize).unwrap(),
-        }
-    }
-
-    pub(crate) fn data_bytes(&self) -> &[MaybeUninit<u8>] {
-        unsafe {
-            slice::from_raw_parts(
-                self.begin().cast().as_ptr(),
-                self.current_chunk_available_len().bytes() as usize,
-            )
         }
     }
 

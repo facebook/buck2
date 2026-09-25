@@ -19,6 +19,8 @@ use std::hash::Hash;
 use std::mem;
 use std::mem::ManuallyDrop;
 use std::ptr;
+use std::sync::atomic::AtomicPtr;
+use std::sync::atomic::Ordering;
 
 use dupe::Dupe;
 
@@ -171,6 +173,10 @@ pub(crate) union AValueHeapEntry {
 }
 
 const _: () = assert!(mem::size_of::<AValueHeapEntry>() == mem::size_of::<AValueHeader>());
+const _: () =
+    assert!(mem::size_of::<AValueHeapEntry>() == mem::size_of::<AtomicPtr<AValueVTable>>());
+const _: () =
+    assert!(mem::align_of::<AValueHeapEntry>() >= mem::align_of::<AtomicPtr<AValueVTable>>());
 
 impl AValueHeapEntry {
     #[inline]
@@ -237,13 +243,6 @@ impl AValueHeapEntry {
         }
     }
 
-    pub(crate) fn value_header(&self) -> Option<&AValueHeader> {
-        match self.state() {
-            AValueHeapEntryState::Value(header) => Some(header),
-            AValueHeapEntryState::Forward(_) | AValueHeapEntryState::Reservation(_) => None,
-        }
-    }
-
     pub(crate) fn forward(&self) -> Option<&AValueForward> {
         match self.state() {
             AValueHeapEntryState::Value(_) | AValueHeapEntryState::Reservation(_) => None,
@@ -270,6 +269,56 @@ pub(crate) enum AValueHeapEntryState<'a> {
     Value(&'a AValueHeader),
     Forward(&'a AValueForward),
     Reservation(ValueAllocSize),
+}
+
+/// An [`AValueHeapEntry`] as an arena walk sees it. Decoded from an acquire
+/// load, pairing with the release store that publishes a value's vtable: a
+/// walk can overlap a deserialization finishing a slot in the same arena. A
+/// claimed slot whose value is not there is named rather than treated as a
+/// value with the sentinel vtable.
+pub(crate) enum WalkState<'a> {
+    Value(&'a AValueHeader),
+    /// A slot claimed for deserialization and not written. Only its payload
+    /// address is known here; the header word must not be read again.
+    Uninitialized {
+        payload: *const (),
+    },
+    Forward(&'a AValueForward),
+    Reservation(ValueAllocSize),
+}
+
+impl AValueHeapEntry {
+    /// # Safety
+    /// `entry` must be a valid, aligned heap-entry word in storage alive for
+    /// `'a`. Its only concurrent mutation may be release publication of a
+    /// completed value over an uninitialized sentinel. In particular, sentinel
+    /// installation must finish before this call; forwarding and reservations
+    /// must not change during the walk.
+    pub(crate) unsafe fn walk_state<'a>(entry: *const Self) -> WalkState<'a> {
+        // SAFETY: every union variant is one aligned pointer-sized word (see
+        // `raw_word`), so it can be read as an atomic pointer.
+        let word = unsafe { (*entry.cast::<AtomicPtr<AValueVTable>>()).load(Ordering::Acquire) };
+        match word.addr() & HEAP_ENTRY_TAG_MASK {
+            0 if ptr::eq(
+                word.cast_const(),
+                AValueVTable::uninitialized_sentinel() as *const AValueVTable,
+            ) =>
+            {
+                WalkState::Uninitialized {
+                    payload: StarlarkValueRawPtr::new_header_ptr(entry.cast()).ptr,
+                }
+            }
+            // SAFETY: the word is a live value's vtable, and the store that
+            // published it happened before this load.
+            0 => WalkState::Value(unsafe { &*entry.cast::<AValueHeader>() }),
+            // SAFETY: as in `state`.
+            FORWARD_TAG => WalkState::Forward(unsafe { &*entry.cast::<AValueForward>() }),
+            RESERVATION_TAG => WalkState::Reservation(ValueAllocSize::new(AlignedSize::new_bytes(
+                word.addr() & !HEAP_ENTRY_TAG_MASK,
+            ))),
+            _ => panic!("invalid heap entry tag"),
+        }
+    }
 }
 
 impl AValueForward {

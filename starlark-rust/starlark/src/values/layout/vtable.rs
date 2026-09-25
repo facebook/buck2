@@ -74,14 +74,19 @@ pub(crate) struct StarlarkValueRawPtr {
 }
 
 impl StarlarkValueRawPtr {
+    /// The payload that follows the header at `ptr`. Only the address is used,
+    /// so the header need not be initialized yet.
+    #[inline]
+    pub(crate) fn new_header_ptr(ptr: *const AValueHeader) -> Self {
+        debug_assert!((ptr as usize).is_multiple_of(AValueHeader::ALIGN));
+        StarlarkValueRawPtr {
+            ptr: ptr.wrapping_add(1) as *const (),
+        }
+    }
+
     #[inline]
     pub(crate) fn new_header(ptr: &AValueHeader) -> Self {
-        debug_assert!((ptr as *const AValueHeader as usize).is_multiple_of(AValueHeader::ALIGN));
-
-        unsafe {
-            let ptr = (ptr as *const AValueHeader).add(1) as *const ();
-            StarlarkValueRawPtr { ptr }
-        }
+        Self::new_header_ptr(ptr)
     }
 
     #[inline]
@@ -209,7 +214,9 @@ impl AValueVTable {
 
         const PANIC_MSG: &str = "accessing a frozen value that has not been deserialized yet";
 
-        &AValueVTable {
+        // A `static`: walks recognize the sentinel by address (`walk_state`),
+        // and a promoted `&const` can be duplicated per codegen unit.
+        static SENTINEL: AValueVTable = AValueVTable {
             drop_in_place: |_| {},
             is_str: false,
             memory_size: |_| panic!("{}", PANIC_MSG),
@@ -229,7 +236,8 @@ impl AValueVTable {
             total_memory_for_profile: |_| panic!("{}", PANIC_MSG),
             visit_extra_allocative: |_, _| panic!("{}", PANIC_MSG),
             starlark_value: StarlarkValueVTable::UNINITIALIZED_SENTINEL,
-        }
+        };
+        &SENTINEL
     }
 
     /// Public for use by `register_avalue_simple_frozen!` macro in doctests.

@@ -36,6 +36,9 @@ use std::num::NonZeroU32;
 use std::ptr;
 use std::ptr::NonNull;
 use std::slice;
+use std::sync::Arc;
+use std::sync::MutexGuard;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use allocative::Visitor;
@@ -49,11 +52,13 @@ use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::values::Value;
 use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalues::str_::starlark_str;
+use crate::values::layout::heap::allocator::api::AllocatedChunk;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -65,10 +70,13 @@ use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntry;
+#[cfg(debug_assertions)]
 use crate::values::layout::heap::repr::AValueHeapEntryState;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
+use crate::values::layout::heap::repr::WalkState;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
+use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::str_type::StarlarkStr;
 
 /// Min size of allocated object including the entry.
@@ -173,22 +181,47 @@ pub(crate) struct Arena<A: ArenaAllocator> {
     non_drop: A,
     /// Arena for things which might need dropping (e.g. Vec, with memory on heap)
     drop: A,
+    /// Sizes claimed slots the sentinel vtable cannot size, and excludes new
+    /// claims during walks. Set once for a restored heap; never for a heap
+    /// built here.
+    deserialization_state: OnceLock<Arc<HeapDeserializationState>>,
 }
 
 /// An entry met while walking an arena, decoded once per step
-/// ([`AValueHeapEntry::state`]) so walkers match on the kind.
+/// ([`AValueHeapEntry::walk_state`]) so walkers match on the kind. Unlike
+/// value access, a walk can meet a claimed slot whose value is not there, so
+/// that is a kind of its own rather than a value with a panicking vtable.
 pub(crate) enum ArenaEntry<'a> {
     Value(&'a AValueHeader),
+    /// A slot claimed for deserialization whose value is not there: still
+    /// being written, or never written because that failed. Neither payload
+    /// nor header may be read.
+    Uninitialized {
+        payload: *const (),
+        size: ValueAllocSize,
+    },
     Forward(&'a AValueForward),
     Reservation(ValueAllocSize),
 }
 
 impl<'a> ArenaEntry<'a> {
-    fn classify(entry: &'a AValueHeapEntry) -> ArenaEntry<'a> {
-        match entry.state() {
-            AValueHeapEntryState::Value(header) => ArenaEntry::Value(header),
-            AValueHeapEntryState::Forward(forward) => ArenaEntry::Forward(forward),
-            AValueHeapEntryState::Reservation(size) => ArenaEntry::Reservation(size),
+    /// # Safety
+    /// See [`AValueHeapEntry::walk_state`].
+    unsafe fn classify(
+        entry: *const AValueHeapEntry,
+        sizes: Option<&HeapDeserializationState>,
+    ) -> ArenaEntry<'a> {
+        // SAFETY: the caller guarantees the header's lifetime and synchronization.
+        match unsafe { AValueHeapEntry::walk_state(entry) } {
+            WalkState::Value(header) => ArenaEntry::Value(header),
+            WalkState::Uninitialized { payload } => {
+                let size = sizes
+                    .and_then(|sizes| sizes.uninitialized_slot_size(payload))
+                    .expect("an uninitialized slot is one its heap's deserialization claimed");
+                ArenaEntry::Uninitialized { payload, size }
+            }
+            WalkState::Forward(forward) => ArenaEntry::Forward(forward),
+            WalkState::Reservation(size) => ArenaEntry::Reservation(size),
         }
     }
 
@@ -196,16 +229,18 @@ impl<'a> ArenaEntry<'a> {
     fn size(&self) -> ValueAllocSize {
         match self {
             ArenaEntry::Value(header) => header.unpack().memory_size(),
-            ArenaEntry::Reservation(size) => *size,
+            ArenaEntry::Uninitialized { size, .. } | ArenaEntry::Reservation(size) => *size,
             ArenaEntry::Forward(forward) => forward.object_size(),
         }
     }
 
-    /// The header of a live value.
+    /// The header of a live, readable value.
     fn value_header(&self) -> Option<&'a AValueHeader> {
         match self {
             ArenaEntry::Value(header) => Some(header),
-            ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => None,
+            ArenaEntry::Uninitialized { .. }
+            | ArenaEntry::Forward(_)
+            | ArenaEntry::Reservation(_) => None,
         }
     }
 }
@@ -307,30 +342,32 @@ impl<'v, T: AValue<'v>> ValueReservation<'v, T> {
 
 pub(crate) trait ArenaVisitor<'v> {
     fn enter_bump(&mut self);
-    fn regular_entry(&mut self, entry: &'v AValueHeapEntry);
+    fn regular_entry(&mut self, entry: ArenaEntry<'v>);
     fn call_enter(&mut self, function: Value<'v>, time: ProfilerInstant);
     fn call_exit(&mut self, time: ProfilerInstant);
 }
 
 /// Iterate over chunk contents.
 struct ChunkIter<'c> {
-    chunk: &'c [MaybeUninit<u8>],
+    chunk: AllocatedChunk<'c>,
+    sizes: Option<&'c HeapDeserializationState>,
 }
 
 impl<'c> Iterator for ChunkIter<'c> {
-    type Item = (&'c AValueHeapEntry, ArenaEntry<'c>);
+    type Item = ArenaEntry<'c>;
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             if self.chunk.is_empty() {
                 None
             } else {
-                let entry = &*(self.chunk.as_ptr() as *const AValueHeapEntry);
-                let kind = ArenaEntry::classify(entry);
+                // Claims were excluded while collecting the range, so every
+                // entry has a header. Only sentinel-to-value publication may
+                // overlap this walk; no reference may precede the acquire load.
+                let kind = ArenaEntry::classify(self.chunk.as_ptr().cast(), self.sizes);
                 let n = kind.size();
-                debug_assert!(n.bytes() as usize <= self.chunk.len());
-                self.chunk = self.chunk.split_at(n.bytes() as usize).1;
-                Some((entry, kind))
+                self.chunk.advance(n.bytes() as usize);
+                Some(kind)
             }
         }
     }
@@ -394,7 +431,7 @@ enum ArenaVisitEvent<'a> {
     /// Called when entering new bump.
     EnterBump,
     /// Visiting a heap entry in the bump.
-    Entry(&'a AValueHeapEntry, ArenaEntry<'a>),
+    Entry(ArenaEntry<'a>),
 }
 
 impl<A: ArenaAllocator> Arena<A> {
@@ -514,31 +551,51 @@ impl<A: ArenaAllocator> Arena<A> {
         })
     }
 
-    fn iter_chunk<'a>(chunk: &'a [MaybeUninit<u8>]) -> ChunkIter<'a> {
-        ChunkIter { chunk }
+    /// Install the state shared with deserialization exactly once.
+    pub(crate) fn set_deserialization_state(&self, state: Arc<HeapDeserializationState>) {
+        assert!(self.deserialization_state.set(state).is_ok());
+    }
+
+    fn deserialization_state(&self) -> Option<&HeapDeserializationState> {
+        self.deserialization_state.get().map(Arc::as_ref)
+    }
+
+    /// Exclude allocation and sentinel installation while inspecting chunk metadata.
+    fn hold_claims(&self) -> Option<MutexGuard<'_, ()>> {
+        self.deserialization_state()
+            .map(HeapDeserializationState::hold_claims)
+    }
+
+    fn iter_chunk<'a>(
+        chunk: AllocatedChunk<'a>,
+        sizes: Option<&'a HeapDeserializationState>,
+    ) -> ChunkIter<'a> {
+        ChunkIter { chunk, sizes }
     }
 
     /// Iterate over values in a single bump allocator in allocation order.
-    fn for_each_bump_ordered<'a>(
-        bump: &'a A,
-        mut f: impl FnMut(&'a AValueHeapEntry, ArenaEntry<'a>),
-    ) {
+    fn for_each_bump_ordered<'a>(&'a self, bump: &'a A, mut f: impl FnMut(ArenaEntry<'a>)) {
         // We get the chunks from newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
-        let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
+        let chunks = {
+            let _claims_held = self.hold_claims();
+            // SAFETY: claims cannot change allocator metadata during collection.
+            unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() }
+        };
+        let sizes = self.deserialization_state();
         let mut buffer = Vec::new();
-        for chunk in chunks.iter().rev() {
+        for chunk in chunks.into_iter().rev() {
             match A::CHUNK_ALLOCATION_DIRECTION {
                 ChunkAllocationDirection::Down => {
-                    buffer.extend(Arena::<A>::iter_chunk(chunk));
-                    for (entry, kind) in buffer.drain(..).rev() {
-                        f(entry, kind);
+                    buffer.extend(Arena::<A>::iter_chunk(chunk, sizes));
+                    for kind in buffer.drain(..).rev() {
+                        f(kind);
                     }
                 }
                 ChunkAllocationDirection::Up => {
-                    for (entry, kind) in Arena::<A>::iter_chunk(chunk) {
-                        f(entry, kind);
+                    for kind in Arena::<A>::iter_chunk(chunk, sizes) {
+                        f(kind);
                     }
                 }
             }
@@ -550,20 +607,20 @@ impl<A: ArenaAllocator> Arena<A> {
     fn for_each_ordered<'a>(&'a self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
         for bump in [&self.drop, &self.non_drop] {
             f(ArenaVisitEvent::EnterBump);
-            Self::for_each_bump_ordered(bump, |entry, kind| f(ArenaVisitEvent::Entry(entry, kind)));
+            self.for_each_bump_ordered(bump, |kind| f(ArenaVisitEvent::Entry(kind)));
         }
     }
 
     /// Collect live value headers from the `drop` bump in allocation order.
-    /// Forward pointers (from GC) are skipped.
+    /// Forward pointers (from GC) and uninitialized slots are skipped.
     pub(crate) fn collect_drop_headers_ordered(&self) -> Vec<&AValueHeader> {
-        Self::collect_bump_headers_ordered(&self.drop)
+        self.collect_bump_headers_ordered(&self.drop)
     }
 
     /// Collect live value headers from the `non_drop` bump in allocation order.
-    /// Forward pointers (from GC) are skipped.
+    /// Forward pointers (from GC) and uninitialized slots are skipped.
     pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
-        Self::collect_bump_headers_ordered(&self.non_drop)
+        self.collect_bump_headers_ordered(&self.non_drop)
     }
 
     /// Allocate space for a single value of `alloc_size` bytes in the given
@@ -598,9 +655,9 @@ impl<A: ArenaAllocator> Arena<A> {
         }
     }
 
-    fn collect_bump_headers_ordered(bump: &A) -> Vec<&AValueHeader> {
+    fn collect_bump_headers_ordered<'a>(&'a self, bump: &'a A) -> Vec<&'a AValueHeader> {
         let mut headers = Vec::new();
-        Self::for_each_bump_ordered(bump, |_entry, kind| {
+        self.for_each_bump_ordered(bump, |kind| {
             if let Some(header) = kind.value_header() {
                 headers.push(header);
             }
@@ -624,24 +681,47 @@ impl<A: ArenaAllocator> Arena<A> {
     /// Per-chunk index for serialization-time `ptr → value_index` lookup.
     /// Entries are in serialization order (drop bump first, then non-drop).
     pub(crate) fn build_chunk_index(&self) -> Vec<ChunkInfo> {
+        let _claims_held = self.hold_claims();
+        self.build_chunk_index_claims_held()
+    }
+
+    /// Check, rebuild if needed, and publish under the same claim hold.
+    /// Concurrent refreshes coalesce and cannot publish a stale index.
+    pub(crate) fn refresh_chunk_index(
+        &self,
+        is_current: impl FnOnce() -> bool,
+        publish: impl FnOnce(Vec<ChunkInfo>),
+    ) {
+        let _claims_held = self.hold_claims();
+        if !is_current() {
+            publish(self.build_chunk_index_claims_held());
+        }
+    }
+
+    fn build_chunk_index_claims_held(&self) -> Vec<ChunkInfo> {
         let mut entries = Vec::new();
         let mut values_before: u32 = 0;
 
         fn build_for_bump<A: ArenaAllocator>(
             bump: &A,
+            sizes: Option<&HeapDeserializationState>,
             entries: &mut Vec<ChunkInfo>,
             values_before: &mut u32,
         ) {
             // `iter_allocated_chunks_rev` yields newest-first; reverse for
             // allocation order so `values_before` is monotonic.
-            let chunks_rev: Vec<&[MaybeUninit<u8>]> =
-                unsafe { bump.iter_allocated_chunks_rev() }.collect();
-            for chunk in chunks_rev.iter().rev() {
+            let chunks_rev: Vec<_> = unsafe { bump.iter_allocated_chunks_rev() }.collect();
+            for chunk in chunks_rev.into_iter().rev() {
                 let base = chunk.as_ptr() as usize;
                 let size = chunk.len() as u32;
-                let mut payload_offsets: Vec<u32> = Arena::<A>::iter_chunk(chunk)
-                    .filter_map(|(_entry, kind)| kind.value_header())
-                    .map(|hp| (hp.payload_ptr().ptr as usize - base) as u32)
+                // A claimed slot is a value's address whether or not the value arrived.
+                let mut payload_offsets: Vec<u32> = Arena::<A>::iter_chunk(chunk, sizes)
+                    .filter_map(|kind| match kind {
+                        ArenaEntry::Value(header) => Some(header.payload_ptr().ptr),
+                        ArenaEntry::Uninitialized { payload, .. } => Some(payload),
+                        ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => None,
+                    })
+                    .map(|payload| (payload as usize - base) as u32)
                     .collect();
                 // Sort for binary_search at lookup time. For `Up` allocators
                 // this is a no-op (already ascending); kept for safety across
@@ -658,8 +738,9 @@ impl<A: ArenaAllocator> Arena<A> {
             }
         }
 
-        build_for_bump(&self.drop, &mut entries, &mut values_before);
-        build_for_bump(&self.non_drop, &mut entries, &mut values_before);
+        let sizes = self.deserialization_state();
+        build_for_bump(&self.drop, sizes, &mut entries, &mut values_before);
+        build_for_bump(&self.non_drop, sizes, &mut entries, &mut values_before);
 
         entries
     }
@@ -691,7 +772,7 @@ impl<A: ArenaAllocator> Arena<A> {
 
             self.for_each_ordered(|x| match x {
                 ArenaVisitEvent::EnterBump => visitor.enter_bump(),
-                ArenaVisitEvent::Entry(x, kind) => match kind {
+                ArenaVisitEvent::Entry(kind) => match kind {
                     ArenaEntry::Value(header) => {
                         let value = header.unpack_value(heap_kind);
                         if let Some(call_enter) = value.downcast_ref::<CallEnter<NeedsDrop>>() {
@@ -710,20 +791,27 @@ impl<A: ArenaAllocator> Arena<A> {
                         } else if let Some(call_exit) = value.downcast_ref::<CallExit<NoDrop>>() {
                             visitor.call_exit(call_exit.time);
                         } else {
-                            visitor.regular_entry(x);
+                            visitor.regular_entry(kind);
                         }
                     }
-                    ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => visitor.regular_entry(x),
+                    ArenaEntry::Uninitialized { .. }
+                    | ArenaEntry::Forward(_)
+                    | ArenaEntry::Reservation(_) => visitor.regular_entry(kind),
                 },
             });
         }
     }
 
-    /// Iterate over the live values in the drop bump in any order.
+    /// Iterate over the live values in the drop bump in any order; a claimed
+    /// slot with no value is skipped.
     pub(crate) fn for_each_drop_unordered<'a>(&'a mut self, mut f: impl FnMut(&'a AValueHeader)) {
+        let sizes = self.deserialization_state.get().map(Arc::as_ref);
+        let _claims_held = sizes.map(HeapDeserializationState::hold_claims);
+        // SAFETY: the claim hold excludes restored-heap allocation throughout
+        // this walk; exclusive access excludes native-heap allocation.
         unsafe {
             for chunk in self.drop.iter_allocated_chunks_rev() {
-                for (_entry, kind) in Arena::<A>::iter_chunk(chunk) {
+                for kind in Arena::<A>::iter_chunk(chunk, sizes) {
                     if let Some(header) = kind.value_header() {
                         f(header);
                     }
@@ -732,21 +820,37 @@ impl<A: ArenaAllocator> Arena<A> {
         }
     }
 
-    fn for_each_unordered_in_bump<'a>(bump: &'a A, mut f: impl FnMut(ArenaEntry<'a>)) {
-        // SAFETY: We're consuming the iterator immediately and not allocating from the arena during.
-        unsafe {
-            bump.iter_allocated_chunks_rev().for_each(|slice| {
-                for (_entry, kind) in Arena::<A>::iter_chunk(slice) {
-                    f(kind);
-                }
-            })
+    fn for_each_in_chunks<'a>(
+        chunks: impl IntoIterator<Item = AllocatedChunk<'a>>,
+        sizes: Option<&'a HeapDeserializationState>,
+        mut f: impl FnMut(ArenaEntry<'a>),
+    ) {
+        for chunk in chunks {
+            for kind in Self::iter_chunk(chunk, sizes) {
+                f(kind);
+            }
         }
     }
 
     // Iterate over the entries in both bumps in any order
     fn for_each_unordered<'a>(&'a self, mut f: impl FnMut(ArenaEntry<'a>)) {
+        let sizes = self.deserialization_state();
         for bump in [&self.drop, &self.non_drop] {
-            Self::for_each_unordered_in_bump(bump, &mut f);
+            if sizes.is_some() {
+                let chunks = {
+                    let _claims_held = self.hold_claims();
+                    // SAFETY: allocator metadata is protected by the claim hold.
+                    unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() }
+                };
+                Self::for_each_in_chunks(chunks, sizes, &mut f);
+            } else {
+                // SAFETY: native heaps do not allocate during a walk.
+                Self::for_each_in_chunks(
+                    unsafe { bump.iter_allocated_chunks_rev() },
+                    sizes,
+                    &mut f,
+                );
+            }
         }
     }
 
@@ -763,6 +867,14 @@ impl<A: ArenaAllocator> Arena<A> {
                     .or_insert_with(|| (v.vtable().type_name, AllocCounts::default()));
                 e.1.count += 1;
                 e.1.bytes += v.total_memory_for_profile()
+            }
+            ArenaEntry::Uninitialized { size, .. } => {
+                let sentinel = AValueVTable::uninitialized_sentinel();
+                let e = entries
+                    .entry(AValueHeader(sentinel))
+                    .or_insert_with(|| (sentinel.type_name, AllocCounts::default()));
+                e.1.count += 1;
+                e.1.bytes += size.bytes() as usize;
             }
             ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => {}
         };
@@ -791,32 +903,57 @@ impl<A: ArenaAllocator> Drop for Arena<A> {
 
 impl<A: ArenaAllocator> Allocative for Arena<A> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
-        let Arena { drop, non_drop } = self;
-
-        fn visit_bump<'a, 'b: 'a, A: ArenaAllocator>(bump: &A, visitor: &'a mut Visitor<'b>) {
+        let Arena {
+            drop,
+            non_drop,
+            deserialization_state: _,
+        } = self;
+        fn visit_bump<'a, 'b: 'a, A: ArenaAllocator>(
+            arena: &Arena<A>,
+            bump: &A,
+            visitor: &'a mut Visitor<'b>,
+        ) {
+            let (chunks, allocated_bytes, allocation_overhead) = {
+                let _claims_held = arena.hold_claims();
+                // SAFETY: allocator metadata is protected by the claim hold.
+                let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
+                (chunks, bump.allocated_bytes(), bump.allocation_overhead())
+            };
             let mut visitor =
                 visitor.enter_unique(allocative::Key::new("data"), mem::size_of::<*const ()>());
             let mut allocated_visitor =
-                visitor.enter(allocative::Key::new("allocated"), bump.allocated_bytes());
-            Arena::for_each_unordered_in_bump(bump, |kind| match kind {
-                ArenaEntry::Value(x) => {
-                    let key = x.0.type_as_allocative_key.clone();
-                    let size = x.unpack().memory_size();
-                    let mut object_visitor = allocated_visitor.enter(key, size.bytes() as usize);
-                    // We visit both drop and non-drop bumps, because although
-                    // non-drop `Bump` cannot contain malloc pointers, it can still provide
-                    // useful information about headers/payload/padding.
-                    let value = x.unpack();
-                    value.as_allocative().visit(&mut object_visitor);
-                    value.visit_extra_allocative(&mut object_visitor);
-                    object_visitor.exit();
-                }
-                ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => {}
-            });
+                visitor.enter(allocative::Key::new("allocated"), allocated_bytes);
+            Arena::<A>::for_each_in_chunks(
+                chunks,
+                arena.deserialization_state(),
+                |kind| match kind {
+                    ArenaEntry::Value(x) => {
+                        let key = x.0.type_as_allocative_key.clone();
+                        let size = x.unpack().memory_size();
+                        let mut object_visitor =
+                            allocated_visitor.enter(key, size.bytes() as usize);
+                        // We visit both drop and non-drop bumps, because although
+                        // non-drop `Bump` cannot contain malloc pointers, it can still provide
+                        // useful information about headers/payload/padding.
+                        let value = x.unpack();
+                        value.as_allocative().visit(&mut object_visitor);
+                        value.visit_extra_allocative(&mut object_visitor);
+                        object_visitor.exit();
+                    }
+                    // The bytes are held; what they would hold is not there to visit.
+                    ArenaEntry::Uninitialized { size, .. } => allocated_visitor.visit_simple(
+                        AValueVTable::uninitialized_sentinel()
+                            .type_as_allocative_key
+                            .clone(),
+                        size.bytes() as usize,
+                    ),
+                    ArenaEntry::Forward(_) | ArenaEntry::Reservation(_) => {}
+                },
+            );
             allocated_visitor.exit();
             visitor.visit_simple(
                 allocative::Key::new("allocation_overhead"),
-                bump.allocation_overhead(),
+                allocation_overhead,
             );
             visitor.exit();
         }
@@ -824,13 +961,13 @@ impl<A: ArenaAllocator> Allocative for Arena<A> {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
             let mut visitor = visitor.enter(allocative::Key::new("drop"), mem::size_of::<Bump>());
-            visit_bump(drop, &mut visitor);
+            visit_bump(self, drop, &mut visitor);
             visitor.exit();
         }
         {
             let mut visitor =
                 visitor.enter(allocative::Key::new("non_drop"), mem::size_of::<Bump>());
-            visit_bump(non_drop, &mut visitor);
+            visit_bump(self, non_drop, &mut visitor);
             visitor.exit();
         }
         visitor.exit();
@@ -889,7 +1026,7 @@ mod tests {
         let mut j = 0;
         arena.for_each_ordered(|i| match i {
             ArenaVisitEvent::EnterBump => {}
-            ArenaVisitEvent::Entry(_, kind) => {
+            ArenaVisitEvent::Entry(kind) => {
                 if let Some(i) = kind.value_header() {
                     assert_eq!(to_repr(i), format!("{:?}", j.to_string()));
                     j += 1;
@@ -920,8 +1057,9 @@ mod tests {
         let mut reservations = 0;
         arena.for_each_ordered(|x| match x {
             ArenaVisitEvent::EnterBump => {}
-            ArenaVisitEvent::Entry(_, kind) => match kind {
+            ArenaVisitEvent::Entry(kind) => match kind {
                 ArenaEntry::Value(x) => res.push(x),
+                ArenaEntry::Uninitialized { .. } => panic!("unexpected uninitialized slot"),
                 ArenaEntry::Forward(_) => panic!("unexpected forward"),
                 ArenaEntry::Reservation(_) => reservations += 1,
             },
