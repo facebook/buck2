@@ -23,14 +23,19 @@ use crate::state::CoreState;
 impl<E: Env> CoreState<E> {
     /// Checks, by full scan, everything the state promises about itself: the branch tree, the
     /// histories, Invariants 1 to 3 of `incrementality.md` §4.6 (3 as an equality of edge
-    /// sets), the exactness of every `closed_index`, and that no key is both asserted and
-    /// certified. Panics with the first violation found. Meant for tests and fuzzers after
-    /// every operation; the master invariant itself is not a property of the state alone and is
-    /// checked against the recorded history by the test oracle instead.
+    /// sets), the exactness of every `closed_index` and of the key count, and that no key is both
+    /// asserted and certified. Panics with the first violation found. Meant for tests and fuzzers
+    /// after every operation; the master invariant itself is not a property of the state alone
+    /// and is checked against the recorded history by the test oracle instead.
     pub fn check_invariants(&self) {
         self.check_branches();
         self.check_slots();
         self.check_assertions();
+        assert_eq!(
+            self.key_count(),
+            self.keys().count(),
+            "key count is inexact"
+        );
         for b in self.branches() {
             self.check_attachment(b);
         }

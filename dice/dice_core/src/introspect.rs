@@ -34,7 +34,7 @@ impl<E: Env> CoreState<E> {
     }
 
     pub fn key_count(&self) -> usize {
-        self.keys().count()
+        self.key_count
     }
 
     pub fn introspect_key(&self, key: Key) -> KeyIntrospection<'_, E> {

@@ -45,6 +45,8 @@ pub struct CoreState<E: Env> {
     /// lets [`Self::commit`] refuse to assert a key that has been certified.
     pub(crate) slots: KeyMap<KeySlots<E>>,
     pub(crate) assertions: KeyMap<KeyAssertions<E>>,
+    /// The number of distinct keys across `slots` and `assertions`. Neither map ever drops a key.
+    pub(crate) key_count: usize,
 }
 
 /// One assertion as a lookup reports it: the version it was made at and its data.
@@ -114,6 +116,7 @@ impl<E: Env> CoreState<E> {
             branches: vec![Branch::root(Seq::FIRST)],
             slots: KeyMap::default(),
             assertions: KeyMap::default(),
+            key_count: 0,
         }
     }
 
@@ -252,7 +255,12 @@ impl<E: Env> CoreState<E> {
     }
 
     pub(crate) fn slot_or_insert(&mut self, key: Key, b: BranchId) -> &mut Slot<E> {
-        let slots = self.slots.entry(key).or_default();
+        let slots = self.slots.entry(key).or_insert_with(|| {
+            if !self.assertions.contains_key(&key) {
+                self.key_count += 1;
+            }
+            KeySlots::default()
+        });
         let index = match slots.iter().position(|slot| slot.branch == b) {
             Some(index) => index,
             None => {
@@ -268,7 +276,12 @@ impl<E: Env> CoreState<E> {
         key: Key,
         b: BranchId,
     ) -> &mut History<Revision, E::AssertionData> {
-        let histories = self.assertions.entry(key).or_default();
+        let histories = self.assertions.entry(key).or_insert_with(|| {
+            if !self.slots.contains_key(&key) {
+                self.key_count += 1;
+            }
+            KeyAssertions::<E>::default()
+        });
         let index = match histories.iter().position(|(hb, _)| *hb == b) {
             Some(index) => index,
             None => {
