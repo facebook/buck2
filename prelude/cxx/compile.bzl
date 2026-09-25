@@ -657,6 +657,17 @@ def _compile_single_cxx(
     else:
         output_args = get_output_flags(compiler_type, object)
 
+    base_compile_cmd_override = None
+    if src_compile_cmd.src.extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
+        compiler_for_dryrun = getattr(toolchain.cuda_compiler_info, "compiler_for_dryrun", None)
+        if compiler_for_dryrun != None:
+            base_compile_cmd_override = _get_compile_base(
+                toolchain,
+                toolchain.cuda_compiler_info,
+                use_wrapper = False,
+                compiler_override = compiler_for_dryrun,
+            )
+
     cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
@@ -664,6 +675,7 @@ def _compile_single_cxx(
         flavor_flags = flavor_flags,
         use_header_units = use_header_units,
         output_args = output_args,
+        base_compile_cmd_override = base_compile_cmd_override,
     )
 
     if index_store:
@@ -885,12 +897,13 @@ def _get_base_compile_cmd(
     flavor_flags: dict[str, typing.Any],
     output_args: list | None = None,
     use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
+    base_compile_cmd_override = None,
 ) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
     """
-    cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
+    cmd = cmd_args(base_compile_cmd_override if base_compile_cmd_override != None else src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
     if output_args:
         cmd.add(output_args)
 
@@ -1771,11 +1784,18 @@ def _get_category(ext: CxxExtension) -> str:
         # This should be unreachable as long as we handle all enum values
         fail("Unknown extension: " + ext.value)
 
-def _get_compile_base(toolchain: CxxToolchainInfo, compiler_info: typing.Any, use_wrapper) -> cmd_args:
+def _get_compile_base(toolchain: CxxToolchainInfo, compiler_info: typing.Any, use_wrapper, compiler_override = None) -> cmd_args:
     """
     Given a compiler info returned by _get_compiler_info, form the base compile args.
+
+    `compiler_override` substitutes the compiler executable while keeping the
+    toolchain-level wrapping (e.g. cwd remapping) that all compiles of this
+    compiler type must run under.
     """
-    compiler = compiler_info.compiler_with_wrapper if compiler_info.compiler_with_wrapper and use_wrapper else compiler_info.compiler
+    if compiler_override != None:
+        compiler = compiler_override
+    else:
+        compiler = compiler_info.compiler_with_wrapper if compiler_info.compiler_with_wrapper and use_wrapper else compiler_info.compiler
 
     if toolchain.remap_cwd and compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl", "gcc"]:
         return cmd_args(toolchain.internal_tools.remap_cwd, compiler)
@@ -2271,7 +2291,6 @@ def _mk_argsfiles(
         format = "-@{}" if is_nasm else "@{}",
         hidden = input_args,
     )
-
     return CompileArgsfile(
         file = argsfile,
         cmd_form = cmd_form,
