@@ -166,6 +166,7 @@ _HEADER_EXTENSIONS = [
     ".hxx",
     ".cuh",
     ".inc",
+    ".tcc",
 ]
 
 def _is_header(path: str) -> bool:
