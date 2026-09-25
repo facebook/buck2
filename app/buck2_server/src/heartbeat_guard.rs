@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::pin::pin;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -19,11 +20,17 @@ use tokio::task::JoinHandle;
 use crate::snapshot::SnapshotCollector;
 
 // Spawns a thread to occasionally output snapshots of resource utilization.
+// TODO(jtbraun): consider making this one thread per daemon with registered heartbeat/snapshot
+// consumers. We shouldn't be re-snapshotting in every command long term.
 pub(crate) struct HeartbeatGuard {
     handle: Option<JoinHandle<()>>,
     collector: SnapshotCollector,
     events: EventDispatcher,
 }
+
+const STALL_THRESHOLD: Duration = Duration::from_secs(120);
+
+const RAGE_HINT: &str = "If the command hangs, run `buck2 rage` before killing the daemon, so the report includes a thread dump.";
 
 fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
     // Slow snapshots are generally a sign of DICE core thread queue being backed up.
@@ -36,9 +43,10 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
                 "slow_snapshot",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
-                    "Snapshot collection exceeded 1s for {} consecutive snapshots (last: {:.1}s). It's likely that the DICE core thread is stalled.",
+                    "Snapshot collection exceeded 1s for {} consecutive snapshots (last: {:.1}s). It's likely that the DICE core thread is stalled. {}",
                     *consecutive_slow,
-                    elapsed.as_secs_f64()
+                    elapsed.as_secs_f64(),
+                    RAGE_HINT
                 ),
                 quiet: false
             )
@@ -47,6 +55,23 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
     } else {
         *consecutive_slow = 0;
     }
+}
+
+// The slow-snapshot check only runs once a snapshot completes; In cases where DICE
+// is so stalled that a snapshot never completed, this will still suggest remedies
+// to the user.
+fn report_stalled_snapshot() {
+    soft_error!(
+        "stalled_snapshot",
+        buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Snapshot collection has not completed in {}s. It's likely that the DICE core thread is stalled. {}",
+            STALL_THRESHOLD.as_secs(),
+            RAGE_HINT
+        ),
+        quiet: false
+    )
+    .ok();
 }
 
 impl HeartbeatGuard {
@@ -60,7 +85,15 @@ impl HeartbeatGuard {
                 let mut consecutive_slow: u32 = 0;
                 loop {
                     let start = Instant::now();
-                    let snapshot = collector.create_snapshot().await;
+                    let mut snapshot = pin!(collector.create_snapshot());
+                    let snapshot = match tokio::time::timeout(STALL_THRESHOLD, &mut snapshot).await
+                    {
+                        Ok(snapshot) => snapshot,
+                        Err(_) => {
+                            report_stalled_snapshot();
+                            snapshot.await
+                        }
+                    };
                     events.instant_event(Box::new(snapshot));
                     check_slow_snapshot(Instant::now() - start, &mut consecutive_slow);
                     interval.tick().await;
