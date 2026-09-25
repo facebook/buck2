@@ -71,12 +71,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
-load(
-    "@prelude//python:python.bzl",
-    "PythonLibraryInfo",
-    "PythonLibraryManifestsTSet",
-    "python_attr_preload_deps",
-)
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
@@ -275,7 +270,6 @@ def _compute_cxx_executable_info(
     python_toolchain,
     package_style,
     allow_cache_upload,
-    generated_build_info_invalidation_inputs,
 ) -> (CxxExecutableOutput, Artifact | None):
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
@@ -342,7 +336,6 @@ def _compute_cxx_executable_info(
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         srcs = cxx_executable_srcs,
         extra_binary_link_flags = extra_binary_link_flags,
-        generated_build_info_invalidation_inputs = generated_build_info_invalidation_inputs,
         extra_link_flags = python_toolchain.linker_flags,
         extra_preprocessors = [],
         extra_preprocessors_info = inherited_preprocessor_info,
@@ -398,10 +391,6 @@ def process_native_linking(
     extra_artifacts = {}
 
     extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
-    manifest_sets = [dep[PythonLibraryInfo].manifests for dep in deps if PythonLibraryInfo in dep]
-    generated_build_info_invalidation_inputs = (
-        [ctx.actions.tset(PythonLibraryManifestsTSet, children = manifest_sets).project_as_args("extension_artifacts")] if manifest_sets else []
-    )
 
     executable_deps = ctx.attrs.executable_deps
 
@@ -433,7 +422,6 @@ def process_native_linking(
         python_toolchain,
         package_style,
         allow_cache_upload,
-        generated_build_info_invalidation_inputs,
     )
     extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
     if "generated_build_info" in executable_info.sub_targets:
