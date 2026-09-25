@@ -70,11 +70,15 @@ use crate::values::layout::value::Value;
 
 /// Identifies one sealing of a heap, see `FrozenFrozenHeap::serialization_nonce`.
 #[derive(Debug, Clone, Copy, Allocative, PagableSerialize, PagableDeserialize)]
-struct HeapSerializationNonce(u128);
+pub(crate) struct HeapSerializationNonce(u128);
 
 impl HeapSerializationNonce {
     fn random() -> Self {
         Self(rand::rng().random())
+    }
+
+    pub(crate) fn to_le_bytes(self) -> [u8; 16] {
+        self.0.to_le_bytes()
     }
 }
 
@@ -318,7 +322,7 @@ impl FrozenFrozenHeap {
     ) -> crate::Result<(HeapRefId, FrozenHeapName, HeapSerializationNonce)> {
         let name = FrozenHeapName::pagable_deserialize(deserializer)?;
         let serialization_nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
-        let heap_id = HeapRefId::from_heap_name(&name);
+        let heap_id = HeapRefId::new(&name, serialization_nonce);
         Ok((heap_id, name, serialization_nonce))
     }
 
@@ -659,10 +663,9 @@ impl FrozenHeapArc {
         &self,
         scope: &StarlarkDeserScope,
     ) -> pagable::Result<()> {
-        let name = self
-            .name()
+        let heap_id = self
+            .heap_ref_id()
             .ok_or_else(|| pagable::Error::msg("deserialized frozen heap must have a name"))?;
-        let heap_id = HeapRefId::from_heap_name(name);
         let heap = self
             .downgrade()
             .expect("a deserialized heap must have an inner allocation");
@@ -706,6 +709,14 @@ impl FrozenHeapArc {
 
     pub(crate) fn name(&self) -> Option<&FrozenHeapName> {
         self.0.as_ref().and_then(|a| a.name.as_ref())
+    }
+
+    /// The identity pointers into this heap are written against: its name and
+    /// the nonce drawn when it was sealed. `None` for an unnamed heap, which
+    /// cannot be serialized.
+    pub(crate) fn heap_ref_id(&self) -> Option<HeapRefId> {
+        let arc = self.0.as_ref()?;
+        Some(HeapRefId::new(arc.name.as_ref()?, arc.serialization_nonce))
     }
 
     /// The frozen heaps that this frozen heap depends on.

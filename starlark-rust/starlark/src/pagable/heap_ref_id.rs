@@ -45,11 +45,17 @@ use pagable::PagableSerialize;
 use strong_hash::StrongHash;
 
 use crate::values::FrozenHeapName;
+use crate::values::layout::heap::sealed::HeapSerializationNonce;
 
-/// Stable identifier for a `OwnedFrozen<()>`, derived from a strong hash of its
-/// `FrozenHeapName`. The hash is computed with blake3 via [`StrongHash`] so
-/// the same heap name produces the same ID across processes (unlike
-/// `DefaultHasher`, which uses a per-process random seed).
+/// The identity a serialized pointer names its heap by.
+///
+/// A name alone does not identify a heap: the same module re-evaluated after
+/// an invalidation seals another heap under the same name with different
+/// content, and a pointer written against one must never resolve into the
+/// other. So the id covers the name and the nonce drawn when the heap was
+/// sealed.
+/// Hashed with blake3 via [`StrongHash`] so an id is a function of what it
+/// names, not of the process that computed it.
 #[derive(
     Debug,
     Clone,
@@ -65,9 +71,21 @@ use crate::values::FrozenHeapName;
 pub struct HeapRefId(u64);
 
 impl HeapRefId {
+    /// The hash of a name by itself. Not a heap's identity - that is
+    /// [`new`](Self::new), through `FrozenHeapArc::heap_ref_id` - but the way
+    /// to ask whether two heaps share a name.
+    #[cfg(test)]
     pub(crate) fn from_heap_name(name: &FrozenHeapName) -> Self {
         let mut hasher = Blake3StrongHasher::new();
         name.strong_hash(&mut hasher);
+        Self(hasher.finish())
+    }
+
+    /// The identity of the heap sealed under `name` with `nonce`.
+    pub(crate) fn new(name: &FrozenHeapName, nonce: HeapSerializationNonce) -> Self {
+        let mut hasher = Blake3StrongHasher::new();
+        name.strong_hash(&mut hasher);
+        hasher.write(&nonce.to_le_bytes());
         Self(hasher.finish())
     }
 }

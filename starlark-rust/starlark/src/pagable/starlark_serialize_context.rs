@@ -175,10 +175,9 @@ impl StarlarkSerState {
         heap_ref: &FrozenHeapArc,
         ensure_dependencies: bool,
     ) -> pagable::Result<()> {
-        let Some(name) = heap_ref.name() else {
+        let Some(heap_id) = heap_ref.heap_ref_id() else {
             return Ok(());
         };
-        let heap_id = HeapRefId::from_heap_name(name);
         let heap = heap_ref
             .downgrade()
             .expect("named heap should have an inner allocation");

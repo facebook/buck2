@@ -102,7 +102,7 @@ fn build_synthetic_heaps(
                 }
             });
             let heap_ref = heap.seal(BenchHeapName::make(&format!("bench_{h}")));
-            let heap_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
+            let heap_id = heap_ref.heap_arc().heap_ref_id().unwrap();
             let mut ptrs: Vec<usize> = Vec::new();
             ptrs.extend(
                 heap_ref

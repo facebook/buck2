@@ -179,6 +179,13 @@ impl TestHeapName {
     fn heap_name(name: &str) -> FrozenHeapName {
         FrozenHeapName::User(Box::new(Self(name.to_owned())))
     }
+
+    fn name_of(name: &FrozenHeapName) -> &str {
+        let FrozenHeapName::User(name) = name else {
+            panic!("expected a user heap name");
+        };
+        &name.as_any().downcast_ref::<Self>().unwrap().0
+    }
 }
 
 /// A simple test type with primitive fields.
@@ -280,11 +287,15 @@ fn test_frozen_heap_ref_round_trip_preserves_name() -> crate::Result<()> {
     let heap = ErasingHeap::new();
     heap.alloc("value");
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("preserved_name"));
-    let expected_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
+    let expected_id = heap_ref.heap_arc().heap_ref_id().unwrap();
 
     let restored = round_trip_heap_ref(heap_ref.owner())?;
     let restored_name = restored.name().expect("heap name should round-trip");
-    assert_eq!(HeapRefId::from_heap_name(restored_name), expected_id);
+    assert_eq!(
+        restored.heap_arc().heap_ref_id().unwrap(),
+        expected_id,
+        "the restored heap is the same heap, so it has the same identity"
+    );
     assert_eq!(restored_name.to_string(), "TestHeapName(preserved_name)");
     Ok(())
 }
@@ -845,7 +856,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
         }
         let target = allocated[7];
         let heap_ref = heap.into_ref_named(TestHeapName::heap_name(name));
-        let heap_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
+        let heap_id = heap_ref.heap_arc().heap_ref_id().unwrap();
         let ptrs_in_serialization_order: Vec<usize> = heap_ref
             .heap_arc()
             .collect_undrop_headers_ordered()
@@ -870,7 +881,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
         });
     }
     let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name("ser_state_lookup_B"));
-    let heap_b_id = HeapRefId::from_heap_name(heap_b_ref.name().unwrap());
+    let heap_b_id = heap_b_ref.heap_arc().heap_ref_id().unwrap();
     // RefData + SimpleData are both non-drop, so heap B has only a
     // non-drop bump.
     let heap_b_ptrs: Vec<usize> = heap_b_ref
@@ -1070,7 +1081,10 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
 
     let first = make_heap(1);
     let second = make_heap(2);
-    let heap_id = HeapRefId::from_heap_name(first.name().expect("heap should have a name"));
+    let heap_id = first
+        .heap_arc()
+        .heap_ref_id()
+        .expect("heap should have a name");
     let scope = StarlarkDeserScope::new();
 
     scope
@@ -2973,9 +2987,73 @@ fn deser_owned_frozen_value_with_scope_from_storage(
     Ok((value, scope))
 }
 
+/// Two heaps sealed under one name, read back in one page-in. Each pointer
+/// resolves into the heap it was written against, and binding the second is
+/// not a collision with the first.
+#[test]
+fn test_two_heaps_sealed_under_one_name_page_in_together() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let make_root = |count| {
+        let heap = ErasingHeap::new();
+        let value = heap.alloc_simple(SimpleData { flag: true, count });
+        let owner = heap.into_ref_named(TestHeapName::heap_name("same_name_together"));
+        // SAFETY: `owner` owns the arena hosting `value`.
+        unsafe { OwnedFrozen::<Value>::from_erased(owner, value) }
+    };
+    let root0 = make_root(111);
+    let root1 = make_root(222);
+    assert_eq!(
+        TestHeapName::name_of(root0.name().unwrap()),
+        TestHeapName::name_of(root1.name().unwrap()),
+        "the two heaps share a name"
+    );
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let mut ser = SerializerForPaging::new(storage.storage_context());
+    root0
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    root1
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+    let key = storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+        .map_err(crate::Error::new_other)?;
+    storage.flush().map_err(crate::Error::new_other)?;
+    drop(root0);
+    drop(root1);
+    storage.arc_cache().clear();
+
+    let handle = PagableStorageHandle::new(storage.clone());
+    let data = storage
+        .fetch_data_blocking(&key)
+        .map_err(crate::Error::new_other)?;
+    let mut de = handle.root_deserializer(key, &data);
+    let restored0 =
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let restored1 =
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let count = |restored: &OwnedFrozen<Value<'static>>| {
+        restored
+            .as_ref()
+            .value()
+            .downcast_ref::<SimpleData>()
+            .expect("each root restores its own SimpleData")
+            .count
+    };
+    assert_eq!(count(&restored0), 111);
+    assert_eq!(count(&restored1), 222);
+    assert_ne!(restored0.owner(), restored1.owner());
+    Ok(())
+}
+
 /// Two independently stored roots may own different live heaps with the same
-/// logical name. Serialization registration must distinguish the exact heap
-/// allocations rather than treating `HeapRefId` as their resident identity.
+/// logical name, each with its own identity.
 #[test]
 fn test_same_name_heaps_serialize_independently_in_shared_session() {
     same_name_heaps_serialize_independently_in_shared_session_impl()
@@ -3005,8 +3083,14 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     let root1: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner1, value1) };
 
     assert_eq!(
-        HeapRefId::from_heap_name(root0.owner().name().unwrap()),
-        HeapRefId::from_heap_name(root1.owner().name().unwrap()),
+        TestHeapName::name_of(root0.name().unwrap()),
+        TestHeapName::name_of(root1.name().unwrap()),
+        "the two heaps share a name"
+    );
+    assert_ne!(
+        root0.owner().heap_arc().heap_ref_id(),
+        root1.owner().heap_arc().heap_ref_id(),
+        "same name, different seal, different identity"
     );
     assert_ne!(root0.owner(), root1.owner());
 
@@ -3025,9 +3109,6 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     drop(root0);
     drop(root1);
 
-    // Round-trip only the second root. Paging both roots in under one current
-    // session would additionally exercise the separate deserialization-scope
-    // problem for same-name heaps.
     let restored1 = deser_owned_frozen_from_storage(&backing, &handle, &key1)?;
     let data1 = restored1
         .as_ref()
@@ -3096,11 +3177,10 @@ fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::
         .refs()
         .next()
         .expect("P should retain L after page-in");
-    let leaf_id = HeapRefId::from_heap_name(
-        second_leaf_ref
-            .name()
-            .expect("the deserialized leaf heap should remain named"),
-    );
+    let leaf_id = second_leaf_ref
+        .heap_arc()
+        .heap_ref_id()
+        .expect("the deserialized leaf heap should remain named");
     assert_eq!(
         second_scope.get_heap(&leaf_id).as_ref(),
         Some(second_leaf_ref.heap_arc()),
@@ -3153,12 +3233,11 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
     // original heap resident while X is paged back in.
     let (restored_x, scope) =
         deser_owned_frozen_value_with_scope_from_storage(&backing, &handle, &key_x)?;
-    let heap_id = HeapRefId::from_heap_name(
-        restored_x
-            .owner()
-            .name()
-            .expect("restored heap should retain its name"),
-    );
+    let heap_id = restored_x
+        .owner()
+        .heap_arc()
+        .heap_ref_id()
+        .expect("restored heap should retain its name");
     assert_eq!(
         restored_x.owner(),
         owned_y.owner(),
@@ -4343,6 +4422,84 @@ fn page_out_in_module(
     FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
+/// Decode a module's root pointer, verifying but excluding its seal identity.
+/// The owner heap (including bytecode) is in a separate arc, not these bytes.
+fn module_root_without_heap_identity(
+    bytes: &[u8],
+    expected_heap_id: HeapRefId,
+) -> pagable::Result<(u32, bool)> {
+    use pagable::PagableDeserializer;
+    use pagable::testing::TestingDeserializer;
+
+    use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
+
+    let mut de = TestingDeserializer::new(bytes);
+    let owner_tag = u8::pagable_deserialize(&mut de)?;
+    anyhow::ensure!(owner_tag == 1, "expected an out-of-line module heap owner");
+    let SerializedFrozenValue::HeapPtr {
+        heap_id,
+        value_index,
+        is_str,
+    } = SerializedFrozenValue::pagable_deserialize(&mut de)?
+    else {
+        return Err(anyhow::anyhow!("expected a module root heap pointer"));
+    };
+    anyhow::ensure!(
+        heap_id == expected_heap_id,
+        "unexpected module heap identity"
+    );
+    anyhow::ensure!(
+        de.position().byte_pos == bytes.len(),
+        "unexpected trailing data in module root"
+    );
+    Ok((value_index, is_str))
+}
+
+#[test]
+fn test_module_root_without_heap_identity() -> pagable::Result<()> {
+    use pagable::testing::TestingSerializer;
+
+    use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
+
+    let heap_id = HeapRefId::from_heap_name(&TestHeapName::heap_name("module_root"));
+    let other_id = HeapRefId::from_heap_name(&TestHeapName::heap_name("other_module"));
+    let encode = |owner_tag: u8, root: SerializedFrozenValue| -> pagable::Result<Vec<u8>> {
+        let mut ser = TestingSerializer::new();
+        owner_tag.pagable_serialize(&mut ser)?;
+        root.pagable_serialize(&mut ser)?;
+        Ok(ser.finish())
+    };
+    let root = |value_index, is_str| SerializedFrozenValue::HeapPtr {
+        heap_id,
+        value_index,
+        is_str,
+    };
+
+    let bytes = encode(1, root(7, false))?;
+    assert_eq!(
+        module_root_without_heap_identity(&bytes, heap_id)?,
+        (7, false)
+    );
+    assert_eq!(
+        module_root_without_heap_identity(&encode(1, root(8, true))?, heap_id)?,
+        (8, true)
+    );
+    assert!(module_root_without_heap_identity(&bytes, other_id).is_err());
+    assert!(module_root_without_heap_identity(&encode(0, root(7, false))?, heap_id).is_err());
+    assert!(
+        module_root_without_heap_identity(
+            &encode(1, SerializedFrozenValue::InlineInt(7))?,
+            heap_id
+        )
+        .is_err()
+    );
+    assert!(module_root_without_heap_identity(&bytes[..bytes.len() - 1], heap_id).is_err());
+    assert!(module_root_without_heap_identity(&[], heap_id).is_err());
+    let duplicate = [bytes.as_slice(), bytes.as_slice()].concat();
+    assert!(module_root_without_heap_identity(&duplicate, heap_id).is_err());
+    Ok(())
+}
+
 /// Serialize a `FrozenModule`, returning the top-level data buffer.
 fn serialize_module_top_bytes(
     frozen_module: &crate::environment::FrozenModule,
@@ -4354,7 +4511,12 @@ fn serialize_module_top_bytes(
     frozen_module
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
-    let (data, _arcs) = ser.finish();
+    let (data, arcs) = ser.finish();
+    assert_eq!(
+        arcs.len(),
+        1,
+        "a module root should retain exactly one owner heap"
+    );
     Ok(data)
 }
 
@@ -4482,14 +4644,10 @@ def many_locals():
     Ok(())
 }
 
-/// Serialization must be byte-deterministic for cross-run dedup. Compile the
-/// same source twice into independent modules (different heaps/seeds) and assert
-/// the byte streams match.
-///
-/// Compile-twice rather than serialize/deserialize/serialize: re-serializing a
-/// paged-in module hits an unrelated chunk-index gap, orthogonal to `BcInstrs`.
+/// Independent compilations should assign the same index to the module root.
+/// This checks the top-level record, not the bytecode in its out-of-line heap.
 #[test]
-fn test_bcinstrs_module_serialization_deterministic() -> crate::Result<()> {
+fn test_frozen_module_root_serialization_deterministic() -> crate::Result<()> {
     use crate::environment::FrozenModule;
     use crate::environment::Module;
     use crate::eval::Evaluator;
@@ -4516,7 +4674,6 @@ def use_comprehension():
         name: TEST_BCINSTRS_DET_GLOBALS_HEAP_NAME,
     });
 
-    // Same heap name both times so self-references encode to the same `HeapRefId`.
     let compile = || -> crate::Result<FrozenModule> {
         let ast = AstModule::parse(
             "test_bcinstrs_det.star",
@@ -4536,13 +4693,22 @@ def use_comprehension():
     let storage = backing.handle();
     let storage_ctx = storage.storage_context();
 
-    let bytes_a = serialize_module_top_bytes(&compile()?, storage_ctx)?;
-    let bytes_b = serialize_module_top_bytes(&compile()?, storage_ctx)?;
+    let module_a = compile()?;
+    let module_b = compile()?;
+    let root_a = module_root_without_heap_identity(
+        &serialize_module_top_bytes(&module_a, storage_ctx)?,
+        module_a.frozen_heap().heap_arc().heap_ref_id().unwrap(),
+    )
+    .map_err(crate::Error::new_other)?;
+    let root_b = module_root_without_heap_identity(
+        &serialize_module_top_bytes(&module_b, storage_ctx)?,
+        module_b.frozen_heap().heap_arc().heap_ref_id().unwrap(),
+    )
+    .map_err(crate::Error::new_other)?;
 
     assert_eq!(
-        bytes_a, bytes_b,
-        "compiling + serializing the same source twice must be byte-identical \
-         (non-determinism breaks cross-run dedup)"
+        root_a, root_b,
+        "the module root should be identical apart from its seal identity"
     );
 
     Ok(())
