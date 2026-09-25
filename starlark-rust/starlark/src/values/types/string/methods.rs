@@ -174,7 +174,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn codepoints<'v>(
         this: StringValue<'v>,
         heap: Heap<'v>,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<String>>> {
+    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<u32>>> {
         Ok(iterate_codepoints(this, heap))
     }
 
@@ -1326,6 +1326,17 @@ mod tests {
     fn test_opaque_iterator() {
         assert::is_true("type('foo'.elems()) != type([])");
         assert::is_true("type('foo'.codepoints()) != type([])");
+    }
+
+    #[test]
+    fn test_codepoints_yields_ints() {
+        assert::is_true(
+            r#"
+def f() -> int:
+    return list("abc".codepoints())[0]
+f() == 97
+"#,
+        );
     }
 
     #[test]

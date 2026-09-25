@@ -68,7 +68,7 @@ pub(crate) fn iterate_chars<'v>(
 pub(crate) fn iterate_codepoints<'v>(
     string: StringValue<'v>,
     heap: Heap<'v>,
-) -> ValueOfUnchecked<'v, StarlarkIter<String>> {
+) -> ValueOfUnchecked<'v, StarlarkIter<u32>> {
     ValueOfUnchecked::new(heap.alloc_complex(StringIterable {
         string,
         produce_char: false,
