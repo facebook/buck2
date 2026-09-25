@@ -85,14 +85,14 @@ AppleBundleConstructionResult = record(
 
 def bundle_output(ctx: AnalysisContext) -> Artifact:
     bundle_dir_name = get_bundle_dir_name(ctx)
-    output = ctx.actions.declare_output(bundle_dir_name, has_content_based_path = True)
+    output = ctx.actions.declare_output(bundle_dir_name, has_content_based_path = False)
     return output
 
 def _bundling_log_args(ctx: AnalysisContext, output_name: str):
     if not ctx.attrs._bundling_log_file_enabled:
         return ([], None)
 
-    output = ctx.actions.declare_output(output_name, has_content_based_path = True)
+    output = ctx.actions.declare_output(output_name, has_content_based_path = False)
     args = ["--log-file", output.as_output()]
     if ctx.attrs._bundling_log_file_level:
         args.extend(["--log-level-file", ctx.attrs._bundling_log_file_level])
@@ -195,7 +195,7 @@ def assemble_bundle(
                     profiles_dir = ctx.actions.symlinked_dir(
                         "provisioning_profile_source_{}".format(i),
                         {profile.short_path: profile for profile in source.profiles},
-                        has_content_based_path = True,
+                        has_content_based_path = False,
                     )
                     codesign_selection_args.extend(["--profiles-dir", profiles_dir])
                 elif source.directory:
@@ -272,7 +272,7 @@ def assemble_bundle(
         env["BUCK2_BUNDLING_CACHE_BUSTER"] = cache_buster
 
     if codesign_required:
-        signing_context_path = ctx.actions.declare_output("signing_context.json", has_content_based_path = True)
+        signing_context_path = ctx.actions.declare_output("signing_context.json", has_content_based_path = False)
         resolve_command = [
             tools.resolve_signing_context,
             "--output",
@@ -292,7 +292,7 @@ def assemble_bundle(
         )
         signing_context_path_arg = ["--signing-context-path", signing_context_path]
 
-        signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = True)
+        signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
         ctx.actions.run(
             cmd_args(
                 [
@@ -321,7 +321,7 @@ def assemble_bundle(
     #  - Manifest file name reflects whether signing is required or not.
     #    Useful for debugging purposes.
     codesign_manifest_file_name = "codesign_manifest.json" if codesign_required else "placeholder_codesign_manifest.json"
-    codesign_manifest = ctx.actions.declare_output(codesign_manifest_file_name, has_content_based_path = True)
+    codesign_manifest = ctx.actions.declare_output(codesign_manifest_file_name, has_content_based_path = False)
     codesign_bundle_extra_args += [
         "--codesign-manifest",
         codesign_manifest.as_output(),
@@ -353,7 +353,7 @@ def assemble_bundle(
         extra_hidden,
     )
     run_incremental_args = {}
-    incremental_state = ctx.actions.declare_output("incremental_state.json", has_content_based_path = True).as_output()
+    incremental_state = ctx.actions.declare_output("incremental_state.json", has_content_based_path = False).as_output()
 
     # Fallback to value from buckconfig
     incremental_bundling_enabled = ctx.attrs.incremental_bundling_enabled or ctx.attrs._incremental_bundling_enabled
@@ -376,7 +376,7 @@ def assemble_bundle(
         category = "apple_assemble_bundle"
 
     if ctx.attrs._profile_bundling_enabled:
-        profile_output = ctx.actions.declare_output("bundling_profile.txt", has_content_based_path = True).as_output()
+        profile_output = ctx.actions.declare_output("bundling_profile.txt", has_content_based_path = False).as_output()
         command.add("--profile-output", profile_output)
 
     subtargets = {}
@@ -410,7 +410,7 @@ def assemble_bundle(
         **run_incremental_args,
     )
 
-    command_json = ctx.actions.declare_output("bundling_command.json", has_content_based_path = True)
+    command_json = ctx.actions.declare_output("bundling_command.json", has_content_based_path = False)
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
 
@@ -431,7 +431,7 @@ def assemble_bundle(
     bundle_manifest = AppleBundleManifest(log_file_map = bundle_manifest_log_file_map)
     bundle_manifest_json_object = _convert_bundle_manifest_to_json_object(bundle_manifest)
 
-    bundle_manifest_json_file = ctx.actions.declare_output("bundle_manifest.json", has_content_based_path = True)
+    bundle_manifest_json_file = ctx.actions.declare_output("bundle_manifest.json", has_content_based_path = False)
     bundle_manifest_cmd_args = ctx.actions.write_json(bundle_manifest_json_file, bundle_manifest_json_object, with_inputs = True, pretty = True)
     subtargets["manifest"] = [DefaultInfo(default_output = bundle_manifest_json_file, other_outputs = [bundle_manifest_cmd_args])]
 
@@ -439,7 +439,7 @@ def assemble_bundle(
 
     codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
     codesign_manifest_tree_json = _get_codesign_manifest_tree_as_json(codesign_manifest_tree)
-    codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json", has_content_based_path = True)
+    codesign_manifest_tree_json_file = ctx.actions.declare_output("codesign_manifest_tree.json", has_content_based_path = False)
     codesign_manifest_tree_json_cmd_args = ctx.actions.write_json(
         codesign_manifest_tree_json_file,
         codesign_manifest_tree_json,
@@ -450,7 +450,7 @@ def assemble_bundle(
     tools = ctx.attrs._apple_tools[AppleToolsInfo]
     manifest_tree_postprocessor = tools.codesign_manifest_tree_postprocessor
 
-    postprocessed_codesign_manifest_tree = ctx.actions.declare_output("postprocessed_codesign_manifest_tree.json", has_content_based_path = True)
+    postprocessed_codesign_manifest_tree = ctx.actions.declare_output("postprocessed_codesign_manifest_tree.json", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             [
@@ -470,7 +470,7 @@ def assemble_bundle(
         ),
     ]
 
-    signing_context_output = ctx.actions.declare_output("provisioning-manifest.json", has_content_based_path = True)
+    signing_context_output = ctx.actions.declare_output("provisioning-manifest.json", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             [
@@ -486,7 +486,7 @@ def assemble_bundle(
 
     signing_context_tree = _make_signing_context_tree(ctx, signing_context_output, signing_context_parts)
     signing_context_tree_json = _get_signing_context_tree_as_json(signing_context_tree)
-    signing_context_tree_json_file = ctx.actions.declare_output("provisioning-manifest-tree.json", has_content_based_path = True)
+    signing_context_tree_json_file = ctx.actions.declare_output("provisioning-manifest-tree.json", has_content_based_path = False)
     signing_context_tree_json_cmd_args = ctx.actions.write_json(
         signing_context_tree_json_file,
         signing_context_tree_json,
@@ -494,7 +494,7 @@ def assemble_bundle(
         pretty = True,
     )
 
-    postprocessed_signing_context_tree = ctx.actions.declare_output("postprocessed-provisioning-manifest-tree.json", has_content_based_path = True)
+    postprocessed_signing_context_tree = ctx.actions.declare_output("postprocessed-provisioning-manifest-tree.json", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             [
@@ -601,7 +601,7 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart], codesi
                 part_spec["extra_codesign_paths"] = part.extra_codesign_paths
         specs.append(part_spec)
 
-    return ctx.actions.write_json("bundle_spec.json", specs, pretty = True, has_content_based_path = True)
+    return ctx.actions.write_json("bundle_spec.json", specs, pretty = True, has_content_based_path = False)
 
 def _get_codesign_type_from_attribs(ctx: AnalysisContext) -> [CodeSignType, None]:
     # Target-level attribute takes highest priority
