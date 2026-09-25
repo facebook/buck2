@@ -190,7 +190,23 @@ impl RemoteExecutionClient {
             ));
         }
 
-        let client = RemoteExecutionClientImpl::new(re_config).await?;
+        // Creating the client normally takes seconds. Every command sharing the connection waits
+        // on it, so an attempt that wedges must fail rather than hang them all. 0 removes the bound.
+        let timeout_s = buck2_env!("BUCK2_RE_CONNECT_TIMEOUT_S", type = u64, default = 120)?;
+        let create = RemoteExecutionClientImpl::new(re_config);
+        let client = if timeout_s == 0 {
+            create.await?
+        } else {
+            tokio::time::timeout(Duration::from_secs(timeout_s), create)
+                .await
+                .map_err(|_| {
+                    buck2_error!(
+                        buck2_error::ErrorTag::ReDeadlineExceeded,
+                        "Creating the RE client did not finish within {}s. If this persists, run `buck2 kill`",
+                        timeout_s
+                    )
+                })??
+        };
 
         let persistent_cache_mode = client.persistent_cache_mode.clone();
         Ok(Self {
