@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//xplugins:types.bzl", "XPluginsFunctionMappingManifestInfo")
 load(
     ":apple_bundle_types.bzl",
     "AppleBundleInfo",
@@ -48,6 +49,9 @@ def _apple_finalize_bundle_impl(ctx):
     )
 
     forwarded_providers = [original_bundle[AppleDebuggableInfo], original_bundle[AppleInfoPlistInfo], original_bundle[AppleBundleLinkerMapInfo]]
+    xplugins_function_mapping_manifest_info = original_bundle.get(XPluginsFunctionMappingManifestInfo)
+    if xplugins_function_mapping_manifest_info:
+        forwarded_providers.append(xplugins_function_mapping_manifest_info)
 
     return [
         DefaultInfo(default_output = finalized_bundle),

@@ -26,6 +26,12 @@ XPluginsDebugArtifactsInfo = provider(
     }
 )
 
+XPluginsFunctionMappingManifestInfo = provider(
+    fields = {
+        "manifest": provider_field(Artifact),
+    }
+)
+
 XPluginsPluginUsageInfo = provider(
     fields = {
         "target": provider_field(Label),

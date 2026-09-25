@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//xplugins:types.bzl", "XPluginsFunctionMappingManifestInfo")
 load(
     ":apple_bundle_types.bzl",
     "AppleBundleInfo",
@@ -58,7 +59,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(process_ipa_cmd, category = category)
 
-    return [
+    providers = [
         DefaultInfo(
             default_output = package,
             sub_targets = sub_targets,
@@ -74,6 +75,10 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
             unstripped_binaries = ctx.attrs.bundle[AppleDebuggableInfo].binaries,
         ),
     ]
+    xplugins_function_mapping_manifest_info = ctx.attrs.bundle.get(XPluginsFunctionMappingManifestInfo)
+    if xplugins_function_mapping_manifest_info:
+        providers.append(xplugins_function_mapping_manifest_info)
+    return providers
 
 def _get_ipa_contents(ctx: AnalysisContext) -> Artifact:
     ipa_package_dep = ctx.attrs._ipa_package

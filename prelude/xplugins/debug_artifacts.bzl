@@ -11,6 +11,7 @@ load(
     "XPluginsDebugArtifactsEntry",
     "XPluginsDebugArtifactsInfo",
     "XPluginsDebugArtifactsTSet",
+    "XPluginsFunctionMappingManifestInfo",
     "XPluginsManifestInfo",
 )
 
@@ -39,34 +40,39 @@ def xplugins_get_debug_artifacts_info(ctx: AnalysisContext, deps: list[Dependenc
         return XPluginsDebugArtifactsInfo(tset = tset)
     return None
 
-def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPluginsDebugArtifactsInfo | None) -> list[Provider]:
+def xplugins_get_function_mapping_manifest_info(actions: AnalysisActions, info: XPluginsDebugArtifactsInfo | None) -> XPluginsFunctionMappingManifestInfo:
     if not info:
         info = XPluginsDebugArtifactsInfo(tset = actions.tset(XPluginsDebugArtifactsTSet))
 
     function_mapping_manifest = []
+    function_mapping_artifacts = []
 
     for entry in info.tset.traverse():
         if entry:
+            function_mapping_artifacts.append(entry.manifest_info.function_mapping)
             function_mapping_manifest.append({
                 "path": entry.manifest_info.function_mapping,
                 "target": entry.target,
             })
 
-    function_mapping_manifest_file = actions.declare_output("function_mapping_manifest.json", has_content_based_path = False)
-    function_mapping_manifest_inputs = actions.write_json(
-        function_mapping_manifest_file,
+    function_mapping_manifest_file = actions.write_json(
+        "function_mapping_manifest.json",
         function_mapping_manifest,
-        with_inputs = True,
+        has_content_based_path = False,
         pretty = True,
+    ).with_associated_artifacts(function_mapping_artifacts)
+
+    return XPluginsFunctionMappingManifestInfo(
+        manifest = function_mapping_manifest_file,
     )
 
+def xplugins_get_debug_artifacts_subtargets(info: XPluginsFunctionMappingManifestInfo) -> list[Provider]:
     return [
         DefaultInfo(
             sub_targets = {
                 "function_mapping_manifest": [
                     DefaultInfo(
-                        default_output = function_mapping_manifest_file,
-                        other_outputs = [function_mapping_manifest_inputs],
+                        default_output = info.manifest,
                     ),
                 ],
             },

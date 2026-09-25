@@ -60,7 +60,12 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
-load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info", "xplugins_get_debug_artifacts_subtargets")
+load(
+    "@prelude//xplugins:debug_artifacts.bzl",
+    "xplugins_get_debug_artifacts_info",
+    "xplugins_get_debug_artifacts_subtargets",
+    "xplugins_get_function_mapping_manifest_info",
+)
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(
     ":apple_bundle_part.bzl",
@@ -425,7 +430,8 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
     xplugins_debug_info = xplugins_get_debug_artifacts_info(ctx, deps_with_binary)
-    sub_targets["xplugins"] = xplugins_get_debug_artifacts_subtargets(ctx.actions, xplugins_debug_info)
+    xplugins_function_mapping_manifest_info = xplugins_get_function_mapping_manifest_info(ctx.actions, xplugins_debug_info)
+    sub_targets["xplugins"] = xplugins_get_debug_artifacts_subtargets(xplugins_function_mapping_manifest_info)
 
     link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx.actions, deps_with_binary)
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
@@ -609,6 +615,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
+    providers.append(xplugins_function_mapping_manifest_info)
 
     return providers
 
