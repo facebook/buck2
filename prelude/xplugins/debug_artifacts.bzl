@@ -43,32 +43,14 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
     if not info:
         info = XPluginsDebugArtifactsInfo(tset = actions.tset(XPluginsDebugArtifactsTSet))
 
-    dir_contents = {}
-    manifest = {}
     function_mapping_manifest = []
 
-    name_counts = {}
     for entry in info.tset.traverse():
         if entry:
-            raw_target = str(entry.target.raw_target())
-            name = entry.target.name
-            count = name_counts.get(name, 0)
-            name_counts[name] = count + 1
-            filename = "{}.json".format(name) if count == 0 else "{}{}.json".format(name, count)
-            dir_contents[filename] = entry.manifest_info.function_mapping
-            if raw_target not in manifest:
-                manifest[raw_target] = []
-            manifest[raw_target].append({
-                "configured_target": entry.target,
-                "path": filename,
-            })
             function_mapping_manifest.append({
                 "path": entry.manifest_info.function_mapping,
                 "target": entry.target,
             })
-
-    manifest_file = actions.write_json("manifest.json", manifest, pretty = True, has_content_based_path = False)
-    dir_contents["MANIFEST.json"] = manifest_file
 
     function_mapping_manifest_file = actions.declare_output("function_mapping_manifest.json", has_content_based_path = False)
     function_mapping_manifest_inputs = actions.write_json(
@@ -76,12 +58,6 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
         function_mapping_manifest,
         with_inputs = True,
         pretty = True,
-    )
-
-    directory = actions.copied_dir(
-        "XPluginsFunctionMappings",
-        dir_contents,
-        has_content_based_path = False,
     )
 
     return [
@@ -93,7 +69,6 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
                         other_outputs = [function_mapping_manifest_inputs],
                     ),
                 ],
-                "function_mappings": [DefaultInfo(default_output = directory)],
             },
         ),
     ]
