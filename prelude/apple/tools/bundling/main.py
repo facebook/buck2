@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
+from __future__ import annotations
 
 import argparse
 import cProfile
@@ -24,9 +24,6 @@ from apple.tools.code_signing.codesign_bundle import (
     CodesignConfiguration,
     CodesignedPath,
     write_empty_codesign_manifest,
-)
-from apple.tools.code_signing.provisioning_profile_metadata import (
-    ProvisioningProfileMetadata,
 )
 from apple.tools.code_signing.signing_context_types import (
     AdhocSigningContext,
@@ -47,9 +44,12 @@ from .incremental_state import (
 from .incremental_utils import codesigned_on_copy_item
 from .logging_utils import configure_logging
 from .signing_context import (
-    add_args_for_signing_context,
+    add_args_for_bundling_execution,
     add_args_for_signing_context_path,
-    signing_context_and_selected_identity_from_args,
+)
+from .signing_context_data import (
+    load_signing_context_data_from_file,
+    SigningContextData,
 )
 from .swift_support import run_swift_stdlib_tool, SwiftSupportArguments
 
@@ -224,14 +224,7 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Path to bundle telemetry logger tool. If provided, will be invoked after bundle assembly completes.",
     )
 
-    parser.add_argument(
-        "--signing-info-output",
-        type=Path,
-        required=False,
-        help="Path to the output JSON file for simplified signing identity metadata.",
-    )
-
-    add_args_for_signing_context(parser)
+    add_args_for_bundling_execution(parser)
     add_args_for_signing_context_path(parser)
 
     return parser
@@ -308,7 +301,21 @@ def _get_codesigned_paths_from_spec(
     return codesigned_paths
 
 
-def _main(spec_temp_dir: tempfile.TemporaryDirectory) -> None:
+def _load_signing_context(
+    args: argparse.Namespace,
+    temp_dir: Path,
+) -> tuple[AdhocSigningContext | SigningContextWithProfileSelection | None, str | None]:
+    if not args.codesign:
+        return None, None
+
+    signing_context_data = load_signing_context_data_from_file(
+        args.signing_context_path
+    )
+    _materialize_selected_profile(signing_context_data, temp_dir)
+    return signing_context_data.signing_context, signing_context_data.selected_identity
+
+
+def _main(spec_temp_dir: str) -> None:
     args_parser = _args_parser()
     args = args_parser.parse_args()
 
@@ -338,19 +345,10 @@ def _main(spec_temp_dir: tempfile.TemporaryDirectory) -> None:
     if profiling_enabled:
         pr.enable()
 
-    signing_context, selected_identity_argument = (
-        signing_context_and_selected_identity_from_args(args)
+    signing_context, selected_identity_argument = _load_signing_context(
+        args,
+        Path(spec_temp_dir),
     )
-
-    if args.signing_info_output:
-        selection_profile_context = selection_profile_context_from_signing_context(
-            signing_context
-        )
-        signing_info = _build_signing_info_json(
-            args, selected_identity_argument, selection_profile_context
-        )
-        with open(args.signing_info_output, "w") as signing_info_file:
-            json.dump(signing_info, signing_info_file, indent=4)
 
     with args.spec.open(mode="rb") as spec_file:
         spec = json.load(spec_file, object_hook=lambda d: BundleSpecItem(**d))
@@ -495,41 +493,22 @@ def _main(spec_temp_dir: tempfile.TemporaryDirectory) -> None:
         telemetry_tmp_dir.cleanup()
 
 
-def _build_signing_info_json(
-    args: argparse.Namespace,
-    selected_identity: Optional[str],
-    selection_profile_context: Optional[SigningContextWithProfileSelection],
-) -> dict:
-    if not args.codesign:
-        return {}
+def _materialize_selected_profile(
+    signing_context_data: SigningContextData,
+    output_dir: Path,
+) -> None:
+    profile_context = selection_profile_context_from_signing_context(
+        signing_context_data.signing_context
+    )
+    if profile_context is None:
+        return
+    if signing_context_data.provisioning_profile_data is None:
+        raise ValueError("Signing context is missing profile data")
 
-    signing_info: dict = {
-        "codesign_type": "adhoc" if args.ad_hoc else "distribution",
-    }
-
-    if selected_identity:
-        signing_info["codesign_identity"] = selected_identity
-
-    if selection_profile_context:
-        selected_profile_info = selection_profile_context.selected_profile_info
-        profile_metadata: ProvisioningProfileMetadata = selected_profile_info.profile
-        if profile_metadata.provisioned_devices is not None:
-            provisioned_devices = "list"
-        elif profile_metadata.provisions_all_devices:
-            provisioned_devices = "all"
-        else:
-            provisioned_devices = "none"
-        signing_info["provisioning_profile"] = {
-            "uuid": profile_metadata.uuid,
-            "file_name": profile_metadata.file_path.name,
-            "provisioned_devices": provisioned_devices,
-        }
-        signing_info["signing_certificate"] = {
-            "fingerprint": selected_profile_info.identity.fingerprint,
-            "subject_common_name": selected_profile_info.identity.subject_common_name,
-        }
-
-    return signing_info
+    profile = profile_context.selected_profile_info.profile
+    materialized_path = output_dir / profile.file_path.name
+    materialized_path.write_bytes(signing_context_data.provisioning_profile_data)
+    profile.file_path = materialized_path
 
 
 def _get_selected_profile_path(

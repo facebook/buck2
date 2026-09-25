@@ -120,10 +120,8 @@ def assemble_bundle(
     tools = ctx.attrs._apple_tools[AppleToolsInfo]
     tool = tools.assemble_bundle
 
-    # Defines common codesign args that can be passed to all codesign-like tools
-    codesign_args = []
-
-    # Defines codesign args for bundling only
+    codesign_selection_args = []
+    codesign_execution_args = []
     codesign_bundle_extra_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
@@ -180,7 +178,7 @@ def assemble_bundle(
         swift_args = []
 
     if codesign_required:
-        codesign_args += [
+        codesign_execution_args += [
             "--codesign",
         ]
 
@@ -199,30 +197,35 @@ def assemble_bundle(
                         {profile.short_path: profile for profile in source.profiles},
                         has_content_based_path = False,
                     )
-                    codesign_args.extend(["--profiles-dir", profiles_dir])
+                    codesign_selection_args.extend(["--profiles-dir", profiles_dir])
                 elif source.directory:
-                    codesign_args.extend(["--profiles-dir", source.directory])
+                    codesign_selection_args.extend(["--profiles-dir", source.directory])
 
             identities_command = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign_identities_command
             if ctx.attrs._codesign_identities_command_override:
                 identities_command = ctx.attrs._codesign_identities_command_override[RunInfo]
             identities_command_args = ["--codesign-identities-command", cmd_args(identities_command)] if identities_command else []
-            codesign_args.extend(identities_command_args)
+            codesign_selection_args.extend(identities_command_args)
 
         if codesign_type.value == "adhoc":
-            codesign_args.append("--ad-hoc")
+            codesign_selection_args.append("--ad-hoc")
             if ctx.attrs.codesign_identity:
-                codesign_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
+                codesign_selection_args.extend(["--ad-hoc-codesign-identity", ctx.attrs.codesign_identity])
             if profile_selection_required:
-                codesign_args.append("--embed-provisioning-profile-when-signing-ad-hoc")
+                codesign_selection_args.append("--embed-provisioning-profile-when-signing-ad-hoc")
 
-        codesign_args += get_entitlements_codesign_args(ctx, codesign_type)
+        entitlements_args = get_entitlements_codesign_args(ctx, codesign_type)
+        codesign_execution_args += entitlements_args
+
         if getattr(ctx.attrs, "entitlements_suffixed_key_map", None):
-            codesign_args += ["--entitlements-suffixed-key-map", json.encode(ctx.attrs.entitlements_suffixed_key_map)]
+            arg = ["--entitlements-suffixed-key-map", json.encode(ctx.attrs.entitlements_suffixed_key_map)]
+            codesign_execution_args += arg
         if getattr(ctx.attrs, "entitlements_removed_keys", None):
-            codesign_args += ["--entitlements-removed-keys", json.encode(ctx.attrs.entitlements_removed_keys)]
+            arg = ["--entitlements-removed-keys", json.encode(ctx.attrs.entitlements_removed_keys)]
+            codesign_execution_args += arg
         if getattr(ctx.attrs, "entitlements_removed_values_map", None):
-            codesign_args += ["--entitlements-removed-values-map", json.encode(ctx.attrs.entitlements_removed_values_map)]
+            arg = ["--entitlements-removed-values-map", json.encode(ctx.attrs.entitlements_removed_values_map)]
+            codesign_execution_args += arg
         codesign_bundle_extra_args += _get_extra_codesign_args(ctx)
 
         info_plist_args = (
@@ -235,26 +238,27 @@ def assemble_bundle(
             if info_plist_part
             else []
         )
-        codesign_args.extend(info_plist_args)
+        codesign_execution_args.extend(info_plist_args)
 
         if ctx.attrs.provisioning_profile_filter:
-            codesign_args.extend([
+            arg = [
                 "--provisioning-profile-filter",
                 ctx.attrs.provisioning_profile_filter,
-            ])
+            ]
+            codesign_selection_args.extend(arg)
 
         strict_provisioning_profile_search = value_or(ctx.attrs.strict_provisioning_profile_search, ctx.attrs._strict_provisioning_profile_search_default)
         if strict_provisioning_profile_search:
-            codesign_args.append("--strict-provisioning-profile-search")
+            codesign_selection_args.append("--strict-provisioning-profile-search")
 
         if ctx.attrs._fast_provisioning_profile_parsing_enabled:
-            codesign_args.append("--fast-provisioning-profile-parsing")
+            codesign_selection_args.append("--fast-provisioning-profile-parsing")
 
         if ctx.attrs._no_check_certificates:
-            codesign_args.append("--no-check-certificates")
+            codesign_selection_args.append("--no-check-certificates")
 
         if ctx.attrs.entitlements_verification_check_enabled:
-            codesign_args.append("--verify-entitlements")
+            codesign_selection_args.append("--verify-entitlements")
 
     elif codesign_type.value == "skip":
         pass
@@ -278,7 +282,7 @@ def assemble_bundle(
         resolve_command.extend(resolution_log_args)
         ctx.actions.run(
             cmd_args(
-                resolve_command + platform_args + codesign_args,
+                resolve_command + platform_args + codesign_selection_args + codesign_execution_args,
             ),
             local_only = force_local_bundling,
             prefer_local = not force_local_bundling,
@@ -287,6 +291,21 @@ def assemble_bundle(
             error_handler = apple_build_error_handler,
         )
         signing_context_path_arg = ["--signing-context-path", signing_context_path]
+
+        signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
+        ctx.actions.run(
+            cmd_args(
+                [
+                    tools.signing_info,
+                    "--signing-context-path",
+                    signing_context_path,
+                    "--output",
+                    signing_info_output.as_output(),
+                ],
+            ),
+            category = "apple_signing_info",
+            error_handler = apple_build_error_handler,
+        )
     else:
         resolution_log_output = None
         # Avoid adding a resolver action to every unsigned bundle target.
@@ -295,22 +314,7 @@ def assemble_bundle(
             _EMPTY_SIGNING_CONTEXT_DATA,
         )
         signing_context_path_arg = ["--signing-context-path", signing_context_path]
-
-    # Keep the signing-info subtarget independent from bundle assembly.
-    signing_info_output = ctx.actions.declare_output("signing-info.json", has_content_based_path = False)
-    ctx.actions.run(
-        cmd_args(
-            [
-                tools.signing_info,
-                "--signing-context-path",
-                signing_context_path,
-                "--output",
-                signing_info_output.as_output(),
-            ],
-        ),
-        category = "apple_signing_info",
-        error_handler = apple_build_error_handler,
-    )
+        signing_info_output = ctx.actions.write_json("signing-info.json", {})
 
     # - Always request codesign manifest, even if signing not required.
     #   Removes the need for conditional subtargets and fields in JSON output.
@@ -336,7 +340,7 @@ def assemble_bundle(
             "--spec",
             spec_file,
         ]
-        + codesign_args
+        + codesign_execution_args
         + codesign_bundle_extra_args
         + platform_args
         + swift_args
@@ -474,8 +478,6 @@ def assemble_bundle(
                 "--output",
                 signing_context_output.as_output(),
             ]
-            + platform_args
-            + codesign_args
             + signing_context_path_arg,
         ),
         category = "apple_provisioning_manifest",

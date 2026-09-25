@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-strict
+from __future__ import annotations
 
 import argparse
 import base64
@@ -17,16 +17,12 @@ from apple.tools.code_signing.signing_context_types import (
     selection_profile_context_from_signing_context,
 )
 
-from .signing_context import (
-    add_args_for_signing_context,
-    add_args_for_signing_context_path,
-    signing_context_and_selected_identity_from_args,
-)
+from .signing_context_data import load_signing_context_data_from_file
 
 
 def _main() -> None:
     parser = argparse.ArgumentParser(
-        description="Tool which outputs the signing context for an apple_bundle().",
+        description="Generate a provisioning manifest from a signing context.",
     )
     parser.add_argument(
         "--output",
@@ -34,16 +30,19 @@ def _main() -> None:
         type=Path,
         help="Path to the output JSON file.",
     )
-    add_args_for_signing_context(parser)
-    add_args_for_signing_context_path(parser)
-
-    args = parser.parse_args()
-    signing_context, selected_identity = (
-        signing_context_and_selected_identity_from_args(args)
+    parser.add_argument(
+        "--signing-context-path",
+        type=Path,
+        required=True,
+        help="Path to the precomputed signing context JSON.",
     )
 
+    args = parser.parse_args()
+    signing_context_data = load_signing_context_data_from_file(
+        args.signing_context_path
+    )
     selection_profile_context = selection_profile_context_from_signing_context(
-        signing_context
+        signing_context_data.signing_context
     )
 
     with open(args.output, "w") as output_file:
@@ -51,21 +50,19 @@ def _main() -> None:
             "version": 1,
         }
 
-        if selected_identity:
-            # Adhoc and Developer ID builds will only have `codesign_identity`
-            # (in which case, it would the human readable identity).
-            #
-            # For provisioned builds (i.e., with a prov profile), it would be the
-            # signing cert fingerprint (i.e., SHA1 hash of cert in DER format)
-            signing_context_json_obj["codesign_identity"] = selected_identity
+        if signing_context_data.selected_identity:
+            # Ad hoc and Developer ID signing use the human-readable identity;
+            # profile-based signing uses the certificate fingerprint.
+            signing_context_json_obj["codesign_identity"] = (
+                signing_context_data.selected_identity
+            )
 
         if selection_profile_context:
             selected_profile_info = selection_profile_context.selected_profile_info
             profile_metadata = selected_profile_info.profile
-            with open(profile_metadata.file_path, "rb") as prov_profile_file:
-                prov_profile_as_base64_utf8 = base64.standard_b64encode(
-                    prov_profile_file.read()
-                ).decode()
+            profile_data = signing_context_data.provisioning_profile_data
+            if profile_data is None:
+                raise ValueError("Signing context is missing profile data")
 
             signing_context_json_obj["provisioning_profile"] = {
                 "uuid": profile_metadata.uuid,
@@ -74,7 +71,7 @@ def _main() -> None:
                     "subject_common_name": selected_profile_info.identity.subject_common_name,
                 },
                 "file_name": profile_metadata.file_path.name,
-                "file_data_base64": prov_profile_as_base64_utf8,
+                "file_data_base64": base64.b64encode(profile_data).decode(),
             }
 
         json.dump(
