@@ -15,22 +15,23 @@ import logging
 import os
 import pstats
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from apple.tools.code_signing.codesign_bundle import (
-    AdhocSigningContext,
     codesign_bundle,
     CodesignConfiguration,
     CodesignedPath,
-    selection_profile_context_from_signing_context,
-    SigningContextWithProfileSelection,
     write_empty_codesign_manifest,
 )
 from apple.tools.code_signing.provisioning_profile_metadata import (
     ProvisioningProfileMetadata,
+)
+from apple.tools.code_signing.signing_context_types import (
+    AdhocSigningContext,
+    selection_profile_context_from_signing_context,
+    SigningContextWithProfileSelection,
 )
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
@@ -44,8 +45,10 @@ from .incremental_state import (
     parse_incremental_state,
 )
 from .incremental_utils import codesigned_on_copy_item
+from .logging_utils import configure_logging
 from .signing_context import (
     add_args_for_signing_context,
+    add_args_for_signing_context_path,
     signing_context_and_selected_identity_from_args,
 )
 from .swift_support import run_swift_stdlib_tool, SwiftSupportArguments
@@ -229,6 +232,7 @@ def _args_parser() -> argparse.ArgumentParser:
     )
 
     add_args_for_signing_context(parser)
+    add_args_for_signing_context_path(parser)
 
     return parser
 
@@ -323,14 +327,7 @@ def _main(spec_temp_dir: tempfile.TemporaryDirectory) -> None:
     ):
         args.codesign_args.remove("--digest-algorithm=sha1")
 
-    if args.log_file:
-        with open(args.log_file, "w") as _:
-            # We need to open the log file for two reasons:
-            # - Ensure it exists after action runs, as it's an output and thus required
-            # - It gets erased, so that we get new logs when doing incremental bundling
-            pass
-
-    _setup_logging(
+    configure_logging(
         stderr_level=getattr(logging, args.log_level_stderr.upper()),
         file_level=getattr(logging, args.log_level_file.upper()),
         log_path=args.log_file,
@@ -765,52 +762,6 @@ def _deduplicate_spec(spec: List[BundleSpecItem]) -> List[BundleSpecItem]:
     # WARNING: This logic is tightly coupled with how spec filtering is done in `_filter_conflicting_paths` method during incremental bundling. Don't change unless you fully understand what is going on here.
     deduplicated_spec.sort()
     return deduplicated_spec
-
-
-def _setup_logging(
-    stderr_level: int, file_level: int, log_path: Optional[Path]
-) -> None:
-    stderr_handler = logging.StreamHandler()
-    stderr_handler.setLevel(stderr_level)
-    log_format = (
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
-    )
-    stderr_handler.setFormatter(
-        ColoredLogFormatter(log_format)
-        if sys.stderr.isatty()
-        else logging.Formatter(log_format)
-    )
-
-    handlers: List[logging.Handler] = [stderr_handler]
-
-    if log_path:
-        file_handler = logging.FileHandler(log_path, encoding="utf-8")
-        file_handler.setFormatter(logging.Formatter(log_format))
-        file_handler.setLevel(file_level)
-        handlers.append(file_handler)
-
-    logging.basicConfig(level=logging.DEBUG, handlers=handlers)
-
-
-class ColoredLogFormatter(logging.Formatter):
-    _colors: Dict[int, str] = {
-        logging.DEBUG: "\x1b[m",
-        logging.INFO: "\x1b[37m",
-        logging.WARNING: "\x1b[33m",
-        logging.ERROR: "\x1b[31m",
-        logging.CRITICAL: "\x1b[1;31m",
-    }
-    _reset_color = "\x1b[0m"
-
-    def __init__(self, text_format: str) -> None:
-        self.text_format = text_format
-
-    def format(self, record: logging.LogRecord) -> str:
-        colored_format = (
-            self._colors[record.levelno] + self.text_format + self._reset_color
-        )
-        formatter = logging.Formatter(colored_format)
-        return formatter.format(record)
 
 
 if __name__ == "__main__":

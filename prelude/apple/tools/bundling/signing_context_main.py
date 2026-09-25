@@ -13,12 +13,13 @@ import base64
 import json
 from pathlib import Path
 
-from apple.tools.code_signing.codesign_bundle import (
+from apple.tools.code_signing.signing_context_types import (
     selection_profile_context_from_signing_context,
 )
 
 from .signing_context import (
     add_args_for_signing_context,
+    add_args_for_signing_context_path,
     signing_context_and_selected_identity_from_args,
 )
 
@@ -34,6 +35,7 @@ def _main() -> None:
         help="Path to the output JSON file.",
     )
     add_args_for_signing_context(parser)
+    add_args_for_signing_context_path(parser)
 
     args = parser.parse_args()
     signing_context, selected_identity = (

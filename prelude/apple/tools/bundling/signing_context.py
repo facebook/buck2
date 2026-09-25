@@ -14,14 +14,28 @@ from typing import Optional, Union
 
 from apple.tools.code_signing.apple_platform import ApplePlatform
 from apple.tools.code_signing.codesign_bundle import (
-    AdhocSigningContext,
     signing_context_with_profile_selection,
-    SigningContextWithProfileSelection,
 )
 from apple.tools.code_signing.list_codesign_identities import (
     AdHocListCodesignIdentities,
     ListCodesignIdentities,
 )
+from apple.tools.code_signing.signing_context_types import (
+    AdhocSigningContext,
+    SigningContextWithProfileSelection,
+)
+
+from .signing_context_data import load_signing_context_data_from_file
+
+
+def add_args_for_signing_context_path(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "--signing-context-path",
+        metavar="<SigningContext.json>",
+        type=Path,
+        required=False,
+        help="Path to precomputed signing context JSON. If present, expensive profile selection is skipped and this file is used.",
+    )
 
 
 def add_args_for_signing_context(parser: argparse.ArgumentParser):
@@ -154,6 +168,18 @@ def signing_context_and_selected_identity_from_args(
     Optional[Union[AdhocSigningContext, SigningContextWithProfileSelection]],
     Optional[str],
 ):
+    # If a precomputed context is provided, use it directly to avoid expensive
+    # provisioning profile parsing and identity listing. `getattr` is intentional:
+    # the resolver parser omits `--signing-context-path` because it produces that
+    # artifact, while the bundle and provisioning-manifest binaries consume it.
+    signing_context_path = getattr(args, "signing_context_path", None)
+    if signing_context_path is not None:
+        signing_context_data = load_signing_context_data_from_file(signing_context_path)
+        return (
+            signing_context_data.signing_context,
+            signing_context_data.selected_identity,
+        )
+
     if args.codesign:
         if not args.info_plist_source:
             raise RuntimeError(
