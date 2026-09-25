@@ -1085,7 +1085,7 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
         .heap_arc()
         .heap_ref_id()
         .expect("heap should have a name");
-    let scope = StarlarkDeserScope::new();
+    let scope = StarlarkDeserScope::new(Default::default());
 
     scope
         .register_heap(
@@ -1138,6 +1138,51 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
         )
         .expect("an expired binding should be replaceable");
     assert_eq!(scope.get_heap(&heap_id).as_ref(), Some(second.heap_arc()));
+}
+
+#[test]
+fn test_concurrent_scopes_reject_conflicting_live_heap_binding() {
+    let owners = [1, 2].map(|count| {
+        let heap = ErasingHeap::new();
+        heap.alloc_simple(SimpleData { flag: true, count });
+        heap.into_ref_named(TestHeapName::heap_name("cross_scope_binding"))
+    });
+    let heap_id = owners[0].heap_arc().heap_ref_id().unwrap();
+    let bindings = Arc::default();
+    let scopes = [
+        StarlarkDeserScope::new(Arc::clone(&bindings)),
+        StarlarkDeserScope::new(bindings),
+    ];
+    let ready = std::sync::Barrier::new(2);
+    let results = std::thread::scope(|threads| {
+        let handles: Vec<_> = scopes
+            .iter()
+            .zip(&owners)
+            .map(|(scope, owner)| {
+                let ready = &ready;
+                threads.spawn(move || {
+                    ready.wait();
+                    scope.register_heap(heap_id, owner.heap_arc().downgrade().unwrap())
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert!(matches!(
+        results.iter().find_map(|result| result.as_ref().err()),
+        Some(PagableError::ConflictingHeapBinding { .. })
+    ));
+    let bound = scopes[0].get_heap(&heap_id).unwrap();
+    assert_eq!(scopes[1].get_heap(&heap_id).as_ref(), Some(&bound));
+    for scope in &scopes {
+        scope
+            .register_heap(heap_id, bound.downgrade().unwrap())
+            .unwrap();
+    }
 }
 
 #[test]
@@ -3396,6 +3441,93 @@ fn test_projection_into_retained_dependency_reserializes() -> crate::Result<()> 
         .downcast_ref::<SimpleData>()
         .expect("the projection is G's value");
     assert_eq!(target.count, 99);
+    Ok(())
+}
+
+/// A skeleton bound by one root page-in and first read by another resolves
+/// the pointers in its values: bindings are per storage, not per root.
+#[test]
+#[cfg(fbcode_build)]
+fn test_skeleton_first_read_by_another_root_resolves_its_dependencies() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::pagable::starlark_partial_deser_stats;
+    use crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex;
+
+    let heap_g = ErasingHeap::new();
+    let g_fv = heap_g.alloc_simple(SimpleData {
+        flag: true,
+        count: 99,
+    });
+    let g_ref = heap_g.into_ref_named(TestHeapName::heap_name("two_roots_g"));
+
+    let heap_b = ErasingHeap::new();
+    heap_b.add_reference(g_ref.owner());
+    let b_fv = heap_b.alloc_ref_data(3, g_fv);
+    let b_ref = heap_b.into_ref_named(TestHeapName::heap_name("two_roots_b"));
+
+    // Root 1 lists B but points at nothing in it, so B stays a skeleton for it.
+    let heap_a1 = ErasingHeap::new();
+    heap_a1.add_reference(b_ref.owner());
+    let a1_fv = heap_a1.alloc_simple(SimpleData {
+        flag: false,
+        count: 1,
+    });
+    let a1_ref = heap_a1.into_ref_named(TestHeapName::heap_name("two_roots_a1"));
+    // Root 2 points into B, whose value points into G.
+    let heap_a2 = ErasingHeap::new();
+    heap_a2.add_reference(b_ref.owner());
+    let a2_fv = heap_a2.alloc_ref_data(7, b_fv);
+    let a2_ref = heap_a2.into_ref_named(TestHeapName::heap_name("two_roots_a2"));
+    // SAFETY: each ref owns the arena hosting its value.
+    let ofv1: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(a1_ref, a1_fv) };
+    let ofv2: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(a2_ref, a2_fv) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key1 = ser_owned_frozen_value_into_storage(&backing, &ofv1)?;
+    let key2 = ser_owned_frozen_value_into_storage(&backing, &ofv2)?;
+    drop((ofv1, ofv2, b_ref, g_ref));
+    handle
+        .storage_context()
+        .get::<StarlarkHeapKeyIndex>()
+        .expect("page-out registers the index")
+        .clear();
+
+    let before = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    let restored1 = deser_owned_frozen_from_storage(&backing, &handle, &key1)?;
+    let mid = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    assert_eq!(
+        mid.heaps_loaded - before.heaps_loaded,
+        1,
+        "root 1 reads its own row only: B is bound as a skeleton"
+    );
+
+    let restored2 = deser_owned_frozen_from_storage(&backing, &handle, &key2)?;
+    let after = starlark_partial_deser_stats().expect("counters are on under cfg(test)");
+    assert_eq!(
+        after.heaps_loaded - mid.heaps_loaded,
+        3,
+        "root 2 reads its own row, B's, and G's"
+    );
+    let root: &RefData = restored2
+        .as_ref()
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("root 2 is RefData");
+    let in_b: &RefData = root
+        .target
+        .to_value()
+        .downcast_ref::<RefData>()
+        .expect("root 2 points at B's RefData");
+    let in_g: &SimpleData = in_b
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("B's value points into G");
+    assert_eq!(in_g.count, 99, "the pointer from B into G resolves");
+    drop(restored1);
     Ok(())
 }
 

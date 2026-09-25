@@ -30,6 +30,7 @@ use std::sync::MutexGuard;
 use std::sync::OnceLock;
 use std::sync::RwLock;
 use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread::ThreadId;
 
@@ -753,12 +754,63 @@ impl HeapDeserializationState {
     }
 }
 
-/// Heap bindings shared by Starlark deserialization within one root page-in.
+/// The live heap for each heap identity, shared by every page-in over one
+/// storage.
+///
+/// A [`HeapRefId`] names one heap's content, so which root page-in first bound
+/// an allocation does not matter to any other: a pointer resolves into the
+/// same heap whichever root reads it. One map per storage keeps a binding per
+/// live heap; one map per root would copy each root's whole dependency closure.
+#[derive(Allocative)]
+pub(crate) struct StarlarkHeapBindings {
+    bindings: DashMap<HeapRefId, WeakFrozenHeapRef>,
+    registrations_until_prune: AtomicUsize,
+}
+
+const MIN_HEAP_BINDING_PRUNE_INTERVAL: usize = 64;
+
+impl Default for StarlarkHeapBindings {
+    fn default() -> Self {
+        Self {
+            bindings: DashMap::default(),
+            registrations_until_prune: AtomicUsize::new(MIN_HEAP_BINDING_PRUNE_INTERVAL),
+        }
+    }
+}
+
+impl StarlarkHeapBindings {
+    fn maybe_prune_expired(&self) {
+        // Native heaps have no deserialization state to unregister them on drop.
+        // Zero reserves the sweep for one caller while other registrations proceed.
+        if self.registrations_until_prune.fetch_update(
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+            |remaining| remaining.checked_sub(1),
+        ) != Ok(1)
+        {
+            return;
+        }
+
+        // Upgrading here could drop the last strong reference under a shard lock;
+        // restored heap destruction re-enters this map to unregister the heap.
+        self.bindings.retain(|_, heap| !heap.is_expired());
+        // Retain scans capacity, so the next interval can track live entries only
+        // if excess capacity from expired entries is also reclaimed.
+        self.bindings.shrink_to_fit();
+        self.registrations_until_prune.store(
+            self.bindings.len().max(MIN_HEAP_BINDING_PRUNE_INTERVAL),
+            Ordering::Relaxed,
+        );
+    }
+}
+
+impl StorageState for StarlarkHeapBindings {}
+
+/// What Starlark deserialization within one root page-in shares: the storage's
+/// heap bindings.
 #[derive(Allocative)]
 pub(crate) struct StarlarkDeserScope {
-    /// Weak heap index used to resolve a heap ID while retaining the exact
-    /// owning heap for every access to its arena-backed deserialization state.
-    heap_bindings: DashMap<HeapRefId, WeakFrozenHeapRef>,
+    heap_bindings: Arc<StarlarkHeapBindings>,
 }
 
 impl PageInState for StarlarkDeserScope {}
@@ -1067,10 +1119,8 @@ fn conflicting_heap_binding(
 }
 
 impl StarlarkDeserScope {
-    pub(crate) fn new() -> Self {
-        Self {
-            heap_bindings: DashMap::new(),
-        }
+    pub(crate) fn new(heap_bindings: Arc<StarlarkHeapBindings>) -> Self {
+        Self { heap_bindings }
     }
 
     /// Register a heap for cross-heap value resolution.
@@ -1080,7 +1130,7 @@ impl StarlarkDeserScope {
         heap: WeakFrozenHeapRef,
     ) -> Result<(), PagableError> {
         let heap_ptr = heap.heap_ptr();
-        match self.heap_bindings.entry(heap_id) {
+        match self.heap_bindings.bindings.entry(heap_id) {
             Entry::Vacant(entry) => {
                 entry.insert(heap);
             }
@@ -1100,6 +1150,7 @@ impl StarlarkDeserScope {
                 entry.insert(heap);
             }
         }
+        self.heap_bindings.maybe_prune_expired();
         Ok(())
     }
 
@@ -1112,7 +1163,7 @@ impl StarlarkDeserScope {
             .downgrade()
             .expect("a heap being bound must have an allocation")
             .heap_ptr();
-        let Some(entry) = self.heap_bindings.get(&heap_id) else {
+        let Some(entry) = self.heap_bindings.bindings.get(&heap_id) else {
             return Ok(false);
         };
         if entry.heap_ptr() == heap_ptr {
@@ -1131,7 +1182,7 @@ impl StarlarkDeserScope {
     }
 
     pub(crate) fn unregister_heap(&self, heap_id: HeapRefId, heap_ptr: FrozenHeapPtr) {
-        if let Entry::Occupied(entry) = self.heap_bindings.entry(heap_id)
+        if let Entry::Occupied(entry) = self.heap_bindings.bindings.entry(heap_id)
             && entry.get().heap_ptr() == heap_ptr
         {
             entry.remove();
@@ -1140,6 +1191,7 @@ impl StarlarkDeserScope {
 
     pub(crate) fn get_heap(&self, heap_id: &HeapRefId) -> Option<FrozenHeapArc> {
         self.heap_bindings
+            .bindings
             .get(heap_id)
             .and_then(|heap| heap.upgrade())
     }
@@ -1148,6 +1200,7 @@ impl StarlarkDeserScope {
     /// not bound yet.
     fn unread_heaps(&self) -> Vec<FrozenHeapArc> {
         self.heap_bindings
+            .bindings
             .iter()
             .filter_map(|entry| entry.value().upgrade())
             .filter(|heap| !heap.row_read())
@@ -1157,18 +1210,13 @@ impl StarlarkDeserScope {
 
 /// Bind a heap a pointer names but nothing has bound yet.
 ///
-/// Two places a heap can be. A heap whose row was written or read on this
-/// storage is in the [`StarlarkHeapKeyIndex`], whatever lists it - or nothing
-/// does, as for a value relocated into a shared row. Otherwise it sits below a
-/// skeleton: a pointer from a value in `origin` only ever names a heap in
-/// `origin`'s closure, and every heap whose row has been read has its direct
-/// dependencies bound, so reading rows breadth-first from `origin` reaches it.
+/// Try [`StarlarkHeapKeyIndex`], then read rows breadth-first through `origin`'s
+/// serialized refs. Targets outside that closure, such as relocated values,
+/// require the index.
 ///
-/// Either way `origin` ends up holding the target: a heap read on the walk
-/// retains what it lists, and one found through the index is retained by
-/// `origin` directly, since no ref list of `origin`'s accounts for it. Without
-/// an origin the walk starts from every unread heap in the scope instead,
-/// which still terminates but leaves retention to the arc cache.
+/// `origin` retains index hits directly and BFS hits through their ref path.
+/// Without an origin, search all unread heaps and rely on the arc cache for
+/// retention.
 ///
 /// [`StarlarkHeapKeyIndex`]: crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex
 #[cold]
@@ -1204,6 +1252,9 @@ fn resolve_missing_heap(
                 return Ok(found);
             }
         }
+        // Within the serialized closure, retained edges only shortcut ref paths.
+        // Targets outside it require the index, whose entries never expire.
+        // Restart drops retained edges too, so serialized refs suffice here.
         queue.extend(heap.refs_slice().iter().map(|dep| dep.heap_arc().dupe()));
     }
     Err(PagableError::HeapNotBoundInPageInScope { heap_id }.into())
@@ -1280,10 +1331,12 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
     pub(crate) fn get_or_create_scope(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Arc<StarlarkDeserScope> {
-        register_heap_key_index(deserializer.storage_context());
-        deserializer
-            .page_in_scope()
-            .get_or_init(StarlarkDeserScope::new)
+        // Looked up inside the closure so only creating a scope pays the probe.
+        let storage_context = deserializer.storage_context();
+        deserializer.page_in_scope().get_or_init(|| {
+            register_heap_key_index(storage_context);
+            StarlarkDeserScope::new(storage_context.get_or_init(StarlarkHeapBindings::default))
+        })
     }
 }
 
@@ -1493,8 +1546,129 @@ mod tests {
     use dupe::Dupe;
 
     use super::HeapValueId;
+    use super::MIN_HEAP_BINDING_PRUNE_INTERVAL;
+    use super::StarlarkDeserScope;
     use super::StarlarkDeserWaitGraph;
+    use super::StarlarkHeapBindings;
+    use crate::values::OwnedFrozen;
+    use crate::values::Value;
+    use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::layout::heap::sealed::FrozenHeapPtr;
+
+    fn registered_native_heap(scope: &StarlarkDeserScope) -> OwnedFrozen<Value<'static>> {
+        let heap: OwnedFrozen<Value<'static>> =
+            OwnedFrozen::build(StarlarkTestHeapName::frozen_heap_name(), |heap| {
+                heap.alloc("native")
+            });
+        assert!(heap.heap_arc().deser_state().is_none());
+        scope
+            .register_heap(
+                heap.heap_arc().heap_ref_id().unwrap(),
+                heap.heap_arc().downgrade().unwrap(),
+            )
+            .unwrap();
+        heap
+    }
+
+    #[test]
+    fn test_heap_bindings_reclaim_expired_native_heaps() {
+        let bindings = Arc::new(StarlarkHeapBindings::default());
+        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let live = registered_native_heap(&scope);
+        for _ in 0..4 * MIN_HEAP_BINDING_PRUNE_INTERVAL {
+            drop(registered_native_heap(&scope));
+        }
+        assert!(
+            bindings.bindings.len() <= MIN_HEAP_BINDING_PRUNE_INTERVAL + 1,
+            "dead native bindings must not accumulate across repeated page-ins: {} entries",
+            bindings.bindings.len()
+        );
+        assert_eq!(
+            scope
+                .get_heap(&live.heap_arc().heap_ref_id().unwrap())
+                .as_ref(),
+            Some(live.heap_arc()),
+            "cleanup must preserve the live allocation"
+        );
+    }
+
+    #[test]
+    fn test_heap_bindings_prune_interval_scales_with_live_heaps() {
+        let bindings = Arc::new(StarlarkHeapBindings::default());
+        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let live: Vec<_> = (0..4 * MIN_HEAP_BINDING_PRUNE_INTERVAL)
+            .map(|_| registered_native_heap(&scope))
+            .collect();
+        let interval = bindings.registrations_until_prune.load(Ordering::Relaxed);
+        assert_eq!(interval, live.len());
+        for heap in &live {
+            let id = heap.heap_arc().heap_ref_id().unwrap();
+            assert_eq!(scope.get_heap(&id).as_ref(), Some(heap.heap_arc()));
+            scope
+                .register_heap(id, heap.heap_arc().downgrade().unwrap())
+                .unwrap();
+        }
+        assert_eq!(
+            bindings.registrations_until_prune.load(Ordering::Relaxed),
+            interval,
+            "re-registering the same allocation must not charge another sweep"
+        );
+
+        drop(live);
+        for _ in 0..interval {
+            drop(registered_native_heap(&scope));
+        }
+        assert_eq!(bindings.bindings.len(), 1);
+        assert!(
+            bindings.bindings.capacity() < interval,
+            "cleanup must reclaim excess capacity before shortening the next interval"
+        );
+        assert_eq!(
+            bindings.registrations_until_prune.load(Ordering::Relaxed),
+            MIN_HEAP_BINDING_PRUNE_INTERVAL
+        );
+    }
+
+    #[test]
+    fn test_heap_bindings_prune_with_concurrent_registrations() {
+        let bindings = Arc::new(StarlarkHeapBindings::default());
+        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let ready = Barrier::new(4);
+        let live = std::thread::scope(|threads| {
+            let handles: Vec<_> = (0..4)
+                .map(|_| {
+                    threads.spawn(|| {
+                        let live = registered_native_heap(&scope);
+                        ready.wait();
+                        for _ in 0..4 * MIN_HEAP_BINDING_PRUNE_INTERVAL {
+                            drop(registered_native_heap(&scope));
+                        }
+                        live
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+
+        // Finish the current interval after all concurrent drops have completed.
+        let interval = bindings.registrations_until_prune.load(Ordering::Relaxed);
+        assert!(interval > 0);
+        for _ in 0..interval {
+            drop(registered_native_heap(&scope));
+        }
+        assert_eq!(bindings.bindings.len(), live.len() + 1);
+        for heap in &live {
+            assert_eq!(
+                scope
+                    .get_heap(&heap.heap_arc().heap_ref_id().unwrap())
+                    .as_ref(),
+                Some(heap.heap_arc())
+            );
+        }
+    }
 
     fn value_id(n: usize) -> HeapValueId {
         HeapValueId {

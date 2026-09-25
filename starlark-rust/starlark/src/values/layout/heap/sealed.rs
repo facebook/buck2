@@ -45,6 +45,7 @@ use pagable::PageInScope;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
 use pagable::arc_erase::ArcEraseDyn;
+use pagable::arc_erase::WeakErase;
 use pagable::storage::handle::PagableStorageHandle;
 use rand::RngExt;
 
@@ -101,7 +102,8 @@ pub(crate) mod heap_key_index {
     /// relocated into a shared blob, say - can only be found by identity, and this
     /// is the map that answers it.
     ///
-    /// Storage-scoped and in memory only, filled as heap rows are written or read.
+    /// Populated on writes and binds; entries stay in memory for the storage's
+    /// lifetime, as the missing-heap fallback requires.
     #[derive(Default)]
     pub(crate) struct StarlarkHeapKeyIndex {
         keys: DashMap<HeapRefId, DataKey>,
@@ -310,6 +312,10 @@ impl FrozenHeapPtr {
 pub(crate) struct WeakFrozenHeapRef(PartialPagableWeak<FrozenFrozenHeap>);
 
 impl WeakFrozenHeapRef {
+    pub(crate) fn is_expired(&self) -> bool {
+        self.0.is_expired()
+    }
+
     pub(crate) fn upgrade(&self) -> Option<FrozenHeapArc> {
         self.0.upgrade().map(|heap| FrozenHeapArc(Some(heap)))
     }
