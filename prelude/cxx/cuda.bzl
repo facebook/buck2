@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:compile_types.bzl", "CudaDistributedCompileOutput", "CxxSrcCompileCommand")
+load("@prelude//cxx:compile_types.bzl", "CudaDistributedCompileOutput", "CxxCompileCommand", "HeadersDepFiles")
 load("@prelude//cxx:compiler.bzl", "get_output_flags")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:headers.bzl", "add_headers_dep_files")
@@ -40,7 +40,7 @@ CudaDistributedCompileSpec = record(
     argsfile_args = field(cmd_args),
     file_prefix_specs = field(Artifact | None),
     output_declared_artifact = field(OutputArtifact),
-    src_compile_cmd = field(CxxSrcCompileCommand),
+    src = field(Artifact),
 )
 
 PreparedCudaCommand = record(
@@ -85,7 +85,8 @@ def cuda_mono_compile(
     actions: AnalysisActions,
     cmd: cmd_args,
     object: OutputArtifact,
-    src_compile_cmd: CxxSrcCompileCommand,
+    src: Artifact,
+    cxx_compile_cmd: CxxCompileCommand,
     cuda_compile_info: CudaCompileInfo,
     action_dep_files: dict[str, ArtifactTag],
     allow_dep_file_cache_upload: bool,
@@ -97,23 +98,23 @@ def cuda_mono_compile(
     """
 
     # Bind the object output for monolithic NVCC compilation.
-    cmd.add(get_output_flags(src_compile_cmd.cxx_compile_cmd.compiler_type, object))
-    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+    cmd.add(get_output_flags(cxx_compile_cmd.compiler_type, object))
+    headers_dep_files = cxx_compile_cmd.headers_dep_files
     if headers_dep_files:
         cmd = add_headers_dep_files(
             actions,
             cmd,
             headers_dep_files,
-            src_compile_cmd.src,
+            src,
             cuda_compile_info.filename,
             action_dep_files,
         )
     actions.run(
         cmd,
-        category = src_compile_cmd.cxx_compile_cmd.category,
+        category = cxx_compile_cmd.category,
         identifier = cuda_compile_info.identifier,
         dep_files = action_dep_files,
-        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+        allow_cache_upload = cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = allow_dep_file_cache_upload,
         error_handler = error_handler,
     )
@@ -123,7 +124,8 @@ def cuda_distributed_compile(
     cmd: cmd_args,
     object: OutputArtifact,
     cuda_dist_output: CudaDistributedCompileOutput,
-    src_compile_cmd: CxxSrcCompileCommand,
+    src: Artifact,
+    cxx_compile_cmd: CxxCompileCommand,
     cuda_compile_info: CudaCompileInfo,
     cuda_prepare_cmd: cmd_args | None,
     shared_plan_identifier: str | None,
@@ -151,15 +153,15 @@ def cuda_distributed_compile(
     original_cmd = cmd_args(
         cmd_with_output,
         hidden = [
-            src_compile_cmd.cxx_compile_cmd.base_compile_cmd,
-            src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form,
+            cxx_compile_cmd.base_compile_cmd,
+            cxx_compile_cmd.argsfile.cmd_form,
         ],
     )
 
     # The dry run never opens this file. It matches the flag, echoed as one
     # `-specs=<path>` token, so the plan can carry a placeholder in place of a
     # path that moves with the header closure.
-    file_prefix_specs = src_compile_cmd.cxx_compile_cmd.argsfile.file_prefix_specs
+    file_prefix_specs = cxx_compile_cmd.argsfile.file_prefix_specs
 
     if cuda_prepare_cmd != None:
         prepare_cmd = cmd_args(
@@ -187,10 +189,10 @@ def cuda_distributed_compile(
     return CudaDistributedCompileSpec(
         cuda_compile_info = cuda_compile_info,
         original_cmd = original_cmd,
-        argsfile_args = src_compile_cmd.cxx_compile_cmd.argsfile.args,
+        argsfile_args = cxx_compile_cmd.argsfile.args,
         file_prefix_specs = file_prefix_specs,
         output_declared_artifact = object,
-        src_compile_cmd = src_compile_cmd,
+        src = src,
     )
 
 # Keep the old cuda_compile function for backward compatibility
@@ -198,7 +200,8 @@ def cuda_compile(
     actions: AnalysisActions,
     cmd: cmd_args,
     object: OutputArtifact,
-    src_compile_cmd: CxxSrcCompileCommand,
+    src: Artifact,
+    cxx_compile_cmd: CxxCompileCommand,
     cuda_compile_info: CudaCompileInfo,
     action_dep_files: dict[str, ArtifactTag],
     allow_dep_file_cache_upload: bool,
@@ -217,7 +220,8 @@ def cuda_compile(
             actions,
             cmd,
             object,
-            src_compile_cmd,
+            src,
+            cxx_compile_cmd,
             cuda_compile_info,
             action_dep_files,
             allow_dep_file_cache_upload,
@@ -232,7 +236,8 @@ def cuda_compile(
             cmd,
             object,
             cuda_dist_output,
-            src_compile_cmd,
+            src,
+            cxx_compile_cmd,
             cuda_compile_info,
             cuda_prepare_cmd,
             shared_plan_identifier,
@@ -245,6 +250,8 @@ def create_cuda_distributed_compiles(
     toolchain: CxxToolchainInfo,
     cuda_dist_output: CudaDistributedCompileOutput,
     specs: list[CudaDistributedCompileSpec],
+    allow_cache_upload: bool,
+    headers_dep_files: HeadersDepFiles | None,
 ) -> None:
     if not specs:
         return
@@ -253,7 +260,7 @@ def create_cuda_distributed_compiles(
     # them all. It carries the same flags with content-based paths rendered as a
     # placeholder: it moves when a flag really changes, not when a path does.
     hostcc_argsfile_fingerprint = None
-    if specs[0].src_compile_cmd.cxx_compile_cmd.headers_dep_files != None:
+    if headers_dep_files != None:
         hostcc_argsfile_fingerprint, _ = actions.write(
             "__redacted__/{}.hostcc_argsfile_fingerprint".format(specs[0].cuda_compile_info.filename),
             cmd_args(specs[0].original_cmd, specs[0].argsfile_args, quote = "shell"),
@@ -266,7 +273,9 @@ def create_cuda_distributed_compiles(
         _nvcc_dynamic_compile_rule(
             toolchain = toolchain,
             cuda_compile_infos = [spec.cuda_compile_info for spec in specs],
-            src_compile_cmds = [spec.src_compile_cmd for spec in specs],
+            srcs = [spec.src for spec in specs],
+            allow_cache_upload = allow_cache_upload,
+            headers_dep_files = headers_dep_files,
             original_cmds = [spec.original_cmd for spec in specs],
             hostcc_argsfile = cuda_dist_output.hostcc_argsfile,
             hostcc_argsfile_fingerprint = hostcc_argsfile_fingerprint,
@@ -280,7 +289,7 @@ def create_cuda_distributed_compiles(
 def _create_file_to_artifact_map(
     actions: AnalysisActions,
     plan_json: list[dict[str, typing.Any]],
-    src_compile_cmd: CxxSrcCompileCommand,
+    src: Artifact,
     cuda_compile_info: CudaCompileInfo,
     output_declared_artifact: OutputArtifact,
     uses_content_based_paths: bool,
@@ -293,7 +302,7 @@ def _create_file_to_artifact_map(
         for input in node_inputs:
             if input not in file2artifact:
                 if input.endswith(".cu"):
-                    file2artifact[input] = src_compile_cmd.src
+                    file2artifact[input] = src
                 else:
                     input_artifact = actions.declare_output(
                         "__cuda_intermediates__",
@@ -398,7 +407,9 @@ def _nvcc_dynamic_compile(
     actions: AnalysisActions,
     toolchain: CxxToolchainInfo,
     cuda_compile_infos: list[CudaCompileInfo],
-    src_compile_cmds: list[CxxSrcCompileCommand],
+    srcs: list[Artifact],
+    allow_cache_upload: bool,
+    headers_dep_files: HeadersDepFiles | None,
     original_cmds: list[cmd_args],
     hostcc_argsfile: Artifact,
     hostcc_argsfile_fingerprint: Artifact | None,
@@ -408,11 +419,11 @@ def _nvcc_dynamic_compile(
     output_declared_artifacts: list[OutputArtifact],
 ) -> list[Provider]:
     num_sources = len(cuda_compile_infos)
-    if len(src_compile_cmds) != num_sources or len(original_cmds) != num_sources or len(output_declared_artifacts) != num_sources:
+    if len(srcs) != num_sources or len(original_cmds) != num_sources or len(output_declared_artifacts) != num_sources:
         fail(
             "per-source dist CUDA lists must be the same length, got {}/{}/{}/{}".format(
                 len(cuda_compile_infos),
-                len(src_compile_cmds),
+                len(srcs),
                 len(original_cmds),
                 len(output_declared_artifacts),
             )
@@ -425,10 +436,9 @@ def _nvcc_dynamic_compile(
     # built once from the representative source. Tagging lets dep-file filtering
     # drop their paths from each sub-action key; the untagged fingerprint is what
     # still reruns the sub-actions when a flag changes.
-    shared_dep_files_tag = src_compile_cmds[0].cxx_compile_cmd.headers_dep_files
-    if shared_dep_files_tag != None and hostcc_argsfile_fingerprint != None:
+    if headers_dep_files != None and hostcc_argsfile_fingerprint != None:
         hostcc_wp_form = cmd_args(
-            shared_dep_files_tag.tag.tag_artifacts(hostcc_argsfile),
+            headers_dep_files.tag.tag_artifacts(hostcc_argsfile),
             format = "-Wp,@{}",
             hidden = [hostcc_argsfile_fingerprint],
         )
@@ -437,9 +447,9 @@ def _nvcc_dynamic_compile(
 
     specs_form = None
     if file_prefix_specs != None:
-        if shared_dep_files_tag != None:
+        if headers_dep_files != None:
             specs_form = cmd_args(
-                shared_dep_files_tag.tag.tag_artifacts(file_prefix_specs),
+                headers_dep_files.tag.tag_artifacts(file_prefix_specs),
                 format = "-specs={}",
             )
         else:
@@ -448,9 +458,9 @@ def _nvcc_dynamic_compile(
     prepared_commands = [_prepare_cuda_command(cmd_node, hostcc_wp_form, specs_form) for cmd_node in plan]
     cuda_toolchain_inputs = cmd_args(hidden = [toolchain.cuda_compiler_info.compiler])
 
-    for cuda_compile_info, src_compile_cmd, original_cmd, output_declared_artifact in zip(
+    for cuda_compile_info, src, original_cmd, output_declared_artifact in zip(
         cuda_compile_infos,
-        src_compile_cmds,
+        srcs,
         original_cmds,
         output_declared_artifacts,
     ):
@@ -458,7 +468,7 @@ def _nvcc_dynamic_compile(
         file2artifact = _create_file_to_artifact_map(
             actions,
             plan,
-            src_compile_cmd,
+            src,
             cuda_compile_info,
             output_declared_artifact,
             content_based,
@@ -510,10 +520,10 @@ def _nvcc_dynamic_compile(
                     # cannot be included as ignore_artifacts=True
                     # TODO(jtbraun): when has_content_based_path is available,
                     # use that as the condition here
-                    if src_compile_cmd.src.is_source:
-                        subcmd.add(cmd_args([value[0], src_compile_cmd.src, value[1]], delimiter = "", ignore_artifacts = True))
+                    if src.is_source:
+                        subcmd.add(cmd_args([value[0], src, value[1]], delimiter = "", ignore_artifacts = True))
                     else:
-                        subcmd.add(cmd_args([value[0], src_compile_cmd.src, value[1]], delimiter = ""))
+                        subcmd.add(cmd_args([value[0], src, value[1]], delimiter = ""))
                 else:
                     fail("unhandled placeholder kind: {}".format(kind))
 
@@ -530,7 +540,6 @@ def _nvcc_dynamic_compile(
             # when their output is byte-identical. Let the host compiler report the
             # headers it actually read so buck can prune the rest from the action key.
             action_dep_files = {}
-            headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
             if is_cxx_subcommand and headers_dep_files:
                 # Categories can repeat within a plan, so disambiguate with a
                 # per-category ordinal.
@@ -540,7 +549,7 @@ def _nvcc_dynamic_compile(
                     actions,
                     subcmd,
                     headers_dep_files,
-                    src_compile_cmd.src,
+                    src,
                     "{}/{}/{}".format(cuda_compile_info.filename, cmd_node["category"], ordinal),
                     action_dep_files,
                 )
@@ -551,7 +560,7 @@ def _nvcc_dynamic_compile(
                 env = subcmd_env,
                 identifier = cuda_compile_info.identifier,
                 dep_files = action_dep_files,
-                allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+                allow_cache_upload = allow_cache_upload,
                 allow_dep_file_cache_upload = False,
                 prefer_remote = True if "preproc" in cmd_node["category"] else False,
             )
@@ -561,15 +570,17 @@ def _nvcc_dynamic_compile(
 _nvcc_dynamic_compile_rule = dynamic_actions(
     impl = _nvcc_dynamic_compile,
     attrs = {
+        "allow_cache_upload": dynattrs.value(bool),
         "cuda_compile_infos": dynattrs.list(dynattrs.value(CudaCompileInfo)),
         "env_artifact": dynattrs.artifact_value(),
         "file_prefix_specs": dynattrs.option(dynattrs.value(Artifact)),
+        "headers_dep_files": dynattrs.option(dynattrs.value(HeadersDepFiles)),
         "hostcc_argsfile": dynattrs.value(Artifact),
         "hostcc_argsfile_fingerprint": dynattrs.option(dynattrs.value(Artifact)),
         "original_cmds": dynattrs.list(dynattrs.value(cmd_args)),
         "output_declared_artifacts": dynattrs.list(dynattrs.output()),
         "plan_artifact": dynattrs.artifact_value(),
-        "src_compile_cmds": dynattrs.list(dynattrs.value(CxxSrcCompileCommand)),
+        "srcs": dynattrs.list(dynattrs.value(Artifact)),
         "toolchain": dynattrs.value(CxxToolchainInfo),
     },
 )
