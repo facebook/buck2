@@ -64,7 +64,9 @@ class AnnotationStubsGenerator : StubsGenerator {
             inners = qualifier.names.drop(1)
           }
 
-          val stub = context.stubsContainer.find(pkg, name, inners)
+          val stub =
+              context.stubsContainer.find(pkg, name, inners)
+                  ?: nestUnderStubbedOuter(context, pkg, name, inners)
           if (stub != null) {
             stub.type = KStub.Type.ANNOTATION
           } else {
@@ -78,5 +80,30 @@ class AnnotationStubsGenerator : StubsGenerator {
             )
           }
         }
+  }
+
+  // A nested annotation written only as `@Outer.Inner`, same-package and unimported, reaches no
+  // other generator: there is no import for InnerClassStubsGenerator to walk, and
+  // SamePackageClassStubsGenerator counts the annotation's own referencedName as a known symbol, so
+  // nothing fabricates the inner. Nesting it is only safe when the outer is itself a stub: an outer
+  // that is stubbed is off the reduced classpath, so everything nested in it is too, and the inner
+  // cannot shadow a type that would otherwise resolve.
+  private fun nestUnderStubbedOuter(
+      context: GenerationContext,
+      pkg: String,
+      name: String,
+      inners: List<String>,
+  ): KStub? {
+    if (inners.isEmpty()) return null
+    var stubToEdit = context.stubsContainer.find(pkg, name) ?: return null
+    var innerPkg = "$pkg.$name"
+    for (innerName in inners) {
+      val innerStub =
+          stubToEdit.innerStubs.find { it.name == innerName }
+              ?: KStub(innerPkg, innerName).also { stubToEdit.innerStubs += it }
+      innerPkg = "$innerPkg.$innerName"
+      stubToEdit = innerStub
+    }
+    return stubToEdit
   }
 }
