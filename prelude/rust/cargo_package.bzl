@@ -32,7 +32,7 @@ def set_reindeer_platforms(platforms) -> None:
 
     native.write_package_value(
         "rust.reindeer_platforms",
-        _convert_select_to_dict(platforms),
+        platforms,
         overwrite = True,
     )
     native.write_package_value(
@@ -44,7 +44,7 @@ def set_reindeer_platforms(platforms) -> None:
 def get_reindeer_platforms():
     platforms = native.read_package_value("rust.reindeer_platforms")
     if platforms != None:
-        return _convert_dict_to_select(platforms)
+        return platforms
     return DEFAULT_REINDEER_PLATFORMS
 
 def get_reindeer_platform_names() -> set[str]:
@@ -90,61 +90,6 @@ def _reindeer_platform_names(platform_select) -> set[str]:
     return names
 
 _DEFAULT_REINDEER_PLATFORM_NAMES = _reindeer_platform_names(DEFAULT_REINDEER_PLATFORMS)
-
-# Disect the `repr` representation of a `select`, which looks like this:
-#   select({"DEFAULT": None, "config//os:linux": "linux-arm64", ...})
-#
-# [WORKAROUND] This will be unnecessary once `write_package_value` allows
-# selects, which seems to have consensus and just needs to be implemented.
-def _convert_select_to_dict(select_value):
-    string = repr(select_value)
-    result = None
-    key = None
-    stack = []
-
-    for _ in string.elems():
-        # Parse a value (non-key)
-        if string.startswith('"'):
-            value, string = string[1:].split('"', 1)
-        elif string.startswith("None"):
-            value, string = None, string.removeprefix("None")
-        elif string.startswith("select({"):
-            value, string = {}, string.removeprefix("select({")
-        else:
-            fail()
-
-        # Insert the parsed value into the surrounding collection
-        if key == None:
-            result = value
-        else:
-            stack[-1][key] = value
-
-        # Parse a key
-        if value == {}:
-            stack.append(value)
-            if string.startswith('"'):
-                key, string = string.removeprefix('"').split('": ', 1)
-                continue  # Back to parsing a value
-
-        # Pop the stack while there are selects ending
-        for _ in range(len(stack)):
-            if string.startswith("})"):
-                string = string.removeprefix("})")
-                stack.pop()
-            else:
-                break
-
-        # Parse separator and next key
-        if string == "":
-            return result
-        elif string.startswith(', "'):
-            key, string = string.removeprefix(', "').split('": ', 1)
-        else:
-            fail()
-    fail()
-
-def _convert_dict_to_select(value):
-    return value if not is_dict(value) else select({k: _convert_dict_to_select(v) for k, v in value.items()})
 
 def apply_platform_attrs(platform_attrs, universal_attrs, platform_select = None):
     if platform_select == None:
