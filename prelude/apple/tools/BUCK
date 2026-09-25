@@ -1,6 +1,6 @@
 # @noautodeps
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load(":defs.bzl", "apple_oso_scrubber_target", "bundle_telemetry_logger_target")
+load(":defs.bzl", "apple_oso_scrubber_target", "bundle_telemetry_logger_target", "swiftmodule_change_analysis_target")
 
 oncall("build_infra")
 
@@ -28,6 +28,7 @@ apple_tools(
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
     spm_packager = ":spm_packager",
     static_archive_linker = ":static_archive_linker",
+    swiftmodule_change_analysis = swiftmodule_change_analysis_target(),
     visibility = ["PUBLIC"],
     xcframework_maker = ":xcframework_maker",
 )

@@ -45,3 +45,7 @@ def apple_oso_scrubber_target():
 
 def bundle_telemetry_logger_target():
     return read_root_config("apple", "bundle_telemetry_logger", None)
+
+def swiftmodule_change_analysis_target():
+    # Overridable via buckconfig either way.
+    return read_root_config("apple", "swiftmodule_change_analysis", None)
