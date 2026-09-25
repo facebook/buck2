@@ -52,6 +52,13 @@ class GenerationContext {
   val importedTypes: Set<FullTypeQualifier>
 
   /**
+   * [importedTypes] split by the file that wrote the import. A usage must be attributed against its
+   * own file's imports: the pooled set resolves a simple name to whichever file imported it first,
+   * which is the wrong type as soon as two files import different types of the same name.
+   */
+  val importedTypesByFile: Map<KtFile, Set<FullTypeQualifier>>
+
+  /**
    * This contains external types outside from the local source codes, etc: classpath, code
    * generation
    */
@@ -87,6 +94,7 @@ class GenerationContext {
       this.pkgsInClasspath = emptySet()
       this.importedDeclarations = emptySet()
       this.importedTypes = emptySet()
+      this.importedTypesByFile = emptyMap()
       this.interfaceTypes = emptyList()
       this.multiBoundGroups = emptyList()
       this.annotationEntries = emptyList()
@@ -98,10 +106,13 @@ class GenerationContext {
       this.typeAliasSymbol = emptySet()
       this.parameterNames = emptySet()
     } else {
-      val importDirectives = projectFiles.flatMap { it.importList?.imports ?: emptyList() }
+      val importsByFile = projectFiles.associateWith { it.importList?.imports ?: emptyList() }
+      val importDirectives = importsByFile.values.flatten()
       this.importedDeclarations = importDirectives.mapNotNull { it.toImportedClass() }.toSet()
       this.importAlias = importDirectives.mapNotNull { it.aliasName }.toSet()
       val rawImportedTypes = importedDeclarations.filterNot { it.isTopLevelDeclaration() }.toSet()
+      // `importedTypes` and `importedTypesByFile` are assigned after the traversal below: both
+      // gain the usage-proven class imports, which need the collected type usages.
 
       val dataInClasspath: Pair<Set<FullTypeQualifier>, Set<List<String>>> =
           parseClasspathFileClassesAndPackages(classpath)
@@ -191,18 +202,15 @@ class GenerationContext {
               .filterNot { it.isSdkQualifier() }
               .toSet()
       // An all-caps simple name (`IABJSOTA`, `OTA`, `URI`) parses as a static-const member, so
-      // its import carries no class name and drops out of the raw type set above. A member used
-      // in type position is really a class: promote those imports so every consumer resolves
-      // the owner. A member never used as a type stays out (top-level consts and funs).
-      this.importedTypes =
-          rawImportedTypes +
-              importedDeclarations.mapNotNull { imp ->
-                imp.member
-                    ?.takeIf { isProvenClassImport(imp) }
-                    ?.let { name ->
-                      FullTypeQualifier.unsafeBuildQualifier(imp.segments, imp.pkg, listOf(name))
-                    }
-              }
+      // its import carries no class name and drops out of the raw type sets above. A member used
+      // in type position is really a class: promote those imports, module-wide and per file, so
+      // every consumer resolves the owner. A member never used as a type stays out (top-level
+      // consts and funs).
+      this.importedTypes = rawImportedTypes + promoteProvenClassImports(importedDeclarations)
+      this.importedTypesByFile = importsByFile.mapValues { (_, imports) ->
+        val quals = imports.mapNotNull { it.toImportedClass() }
+        quals.filterNot { it.isTopLevelDeclaration() }.toSet() + promoteProvenClassImports(quals)
+      }
       // TODO: We might have multiple ctors for each type.
       // For now we're just skipping to have one (the default)
       this.typeValueArgs = typeValueArgPairs.toMap()
@@ -350,6 +358,19 @@ class GenerationContext {
         imp.member?.takeIf { imp.names.isEmpty() && it.first().isUpperCase() } ?: return false
     return usedUserTypes.any { it.referencedName == name }
   }
+
+  private fun promoteProvenClassImports(
+      quals: Collection<FullTypeQualifier>,
+  ): Set<FullTypeQualifier> =
+      quals
+          .mapNotNull { imp ->
+            imp.member
+                ?.takeIf { isProvenClassImport(imp) }
+                ?.let { name ->
+                  FullTypeQualifier.unsafeBuildQualifier(imp.segments, imp.pkg, listOf(name))
+                }
+          }
+          .toSet()
 
   fun packageName(): String? {
     return projectFiles

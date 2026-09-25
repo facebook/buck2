@@ -20,7 +20,16 @@ import org.jetbrains.kotlin.psi.KtUserType
 /** [InnerClassStubsGenerator] should be after [CtorStubsGenerator] in the generation pipeline. */
 class InterfaceStubsGenerator : StubsGenerator {
   override fun generateStubs(context: GenerationContext) {
-    val candidates = context.importedTypes.filterDifferentOuterClassIn(context.declaredTypes)
+    // A usage resolves against the imports of ITS OWN file. Pooling every file's imports attributes
+    // a simple name to whichever file imported it first, so when two files import different types
+    // of the same name the wrong stub is retyped and the real supertype is left a class.
+    val candidatesByFile =
+        context.importedTypesByFile.mapValues { (_, imports) ->
+          imports.filterDifferentOuterClassIn(context.declaredTypes)
+        }
+    val pooledCandidates = context.importedTypes.filterDifferentOuterClassIn(context.declaredTypes)
+    fun candidatesFor(type: KtUserType): List<FullTypeQualifier> =
+        candidatesByFile[type.containingKtFile] ?: pooledCandidates
 
     // Every stubbed bound of a multi-bound type parameter is emitted as an interface. Kotlin
     // permits at most one non-interface bound, so at most one bound of a group can be a class, and
@@ -40,12 +49,12 @@ class InterfaceStubsGenerator : StubsGenerator {
     // any one earlier retype cleared it.
     val multiBoundStubs =
         context.multiBoundGroups
-            .filterNot { group -> group.any { nested(candidates, it) } }
-            .flatMap { group -> group.filter { isStubbed(context, candidates, it) } }
+            .filterNot { group -> group.any { nested(candidatesFor(it), it) } }
+            .flatMap { group -> group.filter { isStubbed(context, candidatesFor(it), it) } }
 
     for (iType in context.interfaceTypes + multiBoundStubs) {
       val qualifierList = iType.calculateQualifierList()
-      val imp = candidates.find { it.names.last() == qualifierList.first() }
+      val imp = candidatesFor(iType).find { it.names.last() == qualifierList.first() }
       var pkg: String
       var name: String
       var inners: List<String>
