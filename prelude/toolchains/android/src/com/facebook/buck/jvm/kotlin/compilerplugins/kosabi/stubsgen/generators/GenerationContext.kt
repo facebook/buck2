@@ -101,7 +101,7 @@ class GenerationContext {
       val importDirectives = projectFiles.flatMap { it.importList?.imports ?: emptyList() }
       this.importedDeclarations = importDirectives.mapNotNull { it.toImportedClass() }.toSet()
       this.importAlias = importDirectives.mapNotNull { it.aliasName }.toSet()
-      this.importedTypes = importedDeclarations.filterNot { it.isTopLevelDeclaration() }.toSet()
+      val rawImportedTypes = importedDeclarations.filterNot { it.isTopLevelDeclaration() }.toSet()
 
       val dataInClasspath: Pair<Set<FullTypeQualifier>, Set<List<String>>> =
           parseClasspathFileClassesAndPackages(classpath)
@@ -190,6 +190,19 @@ class GenerationContext {
               .map { FullTypeQualifier(it) }
               .filterNot { it.isSdkQualifier() }
               .toSet()
+      // An all-caps simple name (`IABJSOTA`, `OTA`, `URI`) parses as a static-const member, so
+      // its import carries no class name and drops out of the raw type set above. A member used
+      // in type position is really a class: promote those imports so every consumer resolves
+      // the owner. A member never used as a type stays out (top-level consts and funs).
+      this.importedTypes =
+          rawImportedTypes +
+              importedDeclarations.mapNotNull { imp ->
+                imp.member
+                    ?.takeIf { isProvenClassImport(imp) }
+                    ?.let { name ->
+                      FullTypeQualifier.unsafeBuildQualifier(imp.segments, imp.pkg, listOf(name))
+                    }
+              }
       // TODO: We might have multiple ctors for each type.
       // For now we're just skipping to have one (the default)
       this.typeValueArgs = typeValueArgPairs.toMap()
@@ -325,6 +338,17 @@ class GenerationContext {
           if (userTypes.first() == null) null else userTypes.filterNotNull()
         }
         .filter { it.size > 1 }
+  }
+
+  /**
+   * A member-only import (`import a.b.OTA`) whose name is used in type position names a class: an
+   * all-caps simple name parses as a static-const member, so the import carries no class name until
+   * usage proves it. A member never used as a type stays a declaration (a top-level const or fun).
+   */
+  fun isProvenClassImport(imp: FullTypeQualifier): Boolean {
+    val name =
+        imp.member?.takeIf { imp.names.isEmpty() && it.first().isUpperCase() } ?: return false
+    return usedUserTypes.any { it.referencedName == name }
   }
 
   fun packageName(): String? {

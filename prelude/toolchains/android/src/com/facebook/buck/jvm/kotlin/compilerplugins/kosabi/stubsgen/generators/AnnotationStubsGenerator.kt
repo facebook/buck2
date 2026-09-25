@@ -10,6 +10,7 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators
 
+import com.facebook.kotlin.compilerplugins.kosabi.common.FullTypeQualifier
 import com.facebook.kotlin.compilerplugins.kosabi.common.Logger
 import com.facebook.kotlin.compilerplugins.kosabi.common.filterDifferentOuterClassIn
 import com.facebook.kotlin.compilerplugins.kosabi.common.outerClassOnlyQualifier
@@ -30,6 +31,7 @@ class AnnotationStubsGenerator : StubsGenerator {
         context.importedTypes.filterDifferentOuterClassIn(context.declaredTypes).filterNot {
           context.externalTypeReferences.contains(it.outerClassOnlyQualifier())
         }
+    val modulePkg = context.packageName()?.split(".").orEmpty()
 
     context.annotationEntries
         .mapNotNull { it.typeReference?.getChildOfType<KtUserType>() }
@@ -37,31 +39,42 @@ class AnnotationStubsGenerator : StubsGenerator {
           val genFullQualifier = annotationType.calculateQualifierList()
           val imp = candidates.find { it.names.last() == genFullQualifier.first() }
 
+          val pkg: String
+          val name: String
+          val inners: List<String>
           if (imp != null) {
-            val pkg = imp.pkgAsString()
-            val name = imp.names.first()
-            val inners: List<String> = imp.names.drop(1) + genFullQualifier.drop(1)
-
-            val stub = context.stubsContainer.find(pkg, name, inners)
-            if (stub != null) {
-              stub.type = KStub.Type.ANNOTATION
-            } else {
-              Logger.log(
-                  """
-            |  [Warning] stub not found
-            |    - name: $pkg:$name
-            |    - inners: $inners
-          """
-                      .trimMargin(),
-              )
-            }
+            pkg = imp.pkgAsString()
+            name = imp.names.first()
+            inners = imp.names.drop(1) + genFullQualifier.drop(1)
           } else {
+            // No import matches. A qualifier carrying its own package is written out in full; one
+            // that carries none names a type of the module's own package. Either way this only
+            // retypes a stub that already exists, so it cannot invent an annotation: an annotation
+            // left as a plain class is what makes the use site unresolvable.
+            val written = FullTypeQualifier(genFullQualifier)
+            val qualifier =
+                if (written.pkg.isEmpty() && modulePkg.isNotEmpty()) {
+                  FullTypeQualifier(modulePkg + genFullQualifier)
+                } else {
+                  written
+                }
+            if (qualifier.names.isEmpty()) return@forEach
+            pkg = qualifier.pkgAsString()
+            name = qualifier.names.first()
+            inners = qualifier.names.drop(1)
+          }
 
+          val stub = context.stubsContainer.find(pkg, name, inners)
+          if (stub != null) {
+            stub.type = KStub.Type.ANNOTATION
+          } else {
             Logger.log(
                 """
-          |  [Warning] ImportTypes not found
-          |    - name: $genFullQualifier
-          """,
+          |  [Warning] stub not found
+          |    - name: $pkg:$name
+          |    - inners: $inners
+        """
+                    .trimMargin(),
             )
           }
         }

@@ -48,14 +48,24 @@ class SamePackageClassStubsGenerator : StubsGenerator {
     val autoImportedExternalTypes = context.externalTypeReferences.filter { it.isAutoImported() }
     val generatedTypesInModulePackage =
         context.knownGeneratedTypes.filter { it.pkgAsString() == modulePkgName }
+    // A qualifier that carries no package (`Outer.Inner`) and whose outer no import,
+    // declaration, or classpath entry owns names a nested type of the module's own
+    // package. FullQualifiedClassStubsGenerator drops it for having no package and
+    // InnerClassStubsGenerator can only reach it through an import, so nothing creates its outer:
+    // counting that outer as known here is what leaves the usage with no stub at all.
+    val nestedSamePackageQualifiers =
+        context.fullQualifierTypes.filter {
+          it.pkg.isEmpty() && it.member == null && it.names.size > 1
+        }
     allKnownSymbols.addAll(
         (context.importedTypes +
                 context.declaredTypes +
                 autoImportedExternalTypes +
                 generatedTypesInModulePackage +
-                context.fullQualifierTypes)
+                (context.fullQualifierTypes - nestedSamePackageQualifiers.toSet()))
             .flatMap { it.segments + it.names },
     )
+    allKnownSymbols.addAll(nestedSamePackageQualifiers.flatMap { it.names.drop(1) })
 
     // Alias & type parameter names
     allKnownSymbols.addAll(context.typeAliasSymbol + context.importAlias + context.parameterNames)
@@ -79,5 +89,24 @@ class SamePackageClassStubsGenerator : StubsGenerator {
         context.stubsContainer.add(KStub(modulePkgName, typeName))
       }
     }
+
+    // The usage is `Outer.Inner`, so the outer stub fabricated above still has to own an Inner for
+    // the reference to resolve. Only outers fabricated here are nested into: an outer resolved any
+    // other way already has its own owner, and its nesting belongs to that owner's generator.
+    val fabricatedNames = maybeUnknownClasses.toSet()
+    nestedSamePackageQualifiers
+        .filter { it.names.first() in fabricatedNames }
+        .forEach { qualifier ->
+          var stubToEdit =
+              context.stubsContainer.find(modulePkgName, qualifier.names.first()) ?: return@forEach
+          var innerPkg = "$modulePkgName.${stubToEdit.name}"
+          for (innerName in qualifier.names.drop(1)) {
+            val innerStub =
+                stubToEdit.innerStubs.find { it.name == innerName }
+                    ?: KStub(innerPkg, innerName).also { stubToEdit.innerStubs += it }
+            innerPkg = "$innerPkg.$innerName"
+            stubToEdit = innerStub
+          }
+        }
   }
 }
