@@ -2086,17 +2086,16 @@ def _mk_argsfiles(
         # to avoid "argument too long" errors
         file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
 
-        if compiler_info.compiler_type == "clang":
-            if ext.value == ".cu":
-                # NVCC passes argsfile flags to device sub-tools (cicc, ptxas) which don't
-                # understand -ffile-prefix-map.
-                file_prefix_args = cmd_args(file_prefix_args, replace_regex = ("-ffile-prefix-map=", "-fdebug-prefix-map="))
-            else:
-                # -fcoverage-prefix-map is only supported by clang. Include coverage prefix args
-                # only for clang to avoid breaking non-clang compilers (e.g. GCC for CUDA) that
-                # receive flags from dependencies via the preprocessor set.
-                coverage_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("coverage_prefix_args"))
-                file_prefix_args = cmd_args(file_prefix_args, coverage_prefix_args)
+        if ext.value == ".cu":
+            # NVCC passes argsfile flags to device sub-tools (cicc, ptxas) which don't
+            # understand -ffile-prefix-map.
+            file_prefix_args = cmd_args(file_prefix_args, replace_regex = ("-ffile-prefix-map=", "-fdebug-prefix-map="))
+        elif compiler_info.compiler_type == "clang":
+            # -fcoverage-prefix-map is only supported by clang. Include coverage prefix args
+            # only for clang to avoid breaking non-clang compilers that receive flags from
+            # dependencies via the preprocessor set.
+            coverage_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("coverage_prefix_args"))
+            file_prefix_args = cmd_args(file_prefix_args, coverage_prefix_args)
 
         file_prefix_args_filename = filename_prefix + "file_prefix_cxx_args"
 
