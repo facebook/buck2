@@ -46,6 +46,7 @@ use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::sealed::FrozenHeapPtr;
 use crate::values::layout::heap::sealed::FrozenValueOwnerSearchResult;
 use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
+use crate::values::layout::heap::sealed::register_heap_key_index;
 use crate::values::layout::pointer::PointerTags;
 
 /// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base address
@@ -192,8 +193,8 @@ impl StarlarkSerState {
         }
 
         if ensure_dependencies {
-            for dep in heap_ref.refs_slice() {
-                self.ensure_chunk_index_registered(dep.heap_arc())?;
+            for dep in heap_ref.dependency_heaps() {
+                self.ensure_chunk_index_registered(&dep)?;
             }
         }
 
@@ -326,7 +327,7 @@ impl StarlarkSerState {
                 continue;
             }
 
-            pending.extend(heap.refs_slice().iter().map(|dep| dep.heap_arc().dupe()));
+            pending.extend(heap.dependency_heaps());
             self.ensure_current_chunk_index_registered(&heap)?;
         }
 
@@ -481,13 +482,15 @@ impl<'a> StarlarkSerializerImpl<'a> {
         Self::recover_from_pagable(pagable, state, StarlarkSerializeScope { root: Some(root) })
     }
 
-    /// Get or create the storage-owned `StarlarkSerState`.
+    /// Get or create the storage-owned `StarlarkSerState`. Also the point at
+    /// which the storage starts indexing heaps by identity, ahead of any heap
+    /// this serialization writes.
     pub(crate) fn get_or_create_state(
         serializer: &mut dyn PagableSerializer,
     ) -> Arc<StarlarkSerState> {
-        serializer
-            .storage_context()
-            .get_or_init(StarlarkSerState::new)
+        let context = serializer.storage_context();
+        register_heap_key_index(context);
+        context.get_or_init(StarlarkSerState::new)
     }
 }
 

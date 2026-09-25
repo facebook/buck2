@@ -223,6 +223,7 @@ pub trait PagableStorage: Send + Sync + 'static {
     fn associate_arc_with_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
         arc.set_data_key(key);
         self.arc_cache().register_resident(key, arc);
+        self.storage_context().notify_arc_data_key(arc, key);
     }
 
     /// Attempts to fetch either a cached deserialized arc or raw data synchronously.

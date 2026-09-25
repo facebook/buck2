@@ -20,6 +20,7 @@
 use std::any::Any;
 use std::any::TypeId;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 
@@ -37,6 +38,14 @@ use crate::storage::handle::PagableStorageHandle;
 /// State that may be owned by a [`StorageContext`].
 pub trait StorageState: Send + Sync + 'static {}
 
+/// Notified when an arc is associated with a storage key.
+///
+/// Pagable knows only the content-addressed [`DataKey`]. A layer above it that
+/// has its own notion of identity - one that survives page-out and is what
+/// page-in resolves against - can use this to index arcs by that identity as
+/// they are written and read.
+pub type ArcDataKeyObserver = fn(&StorageContext, &dyn ArcEraseDyn, DataKey);
+
 /// Storage-lifetime state shared by serializers and deserializers using the
 /// same storage backend.
 ///
@@ -45,9 +54,23 @@ pub trait StorageState: Send + Sync + 'static {}
 #[derive(Default)]
 pub struct StorageContext {
     states: TypeIdDashMap<Arc<dyn Any + Send + Sync>>,
+    arc_data_key_observer: OnceLock<ArcDataKeyObserver>,
 }
 
 impl StorageContext {
+    /// Register the observer notified whenever an arc is associated with a
+    /// storage key. Later calls are ignored, so callers on every page-out and
+    /// page-in path can register unconditionally.
+    pub fn observe_arc_data_keys(&self, observer: ArcDataKeyObserver) {
+        let _ignored = self.arc_data_key_observer.set(observer);
+    }
+
+    pub(crate) fn notify_arc_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
+        if let Some(observer) = self.arc_data_key_observer.get() {
+            observer(self, arc, key);
+        }
+    }
+
     /// Create a new empty context.
     pub fn new() -> Self {
         Self::default()

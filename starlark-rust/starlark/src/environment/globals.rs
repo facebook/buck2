@@ -147,16 +147,21 @@ impl<'de> PagableDeserialize<'de> for Globals {
 
         // The preceding heap deserialization registers its heap state in this
         // page-in scope, so Starlark fields can resolve value pointers.
+        let origin = heap.heap_arc().dupe();
         let data: OwnedFrozen<GlobalsData<'static>> =
-            StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn(), |ctx| {
-                let variables = <SymbolMap<GlobalValue<'_>>>::starlark_deserialize(ctx)
-                    .map_err(|e: crate::Error| e.into_anyhow())?;
-                // SAFETY: The context's brand is `heap`, which the values were resolved
-                // against, so `heap` keeps them alive.
-                pagable::Result::Ok(unsafe {
-                    OwnedFrozen::unchecked_new(heap, GlobalsData { variables })
-                })
-            })?;
+            StarlarkDeserializerImpl::recover_from_pagable_in(
+                deserializer.as_dyn(),
+                &origin,
+                |ctx| {
+                    let variables = <SymbolMap<GlobalValue<'_>>>::starlark_deserialize(ctx)
+                        .map_err(|e: crate::Error| e.into_anyhow())?;
+                    // SAFETY: The context's brand is `heap`, which the values were resolved
+                    // against, so `heap` keeps them alive.
+                    pagable::Result::Ok(unsafe {
+                        OwnedFrozen::unchecked_new(heap, GlobalsData { variables })
+                    })
+                },
+            )?;
 
         let variable_names = <Vec<String>>::pagable_deserialize(deserializer)?;
         let docstring = <Option<String>>::pagable_deserialize(deserializer)?;

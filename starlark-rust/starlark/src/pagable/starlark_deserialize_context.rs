@@ -62,6 +62,8 @@ use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::sealed::FrozenHeapPtr;
 use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
 use crate::values::layout::heap::sealed::cached_heap_deserialization_state_retained_bytes;
+use crate::values::layout::heap::sealed::load_and_bind_heap_by_id;
+use crate::values::layout::heap::sealed::register_heap_key_index;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
@@ -1091,6 +1093,8 @@ pub(crate) struct StarlarkDeserializerImpl<'a, 'de, 'fv> {
     /// Shared registry of per-heap deserialization state. Cross-heap pointer
     /// resolution looks up the target heap by `heap_id` here.
     scope: Arc<StarlarkDeserScope>,
+    /// Retains heaps referenced by values being restored into this owner.
+    origin: Option<FrozenHeapArc>,
     /// The brand this context deserializes at; see [`recover_from_pagable`](Self::recover_from_pagable).
     brand: PhantomData<Value<'fv>>,
 }
@@ -1114,18 +1118,40 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
         deserializer: &mut dyn PagableDeserializer<'de>,
         f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
     ) -> R {
+        Self::recover_from_pagable_impl(deserializer, None, f)
+    }
+
+    /// Recover a context whose values are owned by `origin`. Identity-resolved
+    /// dependencies are retained by that heap, including scope-cache hits.
+    pub(crate) fn recover_from_pagable_in<R>(
+        deserializer: &mut dyn PagableDeserializer<'de>,
+        origin: &FrozenHeapArc,
+        f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
+    ) -> R {
+        Self::recover_from_pagable_impl(deserializer, Some(origin.dupe()), f)
+    }
+
+    fn recover_from_pagable_impl<R>(
+        deserializer: &mut dyn PagableDeserializer<'de>,
+        origin: Option<FrozenHeapArc>,
+        f: impl for<'fv> FnOnce(&mut StarlarkDeserializerImpl<'_, 'de, 'fv>) -> R,
+    ) -> R {
         let scope = Self::get_or_create_scope(deserializer);
         f(&mut StarlarkDeserializerImpl {
             pagable: deserializer,
             scope,
+            origin,
             brand: PhantomData,
         })
     }
 
-    /// Get or create the Starlark scope belonging to this root page-in.
+    /// Get or create the Starlark scope belonging to this root page-in. Also
+    /// the point at which the storage starts indexing heaps by identity, ahead
+    /// of any heap this page-in binds.
     pub(crate) fn get_or_create_scope(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Arc<StarlarkDeserScope> {
+        register_heap_key_index(deserializer.storage_context());
         deserializer
             .page_in_scope()
             .get_or_init(StarlarkDeserScope::new)
@@ -1173,10 +1199,19 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
         value_index: u32,
         is_str: bool,
     ) -> crate::Result<Value<'fv>> {
-        let target_heap = self
-            .scope
-            .get_heap(&heap_id)
-            .ok_or(PagableError::HeapNotBoundInPageInScope { heap_id })?;
+        let target_heap = match self.scope.get_heap(&heap_id) {
+            Some(heap) => heap,
+            None => load_and_bind_heap_by_id(
+                &self.scope,
+                &self.pagable.storage(),
+                self.pagable.page_in_scope(),
+                heap_id,
+            )?
+            .ok_or(PagableError::HeapNotBoundInPageInScope { heap_id })?,
+        };
+        if let Some(origin) = &self.origin {
+            origin.retain_dependency(&target_heap);
+        }
         let target_heap_ptr = target_heap
             .downgrade()
             .expect("a registered deserialization heap must have an allocation")
@@ -1254,9 +1289,13 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
                     // The nested context's brand is the target heap's: `de` is positioned in
                     // the target value's data, and the vtable writes the result into the
                     // target heap.
-                    StarlarkDeserializerImpl::recover_from_pagable(&mut *de, |nested_ctx| {
-                        (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx)
-                    })
+                    StarlarkDeserializerImpl::recover_from_pagable_in(
+                        &mut *de,
+                        &target_heap,
+                        |nested_ctx| {
+                            (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx)
+                        },
+                    )
                 };
 
                 if let Err(e) = result {

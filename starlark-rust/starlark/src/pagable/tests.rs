@@ -2929,6 +2929,279 @@ fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
     Ok(())
 }
 
+/// A pointer into a heap that no ref list read so far names - the shape of a
+/// value relocated into a shared blob - resolves through the heap-key index,
+/// and fails cleanly rather than dangling without it.
+#[cfg(fbcode_build)]
+#[test]
+fn test_pointer_into_unlisted_heap_resolves_by_identity() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    use crate::values::layout::heap::sealed::heap_key_index::StarlarkHeapKeyIndex;
+
+    let heap_g = ErasingHeap::new();
+    let g_fv = heap_g.alloc_simple(SimpleData {
+        flag: true,
+        count: 99,
+    });
+    let g_ref = heap_g.into_ref_named(TestHeapName::heap_name("unlisted_g"));
+    let g_id = g_ref.heap_arc().heap_ref_id().expect("G is named");
+
+    // Two heaps point into G without listing it as a dependency; G outlives
+    // them here. One is paged in without the index, one with it.
+    let point_into_g = |label: usize, name: &str| {
+        let heap = ErasingHeap::new();
+        let fv = heap.alloc_ref_data(label, g_fv);
+        let owner = heap.into_ref_named(TestHeapName::heap_name(name));
+        assert!(
+            owner.heap_arc().refs_slice().is_empty(),
+            "the test only means something if the heap lists no dependencies"
+        );
+        // SAFETY: `owner` owns the arena hosting `fv`; G is kept alive by the test.
+        unsafe { OwnedFrozen::<Value>::from_erased(owner, fv) }
+    };
+    let without_index = point_into_g(1, "unlisted_a1");
+    let with_index = point_into_g(2, "unlisted_a2");
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    // G is written first, in a root of its own, so page-out can resolve the
+    // pointers into it and the index learns its row.
+    // SAFETY: `g_ref` owns the arena hosting `g_fv`.
+    let g_ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(g_ref.clone(), g_fv) };
+    let _g_key = ser_owned_frozen_value_into_storage(&backing, &g_ofv)?;
+    let key_without = ser_owned_frozen_value_into_storage(&backing, &without_index)?;
+    let key_with = ser_owned_frozen_value_into_storage(&backing, &with_index)?;
+    drop(without_index);
+    drop(with_index);
+    drop(g_ofv);
+    drop(g_ref);
+
+    let index = handle
+        .storage_context()
+        .get::<StarlarkHeapKeyIndex>()
+        .expect("page-out registers the index");
+    let g_row = index.get(&g_id).expect("page-out indexed G's row");
+
+    index.clear();
+    assert!(
+        deser_owned_frozen_from_storage(&backing, &handle, &key_without).is_err(),
+        "without the index a pointer into an unlisted heap has nothing to bind"
+    );
+
+    index.insert(g_id, g_row);
+    let (restored, scope) =
+        deser_owned_frozen_value_with_scope_from_storage(&backing, &handle, &key_with)?;
+    let weak_target = scope.get_heap(&g_id).unwrap().downgrade().unwrap();
+    drop(scope);
+    drop(handle);
+    drop(backing);
+    assert!(
+        weak_target.upgrade().is_some(),
+        "the restored owner must retain the target after storage is dropped"
+    );
+    let root: &RefData = restored
+        .as_ref()
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("the restored root is RefData");
+    let target: &SimpleData = root
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("the root's target lives in G");
+    assert_eq!(
+        target.count, 99,
+        "the pointer into G resolves through the index"
+    );
+    drop(restored);
+    assert!(
+        weak_target.upgrade().is_none(),
+        "the target must be freed with its last owner"
+    );
+    Ok(())
+}
+
+#[cfg(fbcode_build)]
+#[test]
+fn test_scope_cache_hit_retains_unlisted_target_in_each_owner() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
+    use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
+
+    let target = ErasingHeap::new();
+    let target_value = target.alloc_simple(SimpleData {
+        flag: true,
+        count: 99,
+    });
+    let target_owner = target.into_ref_named(TestHeapName::heap_name("cache_hit_target"));
+    let target_id = target_owner
+        .heap_arc()
+        .heap_ref_id()
+        .expect("the target is named");
+    // SAFETY: `target_owner` owns the arena hosting `target_value`.
+    let target_owned = unsafe { OwnedFrozen::from_erased(target_owner, target_value) };
+    let backing = InMemoryPagableStorage::new();
+    ser_owned_frozen_value_into_storage(&backing, &target_owned)?;
+
+    let storage = backing.handle();
+    let mut ser = SerializerForPaging::new(storage.storage_context());
+    for name in ["cache_hit_owner_a", "cache_hit_owner_b"] {
+        let heap = ErasingHeap::new();
+        heap.alloc_simple(SimpleData {
+            flag: false,
+            count: 0,
+        });
+        let owner = heap.into_ref_named(TestHeapName::heap_name(name));
+        assert!(owner.heap_arc().refs_slice().is_empty());
+        owner
+            .pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+        // An owning carrier's wire format is its owner followed by its root pointer.
+        SerializedFrozenValue::HeapPtr {
+            heap_id: target_id,
+            value_index: 0,
+            is_str: false,
+        }
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    }
+    let (data, arcs) = ser.finish();
+    let key = storage
+        .page_out_item(data, arcs, &ArcSerCache::new(), storage.storage_context())
+        .map_err(crate::Error::new_other)?;
+    storage.flush().map_err(crate::Error::new_other)?;
+    drop(target_owned);
+    storage.arc_cache().clear();
+
+    let handle = PagableStorageHandle::new(storage.clone());
+    let data = storage
+        .fetch_data_blocking(&key)
+        .map_err(crate::Error::new_other)?;
+    let mut de = handle.root_deserializer(key, &data);
+    let first =
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let second =
+        OwnedFrozen::<Value>::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let scope = StarlarkDeserializerImpl::get_or_create_scope(&mut de);
+    let weak_target = scope.get_heap(&target_id).unwrap().downgrade().unwrap();
+
+    // The root points into a retained heap, so reserialization must index that heap too.
+    let second_key = ser_owned_frozen_value_into_storage(&backing, &second)?;
+    let roundtrip = deser_owned_frozen_from_storage(&backing, &handle, &second_key)?;
+    assert_eq!(
+        roundtrip
+            .as_ref()
+            .value()
+            .downcast_ref::<SimpleData>()
+            .unwrap()
+            .count,
+        99
+    );
+    drop(roundtrip);
+    drop(de);
+    drop(scope);
+    drop(first);
+    drop(handle);
+    drop(storage);
+    drop(backing);
+    assert!(
+        weak_target.upgrade().is_some(),
+        "the second owner must retain the cache-hit target without the first owner or storage"
+    );
+    assert_eq!(
+        second
+            .as_ref()
+            .value()
+            .downcast_ref::<SimpleData>()
+            .unwrap()
+            .count,
+        99
+    );
+    drop(second);
+    assert!(
+        weak_target.upgrade().is_none(),
+        "self-retention must not leak the target"
+    );
+    Ok(())
+}
+
+/// Two heaps sealed under one name, each the unlisted target of a different
+/// pointer. Identity tells them apart, so each pointer resolves into the heap
+/// it was written against.
+#[cfg(fbcode_build)]
+#[test]
+fn test_pointers_into_unlisted_heaps_sealed_under_one_name_resolve_by_identity() -> crate::Result<()>
+{
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let make_target = |count| {
+        let heap = ErasingHeap::new();
+        let value = heap.alloc_simple(SimpleData { flag: true, count });
+        let owner = heap.into_ref_named(TestHeapName::heap_name("same_name_target"));
+        (owner, value)
+    };
+    let (g1_ref, g1_fv) = make_target(111);
+    let (g2_ref, g2_fv) = make_target(222);
+    assert_ne!(
+        g1_ref.heap_arc().heap_ref_id(),
+        g2_ref.heap_arc().heap_ref_id()
+    );
+
+    let point_into = |label: usize, name: &str, target| {
+        let heap = ErasingHeap::new();
+        let fv = heap.alloc_ref_data(label, target);
+        let owner = heap.into_ref_named(TestHeapName::heap_name(name));
+        assert!(owner.heap_arc().refs_slice().is_empty());
+        // SAFETY: `owner` owns the arena hosting `fv`; the targets outlive it here.
+        unsafe { OwnedFrozen::<Value>::from_erased(owner, fv) }
+    };
+    let into_g1 = point_into(1, "same_name_referrer_1", g1_fv);
+    let into_g2 = point_into(2, "same_name_referrer_2", g2_fv);
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    // SAFETY: each owner owns the arena hosting its value.
+    let g1_ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(g1_ref.clone(), g1_fv) };
+    let g2_ofv: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(g2_ref.clone(), g2_fv) };
+    let _g1_key = ser_owned_frozen_value_into_storage(&backing, &g1_ofv)?;
+    let _g2_key = ser_owned_frozen_value_into_storage(&backing, &g2_ofv)?;
+    let key_into_g1 = ser_owned_frozen_value_into_storage(&backing, &into_g1)?;
+    let key_into_g2 = ser_owned_frozen_value_into_storage(&backing, &into_g2)?;
+    drop((into_g1, into_g2, g1_ofv, g2_ofv, g1_ref, g2_ref));
+
+    let count = |key| -> crate::Result<usize> {
+        let restored = deser_owned_frozen_from_storage(&backing, &handle, &key)?;
+        let root: &RefData = restored
+            .as_ref()
+            .value()
+            .downcast_ref::<RefData>()
+            .expect("the restored root is RefData");
+        Ok(root
+            .target
+            .to_value()
+            .downcast_ref::<SimpleData>()
+            .expect("the target is SimpleData")
+            .count)
+    };
+    assert_eq!(
+        count(key_into_g1)?,
+        111,
+        "the first pointer finds the first heap"
+    );
+    assert_eq!(
+        count(key_into_g2)?,
+        222,
+        "the second pointer finds the second heap"
+    );
+    Ok(())
+}
+
 /// Serialize an OFV into the given shared storage, returning the top
 /// `DataKey`. Companion to `deser_owned_frozen_value_from_storage`.
 fn ser_owned_frozen_value_into_storage(

@@ -41,9 +41,12 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
+use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::handle::PagableStorageHandle;
 use rand::RngExt;
 
+pub(crate) use self::heap_key_index::load_and_bind_heap_by_id;
+pub(crate) use self::heap_key_index::register_heap_key_index;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -67,6 +70,141 @@ use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueHeapEntry;
 use crate::values::layout::value::Value;
+
+#[cfg(fbcode_build)]
+pub(crate) mod heap_key_index {
+    use std::any::TypeId;
+
+    use dashmap::DashMap;
+    use pagable::DataKey;
+    use pagable::PageInScope;
+    use pagable::PartialPagableArc;
+    use pagable::StorageState;
+    use pagable::arc_erase::ArcEraseDyn;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::traits::StorageContext;
+
+    use super::FrozenFrozenHeap;
+    use super::FrozenHeapArc;
+    use super::deserialize_heap_arc_with_recipe;
+    use super::downcast_heap_arc;
+    use crate::pagable::heap_ref_id::HeapRefId;
+    use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
+
+    /// Where each heap's row lives, keyed by the heap's logical identity.
+    ///
+    /// A ref list names direct dependencies, and a pointer normally lands in one
+    /// of those. A pointer into a heap no ref list read so far names - one
+    /// relocated into a shared blob, say - can only be found by identity, and this
+    /// is the map that answers it.
+    ///
+    /// Storage-scoped and in memory only, filled as heap rows are written or read.
+    #[derive(Default)]
+    pub(crate) struct StarlarkHeapKeyIndex {
+        keys: DashMap<HeapRefId, DataKey>,
+    }
+
+    impl StorageState for StarlarkHeapKeyIndex {}
+
+    impl StarlarkHeapKeyIndex {
+        pub(crate) fn get(&self, heap_id: &HeapRefId) -> Option<DataKey> {
+            self.keys.get(heap_id).map(|key| *key)
+        }
+
+        /// An id names one heap and one heap serializes to one row,
+        /// so a repeated insert carries the same key.
+        pub(crate) fn insert(&self, heap_id: HeapRefId, key: DataKey) {
+            let previous = self.keys.insert(heap_id, key);
+            debug_assert!(
+                previous.is_none_or(|previous| previous == key),
+                "heap {heap_id:?} indexed under two rows: {previous:?} and {key:?}"
+            );
+        }
+
+        #[cfg(test)]
+        pub(crate) fn clear(&self) {
+            self.keys.clear();
+        }
+    }
+
+    /// Records a heap's `DataKey` against its [`HeapRefId`] as pagable assigns it.
+    fn index_heap_data_key(context: &StorageContext, arc: &dyn ArcEraseDyn, key: DataKey) {
+        let Some(heap) = arc
+            .as_arc_any()
+            .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
+        else {
+            return;
+        };
+        let Some(heap_id) = heap.heap_ref_id() else {
+            return;
+        };
+        context
+            .get_or_init(StarlarkHeapKeyIndex::default)
+            .insert(heap_id, key);
+    }
+
+    /// Start indexing heaps by identity on this storage. Idempotent.
+    ///
+    /// Called when the storage's Starlark serialization state or a page-in's
+    /// deserialization scope is created, which every path that assigns a heap
+    /// a `DataKey` goes through first, so no heap is written or read unindexed.
+    pub(crate) fn register_heap_key_index(context: &StorageContext) {
+        context.observe_arc_data_keys(index_heap_data_key);
+    }
+
+    /// Load the heap with identity `heap_id`, fetching its row unless the arc
+    /// cache holds it, and bind it into `scope`. For a pointer into a heap no
+    /// ref list read so far names; the [`StarlarkHeapKeyIndex`] supplies the
+    /// row. `None` when the index has no entry for it.
+    pub(crate) fn load_and_bind_heap_by_id(
+        scope: &StarlarkDeserScope,
+        storage: &PagableStorageHandle,
+        page_in_scope: &PageInScope,
+        heap_id: HeapRefId,
+    ) -> crate::Result<Option<FrozenHeapArc>> {
+        let Some(key) = storage
+            .storage_context()
+            .get::<StarlarkHeapKeyIndex>()
+            .and_then(|index| index.get(&heap_id))
+        else {
+            return Ok(None);
+        };
+        let arc_box = storage
+            .deserialize_arc_by_key(
+                page_in_scope,
+                key,
+                TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
+                deserialize_heap_arc_with_recipe,
+            )
+            .map_err(crate::Error::new_other)?;
+        let heap = downcast_heap_arc(&*arc_box)?;
+        heap.register_heap_graph_in_deser_scope(scope)?;
+        Ok(Some(heap))
+    }
+}
+
+// The published pagable crate does not support heap-key observers or lookups yet.
+#[cfg(not(fbcode_build))]
+pub(crate) mod heap_key_index {
+    use pagable::PageInScope;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::traits::StorageContext;
+
+    use super::FrozenHeapArc;
+    use crate::pagable::heap_ref_id::HeapRefId;
+    use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
+
+    pub(crate) fn register_heap_key_index(_context: &StorageContext) {}
+
+    pub(crate) fn load_and_bind_heap_by_id(
+        _scope: &StarlarkDeserScope,
+        _storage: &PagableStorageHandle,
+        _page_in_scope: &PageInScope,
+        _heap_id: HeapRefId,
+    ) -> crate::Result<Option<FrozenHeapArc>> {
+        Ok(None)
+    }
+}
 
 /// Identifies one sealing of a heap, see `FrozenFrozenHeap::serialization_nonce`.
 #[derive(Debug, Clone, Copy, Allocative, PagableSerialize, PagableDeserialize)]
@@ -94,6 +232,8 @@ struct FrozenFrozenHeap {
     serialization_nonce: HeapSerializationNonce,
     arena: Arena<ChunkAllocator>,
     refs: Box<[OwnedFrozen<()>]>,
+    /// Dependencies discovered through identity lookup, outside the serialized ref list.
+    retained: Mutex<Vec<OwnedFrozen<()>>>,
     // TODO(nero): remove Option here, make it required.
     #[allocative(skip)] // We don't really expect it to be big
     name: Option<FrozenHeapName>,
@@ -150,6 +290,14 @@ unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
 impl FrozenFrozenHeap {
+    /// See [`FrozenHeapArc::heap_ref_id`].
+    fn heap_ref_id(&self) -> Option<HeapRefId> {
+        Some(HeapRefId::new(
+            self.name.as_ref()?,
+            self.serialization_nonce,
+        ))
+    }
+
     fn register_ser_state(&self, state: &Arc<StarlarkSerState>) -> pagable::Result<()> {
         let mut registered = self.ser_states.lock().expect("ser states lock poisoned");
         registered.retain(|existing| existing.strong_count() != 0);
@@ -384,6 +532,7 @@ impl FrozenFrozenHeap {
             serialization_nonce,
             arena: Arena::default(),
             refs,
+            retained: Mutex::new(Vec::new()),
             name: Some(name),
             peak_allocated_bytes: None,
             ser_states: Mutex::new(Vec::new()),
@@ -511,16 +660,7 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
                     std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
                     deserialize_heap_arc_with_recipe,
                 )?;
-                let arc = arc_box
-                    .as_arc_any()
-                    .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
-                    .ok_or_else(|| {
-                        pagable::Error::msg(
-                            "frozen heap: type mismatch downcasting PartialPagableArc<FrozenFrozenHeap>",
-                        )
-                    })?
-                    .clone();
-                let heap = FrozenHeapArc(Some(arc));
+                let heap = downcast_heap_arc(&*arc_box).map_err(|e| e.into_anyhow())?;
                 if heap.heap_ref_id() != Some(slot_id) {
                     return Err(pagable::Error::msg(format!(
                         "frozen heap: slot names {name} ({slot_id:?}) but its row holds {:?}",
@@ -552,7 +692,7 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapArc {
 }
 
 /// Creates a heap's lazy-deserialization state after the generic Arc cache misses.
-fn deserialize_heap_arc_with_recipe(
+pub(crate) fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
@@ -562,6 +702,20 @@ fn deserialize_heap_arc_with_recipe(
         FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, serialization_nonce, recipe)
             .map_err(|e| e.into_anyhow())?;
     Ok(Box::new(arc))
+}
+
+/// Recover a `FrozenHeapArc` from the type-erased arc the arc cache hands out.
+fn downcast_heap_arc(arc: &dyn ArcEraseDyn) -> crate::Result<FrozenHeapArc> {
+    let arc = arc
+        .as_arc_any()
+        .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
+        .ok_or_else(|| {
+            pagable::Error::msg(
+                "frozen heap: type mismatch downcasting PartialPagableArc<FrozenFrozenHeap>",
+            )
+        })?
+        .clone();
+    Ok(FrozenHeapArc(Some(arc)))
 }
 
 impl Debug for FrozenFrozenHeap {
@@ -640,6 +794,7 @@ impl FrozenHeapArc {
             serialization_nonce: HeapSerializationNonce::random(),
             arena,
             refs,
+            retained: Mutex::new(Vec::new()),
             name,
             peak_allocated_bytes,
             ser_states: Mutex::new(Vec::new()),
@@ -668,13 +823,50 @@ impl FrozenHeapArc {
             .map(Arc::as_ref)
     }
 
+    /// The heaps a value in this heap may point into, including dependencies
+    /// discovered through identity lookup.
+    pub(crate) fn dependency_heaps(&self) -> Vec<FrozenHeapArc> {
+        let Some(arc) = &self.0 else {
+            return Vec::new();
+        };
+        let retained = arc.retained.lock().expect("retained lock poisoned");
+        arc.refs
+            .iter()
+            .chain(retained.iter())
+            .map(|r| r.heap_arc().dupe())
+            .collect()
+    }
+
+    /// Hold `dep` alive for as long as this heap lives, for a pointer from a
+    /// value here into `dep` that no ref list accounts for.
+    ///
+    /// A value may point into a transitive dependency, which its own heap's ref
+    /// list does not name, and a lookup by identity may land in a heap outside
+    /// the serialized dependency graph altogether. Normally the chain of ref
+    /// lists keeps such a target alive, but lazy resolution can reach it before
+    /// that chain is rebuilt. Retaining it here, on a cache hit as much as on a
+    /// fetch, keeps its lifetime off the storage cache.
+    pub(crate) fn retain_dependency(&self, dep: &FrozenHeapArc) {
+        if self == dep {
+            return;
+        }
+        let Some(arc) = &self.0 else {
+            return;
+        };
+        if arc.refs.iter().any(|r| r.heap_arc() == dep) {
+            return;
+        }
+        let mut retained = arc.retained.lock().expect("retained lock poisoned");
+        if !retained.iter().any(|r| r.heap_arc() == dep) {
+            retained.push(OwnedFrozen::for_heap(dep.dupe()));
+        }
+    }
+
     fn register_in_deser_scope(
         &self,
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> pagable::Result<()> {
-        let scope = deserializer
-            .page_in_scope()
-            .get_or_init(StarlarkDeserScope::new);
+        let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer);
         self.register_heap_graph_in_deser_scope(&scope)
     }
 
@@ -697,8 +889,8 @@ impl FrozenHeapArc {
 
         // A cached owner can contain value pointers into any transitive
         // dependency, so publish the complete graph before the owner binding.
-        for dep in self.refs_slice() {
-            dep.heap_arc().register_heap_graph_in_deser_scope(scope)?;
+        for dep in self.dependency_heaps() {
+            dep.register_heap_graph_in_deser_scope(scope)?;
         }
 
         scope
@@ -734,8 +926,7 @@ impl FrozenHeapArc {
     /// the nonce drawn when it was sealed. `None` for an unnamed heap, which
     /// cannot be serialized.
     pub(crate) fn heap_ref_id(&self) -> Option<HeapRefId> {
-        let arc = self.0.as_ref()?;
-        Some(HeapRefId::new(arc.name.as_ref()?, arc.serialization_nonce))
+        self.0.as_ref()?.heap_ref_id()
     }
 
     #[cfg(test)]
