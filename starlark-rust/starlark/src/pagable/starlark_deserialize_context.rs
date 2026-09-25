@@ -809,6 +809,10 @@ impl StorageState for StarlarkHeapBindings {}
 #[derive(Allocative)]
 pub(crate) struct StarlarkDeserScope {
     heap_bindings: Arc<StarlarkHeapBindings>,
+    /// Storage-scoped: scopes over the same storage share it, so claims
+    /// coordinate across roots.
+    #[allocative(skip)]
+    wait_graph: Arc<StarlarkDeserWaitGraph>,
 }
 
 impl PageInState for StarlarkDeserScope {}
@@ -975,7 +979,7 @@ struct HeapValueId {
 /// ATTENTION: if deserialization ever becomes async, one thread could drive two
 /// at once and corrupt these keys — key by a per-deserialization token instead.
 #[derive(Default)]
-struct StarlarkDeserWaitGraph {
+pub(crate) struct StarlarkDeserWaitGraph {
     /// Maps an exact heap value to the thread currently deserializing it.
     ///
     /// Written on every claim and release; read only when a thread is about to
@@ -1117,8 +1121,18 @@ fn conflicting_heap_binding(
 }
 
 impl StarlarkDeserScope {
-    pub(crate) fn new(heap_bindings: Arc<StarlarkHeapBindings>) -> Self {
-        Self { heap_bindings }
+    pub(crate) fn new(
+        heap_bindings: Arc<StarlarkHeapBindings>,
+        wait_graph: Arc<StarlarkDeserWaitGraph>,
+    ) -> Self {
+        Self {
+            heap_bindings,
+            wait_graph,
+        }
+    }
+
+    pub(crate) fn wait_graph(&self) -> &Arc<StarlarkDeserWaitGraph> {
+        &self.wait_graph
     }
 
     /// Register a heap for cross-heap value resolution.
@@ -1333,7 +1347,10 @@ impl<'de> StarlarkDeserializerImpl<'_, 'de, '_> {
         let storage_context = deserializer.storage_context();
         deserializer.page_in_scope().get_or_init(|| {
             register_heap_key_index(storage_context);
-            StarlarkDeserScope::new(storage_context.get_or_init(StarlarkHeapBindings::default))
+            StarlarkDeserScope::new(
+                storage_context.get_or_init(StarlarkHeapBindings::default),
+                storage_context.get_or_init(StarlarkDeserWaitGraph::default),
+            )
         })
     }
 }
@@ -1392,13 +1409,13 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
         if let Some(origin) = &self.origin {
             origin.retain_dependency(&target_heap);
         }
-        let target_heap_ptr = target_heap
-            .downgrade()
-            .expect("a registered deserialization heap must have an allocation")
-            .heap_ptr();
-        let Some(target_state) = target_heap.deser_state() else {
+        if target_heap.deser_state().is_none() {
             // Page-in reused a native heap that remained resident after page-out.
             // Use the serialization state to resolve its value.
+            let target_heap_ptr = target_heap
+                .downgrade()
+                .expect("a registered deserialization heap must have an allocation")
+                .heap_ptr();
             let Some(value) = self
                 .pagable
                 .storage_context()
@@ -1414,122 +1431,140 @@ impl<'a, 'de, 'fv> StarlarkDeserializerImpl<'a, 'de, 'fv> {
                 .into());
             };
             return Ok(value);
-        };
+        }
 
         let storage = self.pagable.storage();
-
         // A skeleton bound from a ref list has not loaded its header, and its
         // values and its own dependencies come with it.
         target_heap.ensure_header_loaded(&self.scope, &storage)?;
-        let value_count = target_state.value_count(&storage)?;
-        if value_index as usize >= value_count {
-            return Err(anyhow::anyhow!(
-                "value_index {} out of range for heap {:?} (size {})",
-                value_index,
-                heap_id,
-                value_count,
-            )
-            .into());
-        }
-
-        // Fast path: slot is already done.
-        if let Some(ptr) = target_state.loaded_header_ptr(value_index as usize) {
-            let header = unsafe { &*ptr };
-            return Ok(Value::new_frozen_ptr(header, is_str));
-        }
-
-        let wait_graph = self
-            .pagable
-            .storage_context()
-            .get_or_init(StarlarkDeserWaitGraph::default);
-        // Process-local heap identity prevents unrelated same-name heaps from
-        // sharing active claim/wait edges in the storage-global graph.
-        let in_progress_key = HeapValueId {
-            heap_ptr: target_heap_ptr,
-            value_index,
-        };
-        let my_thread = std::thread::current().id();
-
-        // Slow path: try to claim. The current `self.pagable` (PagableDeserializer)
-        // may be reading a different stream (e.g. the body of an `Arc<T>` deser-fn),
-        // so we can't seek it. Open a fresh deserializer from the target heap's
-        // own recipe instead.
-        match target_state.try_claim(value_index as usize, &storage)? {
-            ClaimResult::Claimed(target) => {
-                // Guard clears the `claimers` edge on every exit below.
-                let _claim = wait_graph.claim(in_progress_key, my_thread);
-
-                // `recipe.open()` produces a fresh deserializer so concurrent `ensure_initialized`
-                // calls on the same heap have independent cursors.
-                let recipe = target_state.header()?.recipe.dupe();
-
-                let result = {
-                    let mut de = recipe.open(&storage);
-                    // SAFETY: `target.abs_pos` was computed from the target heap's
-                    // offset table during `deserialize_metadata`; it is a valid
-                    // position in the recipe's bytes for this heap.
-                    unsafe { de.seek(target.abs_pos) };
-                    // The nested context's brand is the target heap's: `de` is positioned in
-                    // the target value's data, and the vtable writes the result into the
-                    // target heap.
-                    StarlarkDeserializerImpl::recover_from_pagable_in(
-                        &mut *de,
-                        &target_heap,
-                        |nested_ctx| {
-                            (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx)
-                        },
-                    )
-                };
-
-                if let Err(e) = result {
-                    target_state.abort_claim(value_index as usize, &e);
-                    return Err(e);
-                }
-                // Replace the sentinel vtable with the real one before publishing done.
-                unsafe { target.write_vtable_to_header() };
-                target_state.finalize_claim(value_index as usize);
-            }
-            ClaimResult::InProgress(ptr) => {
-                // Slot is mid-deserialization (re-entrant or another thread).
-                // `_wait` must outlive the block below so other threads' cycle
-                // checks observe this wait.
-                let (_wait, cycle) =
-                    wait_graph.begin_wait_and_check_cycle(my_thread, in_progress_key);
-                if cycle {
-                    // Break the cycle by handing back the in-progress header.
-                    // Safe only because if the claimer fails, the whole deser
-                    // unit fails too — so this dangling sentinel is never read.
-                    //
-                    // SAFETY: allocated by the claimer in the heap's arena, kept
-                    // alive by the `Arc<FrozenFrozenHeap>` in the deser state.
-                    let header = unsafe { &*ptr };
-                    return Ok(Value::new_frozen_ptr(header, is_str));
-                }
-                // No cycle — safe to block until the claimer finishes.
-                match target_state.wait_for_slot(value_index as usize, &storage)? {
-                    ClaimResult::Done => {}
-                    ClaimResult::Failed => {
-                        return Err(target_state
-                            .partial_deserialization_error(value_index)
-                            .into());
-                    }
-                    _ => unreachable!(),
-                }
-            }
-            ClaimResult::Done => {}
-            ClaimResult::Failed => {
-                return Err(target_state
-                    .partial_deserialization_error(value_index)
-                    .into());
-            }
-        }
-
-        let ptr = target_state
-            .loaded_header_ptr(value_index as usize)
-            .expect("slot must be done after ensure_initialized");
+        let ptr = resolve_in_loaded_heap(&self.scope, &storage, &target_heap, value_index)?;
+        // SAFETY: a claim initializes its aligned header to a valid sentinel
+        // before release-publishing the pointer; readers acquire that state.
+        // The target heap is retained for `'fv` (see `recover_from_pagable`).
+        // `new_frozen_ptr` only tags the address using the serialized string
+        // flag, without reading the header or payload. A cycle-breaking value
+        // is construction-only until initialization succeeds.
         let header = unsafe { &*ptr };
         Ok(Value::new_frozen_ptr(header, is_str))
     }
+}
+
+/// Resolve a pointer for graph construction in a heap whose blob is already read.
+///
+/// Takes only shareable state so pointers can be resolved on any thread.
+///
+/// Returns a raw pointer rather than a `Value`: a `Value<'v>` needs a heap in
+/// scope that keeps it alive, which the caller supplies. The pointee lives as
+/// long as the target heap.
+///
+/// This is not a transitive readiness barrier: breaking a wait-for cycle can
+/// return the other claimer's unfinished slot. That pointer must not be read
+/// until initialization succeeds.
+pub(crate) fn resolve_in_loaded_heap(
+    scope: &StarlarkDeserScope,
+    storage: &PagableStorageHandle,
+    target_heap: &FrozenHeapArc,
+    value_index: u32,
+) -> crate::Result<*mut AValueHeader> {
+    let target_heap_ptr = target_heap
+        .downgrade()
+        .expect("a registered deserialization heap must have an allocation")
+        .heap_ptr();
+    // A resident heap has no deserialization state; callers handle it first.
+    let target_state = target_heap
+        .deser_state()
+        .expect("resolving in a loaded heap requires deserialization state");
+
+    let value_count = target_state.value_count(storage)?;
+    if value_index as usize >= value_count {
+        return Err(anyhow::anyhow!(
+            "value_index {value_index} out of range for heap {:?} (size {value_count})",
+            target_state.heap_id
+        )
+        .into());
+    }
+
+    // Fast path: slot is already done.
+    if let Some(ptr) = target_state.loaded_header_ptr(value_index as usize) {
+        return Ok(ptr);
+    }
+
+    let wait_graph = scope.wait_graph();
+    // Process-local heap identity prevents unrelated same-name heaps from
+    // sharing active claim/wait edges in the storage-global graph.
+    let in_progress_key = HeapValueId {
+        heap_ptr: target_heap_ptr,
+        value_index,
+    };
+    let my_thread = std::thread::current().id();
+
+    // Slow path: try to claim. The caller's `PagableDeserializer` may be reading
+    // a different stream (e.g. the body of an `Arc<T>` deser-fn), so it cannot be
+    // seeked. Open a fresh deserializer from the target heap's own recipe instead.
+    match target_state.try_claim(value_index as usize, storage)? {
+        ClaimResult::Claimed(target) => {
+            // Guard clears the `claimers` edge on every exit below.
+            let _claim = wait_graph.claim(in_progress_key, my_thread);
+
+            // `recipe.open()` produces a fresh deserializer so concurrent resolves
+            // of the same heap have independent cursors.
+            let recipe = target_state.header()?.recipe.dupe();
+
+            let result = {
+                let mut de = recipe.open(storage);
+                // SAFETY: `target.abs_pos` was computed from the target heap's
+                // offset table during `deserialize_metadata`; it is a valid
+                // position in the recipe's bytes for this heap.
+                unsafe { de.seek(target.abs_pos) };
+                // The nested context's lifetime is the target heap's: `de` is
+                // positioned in the target value's data, and the vtable writes
+                // the result into that heap.
+                StarlarkDeserializerImpl::recover_from_pagable_in(
+                    &mut *de,
+                    target_heap,
+                    |nested_ctx| (target.vtable.starlark_deserialize)(target.raw_ptr, nested_ctx),
+                )
+            };
+
+            if let Err(e) = result {
+                target_state.abort_claim(value_index as usize, &e);
+                return Err(e);
+            }
+            // Replace the sentinel vtable with the real one before publishing done.
+            unsafe { target.write_vtable_to_header() };
+            target_state.finalize_claim(value_index as usize);
+        }
+        ClaimResult::InProgress(ptr) => {
+            // Slot is mid-deserialization (re-entrant or another thread).
+            // `_wait` must outlive the block below so other threads' cycle
+            // checks observe this wait.
+            let (_wait, cycle) = wait_graph.begin_wait_and_check_cycle(my_thread, in_progress_key);
+            if cycle {
+                // This construction edge is not proof that the value is ready to read.
+                return Ok(ptr);
+            }
+            // No cycle - safe to block until the claimer finishes.
+            match target_state.wait_for_slot(value_index as usize, storage)? {
+                ClaimResult::Done => {}
+                ClaimResult::Failed => {
+                    return Err(target_state
+                        .partial_deserialization_error(value_index)
+                        .into());
+                }
+                _ => unreachable!(),
+            }
+        }
+        ClaimResult::Done => {}
+        ClaimResult::Failed => {
+            return Err(target_state
+                .partial_deserialization_error(value_index)
+                .into());
+        }
+    }
+
+    Ok(target_state
+        .loaded_header_ptr(value_index as usize)
+        .expect("slot must be done after resolving it"))
 }
 
 #[cfg(test)]
@@ -1571,7 +1606,7 @@ mod tests {
     #[test]
     fn test_heap_bindings_reclaim_expired_native_heaps() {
         let bindings = Arc::new(StarlarkHeapBindings::default());
-        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let scope = StarlarkDeserScope::new(bindings.dupe(), Default::default());
         let live = registered_native_heap(&scope);
         for _ in 0..4 * MIN_HEAP_BINDING_PRUNE_INTERVAL {
             drop(registered_native_heap(&scope));
@@ -1593,7 +1628,7 @@ mod tests {
     #[test]
     fn test_heap_bindings_prune_interval_scales_with_live_heaps() {
         let bindings = Arc::new(StarlarkHeapBindings::default());
-        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let scope = StarlarkDeserScope::new(bindings.dupe(), Default::default());
         let live: Vec<_> = (0..4 * MIN_HEAP_BINDING_PRUNE_INTERVAL)
             .map(|_| registered_native_heap(&scope))
             .collect();
@@ -1630,7 +1665,7 @@ mod tests {
     #[test]
     fn test_heap_bindings_prune_with_concurrent_registrations() {
         let bindings = Arc::new(StarlarkHeapBindings::default());
-        let scope = StarlarkDeserScope::new(bindings.dupe());
+        let scope = StarlarkDeserScope::new(bindings.dupe(), Default::default());
         let ready = Barrier::new(4);
         let live = std::thread::scope(|threads| {
             let handles: Vec<_> = (0..4)

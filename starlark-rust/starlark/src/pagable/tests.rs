@@ -1085,7 +1085,7 @@ fn test_deser_scope_rejects_conflicting_live_heap_binding() {
         .heap_arc()
         .heap_ref_id()
         .expect("heap should have a name");
-    let scope = StarlarkDeserScope::new(Default::default());
+    let scope = StarlarkDeserScope::new(Default::default(), Default::default());
 
     scope
         .register_heap(
@@ -1150,8 +1150,8 @@ fn test_concurrent_scopes_reject_conflicting_live_heap_binding() {
     let heap_id = owners[0].heap_arc().heap_ref_id().unwrap();
     let bindings = Arc::default();
     let scopes = [
-        StarlarkDeserScope::new(Arc::clone(&bindings)),
-        StarlarkDeserScope::new(bindings),
+        StarlarkDeserScope::new(Arc::clone(&bindings), Default::default()),
+        StarlarkDeserScope::new(bindings, Default::default()),
     ];
     let ready = std::sync::Barrier::new(2);
     let results = std::thread::scope(|threads| {
