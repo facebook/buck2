@@ -131,6 +131,21 @@ def cuda_distributed_compile(
     # We'll first run nvcc with -dryrun. So do not bind the object file yet.
     cmd.add(["-o", object.short_path])
     original_cmd = cmd.copy()
+
+    # Dep-file filtering drops the tagged host argsfile from each sub-action key,
+    # so a change to the flags themselves would otherwise go unnoticed. This
+    # fingerprint carries the same flags with content-based paths rendered as a
+    # placeholder: it moves when a flag really changes, not when a path does.
+    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+    hostcc_argsfile_fingerprint = None
+    if headers_dep_files != None:
+        hostcc_argsfile_fingerprint, _ = actions.write(
+            "__redacted__/{}.hostcc_argsfile_fingerprint".format(cuda_compile_info.filename),
+            cmd_args(original_cmd, src_compile_cmd.cxx_compile_cmd.argsfile.args, quote = "shell"),
+            allow_args = True,
+            has_content_based_path = cuda_compile_info.uses_content_based_paths,
+            use_dep_files_placeholder_for_content_based_paths = True,
+        )
     cmd.add([
         "-_NVCC_DRYRUN_",
         "-_NVCC_HOSTCC_ARGSFILE_",
@@ -151,6 +166,7 @@ def cuda_distributed_compile(
             src_compile_cmd = src_compile_cmd,
             original_cmd = original_cmd,
             hostcc_argsfile = hostcc_argsfile,
+            hostcc_argsfile_fingerprint = hostcc_argsfile_fingerprint,
             plan_artifact = cuda_dist_output.nvcc_dag,
             env_artifact = cuda_dist_output.nvcc_env,
             output_declared_artifact = object,
@@ -285,6 +301,7 @@ def _nvcc_dynamic_compile(
     src_compile_cmd: CxxSrcCompileCommand,
     original_cmd: cmd_args,
     hostcc_argsfile: Artifact,
+    hostcc_argsfile_fingerprint: Artifact | None,
     plan_artifact: ArtifactValue,
     env_artifact: ArtifactValue,
     output_declared_artifact: OutputArtifact,
@@ -299,6 +316,20 @@ def _nvcc_dynamic_compile(
         content_based,
     )
     subcmd_env = _create_nvcc_subcmd_env(env_artifact)
+
+    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+
+    # Tagging lets dep-file filtering drop the argsfile's own path from the
+    # sub-action key; the untagged fingerprint is what still reruns them when a
+    # flag changes.
+    if headers_dep_files != None and hostcc_argsfile_fingerprint != None:
+        hostcc_wp_form = cmd_args(
+            headers_dep_files.tag.tag_artifacts(hostcc_argsfile),
+            format = "-Wp,@{}",
+            hidden = [hostcc_argsfile_fingerprint],
+        )
+    else:
+        hostcc_wp_form = cmd_args(hostcc_argsfile, format = "-Wp,@{}")
 
     category_counts = {}
     for cmd_node in plan:
@@ -338,7 +369,7 @@ def _nvcc_dynamic_compile(
                     bindable = artifact
                 subcmd.add(cmd_args([left, bindable, right], delimiter = ""))
             elif token.startswith("-Wp,@"):
-                subcmd.add(cmd_args(hostcc_argsfile, format = "-Wp,@{}"))
+                subcmd.add(hostcc_wp_form)
             else:
                 subcmd.add(token)
 
@@ -357,7 +388,6 @@ def _nvcc_dynamic_compile(
         # when their output is byte-identical. Let the host compiler report the
         # headers it actually read so buck can prune the rest from the action key.
         action_dep_files = {}
-        headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
         if is_host_compiler and headers_dep_files:
             # Categories can repeat within a plan, so disambiguate with a
             # per-category ordinal.
@@ -391,6 +421,7 @@ _nvcc_dynamic_compile_rule = dynamic_actions(
         "cuda_compile_info": dynattrs.value(CudaCompileInfo),
         "env_artifact": dynattrs.artifact_value(),
         "hostcc_argsfile": dynattrs.value(Artifact),
+        "hostcc_argsfile_fingerprint": dynattrs.option(dynattrs.value(Artifact)),
         "original_cmd": dynattrs.value(cmd_args),
         "output_declared_artifact": dynattrs.output(),
         "plan_artifact": dynattrs.artifact_value(),
