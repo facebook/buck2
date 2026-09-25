@@ -331,7 +331,7 @@ impl WeakFrozenHeapRef {
 
 // SAFETY: read-only access to already-allocated arena memory is safe across
 // threads. Concurrent allocations during partial-deser are serialized by
-// `HeapDeserializationState.arena_alloc_lock`.
+// the claim mutex in `HeapDeserializationState`.
 unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 

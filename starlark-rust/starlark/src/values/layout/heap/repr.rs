@@ -137,6 +137,10 @@ const HEAP_ENTRY_TAG_MASK: usize = FORWARD_TAG | RESERVATION_TAG;
 const _: () = assert!(mem::align_of::<AValueVTable>() > HEAP_ENTRY_TAG_MASK);
 
 impl AValueForward {
+    pub(crate) fn object_size(&self) -> ValueAllocSize {
+        self.object_size
+    }
+
     pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
         debug_assert_eq!(forward_ptr.0 & HEAP_ENTRY_TAG_MASK, 0);
         Self {

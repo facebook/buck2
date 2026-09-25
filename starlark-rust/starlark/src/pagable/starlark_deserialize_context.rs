@@ -29,6 +29,7 @@ use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
 use std::sync::RwLock;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -203,7 +204,7 @@ impl AtomicSlotState {
     }
 
     /// Publish the claim: store the pre-allocated `header` with the in-progress
-    /// flag set. The caller holds the arena lock, so this is the not-started ->
+    /// flag set. The caller holds the claim lock, so this is the not-started ->
     /// in-progress transition.
     fn publish_in_progress(&self, header: *mut AValueHeader) {
         self.0
@@ -289,13 +290,6 @@ pub(crate) struct HeapMetadata {
     init_waiters: InitWaiters,
 }
 
-#[derive(Allocative)]
-struct HeapArenaState {
-    #[allocative(skip)]
-    arena: NonNull<Arena<ChunkAllocator>>,
-    serialization_index_dirty: bool,
-}
-
 /// A heap's header once loaded: how to reopen its data, and where the lazily
 /// parsed slot metadata starts within it. The dependencies the header names
 /// are bound on the heap itself.
@@ -320,15 +314,20 @@ pub(crate) struct HeapDeserializationState {
     source: Option<ArcKey>,
     /// The header, once loaded.
     header: OnceLock<HeapHeaderState>,
-    /// Locked pointer into the owning `FrozenFrozenHeap`'s arena and the state
-    /// needed to refresh its serialization index after lazy allocation.
-    arena: Mutex<HeapArenaState>,
+    /// Immutable pointer into the owning `FrozenFrozenHeap`'s arena.
+    #[allocative(skip)]
+    arena: NonNull<Arena<ChunkAllocator>>,
+    /// Serializes allocation and sentinel publication against other claims.
+    claims: Mutex<()>,
+    /// Whether a claim has allocated since the serialization index was last
+    /// published; see `refresh_serialization_index`.
+    serialization_index_dirty: AtomicBool,
     /// Lazy: parsed on first `try_claim` / `value_count` call.
     metadata: OnceLock<HeapMetadata>,
 }
 
 // SAFETY: `arena` points into a heap-allocated `FrozenFrozenHeap` kept alive
-// for the state's lifetime; concurrent allocations are serialized by the Mutex.
+// for the state's lifetime; concurrent allocations are serialized by `claims`.
 unsafe impl Sync for HeapDeserializationState {}
 unsafe impl Send for HeapDeserializationState {}
 
@@ -348,11 +347,10 @@ impl HeapDeserializationState {
             heap_id,
             source,
             header: OnceLock::new(),
-            arena: Mutex::new(HeapArenaState {
-                // SAFETY: caller's contract — `arena` is a valid pointer.
-                arena: unsafe { NonNull::new_unchecked(arena as *mut _) },
-                serialization_index_dirty: true,
-            }),
+            // SAFETY: caller's contract — `arena` is a valid pointer.
+            arena: unsafe { NonNull::new_unchecked(arena as *mut _) },
+            claims: Mutex::new(()),
+            serialization_index_dirty: AtomicBool::new(true),
             metadata: OnceLock::new(),
         }
     }
@@ -409,6 +407,11 @@ impl HeapDeserializationState {
             )
             .into()
         })
+    }
+
+    /// Hold off allocation and sentinel publication while the guard lives.
+    pub(crate) fn hold_claims(&self) -> MutexGuard<'_, ()> {
+        self.claims.lock().expect("claim lock poisoned")
     }
 
     /// Number of values in this heap.
@@ -535,10 +538,7 @@ impl HeapDeserializationState {
     }
 
     pub(crate) fn serialization_index_is_dirty(&self) -> bool {
-        self.arena
-            .lock()
-            .expect("arena lock poisoned")
-            .serialization_index_dirty
+        self.serialization_index_dirty.load(Ordering::Acquire)
     }
 
     pub(crate) fn refresh_serialization_index(
@@ -546,21 +546,22 @@ impl HeapDeserializationState {
         is_registered: impl FnOnce() -> bool,
         register: impl FnOnce(Vec<ChunkInfo>),
     ) {
-        let mut state = self.arena.lock().expect("arena lock poisoned");
-        if !state.serialization_index_dirty && is_registered() {
+        let _claims_held = self.hold_claims();
+        if !self.serialization_index_is_dirty() && is_registered() {
             return;
         }
 
-        // SAFETY: `state.arena` remains valid for this state's lifetime, and
+        // SAFETY: `arena` remains valid for this state's lifetime, and
         // the lock excludes lazy allocation while the index is constructed.
-        let entries = unsafe { state.arena.as_ref().build_chunk_index() };
+        let entries = unsafe { self.arena.as_ref().build_chunk_index() };
         register(entries);
-        state.serialization_index_dirty = false;
+        self.serialization_index_dirty
+            .store(false, Ordering::Release);
     }
 
     /// Try to claim a slot for deserialization.
     ///
-    /// Claims are serialized by the arena lock: the winner allocates the header
+    /// Claims are serialized by the claim lock: the winner allocates the header
     /// and publishes its pointer into the slot's atomic *before* releasing the
     /// lock, so a claimed slot always carries its pointer and no reader ever has
     /// to wait for it to appear. This is why observing a started slot never blocks.
@@ -588,10 +589,10 @@ impl HeapDeserializationState {
             return Ok(result);
         }
 
-        // The arena lock serializes claims: its holder performs the not-started
+        // The claim lock serializes claims: its holder performs the not-started
         // -> in-progress transition and publishes the header pointer before
         // releasing, so an in-progress slot is never visible without its pointer.
-        let mut arena = self.arena.lock().expect("arena lock poisoned");
+        let claims_held = self.hold_claims();
 
         // Re-check under the lock; the slot may have been claimed since the load
         // above.
@@ -600,15 +601,16 @@ impl HeapDeserializationState {
         }
 
         let slot = &m.slots[index];
+        // Lock-free index checks must see dirty before the arena can grow.
+        self.serialization_index_dirty
+            .store(true, Ordering::Release);
         // SAFETY: pointer valid for the state's lifetime; we hold the lock so
         // concurrent allocation is excluded.
         let header_ptr = unsafe {
-            arena
-                .arena
+            self.arena
                 .as_ref()
                 .alloc_raw_one(slot.bump_kind, slot.alloc_size)
         };
-        arena.serialization_index_dirty = true;
         // SAFETY: sentinel vtable so any access before `starlark_deserialize`
         // would panic.
         unsafe {
@@ -628,7 +630,7 @@ impl HeapDeserializationState {
                 u32::try_from(index).expect("recipe index should fit in u32"),
             );
         state.publish_in_progress(header_ptr);
-        drop(arena);
+        drop(claims_held);
 
         // On the winning claim only, so each value is counted once.
         if partial_deser_stats::enabled() {
@@ -1567,23 +1569,32 @@ pub(crate) fn resolve_in_loaded_heap(
         .expect("slot must be done after resolving it"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pagable"))]
 mod tests {
     use std::sync::Arc;
     use std::sync::Barrier;
+    use std::sync::TryLockError;
     use std::sync::atomic::AtomicBool;
     use std::sync::atomic::Ordering;
     use std::thread::ThreadId;
     use std::time::Duration;
 
     use dupe::Dupe;
+    use pagable::PagableDeserialize;
+    use pagable::PagableDeserializer;
+    use pagable::PagableSerialize;
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
 
+    use super::ClaimResult;
     use super::HeapValueId;
     use super::MIN_HEAP_BINDING_PRUNE_INTERVAL;
     use super::StarlarkDeserScope;
     use super::StarlarkDeserWaitGraph;
     use super::StarlarkHeapBindings;
+    use crate::values::FrozenHeapName;
     use crate::values::OwnedFrozen;
+    use crate::values::OwnedFrozenHeap;
     use crate::values::Value;
     use crate::values::layout::heap::name::StarlarkTestHeapName;
     use crate::values::layout::heap::sealed::FrozenHeapPtr;
@@ -1701,6 +1712,69 @@ mod tests {
                 Some(heap.heap_arc())
             );
         }
+    }
+
+    #[test]
+    fn test_index_publication_holds_claims_until_complete() {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("contents");
+        });
+        let owner = heap.seal(FrozenHeapName::user("test_index_publication_holds_claims"));
+        let mut ser = TestingSerializer::new();
+        owner.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        drop(owner);
+
+        let mut de = TestingDeserializer::new(&bytes);
+        let restored = OwnedFrozen::<()>::pagable_deserialize(&mut de).unwrap();
+        let state = restored.heap_arc().deser_state().unwrap();
+        let mut published = false;
+        state.refresh_serialization_index(
+            || false,
+            |_| {
+                assert!(
+                    matches!(state.claims.try_lock(), Err(TryLockError::WouldBlock)),
+                    "index publication must exclude new claims"
+                );
+                assert!(
+                    state.serialization_index_is_dirty(),
+                    "the index must stay dirty until publication completes"
+                );
+                published = true;
+            },
+        );
+        assert!(published);
+        assert!(!state.serialization_index_is_dirty());
+        assert!(state.claims.try_lock().is_ok(), "claims must resume");
+        state.refresh_serialization_index(
+            || true,
+            |_| panic!("a clean, registered index must not be republished"),
+        );
+    }
+
+    #[test]
+    fn test_claim_invalidates_a_clean_serialization_index() {
+        let heap = OwnedFrozenHeap::new();
+        heap.with(|heap| {
+            heap.alloc("unclaimed value");
+        });
+        let owner = heap.seal(FrozenHeapName::user("claim_invalidates_index"));
+        let mut ser = TestingSerializer::new();
+        owner.pagable_serialize(&mut ser).unwrap();
+        let bytes = ser.finish();
+        drop(owner);
+        let mut de = TestingDeserializer::new(&bytes);
+        let restored = OwnedFrozen::<()>::pagable_deserialize(&mut de).unwrap();
+        let heap = restored.heap_arc();
+        let state = heap.deser_state().unwrap();
+        state.refresh_serialization_index(|| false, |entries| assert!(entries.is_empty()));
+        assert!(!state.serialization_index_is_dirty());
+
+        let ClaimResult::Claimed(_claim) = state.try_claim(0, &de.storage()).unwrap() else {
+            panic!("the cold slot must be unclaimed");
+        };
+        assert!(state.serialization_index_is_dirty());
     }
 
     fn value_id(n: usize) -> HeapValueId {
