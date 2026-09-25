@@ -714,7 +714,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     toolchain_info = get_cxx_toolchain_info(ctx)
     linker_info = toolchain_info.linker_info
     generated_build_info_external_debug_info = []
-    generated_build_info_objects = []
     binary_linker_flags = ctx.attrs.binary_linker_flags
     generated_build_info_args = []
     if getattr(ctx.attrs, "_generated_build_info_enabled", False):
@@ -749,8 +748,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         if generated_build_info:
             generated_build_info_compile_output = compile_generated_build_info(ctx, generated_build_info)
             generated_build_info_external_debug_info = generated_build_info_compile_output.external_debug_info
-            generated_build_info_objects = generated_build_info_compile_output.objects
-            binary_linker_flags += generated_build_info.linker_flags
+            binary_linker_flags += generated_build_info_compile_output.objects + generated_build_info.linker_flags
 
     links = [
         LinkArgs(
@@ -760,7 +758,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     pre_flags = own_exe_link_flags,
                     linkables = [
                         ObjectsLinkable(
-                            objects = [out.object for out in cxx_outs] + generated_build_info_objects + impl_params.extra_link_input,
+                            objects = [out.object for out in cxx_outs] + impl_params.extra_link_input,
                             linker_type = linker_info.type,
                             link_whole = True,
                         )

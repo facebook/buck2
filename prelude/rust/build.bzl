@@ -67,7 +67,6 @@ load(
     "LinkInfos",  # @unused Used as a type
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
-    "ObjectsLinkable",
     "create_merged_link_info",
     "get_link_args_for_strategy",
     "set_link_info_link_whole",
@@ -2094,7 +2093,7 @@ def rust_link_binary(
     dep_link_strategy: LinkStrategy,
     reloc_model: RelocModel,
     extra_link_args: list[typing.Any],
-    extra_link_objects: list[Artifact],
+    binary_link_args: list[typing.Any],
     inherited_link_args: LinkArgs,
     dwo_output_directory: Artifact | None,
     output: Artifact,
@@ -2191,24 +2190,6 @@ def rust_link_binary(
         LinkArgs(flags = extra_link_args),
     ]
 
-    if extra_link_objects:
-        links.append(
-            LinkArgs(
-                infos = [
-                    LinkInfo(
-                        name = "extra_link_objects",
-                        linkables = [
-                            ObjectsLinkable(
-                                objects = extra_link_objects,
-                                linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-                                link_whole = True,
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        )
-
     if compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu"):
         flags = [
             # FIXME(JakobDegen): This is here becuase rustc used to pass it, but it's not something
@@ -2256,6 +2237,7 @@ def rust_link_binary(
         result_type = CxxLinkResultType("executable"),
         output_has_content_based_path = output_has_content_based_path,
         opts = link_options(
+            binary_links = [LinkArgs(flags = binary_link_args)] if binary_link_args else [],
             links = links,
             link_execution_preference = link_execution_preference,
             # The link is local only so the fbcode linker wrapper can stamp

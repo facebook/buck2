@@ -79,7 +79,7 @@ def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo)
                 namespace = "",
                 naming = CxxHeadersNaming("regular"),
             ),
-            srcs = [CxxSrcWithFlags(file = info.source)],
+            srcs = [CxxSrcWithFlags(file = info.source, flags = ["-fno-lto"])],
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
         ),
         own_preprocessors = [],
@@ -205,7 +205,7 @@ def generate_build_info(
     data = _generate_build_info_data(ctx, spec, tool, generator_args, invalidation_inputs)
 
     output_dir = "__generated_build_info__"
-    source = ctx.actions.declare_output(output_dir, "build_info.c")
+    source = ctx.actions.declare_output(output_dir, "__buck2_generated_build_info.c")
 
     ctx.actions.run(
         cmd_args(

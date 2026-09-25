@@ -405,6 +405,7 @@ def main(argv):
         "crtendS.o",
         "glibc/lib/crtn.o",
     ]
+    GENERATED_BUILD_INFO_OBJECT_BASENAME_PREFIX = "__buck2_generated_build_info.c"
     with open(index_path("index")) as indexfile:
         for line in indexfile:
             line = line.strip()
@@ -461,7 +462,11 @@ def main(argv):
 
         for line in full_index_input:
             line = line.strip()
-            if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
+            if any(
+                filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)
+            ) or os.path.basename(line).startswith(
+                GENERATED_BUILD_INFO_OBJECT_BASENAME_PREFIX
+            ):
                 continue
             # LLVM IR files that are indexed in Phase 2 Thin Link are reported by `ld.lld` to exist under the directory `args.index`,
             # but they actually exist at the path with the prefix `args.index` removed.
