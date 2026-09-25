@@ -79,7 +79,7 @@ def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo)
                 namespace = "",
                 naming = CxxHeadersNaming("regular"),
             ),
-            srcs = [CxxSrcWithFlags(file = info.source, flags = ["-fno-lto"])],
+            srcs = [CxxSrcWithFlags(file = info.source, flags = ["-fno-whole-program-vtables", "-fno-lto"])],
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
         ),
         own_preprocessors = [],
