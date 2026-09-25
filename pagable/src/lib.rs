@@ -59,6 +59,7 @@ pub use impls::StaticStr;
 pub use impls::static_value;
 pub use impls::static_value::StaticBytes;
 pub use impls::static_value::StaticValue;
+pub use page_in_scope::ArcKey;
 pub use page_in_scope::PageInScope;
 pub use page_in_scope::PageInState;
 pub use storage::data::DataKey;

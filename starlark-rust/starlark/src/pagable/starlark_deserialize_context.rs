@@ -45,7 +45,6 @@ use pagable::PagableDeserializerRecipe;
 use pagable::PageInScope;
 use pagable::PageInState;
 use pagable::StorageState;
-use pagable::storage::data::DataKey;
 use pagable::storage::handle::PagableStorageHandle;
 
 use crate::pagable::DeserTypeId;
@@ -63,6 +62,7 @@ use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::edge::HeapEdge;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::layout::heap::sealed::ArcKey;
 use crate::values::layout::heap::sealed::FrozenHeapArc;
 use crate::values::layout::heap::sealed::FrozenHeapPtr;
 use crate::values::layout::heap::sealed::WeakFrozenHeapRef;
@@ -317,7 +317,7 @@ pub(crate) struct HeapDeserializationState {
     /// Where the heap's data is, for a skeleton bound from a ref list without
     /// loading its header. `None` for a heap read in place.
     #[allocative(skip)]
-    source: Option<(DataKey, PageInScope)>,
+    source: Option<ArcKey>,
     /// The header, once loaded.
     header: OnceLock<HeapHeaderState>,
     /// Locked pointer into the owning `FrozenFrozenHeap`'s arena and the state
@@ -340,7 +340,7 @@ impl HeapDeserializationState {
     pub(crate) unsafe fn new(
         scope: Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        source: Option<(DataKey, PageInScope)>,
+        source: Option<ArcKey>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
         Self {
@@ -362,10 +362,8 @@ impl HeapDeserializationState {
     }
 
     /// Where the heap's data is, if it is still in storage.
-    pub(crate) fn source(&self) -> Option<(DataKey, &PageInScope)> {
-        self.source
-            .as_ref()
-            .map(|(key, page_in_scope)| (*key, page_in_scope))
+    pub(crate) fn source(&self) -> Option<&ArcKey> {
+        self.source.as_ref()
     }
 
     /// Whether the header is loaded: the heap's dependencies are bound and the

@@ -20,6 +20,7 @@ use crate::PagableDeserializerRecipe;
 use crate::PagableSerializer;
 use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
+use crate::page_in_scope::ArcKey;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
@@ -153,12 +154,19 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         let key = self
             .take_stored_arc_key()
             .with_context(|| format!("Deserializing arc with type {type_id:?}"))?;
+        let arc_key = ArcKey {
+            key,
+            page_in_scope: self.page_in_scope.dupe(),
+        };
         self.storage
-            .deserialize_arc_by_key(&self.page_in_scope, key, type_id, deserialize_fn)
+            .deserialize_arc_by_key(&arc_key, type_id, deserialize_fn)
     }
 
-    fn take_arc_key(&mut self) -> crate::Result<Option<DataKey>> {
-        self.take_stored_arc_key().map(Some)
+    fn take_arc_key(&mut self) -> crate::Result<Option<ArcKey>> {
+        Ok(Some(ArcKey {
+            key: self.take_stored_arc_key()?,
+            page_in_scope: self.page_in_scope.dupe(),
+        }))
     }
 
     fn position(&self) -> PagableCursor {

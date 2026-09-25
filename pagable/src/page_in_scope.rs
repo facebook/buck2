@@ -10,6 +10,7 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::fmt;
 use std::sync::Arc;
 
 use dashmap::mapref::entry::Entry;
@@ -75,6 +76,24 @@ pub struct PageInScope {
 struct PageInScopeInner {
     root_key: DataKey,
     states: PageInStateRegistry,
+}
+
+/// A stored arc's key together with the page-in scope its slot was read in,
+/// which a deferred read restores the arc under. Storage identifies the arc
+/// by the key alone; the scope is restoration context, carried along so it
+/// cannot be lost between taking the slot and reading it.
+#[derive(Clone, Dupe)]
+pub struct ArcKey {
+    pub key: DataKey,
+    pub page_in_scope: PageInScope,
+}
+
+impl fmt::Debug for ArcKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArcKey")
+            .field("key", &self.key)
+            .finish_non_exhaustive()
+    }
 }
 
 impl PageInScope {

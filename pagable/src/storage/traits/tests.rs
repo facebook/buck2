@@ -479,8 +479,12 @@ fn take_arc_key_then_deserialize_by_key_matches_deserialize_arc() -> anyhow::Res
     assert_eq!(storage.fetch_count.load(Ordering::SeqCst), 0);
     drop(de);
 
+    assert!(
+        PageInScope::ptr_eq(&key.page_in_scope, &scope),
+        "the key carries the scope the slot was read in"
+    );
     let later =
-        handle.deserialize_arc_by_key(&scope, key, TypeId::of::<Arc<Vec<u8>>>(), deserialize_fn)?;
+        handle.deserialize_arc_by_key(&key, TypeId::of::<Arc<Vec<u8>>>(), deserialize_fn)?;
     let later = later
         .as_arc_any()
         .downcast_ref::<Arc<Vec<u8>>>()

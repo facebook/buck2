@@ -35,13 +35,13 @@ use std::sync::Weak;
 use allocative::Allocative;
 use allocative::FlameGraphBuilder;
 use dupe::Dupe;
-use pagable::DataKey;
+#[cfg(fbcode_build)]
+pub(crate) use pagable::ArcKey;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
-use pagable::PageInScope;
 use pagable::PartialPagableArc;
 use pagable::PartialPagableWeak;
 use pagable::arc_erase::ArcEraseDyn;
@@ -80,6 +80,8 @@ pub(crate) mod heap_key_index {
     use std::any::TypeId;
 
     use dashmap::DashMap;
+    use dupe::Dupe;
+    use pagable::ArcKey;
     use pagable::DataKey;
     use pagable::PageInScope;
     use pagable::PartialPagableArc;
@@ -176,8 +178,10 @@ pub(crate) mod heap_key_index {
         };
         let arc_box = storage
             .deserialize_arc_by_key(
-                page_in_scope,
-                key,
+                &ArcKey {
+                    key,
+                    page_in_scope: page_in_scope.dupe(),
+                },
                 TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
                 deserialize_heap_arc_with_recipe,
             )
@@ -365,7 +369,7 @@ impl FrozenFrozenHeap {
         heap: &PartialPagableArc<Self>,
         scope: &Arc<StarlarkDeserScope>,
         heap_id: HeapRefId,
-        source: Option<(DataKey, PageInScope)>,
+        source: Option<ArcKey>,
     ) {
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
         // SAFETY: `arena_ptr` points into `*heap`, whose arc keeps the state
@@ -727,15 +731,9 @@ impl FrozenHeapArc {
                 let name = FrozenHeapName::pagable_deserialize(deserializer)?;
                 let nonce = HeapSerializationNonce::pagable_deserialize(deserializer)?;
                 match take_arc_key(deserializer)? {
-                    Some(key) => {
-                        let heap = bind_skeleton(
-                            &deserializer.storage(),
-                            deserializer.page_in_scope(),
-                            scope,
-                            name,
-                            nonce,
-                            key,
-                        )?;
+                    Some(arc_key) => {
+                        let heap =
+                            bind_skeleton(&deserializer.storage(), scope, name, nonce, arc_key)?;
                         if header == HeaderLoad::Eager {
                             heap.ensure_header_loaded(scope, &deserializer.storage())?;
                         }
@@ -802,10 +800,10 @@ impl FrozenHeapArc {
         if state.is_header_loaded() {
             return Ok(());
         }
-        let Some((key, page_in_scope)) = state.source() else {
+        let Some(source) = state.source() else {
             return Ok(());
         };
-        let recipe = fetch_data_recipe(storage, page_in_scope, key)?;
+        let recipe = fetch_data_recipe(storage, source)?;
         let metadata_start = {
             let mut de = recipe.open(storage);
             // The data repeats the identity the slot bound this skeleton under.
@@ -904,26 +902,20 @@ impl FrozenHeapArc {
 )]
 fn bind_skeleton(
     storage: &PagableStorageHandle,
-    page_in_scope: &PageInScope,
     scope: &Arc<StarlarkDeserScope>,
     name: FrozenHeapName,
     nonce: HeapSerializationNonce,
-    key: DataKey,
+    arc_key: ArcKey,
 ) -> crate::Result<FrozenHeapArc> {
     #[cfg(fbcode_build)]
     {
         let arc_box = storage.bind_arc_by_key_lazily(
-            key,
+            arc_key.key,
             TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
             || {
                 let heap_id = HeapRefId::new(&name, nonce);
                 let heap = PartialPagableArc::new(FrozenFrozenHeap::new_from_identity(name, nonce));
-                FrozenFrozenHeap::install_deser_state(
-                    &heap,
-                    scope,
-                    heap_id,
-                    Some((key, page_in_scope.dupe())),
-                );
+                FrozenFrozenHeap::install_deser_state(&heap, scope, heap_id, Some(arc_key));
                 Box::new(heap)
             },
         );
@@ -942,23 +934,28 @@ fn bind_skeleton(
 )]
 fn fetch_data_recipe(
     storage: &PagableStorageHandle,
-    page_in_scope: &PageInScope,
-    key: DataKey,
+    arc_key: &ArcKey,
 ) -> crate::Result<Arc<dyn pagable::PagableDeserializerRecipe>> {
     #[cfg(fbcode_build)]
     return storage
-        .fetch_recipe_blocking(page_in_scope, key)
+        .fetch_recipe_by_key(arc_key)
         .map_err(crate::Error::new_other);
     #[cfg(not(fbcode_build))]
     unreachable!("no header is left unloaded without `take_arc_key`")
 }
+
+/// `pagable::ArcKey`, for the OSS build whose published `pagable` predates it;
+/// nothing there produces one.
+#[cfg(not(fbcode_build))]
+#[derive(Clone, Dupe)]
+pub(crate) struct ArcKey {}
 
 /// `deserializer.take_arc_key()`, compiled out where the OSS build's published
 /// `pagable` predates the method. `None` there reads every heap eagerly, the
 /// behavior before skeletons.
 fn take_arc_key<'de, D: PagableDeserializer<'de> + ?Sized>(
     deserializer: &mut D,
-) -> pagable::Result<Option<DataKey>> {
+) -> pagable::Result<Option<ArcKey>> {
     #[cfg(fbcode_build)]
     return deserializer.take_arc_key();
     #[cfg(not(fbcode_build))]
