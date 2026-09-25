@@ -2915,6 +2915,170 @@ struct ParkChannels {
 static PARK: std::sync::Mutex<Option<ParkChannels>> = std::sync::Mutex::new(None);
 static PUBLISH_DURING_WALK: std::sync::Mutex<Option<ParkChannels>> = std::sync::Mutex::new(None);
 
+#[cfg(panic = "unwind")]
+mod claim_unwind {
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    use super::*;
+
+    static PANIC_DESER: Mutex<Option<ParkChannels>> = Mutex::new(None);
+
+    #[derive(Debug, Allocative)]
+    struct PanicAfterRelease;
+
+    impl crate::pagable::StarlarkSerialize for PanicAfterRelease {
+        fn starlark_serialize(
+            &self,
+            _ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+        ) -> crate::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'fv> crate::pagable::StarlarkDeserialize<'fv> for PanicAfterRelease {
+        fn starlark_deserialize(
+            _ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_, 'fv>,
+        ) -> crate::Result<Self> {
+            let channels = PANIC_DESER
+                .lock()
+                .unwrap()
+                .take()
+                .expect("test gate is set");
+            channels.parked.send(()).expect("test observes the claim");
+            channels
+                .release
+                .recv_timeout(Duration::from_secs(10))
+                .expect("test releases the deserializer");
+            panic!("intentional test deserializer panic");
+        }
+    }
+
+    #[derive(
+        Debug,
+        Display,
+        Allocative,
+        ProvidesStaticType,
+        NoSerialize,
+        StarlarkPagable
+    )]
+    #[display("PanicDeserData")]
+    struct PanicDeserData {
+        owned: String,
+        panic: PanicAfterRelease,
+    }
+
+    starlark_simple_value!(PanicDeserData);
+
+    #[starlark_value(type = "PanicDeserData")]
+    impl<'v> StarlarkValue<'v> for PanicDeserData {
+        type Canonical = Self;
+    }
+
+    #[test]
+    fn test_panicking_deserializer_fails_claim_and_wakes_waiter() -> crate::Result<()> {
+        use std::panic::AssertUnwindSafe;
+        use std::panic::catch_unwind;
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::Duration;
+
+        use pagable::storage::handle::PagableStorageHandle;
+        use pagable::storage::in_memory::InMemoryPagableStorage;
+
+        let heap = ErasingHeap::new();
+        let good = heap.alloc_simple(SimpleData {
+            flag: true,
+            count: 17,
+        });
+        let bad = heap.alloc_simple(PanicDeserData {
+            owned: "partially initialized".to_owned(),
+            panic: PanicAfterRelease,
+        });
+        let owner = heap.into_ref_named(TestHeapName::heap_name("panicking_slot_sibling"));
+        // SAFETY: `owner` owns the arena hosting both values.
+        let good_root: OwnedFrozen<Value> =
+            unsafe { OwnedFrozen::from_erased(owner.clone(), good) };
+        let bad_root: OwnedFrozen<Value> = unsafe { OwnedFrozen::from_erased(owner, bad) };
+        let backing = InMemoryPagableStorage::new();
+        let good_key = ser_owned_frozen_value_into_storage(&backing, &good_root)?;
+        let bad_key = ser_owned_frozen_value_into_storage(&backing, &bad_root)?;
+        let storage = backing.handle();
+        storage.flush().map_err(crate::Error::new_other)?;
+        drop((good_root, bad_root));
+        storage.arc_cache().clear();
+
+        let handle = PagableStorageHandle::new(storage.clone());
+        let good = deser_owned_frozen_from_storage(&backing, &handle, &good_key)?;
+        let state = good.owner().heap_arc().deser_state().unwrap();
+        let (wait_started_tx, wait_started_rx) = mpsc::channel();
+        state.notify_on_next_wait_for_test(wait_started_tx);
+        let data = storage
+            .fetch_data_blocking(&bad_key)
+            .map_err(crate::Error::new_other)?;
+        let read_bad = move || {
+            let mut de = handle.root_deserializer(bad_key, &data);
+            OwnedFrozen::<Value>::pagable_deserialize(&mut de).map(|_| ())
+        };
+
+        let (parked_tx, parked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        *PANIC_DESER.lock().unwrap() = Some(ParkChannels {
+            parked: parked_tx,
+            release: release_rx,
+        });
+        let (claimer_tx, claimer_rx) = mpsc::channel();
+        let claimer = {
+            let read_bad = read_bad.clone();
+            thread::spawn(move || {
+                claimer_tx
+                    .send(catch_unwind(AssertUnwindSafe(read_bad)))
+                    .expect("test observes the deserializer unwind");
+            })
+        };
+        parked_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the claimer enters the gated deserializer");
+
+        let (waiter_tx, waiter_rx) = mpsc::channel();
+        let waiter = {
+            let read_bad = read_bad.clone();
+            thread::spawn(move || {
+                waiter_tx
+                    .send(read_bad())
+                    .expect("test observes the waiting reader");
+            })
+        };
+        wait_started_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the second reader must wait on the claimed slot");
+        release_tx.send(()).expect("the claimer is still gated");
+
+        let panic = claimer_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the claimer must finish unwinding")
+            .expect_err("the deserializer must panic, not return an ordinary error");
+        assert_eq!(
+            panic.downcast_ref::<&str>(),
+            Some(&"intentional test deserializer panic")
+        );
+        let error = waiter_rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("the waiter must wake after the claimer panics")
+            .expect_err("an abandoned claim must not become a readable value");
+        assert!(format!("{error:#}").contains("value deserialization did not complete"));
+        claimer.join().expect("panic was caught inside the claimer");
+        waiter.join().expect("the waiting reader must not panic");
+
+        let later = read_bad().expect_err("later readers must also see the failed slot");
+        assert_eq!(format!("{later:#}"), format!("{error:#}"));
+        let values: Vec<_> = good.owner().heap_arc().iter_values().collect();
+        assert_eq!(values.len(), 1, "the abandoned slot remains uninitialized");
+        assert_eq!(values[0].downcast_ref::<SimpleData>().unwrap().count, 17);
+        Ok(())
+    }
+}
+
 #[derive(Debug, Allocative)]
 struct ParkField;
 

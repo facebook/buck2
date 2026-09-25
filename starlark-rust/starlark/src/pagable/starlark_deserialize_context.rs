@@ -34,6 +34,8 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+#[cfg(all(test, feature = "pagable", panic = "unwind"))]
+use std::sync::mpsc::Sender;
 use std::thread::ThreadId;
 
 use allocative::Allocative;
@@ -111,29 +113,74 @@ impl ValueDeserSlot {
     }
 }
 
-/// Info returned by `try_claim` — everything the caller needs to deserialize a value.
-pub(crate) struct DeserializeRecipe {
+/// The recipe and allocation owned by a [`SlotClaimGuard`].
+struct DeserializeRecipe {
+    /// The slot's index in the heap's metadata.
+    index: usize,
     /// Absolute cursor position of this value's data.
-    pub(crate) abs_pos: PagableCursor,
+    abs_pos: PagableCursor,
     /// Vtable for deserialization dispatch.
-    pub(crate) vtable: &'static AValueVTable,
-    /// Raw pointer to the pre-allocated header in the arena.
-    pub(crate) raw_ptr: StarlarkValueRawPtr,
+    vtable: &'static AValueVTable,
+    /// Raw pointer to the pre-allocated payload in the arena.
+    raw_ptr: StarlarkValueRawPtr,
     /// Pointer to the AValueHeader in the arena (for vtable patching after deserialization).
-    pub(crate) header_ptr: *mut AValueHeader,
+    header_ptr: NonNull<AValueHeader>,
 }
 
 impl DeserializeRecipe {
     /// Write the real vtable to the header, replacing the sentinel.
-    /// Must be called after `starlark_deserialize` completes.
-    pub(crate) unsafe fn write_vtable_to_header(&self) {
+    ///
+    /// # Safety
+    /// `starlark_deserialize` must have successfully initialized the payload.
+    unsafe fn write_vtable_to_header(&self) {
         // Release store, paired with the acquire load an arena walk decodes
         // headers with, so a walk sees the payload before the vtable.
         // SAFETY: `header_ptr` is the claim's aligned header word.
         unsafe {
-            (*(self.header_ptr as *const AtomicPtr<AValueVTable>)).store(
+            (*(self.header_ptr.as_ptr() as *const AtomicPtr<AValueVTable>)).store(
                 self.vtable as *const AValueVTable as *mut AValueVTable,
                 Ordering::Release,
+            );
+        }
+    }
+}
+
+/// A won claim bound to its heap state. Dropping an unfinished claim publishes
+/// failure so waiters are not stranded by an early return or unwinding panic.
+struct SlotClaimGuard<'a> {
+    state: &'a HeapDeserializationState,
+    claim: Option<DeserializeRecipe>,
+}
+
+impl SlotClaimGuard<'_> {
+    fn recipe(&self) -> &DeserializeRecipe {
+        self.claim.as_ref().expect("claim guard is still armed")
+    }
+
+    /// # Safety
+    /// The recipe's deserializer must have successfully initialized the payload.
+    unsafe fn publish(mut self) {
+        let claim = self.claim.take().expect("claim guard is consumed once");
+        // SAFETY: `publish` requires this recipe's payload to be successfully
+        // initialized, satisfying `write_vtable_to_header`'s precondition.
+        unsafe { claim.write_vtable_to_header() };
+        self.state.finalize_claim(claim);
+    }
+
+    fn abort(mut self, error: &crate::Error) {
+        self.state.abort_claim(
+            self.claim.take().expect("claim guard is consumed once"),
+            error,
+        );
+    }
+}
+
+impl Drop for SlotClaimGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(claim) = self.claim.take() {
+            self.state.abort_claim(
+                claim,
+                &crate::Error::new_other(anyhow::anyhow!("value deserialization did not complete")),
             );
         }
     }
@@ -160,7 +207,7 @@ impl SlotState {
 
     /// [`ClaimResult`] for a slot observed by a non-winning caller, or `None` if
     /// it is not started yet (the caller should attempt to claim it).
-    fn observed_claim_result(self) -> Option<ClaimResult> {
+    fn observed_claim_result<'a>(self) -> Option<ClaimResult<'a>> {
         match self {
             SlotState::NotStarted => None,
             SlotState::InProgress(ptr) => Some(ClaimResult::InProgress(ptr)),
@@ -250,6 +297,9 @@ struct InitWaiterState {
     /// Failure records are sparse because successful slots never need this
     /// diagnostic state.
     failures: Vec<SlotFailure>,
+    #[cfg(all(test, feature = "pagable", panic = "unwind"))]
+    #[allocative(skip)]
+    wait_started: Option<Sender<()>>,
 }
 
 #[derive(Allocative)]
@@ -267,8 +317,8 @@ impl InitWaiters {
     }
 }
 
-pub(crate) enum ClaimResult {
-    Claimed(DeserializeRecipe),
+enum ClaimResult<'a> {
+    Claimed(SlotClaimGuard<'a>),
     Done,
     /// Slot is mid-deserialization. Carries its pre-allocated header, whose
     /// vtable is still the sentinel (value not materialized yet).
@@ -600,16 +650,15 @@ impl HeapDeserializationState {
     /// mapping before publishing, so the wire identity of a lazily allocated
     /// value is in place for the whole time that value is reachable.
     ///
-    /// On win, returns `Claimed(recipe)` with a freshly-allocated `header_ptr`
-    /// pointing to a sentinel-vtable header in the arena. The caller must run
-    /// `recipe.vtable.starlark_deserialize`, call
-    /// `recipe.write_vtable_to_header()`, then `finalize_claim(index)`.
+    /// On win, returns an armed guard with a sentinel-vtable allocation. The
+    /// caller initializes its payload through the recipe, then consumes the
+    /// guard with `publish` or `abort`. Dropping it also aborts the claim.
     /// On loss, returns the slot's terminal state or its in-progress deserialization pointer.
-    pub(crate) fn try_claim(
+    fn try_claim(
         &self,
         index: usize,
         storage: &PagableStorageHandle,
-    ) -> crate::Result<ClaimResult> {
+    ) -> crate::Result<ClaimResult<'_>> {
         let m = self.metadata(storage)?;
         let state = &m.init_states[index];
 
@@ -631,6 +680,11 @@ impl HeapDeserializationState {
         }
 
         let slot = &m.slots[index];
+        let abs_pos = PagableCursor {
+            byte_pos: m.base_pos.byte_pos + slot.stream_offset as usize,
+            arc_index: m.base_pos.arc_index + slot.arc_offset as usize,
+        };
+        let recipe_index = u32::try_from(index).expect("recipe index should fit in u32");
         // Lock-free index checks must see dirty before the arena can grow.
         self.serialization_index_dirty
             .store(true, Ordering::Release);
@@ -641,24 +695,32 @@ impl HeapDeserializationState {
                 .as_ref()
                 .alloc_raw_one(slot.bump_kind, slot.alloc_size)
         };
-        let raw_ptr = StarlarkValueRawPtr::new_header_ptr(header_ptr);
+        let header_ptr = NonNull::new(header_ptr).expect("the arena never allocates at null");
+        let raw_ptr = StarlarkValueRawPtr::new_header_ptr(header_ptr.as_ptr());
         // Indexed before the header is written, for walks that meet the sentinel.
         m.original_indices_by_payload
             .write()
             .expect("original index map lock poisoned")
-            .insert(
-                raw_ptr.ptr as usize,
-                u32::try_from(index).expect("recipe index should fit in u32"),
-            );
+            .insert(raw_ptr.ptr as usize, recipe_index);
         // SAFETY: sentinel vtable so any access before `starlark_deserialize`
         // would panic.
         unsafe {
             std::ptr::write(
-                header_ptr,
+                header_ptr.as_ptr(),
                 AValueHeader(AValueVTable::uninitialized_sentinel()),
             );
         }
-        state.publish_in_progress(header_ptr);
+        state.publish_in_progress(header_ptr.as_ptr());
+        let claim = SlotClaimGuard {
+            state: self,
+            claim: Some(DeserializeRecipe {
+                index,
+                abs_pos,
+                vtable: slot.vtable,
+                raw_ptr,
+                header_ptr,
+            }),
+        };
         drop(claims_held);
 
         // On the winning claim only, so each value is counted once.
@@ -670,19 +732,11 @@ impl HeapDeserializationState {
             );
         }
 
-        Ok(ClaimResult::Claimed(DeserializeRecipe {
-            abs_pos: PagableCursor {
-                byte_pos: m.base_pos.byte_pos + slot.stream_offset as usize,
-                arc_index: m.base_pos.arc_index + slot.arc_offset as usize,
-            },
-            vtable: slot.vtable,
-            raw_ptr,
-            header_ptr,
-        }))
+        Ok(ClaimResult::Claimed(claim))
     }
 
     /// Block on the slot's condvar until it is published done or failed.
-    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicSlotState) -> ClaimResult {
+    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicSlotState) -> ClaimResult<'_> {
         let cv = m.init_waiters.cv.get_or_init(Condvar::new);
         let mut guard = m
             .init_waiters
@@ -698,34 +752,55 @@ impl HeapDeserializationState {
                 SlotState::NotStarted | SlotState::InProgress(_) => {}
             }
 
+            #[cfg(all(test, feature = "pagable", panic = "unwind"))]
+            if let Some(started) = guard.wait_started.take() {
+                // Terminal publication cannot overtake this notification before
+                // `cv.wait` releases the waiter lock.
+                let _ = started.send(());
+            }
             guard = cv.wait(guard).expect("init waiter lock poisoned");
         }
     }
 
+    #[cfg(all(test, feature = "pagable", panic = "unwind"))]
+    pub(crate) fn notify_on_next_wait_for_test(&self, started: Sender<()>) {
+        self.metadata
+            .get()
+            .expect("test heap metadata must already be read")
+            .init_waiters
+            .state
+            .lock()
+            .expect("init waiter lock poisoned")
+            .wait_started = Some(started);
+    }
+
     /// Block until slot `index` is done or failed.
-    pub(crate) fn wait_for_slot(
+    fn wait_for_slot(
         &self,
         index: usize,
         storage: &PagableStorageHandle,
-    ) -> crate::Result<ClaimResult> {
+    ) -> crate::Result<ClaimResult<'_>> {
         let m = self.metadata(storage)?;
         let state = &m.init_states[index];
         Ok(self.wait_for_init(m, state))
     }
 
-    /// Publish slot `index` as done; waiters in `wait_for_slot` then return. Call
-    /// after `write_vtable_to_header`. No header argument — see `finalize`.
-    pub(crate) fn finalize_claim(&self, index: usize) {
-        self.publish_and_notify(index, |state, _waiters| state.finalize());
+    /// Publish the claimed slot as done; waiters in `wait_for_slot` then return.
+    /// Call after `write_vtable_to_header`.
+    fn finalize_claim(&self, claim: DeserializeRecipe) {
+        self.publish_and_notify(claim.index, |state, _waiters| state.finalize());
     }
 
-    /// Publish slot `index` as failed. Call if the winning deserializer errors
-    /// before `finalize_claim`.
+    /// Publish the claimed slot as failed, with `error` as the cause every
+    /// later reader of the slot sees.
     #[cold]
-    pub(crate) fn abort_claim(&self, index: usize, error: &crate::Error) {
+    fn abort_claim(&self, claim: DeserializeRecipe, error: &crate::Error) {
         let cause = Arc::<str>::from(format!("{error:#}"));
-        self.publish_and_notify(index, |state, waiters| {
-            waiters.failures.push(SlotFailure { index, cause });
+        self.publish_and_notify(claim.index, |state, waiters| {
+            waiters.failures.push(SlotFailure {
+                index: claim.index,
+                cause,
+            });
             state.fail();
         });
     }
@@ -1533,7 +1608,8 @@ pub(crate) fn resolve_in_loaded_heap(
     // a different stream (e.g. the body of an `Arc<T>` deser-fn), so it cannot be
     // seeked. Open a fresh deserializer from the target heap's own recipe instead.
     match target_state.try_claim(value_index as usize, storage)? {
-        ClaimResult::Claimed(target) => {
+        ClaimResult::Claimed(slot_claim) => {
+            let target = slot_claim.recipe();
             // Guard clears the `claimers` edge on every exit below.
             let _claim = wait_graph.claim(in_progress_key, my_thread);
 
@@ -1558,12 +1634,11 @@ pub(crate) fn resolve_in_loaded_heap(
             };
 
             if let Err(e) = result {
-                target_state.abort_claim(value_index as usize, &e);
+                slot_claim.abort(&e);
                 return Err(e);
             }
-            // Replace the sentinel vtable with the real one before publishing done.
-            unsafe { target.write_vtable_to_header() };
-            target_state.finalize_claim(value_index as usize);
+            // SAFETY: the recipe's deserializer successfully initialized the payload.
+            unsafe { slot_claim.publish() };
         }
         ClaimResult::InProgress(ptr) => {
             // Slot is mid-deserialization (re-entrant or another thread).
