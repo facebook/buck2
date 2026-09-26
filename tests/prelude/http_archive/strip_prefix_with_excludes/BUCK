@@ -1,0 +1,64 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "HOST_EXEC_COMPATIBLE_WITH", "py_assertion")
+
+oncall("build_infra")
+
+prelude = native
+
+# Regression test for `strip_prefix` combined with `excludes`: bsdtar stops
+# parsing options at the first positional (the member pattern), so exclude
+# flags emitted after it broke the extraction. GNU tar permutes its arguments
+# and was unaffected, which is why this must be unpacked by the host rather
+# than cross-run.
+
+prelude.genrule(
+    name = "archive",
+    srcs = glob([
+        "other/**",
+        "wrapper/**",
+    ]),
+    out = "archive.tar.gz",
+    # `-h` because genrule srcs are symlinked into the sandbox, and without it
+    # the archive would hold the symlinks rather than the files they point at.
+    bash = 'tar -czhf "$OUT" wrapper other',
+    cmd_exe = 'tar -czhf "$OUT" wrapper other',
+    exec_compatible_with = HOST_EXEC_COMPATIBLE_WITH,
+)
+
+prelude.extract_archive(
+    name = "extracted",
+    src = ":archive",
+    excludes = [".*\\.log$"],
+    exec_compatible_with = HOST_EXEC_COMPATIBLE_WITH,
+    strip_prefix = "wrapper",
+)
+
+py_assertion(
+    name = "check",
+    script = """
+import sys
+import tarfile
+from pathlib import Path
+
+extracted, archive = Path(sys.argv[1]), sys.argv[2]
+
+# If `skip.log` never reached the archive, its absence after extraction
+# would say nothing about `excludes`.
+with tarfile.open(archive) as tar:
+    packed = {m.name for m in tar.getmembers() if m.isfile()}
+assert packed == {
+    "other/decoy.txt",
+    "wrapper/keep.txt",
+    "wrapper/nested/keep_nested.txt",
+    "wrapper/skip.log",
+}, packed
+
+# `strip_prefix` drops the `wrapper/` component and leaves the `other/` tree out
+# entirely; `excludes` drops `wrapper/skip.log`.
+found = {p.relative_to(extracted).as_posix() for p in extracted.rglob("*") if p.is_file()}
+assert found == {"keep.txt", "nested/keep_nested.txt"}, found
+""",
+    script_args = [
+        "$(location :extracted)",
+        "$(location :archive)",
+    ],
+)
