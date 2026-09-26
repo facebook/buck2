@@ -67,6 +67,14 @@ class TestPreprocess(unittest.TestCase):
         preprocess(input_file, output_file, substitutions_file, "my_product_name")
         self.assertEqual(output_file.getvalue(), expected)
 
+    def test_chained_variable_used_again_on_same_line(self):
+        input_file = io.StringIO(r"<string>${foo} ${bar}</string>")
+        expected = r"<string>baz baz</string>"
+        substitutions_file = io.StringIO(r'{"foo": "${bar}", "bar": "baz"}')
+        output_file = io.StringIO("")
+        preprocess(input_file, output_file, substitutions_file, "my_product_name")
+        self.assertEqual(output_file.getvalue(), expected)
+
     def test_recursive_substitutions_throws(self):
         input_file = io.StringIO(r"<string>${foo}</string>")
         substitutions_file = io.StringIO(
@@ -77,6 +85,14 @@ class TestPreprocess(unittest.TestCase):
 }
 """
         )
+        output_file = io.StringIO("")
+        with self.assertRaises(Exception) as context:
+            preprocess(input_file, output_file, substitutions_file, "my_product_name")
+        self.assertTrue("Recursive" in str(context.exception))
+
+    def test_recursive_substitution_after_prefix_throws(self):
+        input_file = io.StringIO(r"<string>${foo}</string>")
+        substitutions_file = io.StringIO(r'{"foo": "prefix.${foo}"}')
         output_file = io.StringIO("")
         with self.assertRaises(Exception) as context:
             preprocess(input_file, output_file, substitutions_file, "my_product_name")
