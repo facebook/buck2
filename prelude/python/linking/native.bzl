@@ -46,6 +46,7 @@ load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
 )
+load("@prelude//linking:generated_build_info.bzl", "GENERATED_BUILD_INFO_OUTPUT_DIR")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
@@ -330,6 +331,14 @@ def _compute_cxx_executable_info(
         rpath_ldflag_prefix = rpath_ldflag + "{}#link-tree".format(link_tree_name)
         extra_binary_link_flags.append(rpath_ldflag_prefix + "/runtime/lib")
         extra_binary_link_flags.append(rpath_ldflag_prefix)
+        if use_anon_target:
+            # Under the anon target the ELF is materialized at a content-addressed
+            # path, so the link-tree RPATH entries above cannot resolve the bundled
+            # runtime/lib (notably libgenerated_build_info.so) when the binary is
+            # re-exec'd via its real path. The DSO is also materialized next to the
+            # ELF under __generated_build_info__/, so fall back to it. Harmless when
+            # the DSO is not linked: the loader ignores nonexistent RPATH dirs.
+            extra_binary_link_flags.append(rpath_ldflag + GENERATED_BUILD_INFO_OUTPUT_DIR)
 
     impl_params = CxxRuleConstructorParams(
         rule_type = "python_binary",

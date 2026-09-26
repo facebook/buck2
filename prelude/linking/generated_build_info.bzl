@@ -45,6 +45,10 @@ GeneratedBuildInfoCompileOutput = record(
     objects = list[Artifact],
 )
 
+# Action-output-relative dir for generated build-info artifacts. Consumers use
+# it to locate the linked DSO next to the binaries that link it.
+GENERATED_BUILD_INFO_OUTPUT_DIR = "__generated_build_info__"
+
 _REQUIRED_GENERATED_BUILD_INFO_FIELDS = [
     "allow_cache_upload",
     "base_linker_flags",
@@ -134,7 +138,7 @@ def _generate_build_info_data(
     generator_args: list[typing.Any] = [],
     invalidation_inputs: list[typing.Any] = [],
 ) -> GeneratedBuildInfoData:
-    output_dir = "__generated_build_info__"
+    output_dir = GENERATED_BUILD_INFO_OUTPUT_DIR
     json = getattr(ctx.attrs, "_generated_build_info_data", None)
     if json != None and spec.get("emit_manifest_entries", False):
         fail("supplied generated build-info data does not provide manifest entries")
@@ -204,7 +208,7 @@ def generate_build_info(
     spec, tool = config
     data = _generate_build_info_data(ctx, spec, tool, generator_args, invalidation_inputs)
 
-    output_dir = "__generated_build_info__"
+    output_dir = GENERATED_BUILD_INFO_OUTPUT_DIR
     source = ctx.actions.declare_output(output_dir, "__buck2_generated_build_info.c")
 
     ctx.actions.run(
@@ -288,7 +292,7 @@ def generate_build_info_shared_library(
     ]
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = "__generated_build_info__/{}".format(soname),
+        output = "{}/{}".format(GENERATED_BUILD_INFO_OUTPUT_DIR, soname),
         name = soname,
         opts = link_options(
             links = links,
