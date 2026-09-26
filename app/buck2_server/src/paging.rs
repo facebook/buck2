@@ -350,10 +350,11 @@ impl PageOutGuard {
     /// expected, not an error: a cancelled page-out keeps running until it observes
     /// the flag, so a new one must not start and race it on the same graph.
     fn acquire() -> Option<Self> {
+        // Dropping a guard releases PAGE_OUT, so only construct one on success.
         PAGE_OUT
             .compare_exchange(IDLE, RUNNING, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
-            .then_some(PageOutGuard)
+            .then(|| PageOutGuard)
     }
 }
 
@@ -584,11 +585,38 @@ fn page_out_memory_snapshot(dice: &Arc<Dice>) -> (Option<u64>, Option<u64>, Opti
 mod tests {
     use buck2_hash::IntentionallyStdHashMap;
 
+    use super::PageOutGuard;
     use super::PageOutThresholds;
+    use super::cancel_active_page_out;
     use super::compute_page_in_delta;
+    use super::page_out_cancelled;
+    use super::page_out_in_progress;
     use super::should_page_out_decision;
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn failed_page_out_acquire_preserves_active_guard() {
+        let guard = PageOutGuard::acquire().expect("initial page-out should acquire the guard");
+        for cancelled in [false, true] {
+            if cancelled {
+                cancel_active_page_out();
+            }
+            for _ in 0..2 {
+                assert!(PageOutGuard::acquire().is_none());
+                assert!(page_out_in_progress());
+                assert_eq!(page_out_cancelled(), cancelled);
+            }
+        }
+
+        drop(guard);
+        assert!(!page_out_in_progress());
+
+        let next = PageOutGuard::acquire().expect("guard should be released after page-out");
+        assert!(!page_out_cancelled());
+        drop(next);
+        assert!(!page_out_in_progress());
+    }
 
     #[test]
     fn delta_subtracts_baseline_and_drops_unchanged() {
