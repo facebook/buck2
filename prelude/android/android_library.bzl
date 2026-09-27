@@ -58,7 +58,8 @@ def _android_target_stats(ctx: AnalysisContext) -> (list[Provider], dict[str, li
         ctx,
         tools = tools,
         srcs = {src.short_path: src for src in ctx.attrs.srcs},
-        deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps,
+        # Target stats cover the compile graph, including non-packaged provided deps.
+        deps = (ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps + ctx.attrs.provided_deps + ctx.attrs.exported_provided_deps),
         cycle_mode = CycleMode("package"),
         module_name = ctx.label.name,
     )
