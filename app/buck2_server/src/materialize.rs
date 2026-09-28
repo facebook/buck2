@@ -47,7 +47,7 @@ async fn materialize(
         project_paths.push(ProjectRelativePath::new(&path)?.to_owned())
     }
     server_ctx
-        .repo
+        .repo()
         .materializer
         .ensure_materialized(project_paths, MaterializationPurpose::IntermediateOnly)
         .await

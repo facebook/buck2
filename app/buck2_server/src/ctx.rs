@@ -147,6 +147,7 @@ use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::state::DaemonStateData;
 use crate::daemon::state::RepoState;
+use crate::daemon::state::TenantState;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::dice_tracker::CoreStateQueueSample;
 use crate::heartbeat_guard::HeartbeatGuard;
@@ -185,13 +186,19 @@ pub struct BaseServerCommandContext {
     pub _fb: fbinit::FacebookInit,
     /// The event dispatcher for this command context.
     pub events: EventDispatcher,
-    /// State for the repo this command is operating on, resolved once when the context is built.
+    /// State for the tenant this command is operating on, resolved once when the context is built.
     /// Command-scoped code should read this rather than reaching through `daemon`.
-    pub(crate) repo: Arc<RepoState>,
-    /// Underlying data that isn't command-level. Read `repo` instead for anything repo-scoped.
+    pub(crate) tenant: Arc<TenantState>,
+    /// Underlying data that isn't command-level. Read `tenant` instead for tenant or repo state.
     pub(crate) daemon: Arc<DaemonStateData>,
     /// Removes this command from the set of active commands when dropped.
     pub _drop_guard: ActiveCommandDropGuard,
+}
+
+impl BaseServerCommandContext {
+    pub(crate) fn repo(&self) -> &RepoState {
+        &self.tenant.repo
+    }
 }
 
 /// ServerCommandContext provides access to the global daemon state and information about the calling client for
@@ -289,7 +296,7 @@ impl<'a> ServerCommandContext<'a> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
         let working_dir_project_relative = working_dir
-            .strip_prefix(base_context.repo.paths.project_root().root())
+            .strip_prefix(base_context.repo().paths.project_root().root())
             .map_err(|_| {
                 Into::<buck2_error::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
                     client_context.working_dir.clone(),
@@ -324,14 +331,14 @@ impl<'a> ServerCommandContext<'a> {
             }
         }
 
-        let mut re_connection_handle = base_context.repo.re_client_manager.get_re_connection();
+        let mut re_connection_handle = base_context.repo().re_client_manager.get_re_connection();
 
         re_connection_handle.set_observer(Arc::new(Observer {
             events: base_context.events.dupe(),
         }));
 
         // Add argfiles read by client into IO tracing state.
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.repo.io) {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*base_context.repo().io) {
             for p in client_context
                 .argfiles
                 .iter()
@@ -359,8 +366,8 @@ impl<'a> ServerCommandContext<'a> {
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
         let paging_manager = PagingManager::new(
-            base_context.repo.dupe(),
-            base_context.repo.page_out_on_idle,
+            base_context.tenant.dupe(),
+            base_context.repo().page_out_on_idle,
             base_context.daemon.allow_multiple_idle_page_outs,
             total_disk_space_bytes,
         );
@@ -368,8 +375,8 @@ impl<'a> ServerCommandContext<'a> {
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
         // Read before `base_context` moves into the struct literal below.
-        let buck_out_dir = base_context.repo.paths.buck_out_dir();
-        let isolation_prefix = base_context.repo.paths.isolation().to_owned();
+        let buck_out_dir = base_context.repo().paths.buck_out_dir();
+        let isolation_prefix = base_context.repo().paths.isolation().to_owned();
 
         Ok(ServerCommandContext {
             base_context,
@@ -437,7 +444,10 @@ impl<'a> ServerCommandContext<'a> {
         };
 
         let run_action_knobs = RunActionKnobs {
-            use_network_action_output_cache: self.base_context.repo.use_network_action_output_cache,
+            use_network_action_output_cache: self
+                .base_context
+                .repo()
+                .use_network_action_output_cache,
             eager_dep_files,
             default_allow_cache_upload: false,
             action_paths_interner: None,
@@ -499,7 +509,10 @@ impl<'a> ServerCommandContext<'a> {
     }
 
     pub fn get_re_connection(&self) -> ReConnectionHandle {
-        self.base_context.repo.re_client_manager.get_re_connection()
+        self.base_context
+            .repo()
+            .re_client_manager
+            .get_re_connection()
     }
 
     // Called at the end of the command to perform any necessary final actions or cleanup.
@@ -513,7 +526,7 @@ impl<'a> ServerCommandContext<'a> {
         // blocking pool because `flush` blocks until the writer thread drains.
         if let Some(store) = self
             .base_context
-            .repo
+            .repo()
             .persisted_dep_file_cache
             .as_ref()
             .map(|cache| &cache.store)
@@ -568,8 +581,8 @@ impl<'a> ServerCommandContext<'a> {
         // already mid-build, so the sweep only starts when no command is active.
         // Reuses the page-out trigger classification: the same command kinds that
         // may have populated DICE are the ones that may have created scratch.
-        if triggers_idle_page_out && self.base_context.repo.clean_scratch_on_idle {
-            let materializer = self.base_context.repo.materializer.dupe();
+        if triggers_idle_page_out && self.base_context.repo().clean_scratch_on_idle {
+            let materializer = self.base_context.repo().materializer.dupe();
             let dispatcher = self.base_context.events.dupe();
             tokio::spawn(async move {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -593,7 +606,7 @@ impl ServerCommandContext<'_> {
         dice_ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<BuckConfigBasedCells> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
-            self.base_context.repo.paths.project_root(),
+            self.base_context.repo().paths.project_root(),
             &self.config_overrides,
         )
         .await?;
@@ -646,7 +659,7 @@ impl ServerCommandContext<'_> {
         &self,
         paths: &BuckMutSet<ConfigPath>,
     ) -> buck2_error::Result<()> {
-        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.repo.io) {
+        if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.repo().io) {
             for config_path in paths {
                 match config_path {
                     ConfigPath::Global(p) => {
@@ -718,7 +731,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         check_agent_host_guard(
             &cells_and_configs.root_config,
             &self.cmd_ctx.base_context.daemon,
-            self.cmd_ctx.base_context.repo.paths.project_root(),
+            self.cmd_ctx.base_context.repo().paths.project_root(),
             self.cmd_ctx.isolation_prefix.as_str(),
         )?;
 
@@ -779,7 +792,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         let (ctx, mergebase) = self
             .cmd_ctx
             .base_context
-            .repo
+            .repo()
             .file_watcher
             .sync(ctx)
             .await?;
@@ -965,7 +978,7 @@ impl DiceCommandUpdater<'_, '_> {
         let dice = self
             .cmd_ctx
             .base_context
-            .repo
+            .tenant
             .dice_manager
             .unsafe_dice()
             .dupe();
@@ -1003,7 +1016,7 @@ impl DiceCommandUpdater<'_, '_> {
             cas_configured: self
                 .cmd_ctx
                 .base_context
-                .repo
+                .repo()
                 .re_client_manager
                 .cas_configured(),
         };
@@ -1020,34 +1033,34 @@ impl DiceCommandUpdater<'_, '_> {
             self.re_connection.dupe(),
             host_sharing_broker,
             low_pass_filter,
-            self.cmd_ctx.base_context.repo.materializer.dupe(),
-            self.cmd_ctx.base_context.repo.blocking_executor.dupe(),
+            self.cmd_ctx.base_context.repo().materializer.dupe(),
+            self.cmd_ctx.base_context.repo().blocking_executor.dupe(),
             self.execution_strategy,
             executor_global_knobs,
             self.upload_all_actions,
             self.cmd_ctx.base_context.daemon.forkserver.dupe(),
             self.skip_cache_read,
             self.skip_cache_write,
-            self.cmd_ctx.base_context.repo.io.project_root().dupe(),
+            self.cmd_ctx.base_context.repo().io.project_root().dupe(),
             worker_pool,
-            self.cmd_ctx.base_context.repo.paranoid.dupe(),
+            self.cmd_ctx.base_context.repo().paranoid.dupe(),
             self.materialize_failed_inputs,
             self.materialize_failed_outputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
-            self.cmd_ctx.base_context.repo.incremental_db_state.dupe(),
+            self.cmd_ctx.base_context.repo().incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
             output_trees_download_config.dupe(),
             self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));
-        data.set_blocking_executor(self.cmd_ctx.base_context.repo.blocking_executor.dupe());
+        data.set_blocking_executor(self.cmd_ctx.base_context.repo().blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
-        data.set_materializer(self.cmd_ctx.base_context.repo.materializer.dupe());
-        data.set_dep_file_cache(self.cmd_ctx.base_context.repo.dep_file_cache.dupe());
+        data.set_materializer(self.cmd_ctx.base_context.repo().materializer.dupe());
+        data.set_dep_file_cache(self.cmd_ctx.base_context.repo().dep_file_cache.dupe());
         data.set_dep_file_store(
             self.cmd_ctx
                 .base_context
-                .repo
+                .repo()
                 .persisted_dep_file_cache
                 .as_ref()
                 .map(|cache| cache.store.dupe()),
@@ -1059,7 +1072,7 @@ impl DiceCommandUpdater<'_, '_> {
         data.set_create_unhashed_symlink_lock(
             self.cmd_ctx
                 .base_context
-                .repo
+                .repo()
                 .create_unhashed_outputs_lock
                 .dupe(),
         );
@@ -1084,7 +1097,7 @@ impl DiceCommandUpdater<'_, '_> {
             "peak-load-metrics:v2".to_owned(),
             format!(
                 "page-out-on-idle:{}",
-                self.cmd_ctx.base_context.repo.page_out_on_idle.is_some()
+                self.cmd_ctx.base_context.repo().page_out_on_idle.is_some()
             ),
         ];
         tags.extend(CleanStaleConfig::adaptive_telemetry_tags(Some(
@@ -1249,11 +1262,11 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     fn project_root(&self) -> &ProjectRoot {
-        self.base_context.repo.paths.project_root()
+        self.base_context.repo().paths.project_root()
     }
 
     fn materializer(&self) -> Arc<dyn Materializer> {
-        self.base_context.repo.materializer.dupe()
+        self.base_context.repo().materializer.dupe()
     }
 
     /// Provides a DiceTransaction, initialized on first use and shared after initialization.
@@ -1270,7 +1283,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         };
 
         Ok(DiceAccessor {
-            dice_handler: self.base_context.repo.dice_manager.dupe(),
+            dice_handler: self.base_context.tenant.dice_manager.dupe(),
             setup: Box::new(self.dice_updater(build_signals_installer).await?),
             is_nested_invocation,
             sanitized_argv: self.sanitized_argv.clone(),
@@ -1285,7 +1298,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     fn previous_command_data(&self) -> Arc<LockedPreviousCommandData> {
-        self.base_context.repo.previous_command_data.clone()
+        self.base_context.repo().previous_command_data.clone()
     }
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>> {
@@ -1308,7 +1321,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             metadata: self.request_metadata().await?,
             data: Some(data),
             cli_args: self.sanitized_argv.clone(),
-            tags: self.base_context.repo.tags.clone(),
+            tags: self.base_context.repo().tags.clone(),
         })
     }
 
@@ -1324,12 +1337,12 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         #[cfg(not(fbcode_build))]
         let mut metadata = metadata::collect_with_extras(
             &self.base_context.daemon.daemon_id,
-            &self.base_context.repo.buckconfig_metadata,
+            &self.base_context.repo().buckconfig_metadata,
         );
 
         metadata.insert(
             "io_provider".to_owned(),
-            self.base_context.repo.io.name().to_owned(),
+            self.base_context.repo().io.name().to_owned(),
         );
 
         metadata.insert("materializer".to_owned(), "deferred".to_owned());

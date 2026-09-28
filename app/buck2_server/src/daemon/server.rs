@@ -243,7 +243,7 @@ pub struct BuckdServerInitPreferences {
 }
 
 #[derive(Allocative)]
-pub(crate) struct RepoStateInitPreferences {
+pub(crate) struct TenantStateInitPreferences {
     pub(crate) detect_cycles: Option<DetectCycles>,
     pub(crate) enable_trace_io: bool,
     pub(crate) reject_materializer_state: Option<SqliteIdentity>,
@@ -251,7 +251,7 @@ pub(crate) struct RepoStateInitPreferences {
 }
 
 impl BuckdServerInitPreferences {
-    pub(crate) fn split(self) -> (RepoStateInitPreferences, Option<String>) {
+    pub(crate) fn split(self) -> (TenantStateInitPreferences, Option<String>) {
         let Self {
             detect_cycles,
             enable_trace_io,
@@ -261,7 +261,7 @@ impl BuckdServerInitPreferences {
             ..
         } = self;
         (
-            RepoStateInitPreferences {
+            TenantStateInitPreferences {
                 detect_cycles,
                 enable_trace_io,
                 reject_materializer_state,
@@ -272,7 +272,7 @@ impl BuckdServerInitPreferences {
     }
 }
 
-impl RepoStateInitPreferences {
+impl TenantStateInitPreferences {
     pub async fn construct_dice(
         &self,
         io: Arc<dyn IoProvider>,
@@ -425,7 +425,7 @@ impl BuckdServer {
         );
         let dice = daemon_state
             .data()
-            .initial_repo()
+            .initial_tenant()
             .dice_manager
             .unsafe_dice()
             .dupe();
@@ -601,7 +601,8 @@ impl BuckdServer {
         }
 
         let data = daemon_state.data();
-        let repo = data.repo_for_client_context(client_ctx).await?;
+        let tenant = data.tenant_for_client_context(client_ctx).await?;
+        let repo = tenant.repo.dupe();
 
         // The total disk space on `buck-out`, effectively fixed for the daemon's life.
         // Captured here alongside `SystemInfo` and handed to this command's
@@ -676,7 +677,7 @@ impl BuckdServer {
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
         // as a baseline.
         let snapshot_collector =
-            SnapshotCollector::new(data.dupe(), repo.dupe(), self.0.rt.clone());
+            SnapshotCollector::new(data.dupe(), tenant.dupe(), self.0.rt.clone());
         dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
         let cert_state = self.0.cert_state.dupe();
 
@@ -706,14 +707,14 @@ impl BuckdServer {
                     };
                     let result: buck2_error::Result<Res> = try {
                         let base_context = daemon_state
-                            .prepare_command(repo, dispatch.dupe(), guard)
+                            .prepare_command(tenant, dispatch.dupe(), guard)
                             .await?;
 
                         let client_ctx = req.client_context()?;
 
                         let instrumentation = opts.starlark_profiler_instrumentation_override(
                             &req,
-                            base_context.repo.paths.project_root(),
+                            base_context.repo().paths.project_root(),
                         )?;
                         let profiling_manager = StarlarkProfilingManager::new(
                             client_ctx.profile_pattern_opts.as_ref(),
@@ -1136,10 +1137,11 @@ impl DaemonApi for BuckdServer {
         let rt = self.0.rt.clone();
 
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
-            let repo = daemon_state.data().initial_repo();
+            let tenant = daemon_state.data().initial_tenant();
+            let repo = tenant.repo.dupe();
             let snapshot = if req.snapshot {
                 Some(
-                    snapshot::SnapshotCollector::new(daemon_state.data(), repo.dupe(), rt.clone())
+                    snapshot::SnapshotCollector::new(daemon_state.data(), tenant, rt.clone())
                         .create_snapshot()
                         .await,
                 )
@@ -1223,9 +1225,10 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<CommandResult>, Status> {
         let data = self.0.daemon_state.data();
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
-            let repo = data
-                .repo_for_optional_client_context(req.context.as_ref())
+            let tenant = data
+                .tenant_for_optional_client_context(req.context.as_ref())
                 .await?;
+            let repo = tenant.repo.dupe();
             let FlushDepFilesRequest {
                 retain_locally_produced_dep_files,
                 context: _,
@@ -1585,11 +1588,11 @@ impl DaemonApi for BuckdServer {
 
         let inner = req.into_inner();
         let res: buck2_error::Result<_> = try {
-            let repo = self
+            let tenant = self
                 .0
                 .daemon_state
                 .data()
-                .repo_for_optional_client_context(inner.context.as_ref())
+                .tenant_for_optional_client_context(inner.context.as_ref())
                 .await?;
             let path = inner.destination_path;
             let path = Path::new(&path);
@@ -1597,7 +1600,8 @@ impl DaemonApi for BuckdServer {
                 buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::try_from(inner.format)
                     .buck_error_context("Invalid DICE dump format")?;
 
-            repo.spawn_dice_dump(path, format_proto)
+            tenant
+                .spawn_dice_dump(path, format_proto)
                 .await
                 .with_buck_error_context(|| {
                     format!("Failed to perform dice dump to {}", path.display())
@@ -1631,16 +1635,16 @@ impl DaemonApi for BuckdServer {
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
             let dispatcher = dispatcher.with_soft_error_context(soft_error_context);
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
-            let repo = self
+            let tenant = self
                 .0
                 .daemon_state
                 .data()
-                .repo_for_client_context(client_ctx)
+                .tenant_for_client_context(client_ctx)
                 .await?;
-            (event_source, dispatcher, active_command, repo)
+            (event_source, dispatcher, active_command, tenant)
         };
 
-        let (event_source, dispatcher, active_command, repo) = match res {
+        let (event_source, dispatcher, active_command, tenant) = match res {
             Ok(v) => v,
             Err(e) => return Ok(error_to_response_stream(e)),
         };
@@ -1663,7 +1667,7 @@ impl DaemonApi for BuckdServer {
                     let result = try {
                         spawn_allocative(
                             this,
-                            repo,
+                            tenant.repo.dupe(),
                             AbsPathBuf::try_from(req.output_path)?,
                             dispatcher.dupe(),
                         )

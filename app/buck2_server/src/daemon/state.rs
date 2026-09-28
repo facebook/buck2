@@ -113,7 +113,7 @@ use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
-use crate::daemon::server::RepoStateInitPreferences;
+use crate::daemon::server::TenantStateInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
 use crate::paging::PageOutThresholds;
 use crate::snapshot::DepFileDbSizeSampler;
@@ -140,20 +140,27 @@ pub(crate) struct PersistedDepFileCache {
     pub(crate) db_size: Arc<DepFileDbSizeSampler>,
 }
 
-/// State scoped to one tenant.
+/// State scoped to one logical tenant.
 ///
-/// A tenant is the state that historically belonged to one `(project root, isolation)` daemon.
-/// A shared daemon can hold multiple tenants, including multiple isolations for one project root.
+/// A tenant owns the DICE command state for one `(project root, isolation)` pair and refers to the
+/// repository services used by that state. Keeping the two levels explicit allows repository state
+/// to be shared independently of tenant-specific DICE state.
+#[derive(Allocative)]
+pub struct TenantState {
+    pub repo: Arc<RepoState>,
+
+    /// The DICE graph and the command concurrency state for this tenant.
+    pub(crate) dice_manager: Arc<ConcurrencyHandler>,
+}
+
+/// Services and caches associated with a repository-backed tenant.
+///
+/// These are nested under [`TenantState`] even while each tenant constructs a distinct instance.
+/// That ownership boundary leaves room for selected repository services to be shared later.
 #[derive(Allocative)]
 pub struct RepoState {
     /// Stable paths used by tenant services. Invocation cwd is not stored here.
     pub paths: TenantPaths,
-
-    /// The Dice computation graph. Generally, we shouldn't add things to the DaemonStateData
-    /// (or DaemonState) itself and instead they should be represented on the computation graph.
-    ///
-    /// The DICE graph is held by the concurrency handler to manage locking for concurrent commands
-    pub(crate) dice_manager: Arc<ConcurrencyHandler>,
 
     /// Synced every time we run a command.
     pub(crate) file_watcher: Arc<dyn FileWatcher>,
@@ -242,10 +249,10 @@ pub struct RepoState {
     pub(crate) page_out_on_idle: Option<PageOutThresholds>,
 }
 
-struct RepoStateInit<'a> {
+struct TenantStateInit<'a> {
     fb: FacebookInit,
     paths: TenantPaths,
-    init_ctx: &'a RepoStateInitPreferences,
+    init_ctx: &'a TenantStateInitPreferences,
     legacy_cells: &'a BuckConfigBasedCells,
     root_config: &'a LegacyBuckConfig,
     final_artifact_materialization: FinalArtifactMaterialization,
@@ -262,22 +269,22 @@ struct DaemonSharedServices<'a> {
 }
 
 #[derive(Allocative)]
-struct RepoStateFactory {
+struct TenantStateFactory {
     #[allocative(skip)]
     fb: FacebookInit,
-    init_ctx: RepoStateInitPreferences,
+    init_ctx: TenantStateInitPreferences,
     #[allocative(skip)]
     final_artifact_materialization: FinalArtifactMaterialization,
     #[allocative(skip)]
     runtime: Handle,
 }
 
-impl RepoStateFactory {
+impl TenantStateFactory {
     async fn create(
         &self,
         paths: TenantPaths,
         shared: DaemonSharedServices<'_>,
-    ) -> buck2_error::Result<Arc<RepoState>> {
+    ) -> buck2_error::Result<Arc<TenantState>> {
         let buck_out_path = paths.buck_out_path();
         tokio::fs::create_dir_all(&buck_out_path)
             .await
@@ -301,8 +308,8 @@ impl RepoStateFactory {
         legacy_cells: &BuckConfigBasedCells,
         root_config: &LegacyBuckConfig,
         shared: DaemonSharedServices<'_>,
-    ) -> buck2_error::Result<Arc<RepoState>> {
-        RepoState::create(RepoStateInit {
+    ) -> buck2_error::Result<Arc<TenantState>> {
+        TenantState::create(TenantStateInit {
             fb: self.fb,
             paths,
             init_ctx: &self.init_ctx,
@@ -316,9 +323,9 @@ impl RepoStateFactory {
     }
 }
 
-impl RepoState {
-    async fn create(init: RepoStateInit<'_>) -> buck2_error::Result<Arc<Self>> {
-        let RepoStateInit {
+impl TenantState {
+    async fn create(init: TenantStateInit<'_>) -> buck2_error::Result<Arc<Self>> {
+        let TenantStateInit {
             fb,
             paths,
             init_ctx,
@@ -561,7 +568,7 @@ impl RepoState {
         } else {
             EventDispatcher::null()
         };
-        let materializer = Self::create_materializer(
+        let materializer = RepoState::create_materializer(
             io.project_root().dupe(),
             digest_config,
             paths.buck_out_dir(),
@@ -674,9 +681,9 @@ impl RepoState {
             format!("has-cgroup:{}", shared.memory_tracker.is_some()),
         ];
 
-        let repo = Arc::new(Self {
+        let dice_manager = ConcurrencyHandler::new(dice);
+        let repo = Arc::new(RepoState {
             paths,
-            dice_manager: ConcurrencyHandler::new(dice),
             file_watcher,
             io,
             materializer,
@@ -727,7 +734,7 @@ impl RepoState {
             }
         }
 
-        Ok(repo)
+        Ok(Arc::new(Self { repo, dice_manager }))
     }
 
     pub async fn spawn_dice_dump(
@@ -738,7 +745,9 @@ impl RepoState {
         crate::daemon::dice_dump::dice_dump_spawn(self.dice_manager.unsafe_dice(), path, format)
             .await
     }
+}
 
+impl RepoState {
     fn create_materializer(
         fs: ProjectRoot,
         digest_config: DigestConfig,
@@ -776,16 +785,16 @@ struct TenantStateRegistry {
     /// Stable handle for legacy single-repo callers. Registry entries are never replaced after
     /// insertion, and the same allocation is accounted for through `tenants`.
     #[allocative(skip)]
-    initial_state: Arc<RepoState>,
-    tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateEntry<RepoState>>>>,
+    initial_state: Arc<TenantState>,
+    tenants: StdMutex<StdBuckHashMap<TenantKey, Arc<TenantStateSlot<TenantState>>>>,
 }
 
-struct TenantStateEntry<T: Allocative> {
+struct TenantStateSlot<T: Allocative> {
     spec: TenantSpec,
     state: OnceCell<Arc<T>>,
 }
 
-impl<T: Allocative> Allocative for TenantStateEntry<T> {
+impl<T: Allocative> Allocative for TenantStateSlot<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         visitor.visit_field(allocative::Key::new("spec"), &self.spec);
@@ -796,7 +805,7 @@ impl<T: Allocative> Allocative for TenantStateEntry<T> {
     }
 }
 
-impl<T: Allocative> TenantStateEntry<T> {
+impl<T: Allocative> TenantStateSlot<T> {
     fn new(spec: TenantSpec) -> Self {
         Self {
             spec,
@@ -818,8 +827,8 @@ impl<T: Allocative> TenantStateEntry<T> {
 }
 
 impl TenantStateRegistry {
-    async fn new(initial_tenant: Arc<RepoState>) -> buck2_error::Result<Self> {
-        let spec = TenantSpec::from_tenant_paths(&initial_tenant.paths);
+    async fn new(initial_tenant: Arc<TenantState>) -> buck2_error::Result<Self> {
+        let spec = TenantSpec::from_tenant_paths(&initial_tenant.repo.paths);
         let initial_key = spec.key().clone();
         let registry = Self {
             initial_tenant: initial_key,
@@ -836,10 +845,10 @@ impl TenantStateRegistry {
         &self,
         spec: TenantSpec,
         create: F,
-    ) -> buck2_error::Result<Arc<RepoState>>
+    ) -> buck2_error::Result<Arc<TenantState>>
     where
         F: FnOnce() -> Fut,
-        Fut: Future<Output = buck2_error::Result<Arc<RepoState>>>,
+        Fut: Future<Output = buck2_error::Result<Arc<TenantState>>>,
     {
         let key = spec.key().clone();
         let requested_spec = spec.clone();
@@ -850,7 +859,7 @@ impl TenantStateRegistry {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             tenants
                 .entry(key.clone())
-                .or_insert_with(|| Arc::new(TenantStateEntry::new(spec)))
+                .or_insert_with(|| Arc::new(TenantStateSlot::new(spec)))
                 .clone()
         };
         if entry.spec != requested_spec {
@@ -864,7 +873,7 @@ impl TenantStateRegistry {
         entry
             .get_or_try_init(|| async {
                 let state = create().await?;
-                let actual_key = TenantKey::from_tenant_paths(&state.paths);
+                let actual_key = TenantKey::from_tenant_paths(&state.repo.paths);
                 if actual_key != key {
                     return Err(buck2_error!(
                         buck2_error::ErrorTag::Input,
@@ -878,11 +887,11 @@ impl TenantStateRegistry {
             .await
     }
 
-    fn initial_repo(&self) -> Arc<RepoState> {
+    fn initial_tenant(&self) -> Arc<TenantState> {
         self.initial_state.dupe()
     }
 
-    fn legacy_repo(&self) -> Option<Arc<RepoState>> {
+    fn legacy_tenant(&self) -> Option<Arc<TenantState>> {
         let tenants = self
             .tenants
             .lock()
@@ -922,7 +931,7 @@ fn tenant_paths_from_client_context(
 #[derive(Allocative)]
 pub struct DaemonStateData {
     tenants: TenantStateRegistry,
-    repo_state_factory: RepoStateFactory,
+    tenant_state_factory: TenantStateFactory,
 
     /// Daemon-wide scheduling resources for repo-scoped blocking executors.
     pub blocking_executor_factory: Arc<BlockingExecutorFactory>,
@@ -970,37 +979,37 @@ impl DaemonStateData {
         }
     }
 
-    /// Select or initialize the repository addressed by a client command.
-    pub async fn repo_for_client_context(
+    /// Select or initialize the tenant addressed by a client command.
+    pub async fn tenant_for_client_context(
         &self,
         client_context: &ClientContext,
-    ) -> buck2_error::Result<Arc<RepoState>> {
+    ) -> buck2_error::Result<Arc<TenantState>> {
         let Some(paths) = tenant_paths_from_client_context(client_context)? else {
-            return self.repo_for_legacy_client();
+            return self.tenant_for_legacy_client();
         };
         let spec = TenantSpec::from_tenant_paths(&paths);
 
         self.tenants
             .get_or_create(spec, || {
-                self.repo_state_factory
+                self.tenant_state_factory
                     .create(paths, self.repo_shared_services())
             })
             .await
     }
 
-    /// Select a repository for an RPC added before requests carried a client context.
-    pub async fn repo_for_optional_client_context(
+    /// Select a tenant for an RPC added before requests carried a client context.
+    pub async fn tenant_for_optional_client_context(
         &self,
         client_context: Option<&ClientContext>,
-    ) -> buck2_error::Result<Arc<RepoState>> {
+    ) -> buck2_error::Result<Arc<TenantState>> {
         match client_context {
-            Some(client_context) => self.repo_for_client_context(client_context).await,
-            None => self.repo_for_legacy_client(),
+            Some(client_context) => self.tenant_for_client_context(client_context).await,
+            None => self.tenant_for_legacy_client(),
         }
     }
 
-    fn repo_for_legacy_client(&self) -> buck2_error::Result<Arc<RepoState>> {
-        self.tenants.legacy_repo().ok_or_else(|| {
+    fn tenant_for_legacy_client(&self) -> buck2_error::Result<Arc<TenantState>> {
+        self.tenants.legacy_tenant().ok_or_else(|| {
             buck2_error!(
                 ErrorTag::Input,
                 "Client did not provide a tenant identity after the daemon began serving multiple tenants"
@@ -1008,14 +1017,14 @@ impl DaemonStateData {
         })
     }
 
-    /// The initial repo for daemon-scoped operations whose protocol has no tenant identity.
-    pub fn initial_repo(&self) -> Arc<RepoState> {
-        self.tenants.initial_repo()
+    /// The initial tenant for daemon-scoped operations whose protocol has no tenant identity.
+    pub fn initial_tenant(&self) -> Arc<TenantState> {
+        self.tenants.initial_tenant()
     }
 
     pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump(
-            self.initial_repo().dice_manager.unsafe_dice(),
+            self.initial_tenant().dice_manager.unsafe_dice(),
             path,
             format,
         )
@@ -1090,8 +1099,8 @@ impl DaemonState {
         }
 
         let daemon_state_data_rt = rt.clone();
-        // Owned, because repo construction happens in the spawned initialization future.
-        let repo_state_rt = rt.clone();
+        // Owned, because tenant construction happens in the spawned initialization future.
+        let tenant_state_rt = rt.clone();
         let init_fut = async move {
             let invocation_paths = paths;
             let paths = invocation_paths.tenant_paths();
@@ -1172,13 +1181,13 @@ impl DaemonState {
             .await?;
 
             let (init_ctx, daemon_originating_cgroup) = init_ctx.split();
-            let repo_state_factory = RepoStateFactory {
+            let tenant_state_factory = TenantStateFactory {
                 fb,
                 init_ctx,
                 final_artifact_materialization,
-                runtime: repo_state_rt,
+                runtime: tenant_state_rt,
             };
-            let repo = repo_state_factory
+            let tenant = tenant_state_factory
                 .create_with_loaded_config(
                     paths,
                     &legacy_cells,
@@ -1193,16 +1202,16 @@ impl DaemonState {
                 )
                 .await?;
 
-            let allow_multiple_idle_page_outs = repo_state_factory
+            let allow_multiple_idle_page_outs = tenant_state_factory
                 .init_ctx
                 .daemon_startup_config
                 .hydration
                 .as_ref()
                 .is_some_and(|h| h.allow_multiple_idle_page_outs);
-            let tenants = TenantStateRegistry::new(repo).await?;
+            let tenants = TenantStateRegistry::new(tenant).await?;
             Ok(Arc::new(DaemonStateData {
                 tenants,
-                repo_state_factory,
+                tenant_state_factory,
                 blocking_executor_factory,
                 forkserver,
                 scribe_sink,
@@ -1256,11 +1265,12 @@ impl DaemonState {
     /// This initializes (if necessary) the shared daemon state and syncs the watchman query (to flush any recent filesystem events).
     pub async fn prepare_command(
         &self,
-        repo: Arc<RepoState>,
+        tenant: Arc<TenantState>,
         dispatcher: EventDispatcher,
         drop_guard: ActiveCommandDropGuard,
     ) -> buck2_error::Result<BaseServerCommandContext> {
         let data = self.data();
+        let repo = &tenant.repo;
 
         dispatcher.instant_event(buck2_data::RestartConfiguration {
             enable_restarter: repo.restart_daemon_on_error,
@@ -1307,7 +1317,7 @@ impl DaemonState {
         Ok(BaseServerCommandContext {
             _fb: self.fb,
             events: dispatcher,
-            repo,
+            tenant,
             daemon: data.dupe(),
             _drop_guard: drop_guard,
         })
@@ -1506,7 +1516,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_initializes_once() -> buck2_error::Result<()> {
-        let entry = TenantStateEntry::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec());
         let init_count = AtomicUsize::new(0);
         let first = entry.get_or_try_init(|| async {
             init_count.fetch_add(1, Ordering::Relaxed);
@@ -1528,7 +1538,7 @@ mod tests {
 
     #[tokio::test]
     async fn tenant_entry_retries_failed_initialization() -> buck2_error::Result<()> {
-        let entry = TenantStateEntry::<usize>::new(tenant_spec());
+        let entry = TenantStateSlot::<usize>::new(tenant_spec());
         let first = entry
             .get_or_try_init(|| async {
                 Err(buck2_error!(

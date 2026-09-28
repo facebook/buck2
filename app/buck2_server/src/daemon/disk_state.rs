@@ -38,7 +38,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_hash::IntentionallyStdHashMap;
 use jiff::Timestamp;
 
-use crate::daemon::server::RepoStateInitPreferences;
+use crate::daemon::server::TenantStateInitPreferences;
 
 #[derive(Allocative)]
 pub struct DiskStateOptions {
@@ -102,7 +102,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     root_config: &LegacyBuckConfig,
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     digest_config: DigestConfig,
-    init_ctx: &RepoStateInitPreferences,
+    init_ctx: &TenantStateInitPreferences,
     daemon_id: &DaemonId,
 ) -> buck2_error::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
