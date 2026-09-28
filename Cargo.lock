@@ -1682,6 +1682,7 @@ dependencies = [
  "serde_json",
  "siphasher",
  "starlark_map",
+ "strong_hash",
  "tokio",
  "zstd",
 ]

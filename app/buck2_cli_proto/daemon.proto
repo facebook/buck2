@@ -301,6 +301,9 @@ message ConfiguredTargetsRequest {
   OutputFormat output_format = 13;
   repeated string output_attributes = 14;
   bool keep_going = 15;
+  bool show_target_hash = 16;
+  bool target_hash_recursive = 17;
+  bool target_hash_use_strong_hash = 18;
 }
 
 message ConfiguredTargetsResponse {

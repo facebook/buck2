@@ -22,6 +22,18 @@ Options:
       --keep-going
           On errors, put buck.error in the output stream and continue
 
+      --show-target-hash
+          Print a stable configured-target hash that omits configuration information
+
+      --target-hash-recursive
+          Include all transitive dependencies in each target hash
+
+      --target-hash-function <TARGET_HASH_FUNCTION>
+          Select the target hash function
+
+          [default: fast]
+          [possible values: fast, strong]
+
   -A, --output-all-attributes
           Output all attributes, equivalent of --output-attribute ''.
 

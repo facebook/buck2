@@ -10,8 +10,27 @@
 
 import json
 
+import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+
+
+@pytest.mark.parametrize("hash_function", ["fast", "strong"])
+@pytest.mark.parametrize("recursive", ["false", "true"])
+@buck_test()
+async def test_hash_function_preserves_128_bit_length(
+    buck: Buck, hash_function: str, recursive: str
+) -> None:
+    result = await buck.targets(
+        ":foo_dep",
+        "--show-unconfigured-target-hash",
+        "--json",
+        f"--target-hash-function={hash_function}",
+        f"--target-hash-recursive={recursive}",
+    )
+    output = json.loads(result.stdout)
+    assert len(output) == 1, output
+    assert len(output[0]["buck.target_hash"]) == 32
 
 
 @buck_test()

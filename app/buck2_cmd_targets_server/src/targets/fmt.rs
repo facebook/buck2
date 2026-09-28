@@ -47,6 +47,7 @@ use buck2_util::indent::indent;
 use gazebo::prelude::SliceExt;
 use regex::RegexSet;
 
+use crate::configured_target_hash::ConfiguredTargetHash;
 use crate::json::QuotedJson;
 use crate::target_hash::BuckTargetHash;
 
@@ -98,6 +99,7 @@ pub trait ConfiguredTargetFormatter: Send + Sync {
     fn target(
         &self,
         target_node: &ConfiguredTargetNode,
+        target_hash: Option<ConfiguredTargetHash>,
         buffer: &mut String,
     ) -> buck2_error::Result<()> {
         Ok(())
@@ -372,6 +374,7 @@ impl ConfiguredTargetFormatter for JsonFormat {
     fn target(
         &self,
         target_node: &ConfiguredTargetNode,
+        target_hash: Option<ConfiguredTargetHash>,
         buffer: &mut String,
     ) -> buck2_error::Result<()> {
         self.writer.entry_start(buffer);
@@ -396,6 +399,12 @@ impl ConfiguredTargetFormatter for JsonFormat {
         self.print_attr(buffer, &mut is_first_entry, INPUTS, || {
             QuotedJson::list(target_node.inputs().map(QuotedJson::quote_display))
         });
+
+        if let Some(hash) = target_hash {
+            self.print_attr(buffer, &mut is_first_entry, TARGET_HASH, || {
+                QuotedJson::quote_display(hash)
+            });
+        }
 
         self.print_attr(buffer, &mut is_first_entry, PACKAGE, || {
             QuotedJson::quote_display(target_node.label().pkg())
@@ -548,10 +557,14 @@ impl ConfiguredTargetFormatter for TargetNameFormat {
     fn target(
         &self,
         target_node: &ConfiguredTargetNode,
+        target_hash: Option<ConfiguredTargetHash>,
         buffer: &mut String,
     ) -> buck2_error::Result<()> {
-        writeln!(buffer, "{}", target_node.label())
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        match target_hash {
+            Some(hash) => writeln!(buffer, "{} {}", target_node.label(), hash),
+            None => writeln!(buffer, "{}", target_node.label()),
+        }
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         if self.target_call_stacks {
             print_target_call_stack_after_target(buffer, target_node.call_stack().as_deref());
         };
@@ -590,6 +603,9 @@ impl JsonReportFormat {
     pub fn format_report(
         &self,
         result: &ConfiguredTargetsWithErrors,
+        target_hash_lookup: impl Fn(
+            &ConfiguredTargetNode,
+        ) -> buck2_error::Result<Option<ConfiguredTargetHash>>,
         output: &mut String,
         stderr: &mut String,
     ) -> buck2_error::Result<()> {
@@ -605,7 +621,12 @@ impl JsonReportFormat {
                     self.json_format.writer.separator(output);
                 }
                 needs_separator = true;
-                ConfiguredTargetFormatter::target(&self.json_format, node, output)?;
+                ConfiguredTargetFormatter::target(
+                    &self.json_format,
+                    node,
+                    target_hash_lookup(node)?,
+                    output,
+                )?;
             }
         }
 

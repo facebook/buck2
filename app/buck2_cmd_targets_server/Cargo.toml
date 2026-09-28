@@ -39,6 +39,7 @@ regex.workspace = true
 serde_json.workspace = true
 siphasher.workspace = true
 starlark_map.workspace = true
+strong_hash.workspace = true
 tokio.workspace = true
 zstd.workspace = true
 

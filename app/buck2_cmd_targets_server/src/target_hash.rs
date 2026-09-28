@@ -52,7 +52,11 @@ use siphasher::sip128::SipHasher24;
 #[display("{:032x}", _0)]
 pub struct BuckTargetHash(pub u128);
 
-trait BuckTargetHasher: Hasher + Send + 'static {
+pub(crate) trait BuckTargetHasher: Hasher + Send + 'static {
+    fn new() -> Self
+    where
+        Self: Sized;
+
     fn finish_u128(&mut self) -> BuckTargetHash;
 }
 
@@ -62,13 +66,23 @@ trait BuckTargetHasher: Hasher + Send + 'static {
 /// to blake3 and so there's likely little opportunity remaining for a faster hash function
 /// to capture anyway.
 impl BuckTargetHasher for siphasher::sip128::SipHasher24 {
+    fn new() -> Self {
+        SipHasher24::new()
+    }
+
     fn finish_u128(&mut self) -> BuckTargetHash {
         BuckTargetHash(self.finish128().as_u128())
     }
 }
 
 /// We use blake3 as our "strong" hash.
-struct Blake3Adapter(blake3::Hasher);
+pub(crate) struct Blake3Adapter(blake3::Hasher);
+
+impl Blake3Adapter {
+    pub(crate) fn finalize(&self) -> blake3::Hash {
+        self.0.finalize()
+    }
+}
 
 // This `Hasher` impl only provides `write` and `finish` (not the full set of
 // `write_*` forwarding methods). That is acceptable here because blake3 is a
@@ -89,6 +103,10 @@ impl Hasher for Blake3Adapter {
 }
 
 impl BuckTargetHasher for Blake3Adapter {
+    fn new() -> Self {
+        Self(blake3::Hasher::new())
+    }
+
     fn finish_u128(&mut self) -> BuckTargetHash {
         let hash = blake3::Hasher::finalize(&self.0);
         let bytes = hash.as_bytes();
