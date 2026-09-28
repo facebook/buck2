@@ -63,6 +63,12 @@ pub struct ConfiguredTargetsCommand {
     #[clap(long, requires = "show_target_hash")]
     target_hash_recursive: bool,
 
+    /// Change hashes for these targets and targets that directly depend on them.
+    /// With --target-hash-recursive, this also affects transitive dependents.
+    /// Takes space-separated unconfigured target labels and can be repeated.
+    #[clap(long, requires = "show_target_hash", num_args = 1.., value_name = "TARGET")]
+    require_hash_change_deps: Vec<String>,
+
     /// Select the target hash function.
     #[clap(
         long,
@@ -127,6 +133,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     keep_going: self.keep_going,
                     show_target_hash: self.show_target_hash,
                     target_hash_recursive: self.target_hash_recursive,
+                    require_hash_change_deps: self.require_hash_change_deps,
                     target_hash_use_strong_hash: matches!(
                         self.target_hash_function,
                         TargetHashFunction::Strong

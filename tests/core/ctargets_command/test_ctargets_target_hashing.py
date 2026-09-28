@@ -6,11 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+from __future__ import annotations
+
 import json
 import re
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
 
@@ -137,6 +140,117 @@ async def test_hash_does_not_read_source_contents(buck: Buck) -> None:
     await buck.kill()
 
     assert baseline == await _target_hash(buck, "root//:with_src?root//:linux")
+    assert baseline != await _target_hash(
+        buck,
+        "root//:with_src?root//:linux",
+        "--require-hash-change-deps",
+        "root//:with_src",
+    )
+
+
+@pytest.mark.parametrize("hash_function", ["fast", "strong"])
+@pytest.mark.parametrize("recursive", [False, True])
+@buck_test()
+async def test_require_hash_change_deps(
+    buck: Buck, hash_function: str, recursive: bool
+) -> None:
+    targets = [
+        "dep",
+        "parent",
+        "grandparent",
+        "great_grandparent",
+        "with_src",
+        "unrelated",
+    ]
+    args = [f"--target-hash-function={hash_function}", "--show-target-hash", "--json"]
+    if recursive:
+        args.append("--target-hash-recursive")
+    args.extend(f"root//:{target}?root//:linux" for target in targets)
+    baseline = json.loads((await buck.ctargets(*args)).stdout)
+    changed = json.loads(
+        (
+            await buck.ctargets(
+                *args, "--require-hash-change-deps", "root//:dep", ":with_src"
+            )
+        ).stdout
+    )
+    expected = {"root//:dep", "root//:parent", "root//:with_src"}
+    if recursive:
+        expected.update({"root//:grandparent", "root//:great_grandparent"})
+    baseline_hashes = {
+        node["buck.target"]: node["buck.target_hash"] for node in baseline
+    }
+    changed_hashes = {node["buck.target"]: node["buck.target_hash"] for node in changed}
+    assert (
+        baseline_hashes.keys()
+        == changed_hashes.keys()
+        == {f"root//:{target}" for target in targets}
+    )
+    assert {
+        target
+        for target in baseline_hashes
+        if baseline_hashes[target] != changed_hashes[target]
+    } == expected
+
+
+@pytest.mark.parametrize("hash_function", ["fast", "strong"])
+@pytest.mark.parametrize("recursive", [False, True])
+@buck_test()
+async def test_require_hash_change_deps_ignores_order_and_unrelated_targets(
+    buck: Buck, hash_function: str, recursive: bool
+) -> None:
+    target = "root//:parent?root//:linux"
+    args = [f"--target-hash-function={hash_function}"]
+    if recursive:
+        args.append("--target-hash-recursive")
+    baseline = await _target_hash(buck, target, *args)
+    args.append("--require-hash-change-deps")
+    assert baseline == await _target_hash(buck, target, *args, "root//:unrelated")
+    changed = await _target_hash(buck, target, *args, "root//:dep", "root//:unrelated")
+    assert baseline != changed
+    assert changed == await _target_hash(
+        buck,
+        target,
+        *args,
+        "root//:unrelated",
+        ":dep",
+        "--require-hash-change-deps",
+        "root//:dep",
+    )
+
+
+@pytest.mark.parametrize("recursive", [False, True])
+@buck_test()
+async def test_require_hash_change_deps_matches_all_configurations(
+    buck: Buck, recursive: bool
+) -> None:
+    args = ["--target-hash-recursive"] if recursive else []
+    baseline = await _target_hash(buck, "root//:same?root//:linux", *args)
+    args.extend(["--require-hash-change-deps", "root//:same"])
+    changed = await _target_hash(buck, "root//:same?root//:linux", *args)
+    assert baseline != changed
+    assert changed == await _target_hash(buck, "root//:same?root//:macos", *args)
+
+
+@buck_test()
+async def test_require_hash_change_deps_requires_hash_output(buck: Buck) -> None:
+    await expect_failure(
+        buck.ctargets("root//:same", "--require-hash-change-deps", "root//:same"),
+        stderr_regex=r"required arguments were not provided:[\s\S]*--show-target-hash",
+    )
+
+
+@buck_test()
+async def test_require_hash_change_deps_requires_target_labels(buck: Buck) -> None:
+    await expect_failure(
+        buck.ctargets(
+            "root//:same",
+            "--show-target-hash",
+            "--require-hash-change-deps",
+            "root//...",
+        ),
+        stderr_regex="Required a target literal, but got a non-literal pattern",
+    )
 
 
 @pytest.mark.parametrize("recursive", [False, True])

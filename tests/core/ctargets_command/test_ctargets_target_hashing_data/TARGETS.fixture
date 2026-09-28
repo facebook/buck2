@@ -56,6 +56,18 @@ dummy(
 )
 
 dummy(
+    name = "grandparent",
+    default_target_platform = ":platform",
+    deps = [":parent"],
+)
+
+dummy(
+    name = "great_grandparent",
+    default_target_platform = ":platform",
+    deps = [":grandparent"],
+)
+
+dummy(
     name = "with_src",
     default_target_platform = ":platform",
     srcs = ["source.txt"],

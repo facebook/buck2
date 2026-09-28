@@ -304,6 +304,7 @@ message ConfiguredTargetsRequest {
   bool show_target_hash = 16;
   bool target_hash_recursive = 17;
   bool target_hash_use_strong_hash = 18;
+  repeated string require_hash_change_deps = 19;
 }
 
 message ConfiguredTargetsResponse {

@@ -11,7 +11,9 @@
 use std::hash::Hasher;
 
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNodeDeps;
@@ -84,6 +86,7 @@ pub(crate) struct ConfiguredTargetHashes {
 pub(crate) struct ConfiguredTargetHashOptions {
     pub(crate) recursive: bool,
     pub(crate) use_fast_hash: bool,
+    pub(crate) require_hash_change_deps: BuckMutSet<TargetLabel>,
 }
 
 impl ConfiguredTargetHashes {
@@ -143,6 +146,16 @@ impl ConfiguredTargetHashes {
         let mut hasher = H::new();
         node.target_hash_without_configured_labels(&mut hasher);
 
+        let depends_on = options
+            .require_hash_change_deps
+            .contains(node.label().unconfigured())
+            || node.deps().iter().any(|dep| {
+                options
+                    .require_hash_change_deps
+                    .contains(dep.label().unconfigured())
+            });
+        depends_on.strong_hash(&mut hasher);
+
         if options.recursive {
             hasher.write_u64(node.deps().len() as u64);
             for dep in node.deps() {
@@ -190,7 +203,6 @@ enum ConfiguredTargetHashError {
 mod tests {
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-    use buck2_core::target::label::label::TargetLabel;
     use buck2_node::attrs::attr::Attribute;
     use buck2_node::attrs::attr_type::AttrType;
     use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -278,6 +290,7 @@ mod tests {
                 &ConfiguredTargetHashOptions {
                     recursive,
                     use_fast_hash: true,
+                    require_hash_change_deps: BuckMutSet::default(),
                 },
             )?;
 

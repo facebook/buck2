@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
+use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_error::BuckErrorOptionContext;
@@ -97,11 +98,23 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         .await?;
 
         let hashes = if self.req.show_target_hash {
+            let require_hash_change_deps = parse_patterns_from_cli_args::<TargetPatternExtra>(
+                &mut ctx.ctx(),
+                &self.req.require_hash_change_deps,
+                server_ctx.working_dir(),
+            )
+            .await?
+            .into_iter()
+            .zip(&self.req.require_hash_change_deps)
+            .map(|(pattern, original)| pattern.as_target_label(original))
+            .collect::<buck2_error::Result<_>>()?;
+
             Some(ConfiguredTargetHashes::compute(
                 &result.compatible_targets,
                 &ConfiguredTargetHashOptions {
                     recursive: self.req.target_hash_recursive,
                     use_fast_hash: !self.req.target_hash_use_strong_hash,
+                    require_hash_change_deps,
                 },
             )?)
         } else {

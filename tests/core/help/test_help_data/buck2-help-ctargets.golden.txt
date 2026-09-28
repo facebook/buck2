@@ -28,6 +28,11 @@ Options:
       --target-hash-recursive
           Include all transitive dependencies in each target hash
 
+      --require-hash-change-deps <TARGET>...
+          Change hashes for these targets and targets that directly depend on them. With
+          --target-hash-recursive, this also affects transitive dependents. Takes space-separated
+          unconfigured target labels and can be repeated
+
       --target-hash-function <TARGET_HASH_FUNCTION>
           Select the target hash function
 
