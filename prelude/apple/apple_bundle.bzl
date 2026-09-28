@@ -430,7 +430,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
     xplugins_debug_info = xplugins_get_debug_artifacts_info(ctx, deps_with_binary)
-    xplugins_function_mapping_manifest_info = xplugins_get_function_mapping_manifest_info(ctx.actions, xplugins_debug_info)
+    app_binary = get_default_binary_dep(ctx.attrs.binary) if ctx.attrs.extension == "app" and xplugins_debug_info else None
+    xplugins_function_mapping_manifest_info = xplugins_get_function_mapping_manifest_info(
+        ctx.actions,
+        app_binary.label if app_binary else None,
+        xplugins_debug_info,
+    )
     sub_targets["xplugins"] = xplugins_get_debug_artifacts_subtargets(xplugins_function_mapping_manifest_info)
 
     link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx.actions, deps_with_binary)

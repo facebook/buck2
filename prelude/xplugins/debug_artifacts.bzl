@@ -40,24 +40,34 @@ def xplugins_get_debug_artifacts_info(ctx: AnalysisContext, deps: list[Dependenc
         return XPluginsDebugArtifactsInfo(tset = tset)
     return None
 
-def xplugins_get_function_mapping_manifest_info(actions: AnalysisActions, info: XPluginsDebugArtifactsInfo | None) -> XPluginsFunctionMappingManifestInfo:
+def xplugins_get_function_mapping_manifest_info(
+    actions: AnalysisActions, app_target: Label | None, info: XPluginsDebugArtifactsInfo | None
+) -> XPluginsFunctionMappingManifestInfo:
     if not info:
         info = XPluginsDebugArtifactsInfo(tset = actions.tset(XPluginsDebugArtifactsTSet))
 
-    function_mapping_manifest = []
+    function_mappings = []
     function_mapping_artifacts = []
+    function_mapping_targets = []
 
     for entry in info.tset.traverse():
         if entry:
             function_mapping_artifacts.append(entry.manifest_info.function_mapping)
-            function_mapping_manifest.append({
+            function_mapping_targets.append(entry.target)
+            function_mappings.append({
                 "path": entry.manifest_info.function_mapping,
                 "target": entry.target,
             })
 
+    if app_target != None and app_target not in function_mapping_targets:
+        fail("App target {} is not listed in the XPlugins function mappings: {}".format(app_target, function_mapping_targets))
+
     function_mapping_manifest_file = actions.write_json(
         "function_mapping_manifest.json",
-        function_mapping_manifest,
+        {
+            "app_target": app_target,
+            "mappings": function_mappings,
+        },
         has_content_based_path = False,
         pretty = True,
     ).with_associated_artifacts(function_mapping_artifacts)
