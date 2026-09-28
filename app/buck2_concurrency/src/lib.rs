@@ -118,6 +118,19 @@ enum AdmissionDecision {
     Block,
 }
 
+enum PreUpdateDecision {
+    WaitForCleanup {
+        future: Shared<BoxFuture<'static, ()>>,
+        epoch: usize,
+    },
+    RejectNotIdle {
+        running: ConcurrentTraces,
+    },
+    Update {
+        conflict_on_arrival: Option<DiceEquality>,
+    },
+}
+
 /// Manages concurrent commands, blocking when appropriate.
 ///
 /// Currently, we allow concurrency if two `DiceTransactions` are deemed equivalent, such that
@@ -337,6 +350,31 @@ impl ConcurrencyHandlerData {
         }
 
         self.dice_status = DiceStatus::idle();
+    }
+
+    fn decide_before_update(&self, request: &AdmissionRequest) -> PreUpdateDecision {
+        match &self.dice_status {
+            DiceStatus::Cleanup { future, epoch } => PreUpdateDecision::WaitForCleanup {
+                future: future.clone(),
+                epoch: *epoch,
+            },
+            DiceStatus::Available { active } => {
+                if matches!(request.exit_when, ExitWhen::ExitNotIdle)
+                    && !self.active_commands.is_empty()
+                {
+                    return PreUpdateDecision::RejectNotIdle {
+                        running: ConcurrentTraces::running(&self.active_commands),
+                    };
+                }
+
+                PreUpdateDecision::Update {
+                    conflict_on_arrival: active
+                        .as_ref()
+                        .filter(|_| !self.active_commands.is_empty())
+                        .map(|active| active.version),
+                }
+            }
+        }
     }
 
     fn decide_after_update(
@@ -696,57 +734,45 @@ impl ConcurrencyHandler {
         let mut data = self.data.lock().await;
 
         let (transaction, tainted, nested_warning, no_active_dice_state) = loop {
-            if let DiceStatus::Cleanup { future, epoch } = &data.dice_status {
-                tracing::debug!("ActiveDice is in cleanup");
-                let future = future.clone();
-                let epoch = *epoch;
-
-                // block while dice cleans up
-                drop(data);
-                events
-                    .span(
-                        buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
-                        Box::pin(
-                            async move { (future.await, buck2_data::DiceCleanupEnd {}.into()) },
-                        ),
-                    )
-                    .await;
-                data = self.data.lock().await;
-
-                data.transition_to_idle(epoch);
-                continue;
+            let before_update = data.decide_before_update(&request);
+            match &before_update {
+                PreUpdateDecision::WaitForCleanup { .. } => {
+                    tracing::debug!("ActiveDice is in cleanup");
+                }
+                PreUpdateDecision::RejectNotIdle { .. } | PreUpdateDecision::Update { .. } => {
+                    tracing::debug!("ActiveDice is available");
+                }
             }
 
-            tracing::debug!("ActiveDice is available");
+            let conflict_on_arrival = match before_update {
+                PreUpdateDecision::WaitForCleanup { future, epoch } => {
+                    drop(data);
+                    events
+                        .span(
+                            buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
+                            Box::pin(async move {
+                                (future.await, buck2_data::DiceCleanupEnd {}.into())
+                            }),
+                        )
+                        .await;
+                    data = self.data.lock().await;
 
-            // `--exit-when=notidle` asks only whether anything else is running, so it is answered
-            // here rather than after the update. Refusing costs a lock acquisition instead of a
-            // file-watcher sync and a DICE commit.
-            if matches!(request.exit_when, ExitWhen::ExitNotIdle)
-                && !data.active_commands.is_empty()
-            {
-                let running = ConcurrentTraces::running(&data.active_commands);
-                drop(data);
-                let queued = self.queued_traces(command_id);
-                return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle).with_buck_error_context(
-                    || format!("Buck daemon is busy processing another command: {running}{queued}"),
-                );
-            }
-
-            // `--exit-when=different-state` cannot be answered until the update has run, because
-            // it depends on whether this command's state differs — which is *defined* as whether
-            // injecting it altered the graph. Answering it against the state as it is afterwards
-            // would make the flag timing-dependent, since the conflicting commands may finish
-            // while this one syncs. So the inputs are captured at the top of each attempt, before
-            // the update, and the question is settled against them.
-            //
-            // `None` when there is nothing to conflict with: either no active DICE version, or no
-            // other command running, in which case the flag has nothing to fire on.
-            let conflict_on_arrival = match &data.dice_status {
-                DiceStatus::Available {
-                    active: Some(active),
-                } if !data.active_commands.is_empty() => Some(active.version),
-                _ => None,
+                    data.transition_to_idle(epoch);
+                    continue;
+                }
+                PreUpdateDecision::RejectNotIdle { running } => {
+                    drop(data);
+                    let queued = self.queued_traces(command_id);
+                    return Err(ConcurrencyHandlerError::ExitOnDaemonNotIdle)
+                        .with_buck_error_context(|| {
+                            format!(
+                                "Buck daemon is busy processing another command: {running}{queued}"
+                            )
+                        });
+                }
+                PreUpdateDecision::Update {
+                    conflict_on_arrival,
+                } => conflict_on_arrival,
             };
 
             // Sampled before the update, and while the lock is still held, because committing a
@@ -1977,6 +2003,57 @@ mod tests {
                 determine_bypass_semaphore(false, false),
                 BypassSemaphore::Block
             );
+        }
+
+        #[tokio::test]
+        async fn pre_update_decision_mapping() {
+            let cleanup = data_with(cleanup_at(3), 3);
+            let PreUpdateDecision::WaitForCleanup { epoch, .. } =
+                cleanup.decide_before_update(&request(false, ExitWhen::ExitNever))
+            else {
+                panic!("cleanup must be awaited before updating");
+            };
+            assert_eq!(epoch, 3);
+
+            let idle = data_with(DiceStatus::idle(), 0);
+            let PreUpdateDecision::Update {
+                conflict_on_arrival,
+            } = idle.decide_before_update(&request(false, ExitWhen::ExitNotIdle))
+            else {
+                panic!("an idle handler should proceed to the update");
+            };
+            assert_eq!(conflict_on_arrival, None);
+
+            let dice = make_default_dice();
+            let active_version = dice.updater().commit().await.equality_token();
+            let mut active = data_with(DiceStatus::active(active_version), 0);
+
+            let PreUpdateDecision::Update {
+                conflict_on_arrival,
+            } = active.decide_before_update(&request(false, ExitWhen::ExitNotIdle))
+            else {
+                panic!("an active DICE version without commands is not busy");
+            };
+            assert_eq!(conflict_on_arrival, None);
+
+            let command = a_command();
+            let command_trace = command.trace_id.dupe();
+            active.active_commands.insert(CommandId(0), command);
+
+            let PreUpdateDecision::RejectNotIdle { running } =
+                active.decide_before_update(&request(false, ExitWhen::ExitNotIdle))
+            else {
+                panic!("an active command must trigger ExitNotIdle");
+            };
+            assert_eq!(running.to_string(), command_trace.to_string());
+
+            let PreUpdateDecision::Update {
+                conflict_on_arrival,
+            } = active.decide_before_update(&request(false, ExitWhen::ExitDifferentState))
+            else {
+                panic!("ExitDifferentState is decided after the update");
+            };
+            assert_eq!(conflict_on_arrival, Some(active_version));
         }
 
         #[tokio::test]
