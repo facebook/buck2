@@ -626,16 +626,16 @@ async def test_print_passing_details(buck: Buck) -> None:
 @buck_test(inplace=True)
 async def test_no_no_print_details(buck: Buck) -> None:
     # Without --no-print-details the stack trace is displayed.
-    await expect_failure(
+    failure = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
             get_mode_from_platform(),
             "--",
             "--env",
             "TEST_ENV=fail",
-        ),
-        stderr_regex="AssertionError: 41 != 42",
+        )
     )
+    assert "AssertionError: 41 != 42" in remove_ansi_escape_sequences(failure.stderr)
 
 
 @buck_test(inplace=True)
