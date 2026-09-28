@@ -555,19 +555,22 @@ def get_global_code_info(
     global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
     children_by_name = _group_global_code_children_by_name(global_code_infos)
 
-    declared_deps_raw_targets = [declared_dep.label.raw_target() for declared_dep in declared_deps]
+    declared_deps_raw_targets = set([declared_dep.label.raw_target() for declared_dep in declared_deps])
+    raw_target = ctx.label.raw_target()
 
     def declared_deps_contains_trigger(deps_triggers: set[TargetLabel]) -> TargetLabel | None:
-        for declared_deps_raw_target in declared_deps_raw_targets:
-            if declared_deps_raw_target in deps_triggers:
-                return declared_deps_raw_target
+        for trigger in deps_triggers:
+            if trigger in declared_deps_raw_targets:
+                return trigger
 
         return None
 
     global_code_map = {}
     for name, (config) in global_code_config.items():
-        contains_trigger = declared_deps_contains_trigger(config.triggers)
-        target_is_global_code_dep = ctx.label.raw_target() in config.deps
+        target_is_global_code_dep = raw_target in config.deps
+        contains_trigger = None
+        if declared_deps_raw_targets and not target_is_global_code_dep:
+            contains_trigger = declared_deps_contains_trigger(config.triggers)
         if (contains_trigger or target_is_global_code_dep) and config.requires_first_order_classpath:
             global_code_library_compiling_deps = []
             if single_library_dep:
