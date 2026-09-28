@@ -7,8 +7,8 @@
 # above-listed licenses.
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
-load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
-load("@prelude//:genrule_prefer_local_labels.bzl", "genrule_labels_prefer_local")
+load("@prelude//:genrule_local_labels.bzl", "resolved_genrule_labels_require_local")
+load("@prelude//:genrule_prefer_local_labels.bzl", "resolved_genrule_labels_prefer_local")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_android_packageable_info")
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
@@ -37,8 +37,8 @@ def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo:
         return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
 def _run_genrule(ctx: AnalysisContext, out_name: str, extra_env_vars: dict, identifier: str) -> Artifact:
-    local_only = genrule_labels_require_local(ctx.attrs.labels)
-    prefer_local = genrule_labels_prefer_local(ctx.attrs.labels)
+    local_only = resolved_genrule_labels_require_local(ctx.attrs.labels)
+    prefer_local = resolved_genrule_labels_prefer_local(ctx.attrs.labels)
 
     # NOTE: Eventually we shouldn't require local_only here, since we should be
     # fine with caching local fallbacks if necessary (or maybe that should be

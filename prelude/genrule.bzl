@@ -9,8 +9,8 @@
 # Implementation of the `genrule` build rule.
 
 load("@prelude//:cache_mode.bzl", "CacheModeInfo")
-load("@prelude//:genrule_local_labels.bzl", "genrule_labels_require_local")
-load("@prelude//:genrule_prefer_local_labels.bzl", "genrule_labels_prefer_local")
+load("@prelude//:genrule_local_labels.bzl", "resolved_genrule_labels_require_local")
+load("@prelude//:genrule_prefer_local_labels.bzl", "resolved_genrule_labels_prefer_local")
 load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
@@ -71,10 +71,10 @@ def _requires_build_root(ctx: AnalysisContext) -> bool:
     return False
 
 def _requires_local(ctx: AnalysisContext) -> bool:
-    return genrule_labels_require_local(ctx.attrs.labels)
+    return resolved_genrule_labels_require_local(ctx.attrs.labels)
 
 def _prefers_local(ctx: AnalysisContext) -> bool:
-    return genrule_labels_prefer_local(ctx.attrs.labels)
+    return resolved_genrule_labels_prefer_local(ctx.attrs.labels)
 
 def _ignore_artifacts(ctx: AnalysisContext) -> bool:
     return "buck2_ignore_artifacts" in ctx.attrs.labels

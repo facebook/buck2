@@ -188,3 +188,9 @@ def genrule_labels_require_local(labels):
         return False
 
     return selects.apply(labels, check_labels)
+
+def resolved_genrule_labels_require_local(labels: list[str]) -> bool:
+    for label in labels:
+        if label in _GENRULE_LOCAL_LABELS:
+            return True
+    return False
