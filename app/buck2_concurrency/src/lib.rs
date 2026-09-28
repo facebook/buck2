@@ -63,6 +63,7 @@ use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 use tokio::sync::Semaphore;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
@@ -281,6 +282,12 @@ struct PendingUpdate {
 struct UpdatedTransaction {
     transaction: DiceTransaction,
     update: CompletedUpdate,
+}
+
+struct ReadyToExecute {
+    transaction: DiceTransaction,
+    admitted: AdmittedCommand,
+    effects: AdmissionEffects,
 }
 
 #[derive(Clone, Dupe, Copy, Debug, Eq, PartialEq)]
@@ -996,6 +1003,169 @@ impl ConcurrencyHandler {
         })
     }
 
+    async fn await_cleanup<'a, E: CommandEvents>(
+        &'a self,
+        events: &E,
+        future: Shared<BoxFuture<'static, ()>>,
+        epoch: usize,
+    ) -> MutexGuard<'a, ConcurrencyHandlerData> {
+        events
+            .span(
+                buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
+                Box::pin(async move { (future.await, buck2_data::DiceCleanupEnd {}.into()) }),
+            )
+            .await;
+
+        let mut data = self.data.lock().await;
+        let effect = data.apply_event(AdmissionEvent::CleanupCompleted { epoch });
+        drop(data);
+        effect.execute(&self.cond);
+        self.data.lock().await
+    }
+
+    async fn prepare_cleanup(
+        &self,
+        request: CleanupRequest,
+        transaction: DiceTransaction,
+    ) -> MutexGuard<'_, ConcurrencyHandlerData> {
+        let future = self.dice.wait_for_idle().boxed().shared();
+        drop(transaction);
+
+        let mut data = self.data.lock().await;
+        let effect = data.apply_event(AdmissionEvent::CleanupPrepared { request, future });
+        assert_eq!(
+            effect,
+            StateEffect::WakeWaiters,
+            "the cleanup request should still be awaiting its future"
+        );
+        drop(data);
+        effect.execute(&self.cond);
+        self.data.lock().await
+    }
+
+    async fn wait_for_blocked_command<'a, E: CommandEvents>(
+        &'a self,
+        events: &E,
+        data: MutexGuard<'a, ConcurrencyHandlerData>,
+        effects: AdmissionEffects,
+        blocking: BlockingCommand,
+    ) -> MutexGuard<'a, ConcurrencyHandlerData> {
+        // `wait_baton` registers the waiter and releases `data` synchronously. In contrast, the
+        // body of `Condvar::wait` would not run until its future was first polled.
+        let wait = self.cond.wait_baton((data, &self.data));
+        effects.execute(events);
+
+        events
+            .span(
+                DiceBlockConcurrentCommandStart {
+                    current_active_trace_id: blocking.trace_id.to_string(),
+                    cmd_args: blocking.display_command.clone(),
+                }
+                .into(),
+                Box::pin(async {
+                    pin_mut!(wait);
+                    let mut waited = Duration::ZERO;
+                    let mut next_warning = Self::BLOCKED_COMMAND_FIRST_WARNING;
+                    let data = loop {
+                        match timeout(next_warning, &mut wait).await {
+                            Ok((data, baton)) => {
+                                if let Some(baton) = baton {
+                                    baton.dispose();
+                                }
+                                break data;
+                            }
+                            Err(_elapsed) => {
+                                waited += next_warning;
+                                next_warning = Self::BLOCKED_COMMAND_WARNING_INTERVAL;
+                                events.console_warning(format!(
+                                    "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
+                                     If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
+                                    format_elapsed(waited),
+                                    blocking.display_command,
+                                    blocking.trace_id,
+                                ));
+                            }
+                        }
+                    };
+                    (
+                        data,
+                        DiceBlockConcurrentCommandEnd {
+                            ending_active_trace_id: blocking.trace_id.to_string(),
+                        }
+                        .into(),
+                    )
+                }),
+            )
+            .await
+    }
+
+    async fn finish_admission<E: CommandEvents>(
+        self: &Arc<Self>,
+        events: &E,
+        transaction_observer: &dyn CommandTransactionObserver,
+        ready: ReadyToExecute,
+    ) -> buck2_error::Result<(OnExecExit, DiceTransaction)> {
+        let AdmittedCommand {
+            registration,
+            state,
+            nested_warning,
+        } = ready.admitted;
+        let (tainted, previously_tainted, no_active_dice_state) = match state {
+            AdmittedState::Fresh {
+                tainted,
+                previously_tainted,
+            } => (tainted, previously_tainted, true),
+            AdmittedState::Concurrent {
+                previously_tainted, ..
+            } => (false, previously_tainted, false),
+        };
+
+        let drop_guard = OnExecExit::new(self.dupe(), registration);
+        ready.effects.execute(events);
+
+        if no_active_dice_state {
+            events.instant(NoActiveDiceState {}.into());
+        }
+        if previously_tainted {
+            events.instant(
+                buck2_data::TagEvent {
+                    tags: vec!["concurrency-previously-tainted".to_owned()],
+                }
+                .into(),
+            );
+        }
+        if tainted {
+            events.instant(
+                buck2_data::TagEvent {
+                    tags: vec!["concurrency-tainted".to_owned()],
+                }
+                .into(),
+            );
+        }
+
+        if let Some(NestedInvocationWarning {
+            running,
+            display_command,
+        }) = nested_warning
+        {
+            soft_error!(
+                "nested_invocation_same_dice_state",
+                ConcurrencyHandlerError::NestedInvocationWithSameStates(
+                    running,
+                    display_command
+                )
+                .into(),
+                error_on_oss: true
+            )?;
+        }
+
+        transaction_observer
+            .on_transaction_committed(&ready.transaction)
+            .await?;
+
+        Ok((drop_guard, ready.transaction))
+    }
+
     async fn wait_for_others<E: CommandEvents>(
         self: &Arc<Self>,
         updates: &dyn DiceUpdater,
@@ -1021,7 +1191,7 @@ impl ConcurrencyHandler {
 
         let mut data = self.data.lock().await;
 
-        let (transaction, admitted, admission_effects) = loop {
+        let ready = loop {
             let before_update = data.decide_before_update(&request);
             match &before_update {
                 PreUpdateDecision::WaitForCleanupStart
@@ -1040,20 +1210,7 @@ impl ConcurrencyHandler {
                 }
                 PreUpdateDecision::WaitForCleanup { future, epoch } => {
                     drop(data);
-                    events
-                        .span(
-                            buck2_data::DiceCleanupStart { epoch: epoch as _ }.into(),
-                            Box::pin(async move {
-                                (future.await, buck2_data::DiceCleanupEnd {}.into())
-                            }),
-                        )
-                        .await;
-                    data = self.data.lock().await;
-
-                    let effect = data.apply_event(AdmissionEvent::CleanupCompleted { epoch });
-                    drop(data);
-                    effect.execute(&self.cond);
-                    data = self.data.lock().await;
+                    data = self.await_cleanup(&events, future, epoch).await;
                     continue;
                 }
                 PreUpdateDecision::RejectNotIdle { running } => {
@@ -1127,25 +1284,15 @@ impl ConcurrencyHandler {
                     },
                 ) => {
                     tracing::debug!("ActiveDice has no active_transaction");
-                    break (transaction, admitted, effects);
+                    break ReadyToExecute {
+                        transaction,
+                        admitted,
+                        effects,
+                    };
                 }
                 AdmissionDecision::StartCleanup(cleanup) => {
                     drop(data);
-                    let future = self.dice.wait_for_idle().boxed().shared();
-                    drop(transaction);
-                    data = self.data.lock().await;
-                    let effect = data.apply_event(AdmissionEvent::CleanupPrepared {
-                        request: cleanup,
-                        future,
-                    });
-                    assert_eq!(
-                        effect,
-                        StateEffect::WakeWaiters,
-                        "the cleanup request should still be awaiting its future"
-                    );
-                    drop(data);
-                    effect.execute(&self.cond);
-                    data = self.data.lock().await;
+                    data = self.prepare_cleanup(cleanup, transaction).await;
                     continue;
                 }
                 AdmissionDecision::RejectNestedDifferentState(NestedInvocationWarning {
@@ -1170,139 +1317,26 @@ impl ConcurrencyHandler {
                     },
                 ) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    break (transaction, admitted, effects);
+                    break ReadyToExecute {
+                        transaction,
+                        admitted,
+                        effects,
+                    };
                 }
-                AdmissionDecision::Block(BlockingCommand {
-                    trace_id,
-                    display_command,
-                }) => {
+                AdmissionDecision::Block(blocking) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    // `wait_baton` registers the waiter and releases `data` synchronously. In
-                    // contrast, the body of `Condvar::wait` would not run until its future was
-                    // first polled, which would keep the state lock held through effect execution.
-                    let wait = self.cond.wait_baton((data, &self.data));
-
-                    effects.execute(&events);
-
-                    data = events
-                        .span(
-                            DiceBlockConcurrentCommandStart {
-                                current_active_trace_id: trace_id.to_string(),
-                                cmd_args: display_command.clone(),
-                            }
-                            .into(),
-                            Box::pin(async {
-                                // This wait can last arbitrarily long (and forever if
-                                // the blocking command is wedged, e.g. on stale Eden
-                                // handles), so periodically tell the user what they
-                                // are actually waiting on.
-                                pin_mut!(wait);
-                                let mut waited = Duration::ZERO;
-                                let mut next_warning = Self::BLOCKED_COMMAND_FIRST_WARNING;
-                                let data = loop {
-                                    match timeout(next_warning, &mut wait).await {
-                                        Ok((data, baton)) => {
-                                            if let Some(baton) = baton {
-                                                baton.dispose();
-                                            }
-                                            break data;
-                                        }
-                                        Err(_elapsed) => {
-                                            waited += next_warning;
-                                            next_warning =
-                                                Self::BLOCKED_COMMAND_WARNING_INTERVAL;
-                                            events.console_warning(format!(
-                                                "This command has been waiting for {} for another command to finish: [{}] (trace ID: {}). \
-                                                 If that command is not making progress, restarting the buck2 daemon with `buck2 kill` will unblock both",
-                                                format_elapsed(waited),
-                                                display_command,
-                                                trace_id,
-                                            ));
-                                        }
-                                    }
-                                };
-                                (
-                                    data,
-                                    DiceBlockConcurrentCommandEnd {
-                                        ending_active_trace_id: trace_id.to_string(),
-                                    }
-                                    .into(),
-                                )
-                            }),
-                        )
+                    data = self
+                        .wait_for_blocked_command(&events, data, effects, blocking)
                         .await;
                 }
             }
         };
 
         tracing::info!("Acquired access to DICE");
-
-        let AdmittedCommand {
-            registration,
-            state,
-            nested_warning,
-        } = admitted;
-        let (tainted, previously_tainted, no_active_dice_state) = match state {
-            AdmittedState::Fresh {
-                tainted,
-                previously_tainted,
-            } => (tainted, previously_tainted, true),
-            AdmittedState::Concurrent {
-                previously_tainted, ..
-            } => (false, previously_tainted, false),
-        };
-
         drop(queued);
         drop(data);
-        let drop_guard = OnExecExit::new(self.dupe(), registration);
-        admission_effects.execute(&events);
-
-        if no_active_dice_state {
-            events.instant(NoActiveDiceState {}.into());
-        }
-
-        if previously_tainted {
-            events.instant(
-                buck2_data::TagEvent {
-                    tags: vec!["concurrency-previously-tainted".to_owned()],
-                }
-                .into(),
-            );
-        }
-
-        if tainted {
-            events.instant(
-                buck2_data::TagEvent {
-                    tags: vec!["concurrency-tainted".to_owned()],
-                }
-                .into(),
-            );
-        }
-
-        // `soft_error!` may perform a synchronous Scribe write, so report after registration has
-        // released the state lock. The guard cleans up if the warning is escalated.
-        if let Some(NestedInvocationWarning {
-            running,
-            display_command,
-        }) = nested_warning
-        {
-            soft_error!(
-                "nested_invocation_same_dice_state",
-                ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                    running,
-                    display_command
-                )
-                .into(),
-                error_on_oss: true
-            )?;
-        }
-
-        // The observer may perform blocking config parsing, so run it after releasing the lock.
-        transaction_observer
-            .on_transaction_committed(&transaction)
-            .await?;
-
-        Ok((drop_guard, transaction))
+        self.finish_admission(&events, transaction_observer, ready)
+            .await
     }
 
     /// Access dice without locking for dumps.
