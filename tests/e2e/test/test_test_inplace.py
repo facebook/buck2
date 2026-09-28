@@ -790,6 +790,15 @@ async def test_timeout_local(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_timeout_re(buck: Buck) -> None:
+    # The target's `generate_build_info_json` action is `local_only` in modes
+    # that use full build info, so it cannot be built under `--remote-only`.
+    await buck.build(
+        "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
+        get_mode_from_platform(),
+        "--no-remote-cache",
+        "--build-test-info",
+    )
+
     result = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:timeout_re",
