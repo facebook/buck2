@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-// @lint-ignore-every PATTERNLINT LINTIGNORE
-
 // The code in this module is adapted from [`complete_pty`](https://crates.io/crates/completest_pty).
 
 //! Run completions for your program
