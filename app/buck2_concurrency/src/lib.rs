@@ -3060,6 +3060,86 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn same_state_preemption_preserves_the_arriving_registration() -> buck2_error::Result<()>
+    {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let preemptible = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let block = block.dupe();
+            let entered = entered.dupe();
+            async move {
+                TestCommand::new()
+                    .preemptible(PreemptibleWhen::Always)
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _guard = block.read().await;
+                    })
+                    .await
+            }
+        });
+        entered.wait().await;
+
+        let observer_entered = Arc::new(Barrier::new(2));
+        let observer_release = Arc::new(Barrier::new(2));
+        let observer = Arc::new(BlockingObserver {
+            entered: observer_entered.dupe(),
+            release: observer_release.dupe(),
+            fail: false,
+        });
+        let arriving = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let observer = observer.dupe();
+            async move {
+                TestCommand::new()
+                    .run_with_observer(
+                        &concurrency,
+                        &NoChanges,
+                        observer.as_ref(),
+                        |_, _timing| async move {},
+                    )
+                    .await
+            }
+        });
+
+        tokio::time::timeout(Duration::from_secs(10), observer_entered.wait())
+            .await
+            .expect("the arriving command was never registered");
+
+        let preempted = tokio::time::timeout(Duration::from_secs(10), preemptible)
+            .await
+            .buck_error_context("the active command was not preempted")??
+            .expect_err("the active command should report preemption");
+        assert!(
+            preempted
+                .tags()
+                .contains(&buck2_error::ErrorTag::DaemonPreempted),
+            "unexpected preemption error: {preempted}"
+        );
+
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                let active = concurrency.data.lock().await.active_commands.len();
+                if active == 1 {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the preempted command was not reaped");
+
+        observer_release.wait().await;
+        arriving.await??;
+        drop(blocked);
+
+        Ok(())
+    }
+
     /// The other half of the matrix: `OnDifferentState` is preempted when the arriving command has
     /// a different state. Note the blocking guard is deliberately never released — preemption is
     /// what unblocks the first command, by dropping its `exec` future.
@@ -3115,6 +3195,70 @@ mod tests {
         );
 
         different.await??;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancelling_an_active_command_wakes_a_different_state_waiter() -> buck2_error::Result<()>
+    {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let active = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let block = block.dupe();
+            let entered = entered.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _guard = block.read().await;
+                    })
+                    .await
+            }
+        });
+        entered.wait().await;
+
+        let events = TestEvents::new();
+        let waiter = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let events = events.dupe();
+            async move {
+                TestCommand::new()
+                    .dispatcher(events)
+                    .run(&concurrency, &CtxDifferent, |_, _timing| async move {})
+                    .await
+            }
+        });
+
+        events
+            .wait_for(|event| {
+                matches!(
+                    event,
+                    RecordedEvent::Instant(buck2_data::instant_event::Data::DiceEqualityCheck(
+                        DiceEqualityCheck { is_equal: false }
+                    ))
+                )
+            })
+            .await?;
+
+        active.abort();
+        assert!(
+            active
+                .await
+                .expect_err("the active command should be cancelled")
+                .is_cancelled(),
+            "the active task ended for a reason other than cancellation"
+        );
+
+        let waiter_result = tokio::time::timeout(Duration::from_secs(10), waiter)
+            .await
+            .buck_error_context("the different-state waiter was not woken")??;
+        waiter_result?;
+        drop(blocked);
 
         Ok(())
     }
@@ -3309,6 +3453,17 @@ mod tests {
         tokio::time::timeout(Duration::from_secs(10), entered.wait())
             .await
             .buck_error_context("the observer was never reached")?;
+
+        let data = concurrency
+            .data
+            .try_lock()
+            .expect("the observer is running with the state lock held");
+        assert_eq!(
+            data.active_commands.len(),
+            1,
+            "the command must be registered before its observer runs"
+        );
+        drop(data);
 
         let waiter_events = TestEvents::new();
         let waiter_ran = Arc::new(AtomicBool::new(false));
