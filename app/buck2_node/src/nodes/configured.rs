@@ -42,6 +42,7 @@ use either::Either;
 use pagable::Pagable;
 use starlark_map::Hashed;
 use starlark_map::ordered_map::OrderedMap;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::AttrType;
@@ -58,6 +59,7 @@ use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::spec::internal::TESTS_ATTRIBUTE;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::bzl_or_bxl_path::BzlOrBxlPath;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
@@ -532,6 +534,23 @@ impl ConfiguredTargetNode {
         });
     }
 
+    /// Hash this target's unconfigured label, rule type, and configured attributes.
+    ///
+    /// Configurations are omitted from labels stored in attribute values. Consequently, changing
+    /// configuration does not affect this hash unless it changes a configured attribute on this
+    /// target. Dependency contents and other node metadata are not included.
+    pub fn target_hash_without_configured_labels<H: Hasher>(&self, state: &mut H) {
+        self.label().unconfigured().strong_hash(state);
+        self.rule_type().strong_hash(state);
+
+        let attrs = self.attrs(AttrInspectOptions::All);
+        (attrs.len() as u64).strong_hash(state);
+        attrs.for_each(|attr| {
+            attr.name.strong_hash(state);
+            attr.value.strong_hash_without_config(state);
+        });
+    }
+
     /// If this node is a forward node, return the target it forwards to.
     pub fn forward_target(&self) -> Option<&ConfiguredTargetNode> {
         match &self.0.target_node {
@@ -899,6 +918,12 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::collections::hash_map::DefaultHasher;
+
+    use buck2_core::configuration::config_setting::ConfigSettingData;
+    use buck2_core::configuration::constraints::ConstraintKey;
+    use buck2_core::configuration::constraints::ConstraintValue;
+    use buck2_core::configuration::data::ConfigurationDataData;
 
     use super::*;
     use crate::attrs::attr_type::arg::MacroBase;
@@ -908,6 +933,9 @@ mod tests {
     use crate::attrs::attr_type::query::QueryAttr;
     use crate::attrs::attr_type::query::QueryAttrBase;
     use crate::attrs::attr_type::query::QueryMacroBase;
+    use crate::attrs::coerced_attr::CoercedSelector;
+    use crate::configuration::resolved::ConfigurationNode;
+    use crate::nodes::unconfigured::testing::TargetNodeExt;
 
     fn query(text: &str, target: &str) -> QueryAttrBase<ProvidersLabel> {
         QueryAttrBase {
@@ -1023,5 +1051,262 @@ mod tests {
                 expected.resolved_literals.0[&(5, 4)].configure(cfg.dupe()),
             );
         }
+    }
+
+    fn configured_node(label: ConfiguredTargetLabel, value: &str) -> ConfiguredTargetNode {
+        configured_node_with_rule_type(label, "test_rule", value)
+    }
+
+    fn configured_node_with_rule_type(
+        label: ConfiguredTargetLabel,
+        rule_type: &str,
+        value: &str,
+    ) -> ConfiguredTargetNode {
+        ConfiguredTargetNode::testing_new(
+            label,
+            rule_type,
+            ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+            vec![(
+                "value",
+                Attribute::new_const(None, "", AttrType::string()),
+                CoercedAttr::String(StringLiteral(ArcStr::from(value))),
+            )],
+            None,
+        )
+    }
+
+    fn configured_node_with_dep(dep: ConfiguredProvidersLabel) -> ConfiguredTargetNode {
+        ConfiguredTargetNode::testing_new(
+            TargetLabel::testing_parse("cell//pkg:root")
+                .configure(ConfigurationData::testing_new()),
+            "test_rule",
+            ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+            vec![(
+                "dep",
+                ConfiguredTargetNode::actual_attribute().clone(),
+                CoercedAttr::ConfiguredDepForForwardNode(Box::new(DepAttr {
+                    attr_type: DepAttrType::new(
+                        ProviderIdSet::EMPTY,
+                        DepAttrTransition::Identity(PluginKindSet::EMPTY),
+                    ),
+                    label: dep,
+                })),
+            )],
+            None,
+        )
+    }
+
+    fn target_hash_without_configured_labels(node: &ConfiguredTargetNode) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        node.target_hash_without_configured_labels(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_ignores_configuration() {
+        let label = TargetLabel::testing_parse("cell//pkg:target");
+        let first = configured_node(label.configure(ConfigurationData::testing_new()), "value");
+        let second = configured_node(label.configure(ConfigurationData::unspecified()), "value");
+        let changed = configured_node(label.configure(ConfigurationData::unspecified()), "changed");
+
+        assert_eq!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&second),
+        );
+        assert_ne!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&changed),
+        );
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_tracks_selected_value() {
+        let label = TargetLabel::testing_parse("cell//pkg:target");
+        let branches = ["cell//cfg:linux", "cell//cfg:macos"];
+        let target_node = TargetNode::testing_new(
+            label,
+            RuleType::Starlark(Arc::new(StarlarkRuleType {
+                path: BzlOrBxlPath::Bzl(ImportPath::testing_new("cell//pkg:rules.bzl")),
+                name: "test_rule".to_owned(),
+            })),
+            vec![(
+                "value",
+                Attribute::new(None, "", AttrType::string()).expect("valid string attribute"),
+                CoercedAttr::Selector(Box::new(
+                    CoercedSelector::new(
+                        branches
+                            .iter()
+                            .map(|key| {
+                                (
+                                    ConfigurationSettingKey::testing_parse(key),
+                                    CoercedAttr::String(StringLiteral("same".into())),
+                                )
+                            })
+                            .collect(),
+                        Some(CoercedAttr::String(StringLiteral("changed".into()))),
+                    )
+                    .expect("unique select keys"),
+                )),
+            )],
+            None,
+        );
+
+        let configure = |platform: &str| {
+            let constraints = BTreeMap::from_iter([(
+                ConstraintKey::testing_new("cell//cfg:os"),
+                ConstraintValue::testing_new(platform, None),
+            )]);
+            let cfg = ConfigurationData::from_platform(
+                "cell//cfg:platform".to_owned(),
+                ConfigurationDataData::new(constraints.clone()),
+                false,
+            )
+            .expect("valid platform configuration");
+            let matched_keys = MatchedConfigurationSettingKeys::new(
+                branches
+                    .iter()
+                    .map(|key| {
+                        (
+                            ConfigurationSettingKey::testing_parse(key),
+                            ConfigurationNode::new(
+                                (*key == platform)
+                                    .then(|| ConfigSettingData::testing_new(constraints.clone())),
+                            ),
+                        )
+                    })
+                    .collect(),
+            );
+            ConfiguredTargetNode::new(
+                label.configure(cfg.dupe()),
+                target_node.dupe(),
+                MatchedConfigurationSettingKeysWithCfg::new(
+                    ConfigurationNoExec::new(cfg),
+                    matched_keys,
+                ),
+                OrderedMap::new(),
+                ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+                Vec::new(),
+                Vec::new(),
+                OrderedMap::new(),
+                PluginLists::new(),
+            )
+        };
+
+        let linux = configure("cell//cfg:linux");
+        let macos = configure("cell//cfg:macos");
+        let windows = configure("cell//cfg:windows");
+
+        for (node, expected) in [(&linux, "same"), (&macos, "same"), (&windows, "changed")] {
+            assert_eq!(
+                node.get("value", AttrInspectOptions::All)
+                    .expect("value attribute exists")
+                    .value,
+                ConfiguredAttr::String(StringLiteral(expected.into())),
+            );
+        }
+        assert_ne!(linux.label().cfg(), macos.label().cfg());
+        assert_eq!(
+            target_hash_without_configured_labels(&linux),
+            target_hash_without_configured_labels(&macos),
+            "different select branches with identical values must hash equally",
+        );
+        assert_ne!(
+            target_hash_without_configured_labels(&linux),
+            target_hash_without_configured_labels(&windows),
+            "selecting a different value must change the hash",
+        );
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_tracks_rule_type() {
+        let label = TargetLabel::testing_parse("cell//pkg:target");
+        let cfg = ConfigurationData::testing_new();
+        let configured_label = label.configure(cfg);
+        let first = configured_node_with_rule_type(configured_label.dupe(), "first_rule", "value");
+        let second = configured_node_with_rule_type(configured_label, "second_rule", "value");
+
+        assert_ne!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&second),
+        );
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_tracks_target_label() {
+        let cfg = ConfigurationData::testing_new();
+        let first = configured_node(
+            TargetLabel::testing_parse("cell//pkg:first").configure(cfg.clone()),
+            "value",
+        );
+        let second = configured_node(
+            TargetLabel::testing_parse("cell//pkg:second").configure(cfg),
+            "value",
+        );
+
+        assert_ne!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&second),
+            "changing the unconfigured target label must change the hash",
+        );
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_hashes_only_unconfigured_dependency_label() {
+        let dep = TargetLabel::testing_parse("cell//dep:target");
+        let first_label =
+            ConfiguredProvidersLabel::default_for(dep.configure(ConfigurationData::testing_new()));
+        let second_label =
+            ConfiguredProvidersLabel::default_for(dep.configure(ConfigurationData::unspecified()));
+        let changed_label = ConfiguredProvidersLabel::default_for(
+            TargetLabel::testing_parse("cell//dep:changed")
+                .configure(ConfigurationData::unspecified()),
+        );
+
+        assert_ne!(first_label, second_label);
+        assert_eq!(
+            first_label.target().unconfigured(),
+            second_label.target().unconfigured(),
+        );
+
+        let first = configured_node_with_dep(first_label);
+        let second = configured_node_with_dep(second_label);
+        let changed = configured_node_with_dep(changed_label);
+
+        assert_eq!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&second),
+        );
+        assert_ne!(
+            target_hash_without_configured_labels(&second),
+            target_hash_without_configured_labels(&changed),
+        );
+    }
+
+    #[test]
+    fn target_hash_without_configured_labels_does_not_hash_dependencies_recursively() {
+        let label = TargetLabel::testing_parse("cell//pkg:target");
+        let first_cfg = ConfigurationData::testing_new();
+        let second_cfg = ConfigurationData::unspecified();
+
+        let first_dep = configured_node(label.configure(first_cfg.clone()), "value");
+        let first =
+            ConfiguredTargetNode::new_forward(label.configure(second_cfg.clone()), first_dep)
+                .expect("forward target should use a different configuration");
+        let second_dep = configured_node(label.configure(second_cfg.clone()), "value");
+        let second =
+            ConfiguredTargetNode::new_forward(label.configure(first_cfg.clone()), second_dep)
+                .expect("forward target should use a different configuration");
+        let changed_dep = configured_node(label.configure(second_cfg), "changed");
+        let changed = ConfiguredTargetNode::new_forward(label.configure(first_cfg), changed_dep)
+            .expect("forward target should use a different configuration");
+
+        assert_eq!(
+            target_hash_without_configured_labels(&first),
+            target_hash_without_configured_labels(&second),
+        );
+        assert_eq!(
+            target_hash_without_configured_labels(&second),
+            target_hash_without_configured_labels(&changed),
+        );
     }
 }

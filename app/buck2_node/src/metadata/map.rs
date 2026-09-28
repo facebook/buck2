@@ -10,11 +10,13 @@
 
 use std::fmt;
 use std::hash::Hash;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use pagable::Pagable;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::metadata::key::MetadataKey;
@@ -35,6 +37,17 @@ impl MetadataMap {
 
     pub fn get(&self, key: &MetadataKeyRef) -> Option<&MetadataValue> {
         self.values.get(key)
+    }
+}
+
+impl StrongHash for MetadataMap {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        let Self { values } = self;
+        (values.len() as u64).strong_hash(state);
+        values.iter().for_each(|(key, value)| {
+            key.as_str().strong_hash(state);
+            value.strong_hash(state);
+        });
     }
 }
 

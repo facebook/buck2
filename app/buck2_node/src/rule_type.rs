@@ -45,6 +45,7 @@ pub struct StarlarkRuleType {
     Eq,
     PartialEq,
     Hash,
+    StrongHash,
     Pagable,
     Allocative
 )]

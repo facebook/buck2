@@ -23,6 +23,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use regex::Regex;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
@@ -237,7 +238,7 @@ impl TargetLabelWithExtra<ProvidersPatternExtra> {
 }
 
 /// A parsed target pattern.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
+#[derive(Clone, Debug, Hash, StrongHash, Eq, PartialEq, Allocative, Pagable)]
 pub enum ParsedPattern<T: PatternType> {
     /// A target pattern that matches a explicit target pattern type T. See
     /// `PatternType` for pattern

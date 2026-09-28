@@ -9,6 +9,7 @@
  */
 
 use std::fmt::Display;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::plugins::PluginKindSet;
@@ -24,6 +25,7 @@ use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
@@ -85,6 +87,14 @@ impl DepAttr<ConfiguredProvidersLabel> {
             DepAttrTransition::Exec => traversal.exec_dep(&self.label),
             DepAttrTransition::Toolchain => traversal.toolchain_dep(&self.label),
         }
+    }
+}
+
+impl StrongHashWithoutConfig for DepAttr<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self { attr_type, label } = self;
+        attr_type.strong_hash(state);
+        label.strong_hash_without_config(state);
     }
 }
 

@@ -30,6 +30,7 @@ pub mod inspect_options;
 pub mod json;
 pub mod serialize;
 pub mod spec;
+pub(crate) mod strong_hash_without_config;
 pub mod testing;
 pub mod traversal;
 pub mod values;

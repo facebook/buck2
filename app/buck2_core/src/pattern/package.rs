@@ -10,6 +10,7 @@
 
 use allocative::Allocative;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::cells::cell_path::CellPath;
 use crate::package::PackageLabel;
@@ -19,6 +20,7 @@ use crate::package::PackageLabel;
     Debug,
     Eq,
     Hash,
+    StrongHash,
     PartialEq,
     Allocative,
     Pagable,

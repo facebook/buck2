@@ -9,6 +9,7 @@
  */
 
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -16,10 +17,12 @@ use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::vec2;
 use starlark_map::vec2::Vec2;
+use strong_hash::StrongHash;
 
 use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::spec::AttributeId;
+use crate::metadata::value::hash_json_value;
 use crate::modifiers::PackageCfgModifiersValue;
 
 /// Attribute values sorted by [`AttributeId`].
@@ -156,6 +159,13 @@ impl TargetModifiersValue {
             serde_json::Value::Array(vec) => vec.is_empty(),
             serde_json::Value::Object(map) => map.is_empty(),
         }
+    }
+}
+
+impl StrongHash for TargetModifiersValue {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        let Self(value) = self;
+        hash_json_value(value.as_ref(), state);
     }
 }
 

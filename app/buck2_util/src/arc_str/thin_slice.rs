@@ -9,6 +9,7 @@
  */
 
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::mem;
 use std::ops::Deref;
 use std::slice;
@@ -19,6 +20,7 @@ use gazebo::prelude::IterExactSize;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 use triomphe::ThinArc;
 
 #[derive(Allocative, Debug, Pagable)]
@@ -67,6 +69,12 @@ impl<T: Eq> Eq for ThinArcSlice<T> {}
 impl<T: Hash> Hash for ThinArcSlice<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_slice().hash(state)
+    }
+}
+
+impl<T: StrongHash> StrongHash for ThinArcSlice<T> {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.as_slice().strong_hash(state);
     }
 }
 

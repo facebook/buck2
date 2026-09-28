@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -19,9 +20,11 @@ use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_map::sorted_map::SortedMap;
+use strong_hash::StrongHash;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::provider_id_set::ProviderIdSet;
 
 #[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative)]
@@ -57,6 +60,21 @@ impl SplitTransitionDepAttrType {
 pub struct ConfiguredSplitTransitionDep {
     pub deps: SortedMap<String, ConfiguredProvidersLabel>,
     pub required_providers: ProviderIdSet,
+}
+
+impl StrongHashWithoutConfig for ConfiguredSplitTransitionDep {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self {
+            deps,
+            required_providers,
+        } = self;
+        (deps.len() as u64).strong_hash(state);
+        deps.iter().for_each(|(key, label)| {
+            key.strong_hash(state);
+            label.strong_hash_without_config(state);
+        });
+        required_providers.strong_hash(state);
+    }
 }
 
 impl Display for ConfiguredSplitTransitionDep {

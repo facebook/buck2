@@ -37,6 +37,7 @@ pub(crate) const TARGET_NAME_VALID_CHARS_SET: AsciiCharSet =
     Dupe,
     derive_more::Display,
     Hash,
+    StrongHash,
     Eq,
     PartialEq,
     Ord,

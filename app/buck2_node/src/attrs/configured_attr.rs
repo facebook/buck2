@@ -10,6 +10,7 @@
 
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
@@ -27,6 +28,7 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
+use strong_hash::StrongHash;
 
 use super::attr_type::arg::ConfiguredStringWithMacros;
 use crate::attrs::attr_type::AttrType;
@@ -50,6 +52,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
@@ -100,6 +103,118 @@ pub enum ConfiguredAttr {
     SourceFile(CoercedPath),
     Metadata(MetadataMap),
     TargetModifiers(TargetModifiersValue),
+}
+
+impl StrongHashWithoutConfig for ConfiguredAttr {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Bool(value) => {
+                "Bool".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::Int(value) => {
+                "Int".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::String(value) => {
+                "String".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::EnumVariant(value) => {
+                "EnumVariant".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::List(values) => {
+                "List".strong_hash(state);
+                (values.len() as u64).strong_hash(state);
+                values
+                    .iter()
+                    .for_each(|value| value.strong_hash_without_config(state));
+            }
+            Self::Tuple(values) => {
+                "Tuple".strong_hash(state);
+                (values.len() as u64).strong_hash(state);
+                values
+                    .iter()
+                    .for_each(|value| value.strong_hash_without_config(state));
+            }
+            Self::Dict(values) => {
+                "Dict".strong_hash(state);
+                (values.len() as u64).strong_hash(state);
+                values.iter().for_each(|(key, value)| {
+                    key.strong_hash_without_config(state);
+                    value.strong_hash_without_config(state);
+                });
+            }
+            Self::None => "None".strong_hash(state),
+            Self::OneOf(value, index) => {
+                "OneOf".strong_hash(state);
+                value.strong_hash_without_config(state);
+                index.strong_hash(state);
+            }
+            Self::Visibility(value) => {
+                "Visibility".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::WithinView(value) => {
+                "WithinView".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::ExplicitConfiguredDep(dep) => {
+                "ExplicitConfiguredDep".strong_hash(state);
+                dep.strong_hash_without_config(state);
+            }
+            Self::SplitTransitionDep(dep) => {
+                "SplitTransitionDep".strong_hash(state);
+                dep.strong_hash_without_config(state);
+            }
+            Self::TransitionDep(dep) => {
+                "TransitionDep".strong_hash(state);
+                dep.strong_hash_without_config(state);
+            }
+            Self::ConfigurationDep(dep) => {
+                "ConfigurationDep".strong_hash(state);
+                dep.strong_hash(state);
+            }
+            Self::PluginDep(dep, kind) => {
+                "PluginDep".strong_hash(state);
+                dep.strong_hash(state);
+                kind.strong_hash(state);
+            }
+            Self::Dep(dep) => {
+                "Dep".strong_hash(state);
+                dep.strong_hash_without_config(state);
+            }
+            Self::SourceLabel(label) => {
+                "SourceLabel".strong_hash(state);
+                label.strong_hash_without_config(state);
+            }
+            Self::Label(label) => {
+                "Label".strong_hash(state);
+                label.strong_hash_without_config(state);
+            }
+            Self::Arg(arg) => {
+                "Arg".strong_hash(state);
+                arg.strong_hash_without_config(state);
+            }
+            Self::Query(query) => {
+                "Query".strong_hash(state);
+                query.strong_hash_without_config(state);
+            }
+            Self::SourceFile(source) => {
+                "SourceFile".strong_hash(state);
+                source.strong_hash(state);
+            }
+            Self::Metadata(metadata) => {
+                "Metadata".strong_hash(state);
+                metadata.strong_hash(state);
+            }
+            Self::TargetModifiers(modifiers) => {
+                "TargetModifiers".strong_hash(state);
+                modifiers.strong_hash(state);
+            }
+        }
+    }
 }
 
 // For `ConfiguredAttr` size is not as important as for `CoercedAttr`,

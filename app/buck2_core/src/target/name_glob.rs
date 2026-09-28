@@ -13,6 +13,7 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::target::name::EQ_SIGN_SUBST;
 use crate::target::name::TARGET_NAME_VALID_CHARS_SET;
@@ -29,6 +30,7 @@ use crate::target::name::TargetNameRef;
     Eq,
     PartialEq,
     Hash,
+    StrongHash,
     Allocative,
     Pagable,
     derive_more::Display

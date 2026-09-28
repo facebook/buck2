@@ -8,22 +8,28 @@
  * above-listed licenses.
  */
 
+use std::hash::Hasher;
+
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
 /// Represents attrs.configured_dep()
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
+)]
 pub struct ExplicitConfiguredDepAttrType {
     pub required_providers: ProviderIdSet,
 }
@@ -90,6 +96,14 @@ pub struct ConfiguredExplicitConfiguredDep {
 impl ConfiguredExplicitConfiguredDep {
     pub fn new(attr_type: ExplicitConfiguredDepAttrType, label: ConfiguredProvidersLabel) -> Self {
         Self { attr_type, label }
+    }
+}
+
+impl StrongHashWithoutConfig for ConfiguredExplicitConfiguredDep {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self { attr_type, label } = self;
+        attr_type.strong_hash(state);
+        label.strong_hash_without_config(state);
     }
 }
 

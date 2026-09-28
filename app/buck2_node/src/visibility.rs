@@ -32,6 +32,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
 use starlark::values::string::StarlarkStr;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 
@@ -80,6 +81,7 @@ enum StarlarkTargetNameGlobError {
     Clone,
     Allocative,
     Pagable,
+    StrongHash,
     derive_more::Display
 )]
 pub enum VisibilityPattern {
@@ -101,7 +103,9 @@ fn within_scope_from_parsed(
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
+)]
 pub struct TargetNameGlobRecord {
     pub within: ThinArcSlice<PackagePattern>,
     pub name_globs: ThinArcSlice<TargetNameGlob>,
@@ -315,7 +319,9 @@ impl Display for VisibilityPatternQuoted<'_> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
+)]
 pub enum VisibilityPatternList {
     Public,
     List(ThinArcSlice<VisibilityPattern>),
@@ -497,7 +503,9 @@ impl AnyMatches for VisibilityPatternList {
 
 /// Represents the visibility spec of a target. Note that targets in the same package will ignore the
 /// visibility spec of each other.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
+)]
 pub struct VisibilitySpecification(pub VisibilityPatternList);
 
 impl Default for VisibilitySpecification {
@@ -506,7 +514,9 @@ impl Default for VisibilitySpecification {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable, StrongHash
+)]
 pub struct WithinViewSpecification(pub VisibilityPatternList);
 
 impl Default for WithinViewSpecification {

@@ -17,6 +17,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 #[derive(
     Debug,
@@ -48,6 +49,12 @@ impl MetadataValue {
 
 impl Hash for MetadataValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        hash_json_value(&self.0, state);
+    }
+}
+
+impl StrongHash for MetadataValue {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
         hash_json_value(&self.0, state);
     }
 }

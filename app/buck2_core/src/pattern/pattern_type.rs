@@ -17,6 +17,7 @@ use allocative::Allocative;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
@@ -88,6 +89,7 @@ pub trait PatternType:
     Eq,
     PartialEq,
     Hash,
+    StrongHash,
     Ord,
     PartialOrd,
     Allocative,

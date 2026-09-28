@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Display;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -23,6 +24,7 @@ use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::dep::DepAttrType;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
@@ -51,6 +53,14 @@ impl QueryAttr<ConfiguredProvidersLabel> {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
+    }
+}
+
+impl StrongHashWithoutConfig for QueryAttr<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self { providers, query } = self;
+        providers.strong_hash(state);
+        query.strong_hash_without_config(state);
     }
 }
 
@@ -93,6 +103,17 @@ impl QueryMacroBase<ConfiguredProvidersLabel> {
         traversal: &mut dyn ConfiguredAttrTraversal,
     ) -> buck2_error::Result<()> {
         self.query.traverse(traversal)
+    }
+}
+
+impl StrongHashWithoutConfig for QueryMacroBase<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self {
+            expansion_type,
+            query,
+        } = self;
+        expansion_type.strong_hash(state);
+        query.strong_hash_without_config(state);
     }
 }
 
@@ -141,6 +162,31 @@ type OffsetAndLength = (usize, usize);
 pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(
     pub BTreeMap<OffsetAndLength, P>,
 );
+
+impl StrongHashWithoutConfig for ResolvedQueryLiterals<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self(resolved_literals) = self;
+        (resolved_literals.len() as u64).strong_hash(state);
+        resolved_literals
+            .iter()
+            .for_each(|(&(offset, length), label)| {
+                (offset as u64).strong_hash(state);
+                (length as u64).strong_hash(state);
+                label.strong_hash_without_config(state);
+            });
+    }
+}
+
+impl StrongHashWithoutConfig for QueryAttrBase<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self {
+            query,
+            resolved_literals,
+        } = self;
+        query.strong_hash(state);
+        resolved_literals.strong_hash_without_config(state);
+    }
+}
 
 impl QueryAttrBase<ConfiguredProvidersLabel> {
     pub(crate) fn traverse(

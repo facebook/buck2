@@ -11,6 +11,7 @@
 pub mod parser;
 
 use std::fmt::Display;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
@@ -30,6 +31,7 @@ use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
+use crate::attrs::strong_hash_without_config::StrongHashWithoutConfig;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
 #[derive(Debug, buck2_error::Error)]
@@ -94,6 +96,24 @@ impl StringWithMacros<ConfiguredProvidersLabel> {
             }
         }
         Ok(Self::ManyParts(parts.into_boxed_slice()))
+    }
+}
+
+impl StrongHashWithoutConfig for StringWithMacros<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::StringPart(part) => {
+                "StringPart".strong_hash(state);
+                part.strong_hash(state);
+            }
+            Self::ManyParts(parts) => {
+                "ManyParts".strong_hash(state);
+                (parts.len() as u64).strong_hash(state);
+                parts
+                    .iter()
+                    .for_each(|part| part.strong_hash_without_config(state));
+            }
+        }
     }
 }
 
@@ -169,6 +189,22 @@ pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
     Macro(/* write_to_file */ bool, MacroBase<P>),
 }
 
+impl StrongHashWithoutConfig for StringWithMacrosPart<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::String(value) => {
+                "String".strong_hash(state);
+                value.strong_hash(state);
+            }
+            Self::Macro(write_to_file, macro_) => {
+                "Macro".strong_hash(state);
+                write_to_file.strong_hash(state);
+                macro_.strong_hash_without_config(state);
+            }
+        }
+    }
+}
+
 size_assert::words_of_type!(MacroBase<ProvidersLabel>, 3);
 size_assert::words_of_type!(StringWithMacrosPart<ProvidersLabel>, 4);
 
@@ -202,6 +238,46 @@ pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
     /// us to progress further into a build and detect more issues. Once we have all (or most) of the buckv1 macros
     /// recognized we'll remove this and make it an early error.
     UnrecognizedMacro(Box<UnrecognizedMacro>),
+}
+
+impl StrongHashWithoutConfig for MacroBase<ConfiguredProvidersLabel> {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Location { label, dep_kind } => {
+                "Location".strong_hash(state);
+                label.strong_hash_without_config(state);
+                dep_kind.strong_hash(state);
+            }
+            Self::Exe { label, exec_dep } => {
+                "Exe".strong_hash(state);
+                label.strong_hash_without_config(state);
+                exec_dep.strong_hash(state);
+            }
+            Self::UserUnkeyedPlaceholder(name) => {
+                "UserUnkeyedPlaceholder".strong_hash(state);
+                name.strong_hash(state);
+            }
+            Self::UserKeyedPlaceholder(value) => {
+                "UserKeyedPlaceholder".strong_hash(state);
+                let (name, label, arg) = value.as_ref();
+                name.strong_hash(state);
+                label.strong_hash_without_config(state);
+                arg.strong_hash(state);
+            }
+            Self::Query(query) => {
+                "Query".strong_hash(state);
+                query.strong_hash_without_config(state);
+            }
+            Self::Source(path) => {
+                "Source".strong_hash(state);
+                path.strong_hash(state);
+            }
+            Self::UnrecognizedMacro(macro_) => {
+                "UnrecognizedMacro".strong_hash(state);
+                macro_.strong_hash(state);
+            }
+        }
+    }
 }
 
 impl MacroBase<ConfiguredProvidersLabel> {
@@ -346,6 +422,17 @@ pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
     pub anon_target_compatible: bool,
+}
+
+impl StrongHashWithoutConfig for ConfiguredStringWithMacros {
+    fn strong_hash_without_config<H: Hasher>(&self, state: &mut H) {
+        let Self {
+            string_with_macros,
+            anon_target_compatible,
+        } = self;
+        string_with_macros.strong_hash_without_config(state);
+        anon_target_compatible.strong_hash(state);
+    }
 }
 
 /// Display attempts to approximately reproduce the string that created a macro.
