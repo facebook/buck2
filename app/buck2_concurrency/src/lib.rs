@@ -107,6 +107,17 @@ pub enum BypassSemaphore {
     Error,
 }
 
+#[derive(Debug)]
+enum AdmissionDecision {
+    RejectDifferentState { preempt_active: bool },
+    RetryAfterCleanup,
+    InstallFresh,
+    BeginCleanup,
+    RejectNestedDifferentState,
+    RunConcurrent { state: RunState },
+    Block,
+}
+
 /// Manages concurrent commands, blocking when appropriate.
 ///
 /// Currently, we allow concurrency if two `DiceTransactions` are deemed equivalent, such that
@@ -251,6 +262,48 @@ impl ConcurrencyHandlerData {
         }
 
         self.dice_status = DiceStatus::idle();
+    }
+
+    fn decide_after_update(
+        &self,
+        request: &AdmissionRequest,
+        transaction_version: DiceEquality,
+        conflict_on_arrival: Option<DiceEquality>,
+    ) -> AdmissionDecision {
+        if matches!(request.exit_when, ExitWhen::ExitDifferentState)
+            && !request.is_nested
+            && conflict_on_arrival.is_some_and(|version| transaction_version != version)
+        {
+            return AdmissionDecision::RejectDifferentState {
+                preempt_active: false,
+            };
+        }
+
+        let active_version = match &self.dice_status {
+            DiceStatus::Cleanup { .. } => return AdmissionDecision::RetryAfterCleanup,
+            DiceStatus::Available {
+                active: Some(active),
+            } => active.version,
+            DiceStatus::Available { active: None } => {
+                return AdmissionDecision::InstallFresh;
+            }
+        };
+
+        let is_same_state = transaction_version == active_version;
+        if !is_same_state && self.has_no_active_commands() {
+            return AdmissionDecision::BeginCleanup;
+        }
+
+        match determine_bypass_semaphore(is_same_state, request.is_nested) {
+            BypassSemaphore::Error => AdmissionDecision::RejectNestedDifferentState,
+            BypassSemaphore::Run(state) => AdmissionDecision::RunConcurrent { state },
+            BypassSemaphore::Block if matches!(request.exit_when, ExitWhen::ExitDifferentState) => {
+                AdmissionDecision::RejectDifferentState {
+                    preempt_active: true,
+                }
+            }
+            BypassSemaphore::Block => AdmissionDecision::Block,
+        }
     }
 }
 
@@ -648,74 +701,51 @@ impl ConcurrencyHandler {
             .await?;
             data = self.data.lock().await;
 
-            // Settled against the arrival snapshot, not the fresh read, so that the answer does
-            // not depend on how long the update took. `!is_nested_invocation` because a nested
-            // invocation with a differing state is reported as
-            // `NestedInvocationWithDifferentStates` below rather than reaching the blocking path
-            // this flag short-circuits.
-            let refuse_on_different_state =
-                matches!(request.exit_when, ExitWhen::ExitDifferentState)
-                    && !request.is_nested
-                    && conflict_on_arrival.is_some_and(|version| !transaction.equivalent(&version));
+            let transaction_version = transaction.equality_token();
+            let decision =
+                data.decide_after_update(&request, transaction_version, conflict_on_arrival);
 
-            if refuse_on_different_state {
-                let running = ConcurrentTraces::running(&data.active_commands);
-                drop(data);
-                let queued = self.queued_traces(command_id);
-                return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
-                    .with_buck_error_context(|| {
-                        format!("Buck daemon is busy processing another command: {running}{queued}")
-                    });
-            }
-
-            // The status can have moved while the update ran, so the decision is taken against a
-            // fresh read rather than the one that selected this branch.
-            let is_same_state = match &data.dice_status {
-                DiceStatus::Cleanup { .. } => {
+            match decision {
+                AdmissionDecision::RejectDifferentState { preempt_active } => {
+                    if preempt_active {
+                        tracing::debug!("ActiveDice has an active_transaction");
+                        self.cancel_preemptible_commands(&mut data, false);
+                        events.instant(DiceEqualityCheck { is_equal: false }.into());
+                    }
+                    let running = ConcurrentTraces::running(&data.active_commands);
+                    drop(data);
+                    let queued = self.queued_traces(command_id);
+                    return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
+                        .with_buck_error_context(|| {
+                            format!(
+                                "Buck daemon is busy processing another command: {running}{queued}"
+                            )
+                        });
+                }
+                AdmissionDecision::RetryAfterCleanup => {
                     // Dropping the transaction releases its `ActiveTransactionGuard`. The retry
-                    // awaits the cleanup future, which cannot complete while that guard is alive,
-                    // so this drop is required for progress and not just tidiness.
+                    // awaits the cleanup future, which cannot complete while that guard is alive.
                     drop(transaction);
                     continue;
                 }
-                DiceStatus::Available {
-                    active: Some(active),
-                } => Some(transaction.equivalent(&active.version)),
-                DiceStatus::Available { active: None } => None,
-            };
-
-            let Some(is_same_state) = is_same_state else {
-                tracing::debug!("ActiveDice has no active_transaction");
-                data.dice_status = DiceStatus::active(transaction.equality_token());
-                break (transaction, !dice_was_idle, None, true);
-            };
-
-            // If we have a different state, attempt to transition to cleanup. This will
-            // succeed only if the current state is not in use.
-            if !is_same_state {
-                // If the active commands are preemptible, preempt them.
-                self.cancel_preemptible_commands(&mut data, is_same_state);
-
-                // transition to cleanup == "wait until all other blocking commands finish"
-                if data.transition_to_cleanup(&self.dice) {
+                AdmissionDecision::InstallFresh => {
+                    tracing::debug!("ActiveDice has no active_transaction");
+                    data.dice_status = DiceStatus::active(transaction_version);
+                    break (transaction, !dice_was_idle, None, true);
+                }
+                AdmissionDecision::BeginCleanup => {
+                    // No active commands remain, so this transition must succeed.
+                    let transitioned = data.transition_to_cleanup(&self.dice);
+                    assert!(
+                        transitioned,
+                        "the cleanup decision requires no active commands"
+                    );
                     continue;
                 }
-            }
-
-            tracing::debug!("ActiveDice has an active_transaction");
-
-            events.instant(
-                DiceEqualityCheck {
-                    is_equal: is_same_state,
-                }
-                .into(),
-            );
-
-            let bypass_semaphore =
-                self.determine_bypass_semaphore(is_same_state, request.is_nested);
-
-            match bypass_semaphore {
-                BypassSemaphore::Error => {
+                AdmissionDecision::RejectNestedDifferentState => {
+                    tracing::debug!("ActiveDice has an active_transaction");
+                    self.cancel_preemptible_commands(&mut data, false);
+                    events.instant(DiceEqualityCheck { is_equal: false }.into());
                     let running =
                         ConcurrentTraces::running_and(&data.active_commands, &command_data);
                     let display_command = command_data.display_command.clone();
@@ -728,32 +758,21 @@ impl ConcurrencyHandler {
                         .into(),
                     );
                 }
-                BypassSemaphore::Run(state) => {
+                AdmissionDecision::RunConcurrent { state } => {
+                    tracing::debug!("ActiveDice has an active_transaction");
+                    events.instant(DiceEqualityCheck { is_equal: true }.into());
                     let nested_warning = Self::nested_same_state_warning(
                         state,
                         &data.active_commands,
                         &command_data,
                     );
-                    self.cancel_preemptible_commands(&mut data, is_same_state);
+                    self.cancel_preemptible_commands(&mut data, true);
                     break (transaction, false, nested_warning, false);
                 }
-                BypassSemaphore::Block => {
-                    let early_exit_error: Option<ConcurrencyHandlerError> =
-                        if matches!(request.exit_when, ExitWhen::ExitDifferentState) {
-                            Some(ConcurrencyHandlerError::ExitWhenDifferentState)
-                        } else {
-                            None
-                        };
-                    if let Some(early_exit_error) = early_exit_error {
-                        let running = ConcurrentTraces::running(&data.active_commands);
-                        drop(data);
-                        let queued = self.queued_traces(command_id);
-                        return Err(early_exit_error).with_buck_error_context(|| {
-                            format!(
-                                "Buck daemon is busy processing another command: {running}{queued}"
-                            )
-                        });
-                    }
+                AdmissionDecision::Block => {
+                    tracing::debug!("ActiveDice has an active_transaction");
+                    self.cancel_preemptible_commands(&mut data, false);
+                    events.instant(DiceEqualityCheck { is_equal: false }.into());
                     // We should probably show more than the first here, but for now
                     // this is what we have.
                     //
@@ -894,24 +913,6 @@ impl ConcurrencyHandler {
         }
     }
 
-    fn determine_bypass_semaphore(
-        &self,
-        is_same_state: bool,
-        is_nested_invocation: bool,
-    ) -> BypassSemaphore {
-        if is_same_state {
-            if is_nested_invocation {
-                BypassSemaphore::Run(RunState::NestedSameState)
-            } else {
-                BypassSemaphore::Run(RunState::ParallelSameState)
-            }
-        } else if is_nested_invocation {
-            BypassSemaphore::Error
-        } else {
-            BypassSemaphore::Block
-        }
-    }
-
     /// Captures a recursive same-state warning for reporting after the lock is released.
     fn nested_same_state_warning(
         state: RunState,
@@ -925,6 +926,20 @@ impl ConcurrencyHandler {
             )),
             RunState::ParallelSameState => None,
         }
+    }
+}
+
+fn determine_bypass_semaphore(is_same_state: bool, is_nested_invocation: bool) -> BypassSemaphore {
+    if is_same_state {
+        if is_nested_invocation {
+            BypassSemaphore::Run(RunState::NestedSameState)
+        } else {
+            BypassSemaphore::Run(RunState::ParallelSameState)
+        }
+    } else if is_nested_invocation {
+        BypassSemaphore::Error
+    } else {
+        BypassSemaphore::Block
     }
 }
 
@@ -1773,6 +1788,26 @@ mod tests {
             }
         }
 
+        fn request(is_nested: bool, exit_when: ExitWhen) -> AdmissionRequest {
+            AdmissionRequest {
+                is_nested,
+                sanitized_argv: Vec::new(),
+                preemptible: PreemptibleWhen::Never,
+                exit_when,
+            }
+        }
+
+        async fn distinct_versions(dice: &Arc<Dice>) -> (DiceEquality, DiceEquality) {
+            let first = dice.updater().commit().await.equality_token();
+            let mut updater = dice.updater();
+            updater
+                .changed_to(vec![(K, ())])
+                .expect("test update should be valid");
+            let second = updater.commit().await.equality_token();
+            assert_ne!(first, second, "test requires distinct DICE states");
+            (first, second)
+        }
+
         #[tokio::test]
         async fn transition_to_idle_completes_the_matching_cleanup() {
             let mut data = data_with(cleanup_at(3), 3);
@@ -1843,23 +1878,117 @@ mod tests {
         /// table.
         #[tokio::test]
         async fn bypass_semaphore_mapping() {
-            let c = ConcurrencyHandler::new(make_default_dice());
-
             assert_matches!(
-                c.determine_bypass_semaphore(true, true),
+                determine_bypass_semaphore(true, true),
                 BypassSemaphore::Run(RunState::NestedSameState)
             );
             assert_matches!(
-                c.determine_bypass_semaphore(true, false),
+                determine_bypass_semaphore(true, false),
                 BypassSemaphore::Run(RunState::ParallelSameState)
             );
             assert_matches!(
-                c.determine_bypass_semaphore(false, true),
+                determine_bypass_semaphore(false, true),
                 BypassSemaphore::Error
             );
             assert_matches!(
-                c.determine_bypass_semaphore(false, false),
+                determine_bypass_semaphore(false, false),
                 BypassSemaphore::Block
+            );
+        }
+
+        #[tokio::test]
+        async fn post_update_decision_mapping() {
+            let dice = make_default_dice();
+            let (active_version, different_version) = distinct_versions(&dice).await;
+
+            let cleanup = data_with(cleanup_at(1), 1);
+            assert_matches!(
+                cleanup.decide_after_update(
+                    &request(false, ExitWhen::ExitNever),
+                    active_version,
+                    None,
+                ),
+                AdmissionDecision::RetryAfterCleanup
+            );
+
+            let idle = data_with(DiceStatus::idle(), 0);
+            assert_matches!(
+                idle.decide_after_update(
+                    &request(false, ExitWhen::ExitNever),
+                    active_version,
+                    None,
+                ),
+                AdmissionDecision::InstallFresh
+            );
+
+            let active_without_commands = data_with(DiceStatus::active(active_version), 0);
+            assert_matches!(
+                active_without_commands.decide_after_update(
+                    &request(false, ExitWhen::ExitNever),
+                    different_version,
+                    None,
+                ),
+                AdmissionDecision::BeginCleanup
+            );
+
+            let mut active = data_with(DiceStatus::active(active_version), 0);
+            active.active_commands.insert(CommandId(0), a_command());
+
+            assert_matches!(
+                active.decide_after_update(
+                    &request(false, ExitWhen::ExitNever),
+                    active_version,
+                    None,
+                ),
+                AdmissionDecision::RunConcurrent {
+                    state: RunState::ParallelSameState
+                }
+            );
+            assert_matches!(
+                active.decide_after_update(
+                    &request(true, ExitWhen::ExitNever),
+                    active_version,
+                    None,
+                ),
+                AdmissionDecision::RunConcurrent {
+                    state: RunState::NestedSameState
+                }
+            );
+            assert_matches!(
+                active.decide_after_update(
+                    &request(true, ExitWhen::ExitNever),
+                    different_version,
+                    None,
+                ),
+                AdmissionDecision::RejectNestedDifferentState
+            );
+            assert_matches!(
+                active.decide_after_update(
+                    &request(false, ExitWhen::ExitNever),
+                    different_version,
+                    None,
+                ),
+                AdmissionDecision::Block
+            );
+            assert_matches!(
+                active.decide_after_update(
+                    &request(false, ExitWhen::ExitDifferentState),
+                    different_version,
+                    None,
+                ),
+                AdmissionDecision::RejectDifferentState {
+                    preempt_active: true
+                }
+            );
+            assert_matches!(
+                active.decide_after_update(
+                    &request(false, ExitWhen::ExitDifferentState),
+                    different_version,
+                    Some(active_version),
+                ),
+                AdmissionDecision::RejectDifferentState {
+                    preempt_active: false
+                }
             );
         }
 
