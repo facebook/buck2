@@ -121,6 +121,13 @@ def _codesigned_on_copy_paths_from_previous_build_which_are_present_in_current_b
 
 
 def _get_new_digest(action_metadata: Dict[Path, str], path: Path) -> str:
+    # A spec source is normally an action input recorded under exactly this
+    # path, and this runs once per file in the bundle, so try the lookup before
+    # resolving: `Path.resolve()` walks and stats every component of the path.
+    digest = action_metadata.get(path)
+    if digest is not None:
+        return digest
+
     # While a resource file can be in a symlinked folder, like the `ghi/def` example below,
     # ```
     # project_root

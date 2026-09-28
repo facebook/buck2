@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Generator
+from unittest.mock import patch
 
 from apple.tools.code_signing.codesign_bundle import CodesignConfiguration
 
@@ -594,6 +595,29 @@ class TestIncrementalUtils(unittest.TestCase):
                         source=Path("ghi/def"),
                         destination_relative_to_bundle=Path("ghi/def"),
                         digest="hash(def)",
+                        resolved_symlink=None,
+                    ),
+                ],
+            )
+
+    def test_calculate_incremental_state_prefers_action_metadata_to_resolving(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as project_root, chdir(project_root):
+            Path("foo").write_text("hello")
+            action_metadata = {Path("foo"): "hash(foo)"}
+            spec = [BundleSpecItem(src="foo", dst="foo")]
+            with patch.object(
+                Path, "resolve", side_effect=AssertionError("path was resolved")
+            ):
+                state = calculate_incremental_state(spec, action_metadata)
+            self.assertEqual(
+                state,
+                [
+                    IncrementalStateItem(
+                        source=Path("foo"),
+                        destination_relative_to_bundle=Path("foo"),
+                        digest="hash(foo)",
                         resolved_symlink=None,
                     ),
                 ],
