@@ -21,6 +21,7 @@ use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_hash::BuckDashMap;
 use dupe::Dupe;
+use futures::FutureExt;
 use remote_execution::TCode;
 
 use crate::executors::empty_action_result::empty_action_result;
@@ -108,11 +109,12 @@ impl ActionCacheUploadPermissionChecker {
         let cache_value = self.cache_value(re_client.use_case, platform);
         cache_value
             .has_permission_to_upload_to_cache
-            .get_or_try_init(self.do_has_permission_to_upload_to_cache(
-                re_client,
-                platform,
-                digest_config,
-            ))
+            .get_or_try_init(async move {
+                // Boxed so that the calling/containing future only needs room for the Box pointer, not the entire future.
+                self.do_has_permission_to_upload_to_cache(re_client, platform, digest_config)
+                    .boxed()
+                    .await
+            })
             .await
             .cloned()
             .buck_error_context("Upload for permission check")
