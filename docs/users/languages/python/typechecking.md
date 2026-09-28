@@ -101,3 +101,197 @@ or with a severity of `info`, `ignore` or `warn` do not fail validation.
 The checker must exit successfully whenever it writes a valid result, **even if
 that result contains type errors**. A nonzero exit code fails the type-checking
 action itself, before Buck2 can turn the result into validation output.
+
+### What is a type checker, and where do typeshed stubs come from?
+
+The `type_checker` is any executable that follows the input/output contract
+below; Buck2 does not ship one. Popular choices include
+[Pyre](https://pyre-check.org/), [mypy](https://mypy-lang.org/),
+[Pyright](https://microsoft.github.io/pyright/) and
+[ty](https://docs.astral.sh/ty/), Astral's type checker.
+
+Typeshed stubs are `.pyi` files that describe the types of the standard
+library and popular third-party packages, separately from their
+implementation. A type checker needs them to check code that uses, for
+example, `os` or `json`. Most checkers (including `ty`) bundle a copy of
+[typeshed](https://github.com/python/typeshed) for the standard library, so
+`typeshed_stubs` on the toolchain is only needed if you want to supply your
+own (for example, pinned stubs for third-party packages, or a hermetic build
+that must not rely on whatever the checker happened to bundle).
+
+### Worked example: wiring up `ty`
+
+No popular type checker speaks Buck2's exact contract out of the box: none of
+them take a `config.json` in this shape, and most exit with a nonzero code
+when they find type errors, which Buck2's contract forbids for a well-formed
+result. In practice, `type_checker` points at a small adapter that translates
+between the two. The following adapter has been tested against
+[`ty`](https://docs.astral.sh/ty/) 0.0.84:
+
+```python
+#!/usr/bin/env python3
+"""Adapter that lets Buck2's Python type checking use Astral's `ty`.
+
+Invoked by Buck2 as: ty_adapter.py <config.json> --output <result.json>
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+
+def read_manifest_paths(manifest_file: str) -> list[str]:
+    """Return the real on-disk artifact paths listed in a manifest file."""
+    with open(manifest_file, encoding="utf-8") as f:
+        entries = json.load(f)
+    # Each entry is [dest_path, artifact_path, origin].
+    return [entry[1] for entry in entries]
+
+
+def typeshed_root(manifest_file: str | None) -> str | None:
+    """`ty` wants a single --typeshed directory, not a file list, so use the
+    common parent of the typeshed manifest's stub files, if one was given.
+    Falls back to ty's own vendored typeshed when no manifest is supplied.
+    """
+    if not manifest_file:
+        return None
+    paths = read_manifest_paths(manifest_file)
+    if not paths:
+        return None
+    return os.path.commonpath([os.path.dirname(p) for p in paths])
+
+
+SEVERITY_MAP = {
+    "blocker": "error",
+    "critical": "error",
+    "major": "error",
+    "minor": "warning",
+    "info": "info",
+}
+
+
+def run_ty(source_files: list[str], py_version: str, typeshed: str | None) -> list[dict]:
+    if not source_files:
+        return []
+
+    ty_bin = shutil.which("ty")
+    if ty_bin is None:
+        raise RuntimeError("`ty` was not found on PATH")
+
+    # Buck2 actions don't necessarily run from a directory `ty` can walk up
+    # from to find a project root (e.g. a sandboxed execution dir), so give
+    # it one explicitly: the common parent of the files being checked.
+    project = os.path.commonpath([os.path.dirname(p) for p in source_files])
+
+    cmd = [
+        ty_bin,
+        "check",
+        "--project",
+        project,
+        "--output-format",
+        "gitlab",
+        "--exit-zero",
+        "--python-version",
+        py_version,
+    ]
+    if typeshed:
+        cmd += ["--typeshed", typeshed]
+    cmd += source_files
+
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        # --exit-zero should make this unreachable for ordinary type errors;
+        # a nonzero code here means ty itself failed (bad args, crash, etc).
+        raise RuntimeError(f"ty exited {proc.returncode} unexpectedly.\nstderr:\n{proc.stderr}")
+
+    stdout = proc.stdout.strip()
+    return json.loads(stdout) if stdout else []
+
+
+def to_buck2_errors(gitlab_diagnostics: list[dict]) -> list[dict]:
+    errors = []
+    for diag in gitlab_diagnostics:
+        location = diag.get("location", {})
+        begin = location.get("positions", {}).get("begin", {})
+        errors.append({
+            "code": diag.get("check_name", "unknown"),
+            "name": diag.get("check_name", "unknown"),
+            "severity": SEVERITY_MAP.get(diag.get("severity"), "error"),
+            "path": location.get("path", ""),
+            "line": begin.get("line", 1),
+            "column": begin.get("column", 1),
+            "description": diag.get("description", ""),
+        })
+    return errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config")
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+
+    result = {"errors": []}
+    try:
+        with open(args.config, encoding="utf-8") as f:
+            config = json.load(f)
+
+        source_files = []
+        for manifest in config.get("sources") or []:
+            source_files.extend(read_manifest_paths(manifest))
+
+        py_version = config.get("py_version") or "3.12"
+        typeshed = typeshed_root(config.get("typeshed"))
+
+        diagnostics = run_ty(source_files, py_version, typeshed)
+        result["errors"] = to_buck2_errors(diagnostics)
+    except Exception as exc:
+        # Surface adapter failures as a single type-checking error rather
+        # than crashing: a nonzero exit here would fail the action before
+        # Buck2 can even look at the JSON (per the contract above).
+        result["errors"] = [{
+            "code": "ty-adapter-error",
+            "name": "ty-adapter-error",
+            "severity": "error",
+            "path": "",
+            "line": 1,
+            "column": 1,
+            "description": f"{type(exc).__name__}: {exc}",
+        }]
+
+    with open(args.output, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+
+    return 0  # Always succeed once result JSON has been written.
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+Wire it up as a `python_bootstrap_binary` (or any `RunInfo`-producing rule
+that bundles `ty` or depends on it being on `PATH`) and point
+`type_checker` at it:
+
+```python
+PythonToolchainInfo(
+    # ...
+    type_checker = ctx.attrs.ty_adapter[RunInfo],
+    # `typeshed_stubs` left unset: `ty` falls back to its own vendored
+    # typeshed for the standard library.
+)
+```
+
+With this in place, `buck2 build //path/to:lib[typecheck]` runs `ty` under
+the hood and reports its diagnostics through Buck2's normal validation
+output.
+
+This adapter is illustrative, not a maintained integration: it was tested
+against a single-file target with `ty` 0.0.84, and the treatment of a custom
+`typeshed_stubs` manifest (as opposed to `ty`'s bundled typeshed) is a
+simplification that assumes the stub files share a common parent directory.
