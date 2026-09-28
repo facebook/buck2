@@ -63,7 +63,6 @@ use itertools::Itertools;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use tokio::sync::Mutex;
-use tokio::sync::MutexGuard;
 use tokio::sync::Semaphore;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::RecvError;
@@ -186,6 +185,8 @@ struct ConcurrencyHandlerData {
 /// registration burns one.
 #[derive(Allocative, Display, Copy, Clone, Dupe, PartialEq, Eq, Hash)]
 struct CommandId(usize);
+
+struct RegisteredCommand(CommandId);
 
 #[derive(Allocative)]
 struct CommandData {
@@ -331,6 +332,22 @@ impl DiceStatus {
 impl ConcurrencyHandlerData {
     fn has_no_active_commands(&self) -> bool {
         self.active_commands.is_empty()
+    }
+
+    fn register_command(
+        &mut self,
+        command: CommandId,
+        data: CommandData,
+    ) -> buck2_error::Result<RegisteredCommand> {
+        // Check before inserting: overwriting an existing entry would discard its preemption
+        // sender, the coordinator's only way to interrupt that command.
+        if self.active_commands.contains_key(&command) {
+            return Err(internal_error!(
+                "command id `{command}` is already registered"
+            ));
+        }
+        self.active_commands.insert(command, data);
+        Ok(RegisteredCommand(command))
     }
 
     /// Attempt a transition to cleanup, or straight to idle if cleanup can be skipped. Returns
@@ -1006,10 +1023,10 @@ impl ConcurrencyHandler {
             ),
         };
 
+        let registered = data.register_command(command_id, command_data)?;
         drop(queued);
-        // Registration consumes the guard and releases the state lock. Its drop path also handles
-        // observer failures.
-        let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
+        drop(data);
+        let drop_guard = OnExecExit::new(self.dupe(), registered);
 
         if no_active_dice_state {
             events.instant(NoActiveDiceState {}.into());
@@ -1170,39 +1187,25 @@ impl fmt::Display for ConcurrentTraces {
 
 /// Held to execute a command so that when the command is canceled, we properly remove its state
 /// from the handler so that it's no longer registered as a ongoing command.
-struct OnExecExit(Option<(Arc<ConcurrencyHandler>, CommandId)>);
+struct OnExecExit(Option<(Arc<ConcurrencyHandler>, RegisteredCommand)>);
 
 impl OnExecExit {
-    pub fn new(
-        handler: Arc<ConcurrencyHandler>,
-        command: CommandId,
-        data: CommandData,
-        mut guard: MutexGuard<'_, ConcurrencyHandlerData>,
-    ) -> buck2_error::Result<Self> {
-        // Checked before inserting. Inserting first would evict the command already registered
-        // under this id — including its preempt channel, the daemon's only way to interrupt it —
-        // and the error would then be reported against state that had already been destroyed.
-        if guard.active_commands.contains_key(&command) {
-            return Err(internal_error!(
-                "command id `{command}` is already registered"
-            ));
-        }
-        guard.active_commands.insert(command, data);
-        Ok(OnExecExit(Some((handler, command))))
+    fn new(handler: Arc<ConcurrencyHandler>, command: RegisteredCommand) -> Self {
+        Self(Some((handler, command)))
     }
 }
 
 impl Drop for OnExecExit {
     fn drop(&mut self) {
         let this = self.0.take().expect("dropped twice");
-        tracing::info!("Command has exited: {}", this.1);
+        tracing::info!("Command has exited: {}", this.1.0);
 
         tokio::task::spawn(async move {
             let mut data = this.0.data.lock().await;
             data.active_commands
-                .shift_remove(&this.1)
+                .shift_remove(&this.1.0)
                 .expect("command was active but not in active_commands");
-            tracing::info!("Active command was removed: {}", this.1);
+            tracing::info!("Active command was removed: {}", this.1.0);
 
             if data.has_no_active_commands() {
                 // we notify all commands since we don't know how many can actually wake up and run
@@ -1479,7 +1482,7 @@ mod tests {
     /// Distinctness of `CommandId` used to be a consequence of the read-modify-write happening
     /// under the state lock. It is now the atomic's job, so it is worth pinning directly: a
     /// collision otherwise surfaces far from its cause, as the duplicate-registration
-    /// `internal_error!` in `OnExecExit::new`.
+    /// `internal_error!` in `register_command`.
     ///
     /// The multi-threaded flavour is load-bearing: on the default current-thread runtime the tasks
     /// never overlap, and a non-atomic read-modify-write passes.
@@ -1704,19 +1707,18 @@ mod tests {
         let command_id = concurrency.allocate_command_id();
 
         let (preempt_sender, _preempt_receiver) = oneshot::channel::<()>();
-        let _first = OnExecExit::new(
-            concurrency.dupe(),
-            command_id,
-            command_with(Some(preempt_sender)),
-            concurrency.data.lock().await,
-        )?;
+        let first = concurrency
+            .data
+            .lock()
+            .await
+            .register_command(command_id, command_with(Some(preempt_sender)))?;
+        let _first = OnExecExit::new(concurrency.dupe(), first);
 
-        let duplicate = OnExecExit::new(
-            concurrency.dupe(),
-            command_id,
-            command_with(None),
-            concurrency.data.lock().await,
-        );
+        let duplicate = concurrency
+            .data
+            .lock()
+            .await
+            .register_command(command_id, command_with(None));
         assert!(duplicate.is_err(), "a repeated id should be refused");
 
         let data = concurrency.data.lock().await;
