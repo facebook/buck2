@@ -73,17 +73,24 @@ GeneratedBuildInfoSharedLibrary = record(
 )
 
 def compile_generated_build_info(ctx: AnalysisContext, info: GeneratedBuildInfo) -> GeneratedBuildInfoCompileOutput:
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+
+    # `-fno-whole-program-vtables` is a Clang-only flag; GCC errors out on it.
+    src_flags = ["-fno-lto"]
+    if cxx_toolchain_info.c_compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl"]:
+        src_flags = ["-fno-whole-program-vtables"] + src_flags
+
     compiled = cxx_compile_srcs(
         actions = ctx.actions,
         target_label = ctx.label,
-        cxx_toolchain_info = get_cxx_toolchain_info(ctx),
+        cxx_toolchain_info = cxx_toolchain_info,
         impl_params = CxxRuleConstructorParams(
             rule_type = "generated_build_info",
             headers_layout = CxxHeadersLayout(
                 namespace = "",
                 naming = CxxHeadersNaming("regular"),
             ),
-            srcs = [CxxSrcWithFlags(file = info.source, flags = ["-fno-whole-program-vtables", "-fno-lto"])],
+            srcs = [CxxSrcWithFlags(file = info.source, flags = src_flags)],
             _cxx_toolchain = ctx.attrs._cxx_toolchain,
         ),
         own_preprocessors = [],
