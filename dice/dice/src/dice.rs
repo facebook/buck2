@@ -228,11 +228,16 @@ impl Dice {
         }
     }
 
-    /// true when there are no tasks pending cancellation
-    pub async fn is_idle(&self) -> bool {
-        let tasks = self.state_handle.get_tasks_pending_cancellation().await;
-
-        tasks.iter().all(|task| !task.is_pending())
+    /// Returns whether there are no tasks pending cancellation.
+    ///
+    /// The state query is enqueued before this method returns, so callers may preserve its ordering
+    /// while awaiting the result later.
+    pub fn is_idle(&self) -> impl Future<Output = bool> + use<> {
+        let tasks = self.state_handle.get_tasks_pending_cancellation();
+        async move {
+            let tasks = tasks.await;
+            tasks.iter().all(|task| !task.is_pending())
+        }
     }
 
     /// Page out every resident computed value to the configured `DiceStorage`.

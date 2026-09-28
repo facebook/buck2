@@ -735,8 +735,6 @@ impl ConcurrencyHandler {
         }
     }
 
-    // The async condvar releases the state mutex while commands wait. `Dice::is_idle` below is the
-    // remaining await that holds it.
     /// How long a command may block before its user is first told what it is queued
     /// behind. Short, so that a wedged blocking command is identifiable quickly.
     const BLOCKED_COMMAND_FIRST_WARNING: Duration = Duration::from_secs(60);
@@ -757,8 +755,10 @@ impl ConcurrencyHandler {
         DiceTransaction,
         impl Future<Output = Result<(), RecvError>> + use<E>,
     )> {
-        // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
-        #![allow(clippy::await_holding_invalid_type)]
+        #![expect(
+            clippy::await_holding_invalid_type,
+            reason = "the tracing span must remain entered across this operation"
+        )]
 
         let trace = events.trace_id().dupe();
 
@@ -826,10 +826,9 @@ impl ConcurrencyHandler {
                 } => conflict_on_arrival,
             };
 
-            // Sampled before the update, and while the lock is still held, because committing a
-            // transaction makes DICE non-idle: read afterwards this would be `false` almost always,
-            // and every command would report itself as tainted.
-            let dice_was_idle = self.dice.is_idle().await;
+            // Enqueue the sample before the update because committing a transaction makes DICE
+            // non-idle. The returned future can be awaited after releasing the state lock.
+            let dice_was_idle = self.dice.is_idle();
 
             // we rerun the updates in case that files on disk have changed between commands.
             // this might cause some churn, but concurrent commands don't happen much and
@@ -838,12 +837,13 @@ impl ConcurrencyHandler {
             // This runs under `update_permit` and *not* the state lock, so other commands can
             // reach a decision while this one is talking to the file watcher.
             drop(data);
-            let transaction = async {
+            let (transaction, dice_was_idle) = async {
                 let _update_permit = self
                     .update_permit
                     .acquire()
                     .await
                     .expect("`update_permit` is never closed");
+                let dice_was_idle = dice_was_idle.await;
 
                 let updater = self.dice.updater();
 
@@ -864,7 +864,7 @@ impl ConcurrencyHandler {
                         }),
                     )
                     .await?;
-                buck2_error::Ok(transaction)
+                buck2_error::Ok((transaction, dice_was_idle))
             }
             .await?;
             data = self.data.lock().await;
