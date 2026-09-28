@@ -10,7 +10,6 @@
 
 use std::collections::BTreeSet;
 use std::fmt::Write;
-use std::iter;
 use std::sync::Arc;
 
 use buck2_build_api::configure_targets::ConfiguredTargetsWithErrors;
@@ -614,20 +613,16 @@ impl JsonReportFormat {
         // Format compatible targets
         let mut needs_separator = false;
         for node in &result.compatible_targets {
-            // TODO(nga): we should probably get rid of forward nodes.
-            let nodes = iter::once(node).chain(node.forward_target());
-            for node in nodes {
-                if needs_separator {
-                    self.json_format.writer.separator(output);
-                }
-                needs_separator = true;
-                ConfiguredTargetFormatter::target(
-                    &self.json_format,
-                    node,
-                    target_hash_lookup(node)?,
-                    output,
-                )?;
+            if needs_separator {
+                self.json_format.writer.separator(output);
             }
+            needs_separator = true;
+            ConfiguredTargetFormatter::target(
+                &self.json_format,
+                node,
+                target_hash_lookup(node)?,
+                output,
+            )?;
         }
 
         output.push_str("\n  ],\n  \"incompatible_targets\": [\n");

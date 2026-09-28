@@ -45,3 +45,18 @@ split_consumer = rule(
     },
     impl = _impl,
 )
+
+def _fixed_platform_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+    _ignore = platform  # buildifier: disable=unused-variable
+    return refs.platform[PlatformInfo]
+
+_fixed_platform = transition(
+    impl = _fixed_platform_impl,
+    refs = {"platform": "root//:platform"},
+)
+
+transitioned = rule(
+    attrs = {"value": attrs.string(default = "")},
+    impl = _impl,
+    cfg = _fixed_platform,
+)

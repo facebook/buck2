@@ -1,4 +1,4 @@
-load(":defs.bzl", "dummy", "split_consumer")
+load(":defs.bzl", "dummy", "split_consumer", "transitioned")
 
 constraint_setting(
     name = "os",
@@ -111,4 +111,16 @@ split_consumer(
     name = "split_order",
     default_target_platform = ":platform",
     dep = ":selected",
+)
+
+transitioned(
+    name = "transitioned",
+    default_target_platform = ":platform",
+    value = read_config("test", "transitioned_value", "before"),
+)
+
+dummy(
+    name = "transition_parent",
+    default_target_platform = ":platform",
+    deps = [":transitioned"],
 )

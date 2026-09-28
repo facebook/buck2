@@ -90,9 +90,8 @@ pub(crate) struct ConfiguredTargetHashOptions {
 }
 
 impl ConfiguredTargetHashes {
-    /// Hashes each reachable configured node at most once and retains the transitive memoization
-    /// map. Forward nodes are hashed independently because their synthetic `actual` attribute is part of the configured
-    /// graph exposed by `ctargets`.
+    /// Hashes each requested configured node at most once, including reachable dependencies in
+    /// recursive mode.
     pub(crate) fn compute(
         roots: &TargetSet<ConfiguredTargetNode>,
         options: &ConfiguredTargetHashOptions,
@@ -109,23 +108,23 @@ impl ConfiguredTargetHashes {
         options: &ConfiguredTargetHashOptions,
     ) -> buck2_error::Result<Self> {
         let mut hashes = ConfiguredTargetHashMap::default();
-        let output_nodes = roots
-            .iter()
-            .flat_map(|node| std::iter::once(node).chain(node.forward_target()));
 
         if options.recursive {
             dfs_postorder::<ConfiguredTargetNodeRefNode>(
-                output_nodes.map(ConfiguredTargetNodeRefNode::new),
+                roots.iter().map(ConfiguredTargetNodeRefNode::new),
                 ConfiguredTargetNodeRefNodeDeps,
                 |node| {
                     let node = node.to_node();
-                    let hash = Self::hash_node::<H>(&node, &hashes, options)?;
+                    let hash = match node.forward_target() {
+                        Some(actual) => Self::dependency_hash(&node, actual.label(), &hashes)?,
+                        None => Self::hash_node::<H>(&node, &hashes, options)?,
+                    };
                     hashes.insert(node.label().dupe(), hash);
                     Ok(())
                 },
             )?;
         } else {
-            for node in output_nodes {
+            for node in roots {
                 if hashes.contains_key(node.label()) {
                     continue;
                 }
@@ -276,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    fn forward_nodes_have_hashes_in_both_modes() -> buck2_error::Result<()> {
+    fn forward_targets_are_hashed_only_in_recursive_mode() -> buck2_error::Result<()> {
         let label = TargetLabel::testing_parse("cell//pkg:target");
         let inner = configured_node(label.dupe(), ConfigurationData::testing_new(), "value");
         let inner_label = inner.label().dupe();
@@ -295,7 +294,13 @@ mod tests {
             )?;
 
             hashes.get(&outer_label)?;
-            hashes.get(&inner_label)?;
+            assert_eq!(hashes.hashes.contains_key(&inner_label), recursive);
+            if recursive {
+                assert_eq!(
+                    hashes.get(&outer_label)?.to_string(),
+                    hashes.get(&inner_label)?.to_string(),
+                );
+            }
         }
 
         Ok(())
