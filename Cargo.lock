@@ -8651,6 +8651,7 @@ dependencies = [
  "pagable",
  "serde_json",
  "starlark_map",
+ "strum",
  "thiserror 2.0.21",
 ]
 

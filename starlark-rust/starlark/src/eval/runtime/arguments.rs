@@ -67,7 +67,10 @@ pub(crate) enum FunctionError {
 
 impl From<FunctionError> for crate::Error {
     fn from(e: FunctionError) -> Self {
-        crate::Error::new_kind(crate::ErrorKind::Function(anyhow::Error::new(e)))
+        crate::Error::new_runtime_type(
+            crate::RuntimeTypeErrorKind::FunctionCall,
+            anyhow::Error::new(e),
+        )
     }
 }
 
@@ -500,6 +503,21 @@ impl<'v, 'a> Arguments<'v, 'a> {
 mod tests {
     use super::*;
     use crate::const_frozen_string;
+
+    #[test]
+    fn function_errors_are_runtime_type_errors() {
+        let error: crate::Error = FunctionError::WrongNumberOfArgs {
+            min: 1,
+            max: 1,
+            got: 2,
+        }
+        .into();
+
+        assert!(matches!(
+            error.kind(),
+            crate::ErrorKind::RuntimeType(crate::RuntimeTypeErrorKind::FunctionCall, _)
+        ));
+    }
 
     #[test]
     fn test_parameter_unpack() {

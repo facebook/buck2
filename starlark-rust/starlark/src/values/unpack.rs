@@ -197,7 +197,10 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             #[error("Expected `{0}`, but got `{1}`")]
             struct IncorrectType(Ty, String);
 
-            crate::Error::new_value(IncorrectType(ty(), value.to_string_for_type_error()))
+            crate::Error::new_runtime_type(
+                crate::RuntimeTypeErrorKind::ValueUnpack,
+                IncorrectType(ty(), value.to_string_for_type_error()),
+            )
         }
 
         Self::unpack_value(value)?.ok_or_else(|| error(value, Self::starlark_type_repr))
@@ -212,10 +215,10 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             #[error("Type of parameters mismatch, expected `{0}`, actual `{1}`")]
             struct IncorrectParameterTypeWithExpected(Ty, String);
 
-            crate::Error::new_value(IncorrectParameterTypeWithExpected(
-                ty(),
-                value.to_string_for_type_error(),
-            ))
+            crate::Error::new_runtime_type(
+                crate::RuntimeTypeErrorKind::Parameter,
+                IncorrectParameterTypeWithExpected(ty(), value.to_string_for_type_error()),
+            )
         }
 
         Self::unpack_value(value)?.ok_or_else(|| error(value, Self::starlark_type_repr))
@@ -230,11 +233,14 @@ pub trait UnpackValue<'v>: Sized + StarlarkTypeRepr {
             #[error("Type of parameter `{0}` doesn't match, expected `{1}`, actual `{2}`")]
             struct IncorrectParameterTypeNamedWithExpected(String, Ty, String);
 
-            crate::Error::new_value(IncorrectParameterTypeNamedWithExpected(
-                param_name.to_owned(),
-                ty(),
-                value.to_string_for_type_error(),
-            ))
+            crate::Error::new_runtime_type(
+                crate::RuntimeTypeErrorKind::Parameter,
+                IncorrectParameterTypeNamedWithExpected(
+                    param_name.to_owned(),
+                    ty(),
+                    value.to_string_for_type_error(),
+                ),
+            )
         }
 
         Self::unpack_value(value)

@@ -67,6 +67,15 @@ impl Error {
         Self(WithDiagnostic::new_empty(ErrorKind::Value(e.into())))
     }
 
+    /// Create a new runtime type error with no diagnostic.
+    #[cold]
+    pub fn new_runtime_type(kind: RuntimeTypeErrorKind, e: impl Into<anyhow::Error>) -> Self {
+        Self(WithDiagnostic::new_empty(ErrorKind::RuntimeType(
+            kind,
+            e.into(),
+        )))
+    }
+
     /// The kind of this error
     pub fn kind(&self) -> &ErrorKind {
         self.0.inner()
@@ -191,6 +200,27 @@ impl fmt::Debug for Error {
     }
 }
 
+/// Stable classification of runtime type errors.
+///
+/// These categories are used by Buck2 telemetry. Variants should only be added or renamed with
+/// consideration for existing telemetry queries.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, strum::AsRefStr)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum RuntimeTypeErrorKind {
+    /// The arguments supplied to a function do not match its signature.
+    FunctionCall,
+    /// A native function parameter could not be unpacked to its declared type.
+    Parameter,
+    /// A Starlark value could not be unpacked to the requested type.
+    ValueUnpack,
+    /// An operation is not supported for the supplied operand types.
+    Operation,
+    /// A value does not expose the requested attribute.
+    Attribute,
+    /// A value does not match a function argument or return type annotation.
+    Annotation,
+}
+
 /// The different kinds of errors that can be produced by starlark
 #[non_exhaustive]
 pub enum ErrorKind {
@@ -204,6 +234,8 @@ pub enum ErrorKind {
     Value(anyhow::Error),
     /// Errors relating to the way a function is called (wrong number of args, etc.)
     Function(anyhow::Error),
+    /// A runtime type error, with a stable category for telemetry.
+    RuntimeType(RuntimeTypeErrorKind, anyhow::Error),
     /// Out of scope variables and similar
     Scope(anyhow::Error),
     /// Syntax error.
@@ -231,6 +263,7 @@ impl ErrorKind {
             Self::StackOverflow(_) => None,
             Self::Value(_) => None,
             Self::Function(_) => None,
+            Self::RuntimeType(_, _) => None,
             Self::Scope(_) => None,
             Self::Freeze(_) => None,
             Self::Parser(_) => None,
@@ -248,6 +281,7 @@ impl ErrorKind {
             Self::StackOverflow(e) => Self::StackOverflow(e.context(context)),
             Self::Value(e) => Self::Value(e.context(context)),
             Self::Function(e) => Self::Function(e.context(context)),
+            Self::RuntimeType(kind, e) => Self::RuntimeType(kind, e.context(context)),
             Self::Scope(e) => Self::Scope(e.context(context)),
             Self::Freeze(e) => Self::Freeze(e.context(context)),
             Self::Parser(e) => Self::Parser(e.context(context)),
@@ -264,6 +298,7 @@ impl ErrorKind {
             | ErrorKind::Fail(e)
             | ErrorKind::Value(e)
             | ErrorKind::Function(e)
+            | ErrorKind::RuntimeType(_, e)
             | ErrorKind::Scope(e)
             | ErrorKind::Freeze(e)
             | ErrorKind::Parser(e)
@@ -281,6 +316,7 @@ impl fmt::Debug for ErrorKind {
             Self::Value(e) => fmt::Debug::fmt(e, f),
             Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
+            Self::RuntimeType(_, e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
             Self::Freeze(e) => fmt::Debug::fmt(e, f),
             Self::Parser(e) => fmt::Debug::fmt(e, f),
@@ -298,6 +334,7 @@ impl fmt::Display for ErrorKind {
             Self::StackOverflow(e) => fmt::Display::fmt(e, f),
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
+            Self::RuntimeType(_, e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
             Self::Freeze(e) => fmt::Display::fmt(e, f),
             Self::Parser(e) => fmt::Display::fmt(e, f),

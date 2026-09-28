@@ -72,6 +72,7 @@ rust_library(
         "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:num-traits",
+        "fbsource//third-party/rust:strum",
         "fbsource//third-party/rust:thiserror",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",

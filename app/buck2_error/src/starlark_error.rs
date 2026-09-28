@@ -131,11 +131,27 @@ fn from_starlark_impl(
         }
     };
 
+    let mut runtime_type_kind = None;
     let tag = match e.kind() {
         starlark_syntax::ErrorKind::Fail(_) => crate::ErrorTag::StarlarkFail,
         starlark_syntax::ErrorKind::StackOverflow(_) => crate::ErrorTag::StarlarkStackOverflow,
         starlark_syntax::ErrorKind::Value(_) => crate::ErrorTag::StarlarkValue,
         starlark_syntax::ErrorKind::Function(_) => crate::ErrorTag::StarlarkFunction,
+        starlark_syntax::ErrorKind::RuntimeType(kind, _) => {
+            runtime_type_kind = Some(*kind);
+            match kind {
+                starlark_syntax::RuntimeTypeErrorKind::FunctionCall => {
+                    crate::ErrorTag::StarlarkFunction
+                }
+                starlark_syntax::RuntimeTypeErrorKind::Parameter
+                | starlark_syntax::RuntimeTypeErrorKind::ValueUnpack
+                | starlark_syntax::RuntimeTypeErrorKind::Operation
+                | starlark_syntax::RuntimeTypeErrorKind::Attribute => {
+                    crate::ErrorTag::StarlarkValue
+                }
+                starlark_syntax::RuntimeTypeErrorKind::Annotation => crate::ErrorTag::StarlarkError,
+            }
+        }
         starlark_syntax::ErrorKind::Scope(_) => crate::ErrorTag::StarlarkScope,
         starlark_syntax::ErrorKind::Parser(_) => crate::ErrorTag::StarlarkParser,
         starlark_syntax::ErrorKind::Internal(_) => crate::ErrorTag::StarlarkInternal,
@@ -153,6 +169,7 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Internal(_) => "StarlarkError::Internal",
         starlark_syntax::ErrorKind::Value(_) => "StarlarkError::Value",
         starlark_syntax::ErrorKind::Function(_) => "StarlarkError::Function",
+        starlark_syntax::ErrorKind::RuntimeType(_, _) => "StarlarkError::RuntimeType",
         starlark_syntax::ErrorKind::Scope(_) => "StarlarkError::Scope",
         starlark_syntax::ErrorKind::Parser(_) => "StarlarkError::Parser",
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
@@ -172,13 +189,20 @@ fn from_starlark_impl(
         | starlark_syntax::ErrorKind::Internal(e)
         | starlark_syntax::ErrorKind::Value(e)
         | starlark_syntax::ErrorKind::Function(e)
+        | starlark_syntax::ErrorKind::RuntimeType(_, e)
         | starlark_syntax::ErrorKind::Scope(e)
         | starlark_syntax::ErrorKind::Parser(e)
         | starlark_syntax::ErrorKind::Other(e)
         | starlark_syntax::ErrorKind::Native(e) => {
             let error = BuckStarlarkError(e, description);
 
-            from_any_with_tag_and_source_location(&error, source_location, tag)
+            let error = from_any_with_tag_and_source_location(&error, source_location, tag);
+            match runtime_type_kind {
+                Some(kind) => error
+                    .tag([crate::ErrorTag::StarlarkRuntimeTypeError])
+                    .string_tag(&format!("starlark_runtime_type_error={}", kind.as_ref())),
+                None => error,
+            }
         }
         _ => crate::Error::new(description, tag, source_location, None),
     }
@@ -252,6 +276,25 @@ mod tests {
         let e = crate::Error::from(FullMetadataError).context("context 1");
         let e2: crate::Error = starlark_syntax::Error::from(e.clone()).into();
         crate::Error::check_equal(&e, &e2);
+    }
+
+    #[test]
+    fn test_runtime_type_error_metadata() {
+        let e: crate::Error = starlark_syntax::Error::new_runtime_type(
+            starlark_syntax::RuntimeTypeErrorKind::Annotation,
+            anyhow::anyhow!("runtime type mismatch"),
+        )
+        .into();
+
+        assert!(e.tags().contains(&crate::ErrorTag::StarlarkError));
+        assert!(
+            e.tags()
+                .contains(&crate::ErrorTag::StarlarkRuntimeTypeError)
+        );
+        assert!(
+            e.category_key()
+                .ends_with("starlark_runtime_type_error=ANNOTATION")
+        );
     }
 
     #[test]

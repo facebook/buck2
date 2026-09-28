@@ -459,6 +459,7 @@ pub use starlark_derive::type_matcher;
 pub use starlark_syntax::Error;
 pub use starlark_syntax::ErrorKind;
 pub use starlark_syntax::Result;
+pub use starlark_syntax::RuntimeTypeErrorKind;
 pub use starlark_syntax::StarlarkResultExt;
 pub use starlark_syntax::codemap;
 pub use stdlib::PrintHandler;

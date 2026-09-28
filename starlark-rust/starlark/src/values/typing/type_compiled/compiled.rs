@@ -352,7 +352,8 @@ impl<'v> TypeCompiled<'v> {
     #[cold]
     #[inline(never)]
     fn check_type_error(self, value: Value<'v>, arg_name: Option<&str>) -> crate::Result<()> {
-        Err(crate::Error::new_other(
+        Err(crate::Error::new_runtime_type(
+            crate::RuntimeTypeErrorKind::Annotation,
             TypingError::TypeAnnotationMismatch(
                 value.to_str(),
                 value.get_type().to_owned(),
