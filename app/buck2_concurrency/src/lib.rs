@@ -2227,6 +2227,97 @@ mod tests {
             );
         }
 
+        #[tokio::test]
+        async fn admission_reducer_sequence() {
+            let dice = make_default_dice();
+            let (first_version, second_version) = distinct_versions(&dice).await;
+            let request = request(false, ExitWhen::ExitNever);
+            let mut data = data_with(DiceStatus::idle(), 0);
+
+            assert!(
+                matches!(
+                    data.decide_before_update(&request),
+                    PreUpdateDecision::Update {
+                        conflict_on_arrival: None
+                    }
+                ),
+                "idle state proceeds without a conflict snapshot"
+            );
+            assert_matches!(
+                data.decide_after_update(&request, completed_update(first_version, None))
+                    .decision,
+                AdmissionDecision::Admit(AdmittedState::Fresh { .. })
+            );
+
+            let (preempt, mut preempted) = oneshot::channel();
+            data.active_commands.insert(
+                CommandId(0),
+                CommandData {
+                    trace_id: TraceId::new(),
+                    display_command: "buck2 build".to_owned(),
+                    preemption_setting: PreemptibleWhen::OnDifferentState,
+                    preempt: Some(preempt),
+                },
+            );
+
+            let same_state =
+                data.decide_after_update(&request, completed_update(first_version, None));
+            assert_matches!(
+                same_state.decision,
+                AdmissionDecision::Admit(AdmittedState::Concurrent {
+                    state: RunState::ParallelSameState,
+                    ..
+                })
+            );
+            same_state.effects.execute(&TestEvents::new());
+            assert_matches!(
+                preempted.try_recv(),
+                Err(oneshot::error::TryRecvError::Empty),
+                "a same-state command must not preempt OnDifferentState"
+            );
+
+            let different_state =
+                data.decide_after_update(&request, completed_update(second_version, None));
+            assert_matches!(different_state.decision, AdmissionDecision::Block);
+            assert_matches!(
+                preempted.try_recv(),
+                Err(oneshot::error::TryRecvError::Empty),
+                "effects are deferred until the caller releases the state lock"
+            );
+            different_state.effects.execute(&TestEvents::new());
+            preempted
+                .await
+                .expect("the different-state effect should preempt the active command");
+
+            data.active_commands.shift_remove(&CommandId(0));
+            assert_matches!(
+                data.decide_after_update(&request, completed_update(second_version, None))
+                    .decision,
+                AdmissionDecision::RequestCleanup
+            );
+            assert!(data.transition_to_cleanup(&dice));
+
+            let PreUpdateDecision::WaitForCleanup { future, epoch } =
+                data.decide_before_update(&request)
+            else {
+                panic!("the next attempt must wait for cleanup");
+            };
+            future.await;
+            data.transition_to_idle(epoch);
+
+            assert_matches!(
+                data.decide_after_update(&request, completed_update(second_version, None))
+                    .decision,
+                AdmissionDecision::Admit(AdmittedState::Fresh { .. })
+            );
+            assert_matches!(
+                data.dice_status,
+                DiceStatus::Available {
+                    active: Some(ActiveDice { version })
+                } if version == second_version
+            );
+        }
+
         /// Pins which run state produces a warning and which commands it names.
         #[tokio::test]
         async fn nested_same_state_warning_mapping() {
