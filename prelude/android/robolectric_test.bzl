@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//android:android_binary_resources_rules.bzl", "get_android_binary_resources_info")
-load("@prelude//android:android_library.bzl", "build_android_library", "optional_jars")
+load("@prelude//android:android_library.bzl", "android_target_stats", "build_android_library", "optional_jars")
 load("@prelude//android:android_providers.bzl", "merge_android_packageable_info")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo")
@@ -117,7 +117,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     r_dot_javas = [r_dot_java.library_info for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
     expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
 
-    extra_sub_targets = {}
+    target_stats_providers, extra_sub_targets = android_target_stats(ctx)
     if resource_source_map:
         extra_sub_targets["resource_source_map"] = [DefaultInfo(default_output = resource_source_map)]
     if r_dot_javas:
@@ -153,5 +153,6 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         output_for_classpath_macro = java_providers.java_library_info.output_for_classpath_macro,
     )
     providers.append(java_library_without_compiling_deps)
+    providers.extend(target_stats_providers)
 
     return providers

@@ -48,7 +48,7 @@ def get_custom_jdk_info(ctx: AnalysisContext) -> CustomJdkInfo:
         system_image = ctx.attrs._android_toolchain[AndroidToolchainInfo].jdk_system_image,
     )
 
-def _android_target_stats(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
+def android_target_stats(ctx: AnalysisContext) -> (list[Provider], dict[str, list[Provider]]):
     if not TARGET_STATS_ENABLED:
         return [], {}
     tools = ctx.attrs._android_toolchain[AndroidToolchainInfo].target_stats_tools
@@ -89,7 +89,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         ]
 
-    target_stats_providers, target_stats_subtargets = _android_target_stats(ctx)
+    target_stats_providers, target_stats_subtargets = android_target_stats(ctx)
 
     java_providers, android_library_intellij_info = build_android_library(
         ctx = ctx,

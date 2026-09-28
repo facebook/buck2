@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//java:java_library.bzl", "jvm_target_stats")
 load("@prelude//java:java_test.bzl", "build_junit_test")
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
@@ -14,14 +15,22 @@ def kotlin_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
-    java_providers = build_kotlin_library(ctx)
+    target_stats_providers, target_stats_subtargets = jvm_target_stats(ctx)
+    java_providers = build_kotlin_library(
+        ctx,
+        extra_sub_targets = target_stats_subtargets,
+    )
     external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info, java_providers.class_to_src_map)
 
-    return inject_test_run_info(ctx, external_runner_test_info) + [
-        java_providers.java_library_intellij_info,
-        java_providers.java_library_info,
-        java_providers.java_packaging_info,
-        java_providers.template_placeholder_info,
-        java_providers.default_info,
-        java_providers.class_to_src_map,
-    ]
+    return (
+        inject_test_run_info(ctx, external_runner_test_info)
+        + [
+            java_providers.java_library_intellij_info,
+            java_providers.java_library_info,
+            java_providers.java_packaging_info,
+            java_providers.template_placeholder_info,
+            java_providers.default_info,
+            java_providers.class_to_src_map,
+        ]
+        + target_stats_providers
+    )

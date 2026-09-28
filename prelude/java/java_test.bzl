@@ -11,7 +11,7 @@ load(
     "JavaClassToSourceMapInfo",  # @unused Used as a type
     "merge_class_to_source_map_from_jar",
 )
-load("@prelude//java:java_library.bzl", "build_java_library")
+load("@prelude//java:java_library.bzl", "build_java_library", "jvm_target_stats")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
 load("@prelude//java:java_toolchain.bzl", "JavaTestToolchainInfo", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
@@ -35,7 +35,12 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs._build_only_native_code:
         return [DefaultInfo()]
 
-    java_providers = build_java_library(ctx, ctx.attrs.srcs)
+    target_stats_providers, target_stats_subtargets = jvm_target_stats(ctx)
+    java_providers = build_java_library(
+        ctx,
+        ctx.attrs.srcs,
+        extra_sub_targets = target_stats_subtargets,
+    )
     external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info, java_providers.class_to_src_map)
 
     providers = [
@@ -48,6 +53,7 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
     if java_providers.validation_info:
         providers.append(java_providers.validation_info)
+    providers.extend(target_stats_providers)
 
     return inject_test_run_info(ctx, external_runner_test_info) + providers
 

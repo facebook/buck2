@@ -19,6 +19,8 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//target_stats:target_stats.bzl", "CycleMode", "target_stats_providers_and_subtargets")
+load("@prelude//target_stats:target_stats_config.bzl", "TARGET_STATS_ENABLED")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
@@ -204,13 +206,34 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
 
     test_info, run_info = inject_test_run_info(ctx, test_info)
 
+    target_stats_providers = []
+    target_stats_subtargets = {}
+    if TARGET_STATS_ENABLED:
+        target_stats_tools = android_toolchain.target_stats_tools
+        if target_stats_tools != None:
+            target_stats_deps = [ctx.attrs.apk]
+            if ctx.attrs.instrumentation_test_listener != None:
+                target_stats_deps.append(ctx.attrs.instrumentation_test_listener)
+            target_stats_providers, target_stats_subtargets = target_stats_providers_and_subtargets(
+                ctx,
+                tools = target_stats_tools,
+                srcs = {src.short_path: src for src in ctx.attrs._test_srcs},
+                deps = target_stats_deps,
+                cycle_mode = CycleMode("package"),
+                module_name = ctx.label.name,
+            )
+
     # We append additional args so that "buck2 run" will work with sane defaults
     run_info.args.add(cmd_args(["--auto-run-on-connected-device", "--output", ".", "--adb-executable-path", "adb"]))
-    return [
-        test_info,
-        run_info,
-        DefaultInfo(),
-    ] + classmap_source_info
+    return (
+        [
+            test_info,
+            run_info,
+            DefaultInfo(sub_targets = target_stats_subtargets),
+        ]
+        + classmap_source_info
+        + target_stats_providers
+    )
 
 def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_run_locally: bool) -> dict[str, CommandExecutorConfig]:
     remote_execution_properties = {

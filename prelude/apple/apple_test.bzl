@@ -34,6 +34,7 @@ load(
     "SharedLibraryFlagOverrides",
 )
 load("@prelude//ide_integrations/xcode:data.bzl", "XcodeDataInfoKeys")
+load("@prelude//target_stats:target_stats_types.bzl", "TargetStatsInfo")
 load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",
@@ -156,6 +157,8 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 xctest_swift_support_needed = p.support_needed
             elif isinstance(p, AppleDebuggableInfo):
                 debug_info = project_artifacts(ctx.actions, p.debug_info_tset)
+            elif isinstance(p, TargetStatsInfo):
+                cxx_providers.append(p)
             elif isinstance(p, ValidationInfo):
                 cxx_providers.append(p)
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
