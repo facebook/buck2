@@ -211,14 +211,25 @@ struct CommandId(usize);
 #[derive(Debug)]
 struct RegisteredCommand(CommandId);
 
+enum AdmissionEvent {
+    CleanupPrepared {
+        request: CleanupRequest,
+        future: Shared<BoxFuture<'static, ()>>,
+    },
+    CleanupCompleted {
+        epoch: usize,
+    },
+    CommandExited(RegisteredCommand),
+}
+
 #[derive(Debug, Eq, PartialEq)]
-enum CommandExitEffect {
+enum StateEffect {
     None,
     /// Every waiter must re-evaluate because several equivalent commands may now be admissible.
     WakeWaiters,
 }
 
-impl CommandExitEffect {
+impl StateEffect {
     fn execute(self, cond: &Condvar) {
         if matches!(self, Self::WakeWaiters) {
             cond.notify_all();
@@ -414,19 +425,6 @@ impl ConcurrencyHandlerData {
         Ok(RegisteredCommand(command))
     }
 
-    fn command_exited(&mut self, command: RegisteredCommand) -> CommandExitEffect {
-        self.active_commands
-            .shift_remove(&command.0)
-            .expect("command was active but not in active_commands");
-        tracing::info!("Active command was removed: {}", command.0);
-
-        if self.has_no_active_commands() {
-            CommandExitEffect::WakeWaiters
-        } else {
-            CommandExitEffect::None
-        }
-    }
-
     fn ensure_command_can_register(&self, request: &AdmissionRequest) -> buck2_error::Result<()> {
         request.command()?;
         if self.active_commands.contains_key(&request.command_id) {
@@ -501,39 +499,47 @@ impl ConcurrencyHandlerData {
         Some(request)
     }
 
-    fn install_cleanup(
-        &mut self,
-        request: CleanupRequest,
-        future: Shared<BoxFuture<'static, ()>>,
-    ) -> bool {
-        if !matches!(
-            self.dice_status,
-            DiceStatus::CleanupStarting { epoch } if epoch == request.epoch
-        ) {
-            return false;
+    fn apply_event(&mut self, event: AdmissionEvent) -> StateEffect {
+        match event {
+            AdmissionEvent::CleanupPrepared { request, future } => {
+                if !matches!(
+                    self.dice_status,
+                    DiceStatus::CleanupStarting { epoch } if epoch == request.epoch
+                ) {
+                    return StateEffect::None;
+                }
+
+                self.dice_status = DiceStatus::Cleanup {
+                    future,
+                    epoch: request.epoch,
+                };
+                StateEffect::WakeWaiters
+            }
+            AdmissionEvent::CleanupCompleted { epoch } => {
+                if matches!(
+                    self.dice_status,
+                    DiceStatus::Cleanup {
+                        epoch: active_epoch,
+                        ..
+                    } if active_epoch == epoch
+                ) {
+                    self.dice_status = DiceStatus::idle();
+                }
+                StateEffect::None
+            }
+            AdmissionEvent::CommandExited(command) => {
+                self.active_commands
+                    .shift_remove(&command.0)
+                    .expect("command was active but not in active_commands");
+                tracing::info!("Active command was removed: {}", command.0);
+
+                if self.has_no_active_commands() {
+                    StateEffect::WakeWaiters
+                } else {
+                    StateEffect::None
+                }
+            }
         }
-
-        self.dice_status = DiceStatus::Cleanup {
-            future,
-            epoch: request.epoch,
-        };
-        true
-    }
-
-    /// Attempt a transition to available assuming the cleanup future at `cleanup_epoch` has been
-    /// awaited already.
-    fn transition_to_idle(&mut self, cleanup_epoch: usize) {
-        if !matches!(self.dice_status, DiceStatus::Cleanup { .. }) {
-            // Noop: we already transitioned to available.
-            return;
-        }
-
-        if self.cleanup_epoch != cleanup_epoch {
-            // Noop: we already transitioned to available then back to cleanup.
-            return;
-        }
-
-        self.dice_status = DiceStatus::idle();
     }
 
     fn decide_before_update(&self, request: &AdmissionRequest) -> PreUpdateDecision {
@@ -995,7 +1001,10 @@ impl ConcurrencyHandler {
                         .await;
                     data = self.data.lock().await;
 
-                    data.transition_to_idle(epoch);
+                    let effect = data.apply_event(AdmissionEvent::CleanupCompleted { epoch });
+                    drop(data);
+                    effect.execute(&self.cond);
+                    data = self.data.lock().await;
                     continue;
                 }
                 PreUpdateDecision::RejectNotIdle { running } => {
@@ -1104,12 +1113,18 @@ impl ConcurrencyHandler {
                     let future = self.dice.wait_for_idle().boxed().shared();
                     drop(transaction);
                     data = self.data.lock().await;
-                    let transitioned = data.install_cleanup(cleanup, future);
-                    assert!(
-                        transitioned,
+                    let effect = data.apply_event(AdmissionEvent::CleanupPrepared {
+                        request: cleanup,
+                        future,
+                    });
+                    assert_eq!(
+                        effect,
+                        StateEffect::WakeWaiters,
                         "the cleanup request should still be awaiting its future"
                     );
-                    self.cond.notify_all();
+                    drop(data);
+                    effect.execute(&self.cond);
+                    data = self.data.lock().await;
                     continue;
                 }
                 AdmissionDecision::RejectNestedDifferentState(NestedInvocationWarning {
@@ -1388,7 +1403,7 @@ impl Drop for OnExecExit {
 
         tokio::task::spawn(async move {
             let mut data = this.0.data.lock().await;
-            let effect = data.command_exited(this.1);
+            let effect = data.apply_event(AdmissionEvent::CommandExited(this.1));
             drop(data);
             effect.execute(&this.0.cond);
         });
@@ -1946,9 +1961,15 @@ mod tests {
         let first = data.register_command(first_id, command())?;
         let second = data.register_command(second_id, command())?;
 
-        assert_eq!(data.command_exited(first), CommandExitEffect::None);
+        assert_eq!(
+            data.apply_event(AdmissionEvent::CommandExited(first)),
+            StateEffect::None
+        );
         assert_eq!(data.active_commands.len(), 1);
-        assert_eq!(data.command_exited(second), CommandExitEffect::WakeWaiters);
+        assert_eq!(
+            data.apply_event(AdmissionEvent::CommandExited(second)),
+            StateEffect::WakeWaiters
+        );
         assert!(data.active_commands.is_empty());
 
         Ok(())
@@ -2198,7 +2219,10 @@ mod tests {
         #[tokio::test]
         async fn transition_to_idle_completes_the_matching_cleanup() {
             let mut data = data_with(cleanup_at(3), 3);
-            data.transition_to_idle(3);
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupCompleted { epoch: 3 }),
+                StateEffect::None
+            );
             assert_matches!(data.dice_status, DiceStatus::Available { active: None });
         }
 
@@ -2209,7 +2233,10 @@ mod tests {
         async fn transition_to_idle_is_a_noop_once_already_available() {
             let dice = make_default_dice();
             let mut data = data_with(active_status(&dice).await, 3);
-            data.transition_to_idle(3);
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupCompleted { epoch: 3 }),
+                StateEffect::None
+            );
             assert_matches!(
                 data.dice_status,
                 DiceStatus::Available { active: Some(..) },
@@ -2223,7 +2250,10 @@ mod tests {
         #[tokio::test]
         async fn transition_to_idle_is_a_noop_for_a_superseded_epoch() {
             let mut data = data_with(cleanup_at(4), 4);
-            data.transition_to_idle(3);
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupCompleted { epoch: 3 }),
+                StateEffect::None
+            );
             assert_matches!(
                 data.dice_status,
                 DiceStatus::Cleanup { epoch: 4, .. },
@@ -2247,7 +2277,13 @@ mod tests {
                 "the reducer should reserve the cleanup epoch before external work"
             );
 
-            assert!(data.install_cleanup(request, futures::future::ready(()).boxed().shared()));
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupPrepared {
+                    request,
+                    future: futures::future::ready(()).boxed().shared(),
+                }),
+                StateEffect::WakeWaiters
+            );
             assert_matches!(data.dice_status, DiceStatus::Cleanup { epoch: 8, .. });
         }
 
@@ -2632,7 +2668,13 @@ mod tests {
                 ),
                 "commands should wait until the cleanup future is installed"
             );
-            assert!(data.install_cleanup(cleanup, futures::future::ready(()).boxed().shared()));
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupPrepared {
+                    request: cleanup,
+                    future: futures::future::ready(()).boxed().shared(),
+                }),
+                StateEffect::WakeWaiters
+            );
 
             let PreUpdateDecision::WaitForCleanup { future, epoch } =
                 data.decide_before_update(&request(false, ExitWhen::ExitNever))
@@ -2640,7 +2682,10 @@ mod tests {
                 panic!("the next attempt must wait for cleanup");
             };
             future.await;
-            data.transition_to_idle(epoch);
+            assert_eq!(
+                data.apply_event(AdmissionEvent::CleanupCompleted { epoch }),
+                StateEffect::None
+            );
 
             assert_matches!(
                 decide_after_update(
