@@ -109,7 +109,7 @@ pub enum BypassSemaphore {
 
 #[derive(Debug)]
 enum AdmissionDecision {
-    RejectDifferentState { preempt_active: bool },
+    RejectDifferentState { compared_with_active_state: bool },
     RetryAfterCleanup,
     InstallFresh,
     BeginCleanup,
@@ -177,6 +177,81 @@ struct AdmissionRequest {
     sanitized_argv: Vec<String>,
     preemptible: PreemptibleWhen,
     exit_when: ExitWhen,
+}
+
+enum AdmissionEffect {
+    Preempt(oneshot::Sender<()>),
+    DiceEquality(bool),
+}
+
+struct AdmissionEffects(Vec<AdmissionEffect>);
+
+impl AdmissionEffects {
+    fn none() -> Self {
+        Self(Vec::new())
+    }
+
+    fn after_state_comparison(data: &mut ConcurrencyHandlerData, is_same_state: bool) -> Self {
+        let preemptions = data.active_commands.values_mut().filter_map(|command| {
+            match command.preemption_setting {
+                PreemptibleWhen::Never => None,
+                PreemptibleWhen::OnDifferentState if is_same_state => None,
+                PreemptibleWhen::Always | PreemptibleWhen::OnDifferentState => {
+                    command.preempt.take().map(AdmissionEffect::Preempt)
+                }
+            }
+        });
+
+        if is_same_state {
+            Self(
+                std::iter::once(AdmissionEffect::DiceEquality(true))
+                    .chain(preemptions)
+                    .collect(),
+            )
+        } else {
+            Self(
+                preemptions
+                    .chain(std::iter::once(AdmissionEffect::DiceEquality(false)))
+                    .collect(),
+            )
+        }
+    }
+
+    fn execute<E: CommandEvents>(self, events: &E) {
+        self.0.into_iter().for_each(|effect| match effect {
+            AdmissionEffect::Preempt(sender) => {
+                let _ignored = sender.send(());
+            }
+            AdmissionEffect::DiceEquality(is_equal) => {
+                events.instant(DiceEqualityCheck { is_equal }.into());
+            }
+        });
+    }
+}
+
+struct AdmissionOutcome {
+    decision: AdmissionDecision,
+    effects: AdmissionEffects,
+}
+
+impl AdmissionOutcome {
+    fn without_effects(decision: AdmissionDecision) -> Self {
+        Self {
+            decision,
+            effects: AdmissionEffects::none(),
+        }
+    }
+
+    fn after_state_comparison(
+        decision: AdmissionDecision,
+        data: &mut ConcurrencyHandlerData,
+        is_same_state: bool,
+    ) -> Self {
+        Self {
+            decision,
+            effects: AdmissionEffects::after_state_comparison(data, is_same_state),
+        }
+    }
 }
 
 #[derive(Allocative)]
@@ -265,44 +340,60 @@ impl ConcurrencyHandlerData {
     }
 
     fn decide_after_update(
-        &self,
+        &mut self,
         request: &AdmissionRequest,
         transaction_version: DiceEquality,
         conflict_on_arrival: Option<DiceEquality>,
-    ) -> AdmissionDecision {
+    ) -> AdmissionOutcome {
         if matches!(request.exit_when, ExitWhen::ExitDifferentState)
             && !request.is_nested
             && conflict_on_arrival.is_some_and(|version| transaction_version != version)
         {
-            return AdmissionDecision::RejectDifferentState {
-                preempt_active: false,
-            };
+            return AdmissionOutcome::without_effects(AdmissionDecision::RejectDifferentState {
+                compared_with_active_state: false,
+            });
         }
 
         let active_version = match &self.dice_status {
-            DiceStatus::Cleanup { .. } => return AdmissionDecision::RetryAfterCleanup,
+            DiceStatus::Cleanup { .. } => {
+                return AdmissionOutcome::without_effects(AdmissionDecision::RetryAfterCleanup);
+            }
             DiceStatus::Available {
                 active: Some(active),
             } => active.version,
             DiceStatus::Available { active: None } => {
-                return AdmissionDecision::InstallFresh;
+                return AdmissionOutcome::without_effects(AdmissionDecision::InstallFresh);
             }
         };
 
         let is_same_state = transaction_version == active_version;
         if !is_same_state && self.has_no_active_commands() {
-            return AdmissionDecision::BeginCleanup;
+            return AdmissionOutcome::without_effects(AdmissionDecision::BeginCleanup);
         }
 
         match determine_bypass_semaphore(is_same_state, request.is_nested) {
-            BypassSemaphore::Error => AdmissionDecision::RejectNestedDifferentState,
-            BypassSemaphore::Run(state) => AdmissionDecision::RunConcurrent { state },
+            BypassSemaphore::Error => AdmissionOutcome::after_state_comparison(
+                AdmissionDecision::RejectNestedDifferentState,
+                self,
+                false,
+            ),
+            BypassSemaphore::Run(state) => AdmissionOutcome::after_state_comparison(
+                AdmissionDecision::RunConcurrent { state },
+                self,
+                true,
+            ),
             BypassSemaphore::Block if matches!(request.exit_when, ExitWhen::ExitDifferentState) => {
-                AdmissionDecision::RejectDifferentState {
-                    preempt_active: true,
-                }
+                AdmissionOutcome::after_state_comparison(
+                    AdmissionDecision::RejectDifferentState {
+                        compared_with_active_state: true,
+                    },
+                    self,
+                    false,
+                )
             }
-            BypassSemaphore::Block => AdmissionDecision::Block,
+            BypassSemaphore::Block => {
+                AdmissionOutcome::after_state_comparison(AdmissionDecision::Block, self, false)
+            }
         }
     }
 }
@@ -702,18 +793,19 @@ impl ConcurrencyHandler {
             data = self.data.lock().await;
 
             let transaction_version = transaction.equality_token();
-            let decision =
+            let AdmissionOutcome { decision, effects } =
                 data.decide_after_update(&request, transaction_version, conflict_on_arrival);
 
             match decision {
-                AdmissionDecision::RejectDifferentState { preempt_active } => {
-                    if preempt_active {
+                AdmissionDecision::RejectDifferentState {
+                    compared_with_active_state,
+                } => {
+                    if compared_with_active_state {
                         tracing::debug!("ActiveDice has an active_transaction");
-                        self.cancel_preemptible_commands(&mut data, false);
-                        events.instant(DiceEqualityCheck { is_equal: false }.into());
                     }
                     let running = ConcurrentTraces::running(&data.active_commands);
                     drop(data);
+                    effects.execute(&events);
                     let queued = self.queued_traces(command_id);
                     return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
                         .with_buck_error_context(|| {
@@ -744,12 +836,11 @@ impl ConcurrencyHandler {
                 }
                 AdmissionDecision::RejectNestedDifferentState => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    self.cancel_preemptible_commands(&mut data, false);
-                    events.instant(DiceEqualityCheck { is_equal: false }.into());
                     let running =
                         ConcurrentTraces::running_and(&data.active_commands, &command_data);
                     let display_command = command_data.display_command.clone();
                     drop(data);
+                    effects.execute(&events);
                     return Err(
                         ConcurrencyHandlerError::NestedInvocationWithDifferentStates(
                             running,
@@ -760,19 +851,16 @@ impl ConcurrencyHandler {
                 }
                 AdmissionDecision::RunConcurrent { state } => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    events.instant(DiceEqualityCheck { is_equal: true }.into());
                     let nested_warning = Self::nested_same_state_warning(
                         state,
                         &data.active_commands,
                         &command_data,
                     );
-                    self.cancel_preemptible_commands(&mut data, true);
+                    effects.execute(&events);
                     break (transaction, false, nested_warning, false);
                 }
                 AdmissionDecision::Block => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    self.cancel_preemptible_commands(&mut data, false);
-                    events.instant(DiceEqualityCheck { is_equal: false }.into());
                     // We should probably show more than the first here, but for now
                     // this is what we have.
                     //
@@ -782,6 +870,12 @@ impl ConcurrencyHandler {
                     let active_command = data.active_commands.first().unwrap().1;
                     let trace_id = active_command.trace_id.dupe();
                     let display_command = active_command.display_command.clone();
+                    // `wait_baton` registers the waiter and releases `data` synchronously. In
+                    // contrast, the body of `Condvar::wait` would not run until its future was
+                    // first polled, which would keep the state lock held through effect execution.
+                    let wait = self.cond.wait_baton((data, &self.data));
+
+                    effects.execute(&events);
 
                     data = events
                         .span(
@@ -795,13 +889,17 @@ impl ConcurrencyHandler {
                                 // the blocking command is wedged, e.g. on stale Eden
                                 // handles), so periodically tell the user what they
                                 // are actually waiting on.
-                                let wait = self.cond.wait((data, &self.data));
                                 pin_mut!(wait);
                                 let mut waited = Duration::ZERO;
                                 let mut next_warning = Self::BLOCKED_COMMAND_FIRST_WARNING;
                                 let data = loop {
                                     match timeout(next_warning, &mut wait).await {
-                                        Ok(data) => break data,
+                                        Ok((data, baton)) => {
+                                            if let Some(baton) = baton {
+                                                baton.dispose();
+                                            }
+                                            break data;
+                                        }
                                         Err(_elapsed) => {
                                             waited += next_warning;
                                             next_warning =
@@ -896,21 +994,6 @@ impl ConcurrencyHandler {
     /// Access dice without locking for dumps.
     pub fn unsafe_dice(&self) -> &Arc<Dice> {
         &self.dice
-    }
-
-    fn cancel_preemptible_commands(&self, data: &mut ConcurrencyHandlerData, is_same_state: bool) {
-        // If the active commands are preemptible, interrupt them.
-        for cmd in data.active_commands.values_mut() {
-            if cmd.preemption_setting == PreemptibleWhen::Never {
-                continue;
-            }
-            if is_same_state && cmd.preemption_setting == PreemptibleWhen::OnDifferentState {
-                continue;
-            }
-            if let Some(preempt) = cmd.preempt.take() {
-                let _ = preempt.send(());
-            }
-        }
     }
 
     /// Captures a recursive same-state warning for reporting after the lock is released.
@@ -1859,8 +1942,8 @@ mod tests {
         }
 
         fn preemptible_command(setting: PreemptibleWhen) -> CommandData {
-            // The receiver is dropped immediately; `cancel_preemptible_commands` ignores the send
-            // result, and what is under test is whether it takes the sender.
+            // The receiver is dropped immediately; what is under test is whether the effect takes
+            // the sender from the command.
             let (tx, _rx) = oneshot::channel();
             CommandData {
                 trace_id: TraceId::new(),
@@ -1901,33 +1984,36 @@ mod tests {
             let dice = make_default_dice();
             let (active_version, different_version) = distinct_versions(&dice).await;
 
-            let cleanup = data_with(cleanup_at(1), 1);
+            let mut cleanup = data_with(cleanup_at(1), 1);
             assert_matches!(
                 cleanup.decide_after_update(
                     &request(false, ExitWhen::ExitNever),
                     active_version,
                     None,
-                ),
+                ).decision,
                 AdmissionDecision::RetryAfterCleanup
             );
 
-            let idle = data_with(DiceStatus::idle(), 0);
+            let mut idle = data_with(DiceStatus::idle(), 0);
             assert_matches!(
                 idle.decide_after_update(
                     &request(false, ExitWhen::ExitNever),
                     active_version,
                     None,
-                ),
+                )
+                .decision,
                 AdmissionDecision::InstallFresh
             );
 
-            let active_without_commands = data_with(DiceStatus::active(active_version), 0);
+            let mut active_without_commands = data_with(DiceStatus::active(active_version), 0);
             assert_matches!(
-                active_without_commands.decide_after_update(
-                    &request(false, ExitWhen::ExitNever),
-                    different_version,
-                    None,
-                ),
+                active_without_commands
+                    .decide_after_update(
+                        &request(false, ExitWhen::ExitNever),
+                        different_version,
+                        None,
+                    )
+                    .decision,
                 AdmissionDecision::BeginCleanup
             );
 
@@ -1939,56 +2025,72 @@ mod tests {
                     &request(false, ExitWhen::ExitNever),
                     active_version,
                     None,
-                ),
+                ).decision,
                 AdmissionDecision::RunConcurrent {
                     state: RunState::ParallelSameState
                 }
             );
             assert_matches!(
-                active.decide_after_update(
-                    &request(true, ExitWhen::ExitNever),
-                    active_version,
-                    None,
-                ),
+                active
+                    .decide_after_update(&request(true, ExitWhen::ExitNever), active_version, None,)
+                    .decision,
                 AdmissionDecision::RunConcurrent {
                     state: RunState::NestedSameState
                 }
             );
             assert_matches!(
-                active.decide_after_update(
-                    &request(true, ExitWhen::ExitNever),
-                    different_version,
-                    None,
-                ),
+                active
+                    .decide_after_update(
+                        &request(true, ExitWhen::ExitNever),
+                        different_version,
+                        None,
+                    )
+                    .decision,
                 AdmissionDecision::RejectNestedDifferentState
             );
             assert_matches!(
-                active.decide_after_update(
-                    &request(false, ExitWhen::ExitNever),
-                    different_version,
-                    None,
-                ),
+                active
+                    .decide_after_update(
+                        &request(false, ExitWhen::ExitNever),
+                        different_version,
+                        None,
+                    )
+                    .decision,
                 AdmissionDecision::Block
             );
-            assert_matches!(
-                active.decide_after_update(
-                    &request(false, ExitWhen::ExitDifferentState),
-                    different_version,
-                    None,
-                ),
-                AdmissionDecision::RejectDifferentState {
-                    preempt_active: true
-                }
+            let reject_after_update = active.decide_after_update(
+                &request(false, ExitWhen::ExitDifferentState),
+                different_version,
+                None,
             );
             assert_matches!(
-                active.decide_after_update(
-                    &request(false, ExitWhen::ExitDifferentState),
-                    different_version,
-                    Some(active_version),
-                ),
+                reject_after_update.decision,
                 AdmissionDecision::RejectDifferentState {
-                    preempt_active: false
+                    compared_with_active_state: true,
                 }
+            );
+            assert!(
+                matches!(
+                    reject_after_update.effects.0.as_slice(),
+                    [AdmissionEffect::DiceEquality(false)]
+                ),
+                "post-update rejection reports a failed state comparison"
+            );
+
+            let reject_from_arrival = active.decide_after_update(
+                &request(false, ExitWhen::ExitDifferentState),
+                different_version,
+                Some(active_version),
+            );
+            assert_matches!(
+                reject_from_arrival.decision,
+                AdmissionDecision::RejectDifferentState {
+                    compared_with_active_state: false,
+                }
+            );
+            assert!(
+                reject_from_arrival.effects.0.is_empty(),
+                "an arrival-time rejection does not compare against the current state"
             );
         }
 
@@ -2035,7 +2137,6 @@ mod tests {
         /// exercised at both.
         #[tokio::test]
         async fn preemption_matrix() {
-            let concurrency = ConcurrencyHandler::new(make_default_dice());
             let settings = [
                 PreemptibleWhen::Never,
                 PreemptibleWhen::Always,
@@ -2052,7 +2153,7 @@ mod tests {
                         .insert(CommandId(i), preemptible_command(*setting));
                 }
 
-                concurrency.cancel_preemptible_commands(&mut data, is_same_state);
+                let effects = AdmissionEffects::after_state_comparison(&mut data, is_same_state);
 
                 for (i, setting) in settings.iter().enumerate() {
                     let preempted = data
@@ -2064,6 +2165,18 @@ mod tests {
                     assert_eq!(
                         preempted, expected[i],
                         "{setting:?} with is_same_state={is_same_state}"
+                    );
+                }
+
+                if is_same_state {
+                    assert!(
+                        matches!(effects.0.first(), Some(AdmissionEffect::DiceEquality(true))),
+                        "same-state equality is reported before preemption"
+                    );
+                } else {
+                    assert!(
+                        matches!(effects.0.last(), Some(AdmissionEffect::DiceEquality(false))),
+                        "different-state equality is reported after preemption"
                     );
                 }
             }
