@@ -107,12 +107,15 @@ pub enum BypassSemaphore {
 
 #[derive(Debug)]
 enum AdmissionDecision {
-    RejectDifferentState { compared_with_active_state: bool },
+    RejectDifferentState {
+        running: ConcurrentTraces,
+        compared_with_active_state: bool,
+    },
     RetryAfterCleanup,
     Admit(AdmittedCommand),
     StartCleanup(CleanupRequest),
-    RejectNestedDifferentState,
-    Block,
+    RejectNestedDifferentState(NestedInvocationWarning),
+    Block(BlockingCommand),
 }
 
 #[derive(Debug)]
@@ -125,6 +128,12 @@ struct AdmittedCommand {
 #[derive(Debug)]
 struct NestedInvocationWarning {
     running: ConcurrentTraces,
+    display_command: String,
+}
+
+#[derive(Debug)]
+struct BlockingCommand {
+    trace_id: TraceId,
     display_command: String,
 }
 
@@ -567,6 +576,7 @@ impl ConcurrencyHandlerData {
             return Ok(AdmissionOutcome::without_effects(
                 AdmissionDecision::RejectDifferentState {
                     compared_with_active_state: false,
+                    running: ConcurrentTraces::running(&self.active_commands),
                 },
             ));
         }
@@ -612,11 +622,18 @@ impl ConcurrencyHandlerData {
         }
 
         match determine_bypass_semaphore(is_same_state, request.is_nested) {
-            BypassSemaphore::Error => Ok(AdmissionOutcome::after_state_comparison(
-                AdmissionDecision::RejectNestedDifferentState,
-                self,
-                false,
-            )),
+            BypassSemaphore::Error => {
+                let command = request.command()?;
+                let warning = NestedInvocationWarning {
+                    running: ConcurrentTraces::running_and(&self.active_commands, command),
+                    display_command: command.display_command.clone(),
+                };
+                Ok(AdmissionOutcome::after_state_comparison(
+                    AdmissionDecision::RejectNestedDifferentState(warning),
+                    self,
+                    false,
+                ))
+            }
             BypassSemaphore::Run(state) => {
                 self.ensure_command_can_register(request)?;
                 let effects = AdmissionEffects::after_state_comparison(self, true);
@@ -633,16 +650,28 @@ impl ConcurrencyHandlerData {
                 Ok(AdmissionOutcome::after_state_comparison(
                     AdmissionDecision::RejectDifferentState {
                         compared_with_active_state: true,
+                        running: ConcurrentTraces::running(&self.active_commands),
                     },
                     self,
                     false,
                 ))
             }
-            BypassSemaphore::Block => Ok(AdmissionOutcome::after_state_comparison(
-                AdmissionDecision::Block,
-                self,
-                false,
-            )),
+            BypassSemaphore::Block => {
+                let active = self
+                    .active_commands
+                    .first()
+                    .expect("blocking requires an active command")
+                    .1;
+                let blocking = BlockingCommand {
+                    trace_id: active.trace_id.dupe(),
+                    display_command: active.display_command.clone(),
+                };
+                Ok(AdmissionOutcome::after_state_comparison(
+                    AdmissionDecision::Block(blocking),
+                    self,
+                    false,
+                ))
+            }
         }
     }
 }
@@ -1039,12 +1068,12 @@ impl ConcurrencyHandler {
 
             match decision {
                 AdmissionDecision::RejectDifferentState {
+                    running,
                     compared_with_active_state,
                 } => {
                     if compared_with_active_state {
                         tracing::debug!("ActiveDice has an active_transaction");
                     }
-                    let running = ConcurrentTraces::running(&data.active_commands);
                     drop(data);
                     effects.execute(&events);
                     let queued = self.queued_traces(request.command_id);
@@ -1083,11 +1112,11 @@ impl ConcurrencyHandler {
                     self.cond.notify_all();
                     continue;
                 }
-                AdmissionDecision::RejectNestedDifferentState => {
+                AdmissionDecision::RejectNestedDifferentState(NestedInvocationWarning {
+                    running,
+                    display_command,
+                }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    let command = request.command()?;
-                    let running = ConcurrentTraces::running_and(&data.active_commands, command);
-                    let display_command = command.display_command.clone();
                     drop(data);
                     effects.execute(&events);
                     return Err(
@@ -1107,17 +1136,11 @@ impl ConcurrencyHandler {
                     tracing::debug!("ActiveDice has an active_transaction");
                     break (transaction, admitted, effects);
                 }
-                AdmissionDecision::Block => {
+                AdmissionDecision::Block(BlockingCommand {
+                    trace_id,
+                    display_command,
+                }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    // We should probably show more than the first here, but for now
-                    // this is what we have.
-                    //
-                    // Note: unwrap here relies on the fact that `decide_after_update` starts
-                    // cleanup if there are no active commands.
-
-                    let active_command = data.active_commands.first().unwrap().1;
-                    let trace_id = active_command.trace_id.dupe();
-                    let display_command = active_command.display_command.clone();
                     // `wait_baton` registers the waiter and releases `data` synchronously. In
                     // contrast, the body of `Condvar::wait` would not run until its future was
                     // first polled, which would keep the state lock held through effect execution.
@@ -2369,7 +2392,11 @@ mod tests {
             );
 
             let mut active = data_with(DiceStatus::active(active_version), 0);
-            active.active_commands.insert(CommandId(0), a_command());
+            let blocking_command = a_command();
+            let blocking_trace = blocking_command.trace_id.dupe();
+            active
+                .active_commands
+                .insert(CommandId(0), blocking_command);
 
             assert_matches!(
                 decide_after_update(
@@ -2408,28 +2435,31 @@ mod tests {
                     completed_update(different_version, None),
                 )
                 .decision,
-                AdmissionDecision::RejectNestedDifferentState
+                AdmissionDecision::RejectNestedDifferentState(_)
             );
-            assert_matches!(
-                decide_after_update(
-                    &mut active,
-                    request(false, ExitWhen::ExitNever),
-                    completed_update(different_version, None),
-                )
-                .decision,
-                AdmissionDecision::Block
+            let blocked = decide_after_update(
+                &mut active,
+                request(false, ExitWhen::ExitNever),
+                completed_update(different_version, None),
             );
+            let AdmissionDecision::Block(blocking) = blocked.decision else {
+                panic!("a different-state command should block");
+            };
+            assert_eq!(blocking.trace_id, blocking_trace);
+            assert_eq!(blocking.display_command, "buck2");
             let reject_after_update = decide_after_update(
                 &mut active,
                 request(false, ExitWhen::ExitDifferentState),
                 completed_update(different_version, None),
             );
-            assert_matches!(
-                reject_after_update.decision,
-                AdmissionDecision::RejectDifferentState {
-                    compared_with_active_state: true,
-                }
-            );
+            let AdmissionDecision::RejectDifferentState {
+                running,
+                compared_with_active_state: true,
+            } = reject_after_update.decision
+            else {
+                panic!("ExitDifferentState should reject the command");
+            };
+            assert!(running.to_string().contains(&blocking_trace.to_string()));
             assert!(
                 matches!(
                     reject_after_update.effects.0.as_slice(),
@@ -2447,6 +2477,7 @@ mod tests {
                 reject_from_arrival.decision,
                 AdmissionDecision::RejectDifferentState {
                     compared_with_active_state: false,
+                    ..
                 }
             );
             assert!(
@@ -2570,7 +2601,7 @@ mod tests {
                 request(false, ExitWhen::ExitNever),
                 completed_update(second_version, None),
             );
-            assert_matches!(different_state.decision, AdmissionDecision::Block);
+            assert_matches!(different_state.decision, AdmissionDecision::Block(_));
             assert_matches!(
                 preempted.try_recv(),
                 Err(oneshot::error::TryRecvError::Empty),
