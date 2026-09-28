@@ -110,7 +110,7 @@ enum AdmissionDecision {
     RejectDifferentState { compared_with_active_state: bool },
     RetryAfterCleanup,
     Admit(AdmittedCommand),
-    RequestCleanup,
+    StartCleanup(CleanupRequest),
     RejectNestedDifferentState,
     Block,
 }
@@ -141,6 +141,7 @@ enum AdmittedState {
 }
 
 enum PreUpdateDecision {
+    WaitForCleanupStart,
     WaitForCleanup {
         future: Shared<BoxFuture<'static, ()>>,
         epoch: usize,
@@ -237,6 +238,11 @@ struct CompletedUpdate {
     dice_was_idle: bool,
 }
 
+#[derive(Clone, Dupe, Copy, Debug, Eq, PartialEq)]
+struct CleanupRequest {
+    epoch: usize,
+}
+
 enum AdmissionEffect {
     Preempt(oneshot::Sender<()>),
     DiceEquality(bool),
@@ -317,6 +323,9 @@ enum DiceStatus {
     Available {
         active: Option<ActiveDice>,
     },
+    CleanupStarting {
+        epoch: usize,
+    },
     Cleanup {
         future: Shared<BoxFuture<'static, ()>>,
         epoch: usize,
@@ -336,6 +345,10 @@ impl fmt::Debug for DiceStatus {
             DiceStatus::Available { active } => {
                 f.debug_struct("Available").field("active", active).finish()
             }
+            DiceStatus::CleanupStarting { epoch } => f
+                .debug_struct("CleanupStarting")
+                .field("epoch", epoch)
+                .finish(),
             DiceStatus::Cleanup { epoch, .. } => f
                 .debug_struct("Cleanup")
                 .field("epoch", epoch)
@@ -434,23 +447,39 @@ impl ConcurrencyHandlerData {
         }
     }
 
-    /// Attempt a transition to cleanup, or straight to idle if cleanup can be skipped. Returns
-    /// whether the transition was done.
-    fn transition_to_cleanup(&mut self, dice: &Dice) -> bool {
+    fn begin_cleanup(&mut self) -> Option<CleanupRequest> {
         if !self.has_no_active_commands() {
-            return false;
+            return None;
         }
 
         tracing::info!("Transitioning ActiveDice to cleanup");
-
-        // When releasing the active DICE, if any work is ongoing, place it in a clean up
-        // state. Callers will wait until it goes idle.
         self.cleanup_epoch += 1;
-        self.dice_status = DiceStatus::Cleanup {
-            future: dice.wait_for_idle().boxed().shared(),
+        let request = CleanupRequest {
             epoch: self.cleanup_epoch,
         };
+        self.dice_status = DiceStatus::CleanupStarting {
+            epoch: request.epoch,
+        };
 
+        Some(request)
+    }
+
+    fn install_cleanup(
+        &mut self,
+        request: CleanupRequest,
+        future: Shared<BoxFuture<'static, ()>>,
+    ) -> bool {
+        if !matches!(
+            self.dice_status,
+            DiceStatus::CleanupStarting { epoch } if epoch == request.epoch
+        ) {
+            return false;
+        }
+
+        self.dice_status = DiceStatus::Cleanup {
+            future,
+            epoch: request.epoch,
+        };
         true
     }
 
@@ -472,6 +501,7 @@ impl ConcurrencyHandlerData {
 
     fn decide_before_update(&self, request: &AdmissionRequest) -> PreUpdateDecision {
         match &self.dice_status {
+            DiceStatus::CleanupStarting { .. } => PreUpdateDecision::WaitForCleanupStart,
             DiceStatus::Cleanup { future, epoch } => PreUpdateDecision::WaitForCleanup {
                 future: future.clone(),
                 epoch: *epoch,
@@ -514,7 +544,7 @@ impl ConcurrencyHandlerData {
         }
 
         let active_version = match &self.dice_status {
-            DiceStatus::Cleanup { .. } => {
+            DiceStatus::CleanupStarting { .. } | DiceStatus::Cleanup { .. } => {
                 return Ok(AdmissionOutcome::without_effects(
                     AdmissionDecision::RetryAfterCleanup,
                 ));
@@ -545,8 +575,11 @@ impl ConcurrencyHandlerData {
 
         let is_same_state = update.version == active_version;
         if !is_same_state && self.has_no_active_commands() {
+            let cleanup = self
+                .begin_cleanup()
+                .expect("cleanup decision requires no active commands");
             return Ok(AdmissionOutcome::without_effects(
-                AdmissionDecision::RequestCleanup,
+                AdmissionDecision::StartCleanup(cleanup),
             ));
         }
 
@@ -879,7 +912,8 @@ impl ConcurrencyHandler {
         let (transaction, admitted, admission_effects) = loop {
             let before_update = data.decide_before_update(&request);
             match &before_update {
-                PreUpdateDecision::WaitForCleanup { .. } => {
+                PreUpdateDecision::WaitForCleanupStart
+                | PreUpdateDecision::WaitForCleanup { .. } => {
                     tracing::debug!("ActiveDice is in cleanup");
                 }
                 PreUpdateDecision::RejectNotIdle { .. } | PreUpdateDecision::Update { .. } => {
@@ -888,6 +922,10 @@ impl ConcurrencyHandler {
             }
 
             let conflict_on_arrival = match before_update {
+                PreUpdateDecision::WaitForCleanupStart => {
+                    data = self.cond.wait((data, &self.data)).await;
+                    continue;
+                }
                 PreUpdateDecision::WaitForCleanup { future, epoch } => {
                     drop(data);
                     events
@@ -1004,13 +1042,17 @@ impl ConcurrencyHandler {
                     tracing::debug!("ActiveDice has no active_transaction");
                     break (transaction, admitted, effects);
                 }
-                AdmissionDecision::RequestCleanup => {
-                    // No active commands remain, so this transition must succeed.
-                    let transitioned = data.transition_to_cleanup(&self.dice);
+                AdmissionDecision::StartCleanup(cleanup) => {
+                    drop(data);
+                    let future = self.dice.wait_for_idle().boxed().shared();
+                    drop(transaction);
+                    data = self.data.lock().await;
+                    let transitioned = data.install_cleanup(cleanup, future);
                     assert!(
                         transitioned,
-                        "the cleanup decision requires no active commands"
+                        "the cleanup request should still be awaiting its future"
                     );
+                    self.cond.notify_all();
                     continue;
                 }
                 AdmissionDecision::RejectNestedDifferentState => {
@@ -1042,8 +1084,8 @@ impl ConcurrencyHandler {
                     // We should probably show more than the first here, but for now
                     // this is what we have.
                     //
-                    // Note: unwrap here relies on the fact that transition_to_cleanup
-                    // would have transitioned if we had no active commands.
+                    // Note: unwrap here relies on the fact that `decide_after_update` starts
+                    // cleanup if there are no active commands.
 
                     let active_command = data.active_commands.first().unwrap().1;
                     let trace_id = active_command.trace_id.dupe();
@@ -2127,17 +2169,23 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn transition_to_cleanup_advances_the_epoch_when_idle() {
+        async fn cleanup_handshake_advances_the_epoch_when_idle() {
             let dice = make_default_dice();
             let mut data = data_with(active_status(&dice).await, 7);
 
-            assert!(data.transition_to_cleanup(&dice));
+            let request = data
+                .begin_cleanup()
+                .expect("idle state should begin cleanup");
             assert_eq!(data.cleanup_epoch, 8);
+            assert_eq!(request.epoch, 8);
             assert_matches!(
                 data.dice_status,
-                DiceStatus::Cleanup { epoch: 8, .. },
-                "the new cleanup should carry the advanced epoch"
+                DiceStatus::CleanupStarting { epoch: 8 },
+                "the reducer should reserve the cleanup epoch before external work"
             );
+
+            assert!(data.install_cleanup(request, futures::future::ready(()).boxed().shared()));
+            assert_matches!(data.dice_status, DiceStatus::Cleanup { epoch: 8, .. });
         }
 
         fn preemptible_command(setting: PreemptibleWhen) -> CommandData {
@@ -2277,7 +2325,7 @@ mod tests {
                     completed_update(different_version, None),
                 )
                 .decision,
-                AdmissionDecision::RequestCleanup
+                AdmissionDecision::StartCleanup(_)
             );
 
             let mut active = data_with(DiceStatus::active(active_version), 0);
@@ -2497,16 +2545,23 @@ mod tests {
             data.active_commands.shift_remove(&first_registration.0);
             data.active_commands
                 .shift_remove(&same_state_registration.0);
-            assert_matches!(
-                decide_after_update(
-                    &mut data,
-                    request(false, ExitWhen::ExitNever),
-                    completed_update(second_version, None),
-                )
-                .decision,
-                AdmissionDecision::RequestCleanup
+            let AdmissionDecision::StartCleanup(cleanup) = decide_after_update(
+                &mut data,
+                request(false, ExitWhen::ExitNever),
+                completed_update(second_version, None),
+            )
+            .decision
+            else {
+                panic!("different state without active commands should begin cleanup");
+            };
+            assert!(
+                matches!(
+                    data.decide_before_update(&request(false, ExitWhen::ExitNever)),
+                    PreUpdateDecision::WaitForCleanupStart
+                ),
+                "commands should wait until the cleanup future is installed"
             );
-            assert!(data.transition_to_cleanup(&dice));
+            assert!(data.install_cleanup(cleanup, futures::future::ready(()).boxed().shared()));
 
             let PreUpdateDecision::WaitForCleanup { future, epoch } =
                 data.decide_before_update(&request(false, ExitWhen::ExitNever))
@@ -2591,12 +2646,12 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn transition_to_cleanup_refuses_while_commands_are_active() {
+        async fn begin_cleanup_refuses_while_commands_are_active() {
             let dice = make_default_dice();
             let mut data = data_with(active_status(&dice).await, 7);
             data.active_commands.insert(CommandId(0), a_command());
 
-            assert!(!data.transition_to_cleanup(&dice));
+            assert_eq!(data.begin_cleanup(), None);
             assert_eq!(
                 data.cleanup_epoch, 7,
                 "a refused transition must not burn an epoch"
