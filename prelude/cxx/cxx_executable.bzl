@@ -894,7 +894,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     shared_libraries_sub_targets = {}
     for soname, shlib in str_soname_shlibs.items():
-        targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {}
+        targets = {}
+        if shlib.lib.dwp:
+            targets["dwp"] = [DefaultInfo(default_output = shlib.lib.dwp)]
+        if shlib.lib.pdb:
+            targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = shlib.lib.pdb, binary = shlib.lib.output)
 
         group = soname_to_group_mappings.get(soname)
         if group in readable_mappings:
@@ -928,6 +932,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                         "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
                         for soname, shlib in str_soname_shlibs.items()
                         if shlib.lib.dwp
+                    ],
+                    "librariespdb": [
+                        "{}:{}[shared-libraries][{}][pdb]".format(ctx.label.path, ctx.label.name, soname)
+                        for soname, shlib in str_soname_shlibs.items()
+                        if shlib.lib.pdb
                     ],
                     "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if shared_libs_symlink_tree else [],
                 },
