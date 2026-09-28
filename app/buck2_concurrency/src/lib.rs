@@ -784,7 +784,7 @@ impl ConcurrencyHandler {
 
         let mut data = self.data.lock().await;
 
-        let (transaction, admitted) = loop {
+        let (transaction, admitted, admission_effects) = loop {
             let before_update = data.decide_before_update(&request);
             match &before_update {
                 PreUpdateDecision::WaitForCleanup { .. } => {
@@ -905,7 +905,7 @@ impl ConcurrencyHandler {
                 }
                 AdmissionDecision::Admit(admitted @ AdmittedState::Fresh { .. }) => {
                     tracing::debug!("ActiveDice has no active_transaction");
-                    break (transaction, admitted);
+                    break (transaction, admitted, effects);
                 }
                 AdmissionDecision::RequestCleanup => {
                     // No active commands remain, so this transition must succeed.
@@ -933,8 +933,7 @@ impl ConcurrencyHandler {
                 }
                 AdmissionDecision::Admit(admitted @ AdmittedState::Concurrent { .. }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    effects.execute(&events);
-                    break (transaction, admitted);
+                    break (transaction, admitted, effects);
                 }
                 AdmissionDecision::Block => {
                     tracing::debug!("ActiveDice has an active_transaction");
@@ -1023,10 +1022,16 @@ impl ConcurrencyHandler {
             ),
         };
 
-        let registered = data.register_command(command_id, command_data)?;
+        let registered = match data.register_command(command_id, command_data) {
+            Ok(registered) => registered,
+            // These effects belong to an admission that did not occur; in particular, do not
+            // preempt an existing command for it.
+            Err(e) => return Err(e),
+        };
         drop(queued);
         drop(data);
         let drop_guard = OnExecExit::new(self.dupe(), registered);
+        admission_effects.execute(&events);
 
         if no_active_dice_state {
             events.instant(NoActiveDiceState {}.into());
@@ -1263,6 +1268,7 @@ mod tests {
     struct TestEventsInner {
         trace_id: TraceId,
         recorded: Mutex<Vec<RecordedEvent>>,
+        expected_active_commands_on_equality: Option<(Arc<ConcurrencyHandler>, usize)>,
     }
 
     #[derive(Clone, Debug)]
@@ -1281,6 +1287,18 @@ mod tests {
             Self(Arc::new(TestEventsInner {
                 trace_id,
                 recorded: Mutex::new(Vec::new()),
+                expected_active_commands_on_equality: None,
+            }))
+        }
+
+        fn expect_active_commands_on_equality(
+            concurrency: Arc<ConcurrencyHandler>,
+            expected: usize,
+        ) -> Self {
+            Self(Arc::new(TestEventsInner {
+                trace_id: TraceId::new(),
+                recorded: Mutex::new(Vec::new()),
+                expected_active_commands_on_equality: Some((concurrency, expected)),
             }))
         }
 
@@ -1331,6 +1349,15 @@ mod tests {
 
     impl CommandEvents for TestEvents {
         fn instant(&self, data: buck2_data::instant_event::Data) {
+            if matches!(&data, buck2_data::instant_event::Data::DiceEqualityCheck(_))
+                && let Some((concurrency, expected)) = &self.0.expected_active_commands_on_equality
+            {
+                let state = concurrency
+                    .data
+                    .try_lock()
+                    .expect("DICE equality was reported with the state lock held");
+                assert_eq!(state.active_commands.len(), *expected);
+            }
             self.0.recorded.lock().push(RecordedEvent::Instant(data));
         }
 
@@ -3058,6 +3085,40 @@ mod tests {
 
         drop(blocked);
         preemptible.await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn same_state_effects_follow_registration_and_lock_release() -> buck2_error::Result<()> {
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let block = Arc::new(RwLock::new(()));
+        let blocked = block.write().await;
+        let entered = Arc::new(Barrier::new(2));
+
+        let active = tokio::spawn({
+            let concurrency = concurrency.dupe();
+            let block = block.dupe();
+            let entered = entered.dupe();
+            async move {
+                TestCommand::new()
+                    .run(&concurrency, &NoChanges, |_, _timing| async move {
+                        entered.wait().await;
+                        let _guard = block.read().await;
+                    })
+                    .await
+            }
+        });
+        entered.wait().await;
+
+        let events = TestEvents::expect_active_commands_on_equality(concurrency.dupe(), 2);
+        TestCommand::new()
+            .dispatcher(events)
+            .run(&concurrency, &NoChanges, |_, _timing| async move {})
+            .await?;
+
+        drop(blocked);
+        active.await??;
 
         Ok(())
     }
