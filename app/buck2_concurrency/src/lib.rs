@@ -202,6 +202,21 @@ struct CommandId(usize);
 #[derive(Debug)]
 struct RegisteredCommand(CommandId);
 
+#[derive(Debug, Eq, PartialEq)]
+enum CommandExitEffect {
+    None,
+    /// Every waiter must re-evaluate because several equivalent commands may now be admissible.
+    WakeWaiters,
+}
+
+impl CommandExitEffect {
+    fn execute(self, cond: &Condvar) {
+        if matches!(self, Self::WakeWaiters) {
+            cond.notify_all();
+        }
+    }
+}
+
 #[derive(Allocative)]
 struct CommandData {
     trace_id: TraceId,
@@ -388,6 +403,19 @@ impl ConcurrencyHandlerData {
         }
         self.active_commands.insert(command, data);
         Ok(RegisteredCommand(command))
+    }
+
+    fn command_exited(&mut self, command: RegisteredCommand) -> CommandExitEffect {
+        self.active_commands
+            .shift_remove(&command.0)
+            .expect("command was active but not in active_commands");
+        tracing::info!("Active command was removed: {}", command.0);
+
+        if self.has_no_active_commands() {
+            CommandExitEffect::WakeWaiters
+        } else {
+            CommandExitEffect::None
+        }
     }
 
     fn ensure_command_can_register(&self, request: &AdmissionRequest) -> buck2_error::Result<()> {
@@ -1337,20 +1365,9 @@ impl Drop for OnExecExit {
 
         tokio::task::spawn(async move {
             let mut data = this.0.data.lock().await;
-            data.active_commands
-                .shift_remove(&this.1.0)
-                .expect("command was active but not in active_commands");
-            tracing::info!("Active command was removed: {}", this.1.0);
-
-            if data.has_no_active_commands() {
-                // we notify all commands since we don't know how many can actually wake up and run
-                // concurrently as several of the currently waiting commands could be "equivalent".
-                // This could cause commands to wake up out of order and race, such that the longest
-                // waiting command might not still be forced to wait. In reality, it is probably not
-                // a terrible issue, as we are unlikely to have many concurrent commands, and people
-                // are unlikely to usually care about the precise order they get to run.
-                this.0.cond.notify_all()
-            }
+            let effect = data.command_exited(this.1);
+            drop(data);
+            effect.execute(&this.0.cond);
         });
     }
 }
@@ -1887,6 +1904,29 @@ mod tests {
             registered.preempt.is_some(),
             "the first command's preempt channel was replaced"
         );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn command_exit_wakes_waiters_only_after_the_last_command() -> buck2_error::Result<()> {
+        let command = || CommandData {
+            trace_id: TraceId::new(),
+            display_command: "buck2".to_owned(),
+            preemption_setting: PreemptibleWhen::Never,
+            preempt: None,
+        };
+        let concurrency = ConcurrencyHandler::new(make_default_dice());
+        let first_id = concurrency.allocate_command_id();
+        let second_id = concurrency.allocate_command_id();
+        let mut data = concurrency.data.lock().await;
+        let first = data.register_command(first_id, command())?;
+        let second = data.register_command(second_id, command())?;
+
+        assert_eq!(data.command_exited(first), CommandExitEffect::None);
+        assert_eq!(data.active_commands.len(), 1);
+        assert_eq!(data.command_exited(second), CommandExitEffect::WakeWaiters);
+        assert!(data.active_commands.is_empty());
 
         Ok(())
     }
