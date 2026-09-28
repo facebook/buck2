@@ -24,6 +24,7 @@ BUCK2_KEEP_DEP_FILE_DIRECTORIES                bool                   false
 BUCK2_LIB_BACKTRACE                            String
 BUCK2_MAX_BLOCKING_THREADS                     usize
 BUCK2_PARANOID_PATH                            String
+BUCK2_RE_CONNECT_TIMEOUT_S                     u64                    120
 BUCK2_RE_DOWNLOAD_CONCURRENCY                  usize                  256
 BUCK2_RUNTIME_THREADS                          usize
 BUCK2_SCRIBE_CATEGORY                          String
