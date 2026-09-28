@@ -161,6 +161,13 @@ struct CommandData {
     preempt: Option<oneshot::Sender<()>>,
 }
 
+struct AdmissionRequest {
+    is_nested: bool,
+    sanitized_argv: Vec<String>,
+    preemptible: PreemptibleWhen,
+    exit_when: ExitWhen,
+}
+
 #[derive(Allocative)]
 enum DiceStatus {
     Available {
@@ -466,11 +473,13 @@ impl ConcurrencyHandler {
                                     updates,
                                     early_command_timing,
                                     inner_events,
-                                    is_nested_invocation,
-                                    sanitized_argv,
-                                    preemptible,
+                                    AdmissionRequest {
+                                        is_nested: is_nested_invocation,
+                                        sanitized_argv,
+                                        preemptible,
+                                        exit_when,
+                                    },
                                     transaction_observer,
-                                    exit_when,
                                 )
                             })
                             .await,
@@ -508,11 +517,8 @@ impl ConcurrencyHandler {
         updates: &dyn DiceUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
         events: E,
-        is_nested_invocation: bool,
-        sanitized_argv: Vec<String>,
-        preemptible: PreemptibleWhen,
+        request: AdmissionRequest,
         transaction_observer: &dyn CommandTransactionObserver,
-        exit_when: ExitWhen,
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
@@ -532,11 +538,11 @@ impl ConcurrencyHandler {
 
         let (preempt_sender, preempt_receiver) = oneshot::channel::<()>();
 
-        let display_command = format_command(&sanitized_argv);
+        let display_command = format_command(&request.sanitized_argv);
         let command_data = CommandData {
             trace_id: trace.dupe(),
             display_command,
-            preemption_setting: preemptible,
+            preemption_setting: request.preemptible,
             preempt: Some(preempt_sender),
         };
 
@@ -572,7 +578,9 @@ impl ConcurrencyHandler {
             // `--exit-when=notidle` asks only whether anything else is running, so it is answered
             // here rather than after the update. Refusing costs a lock acquisition instead of a
             // file-watcher sync and a DICE commit.
-            if matches!(exit_when, ExitWhen::ExitNotIdle) && !data.active_commands.is_empty() {
+            if matches!(request.exit_when, ExitWhen::ExitNotIdle)
+                && !data.active_commands.is_empty()
+            {
                 let running = ConcurrentTraces::running(&data.active_commands);
                 drop(data);
                 let queued = self.queued_traces(command_id);
@@ -645,9 +653,10 @@ impl ConcurrencyHandler {
             // invocation with a differing state is reported as
             // `NestedInvocationWithDifferentStates` below rather than reaching the blocking path
             // this flag short-circuits.
-            let refuse_on_different_state = matches!(exit_when, ExitWhen::ExitDifferentState)
-                && !is_nested_invocation
-                && conflict_on_arrival.is_some_and(|version| !transaction.equivalent(&version));
+            let refuse_on_different_state =
+                matches!(request.exit_when, ExitWhen::ExitDifferentState)
+                    && !request.is_nested
+                    && conflict_on_arrival.is_some_and(|version| !transaction.equivalent(&version));
 
             if refuse_on_different_state {
                 let running = ConcurrentTraces::running(&data.active_commands);
@@ -703,7 +712,7 @@ impl ConcurrencyHandler {
             );
 
             let bypass_semaphore =
-                self.determine_bypass_semaphore(is_same_state, is_nested_invocation);
+                self.determine_bypass_semaphore(is_same_state, request.is_nested);
 
             match bypass_semaphore {
                 BypassSemaphore::Error => {
@@ -730,7 +739,7 @@ impl ConcurrencyHandler {
                 }
                 BypassSemaphore::Block => {
                     let early_exit_error: Option<ConcurrencyHandlerError> =
-                        if matches!(exit_when, ExitWhen::ExitDifferentState) {
+                        if matches!(request.exit_when, ExitWhen::ExitDifferentState) {
                             Some(ConcurrencyHandlerError::ExitWhenDifferentState)
                         } else {
                             None
