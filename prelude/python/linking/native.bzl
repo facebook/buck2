@@ -72,7 +72,12 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
-load("@prelude//python:python.bzl", "python_attr_preload_deps")
+load(
+    "@prelude//python:python.bzl",
+    "PythonLibraryInfo",
+    "PythonLibraryManifestsTSet",
+    "python_attr_preload_deps",
+)
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(
@@ -263,6 +268,22 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
 def _cxx_exe_allow_cache_upload(ctx) -> bool:
     return hasattr(ctx.attrs, "exe_allow_cache_upload") and bool(ctx.attrs.exe_allow_cache_upload)
 
+def _python_source_build_info_invalidation_inputs(ctx, deps, sources):
+    """
+    Return all Python sources packaged into the binary, but only when full
+    build info is enabled. These are consumed solely as hidden inputs to the
+    build-info generator; they must not become native link inputs.
+    """
+    if not getattr(ctx.attrs, "_generated_build_info_enabled", False) or ctx.attrs._generated_build_info_mode != "full":
+        return []
+
+    manifest_sets = [dep[PythonLibraryInfo].manifests for dep in deps if PythonLibraryInfo in dep]
+    # Deliberately project sources, not extension artifacts. The latter makes
+    # native Python build-info generation eagerly build every transitive
+    # extension DSO (the behavior removed in D121806144).
+    transitive_sources = [ctx.actions.tset(PythonLibraryManifestsTSet, children = manifest_sets).project_as_args("source_artifacts")] if manifest_sets else []
+    return sources + transitive_sources
+
 def _compute_cxx_executable_info(
     ctx,
     extension_info_reduced,
@@ -271,6 +292,7 @@ def _compute_cxx_executable_info(
     python_toolchain,
     package_style,
     allow_cache_upload,
+    generated_build_info_invalidation_inputs,
 ) -> (CxxExecutableOutput, Artifact | None):
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
@@ -377,6 +399,7 @@ def _compute_cxx_executable_info(
         error_handler = python_toolchain.python_error_handler,
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
+        generated_build_info_invalidation_inputs = generated_build_info_invalidation_inputs,
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
 
@@ -384,7 +407,14 @@ def _compute_cxx_executable_info(
     return (executable_info, executable_info.build_info_manifest_entries)
 
 def process_native_linking(
-    ctx, deps, python_toolchain, python_internal_tools: PythonInternalToolsInfo, package_style, allow_cache_upload
+    ctx,
+    deps,
+    python_toolchain,
+    python_internal_tools: PythonInternalToolsInfo,
+    package_style,
+    allow_cache_upload,
+    generated_build_info_invalidation_deps = [],
+    generated_build_info_invalidation_sources = [],
 ) -> (
     list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
@@ -400,6 +430,11 @@ def process_native_linking(
     extra_artifacts = {}
 
     extension_info, extension_info_reduced = _compute_cxx_extension_info(ctx, deps)
+    generated_build_info_invalidation_inputs = _python_source_build_info_invalidation_inputs(
+        ctx,
+        generated_build_info_invalidation_deps,
+        generated_build_info_invalidation_sources,
+    )
 
     executable_deps = ctx.attrs.executable_deps
 
@@ -431,6 +466,7 @@ def process_native_linking(
         python_toolchain,
         package_style,
         allow_cache_upload,
+        generated_build_info_invalidation_inputs,
     )
     extra["native-executable"] = [DefaultInfo(default_output = executable_info.binary, sub_targets = executable_info.sub_targets)]
     if "generated_build_info" in executable_info.sub_targets:

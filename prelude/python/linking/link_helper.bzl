@@ -86,6 +86,8 @@ def _process_native_linking_rule_impl(ctx):
             python_internal_tools,
             ctx.attrs.package_style,
             ctx.attrs.allow_cache_upload,
+            generated_build_info_invalidation_deps = ctx.attrs.generated_build_info_invalidation_deps,
+            generated_build_info_invalidation_sources = ctx.attrs.generated_build_info_invalidation_sources,
         )
     )
     return [
@@ -108,6 +110,8 @@ process_native_linking_rule = rule(
     attrs = {
         "deps": attrs.list(attrs.dep()),  # Note: cxx-only deps here
         "dlopen_deps": attrs.list(attrs.dep(), default = []),
+        "generated_build_info_invalidation_deps": attrs.list(attrs.dep(), default = []),
+        "generated_build_info_invalidation_sources": attrs.list(attrs.source(), default = []),
         "package_style": attrs.any(),
         "rpath": attrs.string(),
         "shared_only_deps": attrs.list(attrs.dep(), default = []),

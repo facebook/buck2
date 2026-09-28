@@ -554,6 +554,12 @@ def _convert_python_library_to_executable(
     native_runtime_files = []
 
     if link_strategy == NativeLinkStrategy("native"):
+        invalidate_build_info_on_python_sources = getattr(ctx.attrs, "_generated_build_info_enabled", False) and ctx.attrs._generated_build_info_mode == "full"
+        generated_build_info_invalidation_deps = deps if invalidate_build_info_on_python_sources else []
+        generated_build_info_invalidation_sources = (
+            [artifact for artifact, _ in src_manifest.artifacts] if invalidate_build_info_on_python_sources and src_manifest != None else []
+        )
+
         use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
         if use_anon_target:
             native_deps = {}
@@ -568,6 +574,8 @@ def _convert_python_library_to_executable(
                 "allow_cache_upload": allow_cache_upload,
                 "deps": list(native_deps.values()),
                 "dlopen_deps": list(dlopen_deps.values()),
+                "generated_build_info_invalidation_deps": generated_build_info_invalidation_deps,
+                "generated_build_info_invalidation_sources": generated_build_info_invalidation_sources,
                 "name": "python_linking:" + ctx.attrs.name,
                 "package_style": package_style,
                 "rpath": ctx.attrs.name,
@@ -615,6 +623,8 @@ def _convert_python_library_to_executable(
                     python_internal_tools,
                     package_style,
                     allow_cache_upload,
+                    generated_build_info_invalidation_deps = generated_build_info_invalidation_deps,
+                    generated_build_info_invalidation_sources = generated_build_info_invalidation_sources,
                 )
             )
             if ctx.attrs.runtime_bundle:
