@@ -106,7 +106,7 @@ humantime = "2.4.0"
 hyper = { version = "=1.11.0", features = ["client", "http1", "http2"] }
 hyper-http-proxy = "1.2.0"
 hyper-proxy2 = { version = "0.1", features = ["rustls"], default-features = false }
-hyper-rustls = { version = "0.27.9", features = ["http2"] }
+hyper-rustls = { version = "0.27.10", features = ["http2"] }
 hyper-timeout = "0.5.2"
 hyper-util = { version = "0.1.21", features = ["client-legacy", "http1", "http2", "server-auto", "service", "tokio"] }
 hyperlocal = { version = "0.9", features = ["client"] }
