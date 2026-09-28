@@ -111,11 +111,22 @@ pub enum BypassSemaphore {
 enum AdmissionDecision {
     RejectDifferentState { compared_with_active_state: bool },
     RetryAfterCleanup,
-    InstallFresh,
-    BeginCleanup,
+    Admit(AdmittedState),
+    RequestCleanup,
     RejectNestedDifferentState,
-    RunConcurrent { state: RunState },
     Block,
+}
+
+#[derive(Debug)]
+enum AdmittedState {
+    Fresh {
+        tainted: bool,
+        previously_tainted: bool,
+    },
+    Concurrent {
+        state: RunState,
+        previously_tainted: bool,
+    },
 }
 
 enum PreUpdateDecision {
@@ -190,6 +201,12 @@ struct AdmissionRequest {
     sanitized_argv: Vec<String>,
     preemptible: PreemptibleWhen,
     exit_when: ExitWhen,
+}
+
+struct CompletedUpdate {
+    version: DiceEquality,
+    conflict_on_arrival: Option<DiceEquality>,
+    dice_was_idle: bool,
 }
 
 enum AdmissionEffect {
@@ -380,12 +397,13 @@ impl ConcurrencyHandlerData {
     fn decide_after_update(
         &mut self,
         request: &AdmissionRequest,
-        transaction_version: DiceEquality,
-        conflict_on_arrival: Option<DiceEquality>,
+        update: CompletedUpdate,
     ) -> AdmissionOutcome {
         if matches!(request.exit_when, ExitWhen::ExitDifferentState)
             && !request.is_nested
-            && conflict_on_arrival.is_some_and(|version| transaction_version != version)
+            && update
+                .conflict_on_arrival
+                .is_some_and(|version| update.version != version)
         {
             return AdmissionOutcome::without_effects(AdmissionDecision::RejectDifferentState {
                 compared_with_active_state: false,
@@ -400,13 +418,26 @@ impl ConcurrencyHandlerData {
                 active: Some(active),
             } => active.version,
             DiceStatus::Available { active: None } => {
-                return AdmissionOutcome::without_effects(AdmissionDecision::InstallFresh);
+                assert!(
+                    self.has_no_active_commands(),
+                    "an idle DICE state cannot have registered commands"
+                );
+                let tainted = !update.dice_was_idle;
+                let previously_tainted = self.previously_tainted;
+                self.dice_status = DiceStatus::active(update.version);
+                self.previously_tainted |= tainted;
+                return AdmissionOutcome::without_effects(AdmissionDecision::Admit(
+                    AdmittedState::Fresh {
+                        tainted,
+                        previously_tainted,
+                    },
+                ));
             }
         };
 
-        let is_same_state = transaction_version == active_version;
+        let is_same_state = update.version == active_version;
         if !is_same_state && self.has_no_active_commands() {
-            return AdmissionOutcome::without_effects(AdmissionDecision::BeginCleanup);
+            return AdmissionOutcome::without_effects(AdmissionDecision::RequestCleanup);
         }
 
         match determine_bypass_semaphore(is_same_state, request.is_nested) {
@@ -416,7 +447,10 @@ impl ConcurrencyHandlerData {
                 false,
             ),
             BypassSemaphore::Run(state) => AdmissionOutcome::after_state_comparison(
-                AdmissionDecision::RunConcurrent { state },
+                AdmissionDecision::Admit(AdmittedState::Concurrent {
+                    state,
+                    previously_tainted: self.previously_tainted,
+                }),
                 self,
                 true,
             ),
@@ -733,7 +767,7 @@ impl ConcurrencyHandler {
 
         let mut data = self.data.lock().await;
 
-        let (transaction, tainted, nested_warning, no_active_dice_state) = loop {
+        let (transaction, admitted) = loop {
             let before_update = data.decide_before_update(&request);
             match &before_update {
                 PreUpdateDecision::WaitForCleanup { .. } => {
@@ -819,8 +853,14 @@ impl ConcurrencyHandler {
             data = self.data.lock().await;
 
             let transaction_version = transaction.equality_token();
-            let AdmissionOutcome { decision, effects } =
-                data.decide_after_update(&request, transaction_version, conflict_on_arrival);
+            let AdmissionOutcome { decision, effects } = data.decide_after_update(
+                &request,
+                CompletedUpdate {
+                    version: transaction_version,
+                    conflict_on_arrival,
+                    dice_was_idle,
+                },
+            );
 
             match decision {
                 AdmissionDecision::RejectDifferentState {
@@ -846,12 +886,11 @@ impl ConcurrencyHandler {
                     drop(transaction);
                     continue;
                 }
-                AdmissionDecision::InstallFresh => {
+                AdmissionDecision::Admit(admitted @ AdmittedState::Fresh { .. }) => {
                     tracing::debug!("ActiveDice has no active_transaction");
-                    data.dice_status = DiceStatus::active(transaction_version);
-                    break (transaction, !dice_was_idle, None, true);
+                    break (transaction, admitted);
                 }
-                AdmissionDecision::BeginCleanup => {
+                AdmissionDecision::RequestCleanup => {
                     // No active commands remain, so this transition must succeed.
                     let transitioned = data.transition_to_cleanup(&self.dice);
                     assert!(
@@ -875,15 +914,10 @@ impl ConcurrencyHandler {
                         .into(),
                     );
                 }
-                AdmissionDecision::RunConcurrent { state } => {
+                AdmissionDecision::Admit(admitted @ AdmittedState::Concurrent { .. }) => {
                     tracing::debug!("ActiveDice has an active_transaction");
-                    let nested_warning = Self::nested_same_state_warning(
-                        state,
-                        &data.active_commands,
-                        &command_data,
-                    );
                     effects.execute(&events);
-                    break (transaction, false, nested_warning, false);
+                    break (transaction, admitted);
                 }
                 AdmissionDecision::Block => {
                     tracing::debug!("ActiveDice has an active_transaction");
@@ -956,21 +990,21 @@ impl ConcurrencyHandler {
 
         tracing::info!("Acquired access to DICE");
 
-        let previously_tainted = data.previously_tainted;
-
-        if tainted {
-            // Only the current command is notified, because there is never another one to tell.
-            // Taint is only set on the branch that installs a fresh `ActiveDice`, which requires
-            // `dice_status` to be `Available { active: None }`. That state implies an empty
-            // `active_commands`: the only route back to it is `transition_to_idle`, reachable only
-            // from `Cleanup`, and `transition_to_cleanup` refuses to enter `Cleanup` unless
-            // `has_no_active_commands()`. Relaxing that guard would make this assertion fire.
-            debug_assert!(
-                data.has_no_active_commands(),
-                "taint implies no registered commands; see transition_to_cleanup's guard"
-            );
-            data.previously_tainted = true;
-        }
+        let (tainted, previously_tainted, nested_warning, no_active_dice_state) = match admitted {
+            AdmittedState::Fresh {
+                tainted,
+                previously_tainted,
+            } => (tainted, previously_tainted, None, true),
+            AdmittedState::Concurrent {
+                state,
+                previously_tainted,
+            } => (
+                false,
+                previously_tainted,
+                Self::nested_same_state_warning(state, &data.active_commands, &command_data),
+                false,
+            ),
+        };
 
         drop(queued);
         // Registration consumes the guard and releases the state lock. Its drop path also handles
@@ -1906,6 +1940,17 @@ mod tests {
             }
         }
 
+        fn completed_update(
+            version: DiceEquality,
+            conflict_on_arrival: Option<DiceEquality>,
+        ) -> CompletedUpdate {
+            CompletedUpdate {
+                version,
+                conflict_on_arrival,
+                dice_was_idle: true,
+            }
+        }
+
         async fn distinct_versions(dice: &Arc<Dice>) -> (DiceEquality, DiceEquality) {
             let first = dice.updater().commit().await.equality_token();
             let mut updater = dice.updater();
@@ -2063,11 +2108,12 @@ mod tests {
 
             let mut cleanup = data_with(cleanup_at(1), 1);
             assert_matches!(
-                cleanup.decide_after_update(
-                    &request(false, ExitWhen::ExitNever),
-                    active_version,
-                    None,
-                ).decision,
+                cleanup
+                    .decide_after_update(
+                        &request(false, ExitWhen::ExitNever),
+                        completed_update(active_version, None),
+                    )
+                    .decision,
                 AdmissionDecision::RetryAfterCleanup
             );
 
@@ -2075,11 +2121,20 @@ mod tests {
             assert_matches!(
                 idle.decide_after_update(
                     &request(false, ExitWhen::ExitNever),
-                    active_version,
-                    None,
+                    completed_update(active_version, None),
                 )
                 .decision,
-                AdmissionDecision::InstallFresh
+                AdmissionDecision::Admit(AdmittedState::Fresh {
+                    tainted: false,
+                    previously_tainted: false,
+                })
+            );
+            assert_matches!(
+                idle.dice_status,
+                DiceStatus::Available {
+                    active: Some(ActiveDice { version })
+                } if version == active_version,
+                "fresh admission installs the completed transaction"
             );
 
             let mut active_without_commands = data_with(DiceStatus::active(active_version), 0);
@@ -2087,40 +2142,44 @@ mod tests {
                 active_without_commands
                     .decide_after_update(
                         &request(false, ExitWhen::ExitNever),
-                        different_version,
-                        None,
+                        completed_update(different_version, None),
                     )
                     .decision,
-                AdmissionDecision::BeginCleanup
+                AdmissionDecision::RequestCleanup
             );
 
             let mut active = data_with(DiceStatus::active(active_version), 0);
             active.active_commands.insert(CommandId(0), a_command());
 
             assert_matches!(
-                active.decide_after_update(
-                    &request(false, ExitWhen::ExitNever),
-                    active_version,
-                    None,
-                ).decision,
-                AdmissionDecision::RunConcurrent {
-                    state: RunState::ParallelSameState
-                }
-            );
-            assert_matches!(
                 active
-                    .decide_after_update(&request(true, ExitWhen::ExitNever), active_version, None,)
+                    .decide_after_update(
+                        &request(false, ExitWhen::ExitNever),
+                        completed_update(active_version, None),
+                    )
                     .decision,
-                AdmissionDecision::RunConcurrent {
-                    state: RunState::NestedSameState
-                }
+                AdmissionDecision::Admit(AdmittedState::Concurrent {
+                    state: RunState::ParallelSameState,
+                    previously_tainted: false,
+                })
             );
             assert_matches!(
                 active
                     .decide_after_update(
                         &request(true, ExitWhen::ExitNever),
-                        different_version,
-                        None,
+                        completed_update(active_version, None),
+                    )
+                    .decision,
+                AdmissionDecision::Admit(AdmittedState::Concurrent {
+                    state: RunState::NestedSameState,
+                    previously_tainted: false,
+                })
+            );
+            assert_matches!(
+                active
+                    .decide_after_update(
+                        &request(true, ExitWhen::ExitNever),
+                        completed_update(different_version, None),
                     )
                     .decision,
                 AdmissionDecision::RejectNestedDifferentState
@@ -2129,16 +2188,14 @@ mod tests {
                 active
                     .decide_after_update(
                         &request(false, ExitWhen::ExitNever),
-                        different_version,
-                        None,
+                        completed_update(different_version, None),
                     )
                     .decision,
                 AdmissionDecision::Block
             );
             let reject_after_update = active.decide_after_update(
                 &request(false, ExitWhen::ExitDifferentState),
-                different_version,
-                None,
+                completed_update(different_version, None),
             );
             assert_matches!(
                 reject_after_update.decision,
@@ -2156,8 +2213,7 @@ mod tests {
 
             let reject_from_arrival = active.decide_after_update(
                 &request(false, ExitWhen::ExitDifferentState),
-                different_version,
-                Some(active_version),
+                completed_update(different_version, Some(active_version)),
             );
             assert_matches!(
                 reject_from_arrival.decision,
