@@ -273,6 +273,16 @@ struct CompletedUpdate {
     dice_was_idle: bool,
 }
 
+struct PendingUpdate {
+    conflict_on_arrival: Option<DiceEquality>,
+    dice_was_idle: BoxFuture<'static, bool>,
+}
+
+struct UpdatedTransaction {
+    transaction: DiceTransaction,
+    update: CompletedUpdate,
+}
+
 #[derive(Clone, Dupe, Copy, Debug, Eq, PartialEq)]
 struct CleanupRequest {
     epoch: usize,
@@ -947,6 +957,45 @@ impl ConcurrencyHandler {
     /// slow blocking command doesn't flood the console.
     const BLOCKED_COMMAND_WARNING_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
+    async fn complete_update<E: CommandEvents>(
+        &self,
+        pending: PendingUpdate,
+        updates: &dyn DiceUpdater,
+        early_timings: &mut EarlyCommandTimingBuilder,
+        events: &E,
+    ) -> buck2_error::Result<UpdatedTransaction> {
+        let _update_permit = self
+            .update_permit
+            .acquire()
+            .await
+            .expect("`update_permit` is never closed");
+        let dice_was_idle = pending.dice_was_idle.await;
+
+        let updater = self.dice.updater();
+        let (transaction, user_data) = updates.update(updater, early_timings).await?;
+        let transaction = events
+            .span(
+                buck2_data::DiceStateUpdateStart {}.into(),
+                Box::pin(async {
+                    (
+                        buck2_error::Ok(transaction.commit_with_data(user_data).await),
+                        buck2_data::DiceStateUpdateEnd {}.into(),
+                    )
+                }),
+            )
+            .await?;
+        let version = transaction.equality_token();
+
+        Ok(UpdatedTransaction {
+            transaction,
+            update: CompletedUpdate {
+                version,
+                conflict_on_arrival: pending.conflict_on_arrival,
+                dice_was_idle,
+            },
+        })
+    }
+
     async fn wait_for_others<E: CommandEvents>(
         self: &Arc<Self>,
         updates: &dyn DiceUpdater,
@@ -1022,9 +1071,12 @@ impl ConcurrencyHandler {
                 } => conflict_on_arrival,
             };
 
-            // Enqueue the sample before the update because committing a transaction makes DICE
-            // non-idle. The returned future can be awaited after releasing the state lock.
-            let dice_was_idle = self.dice.is_idle();
+            let pending_update = PendingUpdate {
+                conflict_on_arrival,
+                // Enqueue the sample before the update because committing a transaction makes
+                // DICE non-idle. The returned future can be awaited after releasing the state lock.
+                dice_was_idle: self.dice.is_idle().boxed(),
+            };
 
             // we rerun the updates in case that files on disk have changed between commands.
             // this might cause some churn, but concurrent commands don't happen much and
@@ -1033,47 +1085,16 @@ impl ConcurrencyHandler {
             // This runs under `update_permit` and *not* the state lock, so other commands can
             // reach a decision while this one is talking to the file watcher.
             drop(data);
-            let (transaction, dice_was_idle) = async {
-                let _update_permit = self
-                    .update_permit
-                    .acquire()
-                    .await
-                    .expect("`update_permit` is never closed");
-                let dice_was_idle = dice_was_idle.await;
-
-                let updater = self.dice.updater();
-
-                let (transaction, user_data) = updates.update(updater, early_timings).await?;
-
-                let transaction = events
-                    .span(
-                        buck2_data::DiceStateUpdateStart {}.into(),
-                        Box::pin(async {
-                            (
-                                async {
-                                    let transaction = transaction.commit_with_data(user_data).await;
-                                    buck2_error::Ok(transaction)
-                                }
-                                .await,
-                                buck2_data::DiceStateUpdateEnd {}.into(),
-                            )
-                        }),
-                    )
-                    .await?;
-                buck2_error::Ok((transaction, dice_was_idle))
-            }
-            .await?;
+            let UpdatedTransaction {
+                transaction,
+                update,
+            } = self
+                .complete_update(pending_update, updates, early_timings, &events)
+                .await?;
             data = self.data.lock().await;
 
-            let transaction_version = transaction.equality_token();
-            let AdmissionOutcome { decision, effects } = data.decide_after_update(
-                &mut request,
-                CompletedUpdate {
-                    version: transaction_version,
-                    conflict_on_arrival,
-                    dice_was_idle,
-                },
-            )?;
+            let AdmissionOutcome { decision, effects } =
+                data.decide_after_update(&mut request, update)?;
 
             match decision {
                 AdmissionDecision::RejectDifferentState {
