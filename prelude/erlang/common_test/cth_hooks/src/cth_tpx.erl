@@ -608,7 +608,7 @@ method_name(Method, Groups) ->
             MethodName0 ->
                 atom_to_list(MethodName0)
         end,
-    cth_tpx_test_tree:qualified_name(Groups, MethodName).
+    common_util:qualified_name(Groups, MethodName).
 
 -spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_testcase(_Suite, TC, Config, HookState) ->

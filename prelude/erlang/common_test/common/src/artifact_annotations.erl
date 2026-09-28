@@ -70,7 +70,7 @@ default_annotation(FileName) ->
 test_metrics_artifact_annotation(FileName, Tests) ->
     FirstTest = hd(Tests),
     FirstTestName = unicode_characters_to_binary(
-        cth_tpx_test_tree:qualified_name(
+        common_util:qualified_name(
             lists:reverse(FirstTest#ct_test.groups),
             FirstTest#ct_test.test_name
         )

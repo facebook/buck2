@@ -332,10 +332,10 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles
             main => #{
                 name => lists:flatten(
                     io_lib:format("~ts.[main_testcase]", [
-                        % We need to reverse the list of groups as the method cth_tpx_test_tree:qualified_name expects them
+                        % We need to reverse the list of groups as the method common_util:qualified_name expects them
                         % in the reverse order (as it is designed to be called when exploring the tree of results
                         % where we push at each time the group we are in, leading to them being in reverse order).
-                        cth_tpx_test_tree:qualified_name(
+                        common_util:qualified_name(
                             lists:reverse(Test#ct_test.groups),
                             Test#ct_test.test_name
                         )

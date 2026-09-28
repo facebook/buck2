@@ -13,6 +13,8 @@
     unicode_characters_to_list/1,
     unicode_characters_to_binary/1,
 
+    qualified_name/2,
+
     filename_all_to_filename/1,
 
     get_env/1,
@@ -24,6 +26,19 @@ unicode_characters_to_list(CharData) ->
     case unicode:characters_to_list(CharData) of
         R when not is_tuple(R) -> R
     end.
+
+-doc """
+Gets the name for a testcase in a given group-path
+The groups order expected here is [leaf_group, ...., root_group]
+""".
+-spec qualified_name(Groups, TestCase) -> string() when
+    Groups :: [atom()],
+    TestCase :: string() | atom().
+qualified_name(Groups, TestCase) ->
+    StringGroups = [atom_to_list(Group) || Group <- Groups],
+    JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
+    Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
+    unicode_characters_to_list(Raw).
 
 -spec unicode_characters_to_binary(unicode:chardata()) -> binary().
 unicode_characters_to_binary(Chars) ->

@@ -44,7 +44,7 @@ the configured regular expressions, each with its own reason.
 `pre_init_per_suite` matches against `""`, `pre_init_per_group` matches the
 qualified group name with an empty testcase, and `pre_init_per_testcase`
 matches the fully-qualified testcase name that
-`cth_tpx_test_tree:qualified_name/2` reports. The first matching pattern wins.
+`common_util:qualified_name/2` reports. The first matching pattern wins.
 """.
 -spec init(Id, Opts) -> {ok, state()} when
     Id :: term(),
@@ -71,7 +71,7 @@ pre_init_per_suite(_Suite, Config, State = #{skips := Skips}) ->
     State :: state().
 pre_init_per_group(_Suite, Group, Config, State = #{skips := Skips, groups := Groups}) ->
     State1 = State#{groups := [Group | Groups]},
-    case find_skip(cth_tpx_test_tree:qualified_name([Group | Groups], ""), Skips) of
+    case find_skip(common_util:qualified_name([Group | Groups], ""), Skips) of
         {ok, Reason} ->
             {{skip, Reason}, State1};
         error ->
@@ -110,7 +110,7 @@ pre_init_per_testcase(_Suite, _TestCase, {Tag, _Reason} = SkipOrFail, State) whe
 ->
     {SkipOrFail, State};
 pre_init_per_testcase(_Suite, TestCase, Config, State = #{skips := Skips, groups := Groups}) ->
-    case find_skip(cth_tpx_test_tree:qualified_name(Groups, TestCase), Skips) of
+    case find_skip(common_util:qualified_name(Groups, TestCase), Skips) of
         {ok, Reason} ->
             {{skip, Reason}, State};
         error ->

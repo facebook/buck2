@@ -11,8 +11,6 @@
 
 %% Public API
 -export([
-    qualified_name/2,
-
     new_node/1,
     new_leaf/1,
 
@@ -92,19 +90,6 @@
     main := collected_method_result(),
     ends := [collected_method_result()]
 }.
-
--doc """
-Gets the name for a testcase in a given group-path
-The groups order expected here is [leaf_group, ...., root_group]
-""".
--spec qualified_name(Groups, TestCase) -> string() when
-    Groups :: group_path(),
-    TestCase :: name().
-qualified_name(Groups, TestCase) ->
-    StringGroups = [atom_to_list(Group) || Group <- Groups],
-    JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
-    Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
-    unicode_characters_to_list(Raw).
 
 %% Tree creation and update
 
@@ -202,7 +187,7 @@ Provides a result for a given specific requested_result.
     TestCase :: atom(),
     CollectedStdOut :: ct_stdout:collected_stdout().
 collect_result(TreeResult, Groups, TestCase, CollectedStdOut) ->
-    QualifiedName = qualified_name(lists:reverse(Groups), TestCase),
+    QualifiedName = common_util:qualified_name(lists:reverse(Groups), TestCase),
     LeafResult = collect_result(TreeResult, [], [], Groups, TestCase, QualifiedName, CollectedStdOut),
     #{ends := EndsResults, main := MainResult} = LeafResult,
     MainResultWithEndFailure = report_end_failure(EndsResults, MainResult),
