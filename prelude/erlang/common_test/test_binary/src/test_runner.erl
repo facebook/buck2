@@ -9,9 +9,7 @@
 -module(test_runner).
 -compile(warn_missing_spec_all).
 
--export([run_tests/6, mark_success/2, mark_failure/2]).
-
--export([parse_test_name/2]).
+-export([run_tests/6]).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -36,7 +34,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout, StdoutStr
             SuiteBin when is_binary(SuiteBin) -> binary_to_atom(SuiteBin);
             SuiteStr when is_list(SuiteStr) -> list_to_atom(SuiteStr)
         end,
-    StructuredTests = [parse_test_name(Test, Suite) || Test <- Tests],
+    StructuredTests = [common_util:parse_test_name(Test, Suite) || Test <- Tests],
     case StructuredTests of
         [] ->
             throw(no_tests_to_run);
@@ -64,7 +62,8 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout, StdoutStr
                     trampolines = TestInfo#test_info.trampolines,
                     timeout = Timeout,
                     ct_stdout_fingerprint = ct_stdout:make_fingerprint(),
-                    ct_stdout_streaming = StdoutStreaming
+                    ct_stdout_streaming = StdoutStreaming,
+                    result_recipient = self()
                 }
             )
     end.
@@ -110,7 +109,6 @@ execute_test_suite(TestEnv) ->
     TestEnv :: #test_env{},
     Timeout :: timeout().
 run_test(TestEnv, Timeout) ->
-    register(?MODULE, self()),
     application:set_env(test_exec, test_env, TestEnv, [{persistent, true}]),
     case application:ensure_all_started(test_exec, temporary) of
         {ok, _Apps} ->
@@ -475,25 +473,6 @@ add_spec_if_absent({Key, Value}, CtOpts) ->
         _ -> CtOpts
     end.
 
--doc """
-Parse the test name, and decompose it into the test, group and suite atoms
-""".
--spec parse_test_name(string(), atom()) -> #ct_test{}.
-parse_test_name(Test, Suite) ->
-    [Groups0, TestName] = string:split(Test, ".", all),
-    Groups1 =
-        case Groups0 of
-            [] -> [];
-            _ -> string:split(Groups0, ":", all)
-        end,
-    Groups = [list_to_atom(GroupStr) || GroupStr <:- Groups1],
-    #ct_test{
-        suite = Suite,
-        groups = Groups,
-        test_name = list_to_atom(TestName),
-        canonical_name = Test
-    }.
-
 -spec reorder_tests(list(#ct_test{}), #test_spec_test_case{}) -> list(#ct_test{}).
 reorder_tests(Tests, #test_spec_test_case{testcases = TestCases}) ->
     % This is the ordered lists of test from the suite as
@@ -523,26 +502,6 @@ set_up_log_dir(OutputDir) ->
     LogDir = filename:join(OutputDir, "log_dir"),
     ok = filelib:ensure_path(LogDir),
     LogDir.
-
--doc """
-Informs the test runner of a successful test run.
-""".
--spec mark_success(Result, ProgressMarkersOffsets) -> ok when
-    Result :: unicode:chardata(),
-    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
-mark_success(Result, ProgressMarkersOffsets) ->
-    ?MODULE ! {run_succeed, Result, ProgressMarkersOffsets},
-    ok.
-
--doc """
-Informs the test runner of a fataled test run.
-""".
--spec mark_failure(Result, ProgressMarkersOffsets) -> ok when
-    Result :: unicode:chardata(),
-    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
-mark_failure(Error, ProgressMarkersOffsets) ->
-    ?MODULE ! {run_failed, Error, ProgressMarkersOffsets},
-    ok.
 
 -doc """
 CtOpts must be tuple as defined here:

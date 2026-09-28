@@ -14,12 +14,15 @@
     unicode_characters_to_binary/1,
 
     qualified_name/2,
+    parse_test_name/2,
 
     filename_all_to_filename/1,
 
     get_env/1,
     set_env/2
 ]).
+
+-include_lib("common/include/buck_ct_records.hrl").
 
 -spec unicode_characters_to_list(unicode:chardata()) -> string().
 unicode_characters_to_list(CharData) ->
@@ -39,6 +42,25 @@ qualified_name(Groups, TestCase) ->
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
     Raw = io_lib:format("~ts.~ts", [JoinedGroups, TestCase]),
     unicode_characters_to_list(Raw).
+
+-doc """
+Parse the test name, and decompose it into the test, group and suite atoms
+""".
+-spec parse_test_name(string(), atom()) -> #ct_test{}.
+parse_test_name(Test, Suite) ->
+    [Groups0, TestName] = string:split(Test, ".", all),
+    Groups1 =
+        case Groups0 of
+            [] -> [];
+            _ -> string:split(Groups0, ":", all)
+        end,
+    Groups = [list_to_atom(GroupStr) || GroupStr <:- Groups1],
+    #ct_test{
+        suite = Suite,
+        groups = Groups,
+        test_name = list_to_atom(TestName),
+        canonical_name = Test
+    }.
 
 -spec unicode_characters_to_binary(unicode:chardata()) -> binary().
 unicode_characters_to_binary(Chars) ->
